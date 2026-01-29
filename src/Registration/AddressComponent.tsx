@@ -26,15 +26,21 @@ interface AddressComponentProps {
     permanent?: Partial<AddressData>;
     correspondence?: Partial<AddressData>;
   };
+  onSameAddressToggle?: (checked: boolean) => void;
+  isSameAddress?: boolean;
 }
 
 const AddressComponent: React.FC<AddressComponentProps> = ({
   onAddressChange,
   permanentAddress,
   correspondenceAddress,
-  errors = {}
+  errors = {},
+  onSameAddressToggle,
+  isSameAddress: externalIsSameAddress,
 }) => {
-  const [isSameAddress, setIsSameAddress] = useState(false);
+  // Use internal state only if external state is not provided
+  const [internalIsSameAddress, setInternalIsSameAddress] = useState(false);
+  const isSameAddress = externalIsSameAddress !== undefined ? externalIsSameAddress : internalIsSameAddress;
 
   const handlePermanentAddressChange = (field: keyof AddressData, value: string) => {
     const newAddress = { ...permanentAddress, [field]: value };
@@ -52,7 +58,11 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
 
   const handleSameAddressToggle = () => {
     const checked = !isSameAddress;
-    setIsSameAddress(checked);
+    if (externalIsSameAddress !== undefined && onSameAddressToggle) {
+      onSameAddressToggle(checked);
+    } else {
+      setInternalIsSameAddress(checked);
+    }
 
     if (checked) {
       // Copy permanent → correspondence
@@ -81,6 +91,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
         keyboardType={keyboardType}
         maxLength={maxLength}
         placeholder={`Enter ${label.toLowerCase()}`}
+        placeholderTextColor="#999"
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>

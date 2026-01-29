@@ -67,7 +67,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
         </Text>
         <View style={styles.providerInfo}>
           <Text variant="titleMedium" style={styles.providerName}>
-            {provider.firstname} {provider.lastname}
+            {provider.firstName} {provider.lastName}
           </Text>
           {provider.bestMatch && (
             <View style={styles.bestMatchBadge}>
@@ -331,6 +331,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
         presentationStyle="pageSheet"
         style={styles.modal}
       >
+        <PaperProvider>
           <View style={styles.container}>
             {renderHeader()}
             <Divider />
@@ -345,6 +346,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               {renderNotices()}
             </ScrollView>
           </View>
+        </PaperProvider>
       </Modal>
     </Portal>
   );

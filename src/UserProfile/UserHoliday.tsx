@@ -14,6 +14,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 import ConfirmationDialog from './ConfirmationDialog';
+import LinearGradient from 'react-native-linear-gradient';
 
 interface Booking {
   id: number;
@@ -162,15 +163,23 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
         onRequestClose={onClose}
       >
         <SafeAreaView style={styles.modalContainer}>
+           
           <View style={styles.overlay}>
             <View style={styles.dialogContainer}>
               {/* Header */}
-              <View style={styles.header}>
+              <LinearGradient
+                    colors={["#0a2a66ff", "#004aadff"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.header}
+                  >
+              {/* <View style={styles.header}> */}
                 <Text style={styles.dialogTitle}>Apply Holiday</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                   <Text style={styles.closeIcon}>×</Text>
                 </TouchableOpacity>
-              </View>
+              {/* </View> */}
+                </LinearGradient>
 
               {/* Content */}
               <ScrollView style={styles.content}>
@@ -261,6 +270,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                   Submit
                 </Button>
               </View>
+            
             </View>
           </View>
         </SafeAreaView>
@@ -321,14 +331,14 @@ const styles = StyleSheet.create({
   dialogTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    color: '#ffffff',
   },
   closeButton: {
     padding: 4,
   },
   closeIcon: {
     fontSize: 24,
-    color: '#9ca3af',
+    color: '#f6f9ff',
     fontWeight: 'bold',
   },
   content: {

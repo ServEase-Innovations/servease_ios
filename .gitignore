@@ -299,3 +299,77 @@ Desktop.ini
 *.aab
 *.ipa
 node_modules
+
+
+# =====================
+# General
+# =====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# =====================
+# React Native
+# =====================
+*.log
+.expo/
+.expo-shared/
+
+# =====================
+# Android
+# =====================
+android/.gradle/
+android/.idea/
+android/local.properties
+android/build/
+android/app/build/
+android/app/.cxx/
+android/captures/
+android/gradle/wrapper/gradle-wrapper.jar
+
+# Keystore files (VERY IMPORTANT)
+*.keystore
+*.jks
+
+# =====================
+# iOS
+# =====================
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+!ios/*.xcworkspace/contents.xcworkspacedata
+ios/*.xcuserstate
+ios/.xcuserdata/
+ios/.idea/
+ios/DerivedData/
+
+# =====================
+# Metro / Cache
+# =====================
+.metro-health-check*
+.metro-cache/
+.haste/
+.tmp/
+
+# =====================
+# VS Code / IDE
+# =====================
+.vscode/
+.idea/
+
+# =====================
+# Coverage
+# =====================
+coverage/
+
+# =====================
+# Misc
+# =====================
+*.swp
+*.swo

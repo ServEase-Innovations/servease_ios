@@ -36,9 +36,9 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     switch (severity) {
       case 'warning':
         return {
-          backgroundColor: '#fef3c7',
-          color: '#92400e',
-          borderColor: '#fde68a'
+          backgroundColor: '#0a2a66',
+          color: '#ffffff',
+          borderColor: '#004aad'
         };
       case 'error':
         return {

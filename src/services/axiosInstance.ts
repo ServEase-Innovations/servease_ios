@@ -6,8 +6,6 @@ const axiosInstance = axios.create({
   baseURL: 'https://servease-be-5x7f.onrender.com', // Change this to your API's base URL
 });
 
-
-
 // Request Interceptor
 axiosInstance.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {

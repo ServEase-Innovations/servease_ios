@@ -27,6 +27,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
+import LinearGradient from "react-native-linear-gradient";
 
 Geocoder.init(keys.api_key);
 
@@ -41,6 +42,7 @@ interface LocationData {
       lng: number;
     };
   };
+  address?: any[];
 }
 
 interface LocationSelectorProps {
@@ -66,7 +68,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     { name: "Detect Location", index: 1 },
     { name: "Add Address", index: 2 },
   ]);
-  const [dataFromMap, setDataFromMap] = useState<LocationData[]>([]);
+  const [dataFromMap, setDataFromMap] = useState<LocationData | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [address, setAddress] = useState("");
@@ -79,6 +81,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
   const [permissionDeniedPermanently, setPermissionDeniedPermanently] = useState(false);
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadingLocations, setLoadingLocations] = useState(false);
 
   // New states for pin selection
   const [selectedPinLocation, setSelectedPinLocation] = useState<{
@@ -107,7 +111,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           lat: lat,
           lng: lng
         }
-      }
+      },
+      address: [
+        {
+          formatted_address: addr,
+          geometry: {
+            location: {
+              lat: lat,
+              lng: lng
+            }
+          }
+        }
+      ]
     };
   };
 
@@ -171,6 +186,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
     // Create location data and notify parent
     const locationData = createLocationData(latitude, longitude, display_name);
+    setDataFromMap(locationData);
     onLocationChange?.(display_name, locationData);
   };
 
@@ -281,7 +297,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
 
         const { latitude, longitude } = position.coords;
-        dispatch(addLocation(position.coords));
+        locationDispatch(addLocation(position.coords));
         setLatitude(latitude);
         setLongitude(longitude);
         
@@ -304,6 +320,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             
             // Create location data object with coordinates
             const locationData = createLocationData(latitude, longitude, newLocation);
+            setDataFromMap(locationData);
             onLocationChange?.(newLocation, locationData);
           }
         } catch (error) {
@@ -480,6 +497,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       // Create location data and notify parent
       const locationData = createLocationData(coordinate.latitude, coordinate.longitude, address);
+      setDataFromMap(locationData);
       onLocationChange?.(address, locationData);
     } catch (error) {
       console.warn("Error getting address for selected pin:", error);
@@ -499,13 +517,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         .then((addr) => {
           setAddress(addr);
           const locationData = createLocationData(latitude, longitude, addr);
+          setDataFromMap(locationData);
           onLocationChange?.(addr, locationData);
         })
         .catch(console.error);
     }
   };
 
-  const handleChange = (newValue: any) => {
+  const handleChange = (newValue: string) => {
+    console.log("➡️ New Value Selected:", newValue);
+    
     if (newValue === "Add Address") {
       setLoading(false);
       setIsCheckingLocation(false);
@@ -530,21 +551,67 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     } else if (newValue === "Detect Location") {
       fetchLocationWithChecks();
     } else {
-      console.log("Selected location:", newValue);
-      const loc = userPreference?.[0]?.savedLocations?.find(
+      console.log("➡️ Selected Saved Location:", newValue);
+      console.log("🗂️ User Preferences:", userPreference);
+      
+      // Check if userPreference has data
+      if (!userPreference || (Array.isArray(userPreference) && userPreference.length === 0)) {
+        console.error("userPreference is empty or undefined");
+        Alert.alert("Error", "No saved locations found.");
+        return;
+      }
+      
+      // Handle both array and object formats
+      let savedLocations = [];
+      if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
+        savedLocations = userPreference[0].savedLocations;
+      } else if (userPreference?.savedLocations) {
+        savedLocations = userPreference.savedLocations;
+      }
+      
+      console.log("📌 Saved locations from userPreference:", savedLocations);
+      
+      // Find the location - use exact match first, then case-insensitive
+      const savedLocation = savedLocations.find(
         (location: any) => location.name === newValue
+      ) || savedLocations.find(
+        (location: any) => location.name?.toLowerCase() === newValue.toLowerCase()
       );
-
-      console.log("Retrieved location data:", loc);
-
-      if (loc?.location?.formatted_address || loc?.location?.address[0].formatted_address) {
-        const newLocation = loc.location.formatted_address ? loc.location.formatted_address : loc.location.address[0].formatted_address;
-        setLocation(newLocation);
-        dispatch(add(loc));
-        // Pass the saved location data to parent
-        onLocationChange?.(newLocation, loc.location);
+      
+      if (savedLocation?.location) {
+        console.log("✅ Found saved location:", savedLocation.location);
+        
+        let addressToSet = "";
+        let locationData = savedLocation.location;
+        
+        // Handle different location data structures
+        if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
+          addressToSet = locationData.address[0].formatted_address;
+        } else if (locationData.formatted_address) {
+          addressToSet = locationData.formatted_address;
+        } else if (typeof locationData === 'string') {
+          addressToSet = locationData;
+        }
+        
+        if (addressToSet) {
+          console.log("✅ Setting location to:", addressToSet);
+          setLocation(addressToSet);
+          dispatch(add(savedLocation.location));
+          onLocationChange?.(addressToSet, savedLocation.location);
+          
+          // Update map coordinates if available
+          if (savedLocation.location.geometry?.location) {
+            setLatitude(savedLocation.location.geometry.location.lat);
+            setLongitude(savedLocation.location.geometry.location.lng);
+          }
+        } else {
+          console.warn("❌ No valid address found in saved location");
+          Alert.alert("Error", "Could not retrieve address from saved location.");
+        }
       } else {
-        console.warn("No matching location found for:", newValue);
+        console.warn("❌ No matching location found for:", newValue);
+        console.log("Available saved locations:", savedLocations);
+        Alert.alert("Not Found", `Location "${newValue}" not found in your saved locations.`);
       }
     }
   };
@@ -565,13 +632,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         selectedPinAddress
       );
       
-      setDataFromMap([locationData]);
+      setDataFromMap(locationData);
       onLocationChange?.(newLocation, locationData);
     } else {
       if (address && latitude && longitude) {
         setLocation(address);
         locationData = createLocationData(latitude, longitude, address);
-        setDataFromMap([locationData]);
+        setDataFromMap(locationData);
         onLocationChange?.(address, locationData);
       }
     }
@@ -597,114 +664,128 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setShowSearchResults(false);
   };
 
-  const locationHandleSave = () => {
+  const locationHandleSave = async () => {
     console.log("Location saved as:", locationAs);
-    updateUserSetting();
-  };
-
-  const updateUserSetting = async () => {
-    // Use appUser for authentication check
-    if (!appUser) {
-      Alert.alert("Error", "User authentication required. Please login again.");
-      return;
-    }
-
-    if (!appUser.customerid) {
-      Alert.alert("Error", "User profile not loaded properly. Please try again.");
-      return;
-    }
-
-    if (!locationAs || locationAs.trim() === "") {
-      Alert.alert("Error", "Please enter a name for this location (Home, Office, or custom name).");
-      return;
-    }
-
-    const hasValidLocationData = dataFromMap && dataFromMap.length > 0 && dataFromMap[0];
-    const hasValidCoordinates = latitude !== null && longitude !== null;
-
-    if (!hasValidLocationData && !hasValidCoordinates) {
-      Alert.alert("Error", "No valid location data found. Please select a location first.");
-      return;
-    }
-
-    let locationData = dataFromMap && dataFromMap.length > 0 ? dataFromMap[0] : null;
+    console.log("User preference:", userPreference);
+    console.log("Location data:", dataFromMap);
     
-    if (!locationData && hasValidCoordinates) {
-      locationData = createLocationData(latitude, longitude, address || "Selected Location");
-    }
-
-    if (!locationData) {
-      Alert.alert("Error", "Unable to process location data. Please try selecting the location again.");
-      return;
-    }
-
-    const newLocation = {
-      name: locationAs.trim(),
-      location: locationData,
-    };
-
-    const existingLocations = Array.isArray(userPreference?.savedLocations)
-      ? userPreference.savedLocations
-      : [];
-
-    const existingLocationIndex = existingLocations.findIndex(
-      (loc: any) => loc.name.toLowerCase() === locationAs.trim().toLowerCase()
-    );
-
-    let updatedLocations;
-    if (existingLocationIndex !== -1) {
-      updatedLocations = [...existingLocations];
-      updatedLocations[existingLocationIndex] = newLocation;
-    } else {
-      updatedLocations = [...existingLocations, newLocation];
-    }
-
-    const payload = {
-      customerId: appUser.customerid,
-      savedLocations: updatedLocations,
-    };
-
+    setIsSaving(true);
+    
     try {
-      console.log("Updating user settings with payload:", payload);
+      await updateUserSetting();
       
-      const response = await axios.put(
-        `https://utils-ndt3.onrender.com/user-settings/${appUser.customerid}`,
-        payload
-      );
-
-      if (response.status === 200 || response.status === 201) {
-        setUserPreference({
-          customerId: appUser.customerid,
-          savedLocations: updatedLocations,
-        });
+      Alert.alert("Success", "Location saved successfully!");
+      
+      // Close dialog after a short delay
+      setTimeout(() => {
         setOpenSaveOptionForSave(false);
         setLocationAs("");
-
-        const baseSuggestions = [
-          { name: "Detect Location", index: 1 },
-          { name: "Add Address", index: 2 },
-        ];
-        const savedLocationSuggestions = updatedLocations.map((loc: any, i: number) => ({
-          name: loc.name,
-          index: i + 3,
-        }));
-
-        setSuggestions([...baseSuggestions, ...savedLocationSuggestions]);
-        
-        Alert.alert("Success", `Location "${locationAs}" saved successfully!`);
-      } else {
-        Alert.alert("Error", "Failed to save location. Please try again.");
-      }
+        setIsSaving(false);
+      }, 500);
+      
     } catch (error: any) {
-      console.error("Error updating user settings:", error);
-      Alert.alert(
-        "Error", 
-        error.response?.data?.message || "Failed to save location. Please try again."
-      );
+      console.error("Error saving location:", error);
+      
+      Alert.alert("Error", "Failed to save location. Please try again.");
+      
+      setIsSaving(false);
     }
   };
 
+ const updateUserSetting = async () => {
+  // Use appUser for authentication check
+  if (!appUser) {
+    throw new Error("User authentication required. Please login again.");
+  }
+
+  if (!appUser.customerid) {
+    throw new Error("User profile not loaded properly. Please try again.");
+  }
+
+  if (!locationAs || locationAs.trim() === "") {
+    throw new Error("Please enter a name for this location (Home, Office, or custom name).");
+  }
+
+  if (!dataFromMap) {
+    throw new Error("No valid location data found. Please select a location first.");
+  }
+
+  const newLocation = {
+    name: locationAs.trim(),
+    location: dataFromMap,
+  };
+
+  console.log("➕ New location to add:", newLocation);
+
+  // Get existing locations with proper type annotation
+  let existingLocations: any[] = [];
+  if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
+    existingLocations = [...userPreference[0].savedLocations];
+  } else if (userPreference?.savedLocations) {
+    existingLocations = [...userPreference.savedLocations];
+  }
+
+  // Check if location with same name already exists
+  const existingLocationIndex = existingLocations.findIndex(
+    (loc: any) => loc.name.toLowerCase() === locationAs.trim().toLowerCase()
+  );
+
+  let updatedLocations;
+  if (existingLocationIndex !== -1) {
+    // Update existing location
+    updatedLocations = [...existingLocations];
+    updatedLocations[existingLocationIndex] = newLocation;
+  } else {
+    // Add new location
+    updatedLocations = [...existingLocations, newLocation];
+  }
+
+  const payload = {
+    customerId: appUser.customerid,
+    savedLocations: updatedLocations,
+  };
+
+  console.log("📤 Updating user settings with payload:", payload);
+  
+  const response = await axios.put(
+    `https://utils-ndt3.onrender.com/user-settings/${appUser.customerid}`,
+    payload
+  );
+
+  if (response.status === 200 || response.status === 201) {
+    console.log("✅ User settings updated successfully");
+    
+    // Update local state with proper structure
+    const updatedUserPreference = {
+      customerId: appUser.customerid,
+      savedLocations: updatedLocations
+    };
+    
+    setUserPreference(updatedUserPreference);
+    
+    // Update suggestions
+    const baseSuggestions = [
+      { name: "Detect Location", index: 1 },
+      { name: "Add Address", index: 2 },
+    ];
+    const savedLocationSuggestions = updatedLocations.map((loc: any, i: number) => ({
+      name: loc.name,
+      index: i + 3,
+    }));
+    
+    const newSuggestions = [...baseSuggestions, ...savedLocationSuggestions];
+    console.log("🔄 Updated suggestions:", newSuggestions);
+    setSuggestions(newSuggestions);
+    
+    return response.data;
+  } else {
+    throw new Error(`Unexpected response: ${response.status}`);
+  }
+};
+
   const handleUserPreference = (preference?: string) => {
+    console.log("User preference selected: ", preference);
+
     if (!preference) {
       setShowInput(true);
       setLocationAs("");
@@ -715,7 +796,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   useEffect(() => {
-    requestLocationPermission()
+    requestLocationPermission();
     return () => {
       if (locationWatchId !== null) {
         Geolocation.clearWatch(locationWatchId);
@@ -723,36 +804,49 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     };
   }, []);
 
-   const updatePreferences = () => {
+  // Function to update suggestions based on userPreference
+  const updateSuggestions = () => {
+    console.log("🔄 Updating suggestions based on userPreference:", userPreference);
+    
     const baseSuggestions = [
       { name: "Detect Location", index: 1 },
       { name: "Add Address", index: 2 },
     ];
 
-    console.log("Updating suggestions based on userPreference:", JSON.stringify(userPreference));
+    let savedLocationSuggestions = [];
     
-    const savedLocationSuggestions = Array.isArray(userPreference?.[0]?.savedLocations) 
-      ? userPreference?.[0]?.savedLocations.map((loc: any, i: number) => ({
-          name: loc.name,
-          index: i + 3,
-        }))
-      : [];
-
-      console.log(userPreference?.[0]?.savedLocations)
-
-      console.log("Saved location suggestions:", savedLocationSuggestions);
-
-      const finalList = [...baseSuggestions, ...savedLocationSuggestions];
-
-    setSuggestions(finalList);
-
-    console.log("Updated suggestions based on userPreference:", suggestions);
-  } 
+    // Handle different userPreference structures
+    if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
+      savedLocationSuggestions = userPreference[0].savedLocations.map((loc: any, i: number) => ({
+        name: loc.name,
+        index: i + 3,
+      }));
+    } else if (userPreference?.savedLocations) {
+      savedLocationSuggestions = userPreference.savedLocations.map((loc: any, i: number) => ({
+        name: loc.name,
+        index: i + 3,
+      }));
+    }
+    
+    console.log("📌 Saved location suggestions:", savedLocationSuggestions);
+    
+    const finalSuggestions = [...baseSuggestions, ...savedLocationSuggestions];
+    setSuggestions(finalSuggestions);
+    
+    console.log("✅ Final suggestions updated:", finalSuggestions);
+  };
 
   // Update suggestions when userPreference changes
   useEffect(() => {
-    updatePreferences();
+    updateSuggestions();
   }, [userPreference]);
+
+  // Also update when component mounts
+  useEffect(() => {
+    if (userPreference) {
+      updateSuggestions();
+    }
+  }, []);
 
   const renderLocationModalContent = () => {
     if (isCheckingLocation) {
@@ -772,7 +866,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     } else if (showGPSButton) {
       return (
         <View style={styles.statusContainer}>
-          {/* <MaterialIcon name="location-off" size={50} color="red" /> */}
+          <MaterialIcon name="location-off" size={50} color="red" />
           <Text style={styles.statusText}>Location services are disabled</Text>
           <Text style={[styles.statusText, { fontSize: 14, marginTop: 8 }]}>
             Please enable device location to continue
@@ -782,7 +876,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               style={[styles.button, styles.primaryButton]}
               onPress={handleOpenSettings}
             >
-              {/* <MaterialIcon name="settings" size={16} color="white" style={{ marginRight: 8 }} /> */}
+              <MaterialIcon name="settings" size={16} color="white" style={{ marginRight: 8 }} />
               <Text style={styles.buttonText}>Enable Device Location</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -802,7 +896,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <View style={styles.modalContent}>
           <View style={styles.searchContainer}>
             <View style={styles.searchInputContainer}>
-              {/* <Icon name="search" size={16} color="#64748b" style={styles.searchIcon} /> */}
+              <Icon name="search" size={16} color="#64748b" style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search for location..."
@@ -823,7 +917,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                   }}
                   style={styles.clearSearchButton}
                 >
-                  {/* <Icon name="times" size={16} color="#64748b" /> */}
+                  <Icon name="times" size={16} color="#64748b" />
                 </TouchableOpacity>
               )}
             </View>
@@ -844,7 +938,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                         style={styles.searchResultItem}
                         onPress={() => handleLocationSelect(item)}
                       >
-                        {/* <MaterialIcon name="location-on" size={16} color="#3b82f6" /> */}
+                        <MaterialIcon name="location-on" size={16} color="#3b82f6" />
                         <View style={styles.searchResultText}>
                           <Text style={styles.searchResultTitle} numberOfLines={1}>
                             {item.display_name.split(',')[0]}
@@ -906,7 +1000,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
           <View style={styles.locationInfoContainer}>
             <View style={styles.locationInfo}>
-              {/* <MaterialIcon name="location-on" size={20} color="#3b82f6" /> */}
+              <MaterialIcon name="location-on" size={20} color="#3b82f6" />
               <Text style={styles.addressText} numberOfLines={2}>
                 {isPinSelected ? selectedPinAddress : address || "No address available"}
               </Text>
@@ -933,7 +1027,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               style={[styles.button, styles.secondaryButton]}
               onPress={fetchLocationWithChecks}
             >
-              {/* <MaterialIcon name="refresh" size={16} color="#334155" /> */}
+              <MaterialIcon name="refresh" size={16} color="#334155" />
               <Text style={styles.secondaryButtonText}>Refresh</Text>
             </TouchableOpacity>
           </View>
@@ -970,17 +1064,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <TouchableOpacity
         style={styles.locationContainer}
         onPress={() =>{ 
-          setShowDropdown(!showDropdown)
-          updatePreferences()
-        }
-        }
+          setShowDropdown(!showDropdown);
+          updateSuggestions();
+        }}
       >
-        {/* <MaterialIcon
+        <MaterialIcon
           name="location-on"
           size={16}
           color="#3b82f6"
           style={styles.locationIcon}
-        /> */}
+        />
         <Text
           style={styles.locationText}
           numberOfLines={1}
@@ -991,34 +1084,32 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <MaterialIcon name="arrow-drop-down" size={18} color="#3b82f6" />
       </TouchableOpacity>
 
-      <Modal
-  visible={showDropdown}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setShowDropdown(false)}
->
-  <TouchableOpacity
-    style={styles.dropdownOverlay}
-    activeOpacity={1}
-    onPress={() => setShowDropdown(false)}
-  >
-    <View style={styles.dropdownContainerModal}>
-      {suggestions.map((suggestion, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.dropdownItem}
-          onPress={() => {
-            handleChange(suggestion.name);
-            setShowDropdown(false);
-          }}
-        >
-          <Text style={styles.dropdownItemText}>{suggestion.name}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  </TouchableOpacity>
-</Modal>
-
+      {showDropdown && (
+        <View style={styles.dropdownContainer}>
+          {loadingLocations ? (
+            <View style={styles.dropdownItem}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+              <Text style={[styles.dropdownItemText, { marginLeft: 8 }]}>Loading...</Text>
+            </View>
+          ) : (
+            suggestions.map((suggestion, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  console.log(`📍 ${suggestion.name} clicked`);
+                  console.log("📊 Current suggestions:", suggestions);
+                  console.log("📊 Current userPreference:", userPreference);
+                  handleChange(suggestion.name);
+                  setShowDropdown(false);
+                }}
+              >
+                <Text style={styles.dropdownItemText}>{suggestion.name}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      )}
 
       {/* Location Modal */}
       <Modal
@@ -1036,7 +1127,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         onShow={fetchLocationWithChecks}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+           <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
             <Text style={styles.modalTitle}>Select Your Location</Text>
             <TouchableOpacity onPress={() => {
               setOpen(false);
@@ -1046,9 +1142,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               setSearchResults([]);
               setShowSearchResults(false);
             }}>
-              <Icon name="close" size={24} color="#000" />
+              <Icon name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
-          </View>
+            </LinearGradient>
 
           {renderLocationModalContent()}
         </View>
@@ -1062,34 +1158,42 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         onRequestClose={() => setOpenSaveOptionForSave(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.modalHeader}
+          >
             <Text style={styles.modalTitle}>Save As</Text>
             <TouchableOpacity onPress={() => setOpenSaveOptionForSave(false)}>
-              {/* <Icon name="close" size={24} color="#000" /> */}
+              <Icon name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
           <View style={styles.modalContent}>
             <Text style={styles.saveAsText}>Save As:</Text>
             <View style={styles.saveOptionsContainer}>
               <TouchableOpacity
                 style={styles.saveOptionButton}
                 onPress={() => handleUserPreference("Home")}
+                disabled={isSaving}
               >
-                {/* <Icon name="home" size={20} color="#3b82f6" /> */}
+                <Icon name="home" size={20} color="#3b82f6" />
                 <Text style={styles.saveOptionText}>Home</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveOptionButton}
                 onPress={() => handleUserPreference("Office")}
+                disabled={isSaving}
               >
-                {/* <Icon name="briefcase" size={20} color="#3b82f6" /> */}
+                <Icon name="briefcase" size={20} color="#3b82f6" />
                 <Text style={styles.saveOptionText}>Office</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveOptionButton}
                 onPress={() => handleUserPreference()}
+                disabled={isSaving}
               >
-                {/* <Icon name="map-marker" size={20} color="#3b82f6" /> */}
+                <Icon name="map-marker" size={20} color="#3b82f6" />
                 <Text style={styles.saveOptionText}>Others</Text>
               </TouchableOpacity>
             </View>
@@ -1100,6 +1204,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 placeholder="Enter Location Name"
                 value={locationAs}
                 onChangeText={setLocationAs}
+                editable={!isSaving}
               />
             )}
 
@@ -1107,15 +1212,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               <TouchableOpacity
                 style={[styles.button, styles.secondaryButton]}
                 onPress={() => setOpenSaveOptionForSave(false)}
+                disabled={isSaving}
               >
                 <Text style={styles.secondaryButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.primaryButton, (!locationAs || locationAs.trim() === "") && styles.disabledButton]}
                 onPress={locationHandleSave}
-                disabled={!locationAs || locationAs.trim() === ""}
+                disabled={!locationAs || locationAs.trim() === "" || isSaving}
               >
-                <Text style={styles.buttonText}>Save</Text>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Save</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -1155,18 +1265,25 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   dropdownContainer: {
-  position: "absolute",
-  top: 50,
-  left: 0,
-  width: 200,
-  backgroundColor: "#fff",
-  zIndex: 9999,
-  elevation: 9999,
-},
-
+    position: "absolute",
+    top: 50,
+    left: 0,
+    backgroundColor: "white",
+    borderRadius: 8,
+    padding: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 100,
+    width: 200,
+  },
   dropdownItem: {
     paddingVertical: 10,
     paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
   },
   dropdownItemText: {
     fontSize: 14,
@@ -1184,29 +1301,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
-  dropdownOverlay: {
-  flex: 1,
-  backgroundColor: "rgba(0,0,0,0.05)",
-  justifyContent: "flex-start",
-  paddingTop: 120, // adjust based on header height
-},
-
-dropdownContainerModal: {
-  backgroundColor: "#fff",
-  marginHorizontal: 16,
-  borderRadius: 8,
-  paddingVertical: 8,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.25,
-  shadowRadius: 8,
-  elevation: 20,
-  zIndex: 9999,
-},
-
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#f1f5f9"
   },
   modalContent: {
     flex: 1,
@@ -1262,6 +1360,7 @@ dropdownContainerModal: {
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
   },
   primaryButton: {
     backgroundColor: "#3b82f6",

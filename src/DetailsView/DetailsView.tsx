@@ -16,12 +16,12 @@ import {
   Dimensions,
   RefreshControl,
 } from "react-native";
+import providerInstance from "../services/providerInstance";
 import { CONFIRMATION } from "../Constants/pagesConstants";
 import ProviderDetails from "../DetailsView/ProviderDetails";
 import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
 import { ServiceProviderDTO } from "../types/ProviderDetailsType";
-import providerInstance from "../services/providerInstance";
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;

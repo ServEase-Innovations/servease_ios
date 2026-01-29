@@ -16,7 +16,6 @@ import dayjs, { Dayjs } from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import LinearGradient from "react-native-linear-gradient";
-import DateTimePickerPreview from "../DateTimePickerPreview";
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
@@ -755,21 +754,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
                 {/* Date Picker */}
                 {showDatePicker === "start" && (
-//                   <DateTimePicker
-//                     value={
-//   tempDate
-//     ? tempDate
-//     : startTime
-//     ? new Date(startTime.toISOString())
-//     : new Date()
-// }
-//                     mode="date"
-//                     display={Platform.OS === "ios" ? "inline" : "default"}
-//                     minimumDate={new Date()}
-//                     maximumDate={getMaximumDate()}
-//                     onChange={handleDateChange}
-//                   />
-<DateTimePickerPreview />
+                  <DateTimePicker
+                    value={startTime ? new Date(startTime.toISOString()) : new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "inline" : "default"}
+                    minimumDate={new Date()}
+                    maximumDate={getMaximumDate()}
+                    onChange={handleDateChange}
+                  />
                 )}
 
                 {/* Custom Time Picker */}
@@ -880,12 +872,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 {showDatePicker && (
                   <DateTimePicker
                     value={
-  tempDate
-    ? tempDate
-    : startTime
-    ? new Date(startTime.toISOString())
-    : new Date()
-}
+                      showDatePicker === "start"
+                        ? (startTime ? new Date(startTime.toISOString()) : new Date())
+                        : (endTime ? new Date(endTime.toISOString()) : new Date())
+                    }
                     mode="date"
                     display={Platform.OS === "ios" ? "inline" : "default"}
                     minimumDate={
@@ -934,22 +924,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
                 {/* Date Picker */}
                 {showDatePicker === "start" && (
-//                   <DateTimePicker
-//                     value={
-//   tempDate
-//     ? tempDate
-//     : startTime
-//     ? new Date(startTime.toISOString())
-//     : new Date()
-// }
-//                     mode="date"
-//                     display={Platform.OS === "ios" ? "inline" : "default"}
-//                     minimumDate={new Date()}
-//                     maximumDate={getMaximumDate()}
-//                     onChange={handleDateChange}
-//                   />
-
-<DateTimePickerPreview />
+                  <DateTimePicker
+                    value={startTime ? new Date(startTime.toISOString()) : new Date()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "inline" : "default"}
+                    minimumDate={new Date()}
+                    maximumDate={getMaximumDate()}
+                    onChange={handleDateChange}
+                  />
                 )}
 
                 {/* Custom Time Picker */}
@@ -1011,9 +993,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden', // Important for gradient corners
   },
   headerContainer: {
-    height: 60,
-    justifyContent: "center",
-    // padding: 10,
+    padding: 20,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },

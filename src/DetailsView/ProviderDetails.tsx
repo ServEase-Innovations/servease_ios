@@ -245,9 +245,9 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Get provider ID - FIXED: Handle property name variations correctly
   const getProviderId = () => {
     // Try to get the provider ID from different property names
-    const id = props.serviceproviderid || props.serviceproviderid;
+    const id = props.serviceproviderId || props.serviceproviderid;
     console.log("Provider ID check:", {
-      serviceproviderId: props.serviceproviderid,
+      serviceproviderId: props.serviceproviderId,
       serviceproviderid: props.serviceproviderid,
       
       selected: id
@@ -257,17 +257,17 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Get first name - FIXED: Handle property name variations
   const getFirstName = () => {
-    return props.firstname || props.firstname || '';
+    return props.firstName || props.firstname || '';
   };
 
   // Get last name - FIXED: Handle property name variations
   const getLastName = () => {
-    return props.lastname || props.lastname || '';
+    return props.lastName || props.lastname || '';
   };
 
   // Get housekeeping role - FIXED: Handle property name variations
   const getHousekeepingRole = () => {
-    return props.housekeepingRole || props.housekeepingRole || "UNKNOWN";
+    return props.housekeepingRole || props.housekeepingrole || "UNKNOWN";
   };
 
   // Handle Book Now - FIXED VERSION
@@ -375,7 +375,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Get rating display
   const getRatingDisplay = () => {
-    return props?.rating?.toFixed(1) || "0.0";
+    return props.rating?.toFixed(1) || "0.0";
   };
 
   // Get review count display

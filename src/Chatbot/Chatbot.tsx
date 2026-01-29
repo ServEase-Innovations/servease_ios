@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
+import LinearGradient from 'react-native-linear-gradient';
 
 // Mock user data
 const mockUser = {
@@ -138,7 +139,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
       {isMinimized && (
         <View style={styles.minimizedButton}>
           <TouchableOpacity onPress={toggleMinimize} style={styles.minimizedButtonContent}>
-            {/* <Icon name="chat" size={28} color="#fff" /> */}
+            <Icon name="chat" size={28} color="#fff" />
             {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -158,7 +159,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
         >
           <View style={styles.chatContent}>
             {/* Header Section */}
-            <View style={styles.header}>
+            <LinearGradient
+                                colors={["#0a2a66ff", "#004aadff"]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.header}
+                              >
+            {/* <View style={styles.header}> */}
               {chatOpen && (
                 <TouchableOpacity onPress={() => setChatOpen(false)} style={styles.backButton}>
                   <Icon name="arrow-left" size={24} color="#333" />
@@ -167,13 +174,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
               <Text style={styles.headerText}>Chat Support</Text>
               <View style={styles.headerRightButtons}>
                 <TouchableOpacity onPress={toggleMinimize} style={styles.minimizeButton}>
-                  <Icon name="chevron-down" size={24} color="#333" />
+                  <Icon name="chevron-down" size={24} color="#ffffff" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Icon name="close" size={24} color="#333" />
+                  <Icon name="close" size={24} color="#ffffff" />
                 </TouchableOpacity>
               </View>
-            </View>
+            {/* </View> */}
+            </LinearGradient>
 
             {/* Messages and FAQ Section */}
             <ScrollView
@@ -350,7 +358,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#ffffff',
     flex: 1,
     textAlign: 'center',
   },

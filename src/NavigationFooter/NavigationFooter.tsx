@@ -39,47 +39,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 }) => {
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-  "home" | "bookings" | "dashboard" | "wallet" | "about" | "contact"
->("home");
-
-
-const renderTab = (
-  key: string,
-  label: string,
-  icon: React.ReactNode,
-  onPress: () => void
-) => {
-  const isActive = activeTab === key;
-
-  return (
-    <TouchableOpacity
-      onPress={() => {
-        setActiveTab(key as any);
-        onPress();
-      }}
-      activeOpacity={0.8}
-      style={[
-        styles.mobileNavItem,
-        isActive ? styles.mobileNavItemActive : styles.mobileNavItemInactive,
-      ]}
-    >
-      {icon}
-      <Text
-        style={[
-          styles.mobileNavText,
-          isActive
-            ? styles.mobileNavTextActive
-            : styles.mobileNavTextInactive,
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-};
-
-
 
   // Determine which icons to show based on user role
   const isCustomer = auth0User && appUser?.role === "CUSTOMER";
@@ -90,178 +49,180 @@ const renderTab = (
   if (isMobile) {
     return (
       <View style={styles.mobileNavContainer}>
+        {/* Home - Always visible */}
+       <TouchableOpacity
+  onPress={onHomeClick}
+  style={styles.mobileNavItem}
+>
+  <MaterialIcon name="home" size={22} color="#fff" />
+  <Text style={styles.mobileNavText}>Home</Text>
+</TouchableOpacity>
 
-  {renderTab(
-    "home",
-    "Home",
-    <MaterialIcon name="home" size={22} color="#fff" />,
-    onHomeClick
-  )}
+        {/* Bookings - Only for CUSTOMER */}
+        {isCustomer && (
+          <TouchableOpacity
+            onPress={onBookingsClick}
+            style={styles.mobileNavItem}
+          >
+            <MaterialIcon name="event-note" size={22} color="#fff" />
+            <Text style={styles.mobileNavText}>Bookings</Text>
+          </TouchableOpacity>
+        )}
 
-  {isCustomer &&
-    renderTab(
-      "bookings",
-      "Bookings",
-      <MaterialIcon name="event-note" size={22} color="#fff" />,
-      onBookingsClick
-    )}
+        {/* Dashboard - Only for SERVICE_PROVIDER */}
+        {isServiceProvider && (
+          <TouchableOpacity
+            onPress={onDashboardClick}
+            style={styles.mobileNavItem}
+          >
+            <MaterialIcon name="dashboard" size={22} color="#fff" />
+            <Text style={styles.mobileNavText}>Dashboard</Text>
+          </TouchableOpacity>
+        )}
 
-  {isServiceProvider &&
-    renderTab(
-      "dashboard",
-      "Dashboard",
-      <MaterialIcon name="dashboard" size={22} color="#fff" />,
-      onDashboardClick
-    )}
+        {/* Wallet - Only for CUSTOMER */}
+        {isCustomer && (
+          <TouchableOpacity
+            onPress={() => setIsWalletOpen(true)}
+            style={styles.mobileNavItem}
+          >
+            <MaterialIcon name="account-balance-wallet" size={22} color="#fff" />
+            <Text style={styles.mobileNavText}>Wallet</Text>
+          </TouchableOpacity>
+        )}
 
-  {isCustomer &&
-    renderTab(
-      "wallet",
-      "Wallet",
-      <MaterialIcon
-        name="account-balance-wallet"
-        size={22}
-        color="#fff"
-      />,
-      () => setIsWalletOpen(true)
-    )}
+        {/* Not logged in - Show About & Contact */}
+        {!isAuthenticated && (
+          <>
+            <TouchableOpacity
+              onPress={onAboutClick}
+              style={styles.mobileNavItem}
+            >
+              <Icon name="info-circle" size={20} color="#fff" />
+              <Text style={styles.mobileNavText}>About</Text>
+            </TouchableOpacity>
 
-  {!isAuthenticated && (
-    <>
-      {renderTab(
-        "about",
-        "About",
-        <Icon name="info-circle" size={20} color="#fff" />,
-        onAboutClick
-      )}
+            <TouchableOpacity
+              onPress={onContactClick}
+              style={styles.mobileNavItem}
+            >
+              <Icon name="phone" size={20} color="#fff" />
+              <Text style={styles.mobileNavText}>Contact</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
-      {renderTab(
-        "contact",
-        "Contact",
-        <Icon name="phone" size={20} color="#fff" />,
-        onContactClick
-      )}
-    </>
-  )}
+        {/* Dialogs */}
+        <NotificationsDialog 
+          visible={showNotifications} 
+          onClose={() => setShowNotifications(false)} 
+        />
 
-  {/* Dialogs */}
-  <NotificationsDialog
-    visible={showNotifications}
-    onClose={() => setShowNotifications(false)}
-  />
-
-  <WalletDialog
-    open={isWalletOpen}
-    onClose={() => setIsWalletOpen(false)}
-  />
-</View>
-
+        <WalletDialog
+          open={isWalletOpen}
+          onClose={() => setIsWalletOpen(false)}
+        />
+      </View>
     );
   }
 
   // For desktop - render desktop navigation
   return (
-    // <View style={styles.desktopNavContainer}>
-    //   <View style={styles.desktopNavInner}>
-    //     {/* Left side - Navigation links */}
-    //     <View style={styles.desktopNavLinks}>
-    //       {/* Home - Always visible */}
-    //       <TouchableOpacity
-    //         onPress={onHomeClick}
-    //         style={styles.desktopNavItem}
-    //       >
-    //         <Text style={styles.desktopNavText}>Home</Text>
-    //       </TouchableOpacity>
+    <View style={styles.desktopNavContainer}>
+      <View style={styles.desktopNavInner}>
+        {/* Left side - Navigation links */}
+        <View style={styles.desktopNavLinks}>
+          {/* Home - Always visible */}
+          <TouchableOpacity
+            onPress={onHomeClick}
+            style={styles.desktopNavItem}
+          >
+            <Text style={styles.desktopNavText}>Home</Text>
+          </TouchableOpacity>
 
-    //       {/* Bookings - Only for CUSTOMER */}
-    //       {isCustomer && (
-    //         <TouchableOpacity
-    //           onPress={onBookingsClick}
-    //           style={styles.desktopNavItem}
-    //         >
-    //           <Text style={styles.desktopNavText}>My Bookings</Text>
-    //         </TouchableOpacity>
-    //       )}
+          {/* Bookings - Only for CUSTOMER */}
+          {isCustomer && (
+            <TouchableOpacity
+              onPress={onBookingsClick}
+              style={styles.desktopNavItem}
+            >
+              <Text style={styles.desktopNavText}>My Bookings</Text>
+            </TouchableOpacity>
+          )}
 
-    //       {/* Dashboard - Only for SERVICE_PROVIDER */}
-    //       {isServiceProvider && (
-    //         <TouchableOpacity
-    //           onPress={onDashboardClick}
-    //           style={styles.desktopNavItem}
-    //         >
-    //           <Text style={styles.desktopNavText}>Dashboard</Text>
-    //         </TouchableOpacity>
-    //       )}
+          {/* Dashboard - Only for SERVICE_PROVIDER */}
+          {isServiceProvider && (
+            <TouchableOpacity
+              onPress={onDashboardClick}
+              style={styles.desktopNavItem}
+            >
+              <Text style={styles.desktopNavText}>Dashboard</Text>
+            </TouchableOpacity>
+          )}
 
-    //       {/* Not logged in - Show About & Contact */}
-    //       {!isAuthenticated && (
-    //         <>
-    //           <TouchableOpacity
-    //             onPress={onAboutClick}
-    //             style={styles.desktopNavItem}
-    //           >
-    //             <Text style={styles.desktopNavText}>About Us</Text>
-    //           </TouchableOpacity>
+          {/* Not logged in - Show About & Contact */}
+          {!isAuthenticated && (
+            <>
+              <TouchableOpacity
+                onPress={onAboutClick}
+                style={styles.desktopNavItem}
+              >
+                <Text style={styles.desktopNavText}>About Us</Text>
+              </TouchableOpacity>
 
-    //           <TouchableOpacity
-    //             onPress={onContactClick}
-    //             style={styles.desktopNavItem}
-    //           >
-    //             <Text style={styles.desktopNavText}>Contact Us</Text>
-    //           </TouchableOpacity>
-    //         </>
-    //       )}
-    //     </View>
+              <TouchableOpacity
+                onPress={onContactClick}
+                style={styles.desktopNavItem}
+              >
+                <Text style={styles.desktopNavText}>Contact Us</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
-    //     {/* Right side - Action icons */}
-    //     <View style={styles.desktopActionIcons}>
-    //       {/* Wallet Icon - Only for CUSTOMER */}
-    //       {isCustomer && (
-    //         <TouchableOpacity
-    //           onPress={() => setIsWalletOpen(true)}
-    //           style={styles.desktopActionIcon}
-    //         >
-    //           <MaterialIcon name="account-balance-wallet" size={22} color="#fff" />
-    //         </TouchableOpacity>
-    //       )}
-    //     </View>
-    //   </View>
+        {/* Right side - Action icons */}
+        <View style={styles.desktopActionIcons}>
+          {/* Wallet Icon - Only for CUSTOMER */}
+          {isCustomer && (
+            <TouchableOpacity
+              onPress={() => setIsWalletOpen(true)}
+              style={styles.desktopActionIcon}
+            >
+              <MaterialIcon name="account-balance-wallet" size={22} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
-    //   {/* Dialogs */}
-    //   <NotificationsDialog 
-    //     visible={showNotifications} 
-    //     onClose={() => setShowNotifications(false)} 
-    //   />
+      {/* Dialogs */}
+      <NotificationsDialog 
+        visible={showNotifications} 
+        onClose={() => setShowNotifications(false)} 
+      />
       
-    //   <WalletDialog
-    //     open={isWalletOpen}
-    //     onClose={() => setIsWalletOpen(false)}
-    //   />
-    // </View>
-    <></>
+      <WalletDialog
+        open={isWalletOpen}
+        onClose={() => setIsWalletOpen(false)}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   // Mobile Styles
   mobileNavContainer: {
-     flexDirection: "row",
-  backgroundColor: "#0a2a66",
-  borderTopWidth: 1,
-  borderTopColor: "rgba(255,255,255,0.15)",
-  height: 64,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "#0a2a66",
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    minHeight: 60,
   },
   mobileNavItem: {
+    alignItems: "center",
+    paddingHorizontal: 8,
     flex: 1,
-  alignItems: "center",
-  justifyContent: "center",
-  height: "100%",
-  borderRightWidth: 1,
-  borderRightColor: "rgba(255,255,255,0.15)",
-
-  // Reserve space so layout never changes
-  borderTopWidth: 3,
-  borderTopColor: "transparent",
   },
   mobileNavText: {
     color: "white",
@@ -269,7 +230,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: "400",
     textAlign: "center",
-    opacity: 0.7,
   },
 
   // Desktop Styles
@@ -308,33 +268,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
-  mobileNavItemActive: {
-    flex: 1,                 // FULL width per tab
-  // alignItems: "center",
-  // justifyContent: "center",
-  height: "100%",          // FULL height
-  borderRightWidth: 1,     // separator
-  borderTopColor: "#ffffff", // active top border 
-  borderRightColor: "rgba(255,255,255,0.15)",
-},
-
-mobileNavTextActive: {
- color: "#ffffff",
-  fontWeight: "700",
-  opacity: 1,
-},
-mobileNavItemInactive: {
-  opacity: 0.6,
-},
-
-mobileNavTextInactive: {
-  color: "#ffffff",
-  fontWeight: "400",
-  opacity: 0.7,
-},
-
-
-
 });
 
 export default NavigationFooter;

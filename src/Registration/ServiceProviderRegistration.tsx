@@ -1,34 +1,37 @@
+/* eslint-disable */
 import React, { useEffect, useState, useCallback } from "react";
+import moment from "moment";
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
+  StyleSheet,
   Alert,
   Modal,
-  StyleSheet,
-  Dimensions,
   ActivityIndicator,
+  Image,
+  Platform,
+  Linking,
 } from "react-native";
-import moment from "moment";
-import Icon from "react-native-vector-icons/MaterialIcons";
-import { debounce } from "../utils/debounce";
-import { useFieldValidation } from "../hooks/useFieldValidation";
-import ProfileImageUpload from "./ProfileImageUpload";
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Feather from 'react-native-vector-icons/Feather';
+import axios from "axios";
+import { keys } from "../env";
+import axiosInstance from "../services/axiosInstance";
 import CustomFileInput from "./CustomFileInput";
 import AddressComponent from "./AddressComponent";
 import { TermsCheckboxes } from "../common/TermsCheckboxes";
-// import Button from "../common/Button";
-import axiosInstance from "../services/axiosInstance";
-
-// Define proper file interface for React Native
-interface RNFile {
-  name: string;
-  type: string;
-  uri: string;
-  size?: number | null;
-}
+import { debounce } from "../utils/debounce";
+import { useFieldValidation } from "./useFieldValidation";
+import Geolocation from "@react-native-community/geolocation";
+import Geocoder from "react-native-geocoding";
+import { PERMISSIONS, request, RESULTS } from "react-native-permissions";
+import Slider from '@react-native-community/slider';
+import ProfileImageUpload from "./ProfileImageUpload";
+// import CheckBox from '@react-native-community/checkbox';
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -88,6 +91,14 @@ interface FormData {
   };
 }
 
+// Define RNFile interface to match React Native file objects
+interface RNFile {
+  name: string;
+  type: string;
+  uri: string;
+  size?: number | null;
+}
+
 // Define the shape of errors to hold string messages
 interface FormErrors {
   firstName?: string;
@@ -97,7 +108,6 @@ interface FormErrors {
   password?: string;
   confirmPassword?: string;
   mobileNo?: string;
-  AlternateNumber?: string;
   buildingName?: string;
   locality?: string;
   street?: string;
@@ -163,7 +173,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "warning">("success");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "warning" | "info">("success");
   const [sliderDisabled, setSliderDisabled] = useState(true);
   const [sliderValueMorning, setSliderValueMorning] = useState([6, 12]);
   const [sliderValueEvening, setSliderValueEvening] = useState([12, 20]);
@@ -173,7 +183,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     longitude: number;
     address: string;
   } | null>(null);
-  const [modalVisible, setModalVisible] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [image, setImage] = useState<RNFile | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [isSameAddress, setIsSameAddress] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -233,16 +249,26 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [image, setImage] = useState<RNFile | null>(null);
 
-  const { validationResults, validateField, resetValidation } = useFieldValidation();
+  // Initialize Geocoder
+  useEffect(() => {
+    Geocoder.init("AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk"); // Replace with your API key
+  }, []);
 
   const handleImageSelect = (file: RNFile | null) => {
     if (file) {
       setImage(file);
-      setFormData(prev => ({ ...prev, profileImage: file }));
+      // Also update formData with profileImage
+      setFormData(prev => ({
+        ...prev,
+        profileImage: file
+      }));
+    } else {
+      setImage(null);
+      setFormData(prev => ({
+        ...prev,
+        profileImage: null
+      }));
     }
   };
 
@@ -254,19 +280,96 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setShowConfirmPassword(!showConfirmPassword);
   };
 
-  const handleChange = (name: string, value: string) => {
+  const handleChange = (name: keyof FormData, value: string | boolean | RNFile | null) => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const handleAddressChange = (type: 'permanent' | 'correspondence', data: any) => {
+  const handleAddressChange = async (type: 'permanent' | 'correspondence', data: any) => {
     setFormData(prev => ({
       ...prev,
       [type === 'permanent' ? 'permanentAddress' : 'correspondenceAddress']: data
     }));
+
+    if (type === 'permanent') {
+      // Also update main form fields for backward compatibility
+      setFormData(prev => ({
+        ...prev,
+        buildingName: data.apartment,
+        street: data.street,
+        locality: data.city,
+        pincode: data.pincode,
+        currentLocation: `${data.apartment}, ${data.street}, ${data.city}, ${data.state}, ${data.country} - ${data.pincode}`
+      }));
+    }
+
+    // If same address is checked, update correspondence address too
+    if (type === 'permanent' && isSameAddress) {
+      setFormData(prev => ({
+        ...prev,
+        correspondenceAddress: data
+      }));
+    }
+
+    // Try to geocode for coordinates if we have enough data
+    if (data.apartment && data.street && data.city && data.state && data.pincode) {
+      try {
+        const fullAddress = `${data.apartment}, ${data.street}, ${data.city}, ${data.state}, ${data.pincode}, ${data.country}`;
+        
+        const response = await axios.get(
+          "https://maps.googleapis.com/maps/api/geocode/json",
+          {
+            params: {
+              address: fullAddress,
+              key: keys.api_key,
+            },
+          }
+        );
+
+        if (response.data.results && response.data.results.length > 0) {
+          const location = response.data.results[0].geometry.location;
+          const address = response.data.results[0].formatted_address;
+
+          setFormData(prev => ({
+            ...prev,
+            latitude: location.lat,
+            longitude: location.lng,
+            currentLocation: address,
+            locality: data.city,
+            street: data.street,
+            pincode: data.pincode,
+            buildingName: data.apartment
+          }));
+
+          setCurrentLocation({
+            latitude: location.lat,
+            longitude: location.lng,
+            address: address
+          });
+        }
+      } catch (error) {
+        console.error("Error geocoding address:", error);
+        setSnackbarMessage("Could not get coordinates for this address. Please check the address details.");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+      }
+    }
   };
+
+  const handleSameAddressToggle = (checked: boolean) => {
+    setIsSameAddress(checked);
+    if (checked) {
+      // Copy permanent address to correspondence address
+      setFormData(prev => ({
+        ...prev,
+        correspondenceAddress: prev.permanentAddress
+      }));
+    }
+  };
+
+  const { validationResults, validateField, resetValidation } = useFieldValidation();
 
   // Add debounced validation functions
   const debouncedEmailValidation = useCallback(
@@ -290,7 +393,25 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     [validateField]
   );
 
-  const handleRealTimeValidation = (name: string, value: string) => {
+  const handleClearEmail = () => {
+    setFormData(prev => ({ ...prev, emailId: "" }));
+    setErrors(prev => ({ ...prev, emailId: "" }));
+    resetValidation('email');
+  };
+
+  const handleClearMobile = () => {
+    setFormData(prev => ({ ...prev, mobileNo: "" }));
+    setErrors(prev => ({ ...prev, mobileNo: "" }));
+    resetValidation('mobile');
+  };
+
+  const handleClearAlternate = () => {
+    setFormData(prev => ({ ...prev, AlternateNumber: "" }));
+    setErrors(prev => ({ ...prev, AlternateNumber: "" }));
+    resetValidation('alternate');
+  };
+
+  const handleRealTimeValidation = (name: keyof FormData, value: string) => {
     const aadhaarPattern = /^[0-9]{12}$/;
 
     if (name === "firstName") {
@@ -481,8 +602,215 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }));
   };
 
+  
+
   const handleCookingSpecialityChange = (value: string) => {
     setFormData((prevData) => ({ ...prevData, cookingSpeciality: value }));
+  };
+
+  // Helper function to parse address components
+  const parseAddressComponents = (addressComponents: any[]) => {
+    const result = {
+      apartment: '',
+      street: '',
+      city: '',
+      state: '',
+      country: '',
+      pincode: ''
+    };
+
+    addressComponents.forEach((component: any) => {
+      const types = component.types;
+      const longName = component.long_name;
+      const shortName = component.short_name;
+
+      if (types.includes('street_number')) {
+        result.apartment = longName;
+      } else if (types.includes('route')) {
+        result.street = longName;
+      } else if (types.includes('locality')) {
+        result.city = longName;
+      } else if (types.includes('administrative_area_level_2')) {
+        // District - use as city if city not found
+        if (!result.city) result.city = longName;
+      } else if (types.includes('administrative_area_level_1')) {
+        result.state = longName;
+      } else if (types.includes('country')) {
+        result.country = longName;
+      } else if (types.includes('postal_code')) {
+        result.pincode = longName;
+      } else if (types.includes('sublocality_level_1') || types.includes('neighborhood')) {
+        // Use as street if street not found
+        if (!result.street) result.street = longName;
+      }
+    });
+
+    return result;
+  };
+
+  const fetchLocationData = async () => {
+    try {
+      // Request location permission
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        Alert.alert(
+          "Permission Required",
+          "Location access is required to fetch your current location. Please enable it in settings.",
+          [
+            {
+              text: "Open Settings",
+              onPress: () => Linking.openSettings(),
+            },
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
+        return;
+      }
+
+      setLocationLoading(true);
+      setSnackbarMessage("Fetching your current location...");
+      setSnackbarSeverity("info");
+      setSnackbarOpen(true);
+
+      // Get current position
+      Geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+
+          try {
+            // Reverse geocode to get address
+            const res = await Geocoder.from(latitude, longitude);
+            const address = res.results[0]?.formatted_address || "";
+            
+            // Parse address components using helper function
+            const parsedAddress = parseAddressComponents(res.results[0]?.address_components || []);
+
+            // If we couldn't extract enough details, try to parse from formatted address
+            if (!parsedAddress.city || !parsedAddress.street) {
+              const addressParts = address.split(',').map(part => part.trim());
+              
+              // Try to intelligently parse the address
+              if (addressParts.length > 0) {
+                // First part is usually apartment/street number
+                if (!parsedAddress.apartment) {
+                  parsedAddress.apartment = addressParts[0];
+                }
+                
+                // Second part is often street
+                if (!parsedAddress.street && addressParts.length > 1) {
+                  parsedAddress.street = addressParts[1];
+                }
+                
+                // Look for city (usually one of the middle parts)
+                if (!parsedAddress.city) {
+                  for (let i = 1; i < addressParts.length - 2; i++) {
+                    if (addressParts[i].match(/\d{6}/)) {
+                      // Skip pincodes
+                      continue;
+                    }
+                    parsedAddress.city = addressParts[i];
+                    break;
+                  }
+                }
+              }
+            }
+
+            // Ensure we have default values
+            if (!parsedAddress.country) {
+              parsedAddress.country = 'India';
+            }
+            if (!parsedAddress.state) {
+              parsedAddress.state = 'Unknown';
+            }
+            if (!parsedAddress.city) {
+              parsedAddress.city = 'Unknown';
+            }
+
+            // Create address data object
+            const addressData = {
+              apartment: parsedAddress.apartment || "Current Location",
+              street: parsedAddress.street || "Current Location",
+              city: parsedAddress.city,
+              state: parsedAddress.state,
+              country: parsedAddress.country,
+              pincode: parsedAddress.pincode || "",
+            };
+
+            // Update the permanent address in formData
+            const newPermanentAddress = {
+              ...formData.permanentAddress,
+              ...addressData
+            };
+
+            // Also update the correspondence address if "Same as Permanent" is checked
+            const newCorrespondenceAddress = isSameAddress ? 
+              newPermanentAddress : 
+              formData.correspondenceAddress;
+
+            // Update form data
+            setFormData(prev => ({
+              ...prev,
+              latitude: latitude,
+              longitude: longitude,
+              currentLocation: address,
+              street: addressData.street,
+              locality: addressData.city,
+              pincode: addressData.pincode,
+              buildingName: addressData.apartment,
+              permanentAddress: newPermanentAddress,
+              correspondenceAddress: newCorrespondenceAddress,
+            }));
+
+            setCurrentLocation({
+              latitude: latitude,
+              longitude: longitude,
+              address: address
+            });
+
+            setSnackbarMessage("Location fetched and address fields populated!");
+            setSnackbarSeverity("success");
+            setSnackbarOpen(true);
+          } catch (error) {
+            console.error("Geocoding error:", error);
+            setSnackbarMessage("Could not determine address details. Please fill manually.");
+            setSnackbarSeverity("warning");
+            setSnackbarOpen(true);
+          } finally {
+            setLocationLoading(false);
+          }
+        },
+        (error) => {
+          console.error("Location error:", error);
+          setSnackbarMessage("Failed to get location. Please try again.");
+          setSnackbarSeverity("error");
+          setSnackbarOpen(true);
+          setLocationLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    } catch (error) {
+      console.error("Location fetch error:", error);
+      setSnackbarMessage("Failed to fetch location. Please try again.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      setLocationLoading(false);
+    }
+  };
+
+  const requestLocationPermission = async (): Promise<boolean> => {
+    try {
+      if (Platform.OS === "android") {
+        const fineStatus = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+        return fineStatus === RESULTS.GRANTED;
+      } else if (Platform.OS === "ios") {
+        const iosStatus = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        return iosStatus === RESULTS.GRANTED;
+      }
+      return false;
+    } catch (err) {
+      console.warn("Permission error:", err);
+      return false;
+    }
   };
 
   const validateForm = (): boolean => {
@@ -544,38 +872,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       } else if (formData.permanentAddress.pincode.length !== 6) {
         tempErrors.permanentAddress = { ...tempErrors.permanentAddress, pincode: "Pincode must be exactly 6 digits." };
       }
-
-      // Validate correspondence address only if it's different from permanent address
-      const isSameAddress = 
-        formData.permanentAddress.apartment === formData.correspondenceAddress.apartment &&
-        formData.permanentAddress.street === formData.correspondenceAddress.street &&
-        formData.permanentAddress.city === formData.correspondenceAddress.city &&
-        formData.permanentAddress.state === formData.correspondenceAddress.state &&
-        formData.permanentAddress.country === formData.correspondenceAddress.country &&
-        formData.permanentAddress.pincode === formData.correspondenceAddress.pincode;
-
-      if (!isSameAddress) {
-        if (!formData.correspondenceAddress.apartment) {
-          tempErrors.correspondenceAddress = { ...tempErrors.correspondenceAddress, apartment: "Apartment is required." };
-        }
-        if (!formData.correspondenceAddress.street) {
-          tempErrors.correspondenceAddress = { ...tempErrors.correspondenceAddress, street: "Street is required." };
-        }
-        if (!formData.correspondenceAddress.city) {
-          tempErrors.correspondenceAddress = { ...tempErrors.correspondenceAddress, city: "City is required." };
-        }
-        if (!formData.correspondenceAddress.state) {
-          tempErrors.correspondenceAddress = { ...tempErrors.correspondenceAddress, state: "State is required." };
-        }
-        if (!formData.correspondenceAddress.country) {
-          tempErrors.correspondenceAddress = { ...tempErrors.correspondenceAddress, country: "Country is required." };
-        }
-        if (!formData.correspondenceAddress.pincode) {
-          tempErrors.correspondenceAddress = { ...tempErrors.correspondenceAddress, pincode: "Pincode is required." };
-        } else if (formData.correspondenceAddress.pincode.length !== 6) {
-          tempErrors.correspondenceAddress = { ...tempErrors.correspondenceAddress, pincode: "Pincode must be exactly 6 digits." };
-        }
-      }
     }
 
     if (activeStep === 2) {
@@ -597,6 +893,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     if (activeStep === 3) {
       if (!formData.AADHAR || !aadhaarRegex.test(formData.AADHAR)) {
         tempErrors.kyc = "Aadhaar number must be exactly 12 digits.";
+      }
+      if (!formData.documentImage) {
+        tempErrors.documentImage = "Aadhaar document is required.";
       }
     }
 
@@ -645,33 +944,76 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     if (activeStep !== steps.length - 1) return;
 
     if (validateForm()) {
+      setIsSubmitting(true);
       try {
         let profilePicUrl = "";
-        
-        if (image) {
-          const formData1 = new FormData();
-          formData1.append("image", {
-            uri: image.uri,
-            type: image.type,
-            name: image.name,
-          } as any);
 
-          const imageResponse = await axiosInstance.post(
-            "http://65.2.153.173:3000/upload",
-            formData1,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-              },
-            }
-          );
+       if (image) {
+  try {
+    const profileFormData = new FormData();
+    
+    profileFormData.append("image", {
+      uri: image.uri,
+      type: image.type || 'image/jpeg',
+      name: image.name || 'profile.jpg'
+    });
 
-          if (imageResponse.status === 200) {
-            profilePicUrl = imageResponse.data.imageUrl;
-          }
-        }
+    const imageResponse = await axios.post(
+      "http://65.2.153.173:3000/upload",
+      profileFormData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
 
-        // Prepare the payload with conditional cookingSpeciality
+    if (imageResponse.status === 200) {
+      profilePicUrl = imageResponse.data.imageUrl;
+    }
+  } catch (error) {
+    console.error("Error uploading profile image:", error);
+    setSnackbarMessage("Failed to upload profile image. Proceeding without it.");
+    setSnackbarSeverity("warning");
+    setSnackbarOpen(true);
+  }
+}
+        // Handle Aadhaar document upload
+       // Handle Aadhaar document upload
+let aadhaarDocUrl = "";
+if (formData.documentImage) {
+  try {
+    const aadhaarFormData = new FormData();
+    
+    // Create the file object properly
+    aadhaarFormData.append("image", {
+      uri: formData.documentImage.uri,
+      type: formData.documentImage.type || 'image/jpeg',
+      name: formData.documentImage.name || 'document.jpg'
+    });
+
+    const docResponse = await axios.post(
+      "http://65.2.153.173:3000/upload",
+      aadhaarFormData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    if (docResponse.status === 200) {
+      aadhaarDocUrl = docResponse.data.imageUrl;
+    }
+  } catch (error) {
+    console.error("Error uploading document image:", error);
+    setSnackbarMessage("Failed to upload Aadhaar document. Please try again.");
+    setSnackbarSeverity("error");
+    setSnackbarOpen(true);
+    setIsSubmitting(false);
+    return;
+  }
+}
         const payload = {
           firstName: formData.firstName,
           middleName: formData.middleName,
@@ -691,8 +1033,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           location: formData.currentLocation,
           housekeepingRole: formData.housekeepingRole,
           diet: formData.diet,
-          ...(formData.housekeepingRole === "COOK" && { 
-            cookingSpeciality: formData.cookingSpeciality 
+          ...(formData.housekeepingRole === "COOK" && {
+            cookingSpeciality: formData.cookingSpeciality
           }),
           timeslot: formData.timeslot,
           expectedSalary: 0,
@@ -719,7 +1061,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           },
           active: true,
           kyc: formData.kyc,
-          dob: formData.dob
+          aadhaarNumber: formData.AADHAR,
+          aadhaarDocumentUrl: aadhaarDocUrl,
+          dob: formData.dob,
+          profilePic: profilePicUrl
         };
 
         const response = await axiosInstance.post(
@@ -736,31 +1081,32 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         setSnackbarSeverity("success");
         setSnackbarMessage("Service provider added successfully!");
 
-        // Create Auth0 user
         const authPayload = {
           email: formData.emailId,
           password: formData.password,
           name: `${formData.firstName} ${formData.lastName}`,
         };
 
-        // Note: You'll need to implement this API call properly
-        // axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
-        //   .then((authResponse) => {
-        //     console.log("AuthO user created successfully:", authResponse.data);
-        //   }).catch((authError) => {
-        //     console.error("Error creating AuthO user:", authError);
-        //   });
-        
+        axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
+          .then((authResponse) => {
+            console.log("AuthO user created successfully:", authResponse.data);
+          }).catch((authError) => {
+            console.error("Error creating AuthO user:", authError);
+          });
+
         setTimeout(() => {
+          setIsSubmitting(false);
           onBackToLogin(true);
         }, 3000);
       } catch (error) {
+        setIsSubmitting(false);
         setSnackbarOpen(true);
         setSnackbarSeverity("error");
         setSnackbarMessage("Failed to add service provider. Please try again.");
         console.error("Error submitting form:", error);
       }
     } else {
+      setIsSubmitting(false);
       setSnackbarOpen(true);
       setSnackbarSeverity("warning");
       setSnackbarMessage("Please fill out all required fields.");
@@ -771,29 +1117,29 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setSnackbarOpen(false);
   };
 
-  const fetchLocationData = async () => {
-    // React Native location implementation would go here
-    // You would use a library like react-native-geolocation-service
-    Alert.alert("Location", "Location fetch functionality would be implemented here");
-  };
-
   const validateAge = (dob: string) => {
     if (!dob) return false;
+
     const birthDate = moment(dob, "YYYY-MM-DD");
     const today = moment();
     const age = today.diff(birthDate, "years");
+
     return age >= 18;
   };
 
   const handleDOBChange = (dob: string) => {
     setFormData((prev) => ({ ...prev, dob }));
+
     const isValidAge = validateAge(dob);
 
     if (!isValidAge) {
       setIsFieldsDisabled(true);
-      Alert.alert("Age Restriction", "You must be at least 18 years old to proceed.");
+      setSnackbarMessage("You must be at least 18 years old to proceed.");
+      setSnackbarOpen(true);
+      setSnackbarSeverity("error");
     } else {
       setIsFieldsDisabled(false);
+      setSnackbarOpen(false);
     }
   };
 
@@ -806,210 +1152,253 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }));
   }, []);
 
-  const renderInput = (
-    label: string,
-    name: string,
-    value: string,
-    onChange: (text: string) => void,
-    error?: string,
-    secureTextEntry?: boolean,
-    keyboardType: any = "default",
-    maxLength?: number,
-    showValidation?: boolean
-  ) => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrapper}>
-        <TextInput
-          style={[
-            styles.input,
-            error && styles.inputError,
-          ]}
-          value={value}
-          onChangeText={onChange}
-          secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
-          maxLength={maxLength}
-          placeholder={`Enter ${label.toLowerCase()}`}
-          editable={!isFieldsDisabled}
-        />
-        {showValidation && validationResults.email.loading && (
-          <ActivityIndicator size="small" style={styles.validationIcon} />
-        )}
-        {showValidation && validationResults.email.isAvailable && (
-          <Icon name="check" size={20} color="green" style={styles.validationIcon} />
-        )}
-        {showValidation && validationResults.email.isAvailable === false && (
-          <Icon name="close" size={20} color="red" style={styles.validationIcon} />
-        )}
-      </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      {!error && showValidation && validationResults.email.isAvailable && (
-        <Text style={styles.successText}>Email is available</Text>
-      )}
-    </View>
-  );
+  // Function to format display time
+  const formatDisplayTime = (value: number) => {
+    const hour = Math.floor(value);
+    const minutes = value % 1 === 0.5 ? "30" : "00";
+    const formattedHour = hour < 10 ? `0${hour}` : `${hour}`;
+    return `${formattedHour}:${minutes}`;
+  };
+
+  // Function to update form time slot
+  const updateFormTimeSlot = (
+    morningRange: number[],
+    eveningRange: number[]
+  ) => {
+    const startMorning = formatDisplayTime(morningRange[0]);
+    const endMorning = formatDisplayTime(morningRange[1]);
+    const startEvening = formatDisplayTime(eveningRange[0]);
+    const endEvening = formatDisplayTime(eveningRange[1]);
+
+    const formattedTimeSlot = `${startMorning}-${endMorning}, ${startEvening}-${endEvening}`;
+    setFormData((prev) => ({ ...prev, timeslot: formattedTimeSlot }));
+  };
+
+  // Handle service type change
+  const handleServiceTypeChange = (value: string) => {
+    handleChange("housekeepingRole", value);
+    setIsCookSelected(value === "COOK");
+  };
+
+  // Handle diet change
+  const handledietChange = (value: string) => {
+    handleChange("diet", value);
+  };
+
+  // Handle experience change
+  const handleExperienceChange = (value: string) => {
+    handleChange("experience", value);
+  };
 
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
         return (
-          <View style={styles.stepContainer}>
-            <ProfileImageUpload onImageSelect={handleImageSelect} />
+          <ScrollView style={styles.formContainer}>
             
-            {renderInput(
-              "First Name *",
-              "firstName",
-              formData.firstName,
-              (text) => handleRealTimeValidation("firstName", text),
-              errors.firstName,
-              false,
-              "default",
-              MAX_NAME_LENGTH
-            )}
+              <View style={styles.profileImageContainer}>
+              <ProfileImageUpload onImageSelect={handleImageSelect} />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>First Name *</Text>
+              <TextInput
+                style={[styles.input, errors.firstName && styles.inputError]}
+                placeholder="First Name"
+                value={formData.firstName}
+                onChangeText={(value) => handleRealTimeValidation("firstName", value)}
+                maxLength={MAX_NAME_LENGTH}
+              />
+              {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
+            </View>
 
-            {renderInput(
-              "Middle Name",
-              "middleName",
-              formData.middleName,
-              (text) => handleChange("middleName", text),
-              undefined,
-              false
-            )}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Middle Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Middle Name"
+                value={formData.middleName}
+                onChangeText={(value) => handleChange("middleName", value)}
+              />
+            </View>
 
-            {renderInput(
-              "Last Name *",
-              "lastName",
-              formData.lastName,
-              (text) => handleRealTimeValidation("lastName", text),
-              errors.lastName,
-              false,
-              "default",
-              MAX_NAME_LENGTH
-            )}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Last Name *</Text>
+              <TextInput
+                style={[styles.input, errors.lastName && styles.inputError]}
+                placeholder="Last Name"
+                value={formData.lastName}
+                onChangeText={(value) => handleRealTimeValidation("lastName", value)}
+                maxLength={MAX_NAME_LENGTH}
+              />
+              {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
+            </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Date of Birth *</Text>
               <TextInput
                 style={styles.input}
-                value={formData.dob}
-                onChangeText={(text) => handleDOBChange(text)}
                 placeholder="YYYY-MM-DD"
+                value={formData.dob}
+                onChangeText={(value) => handleDOBChange(value)}
               />
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Gender *</Text>
-              <View style={styles.radioContainer}>
+              <View style={styles.radioGroup}>
                 <TouchableOpacity
                   style={styles.radioOption}
                   onPress={() => handleChange("gender", "MALE")}
                 >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.gender === "MALE" && styles.radioSelected
-                  ]} />
-                  <Text>Male</Text>
+                  <View style={styles.radioCircle}>
+                    {formData.gender === "MALE" && <View style={styles.selectedRb} />}
+                  </View>
+                  <Text style={styles.radioLabel}>Male</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.radioOption}
                   onPress={() => handleChange("gender", "FEMALE")}
                 >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.gender === "FEMALE" && styles.radioSelected
-                  ]} />
-                  <Text>Female</Text>
+                  <View style={styles.radioCircle}>
+                    {formData.gender === "FEMALE" && <View style={styles.selectedRb} />}
+                  </View>
+                  <Text style={styles.radioLabel}>Female</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.radioOption}
                   onPress={() => handleChange("gender", "OTHER")}
                 >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.gender === "OTHER" && styles.radioSelected
-                  ]} />
-                  <Text>Other</Text>
+                  <View style={styles.radioCircle}>
+                    {formData.gender === "OTHER" && <View style={styles.selectedRb} />}
+                  </View>
+                  <Text style={styles.radioLabel}>Other</Text>
                 </TouchableOpacity>
               </View>
               {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
             </View>
 
-            {renderInput(
-              "Email *",
-              "emailId",
-              formData.emailId,
-              (text) => handleRealTimeValidation("emailId", text),
-              errors.emailId,
-              false,
-              "email-address",
-              undefined,
-              true
-            )}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email *</Text>
+              <View style={[styles.inputWithIcon, errors.emailId && styles.inputError]}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder="Email"
+                  value={formData.emailId}
+                  onChangeText={(value) => handleRealTimeValidation("emailId", value)}
+                  keyboardType="email-address"
+                />
+                {validationResults.email.loading ? (
+                  <ActivityIndicator size="small" />
+                ) : validationResults.email.isAvailable ? (
+                  <Icon name="check-circle" size={24} color="green" />
+                ) : validationResults.email.isAvailable === false ? (
+                  <TouchableOpacity onPress={handleClearEmail}>
+                    <Icon name="close" size={24} color="red" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              {(errors.emailId || validationResults.email.error) && (
+                <Text style={styles.errorText}>
+                  {errors.emailId || validationResults.email.error}
+                </Text>
+              )}
+            </View>
 
-            {renderInput(
-              "Password *",
-              "password",
-              formData.password,
-              (text) => handleRealTimeValidation("password", text),
-              errors.password,
-              !showPassword,
-              "default"
-            )}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password *</Text>
+              <View style={[styles.inputWithIcon, errors.password && styles.inputError]}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder="Password"
+                  value={formData.password}
+                  onChangeText={(value) => handleRealTimeValidation("password", value)}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={handleTogglePasswordVisibility}>
+                  <Icon name={showPassword ? "visibility" : "visibility-off"} size={24} />
+                </TouchableOpacity>
+              </View>
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            </View>
 
-            <TouchableOpacity
-              style={styles.passwordToggle}
-              onPress={handleTogglePasswordVisibility}
-            >
-              <Text>{showPassword ? "Hide" : "Show"} Password</Text>
-            </TouchableOpacity>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Confirm Password *</Text>
+              <View style={[styles.inputWithIcon, errors.confirmPassword && styles.inputError]}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder="Confirm Password"
+                  value={formData.confirmPassword}
+                  onChangeText={(value) => handleRealTimeValidation("confirmPassword", value)}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity onPress={handleToggleConfirmPasswordVisibility}>
+                  <Icon name={showConfirmPassword ? "visibility" : "visibility-off"} size={24} />
+                </TouchableOpacity>
+              </View>
+              {errors.confirmPassword && (
+                <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+              )}
+            </View>
 
-            {renderInput(
-              "Confirm Password *",
-              "confirmPassword",
-              formData.confirmPassword,
-              (text) => handleRealTimeValidation("confirmPassword", text),
-              errors.confirmPassword,
-              !showConfirmPassword,
-              "default"
-            )}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Mobile Number *</Text>
+              <View style={[styles.inputWithIcon, errors.mobileNo && styles.inputError]}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder="Mobile Number"
+                  value={formData.mobileNo}
+                  onChangeText={(value) => handleRealTimeValidation("mobileNo", value)}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+                {validationResults.mobile.loading ? (
+                  <ActivityIndicator size="small" />
+                ) : validationResults.mobile.isAvailable ? (
+                  <Icon name="check-circle" size={24} color="green" />
+                ) : validationResults.mobile.isAvailable === false ? (
+                  <TouchableOpacity onPress={handleClearMobile}>
+                    <Icon name="close" size={24} color="red" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              {(errors.mobileNo || validationResults.mobile.error) && (
+                <Text style={styles.errorText}>
+                  {errors.mobileNo || validationResults.mobile.error}
+                </Text>
+              )}
+            </View>
 
-            <TouchableOpacity
-              style={styles.passwordToggle}
-              onPress={handleToggleConfirmPasswordVisibility}
-            >
-              <Text>{showConfirmPassword ? "Hide" : "Show"} Confirm Password</Text>
-            </TouchableOpacity>
-
-            {renderInput(
-              "Mobile Number *",
-              "mobileNo",
-              formData.mobileNo,
-              (text) => handleRealTimeValidation("mobileNo", text),
-              errors.mobileNo,
-              false,
-              "phone-pad",
-              10,
-              true
-            )}
-
-            {renderInput(
-              "Alternate Number",
-              "AlternateNumber",
-              formData.AlternateNumber,
-              (text) => handleRealTimeValidation("AlternateNumber", text),
-              errors.AlternateNumber,
-              false,
-              "phone-pad",
-              10,
-              true
-            )}
-          </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Alternate Number</Text>
+              <View style={[styles.inputWithIcon, validationResults.alternate.isAvailable === false && styles.inputError]}>
+                <TextInput
+                  style={styles.inputFlex}
+                  placeholder="Alternate Number"
+                  value={formData.AlternateNumber}
+                  onChangeText={(value) => handleRealTimeValidation("AlternateNumber", value)}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+                {validationResults.alternate.loading ? (
+                  <ActivityIndicator size="small" />
+                ) : validationResults.alternate.isAvailable ? (
+                  <Icon name="check-circle" size={24} color="green" />
+                ) : validationResults.alternate.isAvailable === false ? (
+                  <TouchableOpacity onPress={handleClearAlternate}>
+                    <Icon name="close" size={24} color="red" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              {validationResults.alternate.error && (
+                <Text style={styles.errorText}>{validationResults.alternate.error}</Text>
+              )}
+            </View>
+          </ScrollView>
         );
 
       case 1:
         return (
-          <View style={styles.stepContainer}>
+          <ScrollView style={styles.formContainer}>
             <AddressComponent
               onAddressChange={handleAddressChange}
               permanentAddress={formData.permanentAddress}
@@ -1018,197 +1407,377 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 permanent: errors.permanentAddress,
                 correspondence: errors.correspondenceAddress
               }}
+              onSameAddressToggle={handleSameAddressToggle}
+              isSameAddress={isSameAddress}
             />
-            <Button
-              variant="contained"
-              onPress={fetchLocationData}
-              style={styles.locationButton}
-              title="Fetch My Location"
-            />
-          </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Icon name="location-on" size={24} color="#1976d2" />
+                <Text style={styles.cardTitle}>Current Location</Text>
+              </View>
+              <Text style={styles.cardSubtitle}>
+                Fetch your current location to automatically fill address fields
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.locationButton, locationLoading && styles.buttonDisabled]}
+                onPress={fetchLocationData}
+                disabled={locationLoading}
+              >
+                {locationLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="my-location" size={20} color="#fff" />
+                    <Text style={styles.buttonText}>Fetch Location</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {(formData.latitude !== 0 || formData.longitude !== 0) && (
+                <>
+                  <View style={styles.locationInfo}>
+                    <Icon name="check-circle" size={20} color="green" />
+                    <Text style={styles.locationText}>
+                      <Text style={{ fontWeight: 'bold' }}>Location found:</Text>
+                      Lat: {formData.latitude.toFixed(6)},
+                      Lng: {formData.longitude.toFixed(6)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.successAlert}>
+                    <Text style={styles.alertText}>
+                      <Text style={{ fontWeight: 'bold' }}>Address detected:</Text> {formData.currentLocation || "No address available"}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </View>
+          </ScrollView>
         );
 
       case 2:
-        return (
-          <View style={styles.stepContainer}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Select Service Type *</Text>
-              <View style={styles.picker}>
-                <TouchableOpacity
-                  style={[
-                    styles.pickerOption,
-                    formData.housekeepingRole === "COOK" && styles.pickerOptionSelected
-                  ]}
-                  onPress={() => {
-                    handleChange("housekeepingRole", "COOK");
-                    setIsCookSelected(true);
-                  }}
-                >
-                  <Text>Cook</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.pickerOption,
-                    formData.housekeepingRole === "NANNY" && styles.pickerOptionSelected
-                  ]}
-                  onPress={() => {
-                    handleChange("housekeepingRole", "NANNY");
-                    setIsCookSelected(false);
-                  }}
-                >
-                  <Text>Nanny</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.pickerOption,
-                    formData.housekeepingRole === "MAID" && styles.pickerOptionSelected
-                  ]}
-                  onPress={() => {
-                    handleChange("housekeepingRole", "MAID");
-                    setIsCookSelected(false);
-                  }}
-                >
-                  <Text>Maid</Text>
-                </TouchableOpacity>
-              </View>
-              {errors.housekeepingRole && <Text style={styles.errorText}>{errors.housekeepingRole}</Text>}
-            </View>
+        case 2:
+  return (
+    <ScrollView style={styles.formContainer}>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Select Service Type *</Text>
+        <View style={styles.dropdown}>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text style={styles.dropdownText}>
+              {formData.housekeepingRole || "Select Service Type"}
+            </Text>
+            <Icon name="arrow-drop-down" size={24} />
+          </TouchableOpacity>
+        </View>
+        {errors.housekeepingRole && (
+          <Text style={styles.errorText}>{errors.housekeepingRole}</Text>
+        )}
+      </View>
 
-            {isCookSelected && (
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Cooking Speciality *</Text>
-                <View style={styles.radioContainer}>
-                  <TouchableOpacity
-                    style={styles.radioOption}
-                    onPress={() => handleCookingSpecialityChange("VEG")}
-                  >
-                    <View style={[
-                      styles.radioCircle,
-                      formData.cookingSpeciality === "VEG" && styles.radioSelected
-                    ]} />
-                    <Text>Veg</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.radioOption}
-                    onPress={() => handleCookingSpecialityChange("NONVEG")}
-                  >
-                    <View style={[
-                      styles.radioCircle,
-                      formData.cookingSpeciality === "NONVEG" && styles.radioSelected
-                    ]} />
-                    <Text>Non-Veg</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.radioOption}
-                    onPress={() => handleCookingSpecialityChange("BOTH")}
-                  >
-                    <View style={[
-                      styles.radioCircle,
-                      formData.cookingSpeciality === "BOTH" && styles.radioSelected
-                    ]} />
-                    <Text>Both</Text>
-                  </TouchableOpacity>
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Service Type</Text>
+            {["COOK", "NANNY", "MAID"].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={styles.modalOption}
+                onPress={() => {
+                  handleServiceTypeChange(option);
+                  setModalVisible(false);
+                }}
+              >
+                <Text style={styles.modalOptionText}>{option}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {isCookSelected && (
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Cooking Speciality *</Text>
+          <View style={styles.radioGroup}>
+            {["VEG", "NONVEG", "BOTH"].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={styles.radioOption}
+                onPress={() => handleCookingSpecialityChange(option)}
+              >
+                <View style={styles.radioCircle}>
+                  {formData.cookingSpeciality === option && (
+                    <View style={styles.selectedRb} />
+                  )}
                 </View>
-                {errors.cookingSpeciality && <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>}
+                <Text style={styles.radioLabel}>
+                  {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {errors.cookingSpeciality && (
+            <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>
+          )}
+        </View>
+      )}
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Diet *</Text>
+        <View style={styles.radioGroup}>
+          {["VEG", "NONVEG", "BOTH"].map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={styles.radioOption}
+              onPress={() => handledietChange(option)}
+            >
+              <View style={styles.radioCircle}>
+                {formData.diet === option && <View style={styles.selectedRb} />}
               </View>
-            )}
+              <Text style={styles.radioLabel}>
+                {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {errors.diet && <Text style={styles.errorText}>{errors.diet}</Text>}
+      </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Diet *</Text>
-              <View style={styles.radioContainer}>
-                <TouchableOpacity
-                  style={styles.radioOption}
-                  onPress={() => handleChange("diet", "VEG")}
-                >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.diet === "VEG" && styles.radioSelected
-                  ]} />
-                  <Text>Veg</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.radioOption}
-                  onPress={() => handleChange("diet", "NONVEG")}
-                >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.diet === "NONVEG" && styles.radioSelected
-                  ]} />
-                  <Text>Non-Veg</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.radioOption}
-                  onPress={() => handleChange("diet", "BOTH")}
-                >
-                  <View style={[
-                    styles.radioCircle,
-                    formData.diet === "BOTH" && styles.radioSelected
-                  ]} />
-                  <Text>Both</Text>
-                </TouchableOpacity>
-              </View>
-              {errors.diet && <Text style={styles.errorText}>{errors.diet}</Text>}
-            </View>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Description</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Description about your services"
+          value={formData.description}
+          onChangeText={(value) => handleChange("description", value)}
+          multiline
+          numberOfLines={4}
+        />
+      </View>
 
-            {renderInput(
-              "Description",
-              "description",
-              formData.description,
-              (text) => handleChange("description", text)
-            )}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Experience *</Text>
+        <TextInput
+          style={[styles.input, errors.experience && styles.inputError]}
+          placeholder="Years of experience"
+          value={formData.experience}
+          onChangeText={(value) => handleExperienceChange(value)}
+          keyboardType="numeric"
+        />
+        {errors.experience && (
+          <Text style={styles.errorText}>{errors.experience}</Text>
+        )}
+      </View>
 
-            {renderInput(
-              "Experience *",
-              "experience",
-              formData.experience,
-              (text) => handleChange("experience", text),
-              errors.experience,
-              false,
-              "numeric"
-            )}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Referral Code (Optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Referral Code"
+          value={formData.referralCode || ""}
+          onChangeText={(value) => handleChange("referralCode", value)}
+        />
+      </View>
 
-            {renderInput(
-              "Referral Code (Optional)",
-              "referralCode",
-              formData.referralCode || "",
-              (text) => handleChange("referralCode", text)
+      {/* Time Slot Selection Section */}
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Select Time Slot</Text>
+        
+        {/* Full Time Availability Checkbox - Using TouchableOpacity as checkbox */}
+        <TouchableOpacity
+          style={styles.checkboxContainer}
+          onPress={() => {
+            const newValue = formData.timeslot !== "06:00-20:00";
+            if (newValue) {
+              handleChange("timeslot", "06:00-20:00");
+              setSliderDisabled(true);
+            } else {
+              handleChange("timeslot", "");
+              setSliderDisabled(false);
+            }
+          }}
+        >
+          <View style={styles.checkboxBox}>
+            {formData.timeslot === "06:00-20:00" && (
+              <Icon name="check" size={16} color="#fff" />
             )}
           </View>
-        );
+          <Text style={styles.checkboxLabel}>
+            Choose Full Time Availability (6:00 AM - 8:00 PM)
+          </Text>
+        </TouchableOpacity>
+
+        {/* Morning Slider */}
+        <View style={styles.sliderContainer}>
+          <Text style={styles.sliderTitle}>Morning (6:00 AM - 12:00 PM)</Text>
+          <View style={styles.sliderRow}>
+            <Text style={styles.sliderTimeLabel}>
+              {formatDisplayTime(sliderValueMorning[0])}
+            </Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={6}
+              maximumValue={12}
+              step={0.5}
+              value={sliderValueMorning[0]}
+              onValueChange={(value) => {
+                const newValues = [value, sliderValueMorning[1]];
+                setSliderValueMorning(newValues);
+                updateFormTimeSlot(newValues, sliderValueEvening);
+              }}
+              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+              maximumTrackTintColor="#e0e0e0"
+              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+              disabled={sliderDisabled}
+            />
+          </View>
+          <View style={styles.sliderRow}>
+            <Text style={styles.sliderTimeLabel}>
+              {formatDisplayTime(sliderValueMorning[1])}
+            </Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={6}
+              maximumValue={12}
+              step={0.5}
+              value={sliderValueMorning[1]}
+              onValueChange={(value) => {
+                const newValues = [sliderValueMorning[0], value];
+                setSliderValueMorning(newValues);
+                updateFormTimeSlot(newValues, sliderValueEvening);
+              }}
+              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+              maximumTrackTintColor="#e0e0e0"
+              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+              disabled={sliderDisabled}
+            />
+          </View>
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderLabel}>6:00 AM</Text>
+            <Text style={styles.sliderLabel}>12:00 PM</Text>
+          </View>
+          <Text style={styles.sliderValue}>
+            Selected: {formatDisplayTime(sliderValueMorning[0])} - {formatDisplayTime(sliderValueMorning[1])}
+          </Text>
+        </View>
+
+        {/* Evening Slider */}
+        <View style={styles.sliderContainer}>
+          <Text style={styles.sliderTitle}>Evening (12:00 PM - 8:00 PM)</Text>
+          <View style={styles.sliderRow}>
+            <Text style={styles.sliderTimeLabel}>
+              {formatDisplayTime(sliderValueEvening[0])}
+            </Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={12}
+              maximumValue={20}
+              step={0.5}
+              value={sliderValueEvening[0]}
+              onValueChange={(value) => {
+                const newValues = [value, sliderValueEvening[1]];
+                setSliderValueEvening(newValues);
+                updateFormTimeSlot(sliderValueMorning, newValues);
+              }}
+              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+              maximumTrackTintColor="#e0e0e0"
+              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+              disabled={sliderDisabled}
+            />
+          </View>
+          <View style={styles.sliderRow}>
+            <Text style={styles.sliderTimeLabel}>
+              {formatDisplayTime(sliderValueEvening[1])}
+            </Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={12}
+              maximumValue={20}
+              step={0.5}
+              value={sliderValueEvening[1]}
+              onValueChange={(value) => {
+                const newValues = [sliderValueEvening[0], value];
+                setSliderValueEvening(newValues);
+                updateFormTimeSlot(sliderValueMorning, newValues);
+              }}
+              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+              maximumTrackTintColor="#e0e0e0"
+              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+              disabled={sliderDisabled}
+            />
+          </View>
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderLabel}>12:00 PM</Text>
+            <Text style={styles.sliderLabel}>8:00 PM</Text>
+          </View>
+          <Text style={styles.sliderValue}>
+            Selected: {formatDisplayTime(sliderValueEvening[0])} - {formatDisplayTime(sliderValueEvening[1])}
+          </Text>
+        </View>
+
+        {/* Current Time Slot Display */}
+        <View style={styles.timeSlotDisplay}>
+          <Text style={styles.timeSlotTitle}>Selected Time Slot:</Text>
+          <Text style={styles.timeSlotValue}>{formData.timeslot}</Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
 
       case 3:
         return (
-          <View style={styles.stepContainer}>
-            {renderInput(
-              "Aadhaar Number *",
-              "AADHAR",
-              formData.AADHAR || "",
-              (text) => handleRealTimeValidation("AADHAR", text),
-              errors.kyc,
-              false,
-              "numeric",
-              12
-            )}
+          <ScrollView style={styles.formContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Aadhaar Number *</Text>
+              <TextInput
+                style={[styles.input, errors.kyc && styles.inputError]}
+                placeholder="12-digit Aadhaar Number"
+                value={formData.AADHAR || ""}
+                onChangeText={(value) => handleRealTimeValidation("AADHAR", value)}
+                keyboardType="numeric"
+                maxLength={12}
+              />
+              {errors.kyc && <Text style={styles.errorText}>{errors.kyc}</Text>}
+            </View>
 
-            <CustomFileInput
-              name="documentImage"
-              accept="image/*"
-              required
-              value={formData.documentImage}
-              onChange={(file: RNFile | null) => setFormData(prev => ({ ...prev, documentImage: file }))}
-              buttonText="Upload Aadhaar Document"
-            />
-          </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Upload Aadhaar Document *</Text>
+              <CustomFileInput
+                name="documentImage"
+                accept="image/*"
+                required
+                value={formData.documentImage}
+                onChange={(file) => handleChange("documentImage", file)}
+                buttonText="Upload Aadhaar Document"
+              />
+              {errors.documentImage && <Text style={styles.errorText}>{errors.documentImage}</Text>}
+            </View>
+          </ScrollView>
         );
 
       case 4:
         return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.termsTitle}>
+          <ScrollView style={styles.formContainer}>
+            <Text style={styles.confirmationText}>
               Please agree to the following before proceeding with your Registration:
             </Text>
+
             <TermsCheckboxes onChange={handleTermsChange} />
-          </View>
+          </ScrollView>
         );
 
       default:
@@ -1216,89 +1785,112 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
 
+  const renderStepper = () => {
+    return (
+      <View style={styles.stepper}>
+        {steps.map((step, index) => (
+          <View key={index} style={styles.stepContainer}>
+            <View
+              style={[
+                styles.stepCircle,
+                index <= activeStep ? styles.activeStep : styles.inactiveStep,
+              ]}
+            >
+              <Text style={styles.stepNumber}>{index + 1}</Text>
+            </View>
+            <Text
+              style={[
+                styles.stepLabel,
+                index <= activeStep ? styles.activeLabel : styles.inactiveLabel,
+              ]}
+            >
+              {step}
+            </Text>
+            {index < steps.length - 1 && (
+              <View
+                style={[
+                  styles.stepLine,
+                  index < activeStep ? styles.activeLine : styles.inactiveLine,
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <Modal
-      visible={modalVisible}
+      visible={true}
       animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => onBackToLogin(true)}
+      transparent={false}
     >
-      <View style={styles.modalContainer}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Service Provider Registration</Text>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => onBackToLogin(true)}
           >
-            <Icon name="close" size={24} color="#000" />
+            <Icon name="close" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.content}>
-          {/* Stepper */}
-          <View style={styles.stepper}>
-            {steps.map((step, index) => (
-              <View key={index} style={styles.step}>
-                <View style={[
-                  styles.stepCircle,
-                  index <= activeStep && styles.stepCircleActive
-                ]}>
-                  <Text style={[
-                    styles.stepNumber,
-                    index <= activeStep && styles.stepNumberActive
-                  ]}>
-                    {index + 1}
-                  </Text>
-                </View>
-                <Text style={[
-                  styles.stepLabel,
-                  index <= activeStep && styles.stepLabelActive
-                ]}>
-                  {step}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Form Content */}
+          {renderStepper()}
           {renderStepContent(activeStep)}
 
-          {/* Navigation Buttons */}
-          <View style={styles.navigation}>
-            <Button
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.backButton,
+                (activeStep === 0 || isSubmitting) && styles.buttonDisabled,
+              ]}
               onPress={handleBack}
-              variant="contained"
-              title="Back"
-              disabled={activeStep === 0}
-            />
-            
+              disabled={activeStep === 0 || isSubmitting}
+            >
+              <Icon name="arrow-back" size={20} color="white" />
+              <Text style={styles.buttonText}>Back</Text>
+            </TouchableOpacity>
+
             {activeStep === steps.length - 1 ? (
-              <Button
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  styles.submitButton,
+                  (!(formData.terms && formData.privacy && formData.keyFacts) || isSubmitting) && styles.buttonDisabled,
+                ]}
                 onPress={handleSubmit}
-                variant="contained"
-                title="Submit"
-                disabled={!(formData.terms && formData.privacy && formData.keyFacts)}
-              />
+                disabled={!(formData.terms && formData.privacy && formData.keyFacts) || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Text style={styles.buttonText}>Submit</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             ) : (
-              <Button
+              <TouchableOpacity
+                style={[styles.button, styles.nextButton]}
                 onPress={handleNext}
-                variant="contained"
-                title="Next"
-              />
+                disabled={isSubmitting}
+              >
+                <Text style={styles.buttonText}>Next</Text>
+                <Icon name="arrow-forward" size={20} color="white" />
+              </TouchableOpacity>
             )}
           </View>
         </ScrollView>
 
-        {/* Snackbar/Alert */}
         {snackbarOpen && (
-          <View style={[
-            styles.snackbar,
-            snackbarSeverity === "error" && styles.snackbarError,
-            snackbarSeverity === "warning" && styles.snackbarWarning
-          ]}>
+          <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`]]}>
             <Text style={styles.snackbarText}>{snackbarMessage}</Text>
             <TouchableOpacity onPress={handleCloseSnackbar}>
-              <Icon name="close" size={20} color="#fff" />
+              <Icon name="close" size={20} color="white" />
             </TouchableOpacity>
           </View>
         )}
@@ -1308,23 +1900,21 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  container: {
     flex: 1,
     backgroundColor: '#fff',
   },
   header: {
+    backgroundColor: '#1976d2',
+    padding: 20,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    position: 'relative',
+    justifyContent: 'center',
   },
   headerTitle: {
+    color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'center',
   },
   closeButton: {
     position: 'absolute',
@@ -1338,9 +1928,10 @@ const styles = StyleSheet.create({
   stepper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  step: {
+  stepContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
@@ -1348,148 +1939,378 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  stepCircleActive: {
+  activeStep: {
     backgroundColor: '#1976d2',
   },
-  stepNumber: {
-    color: '#666',
-    fontWeight: 'bold',
+  inactiveStep: {
+    backgroundColor: '#e0e0e0',
   },
-  stepNumberActive: {
-    color: '#fff',
+  stepNumber: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   stepLabel: {
     fontSize: 10,
-    textAlign: 'center',
-    color: '#666',
+    marginLeft: 8,
+    flexShrink: 1,
   },
-  stepLabelActive: {
+  activeLabel: {
     color: '#1976d2',
     fontWeight: 'bold',
   },
-  stepContainer: {
-    marginBottom: 24,
+  inactiveLabel: {
+    color: '#757575',
+  },
+  stepLine: {
+    flex: 1,
+    height: 2,
+    marginHorizontal: 8,
+  },
+  activeLine: {
+    backgroundColor: '#1976d2',
+  },
+  inactiveLine: {
+    backgroundColor: '#e0e0e0',
+  },
+   profileImageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  formContainer: {
+    flex: 1,
   },
   inputContainer: {
     marginBottom: 16,
   },
-  inputWrapper: {
-    position: 'relative',
-  },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontWeight: '600',
+    marginBottom: 8,
     color: '#333',
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 6,
+    borderRadius: 8,
     padding: 12,
     fontSize: 16,
     backgroundColor: '#fff',
   },
+  inputFlex: {
+    flex: 1,
+    fontSize: 16,
+  },
   inputError: {
-    borderColor: '#d32f2f',
+    borderColor: '#f44336',
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
   },
   errorText: {
+    color: '#f44336',
     fontSize: 12,
-    color: '#d32f2f',
     marginTop: 4,
   },
-  successText: {
-    fontSize: 12,
-    color: 'green',
-    marginTop: 4,
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
   },
-  validationIcon: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
-  },
-  passwordToggle: {
-    alignSelf: 'flex-end',
-    marginBottom: 16,
-  },
-  radioContainer: {
+  radioGroup: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 20,
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    height: 24,
+    width: 24,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#666',
+    borderColor: '#1976d2',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 8,
   },
-  radioSelected: {
-    backgroundColor: '#1976d2',
-    borderColor: '#1976d2',
-  },
-  picker: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  pickerOption: {
-    flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
+  selectedRb: {
+    width: 12,
+    height: 12,
     borderRadius: 6,
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  pickerOptionSelected: {
     backgroundColor: '#1976d2',
-    borderColor: '#1976d2',
+  },
+  radioLabel: {
+    fontSize: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
   },
   locationButton: {
-    marginTop: 16,
-  },
-  termsTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    backgroundColor: '#1976d2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
     marginBottom: 16,
-    textAlign: 'center',
   },
-  navigation: {
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  locationText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#333',
+  },
+  successAlert: {
+    backgroundColor: '#d4edda',
+    borderColor: '#c3e6cb',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  alertText: {
+    color: '#155724',
+    fontSize: 14,
+  },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  dropdownButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 24,
+    alignItems: 'center',
+    padding: 12,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 20,
+    width: '80%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  modalOption: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalOptionText: {
+    fontSize: 16,
+  },
+  modalCloseButton: {
+    marginTop: 16,
+    padding: 12,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    color: '#1976d2',
+    fontSize: 16,
+  },
+  confirmationText: {
+    fontSize: 16,
+    marginBottom: 16,
+    color: '#333',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  backButton: {
+    backgroundColor: '#757575',
+  },
+  nextButton: {
+    backgroundColor: '#1976d2',
+  },
+  submitButton: {
+    backgroundColor: '#4caf50',
   },
   snackbar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#4caf50',
-    padding: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    margin: 16,
+    borderRadius: 8,
   },
-  snackbarError: {
+  snackbarsuccess: {
+    backgroundColor: '#4caf50',
+  },
+  snackbarerror: {
     backgroundColor: '#f44336',
   },
-  snackbarWarning: {
+  snackbarwarning: {
     backgroundColor: '#ff9800',
   },
+  snackbarinfo: {
+    backgroundColor: '#2196f3',
+  },
   snackbarText: {
-    color: '#fff',
+    color: 'white',
     fontSize: 14,
     flex: 1,
+  },
+   checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkboxBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#1976d2',
+    // backgroundColor: formData.timeslot === "06:00-20:00" ? '#1976d2' : 'transparent',
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  sliderContainer: {
+    marginBottom: 20,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sliderTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+    color: '#333',
+  },
+  sliderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sliderTimeLabel: {
+    width: 60,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1976d2',
+    textAlign: 'center',
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  sliderLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  sliderValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 8,
+    color: '#1976d2',
+  },
+  timeSlotDisplay: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#e8f4fd',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbdefb',
+  },
+  timeSlotTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#1976d2',
+  },
+  timeSlotValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
 });
 

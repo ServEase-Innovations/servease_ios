@@ -1,4 +1,4 @@
-// Head.tsx
+// Head.tsx - UPDATED: With closeDropdowns prop
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -9,17 +9,20 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Dimensions,
-  Alert,
+  Platform,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FeatherIcon from "react-native-vector-icons/Feather";
+import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import { useSelector, useDispatch } from "react-redux";
 import { add, remove } from "../features/userSlice";
 import {
   ADMIN,
   BOOKINGS,
   DASHBOARD,
+  DETAILS,
+  LOGIN,
   PROFILE,
 } from "../Constants/pagesConstants";
 import { useAuth0 } from "react-native-auth0";
@@ -38,6 +41,11 @@ import Booking from "../UserProfile/Bookings";
 
 interface ChildComponentProps {
   sendDataToParent: (data: string) => void;
+  bookingType: string;
+  onAboutClick: () => void;
+  onContactClick: () => void;
+  onLogoClick: () => void;
+  closeDropdowns?: boolean; // CHANGED: Prop to trigger dropdown closing (boolean instead of number)
 }
 
 // Location data interface
@@ -52,8 +60,16 @@ interface LocationData {
 }
 
 const { width } = Dimensions.get("window");
+const isMobile = width < 768;
 
-const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
+const Head: React.FC<ChildComponentProps> = ({ 
+  sendDataToParent, 
+  bookingType,
+  onAboutClick,
+  onContactClick,
+  onLogoClick,
+  closeDropdowns = false // CHANGED: Default value changed to false
+}) => {
   const {
     authorize,
     clearSession,
@@ -73,9 +89,17 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   const [showContactUs, setShowContactUs] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showBookings, setShowBookings] = useState(false);
-  
-  // State to store current location data
+  const [selectedService, setSelectedService] = useState("");
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
+
+  // NEW: Close dropdowns when parent triggers it
+  useEffect(() => {
+    if (closeDropdowns) {
+      setMenuVisible(false);
+      // Note: We can't directly control LocationSelector's dropdown
+      // It should handle its own closing on outside clicks
+    }
+  }, [closeDropdowns]);
 
   // Snackbar helper functions
   const showSuccessSnackbar = (message: string) => {
@@ -152,18 +176,27 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
 
   const handleContactUsClick = () => {
     setMenuVisible(false);
-    setShowContactUs(true);
+    onContactClick();
   };
 
   const handleAboutUsClick = () => {
-    Alert.alert("about us clicked ....")
     setMenuVisible(false);
-    setShowAboutUs(true);
+    onAboutClick();
   };
 
   const handleTnCClick = () => {
     setMenuVisible(false);
     setShowTnC(true);
+  };
+
+  const handleServiceClick = (service: string) => {
+    let serviceType = "";
+    if (service === "Home Cook") serviceType = "COOK";
+    if (service === "Cleaning Help") serviceType = "MAID";
+    if (service === "Caregiver") serviceType = "NANNY";
+
+    console.log(`Service selected: ${service}, Type: ${serviceType}`);
+    // You can trigger navigation or state update based on service selection
   };
 
   const { setAppUser, appUser } = useAppUser();
@@ -315,11 +348,17 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     }
   };
 
-  const handleClick = (e: any) => {
+  const handleClick = (e: string) => {
     setCurrentPage(e);
     if (e === "sign_out") {
       dispatch(remove());
       sendDataToParent("");
+    } else if (e === "ABOUT") {
+      onAboutClick();
+    } else if (e === "CONTACT") {
+      onContactClick();
+    } else if (e === "") {
+      onLogoClick();
     } else {
       sendDataToParent(e);
     }
@@ -333,7 +372,7 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
 
       dispatch(remove());
       setMenuVisible(false);
-      setCurrentLocation(null); // Clear location on sign out
+      setCurrentLocation(null);
       handleClick("sign_out");
       showInfoSnackbar("Signed out successfully");
     } catch (e) {
@@ -379,35 +418,29 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   };
 
   const handleMenuPress = () => {
-    // handleLoginClick()
-    console.log("MENU PRESSED");
-    setMenuVisible(prev => !prev);
+    setMenuVisible(!menuVisible);
   };
 
   const handleOverlayPress = () => {
     setMenuVisible(false);
   };
 
-  // Export function to get location data (can be used by other components)
+  // Export function to get location data
   const getLocationData = () => currentLocation;
-
-  // Conditional rendering based on user role
-  const shouldShowBookingsIcon = auth0User && appUser?.role === "CUSTOMER";
-  const shouldShowNotificationsIcon = auth0User && appUser?.role === "SERVICE_PROVIDER";
 
   // Render menu items based on user authentication and role
   const renderMenuItems = () => {
     // Not logged in
     if (!auth0User) {
       return (
-        <>
+        <View style={styles.menuItemsContainer}>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleLoginClick}
           >
-            <Icon
-              name="sign-in"
-              size={18}
+            <MaterialIcon
+              name="login"
+              size={20}
               color="#fff"
               style={styles.menuIcon}
             />
@@ -425,6 +458,7 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             />
             <Text style={styles.menuItemText}>Terms & Conditions</Text>
           </TouchableOpacity>
+          <View style={styles.menuDivider} />
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleContactUsClick}
@@ -449,14 +483,14 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             />
             <Text style={styles.menuItemText}>About Us</Text>
           </TouchableOpacity>
-        </>
+        </View>
       );
     }
 
     // Logged in as CUSTOMER
     if (appUser?.role === "CUSTOMER") {
       return (
-        <>
+        <View style={styles.menuItemsContainer}>
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleProfileClick}
@@ -474,39 +508,30 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             style={styles.menuItem}
             onPress={handleBookingHistoryClick}
           >
-            <Icon
-              name="history"
-              size={18}
+            <MaterialIcon
+              name="event-note"
+              size={20}
               color="#fff"
               style={styles.menuIcon}
             />
             <Text style={styles.menuItemText}>My Bookings</Text>
           </TouchableOpacity>
-           <TouchableOpacity
+          
+          <TouchableOpacity
             style={styles.menuItem}
             onPress={handleWalletClick}
           >
             <MaterialIcon
               name="account-balance-wallet"
-              size={18}
+              size={20}
               color="#fff"
               style={styles.menuIcon}
             />
             <Text style={styles.menuItemText}>Wallet</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleSignOut}
-          >
-            <Icon
-              name="sign-out"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Sign Out</Text>
-          </TouchableOpacity>
+          <View style={styles.menuDivider} />
+          
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleContactUsClick}
@@ -519,15 +544,28 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             />
             <Text style={styles.menuItemText}>Contact Us</Text>
           </TouchableOpacity>
-        </>
+          
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleSignOut}
+          >
+            <Icon
+              name="sign-out"
+              size={18}
+              color="#fff"
+              style={styles.menuIcon}
+            />
+            <Text style={styles.menuItemText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       );
     }
 
     // Logged in as SERVICE_PROVIDER
     if (appUser?.role === "SERVICE_PROVIDER") {
       return (
-        <>
-        <TouchableOpacity
+        <View style={styles.menuItemsContainer}>
+          <TouchableOpacity
             style={styles.menuItem}
             onPress={handleProfileClick}
           >
@@ -539,18 +577,22 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             />
             <Text style={styles.menuItemText}>Profile</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleDashboardClick}
           >
-            <Icon
+            <MaterialIcon
               name="dashboard"
-              size={18}
+              size={20}
               color="#fff"
               style={styles.menuIcon}
             />
             <Text style={styles.menuItemText}>Dashboard</Text>
           </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+          
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleContactUsClick}
@@ -563,6 +605,7 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             />
             <Text style={styles.menuItemText}>Contact Us</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleSignOut}
@@ -575,46 +618,47 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             />
             <Text style={styles.menuItemText}>Sign Out</Text>
           </TouchableOpacity>
-        </>
+        </View>
       );
     }
 
-    // Fallback for other roles or unexpected states
+    // Fallback
     return (
-      <TouchableOpacity
-        style={styles.menuItem}
-        onPress={handleSignOut}
-      >
-        <Icon
-          name="sign-out"
-          size={18}
-          color="#fff"
-          style={styles.menuIcon}
-        />
-        <Text style={styles.menuItemText}>Sign Out</Text>
-      </TouchableOpacity>
+      <View style={styles.menuItemsContainer}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={handleSignOut}
+        >
+          <Icon
+            name="sign-out"
+            size={18}
+            color="#fff"
+            style={styles.menuIcon}
+          />
+          <Text style={styles.menuItemText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
   return (
     <View style={{ position: "relative" }}>
+      {/* Overlay when menu is visible - covers entire screen */}
       {menuVisible && (
         <TouchableWithoutFeedback onPress={handleOverlayPress}>
-          <View style={styles.overlay} />
+          <View style={[styles.overlay, StyleSheet.absoluteFillObject]} />
         </TouchableWithoutFeedback>
       )}
 
       <LinearGradient
-        colors={["#0a2a66ff", "#004aadff"]}
+        colors={["#0a2a66", "#004aad"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.headerContainer}
       >
-        {/* Logo */}
+        {/* Logo Section */}
         <View style={styles.logoContainer}>
-          <TouchableOpacity
-            onPress={() => handleClick("")}
-          >
+          <TouchableOpacity onPress={onLogoClick}>
             <Image
               source={require("../../assets/images/serveasologo.png")}
               style={styles.logo}
@@ -622,7 +666,7 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Location Selector - Updated to handle location data */}
+        {/* Location Selector */}
         <View style={styles.locationContainer}>
           <LocationSelector
             userPreference={userPreference}
@@ -631,50 +675,41 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           />
         </View>
 
-        {/* Right Actions - Conditional rendering based on user role */}
+        {/* Right Actions - ONLY User Menu Icon now */}
         <View style={styles.rightActionsContainer}>
-          {/* Notification Icon - Only for SERVICE_PROVIDER */}
-          {shouldShowNotificationsIcon && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={handleNotificationClick}
-            >
-              <FeatherIcon name="bell" size={22} color="#fff" />
-            </TouchableOpacity>
-          )}
-
-          {/* Bookings Icon - Only for CUSTOMER */}
-          {shouldShowBookingsIcon && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={handleBookingsClick}
-            >
-              <MaterialIcon name="event-note" size={24} color="#fff" />
-            </TouchableOpacity>
-          )}
-
-          {/* Menu Icon - Always visible when logged in, otherwise show user icon */}
-          <TouchableOpacity style={styles.iconButton} onPress={handleMenuPress}>
+          {/* User Menu Icon */}
+          <TouchableOpacity 
+            style={[styles.iconButton, styles.userMenuButton]}
+            onPress={handleMenuPress}
+          >
             {auth0User ? (
-              <Image
-                source={{ uri: auth0User.picture }}
-                style={styles.userAvatar}
-              />
+              <View style={styles.userAvatarContainer}>
+                <Image
+                  source={{ uri: auth0User.picture }}
+                  style={styles.userAvatar}
+                />
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName} numberOfLines={1}>
+                    {auth0User.name?.split(' ')[0] || 'User'}
+                  </Text>
+                  <FeatherIcon name="chevron-down" size={14} color="#fff" />
+                </View>
+              </View>
             ) : (
-              <FeatherIcon name="user" size={22} color="#fff" />
+              <View style={styles.userIconContainer}>
+                <FeatherIcon name="user" size={20} color="#fff" />
+              </View>
             )}
           </TouchableOpacity>
         </View>
 
-        
-      </LinearGradient>
-
-      {/* Menu Dropdown */}aa
+        {/* Menu Dropdown */}
         {menuVisible && (
-          <View style={styles.menuDropdown}>
+          <View style={styles.menuDropdown} ref={dropdownRef}>
             {renderMenuItems()}
           </View>
         )}
+      </LinearGradient>
 
       {/* Bookings Dialog */}
       <Modal
@@ -683,13 +718,12 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
         onRequestClose={handleCloseBookings}
       >
         <View style={styles.fullScreenModal}>
-          {/* <View style={styles.modalHeader}> */}
-           <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.modalHeader}
-                  >
+          <LinearGradient
+            colors={["#0a2a66", "#004aad"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.modalHeader}
+          >
             <Text style={styles.modalTitle}>My Bookings</Text>
             <TouchableOpacity 
               style={styles.closeButton}
@@ -697,8 +731,7 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             >
               <Icon name="close" size={24} color="#ffffffff" />
             </TouchableOpacity>
-            </LinearGradient>
-          {/* </View> */}
+          </LinearGradient>
           <View style={styles.modalContent}>
             <Booking />
           </View>
@@ -721,16 +754,22 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
         animationType="slide"
         onRequestClose={() => setShowTnC(false)}
       >
-        <View style={styles.tncModalContainer}>
-          <View style={styles.tncModalHeader}>
-            <Text style={styles.tncModalTitle}>Terms and Conditions</Text>
+        <View style={styles.modalContainer}>
+          <LinearGradient
+            colors={["#0a2a66", "#004aad"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.modalHeader}
+          >
+            <Text style={styles.modalTitle}>Terms and Conditions</Text>
             <TouchableOpacity onPress={() => setShowTnC(false)}>
-              <Icon name="close" size={24} color="#000" />
+              <Icon name="close" size={24} color="#fff" />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
           <TnC />
         </View>
       </Modal>
+
       <AboutPage visible={showAboutUs} onBack={() => setShowAboutUs(false)} />
 
       <Modal
@@ -738,13 +777,18 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
         animationType="slide"
         onRequestClose={() => setShowContactUs(false)}
       >
-        <View style={styles.contactModalContainer}>
-          <View style={styles.contactModalHeader}>
-            <Text style={styles.contactModalTitle}>Contact Us</Text>
+        <View style={styles.modalContainer}>
+          <LinearGradient
+            colors={["#0a2a66", "#004aad"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.modalHeader}
+          >
+            <Text style={styles.modalTitle}>Contact Us</Text>
             <TouchableOpacity onPress={() => setShowContactUs(false)}>
-              <Icon name="close" size={24} color="#000" />
+              <Icon name="close" size={24} color="#fff" />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
           <ContactUs />
         </View>
       </Modal>
@@ -754,79 +798,122 @@ const Head: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
 
 const styles = StyleSheet.create({
   headerContainer: {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  right: 0,
-  zIndex: 50,
-  height: 70,
-  flexDirection: "row",
-  alignItems: "center",
-  // paddingHorizontal: 12,
-  
-},
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 70,
+    paddingHorizontal: 13,
+    elevation: 3,
+    ...Platform.select({
+      ios: {
+        paddingTop: 10,
+      },
+    }),
+  },
   logoContainer: {
-  width: 90,                // 👈 fixed
-  justifyContent: "center",
-  alignItems: "flex-start",
-},
-
+    flex: 1,
+    maxWidth: 120,
+  },
   logo: {
-    height: 110,
-    width: 110,
+    height: 120,
+    width: 120,
     resizeMode: "contain",
+    marginLeft: -10,
   },
   locationContainer: {
-    paddingTop: 17,
     flex: 2,
-    marginHorizontal: 12,
-    maxWidth: width * 0.5,
+   
+    marginHorizontal: 10,
+    maxWidth: width * 0.35,
+    height: 36,
+    justifyContent: "center",
   },
   rightActionsContainer: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 12,
     maxWidth: 150,
+
   },
   iconButton: {
-    width: 44,
-    height: 44,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 22,
+    borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  userMenuButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 80,
+  },
+  userIconContainer: {
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  userAvatarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   userAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  userName: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "500",
+    maxWidth: 60,
   },
   overlay: {
-  position: "absolute",
-  top: 70,              // 👈 start BELOW header
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "transparent",
-  zIndex: 10,
-},
+    backgroundColor: "transparent",
+    zIndex: 999,
+  },
   menuDropdown: {
-  position: "absolute",
-  top: 70,
-  right: 16,
-  backgroundColor: "black",
-  borderRadius: 8,
-  paddingVertical: 4,
-  zIndex: 1000,
-  elevation: 10,
-},
+    position: "absolute",
+    top: 70,
+    right: 16,
+    backgroundColor: "#1e293b",
+    borderRadius: 12,
+    paddingVertical: 8,
+    zIndex: 1000,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    minWidth: 220,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  menuItemsContainer: {
+    paddingVertical: 4,
+  },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
   },
   menuIcon: {
     marginRight: 12,
@@ -834,39 +921,17 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: "400",
   },
-  tncModalContainer: {
+  menuDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginVertical: 4,
+  },
+  modalContainer: {
     flex: 1,
     backgroundColor: "white",
-  },
-  tncModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  tncModalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  contactModalContainer: {
-    flex: 1,
-    backgroundColor: "white",
-  },
-  contactModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  contactModalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
   },
   fullScreenModal: {
     flex: 1,
@@ -877,19 +942,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-    backgroundColor: "#f9fafb",
+    paddingTop: Platform.OS === 'ios' ? 40 : 16,
   },
   modalTitle: {
-       fontSize: 18,
+    fontSize: 18,
     fontWeight: '700',
     color: '#fff',
     textAlign: 'center',
     flex: 1,
-    // fontSize: 20,
-    // fontWeight: "bold",
-    // color: "#1f2937",
   },
   closeButton: {
     padding: 4,
@@ -899,6 +959,5 @@ const styles = StyleSheet.create({
   },
 });
 
-// Export the Head component with additional location functionality
 export default Head;
 export type { LocationData };

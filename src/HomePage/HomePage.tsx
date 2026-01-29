@@ -763,7 +763,7 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "blue",
+    backgroundColor: "#fff",
     paddingTop: 16,
   },
   selectorTitle: {
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   heroSectionGradient: {
-    // padding: 16,
+    padding: 16,
     flexDirection: "column",
   },
   heroTextContainer: {
