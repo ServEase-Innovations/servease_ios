@@ -34,8 +34,6 @@ project.xcworkspace
 /packages/react-native/ReactAndroid/build/
 /packages/react-native/ReactAndroid/.cxx/
 /packages/react-native/ReactAndroid/gradle/
-/packages/react-native/ReactAndroid/gradlew
-/packages/react-native/ReactAndroid/gradlew.bat
 /packages/react-native/ReactAndroid/external-artifacts/build/
 /packages/react-native/ReactAndroid/external-artifacts/artifacts/
 /packages/react-native/ReactAndroid/hermes-engine/build/
@@ -227,8 +225,6 @@ android/app/src/**/res/values/google-services.xml
 .gradle/
 build/
 gradle-app.settings
-gradle-wrapper.jar
-gradle-wrapper.properties
 captures/
 .externalNativeBuild/
 
@@ -331,7 +327,6 @@ android/build/
 android/app/build/
 android/app/.cxx/
 android/captures/
-android/gradle/wrapper/gradle-wrapper.jar
 
 # Keystore files (VERY IMPORTANT)
 *.keystore
