@@ -1,5 +1,5 @@
-// OtpVerificationDialog.tsx
-import React, { useState, useEffect } from 'react';
+/* eslint-disable */
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,7 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { X } from 'lucide-react-native';
+} from "react-native";
 
 interface OtpVerificationDialogProps {
   open: boolean;
@@ -31,33 +29,50 @@ export function OtpVerificationDialog({
   verifying,
   bookingInfo,
 }: OtpVerificationDialogProps) {
-  const [otpValue, setOtpValue] = useState('');
+  const [otpValue, setOtpValue] = useState("");
+  const verificationCompletedRef = useRef(false);
+  const inputRef = useRef<TextInput>(null);
 
-  // Close dialog when verification completes successfully
+  // Reset ref when dialog opens
   useEffect(() => {
-    if (!verifying && open && otpValue) {
-      // Small delay to allow user to see success state if needed
+    if (open) {
+      verificationCompletedRef.current = false;
+      // Focus input when dialog opens
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 300);
+    }
+  }, [open]);
+
+  // Handle successful verification completion
+  useEffect(() => {
+    // Only run when verifying changes from true to false AND we were previously verifying
+    if (!verifying && verificationCompletedRef.current) {
       const timer = setTimeout(() => {
         handleClose();
       }, 500);
       
       return () => clearTimeout(timer);
     }
-  }, [verifying, open, otpValue]);
+  }, [verifying]);
 
   const handleVerify = async () => {
     if (!otpValue.trim()) return;
-    try {
-      await onVerify(otpValue.trim());
-      // Dialog will close automatically via the useEffect above
-    } catch (error) {
-      Alert.alert('Error', 'Failed to verify OTP');
-    }
+    
+    // Mark that verification is starting
+    verificationCompletedRef.current = true;
+    await onVerify(otpValue.trim());
   };
 
   const handleClose = () => {
-    setOtpValue('');
+    setOtpValue("");
     onOpenChange(false);
+  };
+
+  const handleOtpChange = (text: string) => {
+    // Only allow numbers
+    const numericText = text.replace(/[^0-9]/g, '');
+    setOtpValue(numericText);
   };
 
   return (
@@ -68,57 +83,59 @@ export function OtpVerificationDialog({
       onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Dialog Header */}
-          <View style={styles.dialogHeader}>
-            <Text style={styles.dialogTitle}>Verify OTP to Complete Service</Text>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={styles.closeButton}
-              accessibilityLabel="Close"
-            >
-              <X size={24} color="#fff" />
-            </TouchableOpacity>
+        <View style={styles.modalContent}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle}>Verify OTP to Complete Service</Text>
+              <TouchableOpacity 
+                onPress={handleClose}
+                style={styles.closeButton}
+                disabled={verifying}
+              >
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Dialog Content */}
-          <View style={styles.dialogContent}>
+          <View style={styles.content}>
             {bookingInfo && (
-              <View style={styles.bookingInfoContainer}>
+              <View style={styles.bookingInfoCard}>
                 <Text style={styles.bookingInfoTitle}>
-                  Service for {bookingInfo.clientName || 'Client'}
+                  Service for {bookingInfo.clientName || "Client"}
                 </Text>
                 <Text style={styles.bookingInfoSubtitle}>
-                  Booking ID: {bookingInfo.bookingId || 'N/A'} • {bookingInfo.service || 'Service'}
+                  Booking ID: {bookingInfo.bookingId || "N/A"} • {bookingInfo.service || "Service"}
                 </Text>
               </View>
             )}
-
-            <View style={styles.contentContainer}>
-              <View style={styles.instructionContainer}>
-                <Text style={styles.instructionText}>
-                  Please enter the OTP you received from the client to complete the service.
-                </Text>
+            
+            <View style={styles.otpSection}>
+              <Text style={styles.instructions}>
+                Please enter the OTP you received from the client to complete the service.
+              </Text>
+              
+              <View style={styles.otpInputContainer}>
                 <TextInput
+                  ref={inputRef}
                   placeholder="Enter 6-digit OTP"
-                  placeholderTextColor="#6b7280"
+                  placeholderTextColor="#9CA3AF"
                   value={otpValue}
-                  onChangeText={setOtpValue}
-                  style={styles.otpInput}
-                  maxLength={6}
+                  onChangeText={handleOtpChange}
                   keyboardType="number-pad"
+                  maxLength={6}
+                  style={styles.otpInput}
                   editable={!verifying}
-                  autoCapitalize="none"
-                  autoCorrect={false}
+                  selectionColor="#3B82F6"
                 />
               </View>
-
-              <Text style={styles.noteText}>
+              
+              <Text style={styles.verificationNote}>
                 Once verified, the service will be marked as completed and your earnings will be credited.
               </Text>
             </View>
-
-            <View style={styles.buttonContainer}>
+            
+            <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={handleClose}
@@ -137,10 +154,10 @@ export function OtpVerificationDialog({
                 disabled={verifying || !otpValue.trim() || otpValue.length < 4}
               >
                 {verifying ? (
-                  <>
-                    <ActivityIndicator size="small" color="#fff" style={styles.spinner} />
-                    <Text style={styles.verifyButtonText}>Verifying...</Text>
-                  </>
+                  <View style={styles.verifyingContainer}>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={styles.verifyingText}>Verifying...</Text>
+                  </View>
                 ) : (
                   <Text style={styles.verifyButtonText}>Verify & Complete</Text>
                 )}
@@ -156,126 +173,135 @@ export function OtpVerificationDialog({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
-  modalContainer: {
-    width: '100%',
-    maxWidth: 500,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "80%",
+    overflow: "hidden",
   },
-  dialogHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#3b82f6',
+  header: {
+    backgroundColor: "#1E40AF",
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  dialogTitle: {
-    flex: 1,
+  headerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#FFFFFF",
+    flex: 1,
   },
   closeButton: {
     padding: 4,
+    marginLeft: 16,
   },
-  dialogContent: {
+  closeIcon: {
+    fontSize: 20,
+    fontWeight: "300",
+    color: "#FFFFFF",
+  },
+  content: {
     padding: 20,
   },
-  bookingInfoContainer: {
-    backgroundColor: '#eff6ff',
-    borderRadius: 6,
+  bookingInfoCard: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   bookingInfoTitle: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1e40af',
+    fontWeight: "500",
+    color: "#1E40AF",
+    marginBottom: 4,
   },
   bookingInfoSubtitle: {
     fontSize: 12,
-    color: '#4b5563',
-    marginTop: 4,
+    color: "#4B5563",
   },
-  contentContainer: {
-    paddingVertical: 16,
+  otpSection: {
+    marginBottom: 24,
   },
-  instructionContainer: {
-    marginBottom: 16,
-  },
-  instructionText: {
+  instructions: {
     fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 12,
+    color: "#6B7280",
+    marginBottom: 16,
     lineHeight: 20,
+  },
+  otpInputContainer: {
+    marginBottom: 16,
   },
   otpInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 6,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 18,
-    letterSpacing: 4,
-    textAlign: 'center',
-    backgroundColor: '#f9fafb',
-    color: '#111827',
+    fontSize: 20,
+    textAlign: "center",
+    letterSpacing: 8,
+    color: "#111827",
+    fontWeight: "500",
+    backgroundColor: "#FFFFFF",
   },
-  noteText: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
+  verificationNote: {
+    fontSize: 13,
+    color: "#6B7280",
+    lineHeight: 18,
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 24,
+  actions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 6,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
     minWidth: 120,
+    alignItems: "center",
   },
   cancelButton: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: 'transparent',
+    borderColor: "#D1D5DB",
+    backgroundColor: "#FFFFFF",
   },
   cancelButtonText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+    fontWeight: "500",
+    color: "#374151",
   },
   verifyButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: "#3B82F6",
   },
   disabledButton: {
-    backgroundColor: '#9ca3af',
-    opacity: 0.7,
+    backgroundColor: "#D1D5DB",
   },
   verifyButtonText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#fff',
+    fontWeight: "500",
+    color: "#FFFFFF",
   },
-  spinner: {
-    marginRight: 8,
+  verifyingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  verifyingText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#FFFFFF",
+    marginLeft: 8,
   },
 });

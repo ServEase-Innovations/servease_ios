@@ -1,5 +1,5 @@
 // Dashboard.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -10,11 +10,14 @@ import {
   ActivityIndicator, 
   RefreshControl,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Modal,
+  TextInput
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
+import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 import { DashboardMetricCard } from './DashboardMetricCard';
 import { PaymentHistory } from './PaymentHistory';
 import { useAuth0 } from 'react-native-auth0';
@@ -28,6 +31,8 @@ import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 import ProviderCalendarBig from './ProviderCalendarBig';
 import { OtpVerificationDialog } from './OtpVerificationDialog';
+import WithdrawalDialog from './WithdrawalDialog';
+import { WithdrawalHistoryDialog } from './WithdrawalHistoryDialog';
 
 // Types for API response
 interface CustomerHoliday {
@@ -511,6 +516,67 @@ const Badge = ({
   );
 };
 
+// Input Component
+const Input = ({ 
+  placeholder, 
+  value, 
+  onChangeText, 
+  type = 'text',
+  maxLength,
+  style,
+  disabled = false
+}: {
+  placeholder?: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  type?: 'text' | 'password' | 'email' | 'number';
+  maxLength?: number;
+  style?: any;
+  disabled?: boolean;
+}) => {
+  return (
+    <TextInput
+      style={[
+        {
+          borderWidth: 1,
+          borderColor: '#D1D5DB',
+          borderRadius: 6,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          fontSize: 16,
+          backgroundColor: disabled ? '#F3F4F6' : '#FFFFFF',
+          color: disabled ? '#9CA3AF' : '#111827',
+        },
+        style,
+      ]}
+      placeholder={placeholder}
+      placeholderTextColor="#9CA3AF"
+      value={value}
+      onChangeText={onChangeText}
+      maxLength={maxLength}
+      editable={!disabled}
+      keyboardType={type === 'number' ? 'numeric' : 'default'}
+      secureTextEntry={type === 'password'}
+    />
+  );
+};
+
+// Header Component for Dialogs
+const DialogHeader = ({ children, style }: { children: React.ReactNode; style?: any }) => {
+  return (
+    <View style={[{
+      backgroundColor: '#1E40AF',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    }, style]}>
+      {children}
+    </View>
+  );
+};
+
 interface DashboardProps {
   onProfilePress: () => void;
 }
@@ -535,6 +601,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [currentBooking, setCurrentBooking] = useState<any>(null);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [withdrawalHistoryDialogOpen, setWithdrawalHistoryDialogOpen] = useState(false);
+  const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  const verificationCompletedRef = useRef(false);
 
   // Check if user is authenticated
   useEffect(() => {
@@ -573,7 +642,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       value: `₹${payout?.summary?.security_deposit_amount?.toLocaleString("en-IN") || 0}`,
       change: payout?.summary?.security_deposit_paid ? "Paid" : "Not Paid",
       changeType: payout?.summary?.security_deposit_paid ? ("neutral" as const) : ("negative" as const),
-      icon: "home" as const,
+      icon: "shield" as const,
       description: "For active bookings"
     },
     {
@@ -583,15 +652,15 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       ).toLocaleString("en-IN")}`,
       change: "-10%",
       changeType: "negative" as const,
-      icon: "rupee" as const,
+      icon: "credit-card" as const,
       description: "Service charges"
     },
     {
-      title: "Actual Payout",
+      title: "Available Balance",
       value: `₹${payout?.summary?.available_to_withdraw?.toLocaleString("en-IN") || 0}`,
       change: "+10.2%",
       changeType: "positive" as const,
-      icon: "rupee" as const,
+      icon: "wallet" as const,
       description: "After deductions"
     }
   ];
@@ -644,12 +713,49 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     }
   }, [verifyingOtp, otpDialogOpen, currentBooking]);
 
+  // Reset ref when OTP dialog opens
+  useEffect(() => {
+    if (otpDialogOpen) {
+      verificationCompletedRef.current = false;
+    }
+  }, [otpDialogOpen]);
+
   // Fetch data when serviceProviderId changes
   useEffect(() => {
     if (serviceProviderId) {
       fetchData();
     }
   }, [serviceProviderId]);
+
+  // Handle successful verification completion for OTP
+  useEffect(() => {
+    if (!verifyingOtp && verificationCompletedRef.current) {
+      const timer = setTimeout(() => {
+        handleCloseOtpDialog();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [verifyingOtp]);
+
+  // Add function to handle withdrawal success
+  const handleWithdrawalSuccess = async () => {
+    // Refresh payout data after successful withdrawal
+    if (serviceProviderId) {
+      try {
+        const currentMonthYear = getCurrentMonthYear();
+        const payoutResponse: AxiosResponse<ProviderPayoutResponse> = await PaymentInstance.get(
+          `/api/service-providers/${serviceProviderId}/payouts?month=${currentMonthYear}&detailed=true`
+        );
+        setPayout(payoutResponse.data);
+        
+        Alert.alert("Balance Updated", "Your wallet balance has been updated.");
+      } catch (error) {
+        console.error("Failed to refresh balance:", error);
+        Alert.alert("Error", "Failed to refresh balance data");
+      }
+    }
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -661,7 +767,10 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     
     Alert.alert(
       "Contact Information",
-      `Call ${booking.clientName} at ${contactInfo}`
+      `Call ${booking.clientName} at ${contactInfo}`,
+      [
+        { text: "OK", style: "default" }
+      ]
     );
   };
 
@@ -723,6 +832,8 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     }
 
     setVerifyingOtp(true);
+    verificationCompletedRef.current = true;
+    
     try {
       await PaymentInstance.post(
         `api/engagement-service/service-days/${serviceDayId}/complete`,
@@ -747,6 +858,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       }
       
       Alert.alert("Error", errorMessage);
+      verificationCompletedRef.current = false;
       return Promise.reject(err);
     } finally {
       setVerifyingOtp(false);
@@ -800,18 +912,48 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     </TouchableOpacity>
   );
 
+  // Header with Profile
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.headerContent}>
+        <View style={styles.headerLeft}>
+          <MaterialIcon name="home" size={24} color="#3B82F6" />
+          <Text style={styles.headerTitle}>ServEase Provider</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.notificationButton}>
+            <FeatherIcon name="bell" size={20} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileButton} onPress={onProfilePress}>
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileInitials}>
+                {userName ? userName.split(' ').map(n => n[0]).join('').toUpperCase() : 'MP'}
+              </Text>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{userName || "Maya Patel"}</Text>
+              <Text style={styles.profileRole}>Cleaning Specialist</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      {renderHeader()}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        style={styles.scrollView}
       >
         {/* Welcome Section */}
         <LinearGradient
           colors={[
-            'rgba(139, 187, 221, 0.8)', // Blue tone
+            'rgba(177, 213, 232, 1)', // Blue tone
             'rgba(213, 229, 233, 0.8)', // Lighter blue
             'rgba(255,255,255,1)'       // White at the bottom
           ]}
@@ -833,7 +975,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <View style={styles.statIconContainer}>
-                  <Icon name="calendar" size={16} color="#3b82f6" />
+                  <MaterialIcon name="calendar-today" size={16} color="#3b82f6" />
                   <View style={styles.statBadge}>
                     <Text style={styles.statBadgeText}>+3</Text>
                   </View>
@@ -843,7 +985,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
               
               <View style={styles.statItem}>
                 <View style={styles.statIconContainer}>
-                  <Icon name="star" size={16} color="#f59e0b" />
+                  <MaterialIcon name="star" size={16} color="#f59e0b" />
                   <View style={styles.statBadge}>
                     <Text style={styles.statBadgeText}>+2%</Text>
                   </View>
@@ -853,7 +995,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
               
               <View style={styles.statItem}>
                 <View style={styles.statIconContainer}>
-                  <Icon name="trending-up" size={16} color="#10b981" />
+                  <MaterialIcon name="trending-up" size={16} color="#10b981" />
                   <View style={styles.statBadge}>
                     <Text style={styles.statBadgeText}>+2%</Text>
                   </View>
@@ -885,7 +1027,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                   <Text style={styles.cardTitle}>Recent Booking</Text>
                   {!loading && latestBooking.length > 0 && (
                     <Badge variant="secondary" style={styles.latestBadge}>
-                      Latest
+                      <Text style={styles.latestBadgeText}>Latest</Text>
                     </Badge>
                   )}
                 </View>
@@ -1103,23 +1245,31 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     variant="outline"
                     onPress={() => setShowAllBookings(true)}
                   >
-                    <Icon name="users" size={16} style={styles.buttonIcon} />
+                    <MaterialIcon name="people" size={16} style={styles.buttonIcon} />
                     <Text style={styles.actionButtonText}>View All Bookings</Text>
                   </Button>
                   <Button
                     style={styles.actionButton}
                     variant="outline"
-                    onPress={() => {}}
+                    onPress={() => setWithdrawalDialogOpen(true)}
                   >
-                    <Icon name="rupee" size={16} style={styles.buttonIcon} />
+                    <MaterialIcon name="account-balance-wallet" size={16} style={styles.buttonIcon} />
                     <Text style={styles.actionButtonText}>Request Withdrawal</Text>
+                  </Button>
+                  <Button
+                    style={styles.actionButton}
+                    variant="outline"
+                    onPress={() => setWithdrawalHistoryDialogOpen(true)}
+                  >
+                    <MaterialIcon name="receipt" size={16} style={styles.buttonIcon} />
+                    <Text style={styles.actionButtonText}>Withdrawal History</Text>
                   </Button>
                   <Button
                     style={styles.actionButton}
                     variant="outline"
                     onPress={() => {}}
                   >
-                    <Icon name="calendar" size={16} style={styles.buttonIcon} />
+                    <MaterialIcon name="calendar-today" size={16} style={styles.buttonIcon} />
                     <Text style={styles.actionButtonText}>Apply Leave</Text>
                   </Button>
                   <Button
@@ -1127,7 +1277,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     variant="outline"
                     onPress={() => {}}
                   >
-                    <Icon name="clock-o" size={16} style={styles.buttonIcon} />
+                    <MaterialIcon name="access-time" size={16} style={styles.buttonIcon} />
                     <Text style={styles.actionButtonText}>Update Availability</Text>
                   </Button>
                   <Button
@@ -1135,7 +1285,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     variant="outline"
                     onPress={() => setReviewsDialogOpen(true)}
                   >
-                    <Icon name="star" size={16} style={styles.buttonIcon} />
+                    <MaterialIcon name="star" size={16} style={styles.buttonIcon} />
                     <Text style={styles.actionButtonText}>View Reviews</Text>
                   </Button>
                 </View>
@@ -1149,15 +1299,21 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                 <View style={styles.cardContent}>
                   <View style={styles.statusItem}>
                     <Text style={styles.statusLabel}>Profile Status</Text>
-                    <Badge variant="success">Active</Badge>
+                    <Badge variant="success">
+                      <Text style={styles.statusBadgeText}>Active</Text>
+                    </Badge>
                   </View>
                   <View style={styles.statusItem}>
                     <Text style={styles.statusLabel}>Verification</Text>
-                    <Badge variant="success">Verified</Badge>
+                    <Badge variant="success">
+                      <Text style={styles.statusBadgeText}>Verified</Text>
+                    </Badge>
                   </View>
                   <View style={styles.statusItem}>
                     <Text style={styles.statusLabel}>Availability</Text>
-                    <Badge variant="primary">Available</Badge>
+                    <Badge variant="primary">
+                      <Text style={styles.statusBadgeText}>Available</Text>
+                    </Badge>
                   </View>
                 </View>
               </Card>
@@ -1212,6 +1368,22 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
           bookingId: currentBooking.bookingData?.engagement_id || currentBooking.bookingData?.id,
         } : undefined}
       />
+
+      {/* Withdrawal History Dialog */}
+      <WithdrawalHistoryDialog
+        open={withdrawalHistoryDialogOpen}
+        onOpenChange={setWithdrawalHistoryDialogOpen}
+        serviceProviderId={serviceProviderId}
+      />
+
+      {/* Withdrawal Dialog */}
+      <WithdrawalDialog
+        open={withdrawalDialogOpen}
+        onOpenChange={setWithdrawalDialogOpen}
+        serviceProviderId={serviceProviderId}
+        availableBalance={payout?.summary?.available_to_withdraw || 0}
+        onWithdrawalSuccess={handleWithdrawalSuccess}
+      />
     </SafeAreaView>
   );
 }
@@ -1221,10 +1393,73 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9fafb',
   },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  notificationButton: {
+    padding: 8,
+  },
+  profileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  profileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileInitials: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  profileInfo: {
+    alignItems: 'flex-start',
+  },
+  profileName: {
+    fontWeight: '600',
+    color: '#111827',
+    fontSize: 14,
+  },
+  profileRole: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
   welcomeBanner: {
     backgroundColor: 'rgba(177, 213, 232, 1)',
-    padding: 10,
-    paddingTop: 30,
+    padding: 16,
+    paddingTop: 24,
   },
   welcomeContent: {
     flexDirection: 'row',
@@ -1244,13 +1479,13 @@ const styles = StyleSheet.create({
   welcomeBackText: {
     fontSize: 13,
     color: '#0e305c',
-    marginLeft: 4,
+    marginLeft: 8,
     fontWeight: '400',
   },
   userNameText: {
     fontSize: 20,
     color: '#0e305c',
-    marginLeft: 4,
+    marginLeft: 8,
     fontWeight: 'bold',
     marginTop: 2,
   },
@@ -1260,6 +1495,8 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     textAlign: 'center',
     paddingBottom: 20,
+    paddingTop: 16,
+    paddingHorizontal: 16,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -1349,6 +1586,13 @@ const styles = StyleSheet.create({
   },
   latestBadge: {
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+  },
+  latestBadgeText: {
+    color: '#1E40AF',
+    fontSize: 12,
+    fontWeight: '500',
   },
   cardContent: {
     padding: 16,
@@ -1499,15 +1743,18 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: '#3b82f6',
+    fontWeight: '500',
   },
   stopButtonText: {
     color: '#ffffff',
+    fontWeight: '500',
   },
   contactButton: {
     width: '100%',
   },
   contactButtonText: {
     color: '#111827',
+    fontWeight: '500',
   },
   actionButton: {
     width: '100%',
@@ -1517,6 +1764,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     marginLeft: 8,
     color: '#111827',
+    fontWeight: '500',
   },
   buttonIcon: {
     color: '#6b7280',
@@ -1530,6 +1778,11 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     color: '#6b7280',
+    fontSize: 14,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   bottomSection: {
     flexDirection: 'column',
