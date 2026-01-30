@@ -811,11 +811,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     height: 70,
-    paddingHorizontal: 13,
+    // paddingHorizontal: 13,
     elevation: 3,
     ...Platform.select({
       ios: {
-        paddingTop: 10,
+        // paddingTop: 10,
       },
     }),
   },
