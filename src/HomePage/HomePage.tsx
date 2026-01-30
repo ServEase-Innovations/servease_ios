@@ -21,7 +21,7 @@ import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import RadioButton from '../common/RadioButton';
-import ServiceProviderRegistration from '../ServiceProviderRegistration';
+import ServiceProviderRegistration from '../Registration/ServiceProviderRegistration'; // Already imported
 import ServiceDetailsDialog from './ServiceDetailsDialog'; 
 import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
 import DemoCook from "../ServiceDialogs/CookServiceDialog";
@@ -246,58 +246,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
     setOpen(false);
   };
 
-// const handleSave = (bookingDetails: any) => {
-//   const formatDate = (value: any) => {
-//     if (!value) return "";
-//     const date = new Date(value);
-//     if (isNaN(date.getTime())) return value; // already formatted string
-//     return date.toISOString().split("T")[0]; // "YYYY-MM-DD"
-//   };
-
-//   const formatTime = (value: any) => {
-//     if (!value) return "";
-//     const date = new Date(value);
-//     if (isNaN(date.getTime())) return value; // already formatted string
-//     return date.toTimeString().slice(0, 5); // "HH:mm"
-//   };
-
-//   const booking = {
-//     start_date: formatDate(bookingDetails.startDate),
-//     start_time: formatTime(bookingDetails.startTime),
-//     end_date: formatDate(bookingDetails.endDate || bookingDetails.startDate),
-//     end_time: formatTime(bookingDetails.endTime),
-//     timeRange:
-//       bookingDetails.startTime && bookingDetails.endTime
-//         ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
-//         : formatTime(bookingDetails.startTime) || "",
-//     bookingPreference: selectedRadioButtonValue,
-//     housekeepingRole: selectedType,
-//   };
-
-//   console.log("Dispatching booking:", booking);
-
-//   if (selectedRadioButtonValue === "Date") {
-//     switch (selectedType) {
-//       case "COOK":
-//         setShowCookDialog(true);
-//         break;
-//       case "MAID":
-//         setShowMaidServiceDialog(true);
-//         break;
-//       case "NANNY":
-//         setShowNannyServicesDialog(true);
-//         break;
-//       default:
-//         sendDataToParent(DETAILS);
-//     }
-//   } else {
-//     sendDataToParent(DETAILS);
-//   }
-
-//   setOpen(false);
-//   dispatch(add(booking));
-// };
-
 const handleSave = (bookingDetails: any) => {
   const formatDate = (value: any) => {
     if (!value) return "";
@@ -414,357 +362,363 @@ const handleSave = (bookingDetails: any) => {
   const isServiceDisabled = role === "SERVICE_PROVIDER";
 
   return (
-    <ScrollView style={styles.container}>
-      <LinearGradient
-        colors={['#0a2a66', '#004aad']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 0}}
-        style={styles.heroSectionGradient}
-      >
-        {/* Hero Section */}
-        <View style={styles.heroTextContainer}>
-          <Text style={styles.heroTitle}>
-            Book trusted household help in minutes
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            ServEaso delivers instant, regular and short term access to safe, affordable, and trained maids, cooks, and caregivers.
-          </Text>
-          
-          {/* Service Selection Header */}
-          <Text style={styles.selectorTitle}>What service do you need?</Text>
-          <Text style={styles.selectorSubtitle}>Tap to book instantly</Text>
-          
-          <View style={styles.serviceIconsContainer}>
-            {/* Cook Service */}
-            <View style={styles.serviceSelectorContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.serviceIconContainerRectangular,
-                  hoveredService === "COOK" && styles.serviceIconContainerRectangularHover,
-                ]}
-                onPress={() => !isServiceDisabled && handleClick("COOK")}
-                onPressIn={() => setHoveredService("COOK")}
-                onPressOut={() => setHoveredService(null)}
-                disabled={isServiceDisabled}
-              >
-                <Image source={cookImage} style={[
-                  styles.serviceImageRectangular,
-                  isServiceDisabled && styles.disabledService
-                ]} />
-                <View style={styles.serviceOverlay}>
-                  <Text style={styles.serviceLabelRectangular}>Home Cook</Text>
-                  {isServiceDisabled && (
-                    <Text style={styles.disabledText}>Not available</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Maid Service */}
-            <View style={styles.serviceSelectorContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.serviceIconContainerRectangular,
-                  hoveredService === "MAID" && styles.serviceIconContainerRectangularHover,
-                ]}
-                onPress={() => !isServiceDisabled && handleClick("MAID")}
-                onPressIn={() => setHoveredService("MAID")}
-                onPressOut={() => setHoveredService(null)}
-                disabled={isServiceDisabled}
-              >
-                <Image source={maidImage} style={[
-                  styles.serviceImageRectangular,
-                  isServiceDisabled && styles.disabledService
-                ]} />
-                <View style={styles.serviceOverlay}>
-                  <Text style={styles.serviceLabelRectangular}>Cleaning Help</Text>
-                  {isServiceDisabled && (
-                    <Text style={styles.disabledText}>Not available</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Nanny Service */}
-            <View style={styles.serviceSelectorContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.serviceIconContainerRectangular,
-                  hoveredService === "NANNY" && styles.serviceIconContainerRectangularHover,
-                ]}
-                onPress={() => !isServiceDisabled && handleClick("NANNY")}
-                onPressIn={() => setHoveredService("NANNY")}
-                onPressOut={() => setHoveredService(null)}
-                disabled={isServiceDisabled}
-              >
-                <Image source={nannyImage} style={[
-                  styles.serviceImageRectangular,
-                  isServiceDisabled && styles.disabledService
-                ]} />
-                <View style={styles.serviceOverlay}>
-                  <Text style={styles.serviceLabelRectangular}>Caregiver</Text>
-                  {isServiceDisabled && (
-                    <Text style={styles.disabledText}>Not available</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* Buttons Container */}
-          <View style={styles.buttonContainer}>
-            {/* Show registration buttons only for unauthenticated users */}
-            {!isAuthenticated && (
-              <>
-                <TouchableOpacity 
-                  style={[
-                    styles.outlineButton,
-                    hoveredButton === "user" && styles.outlineButtonHover
-                  ]}
-                  onPress={handleLogin}
-                  onPressIn={() => setHoveredButton("user")}
-                  onPressOut={() => setHoveredButton(null)}
-                >
-                  <Text style={styles.outlineButtonText}>Register as User</Text>
-                </TouchableOpacity>
-
+    <View style={styles.mainContainer}>
+      {/* Main Home Page Content */}
+      <ScrollView style={styles.container} scrollEnabled={!showRegistration && !showAgentRegistration}>
+        <LinearGradient
+          colors={['#0a2a66', '#004aad']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 0}}
+          style={styles.heroSectionGradient}
+        >
+          {/* Hero Section */}
+          <View style={styles.heroTextContainer}>
+            <Text style={styles.heroTitle}>
+              Book trusted household help in minutes
+            </Text>
+            <Text style={styles.heroSubtitle}>
+              ServEaso delivers instant, regular and short term access to safe, affordable, and trained maids, cooks, and caregivers.
+            </Text>
+            
+            {/* Service Selection Header */}
+            <Text style={styles.selectorTitle}>What service do you need?</Text>
+            <Text style={styles.selectorSubtitle}>Tap to book instantly</Text>
+            
+            <View style={styles.serviceIconsContainer}>
+              {/* Cook Service */}
+              <View style={styles.serviceSelectorContainer}>
                 <TouchableOpacity
                   style={[
-                    styles.outlineButton,
-                    hoveredButton === "work" && styles.outlineButtonHover
+                    styles.serviceIconContainerRectangular,
+                    hoveredService === "COOK" && styles.serviceIconContainerRectangularHover,
                   ]}
-                  onPress={handleWorkButtonClick}
-                  onPressIn={() => setHoveredButton("work")}
-                  onPressOut={() => setHoveredButton(null)}
+                  onPress={() => !isServiceDisabled && handleClick("COOK")}
+                  onPressIn={() => setHoveredService("COOK")}
+                  onPressOut={() => setHoveredService(null)}
+                  disabled={isServiceDisabled}
                 >
-                  <Text style={styles.outlineButtonText}>Register as Provider</Text>
+                  <Image source={cookImage} style={[
+                    styles.serviceImageRectangular,
+                    isServiceDisabled && styles.disabledService
+                  ]} />
+                  <View style={styles.serviceOverlay}>
+                    <Text style={styles.serviceLabelRectangular}>Home Cook</Text>
+                    {isServiceDisabled && (
+                      <Text style={styles.disabledText}>Not available</Text>
+                    )}
+                  </View>
                 </TouchableOpacity>
+              </View>
 
-                <TouchableOpacity 
+              {/* Maid Service */}
+              <View style={styles.serviceSelectorContainer}>
+                <TouchableOpacity
                   style={[
-                    styles.outlineButton,
-                    hoveredButton === "agent" && styles.outlineButtonHover
+                    styles.serviceIconContainerRectangular,
+                    hoveredService === "MAID" && styles.serviceIconContainerRectangularHover,
                   ]}
-                  onPress={handleAgentWorkButtonClick}
-                  onPressIn={() => setHoveredButton("agent")}
-                  onPressOut={() => setHoveredButton(null)}
+                  onPress={() => !isServiceDisabled && handleClick("MAID")}
+                  onPressIn={() => setHoveredService("MAID")}
+                  onPressOut={() => setHoveredService(null)}
+                  disabled={isServiceDisabled}
                 >
-                  <Text style={styles.outlineButtonText}>Register as Agent</Text>
+                  <Image source={maidImage} style={[
+                    styles.serviceImageRectangular,
+                    isServiceDisabled && styles.disabledService
+                  ]} />
+                  <View style={styles.serviceOverlay}>
+                    <Text style={styles.serviceLabelRectangular}>Cleaning Help</Text>
+                    {isServiceDisabled && (
+                      <Text style={styles.disabledText}>Not available</Text>
+                    )}
+                  </View>
                 </TouchableOpacity>
-              </>
-            )}
+              </View>
+
+              {/* Nanny Service */}
+              <View style={styles.serviceSelectorContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.serviceIconContainerRectangular,
+                    hoveredService === "NANNY" && styles.serviceIconContainerRectangularHover,
+                  ]}
+                  onPress={() => !isServiceDisabled && handleClick("NANNY")}
+                  onPressIn={() => setHoveredService("NANNY")}
+                  onPressOut={() => setHoveredService(null)}
+                  disabled={isServiceDisabled}
+                >
+                  <Image source={nannyImage} style={[
+                    styles.serviceImageRectangular,
+                    isServiceDisabled && styles.disabledService
+                  ]} />
+                  <View style={styles.serviceOverlay}>
+                    <Text style={styles.serviceLabelRectangular}>Caregiver</Text>
+                    {isServiceDisabled && (
+                      <Text style={styles.disabledText}>Not available</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Buttons Container */}
+            <View style={styles.buttonContainer}>
+              {/* Show registration buttons only for unauthenticated users */}
+              {!isAuthenticated && (
+                <>
+                  <TouchableOpacity 
+                    style={[
+                      styles.outlineButton,
+                      hoveredButton === "user" && styles.outlineButtonHover
+                    ]}
+                    onPress={handleLogin}
+                    onPressIn={() => setHoveredButton("user")}
+                    onPressOut={() => setHoveredButton(null)}
+                  >
+                    <Text style={styles.outlineButtonText}>Register as User</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.outlineButton,
+                      hoveredButton === "work" && styles.outlineButtonHover
+                    ]}
+                    onPress={handleWorkButtonClick}
+                    onPressIn={() => setHoveredButton("work")}
+                    onPressOut={() => setHoveredButton(null)}
+                  >
+                    <Text style={styles.outlineButtonText}>Register as Provider</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[
+                      styles.outlineButton,
+                      hoveredButton === "agent" && styles.outlineButtonHover
+                    ]}
+                    onPress={handleAgentWorkButtonClick}
+                    onPressIn={() => setHoveredButton("agent")}
+                    onPressOut={() => setHoveredButton(null)}
+                  >
+                    <Text style={styles.outlineButtonText}>Register as Agent</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </View>
-
-          <Modal visible={showAgentRegistration} animationType="slide">
-            <AgentRegistrationForm
-              onBackToLogin={() => setShowAgentRegistration(false)}
-              onRegistrationSuccess={() => setShowAgentRegistration(false)}
+          
+          {/* Carousel Section */}
+          <View style={styles.carouselContainer}>
+            <Image 
+              source={carouselImages[currentImageIndex]} 
+              style={styles.carouselImage}
+              resizeMode="cover"
             />
-          </Modal>
-
-          <Modal visible={showRegistration} animationType="slide">
-            <ServiceProviderRegistration
-              onBackToLogin={() => setShowRegistration(false)}
-              onRegistrationSuccess={() => setShowRegistration(false)}
-            />
-          </Modal>
-        </View>
+            <View style={styles.carouselIndicators}>
+              {carouselImages.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.carouselIndicator,
+                    index === currentImageIndex && styles.carouselIndicatorActive
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        </LinearGradient>
         
-        {/* Carousel Section */}
-        <View style={styles.carouselContainer}>
-          <Image 
-            source={carouselImages[currentImageIndex]} 
-            style={styles.carouselImage}
-            resizeMode="cover"
-          />
-          <View style={styles.carouselIndicators}>
-            {carouselImages.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.carouselIndicator,
-                  index === currentImageIndex && styles.carouselIndicatorActive
-                ]}
-              />
+        {/* Services Section */}
+        <View style={styles.servicesSection}>
+          <Text style={styles.sectionTitle}>Popular Services</Text>
+          <View style={styles.servicesGrid}>
+            {[
+              {
+                title: "Home Cook",
+                desc: "Skilled and hygienic cooks who specialize in home-style meals.",
+                icon: "👩‍🍳",
+                gradient: ['#c5d6efff', '#176269ff'],
+                iconBg: '#FFF5F5',
+              },
+              {
+                title: "Cleaning Help",
+                desc: "Reliable maids for daily, deep, or special occasion cleaning.",
+                icon: "🧼",
+                gradient: ['#c5d6efff', '#124c66ff'],
+                iconBg: '#F0F9F8',
+              },
+              {
+                title: "Caregiver",
+                desc: "Trained support for children, seniors, or patients at home.",
+                icon: "❤️",
+                gradient: ['#c5d6efff', '#233572ff'],
+                iconBg: '#FFF5F5',
+              },
+            ].map((service, index) => (
+              <TouchableOpacity 
+                key={index} 
+                style={styles.serviceCard}
+                onPress={() => handleLearnMore(service.title)}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={service.gradient}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
+                  style={styles.serviceCardGradient}
+                >
+                  <View style={styles.serviceCardContent}>
+                    <View style={[styles.serviceIconContainer, { backgroundColor: service.iconBg }]}>
+                      <Text style={styles.serviceIcon}>{service.icon}</Text>
+                    </View>
+                    <Text style={styles.serviceTitle}>{service.title}</Text>
+                    <Text style={styles.serviceDesc}>{service.desc}</Text>
+                    <View style={styles.learnMoreContainer}>
+                      <Text style={styles.learnMoreLink}>Learn More</Text>
+                      <Text style={styles.learnMoreArrow}>→</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
-      </LinearGradient>
-      
-      {/* Services Section */}
-      <View style={styles.servicesSection}>
-        <Text style={styles.sectionTitle}>Popular Services</Text>
-        <View style={styles.servicesGrid}>
-          {[
-            {
-              title: "Home Cook",
-              desc: "Skilled and hygienic cooks who specialize in home-style meals.",
-              icon: "👩‍🍳",
-              gradient: ['#c5d6efff', '#176269ff'],
-              iconBg: '#FFF5F5',
-            },
-            {
-              title: "Cleaning Help",
-              desc: "Reliable maids for daily, deep, or special occasion cleaning.",
-              icon: "🧼",
-              gradient: ['#c5d6efff', '#124c66ff'],
-              iconBg: '#F0F9F8',
-            },
-            {
-              title: "Caregiver",
-              desc: "Trained support for children, seniors, or patients at home.",
-              icon: "❤️",
-              gradient: ['#c5d6efff', '#233572ff'],
-              iconBg: '#FFF5F5',
-            },
-          ].map((service, index) => (
-            <TouchableOpacity 
-              key={index} 
-              style={styles.serviceCard}
-              onPress={() => handleLearnMore(service.title)}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={service.gradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.serviceCardGradient}
-              >
-                <View style={styles.serviceCardContent}>
-                  <View style={[styles.serviceIconContainer, { backgroundColor: service.iconBg }]}>
-                    <Text style={styles.serviceIcon}>{service.icon}</Text>
-                  </View>
-                  <Text style={styles.serviceTitle}>{service.title}</Text>
-                  <Text style={styles.serviceDesc}>{service.desc}</Text>
-                  <View style={styles.learnMoreContainer}>
-                    <Text style={styles.learnMoreLink}>Learn More</Text>
-                    <Text style={styles.learnMoreArrow}>→</Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
 
-      {/* How it works */}
-      <HowItWorksSection />
+        {/* How it works */}
+        <HowItWorksSection />
 
-      {/* Booking Dialog */}
-      <BookingDialog
-        open={open}
-        onClose={handleClose}
-        onSave={handleSave}
-        selectedOption={selectedRadioButtonValue}
-        onOptionChange={getSelectedValue}
-        startDate={startDate}
-        endDate={endDate}
-        startTime={startTime}
-        endTime={endTime}
-        setStartDate={setStartDate}
-        setEndDate={setEndDate}
-        setStartTime={setStartTime}
-        setEndTime={setEndTime}
-      />
+        {/* Booking Dialog */}
+        <BookingDialog
+          open={open}
+          onClose={handleClose}
+          onSave={handleSave}
+          selectedOption={selectedRadioButtonValue}
+          onOptionChange={getSelectedValue}
+          startDate={startDate}
+          endDate={endDate}
+          startTime={startTime}
+          endTime={endTime}
+          setStartDate={setStartDate}
+          setEndDate={setEndDate}
+          setStartTime={setStartTime}
+          setEndTime={setEndTime}
+        />
 
-      {/* Service Dialogs */}
-      {showCookDialog && (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogBox}>
-            <DemoCook
-              onClose={() => setShowCookDialog(false)}
-              sendDataToParent={sendDataToParent}
-              bookingType={{
-                startDate: startDate,
-                endDate: endDate || startDate,
-                timeRange: startTime
-                  ? `${startTime.format("HH:mm")} - ${endTime.format("HH:mm")}`
-                  : startTime?.format("HH:mm") || "",
-                bookingPreference: selectedRadioButtonValue,
-                housekeepingRole: selectedType,
-              }}
-            />
+        {/* Service Dialogs */}
+        {showCookDialog && (
+          <View style={styles.dialogOverlay}>
+            <View style={styles.dialogBox}>
+              <DemoCook
+                onClose={() => setShowCookDialog(false)}
+                sendDataToParent={sendDataToParent}
+                bookingType={{
+                  startDate: startDate,
+                  endDate: endDate || startDate,
+                  timeRange: startTime
+                    ? `${startTime.format("HH:mm")} - ${endTime.format("HH:mm")}`
+                    : startTime?.format("HH:mm") || "",
+                  bookingPreference: selectedRadioButtonValue,
+                  housekeepingRole: selectedType,
+                }}
+              />
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {showNannyServicesDialog && (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogBox}>
-           <NannyServicesDialog
-  open={showNannyServicesDialog}
-  handleClose={() => setShowNannyServicesDialog(false)}
-  sendDataToParent={sendDataToParent}
-  bookingType={{
-    start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
-    start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
-    end_date: endDate
-      ? new Date(endDate).toISOString().split("T")[0]
-      : startDate
-      ? new Date(startDate).toISOString().split("T")[0]
-      : "",
-    end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-    timeRange:
-      startTime
-        ? `${new Date(startTime).toTimeString().slice(0, 5)}`
-        : startTime
-        ? new Date(startTime).toTimeString().slice(0, 5)
+        {showNannyServicesDialog && (
+          <View style={styles.dialogOverlay}>
+            <View style={styles.dialogBox}>
+            <NannyServicesDialog
+      open={showNannyServicesDialog}
+      handleClose={() => setShowNannyServicesDialog(false)}
+      sendDataToParent={sendDataToParent}
+      bookingType={{
+        start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
+        start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
+        end_date: endDate
+          ? new Date(endDate).toISOString().split("T")[0]
+          : startDate
+          ? new Date(startDate).toISOString().split("T")[0]
+          : "",
+        end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
+        timeRange:
+          startTime
+            ? `${new Date(startTime).toTimeString().slice(0, 5)}`
+            : startTime
+            ? new Date(startTime).toTimeString().slice(0, 5)
+            : "",
+        bookingPreference: selectedRadioButtonValue,
+        housekeepingRole: selectedType,
+      }}
+    />
+
+            </View>
+          </View>
+        )}
+
+        {showMaidServiceDialog && (
+          <View style={styles.dialogOverlay}>
+            <View style={styles.dialogBox}>
+              <MaidServiceDialog
+                open={showMaidServiceDialog}
+                handleClose={() => setShowMaidServiceDialog(false)}
+                sendDataToParent={sendDataToParent}
+                bookingType={{
+      start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
+      start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
+      end_date: endDate
+        ? new Date(endDate).toISOString().split("T")[0]
+        : startDate
+        ? new Date(startDate).toISOString().split("T")[0]
         : "",
-    bookingPreference: selectedRadioButtonValue,
-    housekeepingRole: selectedType,
-  }}
-/>
-
+      end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
+      timeRange:
+        startTime
+          ? `${new Date(startTime).toTimeString().slice(0, 5)}`
+          : startTime
+          ? new Date(startTime).toTimeString().slice(0, 5)
+          : "",
+      bookingPreference: selectedRadioButtonValue,
+      housekeepingRole: selectedType,
+    }}
+              />
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {showMaidServiceDialog && (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogBox}>
-            <MaidServiceDialog
-              open={showMaidServiceDialog}
-              handleClose={() => setShowMaidServiceDialog(false)}
-              sendDataToParent={sendDataToParent}
-               bookingType={{
-    start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
-    start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
-    end_date: endDate
-      ? new Date(endDate).toISOString().split("T")[0]
-      : startDate
-      ? new Date(startDate).toISOString().split("T")[0]
-      : "",
-    end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-    timeRange:
-      startTime
-        ? `${new Date(startTime).toTimeString().slice(0, 5)}`
-        : startTime
-        ? new Date(startTime).toTimeString().slice(0, 5)
-        : "",
-    bookingPreference: selectedRadioButtonValue,
-    housekeepingRole: selectedType,
-  }}
-            />
-          </View>
-        </View>
-      )}
+        <ServiceDetailsDialog
+          open={serviceDetailsOpen}
+          onClose={() => setServiceDetailsOpen(false)}
+          serviceType={selectedServiceType}
+        />
+      </ScrollView>
 
-      <ServiceDetailsDialog
-        open={serviceDetailsOpen}
-        onClose={() => setServiceDetailsOpen(false)}
-        serviceType={selectedServiceType}
-      />
-    </ScrollView>
+      {/* Agent Registration Modal */}
+      <Modal visible={showAgentRegistration} animationType="slide">
+        <AgentRegistrationForm
+          onBackToLogin={() => setShowAgentRegistration(false)}
+          onRegistrationSuccess={() => setShowAgentRegistration(false)}
+        />
+      </Modal>
+
+      {/* Service Provider Registration - rendered conditionally */}
+      {showRegistration && (
+        <ServiceProviderRegistration
+          onBackToLogin={() => setShowRegistration(false)}
+        />
+      )}
+    </View>
   );
 };
 
 const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop: 16,
+  },
+  container: {
+    flex: 1,
   },
   selectorTitle: {
     fontSize: 18,
