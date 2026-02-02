@@ -1,0 +1,66 @@
+name: Android CI/CD – Firebase Distribution
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+  workflow_dispatch:
+
+jobs:
+  build-and-distribute:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # -----------------------
+      # Node + Java setup
+      # -----------------------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # -----------------------
+      # Install dependencies
+      # -----------------------
+      - name: Install JS deps
+        run: |
+          npm install
+
+      # -----------------------
+      # Decode keystore
+      # -----------------------
+      - name: Decode Android Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/release.keystore
+
+      # -----------------------
+      # Build APK
+      # -----------------------
+      - name: Build Release APK
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      # -----------------------
+      # Firebase App Distribution
+      # -----------------------
+      - name: Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: 1:898242390178:android:e6c6099b67dbd130aa4ffb
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: internal-testers
+          file: android/app/build/outputs/apk/release/app-release.apk
+          releaseNotes: |
+            Automated CI build
+            Commit: ${{ github.sha }}
