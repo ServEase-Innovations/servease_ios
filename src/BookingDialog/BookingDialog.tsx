@@ -16,6 +16,7 @@ import dayjs, { Dayjs } from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import LinearGradient from "react-native-linear-gradient";
+import DribbbleDateTimePicker from "../common/DribbbleDateTimePicker";
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
@@ -51,8 +52,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   setStartTime,
   setEndTime,
 }) => {
-  const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(null);
-  const [showCustomTimePicker, setShowCustomTimePicker] = useState<"start" | "end" | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(
+    null,
+  );
+  const [showCustomTimePicker, setShowCustomTimePicker] = useState<
+    "start" | "end" | null
+  >(null);
   const [tempDate, setTempDate] = useState<Date | null>(null);
   const [customHours, setCustomHours] = useState<number>(12);
   const [customMinutes, setCustomMinutes] = useState<number>(0);
@@ -75,9 +80,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   // Initialize custom time picker with current time
   useEffect(() => {
     if (showCustomTimePicker) {
-      const currentTime = showCustomTimePicker === "start" ? startTime : endTime;
+      const currentTime =
+        showCustomTimePicker === "start" ? startTime : endTime;
       const now = dayjs();
-      let defaultTime = now.add(30, 'minute'); // Default to 30 minutes from now
+      let defaultTime = now.add(30, "minute"); // Default to 30 minutes from now
 
       if (currentTime) {
         defaultTime = currentTime;
@@ -92,7 +98,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
       const hours = defaultTime.hour();
       const minutes = defaultTime.minute();
-      
+
       if (use24HourFormat) {
         // 24-hour format
         setCustomHours(hours);
@@ -127,15 +133,15 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === "android") {
       setShowDatePicker(null);
     }
 
     if (selectedDate && showDatePicker) {
       setTempDate(selectedDate);
-      
+
       // Auto-show time picker after date selection on Android
-      if (Platform.OS === 'android') {
+      if (Platform.OS === "android") {
         setTimeout(() => {
           setShowCustomTimePicker(showDatePicker);
         }, 100);
@@ -143,15 +149,22 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
   };
 
-  const isTimeValid = (hours24: number, minutes: number, type: "start" | "end"): boolean => {
+  const isTimeValid = (
+    hours24: number,
+    minutes: number,
+    type: "start" | "end",
+  ): boolean => {
     const now = dayjs();
-    const selectedDateTime = tempDate 
+    const selectedDateTime = tempDate
       ? dayjs(tempDate).hour(hours24).minute(minutes)
       : dayjs().hour(hours24).minute(minutes);
 
     // For start time, check 30-minute minimum gap
     if (type === "start") {
-      if (selectedDateTime.isSame(now, 'day') && selectedDateTime.isBefore(now.add(30, 'minute'))) {
+      if (
+        selectedDateTime.isSame(now, "day") &&
+        selectedDateTime.isBefore(now.add(30, "minute"))
+      ) {
         return false;
       }
     }
@@ -166,24 +179,26 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   const getValidTimeOptions = (type: "start" | "end") => {
     const now = dayjs();
-    const isToday = tempDate ? dayjs(tempDate).isSame(now, 'day') : true;
-    
+    const isToday = tempDate ? dayjs(tempDate).isSame(now, "day") : true;
+
     // For 24-hour format: 5 to 21 (5 AM to 9 PM)
-    const hours24 = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+    const hours24 = [
+      5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+    ];
     const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-    
-    const validHours = hours24.filter(hour24 => {
+
+    const validHours = hours24.filter((hour24) => {
       // For start times on today, check 30-minute minimum
       if (type === "start" && isToday) {
-        const testTime = tempDate 
+        const testTime = tempDate
           ? dayjs(tempDate).hour(hour24).minute(0)
           : dayjs().hour(hour24).minute(0);
-        
-        if (testTime.isBefore(now.add(30, 'minute'))) {
+
+        if (testTime.isBefore(now.add(30, "minute"))) {
           return false;
         }
       }
-      
+
       return hour24 >= 5 && hour24 < 22;
     });
 
@@ -192,14 +207,17 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   const handleCustomTimeConfirm = () => {
     if (showCustomTimePicker) {
-      console.log("🕒 handleCustomTimeConfirm called for:", showCustomTimePicker);
-      
+      console.log(
+        "🕒 handleCustomTimeConfirm called for:",
+        showCustomTimePicker,
+      );
+
       // Convert to 24-hour format for storage
       let hours24 = customHours;
       if (!use24HourFormat) {
         console.log("🔄 Converting from 12-hour to 24-hour format");
         console.log("📊 Before conversion:", { customHours, customAmPm });
-        
+
         // Convert from 12-hour to 24-hour format
         if (customAmPm === "PM" && customHours !== 12) {
           hours24 = customHours + 12;
@@ -208,31 +226,36 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         }
         // If AM and not 12, hours24 remains the same
         // If PM and 12, hours24 remains 12
-        
+
         console.log("📊 After conversion:", { hours24 });
       }
 
       // Store as clean 24-hour format string
-      const timeString = `${hours24.toString().padStart(2, '0')}:${customMinutes.toString().padStart(2, '0')}`;
+      const timeString = `${hours24.toString().padStart(2, "0")}:${customMinutes
+        .toString()
+        .padStart(2, "0")}`;
       console.log("✅ Final time string (24h):", timeString);
 
       // Validate time
       if (!isTimeValid(hours24, customMinutes, showCustomTimePicker)) {
         const now = dayjs();
-        const selectedDateTime = tempDate 
+        const selectedDateTime = tempDate
           ? dayjs(tempDate).hour(hours24).minute(customMinutes)
           : dayjs().hour(hours24).minute(customMinutes);
 
-        if (selectedDateTime.isBefore(now.add(30, 'minute')) && showCustomTimePicker === "start") {
+        if (
+          selectedDateTime.isBefore(now.add(30, "minute")) &&
+          showCustomTimePicker === "start"
+        ) {
           Alert.alert(
             "Invalid Time",
-            "Please select a time at least 30 minutes from now"
+            "Please select a time at least 30 minutes from now",
           );
           return;
         } else if (hours24 < 5 || hours24 >= 22) {
           Alert.alert(
             "Invalid Time",
-            "Please select a time between 5 AM (05:00) and 10 PM (22:00)"
+            "Please select a time between 5 AM (05:00) and 10 PM (22:00)",
           );
           return;
         }
@@ -249,14 +272,18 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         console.log("📅 Using tempDate with time:", selectedDateTime.format());
         setTempDate(null);
       } else {
-        const currentDateTime = showCustomTimePicker === "start" ? startTime : endTime;
+        const currentDateTime =
+          showCustomTimePicker === "start" ? startTime : endTime;
         if (currentDateTime) {
           selectedDateTime = currentDateTime
             .hour(hours24)
             .minute(customMinutes)
             .second(0)
             .millisecond(0);
-          console.log("📅 Using existing datetime with new time:", selectedDateTime.format());
+          console.log(
+            "📅 Using existing datetime with new time:",
+            selectedDateTime.format(),
+          );
         } else {
           // Create new datetime with today's date and selected time
           selectedDateTime = dayjs()
@@ -299,9 +326,15 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     console.log("🔄 updateStartDateTime called:", newDateTime.format());
 
     // Ensure start time is at least 30 minutes from now if it's today
-    if (newDateTime.isSame(now, 'day') && newDateTime.isBefore(now.add(30, 'minute'))) {
-      adjustedDateTime = now.add(30, 'minute');
-      console.log("⏰ Adjusted to 30 mins from now:", adjustedDateTime.format());
+    if (
+      newDateTime.isSame(now, "day") &&
+      newDateTime.isBefore(now.add(30, "minute"))
+    ) {
+      adjustedDateTime = now.add(30, "minute");
+      console.log(
+        "⏰ Adjusted to 30 mins from now:",
+        adjustedDateTime.format(),
+      );
     }
 
     // Ensure time is within 5 AM - 10 PM
@@ -338,7 +371,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       const endDateValue = adjustedDateTime.add(1, "month");
       setEndDate(endDateValue.format("YYYY-MM-DD"));
       setEndTime(endDateValue);
-      console.log("📅 Set monthly end date:", endDateValue.format("YYYY-MM-DD"));
+      console.log(
+        "📅 Set monthly end date:",
+        endDateValue.format("YYYY-MM-DD"),
+      );
     }
   };
 
@@ -349,8 +385,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
     // Ensure end time is after start time
     if (startTime && newDateTime.isBefore(startTime)) {
-      adjustedDateTime = startTime.add(1, 'hour');
-      console.log("⏩ Adjusted end time to be after start:", adjustedDateTime.format());
+      adjustedDateTime = startTime.add(1, "hour");
+      console.log(
+        "⏩ Adjusted end time to be after start:",
+        adjustedDateTime.format(),
+      );
     }
 
     // Ensure time is within 5 AM - 10 PM
@@ -389,10 +428,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     // Final validation before saving
     if (startTime) {
       const now = dayjs();
-      if (startTime.isSame(now, 'day') && startTime.isBefore(now.add(30, 'minute'))) {
+      if (
+        startTime.isSame(now, "day") &&
+        startTime.isBefore(now.add(30, "minute"))
+      ) {
         Alert.alert(
           "Invalid Time",
-          "Please select a start time at least 30 minutes from now"
+          "Please select a start time at least 30 minutes from now",
         );
         return;
       }
@@ -401,7 +443,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       if (hour < 5 || hour >= 22) {
         Alert.alert(
           "Invalid Time",
-          "Please select a time between 5 AM (05:00) and 10 PM (22:00)"
+          "Please select a time between 5 AM (05:00) and 10 PM (22:00)",
         );
         return;
       }
@@ -434,9 +476,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   // Custom Time Picker Component
   const renderCustomTimePicker = () => {
-    const { validHours, validMinutes } = getValidTimeOptions(showCustomTimePicker!);
+    const { validHours, validMinutes } = getValidTimeOptions(
+      showCustomTimePicker!,
+    );
     const now = dayjs();
-    const isToday = tempDate ? dayjs(tempDate).isSame(now, 'day') : true;
+    const isToday = tempDate ? dayjs(tempDate).isSame(now, "day") : true;
 
     // Convert current selection to 24-hour format for validation
     let currentHours24 = customHours;
@@ -448,13 +492,21 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       }
     }
 
-    const isCurrentTimeValid = isTimeValid(currentHours24, customMinutes, showCustomTimePicker!);
+    const isCurrentTimeValid = isTimeValid(
+      currentHours24,
+      customMinutes,
+      showCustomTimePicker!,
+    );
 
     const getDisplayTime = () => {
       if (use24HourFormat) {
-        return `${currentHours24.toString().padStart(2, '0')}:${customMinutes.toString().padStart(2, '0')}`;
+        return `${currentHours24.toString().padStart(2, "0")}:${customMinutes
+          .toString()
+          .padStart(2, "0")}`;
       } else {
-        return `${customHours}:${customMinutes.toString().padStart(2, '0')} ${customAmPm}`;
+        return `${customHours}:${customMinutes
+          .toString()
+          .padStart(2, "0")} ${customAmPm}`;
       }
     };
 
@@ -467,7 +519,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           hours24 = 0;
         }
       }
-      return `${hours24.toString().padStart(2, '0')}:${customMinutes.toString().padStart(2, '0')}`;
+      return `${hours24.toString().padStart(2, "0")}:${customMinutes
+        .toString()
+        .padStart(2, "0")}`;
     };
 
     return (
@@ -475,73 +529,83 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         <Text style={styles.customTimePickerTitle}>
           Select {showCustomTimePicker === "start" ? "Start" : "End"} Time
         </Text>
-        
+
         <View style={styles.formatToggle}>
           <TouchableOpacity
             style={[
               styles.formatButton,
-              !use24HourFormat && styles.formatButtonActive
+              !use24HourFormat && styles.formatButtonActive,
             ]}
             onPress={() => setUse24HourFormat(false)}
           >
-            <Text style={[
-              styles.formatButtonText,
-              !use24HourFormat && styles.formatButtonTextActive
-            ]}>
+            <Text
+              style={[
+                styles.formatButtonText,
+                !use24HourFormat && styles.formatButtonTextActive,
+              ]}
+            >
               12H
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.formatButton,
-              use24HourFormat && styles.formatButtonActive
+              use24HourFormat && styles.formatButtonActive,
             ]}
             onPress={() => setUse24HourFormat(true)}
           >
-            <Text style={[
-              styles.formatButtonText,
-              use24HourFormat && styles.formatButtonTextActive
-            ]}>
+            <Text
+              style={[
+                styles.formatButtonText,
+                use24HourFormat && styles.formatButtonTextActive,
+              ]}
+            >
               24H
             </Text>
           </TouchableOpacity>
         </View>
-        
+
         <Text style={styles.timeRangeInfo}>
-          Available: 5 AM - 10 PM (05:00 - 22:00 GMT){showCustomTimePicker === "start" && isToday ? " • Min. 30 mins from now" : ""}
+          Available: 5 AM - 10 PM (05:00 - 22:00 GMT)
+          {showCustomTimePicker === "start" && isToday
+            ? " • Min. 30 mins from now"
+            : ""}
         </Text>
-        
+
         <View style={styles.customTimePicker}>
           {/* Hours Column */}
-          <ScrollView style={styles.timeColumn} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.timeColumn}
+            showsVerticalScrollIndicator={false}
+          >
             {validHours.map((hour) => {
               let displayHour, displayText;
-              
+
               if (use24HourFormat) {
                 displayHour = hour;
-                displayText = hour.toString().padStart(2, '0');
+                displayText = hour.toString().padStart(2, "0");
               } else {
                 // Convert to 12-hour format for display
                 if (hour === 0) {
                   displayHour = 12;
-                  displayText = '12';
+                  displayText = "12";
                 } else if (hour < 12) {
                   displayHour = hour;
                   displayText = hour.toString();
                 } else if (hour === 12) {
                   displayHour = 12;
-                  displayText = '12';
+                  displayText = "12";
                 } else {
                   displayHour = hour - 12;
                   displayText = (hour - 12).toString();
                 }
               }
 
-              const isSelected = use24HourFormat 
+              const isSelected = use24HourFormat
                 ? customHours === hour
-                : customHours === displayHour && 
-                  ((hour < 12 && customAmPm === "AM") || 
-                   (hour >= 12 && customAmPm === "PM"));
+                : customHours === displayHour &&
+                  ((hour < 12 && customAmPm === "AM") ||
+                    (hour >= 12 && customAmPm === "PM"));
 
               return (
                 <TouchableOpacity
@@ -559,18 +623,22 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     }
                   }}
                 >
-                  <Text style={[
-                    styles.timeOptionText,
-                    isSelected && styles.timeOptionTextSelected,
-                  ]}>
+                  <Text
+                    style={[
+                      styles.timeOptionText,
+                      isSelected && styles.timeOptionTextSelected,
+                    ]}
+                  >
                     {displayText}
                   </Text>
                   {!use24HourFormat && (
-                    <Text style={[
-                      styles.timePeriodText,
-                      isSelected && styles.timePeriodTextSelected,
-                    ]}>
-                      {hour < 12 ? 'AM' : 'PM'}
+                    <Text
+                      style={[
+                        styles.timePeriodText,
+                        isSelected && styles.timePeriodTextSelected,
+                      ]}
+                    >
+                      {hour < 12 ? "AM" : "PM"}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -579,7 +647,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </ScrollView>
 
           {/* Minutes Column */}
-          <ScrollView style={styles.timeColumn} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.timeColumn}
+            showsVerticalScrollIndicator={false}
+          >
             {validMinutes.map((minute) => (
               <TouchableOpacity
                 key={minute}
@@ -589,11 +660,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 ]}
                 onPress={() => setCustomMinutes(minute)}
               >
-                <Text style={[
-                  styles.timeOptionText,
-                  customMinutes === minute && styles.timeOptionTextSelected,
-                ]}>
-                  {minute.toString().padStart(2, '0')}
+                <Text
+                  style={[
+                    styles.timeOptionText,
+                    customMinutes === minute && styles.timeOptionTextSelected,
+                  ]}
+                >
+                  {minute.toString().padStart(2, "0")}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -609,10 +682,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 ]}
                 onPress={() => setCustomAmPm("AM")}
               >
-                <Text style={[
-                  styles.timeOptionText,
-                  customAmPm === "AM" && styles.timeOptionTextSelected,
-                ]}>
+                <Text
+                  style={[
+                    styles.timeOptionText,
+                    customAmPm === "AM" && styles.timeOptionTextSelected,
+                  ]}
+                >
                   AM
                 </Text>
               </TouchableOpacity>
@@ -623,10 +698,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 ]}
                 onPress={() => setCustomAmPm("PM")}
               >
-                <Text style={[
-                  styles.timeOptionText,
-                  customAmPm === "PM" && styles.timeOptionTextSelected,
-                ]}>
+                <Text
+                  style={[
+                    styles.timeOptionText,
+                    customAmPm === "PM" && styles.timeOptionTextSelected,
+                  ]}
+                >
                   PM
                 </Text>
               </TouchableOpacity>
@@ -634,48 +711,52 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           )}
         </View>
 
-        <View style={[
-          styles.selectedTimeDisplay,
-          !isCurrentTimeValid && styles.selectedTimeDisplayInvalid
-        ]}>
-          <Text style={[
-            styles.selectedTimeText,
-            !isCurrentTimeValid && styles.selectedTimeTextInvalid
-          ]}>
+        <View
+          style={[
+            styles.selectedTimeDisplay,
+            !isCurrentTimeValid && styles.selectedTimeDisplayInvalid,
+          ]}
+        >
+          <Text
+            style={[
+              styles.selectedTimeText,
+              !isCurrentTimeValid && styles.selectedTimeTextInvalid,
+            ]}
+          >
             Selected: {getDisplayTime()}
           </Text>
-          <Text style={styles.gmtTimeText}>
-            GMT: {get24HourDisplay()}
-          </Text>
+          <Text style={styles.gmtTimeText}>GMT: {get24HourDisplay()}</Text>
           {!isCurrentTimeValid && (
             <Text style={styles.validationText}>
-              {showCustomTimePicker === "start" && isToday ? 
-                "Must be at least 30 minutes from now" : 
-                "Must be between 05:00 and 22:00 GMT"}
+              {showCustomTimePicker === "start" && isToday
+                ? "Must be at least 30 minutes from now"
+                : "Must be between 05:00 and 22:00 GMT"}
             </Text>
           )}
         </View>
 
         <View style={styles.customTimePickerActions}>
-          <TouchableOpacity 
-            style={styles.customTimePickerButton} 
+          <TouchableOpacity
+            style={styles.customTimePickerButton}
             onPress={handleCustomTimeCancel}
           >
             <Text style={styles.customTimePickerButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.customTimePickerButton, 
+              styles.customTimePickerButton,
               styles.customTimePickerButtonConfirm,
-              !isCurrentTimeValid && styles.disabledButton
-            ]} 
+              !isCurrentTimeValid && styles.disabledButton,
+            ]}
             onPress={handleCustomTimeConfirm}
             disabled={!isCurrentTimeValid}
           >
-            <Text style={[
-              styles.customTimePickerButtonText, 
-              styles.customTimePickerButtonTextConfirm
-            ]}>
+            <Text
+              style={[
+                styles.customTimePickerButtonText,
+                styles.customTimePickerButtonTextConfirm,
+              ]}
+            >
               Confirm
             </Text>
           </TouchableOpacity>
@@ -729,87 +810,45 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             {selectedOption === "Date" && (
               <>
                 <View style={styles.dateTimeContainer}>
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleDateSelect("start")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {startDate
-                        ? `Date: ${dayjs(startDate).format("MMM D, YYYY")}`
-                        : "Select Date"}
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleTimeSelect("start")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {startTime
-                        ? `Time: ${startTime.format("HH:mm")} GMT`
-                        : "Select Time"}
-                    </Text>
-                  </TouchableOpacity>
+                  <DribbbleDateTimePicker
+                    mode="single"
+                    value={startTime?.toDate()}
+                    onChange={(date: Date) => {
+                      const selected = dayjs(date);
+                      const now = dayjs();
+
+                      // ⛔ past dates
+                      if (selected.isBefore(now, "day")) return;
+
+                      // ⛔ max 21 days
+                      if (selected.isAfter(maxDate21Days, "day")) return;
+
+                      // ⛔ 30 min rule
+                      if (
+                        selected.isSame(now, "day") &&
+                        selected.isBefore(now.add(30, "minute"))
+                      ) {
+                        Alert.alert(
+                          "Invalid Time",
+                          "Select at least 30 minutes from now",
+                        );
+                        return;
+                      }
+
+                      updateStartDateTime(selected);
+                    }}
+                  />
                 </View>
 
-                {/* Date Picker */}
-                {showDatePicker === "start" && (
-                  <DateTimePicker
-                    value={startTime ? new Date(startTime.toISOString()) : new Date()}
-                    mode="date"
-                    display={Platform.OS === "ios" ? "inline" : "default"}
-                    minimumDate={new Date()}
-                    maximumDate={getMaximumDate()}
-                    onChange={handleDateChange}
-                  />
-                )}
-
-                {/* Custom Time Picker */}
-                {showCustomTimePicker === "start" && renderCustomTimePicker()}
-
-                {startDate && (
+                {startDate && startTime && (
                   <View style={styles.confirmBox}>
                     <Text style={styles.sectionTitle}>Booking Details</Text>
                     <Text style={styles.sectionText}>
-                      Start: {dayjs(startDate).format("MMMM D, YYYY [at] HH:mm")} GMT
+                      Start: {startTime.format("MMMM D, YYYY [at] HH:mm")} GMT
                     </Text>
                     <Text style={styles.sectionText}>
                       Duration: {duration} hour{duration > 1 ? "s" : ""}
                     </Text>
-
-                    <View style={styles.durationRow}>
-                      <TouchableOpacity
-                        style={styles.adjustButton}
-                        onPress={() => {
-                          if (startTime && endTime && duration > 1) {
-                            const newEnd = startTime.add(duration - 1, "hour");
-                            setEndTime(newEnd);
-                            setEndDate(newEnd.toISOString());
-                          }
-                        }}
-                      >
-                        <Text style={styles.adjustText}>-</Text>
-                      </TouchableOpacity>
-
-                      <Text style={styles.durationText}>
-                        {duration} hour{duration > 1 ? "s" : ""}
-                      </Text>
-
-                      <TouchableOpacity
-                        style={styles.adjustButton}
-                        onPress={() => {
-                          if (startTime && endTime) {
-                            const newEnd = startTime.add(duration + 1, "hour");
-                            if (newEnd.hour() < 22) {
-                              setEndTime(newEnd);
-                              setEndDate(newEnd.toISOString());
-                            }
-                          }
-                        }}
-                      >
-                        <Text style={styles.adjustText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
                   </View>
                 )}
               </>
@@ -818,80 +857,44 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             {/* SHORT TERM Option */}
             {selectedOption === "Short term" && (
               <>
-                <Text style={styles.subtitle}>Start Date & Time</Text>
-                <View style={styles.dateTimeContainer}>
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleDateSelect("start")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {startDate
-                        ? `Date: ${dayjs(startDate).format("MMM D, YYYY")}`
-                        : "Select Start Date"}
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleTimeSelect("start")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {startTime
-                        ? `Time: ${startTime.format("HH:mm")} GMT`
-                        : "Select Start Time"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.subtitle}>Select Date Range & Time</Text>
 
-                <Text style={styles.subtitle}>End Date & Time</Text>
                 <View style={styles.dateTimeContainer}>
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleDateSelect("end")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {endDate
-                        ? `Date: ${dayjs(endDate).format("MMM D, YYYY")}`
-                        : "Select End Date"}
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleTimeSelect("end")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {endTime
-                        ? `Time: ${endTime.format("HH:mm")} GMT`
-                        : "Select End Time"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                  <DribbbleDateTimePicker
+                    mode="range"
+                    value={{
+                      startDate: startTime?.toDate(),
+                      endDate: endTime?.toDate(),
+                    }}
+                    onChange={({ startDate, endDate }) => {
+                      const start = dayjs(startDate);
+                      const end = dayjs(endDate);
 
-                {/* Date Pickers */}
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={
-                      showDatePicker === "start"
-                        ? (startTime ? new Date(startTime.toISOString()) : new Date())
-                        : (endTime ? new Date(endTime.toISOString()) : new Date())
-                    }
-                    mode="date"
-                    display={Platform.OS === "ios" ? "inline" : "default"}
-                    minimumDate={
-                      showDatePicker === "start"
-                        ? new Date()
-                        : startDate
-                        ? new Date(dayjs(startDate).toISOString())
-                        : new Date()
-                    }
-                    maximumDate={getMaximumDate()}
-                    onChange={handleDateChange}
+                      // ⛔ max 21 days
+                      if (end.diff(start, "day") > 21) {
+                        Alert.alert("Invalid Range", "Maximum 21 days allowed");
+                        return;
+                      }
+
+                      setStartDate(start.format("YYYY-MM-DD"));
+                      setEndDate(end.format("YYYY-MM-DD"));
+                      setStartTime(start);
+                      setEndTime(end);
+                    }}
                   />
-                )}
+                </View>
 
-                {/* Custom Time Picker */}
-                {showCustomTimePicker && renderCustomTimePicker()}
+                {startTime && endTime && (
+                  <View style={styles.confirmBox}>
+                    <Text style={styles.sectionTitle}>Booking Details</Text>
+                    <Text style={styles.sectionText}>
+                      From: {startTime.format("MMM D, YYYY HH:mm")} GMT
+                    </Text>
+                    <Text style={styles.sectionText}>
+                      To: {endTime.format("MMM D, YYYY HH:mm")} GMT
+                    </Text>
+                  </View>
+                )}
               </>
             )}
 
@@ -899,52 +902,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             {selectedOption === "Monthly" && (
               <>
                 <View style={styles.dateTimeContainer}>
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleDateSelect("start")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {startDate
-                        ? `Date: ${dayjs(startDate).format("MMM D, YYYY")}`
-                        : "Select Start Date"}
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => handleTimeSelect("start")}
-                  >
-                    <Text style={styles.dateButtonText}>
-                      {startTime
-                        ? `Time: ${startTime.format("HH:mm")} GMT`
-                        : "Select Start Time"}
-                    </Text>
-                  </TouchableOpacity>
+                  <DribbbleDateTimePicker
+                    mode="single"
+                    value={startTime?.toDate()}
+                    onChange={(date: Date) => {
+                      const start = dayjs(date);
+
+                      if (start.isBefore(dayjs(), "day")) return;
+                      if (start.isAfter(maxDate90Days, "day")) return;
+
+                      const end = start.add(1, "month");
+
+                      setStartDate(start.format("YYYY-MM-DD"));
+                      setStartTime(start);
+                      setEndDate(end.format("YYYY-MM-DD"));
+                      setEndTime(end);
+                    }}
+                  />
                 </View>
 
-                {/* Date Picker */}
-                {showDatePicker === "start" && (
-                  <DateTimePicker
-                    value={startTime ? new Date(startTime.toISOString()) : new Date()}
-                    mode="date"
-                    display={Platform.OS === "ios" ? "inline" : "default"}
-                    minimumDate={new Date()}
-                    maximumDate={getMaximumDate()}
-                    onChange={handleDateChange}
-                  />
-                )}
-
-                {/* Custom Time Picker */}
-                {showCustomTimePicker === "start" && renderCustomTimePicker()}
-
-                {startDate && (
+                {startTime && (
                   <View style={styles.confirmBox}>
-                    <Text style={styles.sectionTitle}>Monthly Booking Details</Text>
+                    <Text style={styles.sectionTitle}>Monthly Booking</Text>
                     <Text style={styles.sectionText}>
-                      Start: {dayjs(startDate).format("MMMM D, YYYY [at] HH:mm")} GMT
+                      Start: {startTime.format("MMMM D, YYYY HH:mm")} GMT
                     </Text>
                     <Text style={styles.sectionText}>
-                      End: {dayjs(startDate).add(1, 'month').format("MMMM D, YYYY [at] HH:mm")} GMT
+                      End:{" "}
+                      {startTime.add(1, "month").format("MMMM D, YYYY HH:mm")}{" "}
+                      GMT
                     </Text>
                   </View>
                 )}
@@ -955,7 +941,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             <View style={styles.actions}>
               <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
                 <Text style={styles.cancelText}>Cancel</Text>
-                
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -990,7 +975,7 @@ const styles = StyleSheet.create({
     width: Dimensions.get("window").width * 0.9,
     maxHeight: Dimensions.get("window").height * 0.85,
     borderRadius: 12,
-    overflow: 'hidden', // Important for gradient corners
+    overflow: "hidden", // Important for gradient corners
   },
   headerContainer: {
     padding: 20,
@@ -1146,10 +1131,10 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   formatToggle: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginBottom: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     borderRadius: 8,
     padding: 4,
   },
@@ -1158,25 +1143,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
   },
   formatButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
   },
   formatButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
   },
   formatButtonTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   timeRangeInfo: {
     fontSize: 12,
     textAlign: "center",
     color: "#666",
     marginBottom: 16,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   customTimePicker: {
     flexDirection: "row",
@@ -1248,7 +1233,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#FF3B30",
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   customTimePickerActions: {
     flexDirection: "row",
