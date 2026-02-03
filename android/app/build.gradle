@@ -50,13 +50,12 @@ android {
     signingConfigs {
         
         release {
-        if (keystoreFile.exists()) {
-            storeFile keystoreFile
-            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            keyAlias System.getenv("ANDROID_KEY_ALIAS")
-            keyPassword System.getenv("ANDROID_KEY_PASSWORD")
-        }
+        storeFile file("$rootDir/release.keystore")
+        storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+        keyAlias System.getenv("ANDROID_KEY_ALIAS")
+        keyPassword System.getenv("ANDROID_KEY_PASSWORD")
     }
+
     }
 
     buildTypes {
@@ -65,11 +64,16 @@ android {
         }
 
         release {
+        if (file("$rootDir/release.keystore").exists()) {
             signingConfig signingConfigs.release
-            minifyEnabled false
-            shrinkResources false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+
+        minifyEnabled false
+        shrinkResources false
+        proguardFiles getDefaultProguardFile(
+            'proguard-android-optimize.txt'
+        ), 'proguard-rules.pro'
+    }
     }
 }
 
