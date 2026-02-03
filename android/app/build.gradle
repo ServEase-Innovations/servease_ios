@@ -12,6 +12,8 @@ react {
 
 def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+def keystoreFile = file("$rootDir/release.keystore")
+
 
 /**
  * Hermes Fix for CI – prevents "unknown property hermesEnabled"
@@ -48,14 +50,13 @@ android {
     signingConfigs {
         
         release {
-            // Safe signing config (works locally + CI)
-            if (project.hasProperty("MYAPP_UPLOAD_STORE_FILE")) {
-                storeFile file(MYAPP_UPLOAD_STORE_FILE)
-                storePassword MYAPP_UPLOAD_STORE_PASSWORD
-                keyAlias MYAPP_UPLOAD_KEY_ALIAS
-                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
-            }
+        if (keystoreFile.exists()) {
+            storeFile keystoreFile
+            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias System.getenv("ANDROID_KEY_ALIAS")
+            keyPassword System.getenv("ANDROID_KEY_PASSWORD")
         }
+    }
     }
 
     buildTypes {
