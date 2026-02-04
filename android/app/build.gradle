@@ -38,9 +38,6 @@ android {
         versionCode 1
         versionName "1.0"
 
-        // Remove forced NDK download (CI crash fix)
-        // ndkVersion "27.1.12297006"
-
         manifestPlaceholders = [
             auth0Domain: "dev-y0yafxo2cjqtu8y2.us.auth0.com",
             auth0Scheme: "${applicationId}.auth0"
@@ -48,34 +45,30 @@ android {
     }
 
     signingConfigs {
-        
         release {
-        storeFile file("$rootDir/release.keystore")
-        storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-        keyAlias System.getenv("ANDROID_KEY_ALIAS")
-        keyPassword System.getenv("ANDROID_KEY_PASSWORD")
-    }
-
+            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH") ?: "$rootDir/release.keystore")
+            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias System.getenv("ANDROID_KEY_ALIAS")
+            keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
         debug {
-            
+            // debug config (optional)
         }
 
         release {
-        if (file("$rootDir/release.keystore").exists()) {
             signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile(
+                'proguard-android-optimize.txt'
+            ), 'proguard-rules.pro'
         }
-
-        minifyEnabled false
-        shrinkResources false
-        proguardFiles getDefaultProguardFile(
-            'proguard-android-optimize.txt'
-        ), 'proguard-rules.pro'
-    }
     }
 }
+
 
 dependencies {
     // React Native Android
