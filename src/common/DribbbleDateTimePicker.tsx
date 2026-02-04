@@ -269,9 +269,11 @@ export default function DribbbleDateTimePicker(props: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 16,
-    width: 360,
+  borderRadius: 18,
+  padding: 16,
+  width: "100%",
+  maxWidth: 380,   // optional, keeps Dribbble look on tablets
+  alignSelf: "center",
   },
 
   header: {
@@ -292,14 +294,15 @@ const styles = StyleSheet.create({
 
   weekRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
+    // justifyContent: "space-between",
+    // marginTop: 12,
   },
 
   weekDay: {
-    width: "14.28%",
-    textAlign: "center",
-    color: "#999",
+    flex: 1,
+  textAlign: "center",
+  color: "#999",
+
   },
 
   grid: {
@@ -314,11 +317,10 @@ const styles = StyleSheet.create({
   },
 
   day: {
-    width: "14.28%",
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: 2,
+      flexBasis: "14.2857%", // safer than width
+  height: 36,
+  justifyContent: "center",
+  alignItems: "center",
   },
 
   dayText: {
@@ -373,19 +375,19 @@ const styles = StyleSheet.create({
   },
 
   timeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "space-between",
+},
 
-  timeChip: {
-    width: "30%",
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: "#F4F6FB",
-    alignItems: "center",
-    marginBottom: 10,
-  },
+timeChip: {
+  flexBasis: "32%",   // 3 columns with gap
+  paddingVertical: 10,
+  borderRadius: 20,
+  backgroundColor: "#F4F6FB",
+  alignItems: "center",
+  marginBottom: 10,
+},
 
   timeActive: {
     backgroundColor: "#3E57D0",
