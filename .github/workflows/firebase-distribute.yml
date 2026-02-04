@@ -65,6 +65,6 @@ jobs:
         run: |
           firebase appdistribution:distribute \
             android/app/build/outputs/apk/release/app-release.apk \
-            --app 1:898242390178:android:e6c6099b67dbd130aa4ffb \
-            --groups "internal-testers" \
+            --app 1:87480797347:android:f26b2cff897992b3eb9716 \
+            --groups "testers-1" \
             --release-notes "CI build from GitHub Actions"
