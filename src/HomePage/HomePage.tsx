@@ -461,49 +461,7 @@ const handleSave = (bookingDetails: any) => {
               </View>
             </View>
             
-            {/* Buttons Container */}
-            <View style={styles.buttonContainer}>
-              {/* Show registration buttons only for unauthenticated users */}
-              {!isAuthenticated && (
-                <>
-                  <TouchableOpacity 
-                    style={[
-                      styles.outlineButton,
-                      hoveredButton === "user" && styles.outlineButtonHover
-                    ]}
-                    onPress={handleLogin}
-                    onPressIn={() => setHoveredButton("user")}
-                    onPressOut={() => setHoveredButton(null)}
-                  >
-                    <Text style={styles.outlineButtonText}>Register as User</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.outlineButton,
-                      hoveredButton === "work" && styles.outlineButtonHover
-                    ]}
-                    onPress={handleWorkButtonClick}
-                    onPressIn={() => setHoveredButton("work")}
-                    onPressOut={() => setHoveredButton(null)}
-                  >
-                    <Text style={styles.outlineButtonText}>Register as Provider</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[
-                      styles.outlineButton,
-                      hoveredButton === "agent" && styles.outlineButtonHover
-                    ]}
-                    onPress={handleAgentWorkButtonClick}
-                    onPressIn={() => setHoveredButton("agent")}
-                    onPressOut={() => setHoveredButton(null)}
-                  >
-                    <Text style={styles.outlineButtonText}>Register as Agent</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
+            
           </View>
           
           {/* Carousel Section */}

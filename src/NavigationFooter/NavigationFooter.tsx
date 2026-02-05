@@ -24,6 +24,8 @@ interface NavigationFooterProps {
   auth0User: any;
   appUser: any;
   bookingType?: string;
+  onProfileClick: () => void;
+
 }
 
 
@@ -41,6 +43,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   auth0User,
   appUser,
   bookingType = "",
+  onProfileClick
 }) => {
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -64,6 +67,16 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           <MaterialIcon name="home" size={22} color="#fff" />
           <Text style={styles.mobileNavText}>Home</Text>
         </TouchableOpacity>
+        {isAuthenticated && (
+  <TouchableOpacity
+    onPress={onProfileClick}
+    style={styles.mobileNavItem}
+  >
+    <MaterialIcon name="person" size={22} color="#fff" />
+    <Text style={styles.mobileNavText}>Profile</Text>
+  </TouchableOpacity>
+)}
+
 
         {/* Bookings - Only for CUSTOMER */}
         {isCustomer && (

@@ -47,6 +47,7 @@ import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/ServiceProviderRegistration";
 import AgentRegistrationForm from "./src/AgentRegistration/AgentRegistrationForm";
 import { useAuth0 } from "react-native-auth0";
+import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 // const {  getCredentials } = useAuth0();
 
 
@@ -86,6 +87,8 @@ const MainApp = () => {
   const [showSignupDrawer, setShowSignupDrawer] = useState(false);
   const [showProviderRegistration, setShowProviderRegistration] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
 
 
 
@@ -517,7 +520,29 @@ const MainApp = () => {
   appUser={appUser}
   bookingType={selectedBookingType}
   onOpenSignup={() => setShowSignupDrawer(true)}
+  onProfileClick={() => setShowProfileMenu(true)}
 />
+
+
+<ProfileMenuSheet
+  visible={showProfileMenu}
+  onClose={() => setShowProfileMenu(false)}
+  onProfile={() => {
+    setShowProfileMenu(false);
+    setCurrentView(PROFILE);
+  }}
+  onBookings={() => {
+    setShowProfileMenu(false);
+    setCurrentView(BOOKINGS);
+  }}
+  onDashboard={() => {
+    setShowProfileMenu(false);
+    setCurrentView(DASHBOARD);
+  }}
+  onWallet={() => setIsWalletOpen(true)}
+  onContact={handleContactClick}
+/>
+
 
           </View>
         )}

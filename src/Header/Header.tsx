@@ -432,196 +432,196 @@ const Head: React.FC<ChildComponentProps> = ({
   // Render menu items based on user authentication and role
   const renderMenuItems = () => {
     // Not logged in
-    if (!auth0User) {
-      return (
-        <View style={styles.menuItemsContainer}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleLoginClick}
-          >
-            <MaterialIcon
-              name="login"
-              size={20}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Login / Signup</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleTnCClick}
-          >
-            <Icon
-              name="file-text"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Terms & Conditions</Text>
-          </TouchableOpacity>
-          <View style={styles.menuDivider} />
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleContactUsClick}
-          >
-            <Icon
-              name="phone"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Contact Us</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleAboutUsClick}
-          >
-            <Icon
-              name="info-circle"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>About Us</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+    // if (!auth0User) {
+    //   return (
+    //     <View style={styles.menuItemsContainer}>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleLoginClick}
+    //       >
+    //         <MaterialIcon
+    //           name="login"
+    //           size={20}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Login / Signup</Text>
+    //       </TouchableOpacity>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleTnCClick}
+    //       >
+    //         <Icon
+    //           name="file-text"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Terms & Conditions</Text>
+    //       </TouchableOpacity>
+    //       <View style={styles.menuDivider} />
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleContactUsClick}
+    //       >
+    //         <Icon
+    //           name="phone"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Contact Us</Text>
+    //       </TouchableOpacity>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleAboutUsClick}
+    //       >
+    //         <Icon
+    //           name="info-circle"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>About Us</Text>
+    //       </TouchableOpacity>
+    //     </View>
+    //   );
+    // }
 
     // Logged in as CUSTOMER
-    if (appUser?.role === "CUSTOMER") {
-      return (
-        <View style={styles.menuItemsContainer}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleProfileClick}
-          >
-            <Icon
-              name="user"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Profile</Text>
-          </TouchableOpacity>
+    // if (appUser?.role === "CUSTOMER") {
+    //   return (
+    //     <View style={styles.menuItemsContainer}>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleProfileClick}
+    //       >
+    //         <Icon
+    //           name="user"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Profile</Text>
+    //       </TouchableOpacity>
          
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleBookingHistoryClick}
-          >
-            <MaterialIcon
-              name="event-note"
-              size={20}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>My Bookings</Text>
-          </TouchableOpacity>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleBookingHistoryClick}
+    //       >
+    //         <MaterialIcon
+    //           name="event-note"
+    //           size={20}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>My Bookings</Text>
+    //       </TouchableOpacity>
           
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleWalletClick}
-          >
-            <MaterialIcon
-              name="account-balance-wallet"
-              size={20}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Wallet</Text>
-          </TouchableOpacity>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleWalletClick}
+    //       >
+    //         <MaterialIcon
+    //           name="account-balance-wallet"
+    //           size={20}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Wallet</Text>
+    //       </TouchableOpacity>
 
-          <View style={styles.menuDivider} />
+    //       <View style={styles.menuDivider} />
           
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleContactUsClick}
-          >
-            <Icon
-              name="phone"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Contact Us</Text>
-          </TouchableOpacity>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleContactUsClick}
+    //       >
+    //         <Icon
+    //           name="phone"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Contact Us</Text>
+    //       </TouchableOpacity>
           
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleSignOut}
-          >
-            <Icon
-              name="sign-out"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleSignOut}
+    //       >
+    //         <Icon
+    //           name="sign-out"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Sign Out</Text>
+    //       </TouchableOpacity>
+    //     </View>
+    //   );
+    // }
 
     // Logged in as SERVICE_PROVIDER
-    if (appUser?.role === "SERVICE_PROVIDER") {
-      return (
-        <View style={styles.menuItemsContainer}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleProfileClick}
-          >
-            <Icon
-              name="user"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Profile</Text>
-          </TouchableOpacity>
+    // if (appUser?.role === "SERVICE_PROVIDER") {
+    //   return (
+    //     <View style={styles.menuItemsContainer}>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleProfileClick}
+    //       >
+    //         <Icon
+    //           name="user"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Profile</Text>
+    //       </TouchableOpacity>
           
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleDashboardClick}
-          >
-            <MaterialIcon
-              name="dashboard"
-              size={20}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Dashboard</Text>
-          </TouchableOpacity>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleDashboardClick}
+    //       >
+    //         <MaterialIcon
+    //           name="dashboard"
+    //           size={20}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Dashboard</Text>
+    //       </TouchableOpacity>
 
-          <View style={styles.menuDivider} />
+    //       <View style={styles.menuDivider} />
           
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleContactUsClick}
-          >
-            <Icon
-              name="phone"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Contact Us</Text>
-          </TouchableOpacity>
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleContactUsClick}
+    //       >
+    //         <Icon
+    //           name="phone"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Contact Us</Text>
+    //       </TouchableOpacity>
           
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleSignOut}
-          >
-            <Icon
-              name="sign-out"
-              size={18}
-              color="#fff"
-              style={styles.menuIcon}
-            />
-            <Text style={styles.menuItemText}>Sign Out</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
+    //       <TouchableOpacity
+    //         style={styles.menuItem}
+    //         onPress={handleSignOut}
+    //       >
+    //         <Icon
+    //           name="sign-out"
+    //           size={18}
+    //           color="#fff"
+    //           style={styles.menuIcon}
+    //         />
+    //         <Text style={styles.menuItemText}>Sign Out</Text>
+    //       </TouchableOpacity>
+    //     </View>
+    //   );
+    // }
 
     // Fallback
     return (
@@ -644,19 +644,7 @@ const Head: React.FC<ChildComponentProps> = ({
 
   return (
     <View style={{ position: "relative" }}>
-      {/* Overlay when menu is visible - covers entire screen */}
-      {menuVisible && (
-  <Pressable
-    onPress={handleOverlayPress}
-    style={{
-      position: "absolute",
-      top: 70,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    }}
-  />
-)}
+      
 
 
       <LinearGradient
@@ -691,7 +679,7 @@ const Head: React.FC<ChildComponentProps> = ({
             style={[styles.iconButton, styles.userMenuButton]}
             onPress={handleMenuPress}
           >
-            {auth0User ? (
+            {/* {auth0User ? (
               <View style={styles.userAvatarContainer}>
                 <Image
                   source={{ uri: auth0User.picture }}
@@ -708,7 +696,7 @@ const Head: React.FC<ChildComponentProps> = ({
               <View style={styles.userIconContainer}>
                 <FeatherIcon name="user" size={20} color="#fff" />
               </View>
-            )}
+            )} */}
           </TouchableOpacity>
         </View>
 
