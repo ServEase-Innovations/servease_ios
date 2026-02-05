@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
   Platform,
+  Pressable,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
@@ -645,10 +646,18 @@ const Head: React.FC<ChildComponentProps> = ({
     <View style={{ position: "relative" }}>
       {/* Overlay when menu is visible - covers entire screen */}
       {menuVisible && (
-        <TouchableWithoutFeedback onPress={handleOverlayPress}>
-          <View style={[styles.overlay, StyleSheet.absoluteFillObject]} />
-        </TouchableWithoutFeedback>
-      )}
+  <Pressable
+    onPress={handleOverlayPress}
+    style={{
+      position: "absolute",
+      top: 70,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    }}
+  />
+)}
+
 
       <LinearGradient
         colors={["#0a2a66", "#004aad"]}
@@ -811,13 +820,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     height: 70,
-    paddingHorizontal: 13,
     elevation: 3,
-    ...Platform.select({
-      ios: {
-        paddingTop: 10,
-      },
-    }),
   },
   logoContainer: {
     flex: 1,
@@ -827,11 +830,9 @@ const styles = StyleSheet.create({
     height: 120,
     width: 120,
     resizeMode: "contain",
-    marginLeft: -10,
   },
   locationContainer: {
     flex: 2,
-   
     marginHorizontal: 10,
     maxWidth: width * 0.35,
     height: 36,
@@ -887,7 +888,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     backgroundColor: "transparent",
-    zIndex: 999,
+    // zIndex: 999,
   },
   menuDropdown: {
     position: "absolute",

@@ -12,6 +12,7 @@ import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FeatherIcon from "react-native-vector-icons/Feather";
 import WalletDialog from "../UserProfile/WalletDialog";
 import NotificationsDialog from "../Notifications/NotificationsPage";
+import SignupDrawer from "../SignupDrawer/SignupDrawer";
 
 interface NavigationFooterProps {
   onHomeClick: () => void;
@@ -19,26 +20,32 @@ interface NavigationFooterProps {
   onDashboardClick: () => void;
   onAboutClick: () => void;
   onContactClick: () => void;
+  onOpenSignup: () => void;   // 👈 ADD THIS
   auth0User: any;
   appUser: any;
   bookingType?: string;
 }
 
+
+
 const { width } = Dimensions.get("window");
 const isMobile = width < 768;
 
 const NavigationFooter: React.FC<NavigationFooterProps> = ({
-  onHomeClick,
+   onHomeClick,
   onBookingsClick,
   onDashboardClick,
   onAboutClick,
   onContactClick,
+  onOpenSignup,   // ✅ ADD THIS
   auth0User,
   appUser,
   bookingType = "",
 }) => {
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  // const [showSignupDrawer, setShowSignupDrawer] = useState(false);
+
 
   // Determine which icons to show based on user role
   const isCustomer = auth0User && appUser?.role === "CUSTOMER";
@@ -48,15 +55,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   // For mobile - render bottom navigation bar
   if (isMobile) {
     return (
-      <View style={styles.mobileNavContainer}>
+      <><View style={styles.mobileNavContainer}>
         {/* Home - Always visible */}
-       <TouchableOpacity
-  onPress={onHomeClick}
-  style={styles.mobileNavItem}
->
-  <MaterialIcon name="home" size={22} color="#fff" />
-  <Text style={styles.mobileNavText}>Home</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          onPress={onHomeClick}
+          style={styles.mobileNavItem}
+        >
+          <MaterialIcon name="home" size={22} color="#fff" />
+          <Text style={styles.mobileNavText}>Home</Text>
+        </TouchableOpacity>
 
         {/* Bookings - Only for CUSTOMER */}
         {isCustomer && (
@@ -94,35 +101,36 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         {/* Not logged in - Show About & Contact */}
         {!isAuthenticated && (
           <>
-            <TouchableOpacity
-              onPress={onAboutClick}
-              style={styles.mobileNavItem}
-            >
-              <Icon name="info-circle" size={20} color="#fff" />
-              <Text style={styles.mobileNavText}>About</Text>
+            <TouchableOpacity style={styles.mobileNavItem}>
+              <MaterialIcon name="login" size={22} color="#fff" />
+              <Text style={styles.mobileNavText}>Sign In</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={onContactClick}
-              style={styles.mobileNavItem}
-            >
-              <Icon name="phone" size={20} color="#fff" />
-              <Text style={styles.mobileNavText}>Contact</Text>
-            </TouchableOpacity>
+  onPress={onOpenSignup}
+  style={styles.mobileNavItem}
+>
+  <MaterialIcon name="person-add" size={22} color="#fff" />
+  <Text style={styles.mobileNavText}>Sign Up</Text>
+</TouchableOpacity>
           </>
         )}
 
+
+
         {/* Dialogs */}
-        <NotificationsDialog 
-          visible={showNotifications} 
-          onClose={() => setShowNotifications(false)} 
-        />
+        <NotificationsDialog
+          visible={showNotifications}
+          onClose={() => setShowNotifications(false)} />
 
         <WalletDialog
           open={isWalletOpen}
-          onClose={() => setIsWalletOpen(false)}
-        />
+          onClose={() => setIsWalletOpen(false)} />
+
+
       </View>
+</>
+      
     );
   }
 

@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   heroSectionGradient: {
-    padding: 16,
+    paddingTop: 20,
     flexDirection: "column",
   },
   heroTextContainer: {

@@ -43,6 +43,13 @@ import axiosInstance from "./src/services/axiosInstance";
 import WalletDialog from "./src/UserProfile/WalletDialog";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
 import { PaperProvider } from "react-native-paper";
+import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
+import ServiceProviderRegistration from "./src/ServiceProviderRegistration";
+import AgentRegistrationForm from "./src/AgentRegistration/AgentRegistrationForm";
+import { useAuth0 } from "react-native-auth0";
+// const {  getCredentials } = useAuth0();
+
+
 
 interface Engagement {
   engagement_id: number;
@@ -76,13 +83,61 @@ const MainApp = () => {
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const socketRef = useRef<Socket | null>(null);
   const SOCKET_URL = "https://payments-j5id.onrender.com";
+  const [showSignupDrawer, setShowSignupDrawer] = useState(false);
+  const [showProviderRegistration, setShowProviderRegistration] = useState(false);
+  const [showAgentRegistration, setShowAgentRegistration] = useState(false);
+
+
 
   const dispatch = useDispatch();
   const { appUser } = useAppUser();
 
+  const { authorize } = useAuth0();
+  const { getCredentials } = useAuth0();
+
+  const handleAuth0Login = async () => {
+  try {
+      await authorize({
+        scope: "openid profile email",
+        redirectUrl:
+          "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
+      });
+
+      const credentials = await getCredentials();
+    } catch (e) {
+      console.log("Login error:", e);
+      // showErrorSnackbar("Login failed. Please try again.");
+    }
+    
+};
+
+
   // Get screen dimensions
   const { height, width } = Dimensions.get('window');
   const isMobile = width < 768;
+
+  const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
+  setShowSignupDrawer(false);
+
+  switch (type) {
+    case "USER":
+      handleAuth0Login();   
+      // Ideally trigger Auth0 login here later
+      break;
+
+    case "PROVIDER":
+      setCurrentView("HOME");
+      setTimeout(() => setShowProviderRegistration(true), 150);
+      break;
+
+    case "AGENT":
+      setCurrentView("HOME");
+      setTimeout(() => setShowAgentRegistration(true), 150);
+      break;
+  }
+};
+
+
 
   useEffect(() => {
     console.log("🔄 AppUser changed:", appUser ? `Logged in as ${appUser.role}` : "Logged out");
@@ -453,17 +508,17 @@ const MainApp = () => {
         {isMobile && (
           <View style={styles.navigationFooterContainer}>
             <NavigationFooter
-              onHomeClick={handleHomeClick}
-              onBookingsClick={handleBookingsClick}
-              onDashboardClick={handleDashboardClick}
-              onAboutClick={handleAboutClick}
-              onContactClick={handleContactClick}
-              auth0User={appUser}
-              appUser={appUser}
-              bookingType={selectedBookingType}
-              // onNotificationClick={handleNotificationClick}
-              // onWalletClick={handleWalletClick}
-            />
+  onHomeClick={handleHomeClick}
+  onBookingsClick={handleBookingsClick}
+  onDashboardClick={handleDashboardClick}
+  onAboutClick={handleAboutClick}
+  onContactClick={handleContactClick}
+  auth0User={appUser}
+  appUser={appUser}
+  bookingType={selectedBookingType}
+  onOpenSignup={() => setShowSignupDrawer(true)}
+/>
+
           </View>
         )}
 
@@ -494,6 +549,47 @@ const MainApp = () => {
           visible={showNotifications} 
           onClose={handleCloseNotifications} 
         /> */}
+
+        <SignupDrawer
+  visible={showSignupDrawer}
+  onClose={() => setShowSignupDrawer(false)}
+  onUser={() => {
+    setShowSignupDrawer(false);
+    handleRegisterAs("USER");
+  }}
+  onProvider={() => {
+    setShowSignupDrawer(false);
+    handleRegisterAs("PROVIDER");
+  }}
+  onAgent={() => {
+    setShowSignupDrawer(false);
+    handleRegisterAs("AGENT");
+  }}
+/>
+
+{/* Provider Registration */}
+{showProviderRegistration && (
+  <Modal animationType="slide" visible>
+    <ServiceProviderRegistration
+                onBackToLogin={() => setShowProviderRegistration(false)} onRegistrationSuccess={function (): void {
+                  throw new Error("Function not implemented.");
+                } }    />
+  </Modal>
+)}
+
+{/* Agent Registration */}
+<Modal
+  visible={showAgentRegistration}
+  animationType="slide"
+  onRequestClose={() => setShowAgentRegistration(false)}
+>
+  <AgentRegistrationForm
+    onBackToLogin={() => setShowAgentRegistration(false)}
+    onRegistrationSuccess={() => setShowAgentRegistration(false)}
+  />
+</Modal>
+
+
 
         <Modal
           visible={showNotificationClient}
