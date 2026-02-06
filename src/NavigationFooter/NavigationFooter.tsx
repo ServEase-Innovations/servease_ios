@@ -206,7 +206,17 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             <Text style={styles.mobileNavText}>Home</Text>
           </TouchableOpacity>
           
-        
+          {/* Profile/User Avatar - Show when authenticated, otherwise login */}
+          <TouchableOpacity
+            onPress={handleProfileButtonClick}
+            style={styles.mobileNavItem}
+          >
+            {renderUserAvatar(true)}
+            <Text style={styles.mobileNavText}>
+              {auth0User ? getUserFirstName() : "Profile"}
+            </Text>
+          </TouchableOpacity>
+
 
           {/* Bookings - Only for CUSTOMER */}
           {isCustomer && (
@@ -240,17 +250,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
               <Text style={styles.mobileNavText}>Wallet</Text>
             </TouchableOpacity>
           )}
-            {/* Profile/User Avatar - Show when authenticated, otherwise login */}
-          <TouchableOpacity
-            onPress={handleProfileButtonClick}
-            style={styles.mobileNavItem}
-          >
-            {renderUserAvatar(true)}
-            <Text style={styles.mobileNavText}>
-              {auth0User ? getUserFirstName() : "Profile"}
-            </Text>
-          </TouchableOpacity>
-
+          
           {/* Sign Up/Sign Out buttons */}
           {!isAuthenticated ? (
             <TouchableOpacity
