@@ -510,7 +510,7 @@ const MainApp = () => {
         {/* Fixed Navigation Footer for Mobile */}
         {isMobile && (
           <View style={styles.navigationFooterContainer}>
-            <NavigationFooter
+           <NavigationFooter
   onHomeClick={handleHomeClick}
   onBookingsClick={handleBookingsClick}
   onDashboardClick={handleDashboardClick}
@@ -521,8 +521,19 @@ const MainApp = () => {
   bookingType={selectedBookingType}
   onOpenSignup={() => setShowSignupDrawer(true)}
   onProfileClick={() => setShowProfileMenu(true)}
+  onNavigateToPage={(page: string) => {
+    // Handle navigation to different pages
+    if (page === PROFILE) {
+      setCurrentView(PROFILE);
+      setShowProfileFromDashboard(false);
+    } else if (page === BOOKINGS) {
+      setCurrentView(BOOKINGS);
+    } else if (page === DASHBOARD) {
+      setCurrentView(DASHBOARD);
+      setShowProfileFromDashboard(false);
+    }
+  }}
 />
-
 
 <ProfileMenuSheet
   visible={showProfileMenu}

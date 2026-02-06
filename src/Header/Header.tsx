@@ -429,231 +429,17 @@ const Head: React.FC<ChildComponentProps> = ({
   // Export function to get location data
   const getLocationData = () => currentLocation;
 
-  // Render menu items based on user authentication and role
-  const renderMenuItems = () => {
-    // Not logged in
-    // if (!auth0User) {
-    //   return (
-    //     <View style={styles.menuItemsContainer}>
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleLoginClick}
-    //       >
-    //         <MaterialIcon
-    //           name="login"
-    //           size={20}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Login / Signup</Text>
-    //       </TouchableOpacity>
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleTnCClick}
-    //       >
-    //         <Icon
-    //           name="file-text"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Terms & Conditions</Text>
-    //       </TouchableOpacity>
-    //       <View style={styles.menuDivider} />
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleContactUsClick}
-    //       >
-    //         <Icon
-    //           name="phone"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Contact Us</Text>
-    //       </TouchableOpacity>
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleAboutUsClick}
-    //       >
-    //         <Icon
-    //           name="info-circle"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>About Us</Text>
-    //       </TouchableOpacity>
-    //     </View>
-    //   );
-    // }
-
-    // Logged in as CUSTOMER
-    // if (appUser?.role === "CUSTOMER") {
-    //   return (
-    //     <View style={styles.menuItemsContainer}>
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleProfileClick}
-    //       >
-    //         <Icon
-    //           name="user"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Profile</Text>
-    //       </TouchableOpacity>
-         
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleBookingHistoryClick}
-    //       >
-    //         <MaterialIcon
-    //           name="event-note"
-    //           size={20}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>My Bookings</Text>
-    //       </TouchableOpacity>
-          
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleWalletClick}
-    //       >
-    //         <MaterialIcon
-    //           name="account-balance-wallet"
-    //           size={20}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Wallet</Text>
-    //       </TouchableOpacity>
-
-    //       <View style={styles.menuDivider} />
-          
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleContactUsClick}
-    //       >
-    //         <Icon
-    //           name="phone"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Contact Us</Text>
-    //       </TouchableOpacity>
-          
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleSignOut}
-    //       >
-    //         <Icon
-    //           name="sign-out"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Sign Out</Text>
-    //       </TouchableOpacity>
-    //     </View>
-    //   );
-    // }
-
-    // Logged in as SERVICE_PROVIDER
-    // if (appUser?.role === "SERVICE_PROVIDER") {
-    //   return (
-    //     <View style={styles.menuItemsContainer}>
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleProfileClick}
-    //       >
-    //         <Icon
-    //           name="user"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Profile</Text>
-    //       </TouchableOpacity>
-          
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleDashboardClick}
-    //       >
-    //         <MaterialIcon
-    //           name="dashboard"
-    //           size={20}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Dashboard</Text>
-    //       </TouchableOpacity>
-
-    //       <View style={styles.menuDivider} />
-          
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleContactUsClick}
-    //       >
-    //         <Icon
-    //           name="phone"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Contact Us</Text>
-    //       </TouchableOpacity>
-          
-    //       <TouchableOpacity
-    //         style={styles.menuItem}
-    //         onPress={handleSignOut}
-    //       >
-    //         <Icon
-    //           name="sign-out"
-    //           size={18}
-    //           color="#fff"
-    //           style={styles.menuIcon}
-    //         />
-    //         <Text style={styles.menuItemText}>Sign Out</Text>
-    //       </TouchableOpacity>
-    //     </View>
-    //   );
-    // }
-
-    // Fallback
-    return (
-      <View style={styles.menuItemsContainer}>
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={handleSignOut}
-        >
-          <Icon
-            name="sign-out"
-            size={18}
-            color="#fff"
-            style={styles.menuIcon}
-          />
-          <Text style={styles.menuItemText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  // REMOVED: All menu rendering functions since menu is completely removed
 
   return (
     <View style={{ position: "relative" }}>
-      
-
-
       <LinearGradient
         colors={["#0a2a66", "#004aad"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.headerContainer}
       >
-        {/* Logo Section */}
+        {/* Logo Section - Centered */}
         <View style={styles.logoContainer}>
           <TouchableOpacity onPress={onLogoClick}>
             <Image
@@ -663,7 +449,7 @@ const Head: React.FC<ChildComponentProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Location Selector */}
+        {/* Location Selector - Expanded to fill available space */}
         <View style={styles.locationContainer}>
           <LocationSelector
             userPreference={userPreference}
@@ -672,80 +458,19 @@ const Head: React.FC<ChildComponentProps> = ({
           />
         </View>
 
-        {/* Right Actions - ONLY User Menu Icon now */}
-        <View style={styles.rightActionsContainer}>
-          {/* User Menu Icon */}
-          <TouchableOpacity 
-            style={[styles.iconButton, styles.userMenuButton]}
-            onPress={handleMenuPress}
-          >
-            {/* {auth0User ? (
-              <View style={styles.userAvatarContainer}>
-                <Image
-                  source={{ uri: auth0User.picture }}
-                  style={styles.userAvatar}
-                />
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName} numberOfLines={1}>
-                    {auth0User.name?.split(' ')[0] || 'User'}
-                  </Text>
-                  <FeatherIcon name="chevron-down" size={14} color="#fff" />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.userIconContainer}>
-                <FeatherIcon name="user" size={20} color="#fff" />
-              </View>
-            )} */}
-          </TouchableOpacity>
-        </View>
-
-        {/* Menu Dropdown */}
-        {menuVisible && (
-          <View style={styles.menuDropdown} ref={dropdownRef}>
-            {renderMenuItems()}
-          </View>
-        )}
+        {/* REMOVED: Entire right actions container including user menu */}
       </LinearGradient>
 
-      {/* Bookings Dialog */}
-      <Modal
-        visible={showBookings}
-        animationType="slide"
-        onRequestClose={handleCloseBookings}
-      >
-        <View style={styles.fullScreenModal}>
-          <LinearGradient
-            colors={["#0a2a66", "#004aad"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
-          >
-            <Text style={styles.modalTitle}>My Bookings</Text>
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={handleCloseBookings}
-            >
-              <Icon name="close" size={24} color="#ffffffff" />
-            </TouchableOpacity>
-          </LinearGradient>
-          <View style={styles.modalContent}>
-            <Booking />
-          </View>
-        </View>
-      </Modal>
+      {/* REMOVED: All menu dropdown and related modals since menu is completely removed */}
+      {/* Only keep essential non-menu related modals if needed */}
       
-      {/* Notifications Dialog */}
-      <NotificationsDialog 
-        visible={showNotifications} 
-        onClose={handleCloseNotifications} 
-      />
-
+      {/* Wallet Dialog - kept as it might be triggered from other parts */}
       <WalletDialog
         open={isWalletOpen}
         onClose={() => setIsWalletOpen(false)}
       />
 
+      {/* Terms and Conditions Modal */}
       <Modal
         visible={showTnC}
         animationType="slide"
@@ -767,8 +492,10 @@ const Head: React.FC<ChildComponentProps> = ({
         </View>
       </Modal>
 
+      {/* About Page - kept as it might be triggered from other parts */}
       <AboutPage visible={showAboutUs} onBack={() => setShowAboutUs(false)} />
 
+      {/* Contact Us Modal */}
       <Modal
         visible={showContactUs}
         animationType="slide"
@@ -806,123 +533,35 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "space-between", // Changed from space-between to evenly distribute
     height: 70,
     elevation: 3,
+    paddingHorizontal: 16, // Add padding for better spacing
   },
   logoContainer: {
     flex: 1,
-    maxWidth: 120,
+    alignItems: "flex-start", // Align logo to left
+    justifyContent: "center",
+    paddingTop: 60,
   },
   logo: {
-    height: 120,
+    height: 140,
     width: 120,
     resizeMode: "contain",
   },
   locationContainer: {
-    flex: 2,
-    marginHorizontal: 10,
-    maxWidth: width * 0.35,
-    height: 36,
-    justifyContent: "center",
+   flex: 3, // Increased from 2 to take even more space
+  justifyContent: "center",
+  alignItems: "stretch", // Changed from "center" to fill width
+  height: 50, // Increased from 36 to make it taller
+  // marginHorizontal: 10,
+paddingBottom: 10,
+    
+    // maxWidth: width * 0.6, // Increased max width for better visibility
   },
-  rightActionsContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    maxWidth: 150,
-
-  },
-  iconButton: {
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  userMenuButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    minWidth: 80,
-  },
-  userIconContainer: {
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  userAvatarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  userAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-  },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  userName: {
-    color: "white",
-    fontSize: 13,
-    fontWeight: "500",
-    maxWidth: 60,
-  },
-  overlay: {
-    backgroundColor: "transparent",
-    // zIndex: 999,
-  },
-  menuDropdown: {
-    position: "absolute",
-    top: 70,
-    right: 16,
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    paddingVertical: 8,
-    zIndex: 1000,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    minWidth: 220,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  menuItemsContainer: {
-    paddingVertical: 4,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  menuIcon: {
-    marginRight: 12,
-    width: 20,
-  },
-  menuItemText: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "400",
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginVertical: 4,
-  },
+  // REMOVED: All rightActionsContainer and user menu related styles
+  
   modalContainer: {
-    flex: 1,
-    backgroundColor: "white",
-  },
-  fullScreenModal: {
     flex: 1,
     backgroundColor: "white",
   },
@@ -938,12 +577,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     textAlign: 'center',
-    flex: 1,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalContent: {
     flex: 1,
   },
 });

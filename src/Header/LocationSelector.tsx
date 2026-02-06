@@ -1246,13 +1246,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8fafc",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
+    borderRadius: 10, // Slightly larger border radius
+    // paddingVertical: 10, // Increased padding
+    paddingHorizontal: 10, // Increased padding
+    // borderWidth: 1.5, // Slightly thicker border
     borderColor: "#e2e8f0",
-    minWidth: 120,
-    maxWidth: 180,
+    minWidth: 140,
+    width: "100%", // Take full width of parent
+    height: "100%", // Take full height of parent
+    justifyContent: "space-between",
   },
   locationText: {
     fontSize: 14,
