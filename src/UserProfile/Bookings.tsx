@@ -15,13 +15,15 @@ import {
   TextStyle,
   StyleProp,
   Modal,
-  RefreshControl
+  RefreshControl,
+  Dimensions
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import axiosInstance from '../services/axiosInstance';
 import dayjs from 'dayjs';
 import axios from 'axios';
+import RazorpayCheckout from 'react-native-razorpay';
 
 // Import existing components
 import UserHoliday from './UserHoliday';
@@ -89,6 +91,11 @@ const logBookingData = (data: any, source: string) => {
       console.log(`📌 end_time: ${item.end_time}`);
       console.log(`📌 start_epoch: ${item.start_epoch}`);
       
+      // Log payment details
+      if (item.payment) {
+        console.log(`💰 Payment Details:`, JSON.stringify(item.payment, null, 2));
+      }
+      
       // Log vacation details
       if (item.vacation) {
         console.log(`🏖️ Vacation Details:`, JSON.stringify(item.vacation, null, 2));
@@ -125,6 +132,7 @@ const logMappedBooking = (booking: any, index: number) => {
   console.log(`📌 Booking Type: ${booking.bookingType}`);
   console.log(`📌 Service Type: ${booking.serviceType}`);
   console.log(`📌 Amount: ${booking.monthlyAmount}`);
+  console.log(`📌 Payment Status: ${booking.payment?.status || 'N/A'}`);
   console.log(`📌 Address: ${booking.address}`);
   console.log(`📌 Start Date: ${booking.startDate}`);
   console.log(`📌 End Date: ${booking.endDate}`);
@@ -232,6 +240,17 @@ interface Modification {
   penalty?: number;
 }
 
+interface Payment {
+  engagement_id: string;
+  base_amount: string;
+  platform_fee: string;
+  gst: string;
+  total_amount: string;
+  payment_mode: string;
+  status: string;
+  created_at: string;
+}
+
 interface Booking {
   id: number;
   name: string;
@@ -264,7 +283,7 @@ interface Booking {
   hasVacation?: boolean;
   assignmentStatus: string;
   start_epoch?: number;
-  vacation?: { // ADD THIS to match React version
+  vacation?: {
     start_date?: string;
     end_date?: string;
     leave_days?: number;
@@ -285,6 +304,7 @@ interface Booking {
   };
   modifications: Modification[];
   today_service?: TodayService;
+  payment?: Payment; // Added payment interface
 }
 
 const getServiceIcon = (type: string) => {
@@ -391,7 +411,6 @@ const getServiceTitle = (type: string) => {
 };
 
 const hasVacation = (booking: Booking): boolean => {
-  
   return booking.hasVacation || 
          (booking.vacationDetails && 
           (booking.vacationDetails.total_days || booking.vacationDetails.leave_days) > 0) || 
@@ -537,6 +556,7 @@ const Booking: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState<number | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState<number | null>(null);
   
   // Other states
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
@@ -551,7 +571,7 @@ const Booking: React.FC = () => {
   // Confirmation dialog state
   const [confirmationDialog, setConfirmationDialog] = useState<{
     open: boolean;
-    type: 'cancel' | 'modify' | 'vacation' | null;
+    type: 'cancel' | 'modify' | 'vacation' | 'payment' | null;
     booking: Booking | null;
     message: string;
     title: string;
@@ -659,8 +679,7 @@ const Booking: React.FC = () => {
     }
   };
 
-  // UPDATED: Improved mapBookingData function with provider info and base_amount
-  // UPDATED: Improved mapBookingData function with provider info and base_amount
+  // UPDATED: Improved mapBookingData function with provider info and base_amount and payment
 const mapBookingData = (data: any[]) => {
   console.log(`\n🗺️ ===== MAPPING BOOKING DATA =====`);
   console.log(`📊 Input data length: ${data.length}`);
@@ -735,6 +754,9 @@ const mapBookingData = (data: any[]) => {
         // Get start_epoch for modification checks
         const startEpoch = item.start_epoch || 0;
 
+        // Get payment data
+        const payment = item.payment || null;
+
         const mappedBooking = {
           id: item.engagement_id,
           customerId: item.customerId,
@@ -781,7 +803,8 @@ const mapBookingData = (data: any[]) => {
               }
             : null,
           modifications: modifications,
-          today_service: item.today_service
+          today_service: item.today_service,
+          payment: payment // Added payment data
         };
 
         // Log the mapped booking
@@ -854,6 +877,92 @@ const mapBookingData = (data: any[]) => {
     }
   };
 
+  // PAYMENT COMPLETION FUNCTION
+  const handleCompletePayment = async (booking: Booking) => {
+    if (!booking.payment?.engagement_id) {
+      Alert.alert('Error', 'Payment information not found for this booking');
+      return;
+    }
+
+    try {
+      setPaymentLoading(booking.id);
+      
+      // 1️⃣ Call resume-payment API
+      const resumeRes = await PaymentInstance.get(
+        `/api/payments/${booking.payment.engagement_id}/resume`
+      );
+
+      const {
+        razorpay_order_id,
+        amount,
+        currency,
+        engagement_id,
+        customer
+      } = resumeRes.data;
+
+      // 2️⃣ Open Razorpay Checkout
+      const options = {
+        key: "rzp_test_lTdgjtSRlEwreA", // Use your test/live key
+        amount: amount * 100, // paise
+        currency,
+        order_id: razorpay_order_id,
+        name: "Serveaso",
+        description: `Payment for ${getServiceTitle(booking.service_type)} service`,
+        prefill: {
+          name: customer?.firstname || booking.customerName,
+          contact: customer?.contact || '9999999999',
+          email: customer?.email || auth0User?.email || '',
+        },
+        theme: {
+          color: "#0A7CFF",
+        },
+      };
+
+      RazorpayCheckout.open(options).then(async (data: any) => {
+        // 3️⃣ Verify payment
+        try {
+          await PaymentInstance.post("/api/payments/verify", {
+            engagementId: engagement_id,
+            razorpay_order_id: data.razorpay_order_id,
+            razorpay_payment_id: data.razorpay_payment_id,
+            razorpay_signature: data.razorpay_signature,
+          });
+          
+          Alert.alert("Success", "Payment completed successfully!");
+          // Refresh bookings to update status
+          if (customerId) {
+            await refreshBookings();
+          }
+        } catch (verifyError: any) {
+          console.error("Payment verification error:", verifyError);
+          Alert.alert("Error", "Payment verification failed. Please contact support.");
+        }
+      }).catch((error: any) => {
+        console.error("Payment error:", error);
+        if (error.code !== 2) { // Code 2 is user cancellation
+          Alert.alert("Error", "Payment was cancelled or failed.");
+        }
+      });
+
+    } catch (err: any) {
+      console.error("Complete payment error:", err);
+      Alert.alert("Error", "Unable to resume payment. Please try again.");
+    } finally {
+      setPaymentLoading(null);
+    }
+  };
+
+  // Handle payment button click
+  const handlePaymentClick = (booking: Booking) => {
+    showConfirmation(
+      'payment',
+      booking,
+      'Complete Payment',
+      `Complete payment of ₹${booking.monthlyAmount} for your ${getServiceTitle(booking.service_type)} booking?`,
+      'info'
+    );
+  };
+
   // FILTER & SORT FUNCTIONS
   const filterBookings = (bookings: Booking[], term: string) => {
     if (!term) return bookings;
@@ -912,7 +1021,7 @@ const mapBookingData = (data: any[]) => {
 
   // ACTION HANDLERS - CONFIRMATION DIALOG
   const showConfirmation = (
-    type: 'cancel' | 'modify' | 'vacation',
+    type: 'cancel' | 'modify' | 'vacation' | 'payment',
     booking: Booking,
     title: string,
     message: string,
@@ -948,6 +1057,9 @@ const mapBookingData = (data: any[]) => {
         case 'vacation':
           setSelectedBookingForLeave(booking);
           setHolidayDialogOpen(true);
+          break;
+        case 'payment':
+          await handleCompletePayment(booking);
           break;
       }
     } catch (error) {
@@ -1100,7 +1212,7 @@ const mapBookingData = (data: any[]) => {
     }
   };
 
-  // NEW: renderScheduledMessage function from React code - MOVED INSIDE COMPONENT
+  // NEW: renderScheduledMessage function from React code
   const renderScheduledMessage = (booking: Booking) => {
     if (!booking.today_service) {
       console.log(`📅 No today_service for booking ${booking.id}`);
@@ -1251,29 +1363,81 @@ const mapBookingData = (data: any[]) => {
     }
   };
 
-  // NEW: Improved renderActionButtons function from React code
+  // COMPLETE renderActionButtons function with payment integration
   const renderActionButtons = (booking: Booking) => {
     const modificationDisabled = isModificationDisabled(booking);
-    const modificationTooltip = getModificationTooltip(booking);
     const hasExistingVacation = hasVacation(booking);
+    
+    // Check if payment is pending
+    const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
+    const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
 
     console.log(`🔘 Rendering action buttons for booking ${booking.id}:`);
     console.log(`   - Status: ${booking.taskStatus}`);
     console.log(`   - Modification disabled: ${modificationDisabled}`);
     console.log(`   - Has vacation: ${hasExistingVacation}`);
+    console.log(`   - Payment pending: ${isPaymentPending}`);
+    console.log(`   - Can show payment button: ${canShowPaymentButton}`);
 
+    // If payment is pending, show payment button as primary action
+    if (canShowPaymentButton) {
+      return (
+        <View style={styles.paymentActionContainer}>
+          <Button
+            style={[styles.actionButton, styles.paymentButton]}
+            onPress={() => handlePaymentClick(booking)}
+            disabled={paymentLoading === booking.id}
+          >
+            {paymentLoading === booking.id ? (
+              <>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.paymentButtonText}>Processing...</Text>
+              </>
+            ) : (
+              <>
+                <Icon name="credit-card" size={16} color="#fff" />
+                <Text style={styles.paymentButtonText}>Complete Payment</Text>
+              </>
+            )}
+          </Button>
+          
+          {/* Optionally show cancel button even when payment is pending */}
+          <Button 
+            style={[styles.actionButton, styles.cancelButton]}
+            onPress={() => handleCancelClick(booking)}
+          >
+            <Icon name="close-circle" size={16} color="#fff" />
+            <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+          </Button>
+        </View>
+      );
+    }
+
+    // Regular action buttons based on task status
     switch (booking.taskStatus) {
       case 'NOT_STARTED':
         return (
-          <>
-            <Button style={styles.actionButton} onPress={() => console.log(`📞 Call provider for booking ${booking.id}`)}>
-              <Icon name="phone" size={16} color="#000" />
-              <Text>Call Provider</Text>
+          <View style={styles.actionButtonsRow}>
+            <Button 
+              style={[styles.actionButton, styles.callButton]}
+              onPress={() => {
+                console.log(`📞 Call provider for booking ${booking.id}`);
+                Alert.alert('Call', `Call provider for ${getServiceTitle(booking.service_type)} service`);
+              }}
+            >
+              <Icon name="phone" size={16} color="#fff" />
+              <Text style={styles.callButtonText}>Call</Text>
             </Button>
 
-            <Button style={styles.actionButton} onPress={() => console.log(`💬 Message provider for booking ${booking.id}`)}>
-              <Icon name="message-text" size={16} color="#000" />
-              <Text>Message</Text>
+            <Button 
+              style={[styles.actionButton, styles.messageButton]}
+              onPress={() => {
+                console.log(`💬 Message provider for booking ${booking.id}`);
+                Alert.alert('Message', `Message provider for ${getServiceTitle(booking.service_type)} service`);
+              }}
+            >
+              <Icon name="message-text" size={16} color="#fff" />
+              <Text style={styles.messageButtonText}>Message</Text>
             </Button>
 
             <Button 
@@ -1281,17 +1445,26 @@ const mapBookingData = (data: any[]) => {
               onPress={() => handleCancelClick(booking)}
             >
               <Icon name="close-circle" size={16} color="#fff" />
-              <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </Button>
 
             {booking.bookingType === "MONTHLY" && (
               <Button
-                style={styles.actionButton}
+                style={[
+                  styles.actionButton, 
+                  styles.modifyButton,
+                  modificationDisabled && styles.disabledButton
+                ]}
                 onPress={() => handleModifyClick(booking)}
                 disabled={modificationDisabled}
               >
-                <Icon name="pencil" size={16} color="#000" />
-                <Text>{modificationDisabled ? "Modify (Unavailable)" : "Modify Booking"}</Text>
+                <Icon name="pencil" size={16} color={modificationDisabled ? "#9ca3af" : "#1e40af"} />
+                <Text style={[
+                  styles.modifyButtonText,
+                  modificationDisabled && styles.disabledButtonText
+                ]}>
+                  {modificationDisabled ? "Modify" : "Modify"}
+                </Text>
               </Button>
             )}
 
@@ -1308,30 +1481,42 @@ const mapBookingData = (data: any[]) => {
                   </Button>
                 ) : (
                   <Button
-                    style={styles.actionButton}
+                    style={[styles.actionButton, styles.vacationButton]}
                     onPress={() => handleVacationClick(booking)}
                     disabled={isRefreshing}
                   >
-                    <Icon name="calendar" size={16} color="#000" />
-                    <Text>Add Vacation</Text>
+                    <Icon name="calendar" size={16} color="#1e40af" />
+                    <Text style={styles.vacationButtonText}>Add Vacation</Text>
                   </Button>
                 )}
               </>
             )}
-          </>
+          </View>
         );
 
       case 'IN_PROGRESS':
         return (
-          <>
-            <Button style={styles.actionButton} onPress={() => console.log(`📞 Call provider for booking ${booking.id}`)}>
-              <Icon name="phone" size={16} color="#000" />
-              <Text>Call Provider</Text>
+          <View style={styles.actionButtonsRow}>
+            <Button 
+              style={[styles.actionButton, styles.callButton]}
+              onPress={() => {
+                console.log(`📞 Call provider for booking ${booking.id}`);
+                Alert.alert('Call', `Call provider for ongoing ${getServiceTitle(booking.service_type)} service`);
+              }}
+            >
+              <Icon name="phone" size={16} color="#fff" />
+              <Text style={styles.callButtonText}>Call</Text>
             </Button>
 
-            <Button style={styles.actionButton} onPress={() => console.log(`💬 Message provider for booking ${booking.id}`)}>
-              <Icon name="message-text" size={16} color="#000" />
-              <Text>Message</Text>
+            <Button 
+              style={[styles.actionButton, styles.messageButton]}
+              onPress={() => {
+                console.log(`💬 Message provider for booking ${booking.id}`);
+                Alert.alert('Message', `Message provider for ongoing ${getServiceTitle(booking.service_type)} service`);
+              }}
+            >
+              <Icon name="message-text" size={16} color="#fff" />
+              <Text style={styles.messageButtonText}>Message</Text>
             </Button>
 
             <Button 
@@ -1339,7 +1524,7 @@ const mapBookingData = (data: any[]) => {
               onPress={() => handleCancelClick(booking)}
             >
               <Icon name="close-circle" size={16} color="#fff" />
-              <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </Button>
 
             {booking.bookingType === "MONTHLY" && (
@@ -1355,51 +1540,67 @@ const mapBookingData = (data: any[]) => {
                   </Button>
                 ) : (
                   <Button
-                    style={styles.actionButton}
+                    style={[styles.actionButton, styles.vacationButton]}
                     onPress={() => handleVacationClick(booking)}
                     disabled={isRefreshing}
                   >
-                    <Icon name="calendar" size={16} color="#000" />
-                    <Text>Add Vacation</Text>
+                    <Icon name="calendar" size={16} color="#1e40af" />
+                    <Text style={styles.vacationButtonText}>Add Vacation</Text>
                   </Button>
                 )}
               </>
             )}
-          </>
+          </View>
         );
 
       case 'COMPLETED':
         return (
-          <>
+          <View style={styles.actionButtonsRow}>
             {hasReview(booking) ? (
               <Button
-                style={[styles.actionButton, styles.disabledButton]}
+                style={[styles.actionButton, styles.reviewSubmittedButton]}
                 disabled={true}
               >
-                <Icon name="check-circle" size={16} color="#000" />
-                <Text>Review Submitted</Text>
+                <Icon name="check-circle" size={16} color="#10b981" />
+                <Text style={styles.reviewSubmittedText}>Reviewed</Text>
               </Button>
             ) : (
               <Button
-                style={styles.actionButton}
+                style={[styles.actionButton, styles.reviewButton]}
                 onPress={() => handleLeaveReviewClick(booking)}
               >
-                <Icon name="message-text" size={16} color="#000" />
-                <Text>Leave Review</Text>
+                <Icon name="message-text" size={16} color="#1e40af" />
+                <Text style={styles.reviewButtonText}>Review</Text>
               </Button>
             )}
 
-            <Button style={styles.actionButton} onPress={() => console.log(`📅 Book again for service ${booking.serviceType}`)}>
-              <Text>Book Again</Text>
+            <Button 
+              style={[styles.actionButton, styles.bookAgainButton]}
+              onPress={() => {
+                console.log(`📅 Book again for service ${booking.serviceType}`);
+                setServicesDialogOpen(true);
+              }}
+            >
+              <Icon name="calendar-plus" size={16} color="#3b82f6" />
+              <Text style={styles.bookAgainText}>Book Again</Text>
             </Button>
-          </>
+          </View>
         );
 
       case 'CANCELLED':
         return (
-          <Button style={styles.actionButton} onPress={() => console.log(`📅 Book again for cancelled service ${booking.serviceType}`)}>
-            <Text>Book Again</Text>
-          </Button>
+          <View style={styles.actionButtonsRow}>
+            <Button 
+              style={[styles.actionButton, styles.bookAgainButton]}
+              onPress={() => {
+                console.log(`📅 Book again for cancelled service ${booking.serviceType}`);
+                setServicesDialogOpen(true);
+              }}
+            >
+              <Icon name="calendar-plus" size={16} color="#3b82f6" />
+              <Text style={styles.bookAgainText}>Book Again</Text>
+            </Button>
+          </View>
         );
 
       default:
@@ -1451,11 +1652,12 @@ const mapBookingData = (data: any[]) => {
     { value: 'CANCELLED', label: 'Cancelled', count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
   ];
 
-  // UPDATED: Improved renderBookingItem with new structured layout including provider info
+  // UPDATED: Improved renderBookingItem with payment integration
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const serviceType = item.serviceType || item.service_type;
     const hasModifications = item.modifications && item.modifications.length > 0;
     const modificationDetails = getModificationDetails(item);
+    const isPaymentPending = item.payment && item.payment.status === "PENDING";
     
     console.log(`\n🖼️ Rendering booking item ${item.id}:`);
     console.log(`   - Service Provider: "${item.serviceProviderName}"`);
@@ -1463,6 +1665,7 @@ const mapBookingData = (data: any[]) => {
     console.log(`   - Task Status: ${item.taskStatus}`);
     console.log(`   - Has Modifications: ${hasModifications}`);
     console.log(`   - Start Epoch: ${item.start_epoch}`);
+    console.log(`   - Payment Pending: ${isPaymentPending}`);
     
     return (
       <Card style={styles.bookingCard}>
@@ -1484,6 +1687,13 @@ const mapBookingData = (data: any[]) => {
           <View style={styles.statusBadgesContainer}>
             {getBookingTypeBadge(item.bookingType)}
             {getStatusBadge(item.taskStatus)}
+            {/* Show payment pending badge when applicable */}
+            {isPaymentPending && item.taskStatus !== 'CANCELLED' && (
+              <Badge style={styles.paymentPendingBadge}>
+                <Icon name="alert-circle" size={14} color="#dc2626" />
+                <Text style={styles.paymentPendingBadgeText}>Payment Pending</Text>
+              </Badge>
+            )}
             {item.assignmentStatus === "UNASSIGNED" && (
               <Badge style={styles.awaitingBadge}>
                 <Icon name="clock" size={14} color="#ca8a04" />
@@ -1525,7 +1735,7 @@ const mapBookingData = (data: any[]) => {
             <View style={styles.ratingRow}>
               <Icon name="account" size={16} color="#6b7280" />
               <Text style={styles.providerNameText} numberOfLines={1}>
-                {item.assignmentStatus === "UNASSIGNED" ? "Awaiting Assignment" : `ServiceProvider: ${item.serviceProviderName}`}
+                {item.assignmentStatus === "UNASSIGNED" ? "Awaiting Assignment" : `Provider: ${item.serviceProviderName}`}
               </Text>
             </View>
             {item.providerRating > 0 && (
@@ -1537,56 +1747,83 @@ const mapBookingData = (data: any[]) => {
           </View>
 
         {item.responsibilities && (
-  <View style={styles.responsibilitiesContainer}>
-    <Text style={styles.responsibilitiesTitle}>Responsibilities:</Text>
-    <View style={styles.responsibilitiesList}>
-      {[
-        ...(item.responsibilities.tasks || []).map(task => ({ task, isAddon: false })),
-        ...(item.responsibilities.add_ons || []).map(task => ({ task, isAddon: true })),
-      ].slice(0, 2).map((item: any, index: number) => {
-        const { task, isAddon } = item;
-        const taskLabel =
-          typeof task === "object" && task !== null
-            ? Object.entries(task)
-                .filter(([key]) => key !== "taskType")
-                .map(([key, value]) => `${value} ${key}`)
-                .join(", ")
-            : "";
-        const taskName = typeof task === "object" ? task.taskType : task;
+          <View style={styles.responsibilitiesContainer}>
+            <Text style={styles.responsibilitiesTitle}>Responsibilities:</Text>
+            <View style={styles.responsibilitiesList}>
+              {[
+                ...(item.responsibilities.tasks || []).map(task => ({ task, isAddon: false })),
+                ...(item.responsibilities.add_ons || []).map(task => ({ task, isAddon: true })),
+              ].slice(0, 2).map((item: any, index: number) => {
+                const { task, isAddon } = item;
+                const taskLabel =
+                  typeof task === "object" && task !== null
+                    ? Object.entries(task)
+                        .filter(([key]) => key !== "taskType")
+                        .map(([key, value]) => `${value} ${key}`)
+                        .join(", ")
+                    : "";
+                const taskName = typeof task === "object" ? task.taskType : task;
 
-        return (
-          <View key={index} style={styles.responsibilityBadge}>
-            <Text style={styles.responsibilityText}>
-              {isAddon ? "Add-ons - " : ""}
-              {taskName} {taskLabel && `- ${taskLabel}`}
-            </Text>
-          </View>
-        );
-      })}
-      {/* Safe calculation of more items */}
-      {(() => {
-        const tasksCount = item.responsibilities?.tasks?.length || 0;
-        const addonsCount = item.responsibilities?.add_ons?.length || 0;
-        const totalCount = tasksCount + addonsCount;
-        
-        if (totalCount > 2) {
-          return (
-            <View style={styles.moreResponsibilitiesBadge}>
-              <Text style={styles.moreResponsibilitiesText}>
-                +{totalCount - 2} more
-              </Text>
+                return (
+                  <View key={index} style={styles.responsibilityBadge}>
+                    <Text style={styles.responsibilityText}>
+                      {isAddon ? "Add-ons - " : ""}
+                      {taskName} {taskLabel && `- ${taskLabel}`}
+                    </Text>
+                  </View>
+                );
+              })}
+              {/* Safe calculation of more items */}
+              {(() => {
+                const tasksCount = item.responsibilities?.tasks?.length || 0;
+                const addonsCount = item.responsibilities?.add_ons?.length || 0;
+                const totalCount = tasksCount + addonsCount;
+                
+                if (totalCount > 2) {
+                  return (
+                    <View style={styles.moreResponsibilitiesBadge}>
+                      <Text style={styles.moreResponsibilitiesText}>
+                        +{totalCount - 2} more
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
             </View>
-          );
-        }
-        return null;
-      })()}
-    </View>
-  </View>
-)}
+          </View>
+        )}
 
+          {/* Amount Container with Payment Info */}
           <View style={styles.amountContainer}>
-            <Text style={styles.amountText}>₹{item.monthlyAmount}</Text>
-            <Text style={styles.amountLabel}>Total Amount</Text>
+            {isPaymentPending && item.taskStatus !== 'CANCELLED' ? (
+              <>
+                <Text style={styles.paymentRequiredText}>Payment Required</Text>
+                {/* <Button
+                  style={[styles.actionButton, styles.smallPaymentButton]}
+                  onPress={() => handlePaymentClick(item)}
+                  disabled={paymentLoading === item.id}
+                >
+                  {paymentLoading === item.id ? (
+                    <>
+                      <ActivityIndicator size="small" color="#fff" />
+                      <Text style={styles.smallPaymentButtonText}>Processing...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="credit-card" size={14} color="#fff" />
+                      <Text style={styles.smallPaymentButtonText}>Pay Now</Text>
+                    </>
+                  )}
+                </Button> */}
+                {/* <Text style={styles.paymentHelperText}>Complete payment to confirm</Text> */}
+              </>
+            ) : (
+              <>
+                <Text style={styles.amountText}>₹{item.monthlyAmount}</Text>
+                <Text style={styles.amountLabel}>Total Amount</Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -1893,39 +2130,39 @@ const mapBookingData = (data: any[]) => {
   );
 };
 
-// UPDATED: Complete Styles with new structured layout
+// UPDATED: Complete Styles with all new styles including payment
 const styles = StyleSheet.create({
   // Basic Components
   card: {
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
     marginBottom: 16,
     padding: 16,
   },
   button: {
     backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    margin: 4,
+    minHeight: 40,
   },
   disabledButton: {
     opacity: 0.6,
   },
   badgeBase: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
     borderWidth: 1,
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -1935,7 +2172,7 @@ const styles = StyleSheet.create({
   separatorBase: {
     height: 1,
     backgroundColor: '#e5e7eb',
-    marginVertical: 12,
+    marginVertical: 16,
   },
 
   // Container
@@ -1947,38 +2184,41 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f9fafb',
   },
   loadingText: {
     marginTop: 16,
     color: '#4b5563',
+    fontSize: 16,
   },
 
   // Header
   header: {
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    paddingTop: 50,
   },
   headerContent: {
-    marginBottom: 16,
+    marginBottom: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 15,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: 'rgb(14, 48, 92)',
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: 'rgba(14, 48, 92, 0.8)',
-    marginTop: 4,
+    marginTop: 8,
+    textAlign: 'center',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 12,
   },
   searchContainer: {
     flex: 1,
@@ -1988,11 +2228,12 @@ const styles = StyleSheet.create({
   searchInput: {
     backgroundColor: '#fff',
     color: '#000',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    fontSize: 16,
   },
   clearSearchButton: {
     position: 'absolute',
@@ -2001,62 +2242,65 @@ const styles = StyleSheet.create({
   },
   walletButton: {
     backgroundColor: 'rgb(14, 48, 92)',
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 60,
+    width: 70,
   },
   walletText: {
     color: '#fff',
     fontSize: 12,
     marginTop: 4,
+    fontWeight: '500',
   },
 
   // Sections
   section: {
-    padding: 16,
+    padding: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-    borderRadius: 8,
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderRadius: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#3b82f6',
   },
   pastSectionHeader: {
-    backgroundColor: 'rgba(156, 163, 175, 0.05)',
-    borderLeftColor: 'rgba(156, 163, 175, 0.3)',
+    backgroundColor: 'rgba(156, 163, 175, 0.08)',
+    borderLeftColor: 'rgba(156, 163, 175, 0.4)',
   },
   sectionHeaderContent: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#111827',
   },
   sectionSubtitle: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6b7280',
-    marginTop: 2,
+    marginTop: 4,
   },
   sectionBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.2)',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   pastBadge: {
-    backgroundColor: 'rgba(156, 163, 175, 0.1)',
-    borderColor: 'rgba(156, 163, 175, 0.3)',
+    backgroundColor: 'rgba(156, 163, 175, 0.15)',
+    borderColor: 'rgba(156, 163, 175, 0.4)',
   },
   sectionBadgeText: {
     color: '#3b82f6',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   pastBadgeText: {
     color: '#6b7280',
@@ -2064,24 +2308,26 @@ const styles = StyleSheet.create({
 
   // Status Filter Tabs
   statusFilterContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   statusTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
     backgroundColor: '#f3f4f6',
-    marginRight: 8,
+    marginRight: 10,
+    minWidth: 100,
   },
   statusTabActive: {
     backgroundColor: '#3b82f6',
   },
   statusTabText: {
     color: '#4b5563',
-    fontWeight: '500',
+    fontWeight: '600',
     marginRight: 8,
+    fontSize: 14,
   },
   statusTabTextActive: {
     color: '#fff',
@@ -2089,28 +2335,32 @@ const styles = StyleSheet.create({
   statusTabCount: {
     backgroundColor: '#e5e7eb',
     borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    minWidth: 26,
+    alignItems: 'center',
   },
   statusTabCountText: {
     fontSize: 12,
     color: '#4b5563',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   // Booking Card Layout
   bookingCard: {
-    marginBottom: 16,
-    borderRadius: 8,
+    marginBottom: 20,
+    borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
 
-  // First Line: Service Title and Status Badges - UPDATED for better layout
+  // First Line: Service Title and Status Badges
   firstLineContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
     flexWrap: 'wrap',
   },
   serviceTitleContainer: {
@@ -2120,11 +2370,11 @@ const styles = StyleSheet.create({
     minWidth: '50%',
   },
   serviceIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   serviceTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#111827',
   },
   statusBadgesContainer: {
@@ -2141,7 +2391,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
     paddingHorizontal: 4,
   },
   bookingIdContainer: {
@@ -2150,9 +2400,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bookingIdText: {
-    marginLeft: 6,
+    marginLeft: 8,
     fontSize: 14,
     color: '#6b7280',
+    fontWeight: '500',
   },
   bookingDateContainer: {
     flexDirection: 'row',
@@ -2161,10 +2412,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   bookingDateText: {
-    marginLeft: 6,
+    marginLeft: 8,
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'right',
+    fontWeight: '500',
   },
 
   // Third Line: Time and Address
@@ -2172,7 +2424,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
     paddingHorizontal: 4,
   },
   timeContainer: {
@@ -2181,9 +2433,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   timeText: {
-    marginLeft: 6,
+    marginLeft: 8,
     fontSize: 14,
     color: '#6b7280',
+    fontWeight: '500',
   },
   addressContainer: {
     flexDirection: 'row',
@@ -2192,50 +2445,53 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   addressText: {
-    marginLeft: 6,
+    marginLeft: 8,
     fontSize: 14,
     color: '#6b7280',
     flexShrink: 1,
     textAlign: 'right',
+    fontWeight: '500',
   },
 
-  // Fourth Line: Provider Rating, Responsibilities, and Amount - UPDATED
+  // Fourth Line: Provider Rating, Responsibilities, and Amount
   fourthLineContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
     paddingHorizontal: 4,
   },
   providerRatingContainer: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   providerNameText: {
-    marginLeft: 6,
+    marginLeft: 8,
     fontSize: 14,
     color: '#4b5563',
     flexShrink: 1,
+    fontWeight: '500',
   },
   ratingText: {
-    marginLeft: 6,
+    marginLeft: 8,
     fontSize: 14,
     color: '#f59e0b',
+    fontWeight: '600',
   },
   responsibilitiesContainer: {
     flex: 2,
-    marginHorizontal: 8,
+    marginHorizontal: 12,
   },
   responsibilitiesTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: '#6b7280',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   responsibilitiesList: {
     flexDirection: 'row',
@@ -2243,42 +2499,217 @@ const styles = StyleSheet.create({
   },
   responsibilityBadge: {
     backgroundColor: '#f3f4f6',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 6,
-    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 8,
+    marginBottom: 8,
   },
   responsibilityText: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#4b5563',
+    fontWeight: '500',
   },
   moreResponsibilitiesBadge: {
     backgroundColor: '#e5e7eb',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 8,
   },
   moreResponsibilitiesText: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#6b7280',
     fontStyle: 'italic',
+    fontWeight: '500',
   },
   amountContainer: {
     flex: 1,
     alignItems: 'flex-end',
-    marginLeft: 8,
+    marginLeft: 12,
   },
   amountText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#3b82f6',
     marginBottom: 4,
   },
   amountLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+
+  // Payment Related Styles
+  paymentActionContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    width: '100%',
+  },
+  paymentButton: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+    flex: 1,
+    minWidth: '48%',
+  },
+  paymentButtonText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  smallPaymentButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    minWidth: 'auto',
+  },
+  smallPaymentButtonText: {
+    color: '#fff',
+    marginLeft: 6,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  paymentRequiredText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#dc2626',
+    marginBottom: 8,
+    textAlign: 'right',
+  },
+  paymentHelperText: {
     fontSize: 12,
     color: '#6b7280',
+    marginTop: 6,
+    textAlign: 'right',
+    fontStyle: 'italic',
+  },
+  paymentPendingBadge: {
+    backgroundColor: 'rgba(220, 38, 38, 0.15)',
+    borderColor: 'rgba(220, 38, 38, 0.3)',
+    marginLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  paymentPendingBadgeText: {
+    color: '#dc2626',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+
+  // Action Buttons Styles
+  actionButtonsContainer: {
+    width: '100%',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: '30%',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  callButton: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  callButtonText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  messageButton: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  messageButtonText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  cancelButton: {
+    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modifyButton: {
+    backgroundColor: '#fff',
+    borderColor: '#1e40af',
+  },
+  modifyButtonText: {
+    color: '#1e40af',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  vacationButton: {
+    backgroundColor: '#fff',
+    borderColor: '#1e40af',
+  },
+  vacationButtonText: {
+    color: '#1e40af',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  vacationModifiedButton: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#93c5fd',
+  },
+  vacationModifiedText: {
+    color: '#1e40af',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  reviewButton: {
+    backgroundColor: '#fff',
+    borderColor: '#1e40af',
+  },
+  reviewButtonText: {
+    color: '#1e40af',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  reviewSubmittedButton: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  reviewSubmittedText: {
+    color: '#10b981',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  bookAgainButton: {
+    backgroundColor: '#fff',
+    borderColor: '#3b82f6',
+  },
+  bookAgainText: {
+    color: '#3b82f6',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  disabledButtonText: {
+    color: '#9ca3af',
   },
 
   // Modification and Vacation Containers
@@ -2286,45 +2717,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f9fafb',
-    padding: 8,
-    borderRadius: 4,
-    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
   },
   modificationText: {
-    marginLeft: 8,
-    fontSize: 12,
+    marginLeft: 12,
+    fontSize: 14,
     color: '#6b7280',
     fontStyle: 'italic',
     flex: 1,
+    fontWeight: '500',
   },
   vacationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#eff6ff',
-    padding: 8,
-    borderRadius: 4,
-    marginBottom: 8,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
   },
   vacationText: {
-    marginLeft: 8,
-    fontSize: 12,
+    marginLeft: 12,
+    fontSize: 14,
     color: '#1e40af',
+    fontWeight: '500',
   },
 
   // Scheduled Message Section Styles
   scheduledMessageSection: {
-    marginTop: 8,
+    marginTop: 12,
   },
   scheduledMessageContainer: {
     marginTop: 16,
     width: '100%',
   },
   scheduledMessageCard: {
-    padding: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    padding: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
     borderWidth: 1,
     borderColor: '#93c5fd',
-    borderRadius: 8,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -2332,11 +2765,11 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   inProgressMessageCard: {
-    padding: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    padding: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderWidth: 1,
     borderColor: '#a7f3d0',
-    borderRadius: 8,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -2344,11 +2777,11 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   completedMessageCard: {
-    padding: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    padding: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderWidth: 1,
     borderColor: '#a7f3d0',
-    borderRadius: 8,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -2358,126 +2791,137 @@ const styles = StyleSheet.create({
   scheduledMessageHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   scheduledMessageTitleContainer: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
   },
   scheduledMessageTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#111827',
     flex: 1,
   },
   scheduledMessageText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6b7280',
-    marginBottom: 12,
+    marginBottom: 16,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   scheduledBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-    marginLeft: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    marginLeft: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   scheduledBadgeText: {
     color: '#10b981',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   inProgressBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-    marginLeft: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    marginLeft: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   inProgressBadgeText: {
     color: '#10b981',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   completedBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-    marginLeft: 8,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    marginLeft: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   completedBadgeText: {
     color: '#10b981',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   otpButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 16,
   },
   otpButton: {
     backgroundColor: '#3b82f6',
     borderColor: '#3b82f6',
-    minWidth: 180,
+    minWidth: 200,
     flex: 1,
-  },
-  otpButtonDisabled: {
-    backgroundColor: '#9ca3af',
-    borderColor: '#9ca3af',
+    paddingVertical: 14,
   },
   otpButtonText: {
     color: '#fff',
-    marginLeft: 8,
-    fontWeight: '500',
+    marginLeft: 12,
+    fontWeight: '600',
+    fontSize: 16,
   },
   otpActiveBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   otpActiveBadgeText: {
     color: '#10b981',
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   otpDisplayContainer: {
     backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   otpDisplayLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#4b5563',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   otpDisplay: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   otpCode: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    letterSpacing: 4,
+    letterSpacing: 6,
     color: '#111827',
   },
   copyOtpButton: {
     backgroundColor: 'transparent',
     borderColor: '#d1d5db',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   copyOtpButtonText: {
     color: '#4b5563',
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   otpExpiryText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6b7280',
+    fontStyle: 'italic',
   },
   reviewPromptContainer: {
     flexDirection: 'row',
@@ -2485,196 +2929,213 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: '#a7f3d0',
-    paddingTop: 12,
-    marginTop: 12,
+    paddingTop: 16,
+    marginTop: 16,
   },
   reviewPromptContent: {
     flex: 1,
   },
   reviewPromptTitle: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#4b5563',
   },
   reviewPromptSubtitle: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6b7280',
-    marginTop: 2,
+    marginTop: 4,
+    lineHeight: 20,
   },
   leaveReviewButton: {
     backgroundColor: 'transparent',
     borderColor: '#d1d5db',
-    marginLeft: 8,
+    marginLeft: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   leaveReviewButtonText: {
     color: '#000',
-    marginLeft: 4,
-    fontSize: 12,
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
   },
 
-  // Action Buttons
-  separator: {
-    marginHorizontal: 0,
+  // Badge Styles
+  activeBadge: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  activeBadgeText: {
+    color: '#3b82f6',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
   },
-  actionButton: {
-    flex: 1,
-    minWidth: '45%',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+  // completedBadge: {
+  //   backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  //   borderColor: 'rgba(16, 185, 129, 0.3)',
+  //   paddingHorizontal: 12,
+  //   paddingVertical: 8,
+  // },
+  // completedBadgeText: {
+  //   color: '#10b981',
+  //   fontSize: 12,
+  //   marginLeft: 6,
+  //   fontWeight: '600',
+  // },
+  cancelledBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  cancelButton: {
-    backgroundColor: '#ef4444',
-    borderColor: '#ef4444',
+  cancelledBadgeText: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
   },
-  cancelButtonText: {
-    color: '#fff',
+  // inProgressBadge: {
+  //   backgroundColor: 'rgba(107, 114, 128, 0.15)',
+  //   borderColor: 'rgba(107, 114, 128, 0.3)',
+  //   paddingHorizontal: 12,
+  //   paddingVertical: 8,
+  // },
+  // inProgressBadgeText: {
+  //   color: '#6b7280',
+  //   fontSize: 12,
+  //   marginLeft: 6,
+  //   fontWeight: '600',
+  // },
+  notStartedBadge: {
+    backgroundColor: 'rgba(107, 114, 128, 0.15)',
+    borderColor: 'rgba(107, 114, 128, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  vacationModifiedButton: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#93c5fd',
+  notStartedBadgeText: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
   },
-  vacationModifiedText: {
-    color: '#1e40af',
+  onDemandBadge: {
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  onDemandBadgeText: {
+    color: '#8b5cf6',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  monthlyBadge: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  monthlyBadgeText: {
+    color: '#3b82f6',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  shortTermBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  shortTermBadgeText: {
+    color: '#10b981',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  defaultBadge: {
+    backgroundColor: 'rgba(156, 163, 175, 0.15)',
+    borderColor: 'rgba(156, 163, 175, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  defaultBadgeText: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  awaitingBadge: {
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+    borderColor: 'rgba(234, 179, 8, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  awaitingBadgeText: {
+    color: '#ca8a04',
+    fontSize: 12,
+    marginLeft: 6,
+    fontWeight: '600',
   },
 
   // Empty State
   emptyStateCard: {
     alignItems: 'center',
-    padding: 32,
+    padding: 40,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 20,
+    color: '#111827',
   },
   emptyStateText: {
     color: '#6b7280',
-    marginTop: 4,
+    marginTop: 8,
     textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 24,
   },
   emptyStateButton: {
-    marginTop: 16,
-  },
-
-  // Badge Styles
-  activeBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  activeBadgeText: {
-    color: '#3b82f6',
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  // completedBadge: {
-  //   backgroundColor: 'rgba(16, 185, 129, 0.1)',
-  //   borderColor: 'rgba(16, 185, 129, 0.2)',
-  // },
-  // completedBadgeText: {
-  //   color: '#10b981',
-  //   fontSize: 12,
-  //   marginLeft: 4,
-  // },
-  cancelledBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  cancelledBadgeText: {
-    color: '#ef4444',
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  // inProgressBadge: {
-  //   backgroundColor: 'rgba(107, 114, 128, 0.1)',
-  //   borderColor: 'rgba(107, 114, 128, 0.3)',
-  // },
-  // inProgressBadgeText: {
-  //   color: '#6b7280',
-  //   fontSize: 12,
-  //   marginLeft: 4,
-  // },
-  notStartedBadge: {
-    backgroundColor: 'rgba(107, 114, 128, 0.1)',
-    borderColor: 'rgba(107, 114, 128, 0.3)',
-  },
-  notStartedBadgeText: {
-    color: '#6b7280',
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  onDemandBadge: {
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-    borderColor: 'rgba(168, 85, 247, 0.2)',
-  },
-  onDemandBadgeText: {
-    color: '#8b5cf6',
-    fontSize: 12,
-  },
-  monthlyBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  monthlyBadgeText: {
-    color: '#3b82f6',
-    fontSize: 12,
-  },
-  shortTermBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  shortTermBadgeText: {
-    color: '#10b981',
-    fontSize: 12,
-  },
-  defaultBadge: {
-    backgroundColor: 'rgba(156, 163, 175, 0.1)',
-    borderColor: 'rgba(156, 163, 175, 0.2)',
-  },
-  defaultBadgeText: {
-    color: '#6b7280',
-    fontSize: 12,
-  },
-  modifiedBadge: {
-    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-    borderColor: 'rgba(234, 179, 8, 0.2)',
-  },
-  modifiedBadgeText: {
-    color: '#ca8a04',
-    fontSize: 12,
-  },
-  // ADDED: Awaiting badge style
-  awaitingBadge: {
-    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-    borderColor: 'rgba(234, 179, 8, 0.2)',
-  },
-  awaitingBadgeText: {
-    color: '#ca8a04',
-    fontSize: 12,
-    marginLeft: 4,
+    marginTop: 24,
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
   },
 
   // Snackbar
   snackbar: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 20,
+    left: 20,
+    right: 20,
     backgroundColor: '#10b981',
-    padding: 16,
+    padding: 20,
+    borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
   snackbarText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
   },
 });
 

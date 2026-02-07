@@ -206,17 +206,16 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             <Text style={styles.mobileNavText}>Home</Text>
           </TouchableOpacity>
           
-          {/* Profile/User Avatar - Show when authenticated, otherwise login */}
+          {/* Sign In/Profile - Show Sign In when not authenticated */}
           <TouchableOpacity
             onPress={handleProfileButtonClick}
             style={styles.mobileNavItem}
           >
             {renderUserAvatar(true)}
             <Text style={styles.mobileNavText}>
-              {auth0User ? getUserFirstName() : "Profile"}
+              {auth0User ? getUserFirstName() : "Sign In"} {/* FIXED: Changed from "Profile" to "Sign In" */}
             </Text>
           </TouchableOpacity>
-
 
           {/* Bookings - Only for CUSTOMER */}
           {isCustomer && (
@@ -250,7 +249,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
               <Text style={styles.mobileNavText}>Wallet</Text>
             </TouchableOpacity>
           )}
-          
+
           {/* Sign Up/Sign Out buttons */}
           {!isAuthenticated ? (
             <TouchableOpacity
@@ -269,9 +268,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
               <Text style={styles.mobileNavText}>Sign Out</Text>
             </TouchableOpacity>
           )}
-          
         </View>
-        
 
         {/* Dialogs */}
         <NotificationsDialog
@@ -353,12 +350,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             </TouchableOpacity>
           )}
           
-          {/* User Avatar/Profile */}
+          {/* User Avatar/Profile - Show Sign In when not authenticated */}
           <TouchableOpacity 
             onPress={handleProfileButtonClick}
             style={[styles.desktopActionIcon, styles.userMenuButton]}
           >
             {renderUserAvatar()}
+            {!isAuthenticated && ( // FIXED: Show "Sign In" text when not authenticated
+              <Text style={styles.signInText}>Sign In</Text>
+            )}
           </TouchableOpacity>
           
           {/* Sign Out button - Only show when authenticated */}
