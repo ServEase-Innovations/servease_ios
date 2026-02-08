@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", // Changed from space-between to evenly distribute
     height: 70,
     elevation: 3,
-    paddingHorizontal: 16, // Add padding for better spacing
+    // paddingHorizontal: 16, // Add padding for better spacing
   },
   logoContainer: {
     flex: 1,

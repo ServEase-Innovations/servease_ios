@@ -125,16 +125,17 @@ const MainApp = () => {
   switch (type) {
     case "USER":
       handleAuth0Login();   
+      setCurrentView("SIGNUP");
       // Ideally trigger Auth0 login here later
       break;
 
     case "PROVIDER":
-      setCurrentView("HOME");
+      setCurrentView("SIGNUP");
       setTimeout(() => setShowProviderRegistration(true), 150);
       break;
 
     case "AGENT":
-      setCurrentView("HOME");
+      setCurrentView("SIGNUP");
       setTimeout(() => setShowAgentRegistration(true), 150);
       break;
   }
@@ -363,6 +364,7 @@ const MainApp = () => {
     setActiveToast(null);
   };
 
+
   const handleViewChange = (view: string) => {
     if (view === "" || view === "FORCE_HOME") {
       setCurrentView("HOME");
@@ -511,6 +513,7 @@ const MainApp = () => {
         {isMobile && (
           <View style={styles.navigationFooterContainer}>
            <NavigationFooter
+           activePage={currentView}
   onHomeClick={handleHomeClick}
   onBookingsClick={handleBookingsClick}
   onDashboardClick={handleDashboardClick}

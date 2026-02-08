@@ -29,7 +29,8 @@ interface NavigationFooterProps {
   appUser: any;
   bookingType?: string;
   onProfileClick: () => void;
-  onNavigateToPage: (page: string) => void; // NEW: Added navigation handler
+  onNavigateToPage: (page: string) => void;
+  activePage: string; // NEW: Added active page tracking
 }
 
 const { width } = Dimensions.get("window");
@@ -46,7 +47,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   appUser,
   bookingType = "",
   onProfileClick,
-  onNavigateToPage // NEW: Navigation handler
+  onNavigateToPage,
+  activePage // NEW: Navigation handler
 }) => {
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -193,96 +195,109 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   };
 
   // For mobile - render bottom navigation bar
-  if (isMobile) {
-    return (
-      <>
-        <View style={styles.mobileNavContainer}>
-          {/* Home - Always visible */}
-          <TouchableOpacity
-            onPress={onHomeClick}
-            style={styles.mobileNavItem}
-          >
-            <MaterialIcon name="home" size={22} color="#fff" />
-            <Text style={styles.mobileNavText}>Home</Text>
-          </TouchableOpacity>
-          
-          {/* Sign In/Profile - Show Sign In when not authenticated */}
-          <TouchableOpacity
-            onPress={handleProfileButtonClick}
-            style={styles.mobileNavItem}
-          >
-            {renderUserAvatar(true)}
-            <Text style={styles.mobileNavText}>
-              {auth0User ? getUserFirstName() : "Sign In"} {/* FIXED: Changed from "Profile" to "Sign In" */}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Bookings - Only for CUSTOMER */}
-          {isCustomer && (
-            <TouchableOpacity
-              onPress={handleBookingsButtonClick}
-              style={styles.mobileNavItem}
-            >
-              <MaterialIcon name="event-note" size={22} color="#fff" />
-              <Text style={styles.mobileNavText}>Bookings</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Dashboard - Only for SERVICE_PROVIDER */}
-          {isServiceProvider && (
-            <TouchableOpacity
-              onPress={handleDashboardButtonClick}
-              style={styles.mobileNavItem}
-            >
-              <MaterialIcon name="dashboard" size={22} color="#fff" />
-              <Text style={styles.mobileNavText}>Dashboard</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Wallet - Only for CUSTOMER */}
-          {isCustomer && (
-            <TouchableOpacity
-              onPress={() => setIsWalletOpen(true)}
-              style={styles.mobileNavItem}
-            >
-              <MaterialIcon name="account-balance-wallet" size={22} color="#fff" />
-              <Text style={styles.mobileNavText}>Wallet</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Sign Up/Sign Out buttons */}
-          {!isAuthenticated ? (
-            <TouchableOpacity
-              onPress={onOpenSignup}
-              style={styles.mobileNavItem}
-            >
-              <MaterialIcon name="person-add" size={22} color="#fff" />
-              <Text style={styles.mobileNavText}>Sign Up</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              onPress={handleSignOut}
-              style={styles.mobileNavItem}
-            >
-              <MaterialIcon name="logout" size={22} color="#fff" />
-              <Text style={styles.mobileNavText}>Sign Out</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Dialogs */}
-        <NotificationsDialog
-          visible={showNotifications}
-          onClose={() => setShowNotifications(false)}
+ if (isMobile) {
+  const tabs = [
+    {
+      key: "HOME",
+      label: "Home",
+      icon: <MaterialIcon name="home" size={22} />,
+      onPress: onHomeClick,
+    },
+    {
+      key: PROFILE,
+      label: auth0User ? getUserFirstName() : "Sign In",
+      icon: renderUserAvatar(true),
+      onPress: handleProfileButtonClick,
+    },
+    ...(isCustomer
+      ? [
+          {
+            key: BOOKINGS,
+            label: "Bookings",
+            icon: <MaterialIcon name="event-note" size={22} />,
+            onPress: handleBookingsButtonClick,
+          },
+        ]
+      : []),
+    ...(isServiceProvider
+      ? [
+          {
+            key: DASHBOARD,
+            label: "Dashboard",
+            icon: <MaterialIcon name="dashboard" size={22} />,
+            onPress: handleDashboardButtonClick,
+          },
+        ]
+      : []),
+    ...(isCustomer
+      ? [
+          {
+            key: "WALLET",
+            label: "Wallet",
+            icon: <MaterialIcon name="account-balance-wallet" size={22} />,
+            onPress: () => setIsWalletOpen(true),
+          },
+        ]
+      : []),
+    {
+      key: isAuthenticated ? "SIGN_OUT" : "SIGN_UP",
+      label: isAuthenticated ? "Sign Out" : "Sign Up",
+      icon: (
+        <MaterialIcon
+          name={isAuthenticated ? "logout" : "person-add"}
+          size={22}
         />
+      ),
+      onPress: isAuthenticated ? handleSignOut : onOpenSignup,
+    },
+  ];
 
-        <WalletDialog
-          open={isWalletOpen}
-          onClose={() => setIsWalletOpen(false)}
-        />
-      </>
-    );
-  }
+  return (
+    <>
+      <View style={styles.mobileNavContainer}>
+        {tabs.map((tab, index) => {
+          const isActive = activePage === tab.key;
+          const isLast = index === tabs.length - 1;
+
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={tab.onPress}
+              style={[
+                styles.mobileNavItem,
+                !isLast && styles.withBorder,
+                isActive && styles.activeTab,
+              ]}
+            >
+              {React.cloneElement(tab.icon as any, {
+                color: isActive ? "#93c5fd" : "#fff",
+              })}
+              <Text
+                style={[
+                  styles.mobileNavText,
+                  isActive && styles.activeTabText,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <NotificationsDialog
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
+
+      <WalletDialog
+        open={isWalletOpen}
+        onClose={() => setIsWalletOpen(false)}
+      />
+    </>
+  );
+}
+
 
   // For desktop - render desktop navigation
   return (
@@ -404,10 +419,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     flex: 1,
   },
+  withBorder: {
+  borderRightWidth: 1,
+  borderRightColor: "rgba(255,255,255,0.15)",
+},
+
+activeTab: {
+  // backgroundColor: "rgba(255,255,255,0.12)",
+  // borderTopWidth: 3,
+  borderTopColor: "#3b82f6",
+},
+
+activeTabText: {
+  color: "#93c5fd",
+  fontWeight: "600",
+  textDecorationLine: "underline",
+   
+  // backgroundColor: "#3b82f6",
+},
   mobileNavText: {
     color: "white",
     fontSize: 11,
-    marginTop: 4,
+    // marginTop: 4,
     fontWeight: "400",
     textAlign: "center",
   },
