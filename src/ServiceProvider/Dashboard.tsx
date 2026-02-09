@@ -12,7 +12,8 @@ import {
   SafeAreaView,
   StatusBar,
   Modal,
-  TextInput
+  TextInput,
+  Linking
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -215,6 +216,34 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
   return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
 };
 
+// Function to handle calling customer
+const handleCallCustomer = (phoneNumber: string, clientName: string) => {
+  if (!phoneNumber || phoneNumber === "Contact info not available") {
+    Alert.alert("No Contact Info", "Customer contact information is not available.");
+    return;
+  }
+  
+  const telLink = `tel:${phoneNumber}`;
+  Linking.openURL(telLink).catch(() => {
+    Alert.alert("Error", "Could not open phone dialer");
+  });
+};
+
+// Function to handle tracking address
+const handleTrackAddress = (address: string) => {
+  if (!address || address === "Address not provided") {
+    Alert.alert("No Address", "Address is not provided for this booking.");
+    return;
+  }
+  
+  const encodedAddress = encodeURIComponent(address);
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+  
+  Linking.openURL(googleMapsUrl).catch(() => {
+    Alert.alert("Error", "Could not open maps application");
+  });
+};
+
 // Function to format API booking data for the BookingCard component
 const formatBookingForCard = (booking: any) => {
   let date, timeRange;
@@ -263,10 +292,11 @@ const formatBookingForCard = (booking: any) => {
     });
   }
 
-  const clientName = booking.firstname || 
-                    booking.customerName || 
-                    booking.email || 
-                    "Client";
+  const clientName = booking.firstname && booking.lastname 
+    ? `${booking.firstname} ${booking.lastname}`.trim()
+    : booking.firstname 
+      ? booking.firstname
+      : booking.email || "Client";
 
   const bookingId = booking.engagement_id || booking.id;
 
@@ -287,7 +317,12 @@ const formatBookingForCard = (booking: any) => {
             booking.task_status === "IN_PROGRESS" || booking.task_status === "STARTED" ? "in-progress" : 
             booking.task_status === "NOT_STARTED" ? "upcoming" : "upcoming",
     amount: amount,
-    bookingData: booking,
+    bookingData: {
+      ...booking,
+      mobileno: booking.mobileno || "",
+      contact: booking.mobileno || "Contact info not available",
+      today_service: booking.today_service || null
+    },
     responsibilities: booking.responsibilities || {},
     contact: booking.mobileno || "Contact info not available",
     task_status: booking.task_status
@@ -309,14 +344,18 @@ const Button = ({
   style, 
   onPress, 
   children,
-  disabled = false
+  disabled = false,
+  icon,
+  loading = false
 }: { 
-  variant?: 'default' | 'outline' | 'destructive' | 'secondary' | 'primary' | 'success';
+  variant?: 'default' | 'outline' | 'destructive' | 'secondary' | 'primary' | 'success' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   style?: any;
-  onPress: () => void;
+  onPress?: () => void;
   children: React.ReactNode;
   disabled?: boolean;
+  icon?: React.ReactNode;
+  loading?: boolean;
 }) => {
   const getVariantStyle = () => {
     switch (variant) {
@@ -324,27 +363,42 @@ const Button = ({
         return {
           backgroundColor: 'transparent',
           borderWidth: 1,
-          borderColor: '#3B82F6',
+          borderColor: '#D1D5DB',
         };
       case 'destructive':
         return {
           backgroundColor: '#EF4444',
+          borderWidth: 1,
+          borderColor: '#EF4444',
         };
       case 'secondary':
         return {
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderWidth: 1,
+          borderColor: 'rgba(59, 130, 246, 0.2)',
         };
       case 'success':
         return {
           backgroundColor: '#10B981',
+          borderWidth: 1,
+          borderColor: '#10B981',
         };
       case 'primary':
         return {
           backgroundColor: '#3B82F6',
+          borderWidth: 1,
+          borderColor: '#3B82F6',
+        };
+      case 'ghost':
+        return {
+          backgroundColor: 'transparent',
+          borderWidth: 0,
         };
       default:
         return {
           backgroundColor: '#3B82F6',
+          borderWidth: 1,
+          borderColor: '#3B82F6',
         };
     }
   };
@@ -353,7 +407,7 @@ const Button = ({
     switch (size) {
       case 'sm':
         return {
-          paddingVertical: 8,
+          paddingVertical: 6,
           paddingHorizontal: 12,
         };
       case 'lg':
@@ -370,13 +424,18 @@ const Button = ({
   };
 
   const getTextColor = () => {
+    if (disabled) return '#9CA3AF';
+    
     switch (variant) {
       case 'outline':
-        return '#3B82F6';
+        return '#374151';
       case 'destructive':
       case 'success':
       case 'primary':
+      case 'default':
         return '#FFFFFF';
+      case 'ghost':
+        return '#374151';
       default:
         return '#FFFFFF';
     }
@@ -397,14 +456,25 @@ const Button = ({
         style,
       ]}
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || loading}
     >
-      {typeof children === 'string' ? (
-        <Text style={{ color: getTextColor(), fontWeight: '500' }}>
-          {children}
-        </Text>
+      {loading ? (
+        <ActivityIndicator size="small" color={variant === 'outline' ? '#374151' : '#FFFFFF'} />
       ) : (
-        children
+        <>
+          {icon && <View style={{marginRight: 8}}>{icon}</View>}
+          {typeof children === 'string' ? (
+            <Text style={{ 
+              color: getTextColor(), 
+              fontWeight: '500',
+              fontSize: size === 'sm' ? 12 : 14
+            }}>
+              {children}
+            </Text>
+          ) : (
+            children
+          )}
+        </>
       )}
     </TouchableOpacity>
   );
@@ -481,6 +551,8 @@ const Badge = ({
         return '#FFFFFF';
       case 'outline':
         return '#374151';
+      case 'destructive':
+        return '#DC2626';
       default:
         return '#111827';
     }
@@ -502,9 +574,10 @@ const Badge = ({
       {typeof children === 'string' ? (
         <Text
           style={{
-            fontSize: 12,
-            fontWeight: '500',
+            fontSize: 11,
+            fontWeight: '600',
             color: getTextColor(),
+            textTransform: 'uppercase',
           }}
         >
           {children}
@@ -512,67 +585,6 @@ const Badge = ({
       ) : (
         children
       )}
-    </View>
-  );
-};
-
-// Input Component
-const Input = ({ 
-  placeholder, 
-  value, 
-  onChangeText, 
-  type = 'text',
-  maxLength,
-  style,
-  disabled = false
-}: {
-  placeholder?: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  type?: 'text' | 'password' | 'email' | 'number';
-  maxLength?: number;
-  style?: any;
-  disabled?: boolean;
-}) => {
-  return (
-    <TextInput
-      style={[
-        {
-          borderWidth: 1,
-          borderColor: '#D1D5DB',
-          borderRadius: 6,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          fontSize: 16,
-          backgroundColor: disabled ? '#F3F4F6' : '#FFFFFF',
-          color: disabled ? '#9CA3AF' : '#111827',
-        },
-        style,
-      ]}
-      placeholder={placeholder}
-      placeholderTextColor="#9CA3AF"
-      value={value}
-      onChangeText={onChangeText}
-      maxLength={maxLength}
-      editable={!disabled}
-      keyboardType={type === 'number' ? 'numeric' : 'default'}
-      secureTextEntry={type === 'password'}
-    />
-  );
-};
-
-// Header Component for Dialogs
-const DialogHeader = ({ children, style }: { children: React.ReactNode; style?: any }) => {
-  return (
-    <View style={[{
-      backgroundColor: '#1E40AF',
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    }, style]}>
-      {children}
     </View>
   );
 };
@@ -614,7 +626,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     }
   }, [auth0User]);
 
-  // ✅ Extract name and serviceProviderId from Auth0 user and AppUser context
+  // Extract name and serviceProviderId from Auth0 user and AppUser context
   useEffect(() => {
     if (isAuthenticated && auth0User) {
       const name = appUser?.name || auth0User.name || null;
@@ -622,7 +634,6 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
         ? Number(appUser.serviceProviderId)
         : auth0User.serviceProviderId || auth0User["https://yourdomain.com/serviceProviderId"] || null;
 
-      console.log("appUser:", appUser);
       setUserName(name);
       setServiceProviderId(id ? Number(id) : null);
     }
@@ -641,8 +652,8 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       title: "Security Deposit",
       value: `₹${payout?.summary?.security_deposit_amount?.toLocaleString("en-IN") || 0}`,
       change: payout?.summary?.security_deposit_paid ? "Paid" : "Not Paid",
-      changeType: payout?.summary?.security_deposit_paid ? ("neutral" as const) : ("negative" as const),
-      icon: "shield" as const,
+      changeType: payout?.summary?.security_deposit_paid ? ("positive" as const) : ("negative" as const),
+      icon: "home" as const,
       description: "For active bookings"
     },
     {
@@ -652,7 +663,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       ).toLocaleString("en-IN")}`,
       change: "-10%",
       changeType: "negative" as const,
-      icon: "credit-card" as const,
+      icon: "clock" as const,
       description: "Service charges"
     },
     {
@@ -660,7 +671,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       value: `₹${payout?.summary?.available_to_withdraw?.toLocaleString("en-IN") || 0}`,
       change: "+10.2%",
       changeType: "positive" as const,
-      icon: "wallet" as const,
+      icon: "trending-up" as const,
       description: "After deductions"
     }
   ];
@@ -704,7 +715,6 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
   // Close dialog when verification completes successfully
   useEffect(() => {
     if (!verifyingOtp && otpDialogOpen && currentBooking) {
-      // Small delay to allow user to see success state if needed
       const timer = setTimeout(() => {
         handleCloseOtpDialog();
       }, 500);
@@ -760,18 +770,6 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
-  };
-
-  const handleContactClient = (booking: any) => {
-    const contactInfo = booking.contact || booking.bookingData?.mobileno || "Contact info not available";
-    
-    Alert.alert(
-      "Contact Information",
-      `Call ${booking.clientName} at ${contactInfo}`,
-      [
-        { text: "OK", style: "default" }
-      ]
-    );
   };
 
   const handleStartTask = async (bookingId: string, bookingData: any) => {
@@ -888,7 +886,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
 
   // Helper component for disabled button with loading
   const DisabledButtonWithLoader = ({ isLoading }: { isLoading: boolean }) => (
-    <TouchableOpacity
+    <View
       style={[
         {
           borderRadius: 6,
@@ -900,16 +898,16 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
           paddingHorizontal: 12,
           borderWidth: 1,
           borderColor: '#D1D5DB',
+          backgroundColor: '#F3F4F6',
         }
       ]}
-      disabled={true}
     >
       {isLoading ? (
         <ActivityIndicator size="small" color="#3B82F6" />
       ) : (
-        <Text style={{ color: '#3B82F6' }}>Loading...</Text>
+        <Text style={{ color: '#6B7280', fontSize: 12 }}>Loading...</Text>
       )}
-    </TouchableOpacity>
+    </View>
   );
 
   // Header with Profile
@@ -1053,11 +1051,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     </View>
                   ) : (
                     latestBooking.map((booking) => {
-                      // FIX: Check today_service status instead of just task_status
                       const todayServiceStatus = booking.bookingData?.today_service?.status;
                       const taskStatusOriginal = booking.task_status?.toUpperCase();
                       
-                      // Check if service is in progress
                       const isInProgress = todayServiceStatus === 'IN_PROGRESS' || 
                                            taskStatus[booking.id] === 'IN_PROGRESS' || 
                                            taskStatusOriginal === 'IN_PROGRESS' || 
@@ -1069,10 +1065,8 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                       const isNotStarted = todayServiceStatus === 'SCHEDULED' || 
                                            taskStatusOriginal === 'NOT_STARTED';
 
-                      // Check if service can be started based on today_service
                       const canStart = booking.bookingData?.today_service?.can_start === true;
-                      
-                      // Determine which button to show
+
                       const showStartButton = isNotStarted && canStart;
                       const showCompleteButton = isInProgress;
                       const showCompletedButton = isCompleted;
@@ -1091,16 +1085,26 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                               {getStatusBadge(booking.bookingData.task_status)}
                             </View>
                           </View>
-                          
-                          {/* Date & Amount */}
-                          <View style={styles.bookingDetails}>
-                            <View style={styles.detailRow}>
+
+                          {/* Date & Amount with Phone */}
+                          <View style={styles.bookingDetailsGrid}>
+                            <View style={styles.dateTimeSection}>
                               <Text style={styles.detailLabel}>Date & Time</Text>
                               <Text style={styles.detailValue}>{booking.date} at {booking.time}</Text>
                             </View>
-                            <View style={styles.detailRow}>
-                              <Text style={styles.detailLabel}>Amount</Text>
-                              <Text style={styles.detailValue}>{booking.amount}</Text>
+                            <View style={styles.amountSection}>
+                              <View style={styles.amountInfo}>
+                                <Text style={styles.detailLabel}>Amount</Text>
+                                <Text style={styles.amountValue}>{booking.amount}</Text>
+                              </View>
+                              {booking.bookingData?.mobileno && (
+                                <TouchableOpacity
+                                  style={styles.phoneIconButton}
+                                  onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName)}
+                                >
+                                  <MaterialIcon name="phone" size={16} color="#374151" />
+                                </TouchableOpacity>
+                              )}
                             </View>
                           </View>
                           
@@ -1119,29 +1123,33 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                                 );
                               })}
                               {booking.bookingData?.responsibilities?.add_ons?.map((addon: any, index: number) => (
-                                <Badge key={`addon-${index}`} variant="outline" style={[styles.responsibilityBadge, {backgroundColor: '#eff6ff'}]}>
-                                  <Text style={[styles.responsibilityText, {color: '#1d4ed8'}]}>
+                                <Badge key={`addon-${index}`} variant="outline" style={[styles.responsibilityBadge, styles.addonBadge]}>
+                                  <Text style={[styles.responsibilityText, styles.addonText]}>
                                     Add-on: {typeof addon === 'object' ? JSON.stringify(addon) : addon}
                                   </Text>
                                 </Badge>
                               ))}
                               {(!booking.bookingData?.responsibilities?.tasks?.length && !booking.bookingData?.responsibilities?.add_ons?.length) && (
-                                <Text style={[styles.responsibilityText, {color: '#6b7280'}]}>
+                                <Text style={[styles.responsibilityText, styles.noResponsibilitiesText]}>
                                   No responsibilities listed
                                 </Text>
                               )}
                             </View>
                           </View>
                           
-                          {/* Address */}
+                          {/* Address with Track Button */}
                           <View style={styles.addressContainer}>
-                            <Text style={styles.detailLabel}>Address</Text>
-                            <Text style={styles.detailValue}>{booking.location || "Address not provided"}</Text>
-                            {booking.bookingData?.mobileno && (
-                              <Text style={[styles.detailLabel, {marginTop: 4, fontSize: 12}]}>
-                                Contact: {booking.bookingData.mobileno}
-                              </Text>
-                            )}
+                            <View style={styles.addressHeader}>
+                              <Text style={styles.detailLabel}>Address</Text>
+                              <TouchableOpacity
+                                style={styles.trackAddressButton}
+                                onPress={() => handleTrackAddress(booking.location)}
+                              >
+                                <MaterialIcon name="location-on" size={14} color="#374151" />
+                                <Text style={styles.trackAddressText}>Track Address</Text>
+                              </TouchableOpacity>
+                            </View>
+                            <Text style={styles.addressText}>{booking.location || "Address not provided"}</Text>
                           </View>
 
                           {/* Today's Service Status Badge */}
@@ -1153,16 +1161,16 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                                   variant="outline"
                                   style={[
                                     styles.todayServiceBadge,
-                                    todayServiceStatus === 'SCHEDULED' && {backgroundColor: '#eff6ff', borderColor: '#93c5fd', borderWidth: 1},
-                                    todayServiceStatus === 'IN_PROGRESS' && {backgroundColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1},
-                                    todayServiceStatus === 'COMPLETED' && {backgroundColor: '#f3e8ff', borderColor: '#c4b5fd', borderWidth: 1}
+                                    todayServiceStatus === 'SCHEDULED' && styles.scheduledBadge,
+                                    todayServiceStatus === 'IN_PROGRESS' && styles.inProgressBadge,
+                                    todayServiceStatus === 'COMPLETED' && styles.completedBadge
                                   ]}
                                 >
                                   <Text style={[
                                     styles.todayServiceBadgeText,
-                                    todayServiceStatus === 'SCHEDULED' && {color: '#1e40af'},
-                                    todayServiceStatus === 'IN_PROGRESS' && {color: '#166534'},
-                                    todayServiceStatus === 'COMPLETED' && {color: '#5b21b6'}
+                                    todayServiceStatus === 'SCHEDULED' && styles.scheduledText,
+                                    todayServiceStatus === 'IN_PROGRESS' && styles.inProgressText,
+                                    todayServiceStatus === 'COMPLETED' && styles.completedText
                                   ]}>
                                     {todayServiceStatus}
                                   </Text>
@@ -1171,9 +1179,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                             </View>
                           )}
 
-                          {/* Start / Complete Buttons */}
+                          {/* Task Action Buttons */}
                           <View style={styles.taskActionContainer}>
-                            <Text style={styles.detailLabel}>
+                            <Text style={styles.taskStatusLabel}>
                               {isInProgress 
                                 ? "Task In Progress" 
                                 : isCompleted 
@@ -1185,20 +1193,32 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                             </Text>
                             <View style={styles.actionButtons}>
                               {taskStatusUpdating[booking.id] ? (
-                                <DisabledButtonWithLoader isLoading={true} />
+                                <View style={{
+                                  borderRadius: 6,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexDirection: 'row',
+                                  paddingVertical: 6,
+                                  paddingHorizontal: 12,
+                                  borderWidth: 1,
+                                  borderColor: '#D1D5DB',
+                                  backgroundColor: '#F3F4F6',
+                                }}>
+                                  <ActivityIndicator size="small" color="#374151" />
+                                </View>
                               ) : showCompleteButton ? (
                                 <Button 
                                   variant="destructive" 
-                                  size="sm" 
+                                  size="sm"
                                   onPress={() => handleStopTask(booking.id, booking.bookingData)}
                                 >
                                   <Text style={styles.stopButtonText}>Complete Task</Text>
                                 </Button>
                               ) : showCompletedButton ? (
-                                <View style={[styles.completedButtonContainer, {backgroundColor: '#dcfce7', borderColor: '#22c55e', borderWidth: 1, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 12}]}>
+                                <View style={[styles.completedButtonContainer]}>
                                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
                                     <MaterialIcon name="check-circle" size={16} color="#166534" style={{marginRight: 4}} />
-                                    <Text style={{color: '#166534', fontWeight: '500', fontSize: 14}}>Completed</Text>
+                                    <Text style={{color: '#166534', fontWeight: '500', fontSize: 12}}>Completed</Text>
                                   </View>
                                 </View>
                               ) : showStartButton ? (
@@ -1210,21 +1230,12 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                                   <Text style={styles.startButtonText}>Start Task</Text>
                                 </Button>
                               ) : (
-                                <View style={[styles.disabledButtonContainer, {backgroundColor: '#f9fafb', borderColor: '#d1d5db', borderWidth: 1, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 12}]}>
-                                  <Text style={{color: '#6b7280', fontSize: 14}}>Cannot Start Yet</Text>
+                                <View style={[styles.disabledButtonContainer]}>
+                                  <Text style={{color: '#6b7280', fontSize: 12}}>Cannot Start Yet</Text>
                                 </View>
                               )}
                             </View>
                           </View>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            style={styles.contactButton}
-                            onPress={() => handleContactClient(booking)}
-                          >
-                            <Text style={styles.contactButtonText}>Contact Client</Text>
-                          </Button>
                         </View>
                       );
                     })
@@ -1352,7 +1363,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
         onClose={() => setShowAllBookings(false)}
         bookings={bookings}
         serviceProviderId={serviceProviderId}
-        onContactClient={handleContactClient}
+        onContactClient={() => {}}
         trigger={undefined}
       />
 
@@ -1610,12 +1621,17 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 16,
     textAlign: 'center',
+    fontSize: 14,
   },
   retryButton: {
-    marginTop: 16,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   retryButtonText: {
     color: '#111827',
+    fontWeight: '500',
+    fontSize: 14,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -1623,6 +1639,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: '#6b7280',
+    fontSize: 14,
   },
   bookingItem: {
     borderWidth: 1,
@@ -1656,24 +1673,46 @@ const styles = StyleSheet.create({
   badgeContainer: {
     flexDirection: 'row',
     gap: 4,
+    flexWrap: 'wrap',
   },
-  bookingDetails: {
+  bookingDetailsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
-  detailRow: {
+  dateTimeSection: {
     flex: 1,
+  },
+  amountSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  amountInfo: {
+    alignItems: 'flex-end',
   },
   detailLabel: {
     fontSize: 12,
     fontWeight: '500',
     color: '#6b7280',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   detailValue: {
     fontSize: 14,
     color: '#111827',
+    fontWeight: '500',
+  },
+  amountValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  phoneIconButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+    marginTop: 4,
   },
   responsibilitiesContainer: {
     marginBottom: 12,
@@ -1685,17 +1724,52 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   responsibilityBadge: {
-    marginRight: 4,
-    marginBottom: 4,
     borderWidth: 1,
     borderColor: '#d1d5db',
   },
   responsibilityText: {
     fontSize: 10,
     color: '#374151',
+    fontWeight: '500',
+  },
+  addonBadge: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#93c5fd',
+  },
+  addonText: {
+    color: '#1d4ed8',
+  },
+  noResponsibilitiesText: {
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    fontSize: 12,
   },
   addressContainer: {
     marginBottom: 12,
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  trackAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+  },
+  trackAddressText: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
   },
   todayServiceContainer: {
     marginBottom: 12,
@@ -1710,15 +1784,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
+  scheduledBadge: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#93c5fd',
+    borderWidth: 1,
+  },
+  inProgressBadge: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+    borderWidth: 1,
+  },
+  completedBadge: {
+    backgroundColor: '#faf5ff',
+    borderColor: '#c4b5fd',
+    borderWidth: 1,
+  },
   todayServiceBadgeText: {
     fontSize: 12,
     fontWeight: '500',
+    textTransform: 'uppercase',
+  },
+  scheduledText: {
+    color: '#1e40af',
+  },
+  inProgressText: {
+    color: '#166534',
+  },
+  completedText: {
+    color: '#5b21b6',
   },
   taskActionContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 16,
+  },
+  taskStatusLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -1731,6 +1838,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 8,
     paddingHorizontal: 12,
+    backgroundColor: '#dcfce7',
+    borderColor: '#22c55e',
+    borderWidth: 1,
   },
   disabledButtonContainer: {
     borderRadius: 6,
@@ -1739,36 +1849,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 8,
     paddingHorizontal: 12,
+    backgroundColor: '#f9fafb',
+    borderColor: '#d1d5db',
+    borderWidth: 1,
     opacity: 0.6,
   },
   startButtonText: {
     color: '#3b82f6',
     fontWeight: '500',
+    fontSize: 12,
   },
   stopButtonText: {
     color: '#ffffff',
     fontWeight: '500',
-  },
-  contactButton: {
-    width: '100%',
-  },
-  contactButtonText: {
-    color: '#111827',
-    fontWeight: '500',
+    fontSize: 12,
   },
   actionButton: {
     width: '100%',
     justifyContent: 'flex-start',
     marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   actionButtonText: {
     marginLeft: 8,
     color: '#111827',
     fontWeight: '500',
+    fontSize: 14,
   },
   buttonIcon: {
     color: '#6b7280',
-    marginRight: 8,
   },
   statusItem: {
     flexDirection: 'row',
@@ -1783,6 +1893,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '500',
+    color: '#FFFFFF',
   },
   bottomSection: {
     flexDirection: 'column',

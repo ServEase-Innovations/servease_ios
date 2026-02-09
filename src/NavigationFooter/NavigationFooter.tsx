@@ -93,6 +93,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
   };
 
+  // NEW: Handle home button click - show Dashboard for service providers
+  const handleHomeClick = () => {
+    if (isServiceProvider && isAuthenticated) {
+      onNavigateToPage(DASHBOARD); // Service providers go to Dashboard
+    } else {
+      onHomeClick(); // Everyone else goes to Home
+    }
+  };
+
   // ADD: Login handler
   const handleLoginClick = async () => {
     try {
@@ -199,9 +208,9 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const tabs = [
     {
       key: "HOME",
-      label: "Home",
-      icon: <MaterialIcon name="home" size={22} />,
-      onPress: onHomeClick,
+      label: isServiceProvider && isAuthenticated ? "Dashboard" : "Home",
+      icon: <MaterialIcon name={isServiceProvider && isAuthenticated ? "dashboard" : "home"} size={22} />,
+      onPress: handleHomeClick,
     },
     {
       key: PROFILE,
@@ -219,13 +228,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           },
         ]
       : []),
-    ...(isServiceProvider
+    ...(isAuthenticated
       ? [
           {
-            key: DASHBOARD,
-            label: "Dashboard",
-            icon: <MaterialIcon name="dashboard" size={22} />,
-            onPress: handleDashboardButtonClick,
+            key: "NOTIFICATIONS",
+            label: "Alerts",
+            icon: <MaterialIcon name="notifications" size={22} />,
+            onPress: () => setShowNotifications(true),
           },
         ]
       : []),
@@ -305,12 +314,20 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       <View style={styles.desktopNavInner}>
         {/* Left side - Navigation links */}
         <View style={styles.desktopNavLinks}>
-          {/* Home - Always visible */}
+          {/* Home/Dashboard - Show Dashboard for service providers */}
           <TouchableOpacity
-            onPress={onHomeClick}
+            onPress={handleHomeClick}
             style={styles.desktopNavItem}
           >
-            <Text style={styles.desktopNavText}>Home</Text>
+            <MaterialIcon 
+              name={isServiceProvider && isAuthenticated ? "dashboard" : "home"} 
+              size={20} 
+              color="#fff" 
+              style={styles.navIcon}
+            />
+            <Text style={styles.desktopNavText}>
+              {isServiceProvider && isAuthenticated ? "Dashboard" : "Home"}
+            </Text>
           </TouchableOpacity>
 
           {/* Bookings - Only for CUSTOMER */}
@@ -319,17 +336,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
               onPress={handleBookingsButtonClick}
               style={styles.desktopNavItem}
             >
+              <MaterialIcon name="event-note" size={20} color="#fff" style={styles.navIcon} />
               <Text style={styles.desktopNavText}>My Bookings</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Dashboard - Only for SERVICE_PROVIDER */}
-          {isServiceProvider && (
-            <TouchableOpacity
-              onPress={handleDashboardButtonClick}
-              style={styles.desktopNavItem}
-            >
-              <Text style={styles.desktopNavText}>Dashboard</Text>
             </TouchableOpacity>
           )}
 
@@ -340,6 +348,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 onPress={onAboutClick}
                 style={styles.desktopNavItem}
               >
+                <MaterialIcon name="info" size={20} color="#fff" style={styles.navIcon} />
                 <Text style={styles.desktopNavText}>About Us</Text>
               </TouchableOpacity>
 
@@ -347,6 +356,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 onPress={onContactClick}
                 style={styles.desktopNavItem}
               >
+                <MaterialIcon name="contact-support" size={20} color="#fff" style={styles.navIcon} />
                 <Text style={styles.desktopNavText}>Contact Us</Text>
               </TouchableOpacity>
             </>
@@ -355,6 +365,16 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
         {/* Right side - Action icons */}
         <View style={styles.desktopActionIcons}>
+          {/* Notifications Icon - For all authenticated users */}
+          {isAuthenticated && (
+            <TouchableOpacity
+              onPress={() => setShowNotifications(true)}
+              style={styles.desktopActionIcon}
+            >
+              <MaterialIcon name="notifications" size={22} color="#fff" />
+            </TouchableOpacity>
+          )}
+          
           {/* Wallet Icon - Only for CUSTOMER */}
           {isCustomer && (
             <TouchableOpacity
@@ -365,13 +385,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             </TouchableOpacity>
           )}
           
-          {/* User Avatar/Profile - Show Sign In when not authenticated */}
+          {/* User Avatar/Profile */}
           <TouchableOpacity 
             onPress={handleProfileButtonClick}
             style={[styles.desktopActionIcon, styles.userMenuButton]}
           >
             {renderUserAvatar()}
-            {!isAuthenticated && ( // FIXED: Show "Sign In" text when not authenticated
+            {!isAuthenticated && (
               <Text style={styles.signInText}>Sign In</Text>
             )}
           </TouchableOpacity>
@@ -420,27 +440,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   withBorder: {
-  borderRightWidth: 1,
-  borderRightColor: "rgba(255,255,255,0.15)",
-},
-
-activeTab: {
-  // backgroundColor: "rgba(255,255,255,0.12)",
-  // borderTopWidth: 3,
-  borderTopColor: "#3b82f6",
-},
-
-activeTabText: {
-  color: "#93c5fd",
-  fontWeight: "600",
-  textDecorationLine: "underline",
-   
-  // backgroundColor: "#3b82f6",
-},
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.15)",
+  },
+  activeTab: {
+    borderTopColor: "#3b82f6",
+  },
+  activeTabText: {
+    color: "#93c5fd",
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
   mobileNavText: {
     color: "white",
     fontSize: 11,
-    // marginTop: 4,
     fontWeight: "400",
     textAlign: "center",
   },
@@ -465,6 +478,10 @@ activeTabText: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
+    gap: 6,
+  },
+  navIcon: {
+    marginRight: 4,
   },
   desktopNavText: {
     color: "white",

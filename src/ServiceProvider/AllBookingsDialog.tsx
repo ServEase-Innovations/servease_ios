@@ -9,13 +9,17 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
   Alert,
-  DimensionValue
+  DimensionValue,
+  Linking,
+  ActivityIndicator
 } from "react-native";
-import { Calendar, MapPin, X, Phone, Clock } from "lucide-react-native";
+import { Calendar, MapPin, X, Phone, Clock, Loader2, CheckCircle } from "lucide-react-native";
 import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from "./../common/BookingUtils";
 import PaymentInstance from "../services/paymentInstance";
 import dayjs, { Dayjs } from "dayjs";
 import { Booking, BookingHistoryResponse } from "./Dashboard";
+import axios from "axios";
+import { OtpVerificationDialog } from "./OtpVerificationDialog";
 
 interface AllBookingsDialogProps {
   bookings: BookingHistoryResponse | null;
@@ -26,51 +30,57 @@ interface AllBookingsDialogProps {
   onContactClient: (booking: Booking) => void;
 }
 
-// Helper function to convert epoch to formatted date and time
-const formatEpochToDateTime = (epochSeconds: number) => {
-  const date = new Date(epochSeconds * 1000);
-  
-  // Format date
-  const formattedDate = date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  });
-  
-  // Format time in 12-hour format with AM/PM
-  const formattedTime = date.toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true
-  });
-  
-  return { formattedDate, formattedTime, date };
-};
-
 // Function to format time string to AM/PM format
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
   
   try {
-    // Handle both "HH:mm:ss" and "HH:mm" formats
     const [hours, minutes] = timeString.split(':');
     const hour = parseInt(hours, 10);
     const minute = parseInt(minutes, 10);
     
     const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12; // Convert 0 to 12, 13 to 1, etc.
+    const displayHour = hour % 12 || 12;
     const displayMinute = minute.toString().padStart(2, '0');
     
     return `${displayHour}:${displayMinute} ${period}`;
   } catch (error) {
     console.error('Error formatting time:', error);
-    return timeString; // Return original if parsing fails
+    return timeString;
   }
 };
 
 // Function to format time range from start and end time strings
 const formatTimeRange = (startTime: string, endTime: string): string => {
   return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
+};
+
+// Function to handle calling customer
+const handleCallCustomer = (phoneNumber: string, clientName: string) => {
+  if (!phoneNumber || phoneNumber === "Contact info not available") {
+    Alert.alert("No Contact Info", "Customer contact information is not available.");
+    return;
+  }
+  
+  const telLink = `tel:${phoneNumber}`;
+  Linking.openURL(telLink).catch(() => {
+    Alert.alert("Error", "Could not open phone dialer");
+  });
+};
+
+// Function to handle tracking address
+const handleTrackAddress = (address: string) => {
+  if (!address || address === "Address not provided") {
+    Alert.alert("No Address", "Address is not provided for this booking.");
+    return;
+  }
+  
+  const encodedAddress = encodeURIComponent(address);
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+  
+  Linking.openURL(googleMapsUrl).catch(() => {
+    Alert.alert("Error", "Could not open maps application");
+  });
 };
 
 export function AllBookingsDialog({ 
@@ -87,24 +97,27 @@ export function AllBookingsDialog({
   const [loading, setLoading] = useState(false);
   const [totalBookings, setTotalBookings] = useState(0);
   const [initialLoad, setInitialLoad] = useState(true);
+  
+  // Add states for task management
+  const [taskStatus, setTaskStatus] = useState<Record<string, "IN_PROGRESS" | "COMPLETED" | undefined>>({});
+  const [taskStatusUpdating, setTaskStatusUpdating] = useState<Record<string, boolean>>({});
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [currentBooking, setCurrentBooking] = useState<any>(null);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
 
   const mapApiBookingToBooking = (apiBooking: any): Booking => {
-    // Use epoch time if available, otherwise fall back to date strings
     let date, timeRange;
     
     if (apiBooking.start_epoch && apiBooking.end_epoch) {
-      // Convert epoch seconds to Date objects
       const startDate = new Date(apiBooking.start_epoch * 1000);
       const endDate = new Date(apiBooking.end_epoch * 1000);
       
-      // Format date
       const formattedDate = startDate.toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric"
       });
       
-      // Format time range
       timeRange = `${startDate.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
@@ -117,7 +130,6 @@ export function AllBookingsDialog({
       
       date = formattedDate;
     } else {
-      // Fallback to using date strings and time strings
       const startDateRaw = apiBooking.startDate || apiBooking.start_date;
       const startTimeStr = apiBooking.startTime || "00:00";
       const endTimeStr = apiBooking.endTime || "00:00";
@@ -140,16 +152,14 @@ export function AllBookingsDialog({
       });
     }
 
-    // Get client name - using email since name fields are empty
-    const clientName = apiBooking.firstname || 
-                      apiBooking.customerName || 
-                      apiBooking.email || 
-                      "Client";
+    const clientName = apiBooking.firstname && apiBooking.lastname 
+      ? `${apiBooking.firstname} ${apiBooking.lastname}`.trim()
+      : apiBooking.firstname 
+        ? apiBooking.firstname
+        : apiBooking.email || "Client";
 
-    // Get booking ID - use engagement_id, convert to number
-    const bookingId = Number(apiBooking.engagement_id || apiBooking.id);
+    const bookingId = apiBooking.engagement_id || apiBooking.id;
 
-    // Get amount - use base_amount, format properly
     const amount = apiBooking.base_amount ? 
       `₹${parseFloat(apiBooking.base_amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 
       "₹0";
@@ -157,7 +167,7 @@ export function AllBookingsDialog({
     const responsibilities = apiBooking.responsibilities || {};
 
     return {
-      id: bookingId, // Now returns a number
+      id: Number(apiBooking.engagement_id || apiBooking.id),
       serviceProviderId: Number(apiBooking.serviceproviderid || apiBooking.serviceProviderId),
       customerId: Number(apiBooking.customerid || apiBooking.customerId),
       start_date: apiBooking.start_date || apiBooking.startDate,
@@ -197,161 +207,192 @@ export function AllBookingsDialog({
       bookingData: {
         ...apiBooking,
         mobileno: apiBooking.mobileno || "",
-        contact: apiBooking.mobileno || "Contact info not available"
+        contact: apiBooking.mobileno || "Contact info not available",
+        today_service: apiBooking.today_service || null
       }
     };
   };
 
   const fetchBookingsByMonth = async (
-    type: "ongoing" | "future" | "past",
     month: number,
     year: number
-  ) => {
-    if (!serviceProviderId) return [];
+  ): Promise<BookingHistoryResponse> => {
+    if (!serviceProviderId) {
+      return { current: [], upcoming: [], past: [] };
+    }
 
     try {
       setLoading(true);
-      const formatted = `${year}-${String(month).padStart(2, "0")}`;
+      const formattedMonth = `${year}-${String(month).padStart(2, "0")}`;
       const res = await PaymentInstance.get(
-        `/api/service-providers/${serviceProviderId}/engagements?month=${formatted}`
+        `/api/service-providers/${serviceProviderId}/engagements?month=${formattedMonth}`
       );
 
-      const apiData: BookingHistoryResponse = res.data;
-      
-      let list: any[] = [];
-      
-      if (type === "ongoing") {
-        // For ongoing tab, get current bookings for the current month
-        list = apiData.current ?? [];
-      } else if (type === "future") {
-        list = apiData.upcoming ?? [];
-      } else if (type === "past") {
-        list = apiData.past ?? [];
-      }
-      
-      return list.map(mapApiBookingToBooking);
+      return res.data;
     } catch (err) {
       console.error("Error fetching bookings:", err);
-      Alert.alert("Error", "Failed to fetch bookings");
-      return [];
+      Alert.alert("Error", "Failed to load bookings");
+      return { current: [], upcoming: [], past: [] };
     } finally {
       setLoading(false);
       setInitialLoad(false);
     }
   };
 
-  const fetchOngoingBookings = async () => {
-    if (!serviceProviderId) return [];
-    
+  const fetchDataForTab = async (tab: "ongoing" | "future" | "past", monthDate: Dayjs) => {
+    if (!serviceProviderId) return;
+
     try {
       setLoading(true);
-      const now = dayjs();
-      const currentMonth = now.month() + 1;
-      const currentYear = now.year();
+      const month = monthDate.month() + 1;
+      const year = monthDate.year();
       
-      const bookings = await fetchBookingsByMonth("ongoing", currentMonth, currentYear);
+      const apiResponse = await fetchBookingsByMonth(month, year);
       
-      // Filter to get today's bookings or active ongoing bookings
-      const today = dayjs().format("YYYY-MM-DD");
-      const ongoingBookings = bookings.filter((booking) => {
-        const bookingDate = dayjs(booking.start_date).format("YYYY-MM-DD");
-        return bookingDate === today || booking.taskStatus === "IN_PROGRESS";
-      });
-      
-      return ongoingBookings;
-    } catch (err) {
-      console.error("Error fetching ongoing bookings:", err);
-      Alert.alert("Error", "Failed to fetch ongoing bookings");
-      return [];
+      if (tab === "ongoing") {
+        const currentBookings = apiResponse.current || [];
+        setData(currentBookings.map(mapApiBookingToBooking));
+        setTotalBookings(currentBookings.length);
+      } else if (tab === "future") {
+        const upcomingBookings = apiResponse.upcoming || [];
+        setData(upcomingBookings.map(mapApiBookingToBooking));
+        setTotalBookings(upcomingBookings.length);
+      } else if (tab === "past") {
+        const pastBookings = apiResponse.past || [];
+        setData(pastBookings.map(mapApiBookingToBooking));
+        setTotalBookings(pastBookings.length);
+      }
+    } catch (error) {
+      console.error("Error fetching data for tab:", error);
+      setData([]);
+      setTotalBookings(0);
     }
   };
 
-  // Sync visible prop with internal state
-  useEffect(() => {
-    if (visible) {
-      setInitialLoad(true);
+  const handleStartTask = async (bookingId: string, bookingData: any) => {
+    if (!bookingId || !bookingData) return;
+
+    const serviceDayId = bookingData.today_service?.service_day_id;
+    if (!serviceDayId) {
+      Alert.alert("Error", "Service day ID not found. Cannot start service.");
+      return;
     }
-  }, [visible]);
+
+    const previousStatus = taskStatus[bookingId];
+
+    setTaskStatus(prev => ({ ...prev, [bookingId]: "IN_PROGRESS" }));
+    setTaskStatusUpdating(prev => ({ ...prev, [bookingId]: true }));
+
+    try {
+      await PaymentInstance.post(
+        `api/engagement-service/service-days/${serviceDayId}/start`,
+        {},
+        { 
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          } 
+        }
+      );
+
+      Alert.alert("Service Started", "You have successfully started the service. Task is now IN_PROGRESS");
+
+      await fetchDataForTab(tab, selectedMonth);
+    } catch (err) {
+      setTaskStatus(prev => ({ ...prev, [bookingId]: previousStatus }));
+      
+      let errorMessage = "Failed to start service";
+      if (axios.isAxiosError(err)) {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
+      }
+      
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setTaskStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const handleStopTask = async (bookingId: string, bookingData: any) => {
+    setCurrentBooking({ bookingId, bookingData });
+    setOtpDialogOpen(true);
+  };
+
+  const handleVerifyOtp = async (otp: string) => {
+    if (!currentBooking) return;
+
+    const serviceDayId = currentBooking.bookingData.today_service?.service_day_id;
+    if (!serviceDayId) {
+      Alert.alert("Error", "Service day ID not found");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    try {
+      await PaymentInstance.post(
+        `api/engagement-service/service-days/${serviceDayId}/complete`,
+        { otp },
+        { 
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          } 
+        }
+      );
+
+      Alert.alert("Success", "Service completed successfully! Earnings credited to your account.");
+
+      setTaskStatus(prev => ({ ...prev, [currentBooking.bookingId]: "COMPLETED" }));
+      
+      await fetchDataForTab(tab, selectedMonth);
+      
+      return Promise.resolve();
+    } catch (err) {
+      let errorMessage = "Failed to complete service";
+      if (axios.isAxiosError(err)) {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
+      }
+      
+      Alert.alert("Error", errorMessage);
+      return Promise.reject(err);
+    } finally {
+      setVerifyingOtp(false);
+      setOtpDialogOpen(false);
+    }
+  };
+
+  // Handle tab change with month reset
+  const handleTabChange = (newValue: "ongoing" | "future" | "past") => {
+    // Reset month to default for the new tab
+    const defaultMonth = getDefaultMonthForTab(newValue);
+    setSelectedMonth(defaultMonth);
+    setTab(newValue);
+  };
+
+  const getDefaultMonthForTab = (tabType: "ongoing" | "future" | "past"): Dayjs => {
+    return dayjs().startOf('month');
+  };
 
   useEffect(() => {
     if (!visible) return;
     
-    // Reset data when dialog opens
     setData([]);
     setTotalBookings(0);
-    
-    if (!serviceProviderId) {
-      // Fallback to using props if no serviceProviderId
-      if (bookings) {
-        const mapData = (list: any[]) => list.map(mapApiBookingToBooking);
-        
-        if (tab === "ongoing") {
-          const ongoingBookings = mapData(bookings.current ?? []);
-          setData(ongoingBookings);
-          setTotalBookings(ongoingBookings.length);
-          setSelectedMonth(dayjs());
-        } else if (tab === "future") {
-          const nextMonth = dayjs().add(1, "month").startOf("month");
-          setSelectedMonth(nextMonth);
-          const futureBookings = mapData(bookings.upcoming ?? []);
-          setData(futureBookings);
-          setTotalBookings(futureBookings.length);
-        } else if (tab === "past") {
-          const prevMonth = dayjs().subtract(1, "month").startOf("month");
-          setSelectedMonth(prevMonth);
-          const pastBookings = mapData(bookings.past ?? []);
-          setData(pastBookings);
-          setTotalBookings(pastBookings.length);
-        }
-      }
-      setInitialLoad(false);
-      return;
-    }
-    
-    // Fetch data from API based on tab
-    if (tab === "ongoing") {
-      fetchOngoingBookings().then((res) => {
-        setData(res);
-        setTotalBookings(res.length);
-        setSelectedMonth(dayjs());
-      });
-    } else if (tab === "future") {
-      const nextMonth = dayjs().add(1, "month").startOf("month");
-      setSelectedMonth(nextMonth);
-      fetchBookingsByMonth("future", nextMonth.month() + 1, nextMonth.year()).then(
-        (res) => {
-          setData(res ?? []);
-          setTotalBookings(res.length);
-        }
-      );
-    } else if (tab === "past") {
-      const prevMonth = dayjs().subtract(1, "month").startOf("month");
-      setSelectedMonth(prevMonth);
-      fetchBookingsByMonth("past", prevMonth.month() + 1, prevMonth.year()).then(
-        (res) => {
-          setData(res ?? []);
-          setTotalBookings(res.length);
-        }
-      );
-    }
-  }, [tab, visible]);
+    // Set initial month based on current tab
+    setSelectedMonth(getDefaultMonthForTab(tab));
+  }, [visible]);
 
   useEffect(() => {
-    if (!visible || !selectedMonth || tab === "ongoing") return;
-
-    setLoading(true);
-    fetchBookingsByMonth(
-      tab,
-      selectedMonth.month() + 1,
-      selectedMonth.year()
-    ).then((res) => {
-      setData(res ?? []);
-      setTotalBookings(res.length);
-    });
+    if (!visible || !selectedMonth) return;
+    
+    fetchDataForTab(tab, selectedMonth);
   }, [selectedMonth, tab, visible]);
 
   const getMonthName = (date: Dayjs) => {
     return date.format("MMMM YYYY");
+  };
+
+  const handleMonthChange = (newDate: Dayjs) => {
+    setSelectedMonth(newDate);
   };
 
   // Enhanced badge component
@@ -398,11 +439,12 @@ export function AllBookingsDialog({
   // Enhanced button component with disabled state
   interface ButtonProps {
     children: React.ReactNode;
-    variant?: "default" | "outline" | "secondary" | "ghost";
+    variant?: "default" | "outline" | "secondary" | "ghost" | "destructive";
     size?: "sm" | "md" | "lg";
     onPress?: () => void;
     disabled?: boolean;
     icon?: React.ReactNode;
+    loading?: boolean;
   }
 
   const Button = ({ 
@@ -411,7 +453,8 @@ export function AllBookingsDialog({
     size = "md", 
     onPress,
     disabled = false,
-    icon
+    icon,
+    loading = false
   }: ButtonProps) => {
     const getVariantStyle = () => {
       if (disabled) return styles.buttonDisabled;
@@ -423,6 +466,8 @@ export function AllBookingsDialog({
           return styles.buttonSecondary;
         case "ghost":
           return styles.buttonGhost;
+        case "destructive":
+          return styles.buttonDestructive;
         default:
           return styles.buttonDefault;
       }
@@ -449,6 +494,8 @@ export function AllBookingsDialog({
           return styles.buttonSecondaryText;
         case "ghost":
           return styles.buttonGhostText;
+        case "destructive":
+          return styles.buttonDestructiveText;
         default:
           return styles.buttonDefaultText;
       }
@@ -458,13 +505,19 @@ export function AllBookingsDialog({
       <TouchableOpacity 
         style={[styles.button, getVariantStyle(), getSizeStyle()]}
         onPress={onPress}
-        disabled={disabled}
+        disabled={disabled || loading}
       >
         <View style={styles.buttonContent}>
-          {icon && <View style={styles.buttonIcon}>{icon}</View>}
-          <Text style={[styles.buttonText, getTextStyle()]}>
-            {children}
-          </Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={variant === "destructive" ? "#ffffff" : "#374151"} />
+          ) : (
+            <>
+              {icon && <View style={styles.buttonIcon}>{icon}</View>}
+              <Text style={[styles.buttonText, getTextStyle()]}>
+                {children}
+              </Text>
+            </>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -487,36 +540,74 @@ export function AllBookingsDialog({
     </TouchableOpacity>
   );
 
-  // Enhanced MonthSelector with better styling
-  const MonthSelector = () => (
-    <View style={styles.monthSelector}>
-      <TouchableOpacity 
-        style={[styles.monthNavButton, styles.monthNavButtonPrev]}
-        onPress={() => {
-          const newMonth = selectedMonth.subtract(1, 'month');
-          setSelectedMonth(newMonth);
-        }}
-      >
-        <Text style={styles.monthNavText}>‹</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.monthTextContainer}>
-        <Text style={styles.monthText}>
-          {getMonthName(selectedMonth)}
-        </Text>
+  // Enhanced MonthSelector with navigation constraints
+  const MonthSelector = () => {
+    const currentMonth = dayjs().startOf('month');
+    
+    const canGoPrev = () => {
+      if (tab === "future") {
+        return selectedMonth.startOf('month').isAfter(currentMonth, 'month');
+      }
+      return true;
+    };
+
+    const canGoNext = () => {
+      if (tab === "past") {
+        return selectedMonth.startOf('month').isBefore(currentMonth, 'month');
+      }
+      return true;
+    };
+
+    return (
+      <View style={styles.monthSelector}>
+        <TouchableOpacity 
+          style={[
+            styles.monthNavButton, 
+            styles.monthNavButtonPrev,
+            !canGoPrev() && styles.monthNavButtonDisabled
+          ]}
+          onPress={() => {
+            if (canGoPrev()) {
+              const newMonth = selectedMonth.subtract(1, 'month');
+              handleMonthChange(newMonth);
+            }
+          }}
+          disabled={!canGoPrev()}
+        >
+          <Text style={[
+            styles.monthNavText,
+            !canGoPrev() && styles.monthNavTextDisabled
+          ]}>‹</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.monthTextContainer}>
+          <Text style={styles.monthText}>
+            {getMonthName(selectedMonth)}
+          </Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={[
+            styles.monthNavButton, 
+            styles.monthNavButtonNext,
+            !canGoNext() && styles.monthNavButtonDisabled
+          ]}
+          onPress={() => {
+            if (canGoNext()) {
+              const newMonth = selectedMonth.add(1, 'month');
+              handleMonthChange(newMonth);
+            }
+          }}
+          disabled={!canGoNext()}
+        >
+          <Text style={[
+            styles.monthNavText,
+            !canGoNext() && styles.monthNavTextDisabled
+          ]}>›</Text>
+        </TouchableOpacity>
       </View>
-      
-      <TouchableOpacity 
-        style={[styles.monthNavButton, styles.monthNavButtonNext]}
-        onPress={() => {
-          const newMonth = selectedMonth.add(1, 'month');
-          setSelectedMonth(newMonth);
-        }}
-      >
-        <Text style={styles.monthNavText}>›</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   interface SkeletonLoaderProps {
     width: DimensionValue;
@@ -524,18 +615,16 @@ export function AllBookingsDialog({
     style?: any;
   }
 
-  // Enhanced SkeletonLoader with customizable style
   const SkeletonLoader = ({ width, height, style }: SkeletonLoaderProps) => (
     <View style={[styles.skeleton, { width, height }, style]} />
   );
 
-  // Enhanced responsibilities rendering
   const renderResponsibilities = (booking: Booking) => {
     if (!booking.responsibilities) return null;
 
     return (
       <View style={styles.responsibilitiesSection}>
-        <Text style={styles.responsibilitiesTitle}>Responsibilities:</Text>
+        <Text style={styles.responsibilitiesTitle}>Responsibilities</Text>
         <View style={styles.responsibilitiesList}>
           {booking.responsibilities?.tasks?.map((task: any, index: number) => {
             const taskLabel = task.persons ? `${task.persons} persons` : "";
@@ -562,28 +651,24 @@ export function AllBookingsDialog({
     );
   };
 
-  // Enhanced tab label formatting
   const getTabLabel = (tabType: "ongoing" | "future" | "past") => {
     const baseLabels = {
-      ongoing: `Ongoing (${data.length})`,
-      future: "Future",
-      past: "Past"
+      ongoing: `Current (${tab === 'ongoing' ? totalBookings : '0'})`,
+      future: `Upcoming (${tab === 'future' ? totalBookings : '0'})`,
+      past: `Past (${tab === 'past' ? totalBookings : '0'})`
     };
     
     return baseLabels[tabType];
   };
 
-  // Enhanced modal title
-  const getModalTitle = () => {
-    return "View all Bookings";
-  };
-
-  // Enhanced empty state message
   const getEmptyStateMessage = () => {
     if (tab === "ongoing") {
-      return "No ongoing bookings found. All your current bookings will appear here.";
+      return "No current bookings found in this month. All your current bookings for this month will appear here.";
+    } else if (tab === "future") {
+      return "No upcoming bookings found in this month. All your upcoming bookings for this month will appear here.";
+    } else {
+      return "No past bookings found in this month. All your past bookings for this month will appear here.";
     }
-    return `No ${tab} bookings found. Try selecting a different month to view ${tab} bookings.`;
   };
 
   const handleClose = () => {
@@ -592,7 +677,6 @@ export function AllBookingsDialog({
 
   return (
     <>
-      {/* Only render trigger if provided */}
       {trigger && (
         <TouchableWithoutFeedback onPress={() => {}}>
           <View>{trigger}</View>
@@ -607,10 +691,9 @@ export function AllBookingsDialog({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {/* Enhanced header with better styling */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {getModalTitle()}
+                View all Bookings
               </Text>
               <TouchableOpacity 
                 onPress={handleClose}
@@ -621,52 +704,37 @@ export function AllBookingsDialog({
               </TouchableOpacity>
             </View>
 
-            {/* Enhanced tabs with better visual feedback */}
             <View style={styles.tabsContainer}>
               <TabButton 
                 label={getTabLabel("ongoing")}
                 isActive={tab === "ongoing"}
-                onPress={() => setTab("ongoing")}
+                onPress={() => handleTabChange("ongoing")}
               />
               <TabButton 
                 label={getTabLabel("future")}
                 isActive={tab === "future"}
-                onPress={() => setTab("future")}
+                onPress={() => handleTabChange("future")}
               />
               <TabButton 
                 label={getTabLabel("past")}
                 isActive={tab === "past"}
-                onPress={() => setTab("past")}
+                onPress={() => handleTabChange("past")}
               />
             </View>
 
-            {/* Enhanced month selector section */}
             <View style={styles.monthInfoContainer}>
-              {(tab === "future" || tab === "past") ? (
-                <View style={styles.monthSelectorSection}>
-                  <MonthSelector />
-                  <Text style={styles.bookingCount}>
-                    {loading ? (
-                      <SkeletonLoader width={120} height={16} />
-                    ) : (
-                      `${totalBookings} booking${totalBookings !== 1 ? 's' : ''} in ${getMonthName(selectedMonth)}`
-                    )}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.ongoingCountContainer}>
-                  <Text style={styles.bookingCount}>
-                    {loading ? (
-                      <SkeletonLoader width={120} height={16} />
-                    ) : (
-                      `${totalBookings} ongoing booking${totalBookings !== 1 ? 's' : ''}`
-                    )}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.monthSelectorSection}>
+                <MonthSelector />
+                <Text style={styles.bookingCount}>
+                  {loading ? (
+                    <SkeletonLoader width={120} height={16} />
+                  ) : (
+                    `${totalBookings} booking${totalBookings !== 1 ? 's' : ''} in ${getMonthName(selectedMonth)}`
+                  )}
+                </Text>
+              </View>
             </View>
 
-            {/* Enhanced scrollable content */}
             <ScrollView 
               style={styles.modalBody}
               showsVerticalScrollIndicator={false}
@@ -707,9 +775,11 @@ export function AllBookingsDialog({
                   </View>
                   <Text style={styles.emptyTitle}>
                     {tab === "ongoing" 
-                      ? "No ongoing bookings found" 
-                      : `No ${tab} bookings found`
-                    }
+                      ? "No current bookings found" 
+                      : tab === "future"
+                        ? "No upcoming bookings found"
+                        : "No past bookings found"
+                    } in {getMonthName(selectedMonth)}
                   </Text>
                   <Text style={styles.emptyDescription}>
                     {getEmptyStateMessage()}
@@ -717,87 +787,202 @@ export function AllBookingsDialog({
                 </View>
               ) : (
                 <View style={styles.bookingsContainer}>
-                  {data.map((booking) => (
-                    <View key={booking.id} style={styles.card}>
-                      <View style={styles.cardHeader}>
-                        <View style={styles.cardHeaderTop}>
-                          <Text style={styles.bookingId}>
-                            Booking ID: {booking.id}
-                          </Text>
-                          <View style={styles.headerBadges}>
-                            {getBookingTypeBadge(booking.booking_type || "")}
-                          </View>
-                        </View>
-                        <View style={styles.cardHeaderMain}>
-                          <View style={styles.cardHeaderLeft}>
-                            <Text style={styles.cardTitle}>
-                              {booking.clientName}
+                  {data.map((booking) => {
+                    // Use the EXACT SAME LOGIC as in Dashboard
+                    const todayServiceStatus = booking.bookingData?.today_service?.status;
+                    const taskStatusOriginal = booking.taskStatus?.toUpperCase();
+                    
+                    const isInProgress = todayServiceStatus === 'IN_PROGRESS' || 
+                                         taskStatus[booking.id.toString()] === 'IN_PROGRESS' || 
+                                         taskStatusOriginal === 'IN_PROGRESS' || 
+                                         taskStatusOriginal === 'STARTED';
+                    
+                    const isCompleted = todayServiceStatus === 'COMPLETED' || 
+                                       taskStatusOriginal === 'COMPLETED';
+                    
+                    const isNotStarted = todayServiceStatus === 'SCHEDULED' || 
+                                         taskStatusOriginal === 'NOT_STARTED';
+
+                    const canStart = booking.bookingData?.today_service?.can_start === true;
+                    
+                    const showStartButton = isNotStarted && canStart;
+                    const showCompleteButton = isInProgress;
+                    const showCompletedButton = isCompleted;
+
+                    return (
+                      <View key={booking.id} style={styles.card}>
+                        <View style={styles.cardHeader}>
+                          <View style={styles.cardHeaderTop}>
+                            <Text style={styles.bookingId}>
+                              Booking ID: {booking.id}
                             </Text>
-                            <View style={styles.serviceStatusRow}>
-                              <Text style={styles.serviceText}>
-                                {getServiceTitle(booking.service)}
-                              </Text>
-                              <Text style={styles.dotSeparator}>•</Text>
+                            <View style={styles.headerBadges}>
+                              {getBookingTypeBadge(booking.booking_type || "")}
                               {getStatusBadge(booking.taskStatus || "")}
                             </View>
                           </View>
-                        </View>
-                      </View>
-
-                      <View style={styles.cardContent}>
-                        {/* Date, Time and Amount */}
-                        <View style={styles.infoGrid}>
-                          <View style={styles.dateTimeSection}>
-                            <View style={styles.infoRow}>
-                              <Calendar size={16} color="#6b7280" />
-                              <Text style={styles.infoText}>
-                                {booking.date}
+                          <View style={styles.cardHeaderMain}>
+                            <View style={styles.cardHeaderLeft}>
+                              <Text style={styles.cardTitle}>
+                                {booking.clientName}
                               </Text>
-                            </View>
-                            <View style={styles.infoRow}>
-                              <Clock size={16} color="#6b7280" />
-                              <Text style={styles.infoText}>
-                                {booking.time}
-                              </Text>
+                              <View style={styles.serviceStatusRow}>
+                                <Text style={styles.serviceText}>
+                                  {getServiceTitle(booking.service)}
+                                </Text>
+                              </View>
                             </View>
                           </View>
-                          <View style={styles.amountSection}>
-                            <Text style={styles.amountLabel}>Amount</Text>
-                            <Text style={styles.amountText}>
-                              {booking.amount}
+                        </View>
+
+                        <View style={styles.cardContent}>
+                          {/* Date, Time and Amount with Phone Icon */}
+                          <View style={styles.infoGrid}>
+                            <View style={styles.dateTimeSection}>
+                              <Text style={styles.infoLabel}>Date & Time</Text>
+                              <View style={styles.infoRow}>
+                                <Calendar size={14} color="#6b7280" />
+                                <Text style={styles.infoText}>
+                                  {booking.date} at {booking.time}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.amountSection}>
+                              <View style={styles.amountInfo}>
+                                <Text style={styles.amountLabel}>Amount</Text>
+                                <Text style={styles.amountText}>
+                                  {booking.amount}
+                                </Text>
+                              </View>
+                              {booking.bookingData?.mobileno && (
+                                <TouchableOpacity
+                                  style={styles.phoneButton}
+                                  onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName)}
+                                >
+                                  <Phone size={16} color="#374151" />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Responsibilities Section */}
+                          {renderResponsibilities(booking)}
+
+                          {/* Location with Track Address Button */}
+                          <View style={styles.locationSection}>
+                            <View style={styles.locationHeader}>
+                              <Text style={styles.locationLabel}>Address</Text>
+                              <TouchableOpacity
+                                style={styles.trackButton}
+                                onPress={() => handleTrackAddress(booking.location)}
+                              >
+                                <MapPin size={14} color="#374151" />
+                                <Text style={styles.trackButtonText}>Track Address</Text>
+                              </TouchableOpacity>
+                            </View>
+                            <Text style={styles.locationText}>
+                              {booking.location || "Address not provided"}
                             </Text>
                           </View>
+
+                          {/* Today's Service Status Badge */}
+                          {todayServiceStatus && (
+                            <View style={styles.todayServiceSection}>
+                              <Text style={styles.todayServiceLabel}>Today's Service:</Text>
+                              <View style={[
+                                styles.todayServiceBadge,
+                                todayServiceStatus === 'SCHEDULED' && styles.scheduledBadge,
+                                todayServiceStatus === 'IN_PROGRESS' && styles.inProgressBadge,
+                                todayServiceStatus === 'COMPLETED' && styles.completedBadge
+                              ]}>
+                                <Text style={[
+                                  styles.todayServiceText,
+                                  todayServiceStatus === 'SCHEDULED' && styles.scheduledText,
+                                  todayServiceStatus === 'IN_PROGRESS' && styles.inProgressText,
+                                  todayServiceStatus === 'COMPLETED' && styles.completedText
+                                ]}>
+                                  {todayServiceStatus}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+
+                          {/* Task Action Buttons */}
+                          <View style={styles.taskActionsSection}>
+                            <Text style={styles.taskStatusLabel}>
+                              {isInProgress 
+                                ? "Task In Progress" 
+                                : isCompleted 
+                                  ? 'Task Completed' 
+                                  : isNotStarted
+                                    ? 'Not Started' 
+                                    : 'Upcoming'
+                              }
+                            </Text>
+                            <View style={styles.taskButtons}>
+                              {taskStatusUpdating[booking.id.toString()] ? (
+                                <View style={[styles.button, styles.buttonSm]}>
+                                  <ActivityIndicator size="small" color="#374151" />
+                                </View>
+                              ) : showCompleteButton ? (
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  onPress={() => handleStopTask(booking.id.toString(), booking.bookingData)}
+                                >
+                                  Complete Task
+                                </Button>
+                              ) : showCompletedButton ? (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  disabled
+                                  icon={<CheckCircle size={14} color="#10b981" />}
+                                >
+                                  Completed
+                                </Button>
+                              ) : showStartButton ? (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onPress={() => handleStartTask(booking.id.toString(), booking.bookingData)}
+                                >
+                                  Start Task
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  disabled
+                                >
+                                  Cannot Start Yet
+                                </Button>
+                              )}
+                            </View>
+                          </View>
                         </View>
-
-                        {/* Location */}
-                        <View style={styles.locationRow}>
-                          <MapPin size={16} color="#6b7280" />
-                          <Text style={styles.locationText}>
-                            {booking.location}
-                          </Text>
-                        </View>
-
-                        {/* Enhanced responsibilities section */}
-                        {renderResponsibilities(booking)}
-
-                        {/* Contact Button */}
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          onPress={() => onContactClient(booking)}
-                          icon={<Phone size={16} color="#374151" />}
-                        >
-                          Contact Client
-                        </Button>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
             </ScrollView>
           </View>
         </View>
       </Modal>
+
+      {/* OTP Verification Dialog */}
+      <OtpVerificationDialog
+        open={otpDialogOpen}
+        onOpenChange={() => setOtpDialogOpen(false)}
+        onVerify={handleVerifyOtp}
+        verifying={verifyingOtp}
+        bookingInfo={currentBooking ? {
+          clientName: currentBooking.bookingData?.firstname || currentBooking.bookingData?.customerName,
+          service: getServiceTitle(currentBooking.bookingData?.service_type || currentBooking.bookingData?.serviceType),
+          bookingId: currentBooking.bookingData?.engagement_id || currentBooking.bookingData?.id,
+        } : undefined}
+      />
     </>
   );
 }
@@ -875,9 +1060,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  ongoingCountContainer: {
-    alignItems: 'flex-start',
-  },
   monthSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -897,10 +1079,16 @@ const styles = StyleSheet.create({
   monthNavButtonNext: {
     marginLeft: 4,
   },
+  monthNavButtonDisabled: {
+    backgroundColor: '#f9fafb',
+  },
   monthNavText: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#374151',
+  },
+  monthNavTextDisabled: {
+    color: '#d1d5db',
   },
   monthTextContainer: {
     minWidth: 120,
@@ -1055,10 +1243,6 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontWeight: '500',
   },
-  dotSeparator: {
-    color: '#d1d5db',
-    fontSize: 14,
-  },
   cardContent: {
     padding: 16,
     paddingTop: 12,
@@ -1071,7 +1255,12 @@ const styles = StyleSheet.create({
   },
   dateTimeSection: {
     flex: 1,
-    gap: 8,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+    marginBottom: 4,
   },
   infoRow: {
     flexDirection: 'row',
@@ -1084,8 +1273,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   amountSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  amountInfo: {
     alignItems: 'flex-end',
-    marginLeft: 16,
   },
   amountLabel: {
     fontSize: 12,
@@ -1098,20 +1291,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1f2937',
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 16,
-  },
-  locationText: {
-    fontSize: 14,
-    color: '#4b5563',
-    flex: 1,
-    lineHeight: 20,
+  phoneButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
   },
   responsibilitiesSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   responsibilitiesTitle: {
     fontSize: 14,
@@ -1140,7 +1326,101 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontStyle: 'italic',
   },
-  // Enhanced Badge styles
+  locationSection: {
+    marginBottom: 16,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  locationLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  trackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+  },
+  trackButtonText: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  locationText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+  },
+  todayServiceSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  todayServiceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  todayServiceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  scheduledBadge: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+  },
+  inProgressBadge: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  completedBadge: {
+    backgroundColor: '#faf5ff',
+    borderWidth: 1,
+    borderColor: '#d8b4fe',
+  },
+  todayServiceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  scheduledText: {
+    color: '#1d4ed8',
+  },
+  inProgressText: {
+    color: '#166534',
+  },
+  completedText: {
+    color: '#7c3aed',
+  },
+  taskActionsSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 16,
+  },
+  taskStatusLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  taskButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  // Badge styles
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1176,7 +1456,7 @@ const styles = StyleSheet.create({
   badgeOutlineText: {
     color: '#374151',
   },
-  // Enhanced Button styles
+  // Button styles
   button: {
     borderRadius: 8,
     borderWidth: 1,
@@ -1195,15 +1475,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   buttonSm: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   buttonMd: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
   },
   buttonLg: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 14,
   },
   buttonDefault: {
@@ -1234,11 +1514,18 @@ const styles = StyleSheet.create({
   buttonGhostText: {
     color: '#374151',
   },
+  buttonDestructive: {
+    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
+  },
+  buttonDestructiveText: {
+    color: 'white',
+  },
   buttonDisabled: {
-    backgroundColor: '#9ca3af',
-    borderColor: '#9ca3af',
+    backgroundColor: '#f3f4f6',
+    borderColor: '#e5e7eb',
   },
   buttonDisabledText: {
-    color: '#6b7280',
+    color: '#9ca3af',
   },
 });
