@@ -30,7 +30,8 @@ interface NavigationFooterProps {
   bookingType?: string;
   onProfileClick: () => void;
   onNavigateToPage: (page: string) => void;
-  activePage: string; // NEW: Added active page tracking
+  activePage: string;
+  onSignOutComplete?: () => Promise<void>;
 }
 
 const { width } = Dimensions.get("window");
@@ -48,61 +49,56 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   bookingType = "",
   onProfileClick,
   onNavigateToPage,
-  activePage // NEW: Navigation handler
+  activePage,
+  onSignOutComplete
 }) => {
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   
-  // ADD AUTH0 HOOKS HERE
   const { authorize, clearSession, getCredentials } = useAuth0();
   const dispatch = useDispatch();
 
-  // Determine which icons to show based on user role
   const isCustomer = auth0User && appUser?.role === "CUSTOMER";
   const isServiceProvider = auth0User && appUser?.role === "SERVICE_PROVIDER";
   const isAuthenticated = auth0User;
 
-  // NEW: Handle profile button click
   const handleProfileButtonClick = () => {
     if (isAuthenticated) {
-      onNavigateToPage(PROFILE); // Navigate to profile page
+      onNavigateToPage(PROFILE);
     } else {
-      handleLoginClick(); // If not authenticated, show login
+      handleLoginClick();
     }
   };
 
-  // NEW: Handle bookings button click
   const handleBookingsButtonClick = () => {
     if (isAuthenticated && isCustomer) {
-      onNavigateToPage(BOOKINGS); // Navigate to bookings page
+      onNavigateToPage(BOOKINGS);
     } else if (!isAuthenticated) {
-      handleLoginClick(); // If not authenticated, show login
+      handleLoginClick();
     } else {
-      onBookingsClick(); // Fallback to original handler
+      onBookingsClick();
     }
   };
 
-  // NEW: Handle dashboard button click
   const handleDashboardButtonClick = () => {
     if (isAuthenticated && isServiceProvider) {
-      onNavigateToPage(DASHBOARD); // Navigate to dashboard page
+      onNavigateToPage(DASHBOARD);
     } else if (!isAuthenticated) {
-      handleLoginClick(); // If not authenticated, show login
+      handleLoginClick();
     } else {
-      onDashboardClick(); // Fallback to original handler
+      onDashboardClick();
     }
   };
 
-  // NEW: Handle home button click - show Dashboard for service providers
   const handleHomeClick = () => {
     if (isServiceProvider && isAuthenticated) {
-      onNavigateToPage(DASHBOARD); // Service providers go to Dashboard
+      onNavigateToPage(DASHBOARD);
     } else {
-      onHomeClick(); // Everyone else goes to Home
+      onHomeClick();
     }
   };
 
-  // ADD: Login handler
   const handleLoginClick = async () => {
     try {
       await authorize({
@@ -113,7 +109,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       const credentials = await getCredentials();
       console.log("Login successful");
       
-      // Show success message
       Snackbar.show({
         text: "Logged in successfully!",
         duration: Snackbar.LENGTH_SHORT,
@@ -131,43 +126,56 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
   };
 
-  // ADD: Sign out handler
   const handleSignOut = async () => {
-    try {
-      await clearSession({
-        returnToUrl: "com.serveaso://logout",
-      });
+    if (isSigningOut) {
+      console.log("⏳ Sign out already in progress...");
+      return;
+    }
 
-      // Clear user data from Redux/store if needed
-      dispatch(remove()); // Assuming you have this action
+    setIsSigningOut(true);
+    
+    try {
+      console.log("🚪 Sign out initiated...");
       
-      // Show success message
       Snackbar.show({
-        text: "Signed out successfully",
+        text: "Signing out...",
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: "#3b82f6",
         textColor: "#ffffff",
       });
+
+      await clearSession({
+        returnToUrl: "com.serveaso://logout",
+      });
+
+      dispatch(remove());
       
-      console.log("Signed out successfully");
+      if (onSignOutComplete) {
+        await onSignOutComplete();
+      }
+      
+      console.log("✅ Sign out completed, app relaunched");
+      
     } catch (e) {
-      console.log("Log out error:", e);
+      console.log("❌ Log out error:", e);
       Snackbar.show({
         text: "Failed to sign out",
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: "#ef4444",
         textColor: "#ffffff",
       });
+      setIsSigningOut(false);
     }
   };
 
-  // Function to get user's first name
+  // FIXED: Get user's first name only
   const getUserFirstName = () => {
     if (!auth0User || !auth0User.name) return "User";
-    return auth0User.name.split(' ')[0];
+    // Extract first name only
+    const nameParts = auth0User.name.split(' ');
+    return nameParts[0] || "User";
   };
 
-  // Function to get user's avatar/display component
   const renderUserAvatar = (isMobileView: boolean = false) => {
     if (!auth0User) {
       return (
@@ -194,7 +202,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         {!isMobileView && (
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {getUserFirstName()}
+              {getUserFirstName()} {/* Now shows only first name */}
             </Text>
             <FeatherIcon name="chevron-down" size={14} color="#fff" />
           </View>
@@ -204,117 +212,120 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   };
 
   // For mobile - render bottom navigation bar
- if (isMobile) {
-  const tabs = [
-    {
-      key: "HOME",
-      label: isServiceProvider && isAuthenticated ? "Dashboard" : "Home",
-      icon: <MaterialIcon name={isServiceProvider && isAuthenticated ? "dashboard" : "home"} size={22} />,
-      onPress: handleHomeClick,
-    },
-    {
-      key: PROFILE,
-      label: auth0User ? getUserFirstName() : "Sign In",
-      icon: renderUserAvatar(true),
-      onPress: handleProfileButtonClick,
-    },
-    ...(isCustomer
-      ? [
-          {
-            key: BOOKINGS,
-            label: "Bookings",
-            icon: <MaterialIcon name="event-note" size={22} />,
-            onPress: handleBookingsButtonClick,
-          },
-        ]
-      : []),
-    ...(isAuthenticated
-      ? [
-          {
-            key: "NOTIFICATIONS",
-            label: "Alerts",
-            icon: <MaterialIcon name="notifications" size={22} />,
-            onPress: () => setShowNotifications(true),
-          },
-        ]
-      : []),
-    ...(isCustomer
-      ? [
-          {
-            key: "WALLET",
-            label: "Wallet",
-            icon: <MaterialIcon name="account-balance-wallet" size={22} />,
-            onPress: () => setIsWalletOpen(true),
-          },
-        ]
-      : []),
-    {
-      key: isAuthenticated ? "SIGN_OUT" : "SIGN_UP",
-      label: isAuthenticated ? "Sign Out" : "Sign Up",
-      icon: (
-        <MaterialIcon
-          name={isAuthenticated ? "logout" : "person-add"}
-          size={22}
-        />
-      ),
-      onPress: isAuthenticated ? handleSignOut : onOpenSignup,
-    },
-  ];
+  if (isMobile) {
+    const tabs = [
+      {
+        key: "HOME",
+        label: isServiceProvider && isAuthenticated ? "Dashboard" : "Home",
+        icon: <MaterialIcon name={isServiceProvider && isAuthenticated ? "dashboard" : "home"} size={22} />,
+        onPress: handleHomeClick,
+      },
+      {
+        key: PROFILE,
+        label: auth0User ? getUserFirstName() : "Sign In", // Shows first name only
+        icon: renderUserAvatar(true),
+        onPress: handleProfileButtonClick,
+      },
+      ...(isCustomer
+        ? [
+            {
+              key: BOOKINGS,
+              label: "Bookings",
+              icon: <MaterialIcon name="event-note" size={22} />,
+              onPress: handleBookingsButtonClick,
+            },
+          ]
+        : []),
+      // FIXED: Only show notifications for Service Providers
+      ...(isServiceProvider && isAuthenticated
+        ? [
+            {
+              key: "NOTIFICATIONS",
+              label: "Alerts",
+              icon: <MaterialIcon name="notifications" size={22} />,
+              onPress: () => setShowNotifications(true),
+            },
+          ]
+        : []),
+      ...(isCustomer
+        ? [
+            {
+              key: "WALLET",
+              label: "Wallet",
+              icon: <MaterialIcon name="account-balance-wallet" size={22} />,
+              onPress: () => setIsWalletOpen(true),
+            },
+          ]
+        : []),
+      {
+        key: isAuthenticated ? "SIGN_OUT" : "SIGN_UP",
+        label: isAuthenticated ? "Sign Out" : "Sign Up",
+        icon: (
+          <MaterialIcon
+            name={isAuthenticated ? "logout" : "person-add"}
+            size={22}
+            color={isSigningOut ? "#94a3b8" : "#fff"}
+          />
+        ),
+        onPress: isAuthenticated ? handleSignOut : onOpenSignup,
+      },
+    ];
 
-  return (
-    <>
-      <View style={styles.mobileNavContainer}>
-        {tabs.map((tab, index) => {
-          const isActive = activePage === tab.key;
-          const isLast = index === tabs.length - 1;
+    return (
+      <>
+        <View style={styles.mobileNavContainer}>
+          {tabs.map((tab, index) => {
+            const isActive = activePage === tab.key;
+            const isLast = index === tabs.length - 1;
+            const isDisabled = isAuthenticated && tab.key === "SIGN_OUT" && isSigningOut;
 
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={tab.onPress}
-              style={[
-                styles.mobileNavItem,
-                !isLast && styles.withBorder,
-                isActive && styles.activeTab,
-              ]}
-            >
-              {React.cloneElement(tab.icon as any, {
-                color: isActive ? "#93c5fd" : "#fff",
-              })}
-              <Text
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                onPress={tab.onPress}
+                disabled={isDisabled}
                 style={[
-                  styles.mobileNavText,
-                  isActive && styles.activeTabText,
+                  styles.mobileNavItem,
+                  !isLast && styles.withBorder,
+                  isActive && styles.activeTab,
+                  isDisabled && styles.disabledTab,
                 ]}
               >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+                {React.cloneElement(tab.icon as any, {
+                  color: isActive ? "#93c5fd" : isDisabled ? "#94a3b8" : "#fff",
+                })}
+                <Text
+                  style={[
+                    styles.mobileNavText,
+                    isActive && styles.activeTabText,
+                    isDisabled && styles.disabledTabText,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      <NotificationsDialog
-        visible={showNotifications}
-        onClose={() => setShowNotifications(false)}
-      />
+        <NotificationsDialog
+          visible={showNotifications}
+          onClose={() => setShowNotifications(false)}
+        />
 
-      <WalletDialog
-        open={isWalletOpen}
-        onClose={() => setIsWalletOpen(false)}
-      />
-    </>
-  );
-}
-
+        <WalletDialog
+          open={isWalletOpen}
+          onClose={() => setIsWalletOpen(false)}
+        />
+      </>
+    );
+  }
 
   // For desktop - render desktop navigation
   return (
     <View style={styles.desktopNavContainer}>
       <View style={styles.desktopNavInner}>
-        {/* Left side - Navigation links */}
         <View style={styles.desktopNavLinks}>
-          {/* Home/Dashboard - Show Dashboard for service providers */}
           <TouchableOpacity
             onPress={handleHomeClick}
             style={styles.desktopNavItem}
@@ -330,7 +341,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             </Text>
           </TouchableOpacity>
 
-          {/* Bookings - Only for CUSTOMER */}
           {isCustomer && (
             <TouchableOpacity
               onPress={handleBookingsButtonClick}
@@ -341,7 +351,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             </TouchableOpacity>
           )}
 
-          {/* Show About & Contact only when not authenticated */}
           {!isAuthenticated && (
             <>
               <TouchableOpacity
@@ -363,10 +372,9 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           )}
         </View>
 
-        {/* Right side - Action icons */}
         <View style={styles.desktopActionIcons}>
-          {/* Notifications Icon - For all authenticated users */}
-          {isAuthenticated && (
+          {/* FIXED: Only show notifications for Service Providers */}
+          {isServiceProvider && isAuthenticated && (
             <TouchableOpacity
               onPress={() => setShowNotifications(true)}
               style={styles.desktopActionIcon}
@@ -375,7 +383,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             </TouchableOpacity>
           )}
           
-          {/* Wallet Icon - Only for CUSTOMER */}
           {isCustomer && (
             <TouchableOpacity
               onPress={() => setIsWalletOpen(true)}
@@ -385,7 +392,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             </TouchableOpacity>
           )}
           
-          {/* User Avatar/Profile */}
           <TouchableOpacity 
             onPress={handleProfileButtonClick}
             style={[styles.desktopActionIcon, styles.userMenuButton]}
@@ -396,20 +402,32 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             )}
           </TouchableOpacity>
           
-          {/* Sign Out button - Only show when authenticated */}
           {isAuthenticated && (
             <TouchableOpacity 
               onPress={handleSignOut}
-              style={[styles.desktopActionIcon, styles.signOutButton]}
+              disabled={isSigningOut}
+              style={[
+                styles.desktopActionIcon, 
+                styles.signOutButton,
+                isSigningOut && styles.disabledDesktopButton
+              ]}
             >
-              <MaterialIcon name="logout" size={22} color="#fff" />
-              <Text style={styles.signOutText}>Sign Out</Text>
+              <MaterialIcon 
+                name="logout" 
+                size={22} 
+                color={isSigningOut ? "#94a3b8" : "#fff"} 
+              />
+              <Text style={[
+                styles.signOutText,
+                isSigningOut && styles.disabledTabText
+              ]}>
+                {isSigningOut ? "Signing Out..." : "Sign Out"}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Dialogs */}
       <NotificationsDialog
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
@@ -456,6 +474,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "400",
     textAlign: "center",
+  },
+  disabledTab: {
+    opacity: 0.6,
+  },
+  disabledTabText: {
+    color: "#94a3b8",
   },
 
   // Desktop Styles
@@ -584,7 +608,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     maxWidth: 60,
   },
-  
   // Button Styles
   signInButton: {
     backgroundColor: "rgba(59, 130, 246, 0.8)",
@@ -601,6 +624,9 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "500",
+  },
+  disabledDesktopButton: {
+    opacity: 0.6,
   },
 });
 

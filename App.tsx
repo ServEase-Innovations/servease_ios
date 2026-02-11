@@ -1,4 +1,4 @@
-// App.tsx - Updated with proper NavigationFooter handlers
+// App.tsx - Updated with proper sign out and app relaunch
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -44,13 +44,11 @@ import WalletDialog from "./src/UserProfile/WalletDialog";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
 import { PaperProvider } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
-import ServiceProviderRegistration from "./src/ServiceProviderRegistration";
+import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "./src/AgentRegistration/AgentRegistrationForm";
 import { useAuth0 } from "react-native-auth0";
 import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
-// const {  getCredentials } = useAuth0();
-
-
+import Snackbar from "react-native-snackbar";
 
 interface Engagement {
   engagement_id: number;
@@ -88,18 +86,106 @@ const MainApp = () => {
   const [showProviderRegistration, setShowProviderRegistration] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-
-
+  // Key to force re-render of entire app
+  const [appResetKey, setAppResetKey] = useState(Date.now());
+  // Flag to track if we're performing a full app reset
+  const [isResetting, setIsResetting] = useState(false);
 
   const dispatch = useDispatch();
-  const { appUser } = useAppUser();
+  const { appUser, clearAppUser } = useAppUser();
 
   const { authorize } = useAuth0();
   const { getCredentials } = useAuth0();
+  const { clearSession } = useAuth0();
+
+  // COMPLETE APP RELAUNCH METHOD
+  const handleAppRelaunchAfterSignOut = async () => {
+    // Prevent multiple reset attempts
+    if (isResetting) {
+      console.log("⚠️ App reset already in progress...");
+      return;
+    }
+
+    setIsResetting(true);
+    
+    try {
+      console.log("🔄 ===== STARTING COMPLETE APP RELAUNCH =====");
+      
+      // 1. Clear Auth0 session (already done in NavigationFooter, but do it again to be safe)
+      try {
+        await clearSession({
+          returnToUrl: "com.serveaso://logout",
+        });
+        console.log("✅ Auth0 session cleared");
+      } catch (authError) {
+        console.log("⚠️ Auth0 session clear may have already been called:", authError);
+      }
+      
+      // 2. Clear all app states to initial values
+      console.log("🔄 Resetting all app states...");
+      setCurrentView("HOME");
+      setChatbotOpen(false);
+      setSelectedBookingType("");
+      setShowProfileFromDashboard(false);
+      setShowNotificationClient(false);
+      setShouldShowMobileDialog(false);
+      setHasCheckedMobileNumber(false);
+      setCustomerData(null);
+      setIsWalletOpen(false);
+      setShowNotifications(false);
+      setShowSignupDrawer(false);
+      setShowProviderRegistration(false);
+      setShowAgentRegistration(false);
+      setShowProfileMenu(false);
+      setActiveToast(null);
+      
+      // 3. Clear app user context
+      if (clearAppUser) {
+        clearAppUser();
+        console.log("✅ AppUser context cleared");
+      }
+      
+      // 4. Disconnect and clear socket connection
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        console.log("✅ Socket disconnected");
+      }
+      
+      // 5. Generate new key to force complete re-render
+      const newKey = Date.now();
+      setAppResetKey(newKey);
+      console.log(`✅ App reset key updated: ${newKey}`);
+      
+      // 6. Show splash screen to indicate restart
+      setShowSplash(true);
+      fadeAnim.setValue(1);
+      
+      // 7. Hide splash after delay
+      setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }).start(() => {
+          setShowSplash(false);
+          setIsResetting(false);
+          console.log("✅ ===== APP RELAUNCH COMPLETED =====");
+        });
+      }, 1000);
+      
+    } catch (error) {
+      console.error("❌ Error during app relaunch:", error);
+      // Force reset even if errors occur
+      setAppResetKey(Date.now());
+      setCurrentView("HOME");
+      setShowSplash(false);
+      setIsResetting(false);
+    }
+  };
 
   const handleAuth0Login = async () => {
-  try {
+    try {
       await authorize({
         scope: "openid profile email",
         redirectUrl:
@@ -107,41 +193,63 @@ const MainApp = () => {
       });
 
       const credentials = await getCredentials();
+      console.log("Login successful", credentials);
+      
+      Snackbar.show({
+        text: "Logged in successfully!",
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#10b981",
+        textColor: "#ffffff",
+      });
     } catch (e) {
       console.log("Login error:", e);
-      // showErrorSnackbar("Login failed. Please try again.");
+      Snackbar.show({
+        text: "Login failed. Please try again.",
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: "#ef4444",
+        textColor: "#ffffff",
+      });
     }
-    
-};
+  };
 
-
-  // Get screen dimensions
   const { height, width } = Dimensions.get('window');
   const isMobile = width < 768;
 
-  const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
+const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
   setShowSignupDrawer(false);
 
   switch (type) {
     case "USER":
       handleAuth0Login();   
-      setCurrentView("SIGNUP");
-      // Ideally trigger Auth0 login here later
+      setCurrentView("HOME"); // Changed from "SIGNUP" to "HOME"
       break;
 
     case "PROVIDER":
-      setCurrentView("SIGNUP");
-      setTimeout(() => setShowProviderRegistration(true), 150);
+      setShowProviderRegistration(true);
       break;
 
     case "AGENT":
-      setCurrentView("SIGNUP");
+      setCurrentView("HOME"); // Changed from "SIGNUP" to "HOME"
       setTimeout(() => setShowAgentRegistration(true), 150);
       break;
   }
 };
 
+  const handleProviderRegistrationSuccess = () => {
+    console.log("✅ Provider registration successful");
+    setShowProviderRegistration(false);
+    
+    Snackbar.show({
+      text: "Registration successful! Please login.",
+      duration: Snackbar.LENGTH_LONG,
+      backgroundColor: "#10b981",
+      textColor: "#ffffff",
+    });
+  };
 
+  const handleProviderBackToLogin = () => {
+    setShowProviderRegistration(false);
+  };
 
   useEffect(() => {
     console.log("🔄 AppUser changed:", appUser ? `Logged in as ${appUser.role}` : "Logged out");
@@ -364,7 +472,6 @@ const MainApp = () => {
     setActiveToast(null);
   };
 
-
   const handleViewChange = (view: string) => {
     if (view === "" || view === "FORCE_HOME") {
       setCurrentView("HOME");
@@ -387,7 +494,6 @@ const MainApp = () => {
     console.log(`Service selected: ${service}`);
     if (service === "Home Cook" || service === "Cleaning Help" || service === "Caregiver") {
       setSelectedBookingType(service);
-      // Navigate to details view with selected service
       setCurrentView("DETAILS");
     }
   };
@@ -407,18 +513,6 @@ const MainApp = () => {
   const handleContactClick = () => {
     Alert.alert("Contact Us", "Contact ServEaso support");
   };
-
-  // const handleNotificationClick = () => {
-  //   setShowNotifications(true);
-  // };
-
-  // const handleWalletClick = () => {
-  //   setIsWalletOpen(true);
-  // };
-
-  // const handleCloseNotifications = () => {
-  //   setShowNotifications(false);
-  // };
 
   const renderContent = () => {
     if (appUser && appUser.role?.toUpperCase() === "SERVICE_PROVIDER" && currentView === "HOME") {
@@ -453,7 +547,7 @@ const MainApp = () => {
 
   if (showSplash) {
     return (
-      <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
+      <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
         <Image
           source={require("./assets/images/serveasologo.png")}
           style={styles.splashImage}
@@ -465,200 +559,200 @@ const MainApp = () => {
 
   return (
     <PaperProvider>
-    <SafeAreaProvider>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        {/* Fixed Header */}
-        <View style={styles.headerWrapper}>
-          <Head 
-            sendDataToParent={handleViewChange} 
-            bookingType={selectedBookingType}
-            onAboutClick={handleAboutClick}
-            onContactClick={handleContactClick}
-            onLogoClick={handleHomeClick}
-          />
-        </View>
-
-        {/* Notification Button for Service Providers */}
-        {appUser && appUser.role?.toUpperCase() === "SERVICE_PROVIDER" && (
-          <View style={styles.notificationButtonContainer}>
-            <NotificationButton onPress={handleNotificationButtonPress} />
+      <SafeAreaProvider>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <SafeAreaView style={styles.safeArea} edges={["top"]} key={`app-${appResetKey}`}>
+          {/* Fixed Header */}
+          <View style={styles.headerWrapper}>
+            <Head 
+              sendDataToParent={handleViewChange} 
+              bookingType={selectedBookingType}
+              onAboutClick={handleAboutClick}
+              onContactClick={handleContactClick}
+              onLogoClick={handleHomeClick}
+            />
           </View>
-        )}
 
-        {/* Scrollable Content Area */}
-        <View style={styles.contentContainer}>
-          {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) ? (
-            <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
-              {renderContent()}
-            </ScrollView>
-          ) : (
-            <ScrollView
-              style={styles.mainScrollView}
-              contentContainerStyle={[
-                styles.scrollContent,
-                (currentView === BOOKINGS || currentView === DASHBOARD) &&
-                  styles.fullScreenScrollContent,
-              ]}
-              contentInsetAdjustmentBehavior="automatic"
-            >
-              {renderContent()}
-              {currentView === "HOME" &&
-                (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
-            </ScrollView>
-          )}
-        </View>
-
-        {/* Fixed Navigation Footer for Mobile */}
-        {isMobile && (
-          <View style={styles.navigationFooterContainer}>
-           <NavigationFooter
-           activePage={currentView}
-  onHomeClick={handleHomeClick}
-  onBookingsClick={handleBookingsClick}
-  onDashboardClick={handleDashboardClick}
-  onAboutClick={handleAboutClick}
-  onContactClick={handleContactClick}
-  auth0User={appUser}
-  appUser={appUser}
-  bookingType={selectedBookingType}
-  onOpenSignup={() => setShowSignupDrawer(true)}
-  onProfileClick={() => setShowProfileMenu(true)}
-  onNavigateToPage={(page: string) => {
-    // Handle navigation to different pages
-    if (page === PROFILE) {
-      setCurrentView(PROFILE);
-      setShowProfileFromDashboard(false);
-    } else if (page === BOOKINGS) {
-      setCurrentView(BOOKINGS);
-    } else if (page === DASHBOARD) {
-      setCurrentView(DASHBOARD);
-      setShowProfileFromDashboard(false);
-    }
-  }}
-/>
-
-<ProfileMenuSheet
-  visible={showProfileMenu}
-  onClose={() => setShowProfileMenu(false)}
-  onProfile={() => {
-    setShowProfileMenu(false);
-    setCurrentView(PROFILE);
-  }}
-  onBookings={() => {
-    setShowProfileMenu(false);
-    setCurrentView(BOOKINGS);
-  }}
-  onDashboard={() => {
-    setShowProfileMenu(false);
-    setCurrentView(DASHBOARD);
-  }}
-  onWallet={() => setIsWalletOpen(true)}
-  onContact={handleContactClick}
-/>
-
-
-          </View>
-        )}
-
-        {/* Chat Button - Positioned above Navigation Footer */}
-        {!chatbotOpen && isMobile && (
-          <TouchableOpacity style={styles.chatButton} onPress={() => setChatbotOpen(true)}>
-            <Icon name="chat" size={28} color="#fff" />
-          </TouchableOpacity>
-        )}
-
-        {/* Modals and Dialogs */}
-        {shouldShowMobileDialog && (
-          <MobileNumberDialog 
-            open={shouldShowMobileDialog}
-            onClose={handleMobileDialogClose}
-            onSuccess={handleMobileDialogSuccess}
-          />
-        )}
-
-        {/* Wallet Dialog */}
-        {/* <WalletDialog
-          open={isWalletOpen}
-          onClose={() => setIsWalletOpen(false)}
-        /> */}
-
-        {/* Notifications Dialog */}
-        {/* <NotificationsDialog 
-          visible={showNotifications} 
-          onClose={handleCloseNotifications} 
-        /> */}
-
-        <SignupDrawer
-  visible={showSignupDrawer}
-  onClose={() => setShowSignupDrawer(false)}
-  onUser={() => {
-    setShowSignupDrawer(false);
-    handleRegisterAs("USER");
-  }}
-  onProvider={() => {
-    setShowSignupDrawer(false);
-    handleRegisterAs("PROVIDER");
-  }}
-  onAgent={() => {
-    setShowSignupDrawer(false);
-    handleRegisterAs("AGENT");
-  }}
-/>
-
-{/* Provider Registration */}
-{showProviderRegistration && (
-  <Modal animationType="slide" visible>
-    <ServiceProviderRegistration
-                onBackToLogin={() => setShowProviderRegistration(false)} onRegistrationSuccess={function (): void {
-                  throw new Error("Function not implemented.");
-                } }    />
-  </Modal>
-)}
-
-{/* Agent Registration */}
-<Modal
-  visible={showAgentRegistration}
-  animationType="slide"
-  onRequestClose={() => setShowAgentRegistration(false)}
->
-  <AgentRegistrationForm
-    onBackToLogin={() => setShowAgentRegistration(false)}
-    onRegistrationSuccess={() => setShowAgentRegistration(false)}
-  />
-</Modal>
-
-
-
-        <Modal
-          visible={showNotificationClient}
-          animationType="slide"
-          onRequestClose={() => setShowNotificationClient(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setShowNotificationClient(false)}>
-                <Icon name="close" size={24} color="#333" />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Notifications</Text>
+          {/* Notification Button for Service Providers */}
+          {appUser && appUser.role?.toUpperCase() === "SERVICE_PROVIDER" && (
+            <View style={styles.notificationButtonContainer}>
+              <NotificationButton onPress={handleNotificationButtonPress} />
             </View>
-            <NotificationClient />
+          )}
+
+          {/* Scrollable Content Area */}
+          <View style={styles.contentContainer}>
+            {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) ? (
+              <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
+                {renderContent()}
+              </ScrollView>
+            ) : (
+              <ScrollView
+                style={styles.mainScrollView}
+                contentContainerStyle={[
+                  styles.scrollContent,
+                  (currentView === BOOKINGS || currentView === DASHBOARD) &&
+                    styles.fullScreenScrollContent,
+                ]}
+                contentInsetAdjustmentBehavior="automatic"
+              >
+                {renderContent()}
+                {currentView === "HOME" &&
+                  (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
+              </ScrollView>
+            )}
           </View>
-        </Modal>
 
-        <Chatbot open={chatbotOpen} onClose={() => setChatbotOpen(false)} />
+          {/* Fixed Navigation Footer for Mobile */}
+          {isMobile && (
+            <View style={styles.navigationFooterContainer}>
+              <NavigationFooter
+                activePage={currentView}
+                onHomeClick={handleHomeClick}
+                onBookingsClick={handleBookingsClick}
+                onDashboardClick={handleDashboardClick}
+                onAboutClick={handleAboutClick}
+                onContactClick={handleContactClick}
+                auth0User={appUser}
+                appUser={appUser}
+                bookingType={selectedBookingType}
+                onOpenSignup={() => setShowSignupDrawer(true)}
+                onProfileClick={() => setShowProfileMenu(true)}
+                onNavigateToPage={(page: string) => {
+                  if (page === PROFILE) {
+                    setCurrentView(PROFILE);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === BOOKINGS) {
+                    setCurrentView(BOOKINGS);
+                  } else if (page === DASHBOARD) {
+                    setCurrentView(DASHBOARD);
+                    setShowProfileFromDashboard(false);
+                  }
+                }}
+                onSignOutComplete={handleAppRelaunchAfterSignOut} // NEW: Pass the relaunch callback
+              />
 
-        {activeToast && (
-          <BookingRequestToast
-            engagement={activeToast}
-            onAccept={handleAccept}
-            onReject={handleReject}
-            onClose={() => setActiveToast(null)}
-            visible={!!activeToast}
+              <ProfileMenuSheet
+                visible={showProfileMenu}
+                onClose={() => setShowProfileMenu(false)}
+                onProfile={() => {
+                  setShowProfileMenu(false);
+                  setCurrentView(PROFILE);
+                }}
+                onBookings={() => {
+                  setShowProfileMenu(false);
+                  setCurrentView(BOOKINGS);
+                }}
+                onDashboard={() => {
+                  setShowProfileMenu(false);
+                  setCurrentView(DASHBOARD);
+                }}
+                onWallet={() => setIsWalletOpen(true)}
+                onContact={handleContactClick}
+              />
+            </View>
+          )}
+
+          {/* Chat Button - Positioned above Navigation Footer */}
+          {!chatbotOpen && isMobile && (
+            <TouchableOpacity style={styles.chatButton} onPress={() => setChatbotOpen(true)}>
+              <Icon name="chat" size={28} color="#fff" />
+            </TouchableOpacity>
+          )}
+
+          {/* Modals and Dialogs */}
+          {shouldShowMobileDialog && (
+            <MobileNumberDialog 
+              open={shouldShowMobileDialog}
+              onClose={handleMobileDialogClose}
+              onSuccess={handleMobileDialogSuccess}
+            />
+          )}
+
+          {/* Signup Drawer */}
+          <SignupDrawer
+            visible={showSignupDrawer}
+            onClose={() => setShowSignupDrawer(false)}
+            onUser={() => {
+              setShowSignupDrawer(false);
+              handleRegisterAs("USER");
+            }}
+            onProvider={() => {
+              setShowSignupDrawer(false);
+              handleRegisterAs("PROVIDER");
+            }}
+            onAgent={() => {
+              setShowSignupDrawer(false);
+              handleRegisterAs("AGENT");
+            }}
           />
-        )}
-      </SafeAreaView>
-    </SafeAreaProvider>
+
+          {/* Provider Registration - Direct component rendering */}
+          {showProviderRegistration && (
+            <ServiceProviderRegistration
+              onBackToLogin={handleProviderBackToLogin}
+              onRegistrationSuccess={handleProviderRegistrationSuccess}
+            />
+          )}
+
+          {/* Agent Registration */}
+          {showAgentRegistration && (
+            <Modal
+              visible={showAgentRegistration}
+              animationType="slide"
+              onRequestClose={() => setShowAgentRegistration(false)}
+            >
+              <AgentRegistrationForm
+                onBackToLogin={() => setShowAgentRegistration(false)}
+                onRegistrationSuccess={() => setShowAgentRegistration(false)}
+              />
+            </Modal>
+          )}
+
+          {/* Notification Client Modal */}
+          <Modal
+            visible={showNotificationClient}
+            animationType="slide"
+            onRequestClose={() => setShowNotificationClient(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity style={styles.closeButton} onPress={() => setShowNotificationClient(false)}>
+                  <Icon name="close" size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Notifications</Text>
+              </View>
+              <NotificationClient />
+            </View>
+          </Modal>
+
+          {/* Wallet Dialog */}
+          <WalletDialog
+            open={isWalletOpen}
+            onClose={() => setIsWalletOpen(false)}
+          />
+
+          {/* Notifications Dialog */}
+          <NotificationsDialog 
+            visible={showNotifications} 
+            onClose={() => setShowNotifications(false)} 
+          />
+
+          {/* Chatbot */}
+          <Chatbot open={chatbotOpen} onClose={() => setChatbotOpen(false)} />
+
+          {/* Booking Request Toast */}
+          {activeToast && (
+            <BookingRequestToast
+              engagement={activeToast}
+              onAccept={handleAccept}
+              onReject={handleReject}
+              onClose={() => setActiveToast(null)}
+              visible={!!activeToast}
+            />
+          )}
+        </SafeAreaView>
+      </SafeAreaProvider>
     </PaperProvider>
   );
 };
@@ -710,9 +804,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: { 
     flex: 1, 
-    marginTop: 50, // Header height + some padding
+    marginTop: 50,
     backgroundColor: "#fff",
-    paddingBottom: 50, // Space for navigation footer
+    paddingBottom: 50,
   },
   mainScrollView: { 
     flex: 1 
@@ -770,7 +864,7 @@ const styles = StyleSheet.create({
   },
   chatButton: {
     position: "absolute",
-    bottom: 80, // Above the navigation footer
+    bottom: 80,
     right: 20,
     width: 60,
     height: 60,

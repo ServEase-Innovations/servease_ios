@@ -1,4 +1,4 @@
-// LocationSelector.tsx - Updated version
+// LocationSelector.tsx - Updated with map view in auto detect
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -99,6 +99,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchInputFocused, setSearchInputFocused] = useState(false);
 
+  // State to control which location method is active
+  const [locationMethod, setLocationMethod] = useState<'auto' | 'manual' | null>(null);
+
   // Check if user is authenticated
   const isAuthenticated = appUser && appUser.customerid;
 
@@ -179,6 +182,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setIsPinSelected(true);
     setShowSearchResults(false);
     setSearchQuery("");
+    setLocationMethod('manual'); // Set method to manual
 
     // Update map region to show selected location
     setLatitude(latitude);
@@ -317,6 +321,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             const newLocation = res.data.display_name;
             setLocation(newLocation);
             setAddress(newLocation);
+            setLocationMethod('auto'); // Set method to auto
             
             // Create location data object with coordinates
             const locationData = createLocationData(latitude, longitude, newLocation);
@@ -438,6 +443,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const fetchLocationWithChecks = async () => {
     setIsCheckingLocation(true);
     setLoading(true);
+    setLocationMethod('auto'); // Set method to auto
 
     try {
       const servicesEnabled = await checkLocationServices();
@@ -489,6 +495,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     const { coordinate } = event.nativeEvent;
     setSelectedPinLocation(coordinate);
     setIsPinSelected(true);
+    setLocationMethod('manual'); // Set method to manual
     
     try {
       const address = await getAddressFromCoords(coordinate.latitude, coordinate.longitude);
@@ -512,6 +519,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery("");
     setSearchResults([]);
     setShowSearchResults(false);
+    setLocationMethod('auto'); // Set method to auto
     if (latitude && longitude) {
       getAddressFromCoords(latitude, longitude)
         .then((addr) => {
@@ -531,6 +539,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setLoading(false);
       setIsCheckingLocation(false);
       setShowGPSButton(false);
+      setLocationMethod(null); // Reset method when opening modal
       // Check authentication before opening address modal
       if (!isAuthenticated) {
         Alert.alert(
@@ -848,7 +857,78 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   }, []);
 
-  const renderLocationModalContent = () => {
+  // Render location options with auto-detect and manual search side by side
+  const renderLocationMethodSelector = () => {
+    return (
+      <View style={styles.methodSelectorContainer}>
+        <TouchableOpacity
+          style={[
+            styles.methodCard,
+            locationMethod === 'auto' && styles.methodCardActive
+          ]}
+          onPress={() => {
+            setLocationMethod('auto');
+            fetchLocationWithChecks();
+          }}
+        >
+          <View style={styles.methodIconContainer}>
+            <MaterialIcon 
+              name="my-location" 
+              size={24} 
+              color={locationMethod === 'auto' ? "#3b82f6" : "#64748b"} 
+            />
+          </View>
+          <Text style={[
+            styles.methodTitle,
+            locationMethod === 'auto' && styles.methodTextActive
+          ]}>
+            Auto Detect
+          </Text>
+          <Text style={styles.methodDescription}>
+            Use your current location
+          </Text>
+          {locationMethod === 'auto' && (
+            <View style={styles.activeIndicator}>
+              <MaterialIcon name="check-circle" size={20} color="#3b82f6" />
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.methodCard,
+            locationMethod === 'manual' && styles.methodCardActive
+          ]}
+          onPress={() => setLocationMethod('manual')}
+        >
+          <View style={styles.methodIconContainer}>
+            <MaterialIcon 
+              name="search" 
+              size={24} 
+              color={locationMethod === 'manual' ? "#3b82f6" : "#64748b"} 
+            />
+          </View>
+          <Text style={[
+            styles.methodTitle,
+            locationMethod === 'manual' && styles.methodTextActive
+          ]}>
+            Search Manually
+          </Text>
+          <Text style={styles.methodDescription}>
+            Search or tap on map
+          </Text>
+          {locationMethod === 'manual' && (
+            <View style={styles.activeIndicator}>
+              <MaterialIcon name="check-circle" size={20} color="#3b82f6" />
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // OPTIMIZED: Auto detect content with map view and small refresh button
+  const renderAutoDetectContent = () => {
     if (isCheckingLocation) {
       return (
         <View style={styles.statusContainer}>
@@ -861,202 +941,296 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <View style={styles.statusContainer}>
           <ActivityIndicator size="large" color="#3b82f6" />
           <Text style={styles.statusText}>Getting your location...</Text>
+          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: '#64748b' }]}>
+            This may take a few seconds
+          </Text>
         </View>
       );
     } else if (showGPSButton) {
       return (
         <View style={styles.statusContainer}>
-          <MaterialIcon name="location-off" size={50} color="red" />
-          <Text style={styles.statusText}>Location services are disabled</Text>
-          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8 }]}>
+          <MaterialIcon name="location-off" size={50} color="#ef4444" />
+          <Text style={[styles.statusText, { color: '#ef4444', fontWeight: '600' }]}>
+            Location services are disabled
+          </Text>
+          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: '#64748b' }]}>
             Please enable device location to continue
           </Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.primaryButton]}
+              style={[styles.button, styles.primaryButton, { width: '100%' }]}
               onPress={handleOpenSettings}
             >
               <MaterialIcon name="settings" size={16} color="white" style={{ marginRight: 8 }} />
               <Text style={styles.buttonText}>Enable Device Location</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.secondaryButton, { marginTop: 12 }]}
+              style={[styles.button, styles.secondaryButton, { marginTop: 12, width: '100%' }]}
               onPress={() => {
-                setOpen(false);
-                setShowGPSButton(false);
+                setLocationMethod('manual');
               }}
             >
-              <Text style={styles.secondaryButtonText}>Cancel</Text>
+              <Text style={styles.secondaryButtonText}>Switch to Manual Search</Text>
             </TouchableOpacity>
           </View>
         </View>
       );
     } else {
       return (
-        <View style={styles.modalContent}>
-          <View style={styles.searchContainer}>
-            <View style={styles.searchInputContainer}>
-              <Icon name="search" size={16} color="#64748b" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search for location..."
-                value={searchQuery}
-                onChangeText={(text) => {
-                  setSearchQuery(text);
-                  setShowSearchResults(text.length > 0);
-                }}
-                onFocus={() => setSearchInputFocused(true)}
-                onBlur={() => setTimeout(() => setSearchInputFocused(false), 200)}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSearchQuery("");
-                    setSearchResults([]);
-                    setShowSearchResults(false);
-                  }}
-                  style={styles.clearSearchButton}
-                >
-                  <Icon name="times" size={16} color="#64748b" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {showSearchResults && (
-              <View style={styles.searchResultsContainer}>
-                {isSearching ? (
-                  <View style={styles.searchLoadingContainer}>
-                    <ActivityIndicator size="small" color="#3b82f6" />
-                    <Text style={styles.searchLoadingText}>Searching...</Text>
-                  </View>
-                ) : searchResults.length > 0 ? (
-                  <FlatList
-                    data={searchResults}
-                    keyExtractor={(item, index) => `${item.place_id}-${index}`}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.searchResultItem}
-                        onPress={() => handleLocationSelect(item)}
-                      >
-                        <MaterialIcon name="location-on" size={16} color="#3b82f6" />
-                        <View style={styles.searchResultText}>
-                          <Text style={styles.searchResultTitle} numberOfLines={1}>
-                            {item.display_name.split(',')[0]}
-                          </Text>
-                          <Text style={styles.searchResultSubtitle} numberOfLines={2}>
-                            {item.display_name}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    )}
-                    style={styles.searchResultsList}
-                  />
-                ) : searchQuery.length >= 3 ? (
-                  <View style={styles.noResultsContainer}>
-                    <Text style={styles.noResultsText}>No locations found</Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
-          </View>
-
+        <View style={styles.autoLocationContent}>
+          {/* Map View */}
           <View style={styles.mapInstructions}>
             <Text style={styles.instructionsText}>
-              {isPinSelected 
-                ? "📍 Pin location selected. Tap 'Confirm Location' to use this address."
-                : "📍 Search for a location above or tap anywhere on the map to select a location."}
+              📍 Your current location is shown on the map
             </Text>
           </View>
           
-          <View style={styles.mapContainer}>
+          <View style={styles.autoMapContainer}>
             <MapView
               style={styles.map}
               region={{
-                latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 0,
-                longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || 0,
+                latitude: latitude || 37.7749,
+                longitude: longitude || -122.4194,
                 latitudeDelta: 0.01,
                 longitudeDelta: 0.01,
               }}
-              onPress={handleMapPress}
             >
-              <Marker
-                coordinate={{
-                  latitude: latitude || 0,
-                  longitude: longitude || 0,
-                }}
-                title="Your current location"
-                pinColor="blue"
-              />
-              
-              {isPinSelected && selectedPinLocation && (
+              {latitude && longitude && (
                 <Marker
-                  coordinate={selectedPinLocation}
-                  title="Selected location"
-                  pinColor="red"
+                  coordinate={{
+                    latitude: latitude,
+                    longitude: longitude,
+                  }}
+                  title="Your current location"
+                  pinColor="blue"
                 />
               )}
             </MapView>
+            
+            {/* Small Refresh Button */}
+            <TouchableOpacity
+              style={styles.smallRefreshButton}
+              onPress={fetchLocationWithChecks}
+            >
+              <MaterialIcon name="refresh" size={16} color="#3b82f6" />
+            </TouchableOpacity>
           </View>
 
+          {/* Location Info */}
           <View style={styles.locationInfoContainer}>
             <View style={styles.locationInfo}>
               <MaterialIcon name="location-on" size={20} color="#3b82f6" />
               <Text style={styles.addressText} numberOfLines={2}>
-                {isPinSelected ? selectedPinAddress : address || "No address available"}
+                {address || "Fetching your location..."}
               </Text>
             </View>
-
-            <View style={styles.coordinatesContainer}>
-              <Text style={styles.coordinateText}>
-                Lat: {(isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude)?.toFixed(4) || "N/A"}
-              </Text>
-              <Text style={styles.coordinateText}>
-                Lng: {(isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude)?.toFixed(4) || "N/A"}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.locationSelectionButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.secondaryButton, !isPinSelected && styles.activeButton]}
-              onPress={handleUseCurrentLocation}
-            >
-              <Text style={styles.secondaryButtonText}>Use Current Location</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.secondaryButton]}
-              onPress={fetchLocationWithChecks}
-            >
-              <MaterialIcon name="refresh" size={16} color="#334155" />
-              <Text style={styles.secondaryButtonText}>Refresh</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={[styles.button, styles.secondaryButton]}
-              onPress={() => {
-                setOpen(false);
-                setIsPinSelected(false);
-                setSelectedPinLocation(null);
-                setSearchQuery("");
-                setSearchResults([]);
-                setShowSearchResults(false);
-              }}
-            >
-              <Text style={styles.secondaryButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.primaryButton, (!address && !selectedPinAddress) && styles.disabledButton]}
-              onPress={handleLocationSave}
-              disabled={!address && !selectedPinAddress}
-            >
-              <Text style={styles.buttonText}>Confirm Location</Text>
-            </TouchableOpacity>
+            {latitude && longitude && (
+              <View style={styles.coordinatesContainer}>
+                <Text style={styles.coordinateText}>
+                  Lat: {latitude.toFixed(4)}
+                </Text>
+                <Text style={styles.coordinateText}>
+                  Lng: {longitude.toFixed(4)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       );
     }
+  };
+
+  // Manual detect content with search and map
+  const renderManualDetectContent = () => {
+    return (
+      <View style={styles.methodContentContainer}>
+        {/* Search Section */}
+        <View style={styles.searchSection}>
+          <Text style={styles.sectionTitle}>Search for a location</Text>
+          <View style={styles.searchInputContainer}>
+            <Icon name="search" size={16} color="#64748b" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Enter address or place name..."
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setShowSearchResults(text.length > 0);
+              }}
+              onFocus={() => setSearchInputFocused(true)}
+              onBlur={() => setTimeout(() => setSearchInputFocused(false), 200)}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setShowSearchResults(false);
+                }}
+                style={styles.clearSearchButton}
+              >
+                <Icon name="times" size={16} color="#64748b" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Search Results */}
+          {showSearchResults && (
+            <View style={styles.searchResultsContainer}>
+              {isSearching ? (
+                <View style={styles.searchLoadingContainer}>
+                  <ActivityIndicator size="small" color="#3b82f6" />
+                  <Text style={styles.searchLoadingText}>Searching...</Text>
+                </View>
+              ) : searchResults.length > 0 ? (
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={(item, index) => `${item.place_id}-${index}`}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.searchResultItem}
+                      onPress={() => handleLocationSelect(item)}
+                    >
+                      <MaterialIcon name="location-on" size={16} color="#3b82f6" />
+                      <View style={styles.searchResultText}>
+                        <Text style={styles.searchResultTitle} numberOfLines={1}>
+                          {item.display_name.split(',')[0]}
+                        </Text>
+                        <Text style={styles.searchResultSubtitle} numberOfLines={2}>
+                          {item.display_name}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.searchResultsList}
+                />
+              ) : searchQuery.length >= 3 ? (
+                <View style={styles.noResultsContainer}>
+                  <Text style={styles.noResultsText}>No locations found</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+        </View>
+
+        {/* Map View */}
+        <View style={styles.mapInstructions}>
+          <Text style={styles.instructionsText}>
+            {isPinSelected 
+              ? "📍 Pin location selected. Tap 'Confirm Location' to use this address."
+              : "📍 Tap on the map to select a location or search above"}
+          </Text>
+        </View>
+        
+        <View style={styles.mapContainer}>
+          <MapView
+            style={styles.map}
+            region={{
+              latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 37.7749,
+              longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || -122.4194,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }}
+            onPress={handleMapPress}
+          >
+            {latitude && longitude && (
+              <Marker
+                coordinate={{
+                  latitude: latitude,
+                  longitude: longitude,
+                }}
+                title="Your current location"
+                pinColor="blue"
+              />
+            )}
+            
+            {isPinSelected && selectedPinLocation && (
+              <Marker
+                coordinate={selectedPinLocation}
+                title="Selected location"
+                pinColor="red"
+              />
+            )}
+          </MapView>
+        </View>
+
+        {/* Selected Location Info */}
+        <View style={styles.locationInfoContainer}>
+          <View style={styles.locationInfo}>
+            <MaterialIcon name="location-on" size={20} color="#3b82f6" />
+            <Text style={styles.addressText} numberOfLines={2}>
+              {isPinSelected ? selectedPinAddress : (address || "No address selected")}
+            </Text>
+          </View>
+          {selectedPinLocation && (
+            <View style={styles.coordinatesContainer}>
+              <Text style={styles.coordinateText}>
+                Lat: {selectedPinLocation.latitude.toFixed(4)}
+              </Text>
+              <Text style={styles.coordinateText}>
+                Lng: {selectedPinLocation.longitude.toFixed(4)}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.locationSelectionButtons}>
+          <TouchableOpacity
+            style={[styles.button, styles.secondaryButton, { flex: 1 }]}
+            onPress={handleUseCurrentLocation}
+          >
+            <MaterialIcon name="my-location" size={16} color="#334155" style={{ marginRight: 4 }} />
+            <Text style={styles.secondaryButtonText}>Use Current</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // Main render function for modal content
+  const renderLocationModalContent = () => {
+    return (
+      <View style={styles.modalContent}>
+        {/* Method Selection Cards - Always Visible */}
+        {renderLocationMethodSelector()}
+        
+        {/* Divider */}
+        <View style={styles.divider} />
+        
+        {/* Conditional Content Based on Selected Method */}
+        {locationMethod === 'auto' && renderAutoDetectContent()}
+        {locationMethod === 'manual' && renderManualDetectContent()}
+
+        {/* Action Buttons - Always Visible */}
+        <View style={styles.buttonGroup}>
+          <TouchableOpacity
+            style={[styles.button, styles.secondaryButton]}
+            onPress={() => {
+              setOpen(false);
+              setIsPinSelected(false);
+              setSelectedPinLocation(null);
+              setSearchQuery("");
+              setSearchResults([]);
+              setShowSearchResults(false);
+              setLocationMethod(null);
+            }}
+          >
+            <Text style={styles.secondaryButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.button, 
+              styles.primaryButton, 
+              (!address && !selectedPinAddress && !(locationMethod === 'auto' && address)) && styles.disabledButton
+            ]}
+            onPress={handleLocationSave}
+            disabled={!address && !selectedPinAddress}
+          >
+            <Text style={styles.buttonText}>Confirm Location</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -1123,8 +1297,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           setSearchQuery("");
           setSearchResults([]);
           setShowSearchResults(false);
+          setLocationMethod(null);
         }}
-        onShow={fetchLocationWithChecks}
       >
         <View style={styles.modalContainer}>
            <LinearGradient
@@ -1141,6 +1315,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               setSearchQuery("");
               setSearchResults([]);
               setShowSearchResults(false);
+              setLocationMethod(null);
             }}>
               <Icon name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
@@ -1235,7 +1410,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   );
 };
 
-// ... (keep all your existing styles the same)
+// Updated styles with new additions
 const styles = StyleSheet.create({
   locationSection: {
     flex: 2,
@@ -1246,14 +1421,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8fafc",
-    borderRadius: 10, // Slightly larger border radius
-    // paddingVertical: 10, // Increased padding
-    paddingHorizontal: 10, // Increased padding
-    // borderWidth: 1.5, // Slightly thicker border
+    borderRadius: 10,
+    paddingHorizontal: 10,
     borderColor: "#e2e8f0",
     minWidth: 140,
-    width: "100%", // Take full width of parent
-    height: "100%", // Take full height of parent
+    width: "100%",
+    height: "100%",
     justifyContent: "space-between",
   },
   locationText: {
@@ -1312,15 +1485,107 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  
+  // NEW STYLES for method selector
+  methodSelectorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  methodCard: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  methodCardActive: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
+  methodIconContainer: {
+    marginBottom: 8,
+  },
+  methodTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 4,
+  },
+  methodTextActive: {
+    color: '#3b82f6',
+  },
+  methodDescription: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 16,
+  },
+  methodContentContainer: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  autoLocationContent: {
+    flex: 1,
+  },
+  autoMapContainer: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 16,
+    height: "45%",
+    position: "relative",
+  },
   mapContainer: {
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 16,
-    height: "50%",
+    height: "45%",
   },
   map: {
     width: "100%",
     height: "100%",
+  },
+  // Small refresh button style
+  smallRefreshButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  searchSection: {
+    marginBottom: 16,
+    position: 'relative',
+    zIndex: 1000,
   },
   locationInfoContainer: {
     backgroundColor: "#f8fafc",
@@ -1351,6 +1616,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
+    marginTop: 16,
+    marginBottom: 16,
   },
   buttonContainer: {
     width: "100%",

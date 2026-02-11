@@ -164,10 +164,11 @@ const steps = [
 
 interface RegistrationProps {
   onBackToLogin: (data: boolean) => void;
+   onRegistrationSuccess?: () => void; 
 }
 
 const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
-  onBackToLogin,
+  onBackToLogin,onRegistrationSuccess,
 }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
@@ -1096,7 +1097,11 @@ if (formData.documentImage) {
 
         setTimeout(() => {
           setIsSubmitting(false);
-          onBackToLogin(true);
+          if (onRegistrationSuccess) {
+            onRegistrationSuccess();
+          } else {
+            onBackToLogin(true);
+          }
         }, 3000);
       } catch (error) {
         setIsSubmitting(false);
