@@ -31,6 +31,7 @@ import Geocoder from "react-native-geocoding";
 import { PERMISSIONS, request, RESULTS } from "react-native-permissions";
 import Slider from '@react-native-community/slider';
 import ProfileImageUpload from "./ProfileImageUpload";
+import DateTimePicker from '@react-native-community/datetimepicker';
 // import CheckBox from '@react-native-community/checkbox';
 
 // Define the shape of formData using an interface
@@ -126,6 +127,7 @@ interface FormErrors {
   documentImage?: string;
   cookingSpeciality?: string;
   diet?: string;
+  dob?: string;
   permanentAddress?: {
     apartment?: string;
     street?: string;
@@ -191,6 +193,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [isSameAddress, setIsSameAddress] = useState(false);
+  
+  // Date Picker State
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -286,6 +292,36 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       ...prev,
       [name]: value,
     }));
+  };
+
+  // Date Picker Handlers
+  const handleDatePress = () => {
+    setShowDatePicker(true);
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    
+    if (date) {
+      setSelectedDate(date);
+      const formattedDate = moment(date).format("YYYY-MM-DD");
+      setFormData((prev) => ({ ...prev, dob: formattedDate }));
+      
+      // Validate age
+      const isValidAge = validateAge(formattedDate);
+      
+      if (!isValidAge) {
+        setIsFieldsDisabled(true);
+        setErrors(prev => ({ ...prev, dob: "You must be at least 18 years old" }));
+        setSnackbarMessage("You must be at least 18 years old to proceed.");
+        setSnackbarOpen(true);
+        setSnackbarSeverity("error");
+      } else {
+        setIsFieldsDisabled(false);
+        setErrors(prev => ({ ...prev, dob: "" }));
+        setSnackbarOpen(false);
+      }
+    }
   };
 
   const handleAddressChange = async (type: 'permanent' | 'correspondence', data: any) => {
@@ -837,6 +873,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!formData.gender) {
         tempErrors.gender = "Please select a gender.";
       }
+      if (!formData.dob) {
+        tempErrors.dob = "Date of birth is required.";
+      } else {
+        const isValidAge = validateAge(formData.dob);
+        if (!isValidAge) {
+          tempErrors.dob = "You must be at least 18 years old.";
+        }
+      }
       if (validationResults.email.error) {
         tempErrors.emailId = validationResults.email.error;
       }
@@ -1209,6 +1253,7 @@ if (formData.documentImage) {
               <TextInput
                 style={[styles.input, errors.firstName && styles.inputError]}
                 placeholder="First Name"
+                placeholderTextColor="#999"
                 value={formData.firstName}
                 onChangeText={(value) => handleRealTimeValidation("firstName", value)}
                 maxLength={MAX_NAME_LENGTH}
@@ -1221,6 +1266,7 @@ if (formData.documentImage) {
               <TextInput
                 style={styles.input}
                 placeholder="Middle Name"
+                placeholderTextColor="#999"
                 value={formData.middleName}
                 onChangeText={(value) => handleChange("middleName", value)}
               />
@@ -1231,6 +1277,7 @@ if (formData.documentImage) {
               <TextInput
                 style={[styles.input, errors.lastName && styles.inputError]}
                 placeholder="Last Name"
+                placeholderTextColor="#999"
                 value={formData.lastName}
                 onChangeText={(value) => handleRealTimeValidation("lastName", value)}
                 maxLength={MAX_NAME_LENGTH}
@@ -1240,12 +1287,27 @@ if (formData.documentImage) {
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Date of Birth *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={formData.dob}
-                onChangeText={(value) => handleDOBChange(value)}
-              />
+              <TouchableOpacity
+                style={[styles.datePickerButton, errors.dob && styles.inputError]}
+                onPress={handleDatePress}
+              >
+                <Text style={formData.dob ? styles.datePickerText : styles.datePickerPlaceholder}>
+                  {formData.dob ? moment(formData.dob).format("DD/MM/YYYY") : "Select Date of Birth"}
+                </Text>
+                <Icon name="calendar-today" size={20} color="#1976d2" />
+              </TouchableOpacity>
+              {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
+              
+              {showDatePicker && (
+                <DateTimePicker
+                  testID="dateTimePicker"
+                  value={selectedDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  maximumDate={new Date()}
+                />
+              )}
             </View>
 
             <View style={styles.inputContainer}>
@@ -1288,6 +1350,7 @@ if (formData.documentImage) {
                 <TextInput
                   style={styles.inputFlex}
                   placeholder="Email"
+                  placeholderTextColor="#999"
                   value={formData.emailId}
                   onChangeText={(value) => handleRealTimeValidation("emailId", value)}
                   keyboardType="email-address"
@@ -1315,12 +1378,13 @@ if (formData.documentImage) {
                 <TextInput
                   style={styles.inputFlex}
                   placeholder="Password"
+                  placeholderTextColor="#999"
                   value={formData.password}
                   onChangeText={(value) => handleRealTimeValidation("password", value)}
                   secureTextEntry={!showPassword}
                 />
                 <TouchableOpacity onPress={handleTogglePasswordVisibility}>
-                  <Icon name={showPassword ? "visibility" : "visibility-off"} size={24} />
+                  <Icon name={showPassword ? "visibility" : "visibility-off"} size={24} color="#333" />
                 </TouchableOpacity>
               </View>
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
@@ -1332,12 +1396,13 @@ if (formData.documentImage) {
                 <TextInput
                   style={styles.inputFlex}
                   placeholder="Confirm Password"
+                  placeholderTextColor="#999"
                   value={formData.confirmPassword}
                   onChangeText={(value) => handleRealTimeValidation("confirmPassword", value)}
                   secureTextEntry={!showConfirmPassword}
                 />
                 <TouchableOpacity onPress={handleToggleConfirmPasswordVisibility}>
-                  <Icon name={showConfirmPassword ? "visibility" : "visibility-off"} size={24} />
+                  <Icon name={showConfirmPassword ? "visibility" : "visibility-off"} size={24} color="#333" />
                 </TouchableOpacity>
               </View>
               {errors.confirmPassword && (
@@ -1351,6 +1416,7 @@ if (formData.documentImage) {
                 <TextInput
                   style={styles.inputFlex}
                   placeholder="Mobile Number"
+                  placeholderTextColor="#999"
                   value={formData.mobileNo}
                   onChangeText={(value) => handleRealTimeValidation("mobileNo", value)}
                   keyboardType="phone-pad"
@@ -1379,6 +1445,7 @@ if (formData.documentImage) {
                 <TextInput
                   style={styles.inputFlex}
                   placeholder="Alternate Number"
+                  placeholderTextColor="#999"
                   value={formData.AlternateNumber}
                   onChangeText={(value) => handleRealTimeValidation("AlternateNumber", value)}
                   keyboardType="phone-pad"
@@ -1463,285 +1530,287 @@ if (formData.documentImage) {
         );
 
       case 2:
-        case 2:
-  return (
-    <ScrollView style={styles.formContainer}>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Select Service Type *</Text>
-        <View style={styles.dropdown}>
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => setModalVisible(true)}
-          >
-            <Text style={styles.dropdownText}>
-              {formData.housekeepingRole || "Select Service Type"}
-            </Text>
-            <Icon name="arrow-drop-down" size={24} />
-          </TouchableOpacity>
-        </View>
-        {errors.housekeepingRole && (
-          <Text style={styles.errorText}>{errors.housekeepingRole}</Text>
-        )}
-      </View>
+        return (
+          <ScrollView style={styles.formContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Select Service Type *</Text>
+              <View style={styles.dropdown}>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => setModalVisible(true)}
+                >
+                  <Text style={styles.dropdownText}>
+                    {formData.housekeepingRole || "Select Service Type"}
+                  </Text>
+                  <Icon name="arrow-drop-down" size={24} />
+                </TouchableOpacity>
+              </View>
+              {errors.housekeepingRole && (
+                <Text style={styles.errorText}>{errors.housekeepingRole}</Text>
+              )}
+            </View>
 
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="slide"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Service Type</Text>
-            {["COOK", "NANNY", "MAID"].map((option) => (
+            <Modal
+              visible={modalVisible}
+              transparent={true}
+              animationType="slide"
+            >
+              <View style={styles.modalContainer}>
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>Select Service Type</Text>
+                  {["COOK", "NANNY", "MAID"].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={styles.modalOption}
+                      onPress={() => {
+                        handleServiceTypeChange(option);
+                        setModalVisible(false);
+                      }}
+                    >
+                      <Text style={styles.modalOptionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.modalCloseButton}
+                    onPress={() => setModalVisible(false)}
+                  >
+                    <Text style={styles.modalCloseText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+
+            {isCookSelected && (
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Cooking Speciality *</Text>
+                <View style={styles.radioGroup}>
+                  {["VEG", "NONVEG", "BOTH"].map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={styles.radioOption}
+                      onPress={() => handleCookingSpecialityChange(option)}
+                    >
+                      <View style={styles.radioCircle}>
+                        {formData.cookingSpeciality === option && (
+                          <View style={styles.selectedRb} />
+                        )}
+                      </View>
+                      <Text style={styles.radioLabel}>
+                        {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {errors.cookingSpeciality && (
+                  <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>
+                )}
+              </View>
+            )}
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Diet *</Text>
+              <View style={styles.radioGroup}>
+                {["VEG", "NONVEG", "BOTH"].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.radioOption}
+                    onPress={() => handledietChange(option)}
+                  >
+                    <View style={styles.radioCircle}>
+                      {formData.diet === option && <View style={styles.selectedRb} />}
+                    </View>
+                    <Text style={styles.radioLabel}>
+                      {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {errors.diet && <Text style={styles.errorText}>{errors.diet}</Text>}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Description about your services"
+                placeholderTextColor="#999"
+                value={formData.description}
+                onChangeText={(value) => handleChange("description", value)}
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Experience *</Text>
+              <TextInput
+                style={[styles.input, errors.experience && styles.inputError]}
+                placeholder="Years of experience"
+                placeholderTextColor="#999"
+                value={formData.experience}
+                onChangeText={(value) => handleExperienceChange(value)}
+                keyboardType="numeric"
+              />
+              {errors.experience && (
+                <Text style={styles.errorText}>{errors.experience}</Text>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Referral Code (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Referral Code"
+                placeholderTextColor="#999"
+                value={formData.referralCode || ""}
+                onChangeText={(value) => handleChange("referralCode", value)}
+              />
+            </View>
+
+            {/* Time Slot Selection Section */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Select Time Slot</Text>
+              
+              {/* Full Time Availability Checkbox - Using TouchableOpacity as checkbox */}
               <TouchableOpacity
-                key={option}
-                style={styles.modalOption}
+                style={styles.checkboxContainer}
                 onPress={() => {
-                  handleServiceTypeChange(option);
-                  setModalVisible(false);
+                  const newValue = formData.timeslot !== "06:00-20:00";
+                  if (newValue) {
+                    handleChange("timeslot", "06:00-20:00");
+                    setSliderDisabled(true);
+                  } else {
+                    handleChange("timeslot", "");
+                    setSliderDisabled(false);
+                  }
                 }}
               >
-                <Text style={styles.modalOptionText}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.modalCloseText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {isCookSelected && (
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Cooking Speciality *</Text>
-          <View style={styles.radioGroup}>
-            {["VEG", "NONVEG", "BOTH"].map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={styles.radioOption}
-                onPress={() => handleCookingSpecialityChange(option)}
-              >
-                <View style={styles.radioCircle}>
-                  {formData.cookingSpeciality === option && (
-                    <View style={styles.selectedRb} />
+                <View style={[styles.checkboxBox, formData.timeslot === "06:00-20:00" && styles.checkboxChecked]}>
+                  {formData.timeslot === "06:00-20:00" && (
+                    <Icon name="check" size={16} color="#fff" />
                   )}
                 </View>
-                <Text style={styles.radioLabel}>
-                  {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
+                <Text style={styles.checkboxLabel}>
+                  Choose Full Time Availability (6:00 AM - 8:00 PM)
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-          {errors.cookingSpeciality && (
-            <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>
-          )}
-        </View>
-      )}
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Diet *</Text>
-        <View style={styles.radioGroup}>
-          {["VEG", "NONVEG", "BOTH"].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={styles.radioOption}
-              onPress={() => handledietChange(option)}
-            >
-              <View style={styles.radioCircle}>
-                {formData.diet === option && <View style={styles.selectedRb} />}
+              {/* Morning Slider */}
+              <View style={styles.sliderContainer}>
+                <Text style={styles.sliderTitle}>Morning (6:00 AM - 12:00 PM)</Text>
+                <View style={styles.sliderRow}>
+                  <Text style={styles.sliderTimeLabel}>
+                    {formatDisplayTime(sliderValueMorning[0])}
+                  </Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={6}
+                    maximumValue={12}
+                    step={0.5}
+                    value={sliderValueMorning[0]}
+                    onValueChange={(value) => {
+                      const newValues = [value, sliderValueMorning[1]];
+                      setSliderValueMorning(newValues);
+                      updateFormTimeSlot(newValues, sliderValueEvening);
+                    }}
+                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+                    maximumTrackTintColor="#e0e0e0"
+                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+                    disabled={sliderDisabled}
+                  />
+                </View>
+                <View style={styles.sliderRow}>
+                  <Text style={styles.sliderTimeLabel}>
+                    {formatDisplayTime(sliderValueMorning[1])}
+                  </Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={6}
+                    maximumValue={12}
+                    step={0.5}
+                    value={sliderValueMorning[1]}
+                    onValueChange={(value) => {
+                      const newValues = [sliderValueMorning[0], value];
+                      setSliderValueMorning(newValues);
+                      updateFormTimeSlot(newValues, sliderValueEvening);
+                    }}
+                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+                    maximumTrackTintColor="#e0e0e0"
+                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+                    disabled={sliderDisabled}
+                  />
+                </View>
+                <View style={styles.sliderLabels}>
+                  <Text style={styles.sliderLabel}>6:00 AM</Text>
+                  <Text style={styles.sliderLabel}>12:00 PM</Text>
+                </View>
+                <Text style={styles.sliderValue}>
+                  Selected: {formatDisplayTime(sliderValueMorning[0])} - {formatDisplayTime(sliderValueMorning[1])}
+                </Text>
               </View>
-              <Text style={styles.radioLabel}>
-                {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {errors.diet && <Text style={styles.errorText}>{errors.diet}</Text>}
-      </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Description</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Description about your services"
-          value={formData.description}
-          onChangeText={(value) => handleChange("description", value)}
-          multiline
-          numberOfLines={4}
-        />
-      </View>
+              {/* Evening Slider */}
+              <View style={styles.sliderContainer}>
+                <Text style={styles.sliderTitle}>Evening (12:00 PM - 8:00 PM)</Text>
+                <View style={styles.sliderRow}>
+                  <Text style={styles.sliderTimeLabel}>
+                    {formatDisplayTime(sliderValueEvening[0])}
+                  </Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={12}
+                    maximumValue={20}
+                    step={0.5}
+                    value={sliderValueEvening[0]}
+                    onValueChange={(value) => {
+                      const newValues = [value, sliderValueEvening[1]];
+                      setSliderValueEvening(newValues);
+                      updateFormTimeSlot(sliderValueMorning, newValues);
+                    }}
+                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+                    maximumTrackTintColor="#e0e0e0"
+                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+                    disabled={sliderDisabled}
+                  />
+                </View>
+                <View style={styles.sliderRow}>
+                  <Text style={styles.sliderTimeLabel}>
+                    {formatDisplayTime(sliderValueEvening[1])}
+                  </Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={12}
+                    maximumValue={20}
+                    step={0.5}
+                    value={sliderValueEvening[1]}
+                    onValueChange={(value) => {
+                      const newValues = [sliderValueEvening[0], value];
+                      setSliderValueEvening(newValues);
+                      updateFormTimeSlot(sliderValueMorning, newValues);
+                    }}
+                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
+                    maximumTrackTintColor="#e0e0e0"
+                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
+                    disabled={sliderDisabled}
+                  />
+                </View>
+                <View style={styles.sliderLabels}>
+                  <Text style={styles.sliderLabel}>12:00 PM</Text>
+                  <Text style={styles.sliderLabel}>8:00 PM</Text>
+                </View>
+                <Text style={styles.sliderValue}>
+                  Selected: {formatDisplayTime(sliderValueEvening[0])} - {formatDisplayTime(sliderValueEvening[1])}
+                </Text>
+              </View>
 
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Experience *</Text>
-        <TextInput
-          style={[styles.input, errors.experience && styles.inputError]}
-          placeholder="Years of experience"
-          value={formData.experience}
-          onChangeText={(value) => handleExperienceChange(value)}
-          keyboardType="numeric"
-        />
-        {errors.experience && (
-          <Text style={styles.errorText}>{errors.experience}</Text>
-        )}
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Referral Code (Optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Referral Code"
-          value={formData.referralCode || ""}
-          onChangeText={(value) => handleChange("referralCode", value)}
-        />
-      </View>
-
-      {/* Time Slot Selection Section */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Select Time Slot</Text>
-        
-        {/* Full Time Availability Checkbox - Using TouchableOpacity as checkbox */}
-        <TouchableOpacity
-          style={styles.checkboxContainer}
-          onPress={() => {
-            const newValue = formData.timeslot !== "06:00-20:00";
-            if (newValue) {
-              handleChange("timeslot", "06:00-20:00");
-              setSliderDisabled(true);
-            } else {
-              handleChange("timeslot", "");
-              setSliderDisabled(false);
-            }
-          }}
-        >
-          <View style={styles.checkboxBox}>
-            {formData.timeslot === "06:00-20:00" && (
-              <Icon name="check" size={16} color="#fff" />
-            )}
-          </View>
-          <Text style={styles.checkboxLabel}>
-            Choose Full Time Availability (6:00 AM - 8:00 PM)
-          </Text>
-        </TouchableOpacity>
-
-        {/* Morning Slider */}
-        <View style={styles.sliderContainer}>
-          <Text style={styles.sliderTitle}>Morning (6:00 AM - 12:00 PM)</Text>
-          <View style={styles.sliderRow}>
-            <Text style={styles.sliderTimeLabel}>
-              {formatDisplayTime(sliderValueMorning[0])}
-            </Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={6}
-              maximumValue={12}
-              step={0.5}
-              value={sliderValueMorning[0]}
-              onValueChange={(value) => {
-                const newValues = [value, sliderValueMorning[1]];
-                setSliderValueMorning(newValues);
-                updateFormTimeSlot(newValues, sliderValueEvening);
-              }}
-              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-              maximumTrackTintColor="#e0e0e0"
-              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-              disabled={sliderDisabled}
-            />
-          </View>
-          <View style={styles.sliderRow}>
-            <Text style={styles.sliderTimeLabel}>
-              {formatDisplayTime(sliderValueMorning[1])}
-            </Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={6}
-              maximumValue={12}
-              step={0.5}
-              value={sliderValueMorning[1]}
-              onValueChange={(value) => {
-                const newValues = [sliderValueMorning[0], value];
-                setSliderValueMorning(newValues);
-                updateFormTimeSlot(newValues, sliderValueEvening);
-              }}
-              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-              maximumTrackTintColor="#e0e0e0"
-              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-              disabled={sliderDisabled}
-            />
-          </View>
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>6:00 AM</Text>
-            <Text style={styles.sliderLabel}>12:00 PM</Text>
-          </View>
-          <Text style={styles.sliderValue}>
-            Selected: {formatDisplayTime(sliderValueMorning[0])} - {formatDisplayTime(sliderValueMorning[1])}
-          </Text>
-        </View>
-
-        {/* Evening Slider */}
-        <View style={styles.sliderContainer}>
-          <Text style={styles.sliderTitle}>Evening (12:00 PM - 8:00 PM)</Text>
-          <View style={styles.sliderRow}>
-            <Text style={styles.sliderTimeLabel}>
-              {formatDisplayTime(sliderValueEvening[0])}
-            </Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={12}
-              maximumValue={20}
-              step={0.5}
-              value={sliderValueEvening[0]}
-              onValueChange={(value) => {
-                const newValues = [value, sliderValueEvening[1]];
-                setSliderValueEvening(newValues);
-                updateFormTimeSlot(sliderValueMorning, newValues);
-              }}
-              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-              maximumTrackTintColor="#e0e0e0"
-              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-              disabled={sliderDisabled}
-            />
-          </View>
-          <View style={styles.sliderRow}>
-            <Text style={styles.sliderTimeLabel}>
-              {formatDisplayTime(sliderValueEvening[1])}
-            </Text>
-            <Slider
-              style={styles.slider}
-              minimumValue={12}
-              maximumValue={20}
-              step={0.5}
-              value={sliderValueEvening[1]}
-              onValueChange={(value) => {
-                const newValues = [sliderValueEvening[0], value];
-                setSliderValueEvening(newValues);
-                updateFormTimeSlot(sliderValueMorning, newValues);
-              }}
-              minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-              maximumTrackTintColor="#e0e0e0"
-              thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-              disabled={sliderDisabled}
-            />
-          </View>
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>12:00 PM</Text>
-            <Text style={styles.sliderLabel}>8:00 PM</Text>
-          </View>
-          <Text style={styles.sliderValue}>
-            Selected: {formatDisplayTime(sliderValueEvening[0])} - {formatDisplayTime(sliderValueEvening[1])}
-          </Text>
-        </View>
-
-        {/* Current Time Slot Display */}
-        <View style={styles.timeSlotDisplay}>
-          <Text style={styles.timeSlotTitle}>Selected Time Slot:</Text>
-          <Text style={styles.timeSlotValue}>{formData.timeslot}</Text>
-        </View>
-      </View>
-    </ScrollView>
-  );
+              {/* Current Time Slot Display */}
+              <View style={styles.timeSlotDisplay}>
+                <Text style={styles.timeSlotTitle}>Selected Time Slot:</Text>
+                <Text style={styles.timeSlotValue}>{formData.timeslot}</Text>
+              </View>
+            </View>
+          </ScrollView>
+        );
 
       case 3:
         return (
@@ -1751,6 +1820,7 @@ if (formData.documentImage) {
               <TextInput
                 style={[styles.input, errors.kyc && styles.inputError]}
                 placeholder="12-digit Aadhaar Number"
+                placeholderTextColor="#999"
                 value={formData.AADHAR || ""}
                 onChangeText={(value) => handleRealTimeValidation("AADHAR", value)}
                 keyboardType="numeric"
@@ -2004,10 +2074,13 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#fff',
+    color: '#333',
   },
   inputFlex: {
     flex: 1,
     fontSize: 16,
+    color: '#333',
+    paddingVertical: 12,
   },
   inputError: {
     borderColor: '#f44336',
@@ -2057,6 +2130,7 @@ const styles = StyleSheet.create({
   },
   radioLabel: {
     fontSize: 16,
+    color: '#333',
   },
   card: {
     backgroundColor: '#fff',
@@ -2075,6 +2149,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
+    color: '#333',
   },
   cardSubtitle: {
     fontSize: 14,
@@ -2154,6 +2229,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
+    color: '#333',
   },
   modalOption: {
     paddingVertical: 12,
@@ -2162,6 +2238,7 @@ const styles = StyleSheet.create({
   },
   modalOptionText: {
     fontSize: 16,
+    color: '#333',
   },
   modalCloseButton: {
     marginTop: 16,
@@ -2241,10 +2318,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 2,
     borderColor: '#1976d2',
-    // backgroundColor: formData.timeslot === "06:00-20:00" ? '#1976d2' : 'transparent',
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#1976d2',
   },
   checkboxLabel: {
     fontSize: 14,
@@ -2316,6 +2395,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  datePickerPlaceholder: {
+    fontSize: 16,
+    color: '#999',
   },
 });
 

@@ -13,6 +13,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard';
 import axios from 'axios';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import axiosInstance from '../services/axiosInstance';
 
 interface AgentRegistrationFormProps {
   onBackToLogin: () => void;
@@ -107,8 +108,7 @@ const AgentRegistrationForm: React.FC<AgentRegistrationFormProps> = ({
     };
 
     try {
-      const response = await axios.post(
-        'http://43.205.212.94:8080/vendors/add',
+      const response = await axiosInstance.post("vendors/add",
         requestData,
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -142,8 +142,8 @@ const AgentRegistrationForm: React.FC<AgentRegistrationFormProps> = ({
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <TouchableOpacity style={styles.backButton} onPress={onBackToLogin}>
-          <MaterialIcons name="arrow-back" size={20} color="#fff" />
-          <Text style={styles.backButtonText}>Back to Login</Text>
+          <MaterialIcons name="arrow-back" size={24} color="#4f8ad5" />
+          <Text style={styles.backButtonText}>Return to Home Page</Text>
         </TouchableOpacity>
 
         <Text style={styles.title}>Agent Registration</Text>
@@ -177,35 +177,47 @@ const AgentRegistrationForm: React.FC<AgentRegistrationFormProps> = ({
         {validationErrors.email && <Text style={styles.error}>{validationErrors.email}</Text>}
 
         <Text style={styles.label}>Password *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Create password"
-          secureTextEntry={!showPassword}
-          value={formData.password}
-          onChangeText={(text) => handleChange('password', text)}
-        />
-        <TouchableOpacity
-          style={styles.toggleButton}
-          onPress={() => setShowPassword(!showPassword)}
-        >
-          <Text style={styles.toggleText}>{showPassword ? 'Hide' : 'Show'} Password</Text>
-        </TouchableOpacity>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Create password"
+            secureTextEntry={!showPassword}
+            value={formData.password}
+            onChangeText={(text) => handleChange('password', text)}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <MaterialIcons 
+              name={showPassword ? "visibility" : "visibility-off"} 
+              size={24} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
         {validationErrors.password && <Text style={styles.error}>{validationErrors.password}</Text>}
 
         <Text style={styles.label}>Confirm Password *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Re-enter password"
-          secureTextEntry={!showConfirmPassword}
-          value={formData.confirmPassword}
-          onChangeText={(text) => handleChange('confirmPassword', text)}
-        />
-        <TouchableOpacity
-          style={styles.toggleButton}
-          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-        >
-          <Text style={styles.toggleText}>{showConfirmPassword ? 'Hide' : 'Show'} Password</Text>
-        </TouchableOpacity>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Re-enter password"
+            secureTextEntry={!showConfirmPassword}
+            value={formData.confirmPassword}
+            onChangeText={(text) => handleChange('confirmPassword', text)}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+          >
+            <MaterialIcons 
+              name={showConfirmPassword ? "visibility" : "visibility-off"} 
+              size={24} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
         {validationErrors.confirmPassword && <Text style={styles.error}>{validationErrors.confirmPassword}</Text>}
 
         <Text style={styles.label}>Company Address *</Text>
@@ -225,6 +237,7 @@ const AgentRegistrationForm: React.FC<AgentRegistrationFormProps> = ({
           <View style={styles.referralBox}>
             <Text style={styles.referralText}>Your Referral Code: {referralCode}</Text>
             <TouchableOpacity style={styles.copyButton} onPress={handleCopyReferralCode}>
+              <MaterialIcons name="content-copy" size={18} color="#4f8ad5" />
               <Text style={styles.copyLink}>Copy to Clipboard</Text>
             </TouchableOpacity>
           </View>
@@ -271,6 +284,23 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 12,
+  },
   toggleButton: {
     alignSelf: 'flex-end',
     marginBottom: 10,
@@ -309,20 +339,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
   },
   copyLink: {
     color: '#4f8ad5',
     fontSize: 14,
+    marginLeft: 5,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
+    paddingVertical: 5,
   },
   backButtonText: {
     color: '#4f8ad5',
     marginLeft: 8,
     fontSize: 16,
+    fontWeight: '500',
   },
 });

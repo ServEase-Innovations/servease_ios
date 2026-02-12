@@ -228,9 +228,9 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
       setShowProviderRegistration(true);
       break;
 
-    case "AGENT":
-      setCurrentView("HOME"); // Changed from "SIGNUP" to "HOME"
-      setTimeout(() => setShowAgentRegistration(true), 150);
+   case "AGENT":
+      // Simply set this to true, no setTimeout needed
+      setShowAgentRegistration(true);
       break;
   }
 };

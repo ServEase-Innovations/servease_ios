@@ -7,29 +7,27 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Button,
   Platform,
   TextStyle,
   ViewStyle,
   ImageStyle,
   Animated,
   Dimensions,
-  Alert
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import RadioButton from '../common/RadioButton';
-import ServiceProviderRegistration from '../Registration/ServiceProviderRegistration'; // Already imported
-import ServiceDetailsDialog from './ServiceDetailsDialog'; 
+import ServiceProviderRegistration from '../Registration/ServiceProviderRegistration';
+import ServiceDetailsDialog from './ServiceDetailsDialog';
 import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
 import DemoCook from "../ServiceDialogs/CookServiceDialog";
 import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import LinearGradient from 'react-native-linear-gradient';
 import AgentRegistrationForm from '../AgentRegistration/AgentRegistrationForm';
 import { useAuth0 } from 'react-native-auth0';
-import BookingDialog from '../BookingDialog/BookingDialog'; // Import the BookingDialog component
+import BookingDialog from '../BookingDialog/BookingDialog';
 
 // Import local images
 const cookImage = require("../../assets/images/Cooknew.png");
@@ -97,11 +95,21 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // Animation values for smooth crossfade
+  const fadeAnim1 = useRef(new Animated.Value(1)).current;
+  const fadeAnim2 = useRef(new Animated.Value(0)).current;
+  const fadeAnim3 = useRef(new Animated.Value(0)).current;
+  const activeImageIndex = useRef(0);
+  const [displayedImages, setDisplayedImages] = useState([0, 1, 2]);
 
   // Auth0 authentication
   const { user: auth0User, authorize, clearSession } = useAuth0();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+
+  // Carousel images array
+  const carouselImages = [heroImage1, heroImage2, heroImage3];
 
   // Check authentication status
   useEffect(() => {
@@ -133,26 +141,103 @@ const HomePage: React.FC<ChildComponentProps> = ({
     setShowAgentRegistration(true);
   };
   
-  // Carousel images array
-  const carouselImages = [heroImage1, heroImage2, heroImage3];
-
-  // Single interval for both carousel and How It Works slides
+  // Smooth carousel with crossfade animation
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => 
-        prevIndex === carouselImages.length - 1 ? 0 : prevIndex + 1
-      );
-      setCurrentSlide((prevSlide) => 
-        prevSlide === howItWorksSlides.length - 1 ? 0 : prevSlide + 1
-      );
-    }, 3000);
+    let interval: NodeJS.Timeout;
+    
+    const startCarousel = () => {
+      interval = setInterval(() => {
+        const nextIndex = (currentImageIndex + 1) % carouselImages.length;
+        
+        // Determine which animation to use based on current and next index
+        if (currentImageIndex === 0 && nextIndex === 1) {
+          // Transition from image 1 to 2
+          Animated.parallel([
+            Animated.timing(fadeAnim1, {
+              toValue: 0,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim2, {
+              toValue: 1,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setCurrentImageIndex(nextIndex);
+            // Reset animations for next transition
+            fadeAnim1.setValue(0);
+            fadeAnim2.setValue(1);
+            fadeAnim3.setValue(0);
+          });
+        } else if (currentImageIndex === 1 && nextIndex === 2) {
+          // Transition from image 2 to 3
+          Animated.parallel([
+            Animated.timing(fadeAnim2, {
+              toValue: 0,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim3, {
+              toValue: 1,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setCurrentImageIndex(nextIndex);
+            // Reset animations for next transition
+            fadeAnim1.setValue(0);
+            fadeAnim2.setValue(0);
+            fadeAnim3.setValue(1);
+          });
+        } else if (currentImageIndex === 2 && nextIndex === 0) {
+          // Transition from image 3 to 1
+          Animated.parallel([
+            Animated.timing(fadeAnim3, {
+              toValue: 0,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim1, {
+              toValue: 1,
+              duration: 1500,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setCurrentImageIndex(nextIndex);
+            // Reset animations for next transition
+            fadeAnim1.setValue(1);
+            fadeAnim2.setValue(0);
+            fadeAnim3.setValue(0);
+          });
+        }
+        
+        setCurrentSlide((prevSlide) => 
+          prevSlide === howItWorksSlides.length - 1 ? 0 : prevSlide + 1
+        );
+      }, 5000);
+    };
+    
+    startCarousel();
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [currentImageIndex]);
 
-    return () => clearInterval(interval);
+  // Initialize animation values
+  useEffect(() => {
+    // Set initial states
+    fadeAnim1.setValue(1);
+    fadeAnim2.setValue(0);
+    fadeAnim3.setValue(0);
   }, []);
 
   const HowItWorksSection = () => {
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const slideAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(50)).current;
 
     useEffect(() => {
       fadeAnim.setValue(0);
@@ -246,100 +331,81 @@ const HomePage: React.FC<ChildComponentProps> = ({
     setOpen(false);
   };
 
-const handleSave = (bookingDetails: any) => {
-  const formatDate = (value: any) => {
-    if (!value) return "";
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return value; // already formatted string
-    return date.toISOString().split("T")[0]; // "YYYY-MM-DD"
-  };
+  const handleSave = (bookingDetails: any) => {
+    const formatDate = (value: any) => {
+      if (!value) return "";
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return value;
+      return date.toISOString().split("T")[0];
+    };
 
-  const formatTime = (value: any) => {
-    if (!value) return "";
-    
-    console.log("🔧 formatTime input:", value, typeof value);
-    
-    // If it's a dayjs object, use it directly
-    if (value && typeof value === 'object' && value.format) {
-      console.log("📅 Using dayjs format");
-      return value.format("HH:mm"); // 24-hour format
-    }
-    
-    // If it's a Date object
-    if (value instanceof Date) {
-      console.log("📅 Using Date object");
-      return value.toTimeString().slice(0, 5); // "HH:mm"
-    }
-    
-    // If it's already a string, clean it up
-    if (typeof value === 'string') {
-      console.log("📅 Processing string time:", value);
+    const formatTime = (value: any) => {
+      if (!value) return "";
       
-      let timeStr = value.trim();
-      
-      // Handle 12-hour format with AM/PM
-      if (timeStr.includes('AM') || timeStr.includes('PM')) {
-        console.log("🕒 Converting 12-hour to 24-hour format");
-        const [timePart, period] = timeStr.split(/\s+/);
-        let [hours, minutes] = timePart.split(':').map(Number);
-        
-        if (period === 'PM' && hours < 12) {
-          hours += 12;
-        } else if (period === 'AM' && hours === 12) {
-          hours = 0;
-        }
-        
-        const result = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-        console.log("🔄 Converted:", timeStr, "→", result);
-        return result;
+      if (value && typeof value === 'object' && value.format) {
+        return value.format("HH:mm");
       }
       
-      // If it's already in 24-hour format, clean and return
-      const cleaned = timeStr.replace(/\s+/g, '');
-      console.log("🧹 Cleaned time:", timeStr, "→", cleaned);
-      return cleaned;
+      if (value instanceof Date) {
+        return value.toTimeString().slice(0, 5);
+      }
+      
+      if (typeof value === 'string') {
+        let timeStr = value.trim();
+        
+        if (timeStr.includes('AM') || timeStr.includes('PM')) {
+          const [timePart, period] = timeStr.split(/\s+/);
+          let [hours, minutes] = timePart.split(':').map(Number);
+          
+          if (period === 'PM' && hours < 12) {
+            hours += 12;
+          } else if (period === 'AM' && hours === 12) {
+            hours = 0;
+          }
+          
+          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+        
+        return timeStr.replace(/\s+/g, '');
+      }
+      
+      return "";
+    };
+
+    const booking = {
+      start_date: formatDate(bookingDetails.startDate),
+      start_time: formatTime(bookingDetails.startTime),
+      end_date: formatDate(bookingDetails.endDate || bookingDetails.startDate),
+      end_time: formatTime(bookingDetails.endTime),
+      timeRange:
+        bookingDetails.startTime && bookingDetails.endTime
+          ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
+          : formatTime(bookingDetails.startTime) || "",
+      bookingPreference: selectedRadioButtonValue,
+      housekeepingRole: selectedType,
+    };
+
+    if (selectedRadioButtonValue === "Date") {
+      switch (selectedType) {
+        case "COOK":
+          setShowCookDialog(true);
+          break;
+        case "MAID":
+          setShowMaidServiceDialog(true);
+          break;
+        case "NANNY":
+          setShowNannyServicesDialog(true);
+          break;
+        default:
+          sendDataToParent(DETAILS);
+      }
+    } else {
+      sendDataToParent(DETAILS);
     }
-    
-    console.log("❌ Unhandled time format");
-    return "";
+
+    setOpen(false);
+    dispatch(add(booking));
   };
-
-  const booking = {
-    start_date: formatDate(bookingDetails.startDate),
-    start_time: formatTime(bookingDetails.startTime),
-    end_date: formatDate(bookingDetails.endDate || bookingDetails.startDate),
-    end_time: formatTime(bookingDetails.endTime),
-    timeRange:
-      bookingDetails.startTime && bookingDetails.endTime
-        ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
-        : formatTime(bookingDetails.startTime) || "",
-    bookingPreference: selectedRadioButtonValue,
-    housekeepingRole: selectedType,
-  };
-
-  console.log("✅ Final booking object:", JSON.stringify(booking, null, 2));
-
-  if (selectedRadioButtonValue === "Date") {
-    switch (selectedType) {
-      case "COOK":
-        setShowCookDialog(true);
-        break;
-      case "MAID":
-        setShowMaidServiceDialog(true);
-        break;
-      case "NANNY":
-        setShowNannyServicesDialog(true);
-        break;
-      default:
-        sendDataToParent(DETAILS);
-    }
-  } else {
-    sendDataToParent(DETAILS);
-  }
-
-  setOpen(false);
-  dispatch(add(booking));
-};
 
   const handleLearnMore = (service: string) => {
     switch (service) {
@@ -358,21 +424,58 @@ const handleSave = (bookingDetails: any) => {
     setServiceDetailsOpen(true);
   };
 
-  // Fix for disabled props - convert null to false
   const isServiceDisabled = role === "SERVICE_PROVIDER";
 
   return (
     <View style={styles.mainContainer}>
       {/* Main Home Page Content */}
       <ScrollView style={styles.container} scrollEnabled={!showRegistration && !showAgentRegistration}>
-        <LinearGradient
-          colors={['#0a2a66', '#004aad']}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 0}}
-          style={styles.heroSectionGradient}
-        >
-          {/* Hero Section */}
-          <View style={styles.heroTextContainer}>
+        {/* Hero Section with Background Carousel */}
+        <View style={styles.heroSection}>
+          {/* Background Carousel Images with Smooth Crossfade */}
+          <View style={StyleSheet.absoluteFillObject}>
+            {/* Image 1 */}
+            <Animated.Image
+              source={carouselImages[0]}
+              style={[
+                styles.backgroundImage,
+                {
+                  opacity: fadeAnim1,
+                }
+              ]}
+              resizeMode="cover"
+            />
+            
+            {/* Image 2 */}
+            <Animated.Image
+              source={carouselImages[1]}
+              style={[
+                styles.backgroundImage,
+                {
+                  opacity: fadeAnim2,
+                }
+              ]}
+              resizeMode="cover"
+            />
+            
+            {/* Image 3 */}
+            <Animated.Image
+              source={carouselImages[2]}
+              style={[
+                styles.backgroundImage,
+                {
+                  opacity: fadeAnim3,
+                }
+              ]}
+              resizeMode="cover"
+            />
+          </View>
+          
+          {/* Dark Overlay for better text readability */}
+          <View style={styles.overlay} />
+          
+          {/* Hero Content */}
+          <View style={styles.heroContent}>
             <Text style={styles.heroTitle}>
               Book trusted household help in minutes
             </Text>
@@ -460,30 +563,21 @@ const handleSave = (bookingDetails: any) => {
                 </TouchableOpacity>
               </View>
             </View>
-            
-            
           </View>
           
-          {/* Carousel Section */}
-          <View style={styles.carouselContainer}>
-            <Image 
-              source={carouselImages[currentImageIndex]} 
-              style={styles.carouselImage}
-              resizeMode="cover"
-            />
-            <View style={styles.carouselIndicators}>
-              {carouselImages.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.carouselIndicator,
-                    index === currentImageIndex && styles.carouselIndicatorActive
-                  ]}
-                />
-              ))}
-            </View>
+          {/* Carousel Indicators */}
+          <View style={styles.heroIndicators}>
+            {carouselImages.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.heroIndicator,
+                  index === currentImageIndex && styles.heroIndicatorActive
+                ]}
+              />
+            ))}
           </View>
-        </LinearGradient>
+        </View>
         
         {/* Services Section */}
         <View style={styles.servicesSection}>
@@ -543,7 +637,7 @@ const handleSave = (bookingDetails: any) => {
 
         {/* How it works */}
         <HowItWorksSection />
-
+        
         {/* Booking Dialog */}
         <BookingDialog
           open={open}
@@ -585,30 +679,29 @@ const handleSave = (bookingDetails: any) => {
         {showNannyServicesDialog && (
           <View style={styles.dialogOverlay}>
             <View style={styles.dialogBox}>
-            <NannyServicesDialog
-      open={showNannyServicesDialog}
-      handleClose={() => setShowNannyServicesDialog(false)}
-      sendDataToParent={sendDataToParent}
-      bookingType={{
-        start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
-        start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
-        end_date: endDate
-          ? new Date(endDate).toISOString().split("T")[0]
-          : startDate
-          ? new Date(startDate).toISOString().split("T")[0]
-          : "",
-        end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-        timeRange:
-          startTime
-            ? `${new Date(startTime).toTimeString().slice(0, 5)}`
-            : startTime
-            ? new Date(startTime).toTimeString().slice(0, 5)
-            : "",
-        bookingPreference: selectedRadioButtonValue,
-        housekeepingRole: selectedType,
-      }}
-    />
-
+              <NannyServicesDialog
+                open={showNannyServicesDialog}
+                handleClose={() => setShowNannyServicesDialog(false)}
+                sendDataToParent={sendDataToParent}
+                bookingType={{
+                  start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
+                  start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
+                  end_date: endDate
+                    ? new Date(endDate).toISOString().split("T")[0]
+                    : startDate
+                    ? new Date(startDate).toISOString().split("T")[0]
+                    : "",
+                  end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
+                  timeRange:
+                    startTime
+                      ? `${new Date(startTime).toTimeString().slice(0, 5)}`
+                      : startTime
+                      ? new Date(startTime).toTimeString().slice(0, 5)
+                      : "",
+                  bookingPreference: selectedRadioButtonValue,
+                  housekeepingRole: selectedType,
+                }}
+              />
             </View>
           </View>
         )}
@@ -621,23 +714,23 @@ const handleSave = (bookingDetails: any) => {
                 handleClose={() => setShowMaidServiceDialog(false)}
                 sendDataToParent={sendDataToParent}
                 bookingType={{
-      start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
-      start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
-      end_date: endDate
-        ? new Date(endDate).toISOString().split("T")[0]
-        : startDate
-        ? new Date(startDate).toISOString().split("T")[0]
-        : "",
-      end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-      timeRange:
-        startTime
-          ? `${new Date(startTime).toTimeString().slice(0, 5)}`
-          : startTime
-          ? new Date(startTime).toTimeString().slice(0, 5)
-          : "",
-      bookingPreference: selectedRadioButtonValue,
-      housekeepingRole: selectedType,
-    }}
+                  start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
+                  start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
+                  end_date: endDate
+                    ? new Date(endDate).toISOString().split("T")[0]
+                    : startDate
+                    ? new Date(startDate).toISOString().split("T")[0]
+                    : "",
+                  end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
+                  timeRange:
+                    startTime
+                      ? `${new Date(startTime).toTimeString().slice(0, 5)}`
+                      : startTime
+                      ? new Date(startTime).toTimeString().slice(0, 5)
+                      : "",
+                  bookingPreference: selectedRadioButtonValue,
+                  housekeepingRole: selectedType,
+                }}
               />
             </View>
           </View>
@@ -678,178 +771,122 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  heroSection: {
+    minHeight: 600,
+    position: 'relative',
+    overflow: 'hidden',
+    paddingTop: 20,
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10, 42, 102, 0.5)', // Dark blue overlay for better text contrast
+  },
+  heroContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    zIndex: 2,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 12,
+    textAlign: "center",
+    color: "#ffffff",
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: "#ffffff",
+    marginBottom: 24,
+    textAlign: "center",
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 22,
+  },
   selectorTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#fff',
+    color: '#ffffff',
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   selectorSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 15,
+    color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 20,
-  },
-  serviceSelectorContainer: {
-    alignItems: 'center',
-    marginHorizontal: 10,
-    flex: 1,
-  },
-  serviceLabel: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  heroSectionGradient: {
-    paddingTop: 20,
-    flexDirection: "column",
-  },
-  heroTextContainer: {
-    flex: 1,
-    paddingRight: 0,
-  },
-  heroTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 8,
-    textAlign: "center",
-    color: "#fff",
-  },
-  heroSubtitle: {
-    fontSize: 14,
-    color: "#fff",
-    marginBottom: 16,
-    textAlign: "center",
+    marginBottom: 24,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   serviceIconsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginBottom: 16,
-  },
-  serviceTooltipContainer: {
-    alignItems: "center",
-    position: 'relative',
-  },
-  serviceIconContainerHover: {
-    transform: [{ scale: 1.05 }],
-    shadowColor: "#1976d2",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-    borderColor: "#0d47a1",
-    borderWidth: 3,
-  },
-  serviceImage: {
-    width: 100,
-    height: 100,
-  },
-  tooltip: {
-    position: 'absolute',
-    bottom: -30,
-    backgroundColor: '#333',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    zIndex: 10,
-  },
-  tooltipText: {
-    color: '#fff',
-    fontSize: 12,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 16,
-    paddingTop: 16,
     marginBottom: 20,
-    flexWrap: 'wrap',
+    paddingHorizontal: 10,
   },
-  outlineButton: {
-    borderWidth: 1,
-    borderColor: "#fff",
-    borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-    minWidth: 120,
+  serviceSelectorContainer: {
+    alignItems: 'center',
+    marginHorizontal: 8,
+    flex: 1,
   },
-  outlineButtonHover: {
-    backgroundColor: "#f8f9fa",
-    transform: [{ scale: 1.05 }],
-  },
-  outlineButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1976d2",
-    textAlign: 'center',
-  },
-  carouselContainer: {
-    height: 270,
-    position: 'relative',
-    marginTop: 10,
-  },
-  carouselImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 12,
-  },
-  carouselIndicators: {
+  heroIndicators: {
     position: 'absolute',
-    bottom: 10,
+    bottom: 20,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
-    width: '100%',
+    zIndex: 3,
   },
-  carouselIndicator: {
+  heroIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: 4,
   },
-  carouselIndicatorActive: {
+  heroIndicatorActive: {
     backgroundColor: '#fff',
-    width: 12,
+    width: 20,
   },
   servicesSection: {
     padding: 20,
-    paddingTop: 30,
+    paddingTop: 40,
     backgroundColor: '#f8fafc',
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "600",
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 28,
     color: '#1a365d',
   },
   servicesGrid: {
     flexDirection: "column",
-    gap: 16,
+    gap: 18,
   },
   serviceCard: {
     borderRadius: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     elevation: 5,
     overflow: 'hidden',
-  },
-  serviceCardPressed: {
-    transform: [{ scale: 0.98 }],
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
   },
   serviceCardGradient: {
     borderRadius: 20,
@@ -857,27 +894,27 @@ const styles = StyleSheet.create({
   },
   serviceCardContent: {
     alignItems: "center",
-    padding: 16,
-    gap: 15,
+    padding: 20,
+    gap: 12,
   },
   serviceIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   serviceIcon: {
-    fontSize: 28,
+    fontSize: 32,
   },
   serviceTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: '#fff',
     textAlign: 'center',
@@ -886,20 +923,21 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   serviceDesc: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.95)",
     textAlign: "center",
-    lineHeight: 16,
+    lineHeight: 18,
+    paddingHorizontal: 8,
   },
   learnMoreContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 10,
+    marginTop: 12,
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 25,
   },
   learnMoreLink: {
     fontSize: 14,
@@ -914,10 +952,10 @@ const styles = StyleSheet.create({
   howItWorksSection: {
     backgroundColor: "#ffffffff",
     padding: 40,
-    paddingVertical: 20,
+    paddingVertical: 30,
   },
   slideshowContainer: {
-    height: 180,
+    height: 200,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -925,15 +963,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 30,
-    borderRadius: 20,
+    borderRadius: 24,
     width: '100%',
     height: '100%',
   },
   iconContainer: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -941,41 +979,42 @@ const styles = StyleSheet.create({
   slide: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: 24,
     width: '90%',
-    maxWidth: 350,
+    maxWidth: 380,
     height: '100%',
     overflow: 'hidden',
   },
   dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: 20,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#ccc',
-    marginHorizontal: 4,
+    marginHorizontal: 5,
   },
   activeDot: {
     backgroundColor: '#1976d2',
   },
   stepIcon: {
-    fontSize: 32,
+    fontSize: 36,
     marginBottom: 8,
   },
   stepTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: 6,
     color: '#333',
   },
   stepDesc: {
     fontSize: 14,
     color: "#666",
     textAlign: "center",
+    paddingHorizontal: 16,
   },
   dialogOverlay: {
     position: 'absolute',
@@ -983,46 +1022,46 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   dialogBox: {
-    width: '90%',
-    maxHeight: '80%',
+    width: '92%',
+    maxHeight: '85%',
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 12,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 10,
+    shadowRadius: 8,
+    elevation: 15,
   },
   serviceIconContainerRectangular: {
-    width: 100,
-    height: 150,
-    borderRadius: 12,
+    width: 110,
+    height: 160,
+    borderRadius: 16,
     backgroundColor: "#f0f0f0",
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#1976d2",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.8)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
     position: 'relative',
   },
   serviceIconContainerRectangularHover: {
     transform: [{ scale: 1.05 }],
     shadowColor: "#1976d2",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-    borderColor: "#0d47a1",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+    borderColor: "#ffffff",
     borderWidth: 2,
   },
   serviceImageRectangular: {
@@ -1035,22 +1074,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 10,
     alignItems: 'center',
   },
   serviceLabelRectangular: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   disabledService: {
     opacity: 0.5,
   },
   disabledText: {
-    color: '#ff6b6b',
+    color: '#ff8a8a',
     fontSize: 10,
-    marginTop: 2,
+    marginTop: 3,
   },
 });
 
