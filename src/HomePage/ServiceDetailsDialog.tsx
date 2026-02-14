@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import LinearGradient from "react-native-linear-gradient";
 
 type ServiceFeature = {
   title?: string;
@@ -241,8 +242,13 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
     <Modal visible={open} transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.dialog}>
-          {/* Header */}
-          <View style={styles.header}>
+          {/* Header with Linear Gradient */}
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.header}
+          >
             <View style={styles.headerLeft}>
               <Text style={styles.icon}>{icon}</Text>
               <Text style={styles.headerText}>{title}</Text>
@@ -250,7 +256,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
             <TouchableOpacity onPress={onClose}>
               <Icon name="x" size={24} color="#fff" />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
           {/* Content */}
           <ScrollView style={styles.content}>
@@ -300,7 +306,6 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   header: {
-    backgroundColor: "#1d4ed8",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
