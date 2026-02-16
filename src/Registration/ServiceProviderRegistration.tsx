@@ -32,7 +32,6 @@ import { PERMISSIONS, request, RESULTS } from "react-native-permissions";
 import Slider from '@react-native-community/slider';
 import ProfileImageUpload from "./ProfileImageUpload";
 import DateTimePicker from '@react-native-community/datetimepicker';
-// import CheckBox from '@react-native-community/checkbox';
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -109,6 +108,7 @@ interface FormErrors {
   password?: string;
   confirmPassword?: string;
   mobileNo?: string;
+  AlternateNumber?: string;
   buildingName?: string;
   locality?: string;
   street?: string;
@@ -156,6 +156,7 @@ const pincodeRegex = /^[0-9]{6}$/;
 const aadhaarRegex = /^[0-9]{12}$/;
 const MAX_NAME_LENGTH = 30;
 
+// Fixed steps without extra spaces
 const steps = [
   "Basic Information",
   "Address Information",
@@ -166,11 +167,11 @@ const steps = [
 
 interface RegistrationProps {
   onBackToLogin: (data: boolean) => void;
-   onRegistrationSuccess?: () => void; 
+  onRegistrationSuccess?: () => void;
 }
 
 const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
-  onBackToLogin,onRegistrationSuccess,
+  onBackToLogin, onRegistrationSuccess,
 }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
@@ -193,7 +194,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [isSameAddress, setIsSameAddress] = useState(false);
-  
+
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -292,6 +293,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       ...prev,
       [name]: value,
     }));
+    
+    // Real-time validation for gender
+    if (name === "gender") {
+      setErrors((prevErrors) => ({
+        ...prevErrors,
+        gender: value ? "" : "Please select a gender.",
+      }));
+    }
   };
 
   // Date Picker Handlers
@@ -301,15 +310,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const handleDateChange = (event: any, date?: Date) => {
     setShowDatePicker(false);
-    
+
     if (date) {
       setSelectedDate(date);
       const formattedDate = moment(date).format("YYYY-MM-DD");
       setFormData((prev) => ({ ...prev, dob: formattedDate }));
-      
+
       // Validate age
       const isValidAge = validateAge(formattedDate);
-      
+
       if (!isValidAge) {
         setIsFieldsDisabled(true);
         setErrors(prev => ({ ...prev, dob: "You must be at least 18 years old" }));
@@ -354,7 +363,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     if (data.apartment && data.street && data.city && data.state && data.pincode) {
       try {
         const fullAddress = `${data.apartment}, ${data.street}, ${data.city}, ${data.state}, ${data.pincode}, ${data.country}`;
-        
+
         const response = await axios.get(
           "https://maps.googleapis.com/maps/api/geocode/json",
           {
@@ -477,17 +486,18 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
 
     if (name === "lastName") {
-      if (!value.trim()) {
+      const trimmedValue = value.trim();
+      if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           lastName: "Last Name is required.",
         }));
-      } else if (!nameRegex.test(value.trim())) {
+      } else if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           lastName: "Last Name should contain only alphabets.",
         }));
-      } else if (value.length > MAX_NAME_LENGTH) {
+      } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           lastName: `Last Name should not exceed ${MAX_NAME_LENGTH} characters.`,
@@ -501,7 +511,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
 
     if (name === "password") {
-      if (value.length < 8) {
+      if (!value) {
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          password: "Password is required.",
+        }));
+      } else if (value.length < 8) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           password: "Password must be at least 8 characters long.",
@@ -535,7 +550,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
 
     if (name === "confirmPassword") {
-      if (value !== formData.password) {
+      if (!value) {
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          confirmPassword: "Please confirm your password.",
+        }));
+      } else if (value !== formData.password) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           confirmPassword: "Passwords do not match",
@@ -550,7 +570,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     if (name === "emailId") {
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(value)) {
+      const trimmedValue = value.trim();
+      
+      if (!trimmedValue) {
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          emailId: "Email is required.",
+        }));
+        resetValidation('email');
+      } else if (!emailPattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           emailId: "Please enter a valid email address.",
@@ -561,13 +589,21 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           ...prevErrors,
           emailId: "",
         }));
-        debouncedEmailValidation(value);
+        debouncedEmailValidation(trimmedValue);
       }
     }
 
     if (name === "mobileNo") {
       const mobilePattern = /^[0-9]{10}$/;
-      if (!mobilePattern.test(value)) {
+      const trimmedValue = value.trim();
+      
+      if (!trimmedValue) {
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          mobileNo: "Mobile number is required.",
+        }));
+        resetValidation('mobile');
+      } else if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           mobileNo: "Please enter a valid 10-digit mobile number.",
@@ -578,13 +614,22 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           ...prevErrors,
           mobileNo: "",
         }));
-        debouncedMobileValidation(value);
+        debouncedMobileValidation(trimmedValue);
       }
     }
 
     if (name === "AlternateNumber" && value) {
       const mobilePattern = /^[0-9]{10}$/;
-      if (!mobilePattern.test(value)) {
+      const trimmedValue = value.trim();
+      
+      // Check if alternate number is same as primary mobile number
+      if (trimmedValue === formData.mobileNo) {
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          AlternateNumber: "Alternate number cannot be the same as mobile number.",
+        }));
+        resetValidation('alternate');
+      } else if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           AlternateNumber: "Please enter a valid 10-digit mobile number.",
@@ -595,12 +640,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           ...prevErrors,
           AlternateNumber: "",
         }));
-        debouncedAlternateValidation(value);
+        debouncedAlternateValidation(trimmedValue);
       }
     }
 
     if (name === "AADHAR") {
-      if (!aadhaarPattern.test(value)) {
+      const trimmedValue = value.trim();
+      if (!aadhaarPattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           AADHAR: "AADHAR number must be exactly 12 digits.",
@@ -638,8 +684,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       [name]: value,
     }));
   };
-
-  
 
   const handleCookingSpecialityChange = (value: string) => {
     setFormData((prevData) => ({ ...prevData, cookingSpeciality: value }));
@@ -718,26 +762,26 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             // Reverse geocode to get address
             const res = await Geocoder.from(latitude, longitude);
             const address = res.results[0]?.formatted_address || "";
-            
+
             // Parse address components using helper function
             const parsedAddress = parseAddressComponents(res.results[0]?.address_components || []);
 
             // If we couldn't extract enough details, try to parse from formatted address
             if (!parsedAddress.city || !parsedAddress.street) {
               const addressParts = address.split(',').map(part => part.trim());
-              
+
               // Try to intelligently parse the address
               if (addressParts.length > 0) {
                 // First part is usually apartment/street number
                 if (!parsedAddress.apartment) {
                   parsedAddress.apartment = addressParts[0];
                 }
-                
+
                 // Second part is often street
                 if (!parsedAddress.street && addressParts.length > 1) {
                   parsedAddress.street = addressParts[1];
                 }
-                
+
                 // Look for city (usually one of the middle parts)
                 if (!parsedAddress.city) {
                   for (let i = 1; i < addressParts.length - 2; i++) {
@@ -780,8 +824,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             };
 
             // Also update the correspondence address if "Same as Permanent" is checked
-            const newCorrespondenceAddress = isSameAddress ? 
-              newPermanentAddress : 
+            const newCorrespondenceAddress = isSameAddress ?
+              newPermanentAddress :
               formData.correspondenceAddress;
 
             // Update form data
@@ -850,123 +894,275 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
 
-  const validateForm = (): boolean => {
+  const validateStep = (step: number): boolean => {
     let tempErrors: FormErrors = {};
+    let isValid = true;
 
-    if (activeStep === 0) {
-      if (!formData.firstName) {
+    if (step === 0) {
+      // First Name validation
+      if (!formData.firstName.trim()) {
         tempErrors.firstName = "First Name is required.";
+        isValid = false;
       } else if (!nameRegex.test(formData.firstName)) {
         tempErrors.firstName = "First Name should contain only alphabets.";
+        isValid = false;
       } else if (formData.firstName.length > MAX_NAME_LENGTH) {
         tempErrors.firstName = `First Name should be under ${MAX_NAME_LENGTH} characters.`;
+        isValid = false;
       }
 
-      if (!formData.lastName) {
+      // Last Name validation
+      if (!formData.lastName.trim()) {
         tempErrors.lastName = "Last Name is required.";
+        isValid = false;
       } else if (!nameRegex.test(formData.lastName)) {
         tempErrors.lastName = "Last Name should contain only alphabets.";
+        isValid = false;
       } else if (formData.lastName.length > MAX_NAME_LENGTH) {
         tempErrors.lastName = `Last Name should be under ${MAX_NAME_LENGTH} characters.`;
+        isValid = false;
       }
 
+      // Gender validation
       if (!formData.gender) {
         tempErrors.gender = "Please select a gender.";
+        isValid = false;
+      } else {
+        tempErrors.gender = ""; // Clear error when gender is selected
       }
+
+      // Date of Birth validation
       if (!formData.dob) {
         tempErrors.dob = "Date of birth is required.";
+        isValid = false;
       } else {
         const isValidAge = validateAge(formData.dob);
         if (!isValidAge) {
           tempErrors.dob = "You must be at least 18 years old.";
+          isValid = false;
         }
       }
-      if (validationResults.email.error) {
+
+      // Email validation
+      if (!formData.emailId.trim()) {
+        tempErrors.emailId = "Email is required.";
+        isValid = false;
+      } else if (!emailIdRegex.test(formData.emailId)) {
+        tempErrors.emailId = "Please enter a valid email address.";
+        isValid = false;
+      } else if (validationResults.email.error) {
         tempErrors.emailId = validationResults.email.error;
+        isValid = false;
       }
-      if (!formData.password || !strongPasswordRegex.test(formData.password)) {
+
+      // Password validation
+      if (!formData.password) {
         tempErrors.password = "Password is required.";
+        isValid = false;
+      } else if (!strongPasswordRegex.test(formData.password)) {
+        tempErrors.password = "Password must contain at least 8 characters, including uppercase, lowercase, number and special character.";
+        isValid = false;
       }
-      if (formData.password !== formData.confirmPassword) {
+
+      // Confirm Password validation
+      if (!formData.confirmPassword) {
+        tempErrors.confirmPassword = "Please confirm your password.";
+        isValid = false;
+      } else if (formData.password !== formData.confirmPassword) {
         tempErrors.confirmPassword = "Passwords do not match.";
+        isValid = false;
       }
-      if (validationResults.mobile.error) {
+
+      // Mobile Number validation
+      if (!formData.mobileNo) {
+        tempErrors.mobileNo = "Mobile number is required.";
+        isValid = false;
+      } else if (!phoneRegex.test(formData.mobileNo)) {
+        tempErrors.mobileNo = "Please enter a valid 10-digit mobile number.";
+        isValid = false;
+      } else if (validationResults.mobile.error) {
         tempErrors.mobileNo = validationResults.mobile.error;
+        isValid = false;
+      }
+      
+      // Alternate Number validation (optional but if provided must be valid and not same as mobile)
+      if (formData.AlternateNumber) {
+        if (!phoneRegex.test(formData.AlternateNumber)) {
+          tempErrors.AlternateNumber = "Please enter a valid 10-digit mobile number.";
+          isValid = false;
+        } else if (formData.AlternateNumber === formData.mobileNo) {
+          tempErrors.AlternateNumber = "Alternate number cannot be the same as mobile number.";
+          isValid = false;
+        } else if (validationResults.alternate.error) {
+          tempErrors.AlternateNumber = validationResults.alternate.error;
+          isValid = false;
+        }
       }
     }
 
-    if (activeStep === 1) {
+    else if (step === 1) {
       // Validate permanent address
-      if (!formData.permanentAddress.apartment) {
-        tempErrors.permanentAddress = { ...tempErrors.permanentAddress, apartment: "Apartment is required." };
+      if (!formData.permanentAddress.apartment.trim()) {
+        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
+        tempErrors.permanentAddress.apartment = "Apartment is required.";
+        isValid = false;
       }
-      if (!formData.permanentAddress.street) {
-        tempErrors.permanentAddress = { ...tempErrors.permanentAddress, street: "Street is required." };
+      if (!formData.permanentAddress.street.trim()) {
+        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
+        tempErrors.permanentAddress.street = "Street is required.";
+        isValid = false;
       }
-      if (!formData.permanentAddress.city) {
-        tempErrors.permanentAddress = { ...tempErrors.permanentAddress, city: "City is required." };
+      if (!formData.permanentAddress.city.trim()) {
+        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
+        tempErrors.permanentAddress.city = "City is required.";
+        isValid = false;
       }
-      if (!formData.permanentAddress.state) {
-        tempErrors.permanentAddress = { ...tempErrors.permanentAddress, state: "State is required." };
+      if (!formData.permanentAddress.state.trim()) {
+        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
+        tempErrors.permanentAddress.state = "State is required.";
+        isValid = false;
       }
-      if (!formData.permanentAddress.country) {
-        tempErrors.permanentAddress = { ...tempErrors.permanentAddress, country: "Country is required." };
+      if (!formData.permanentAddress.country.trim()) {
+        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
+        tempErrors.permanentAddress.country = "Country is required.";
+        isValid = false;
       }
       if (!formData.permanentAddress.pincode) {
-        tempErrors.permanentAddress = { ...tempErrors.permanentAddress, pincode: "Pincode is required." };
+        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
+        tempErrors.permanentAddress.pincode = "Pincode is required.";
+        isValid = false;
       } else if (formData.permanentAddress.pincode.length !== 6) {
-        tempErrors.permanentAddress = { ...tempErrors.permanentAddress, pincode: "Pincode must be exactly 6 digits." };
+        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
+        tempErrors.permanentAddress.pincode = "Pincode must be exactly 6 digits.";
+        isValid = false;
+      }
+
+      // Validate correspondence address if not same as permanent
+      if (!isSameAddress) {
+        if (!formData.correspondenceAddress.apartment.trim()) {
+          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
+          tempErrors.correspondenceAddress.apartment = "Apartment is required.";
+          isValid = false;
+        }
+        if (!formData.correspondenceAddress.street.trim()) {
+          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
+          tempErrors.correspondenceAddress.street = "Street is required.";
+          isValid = false;
+        }
+        if (!formData.correspondenceAddress.city.trim()) {
+          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
+          tempErrors.correspondenceAddress.city = "City is required.";
+          isValid = false;
+        }
+        if (!formData.correspondenceAddress.state.trim()) {
+          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
+          tempErrors.correspondenceAddress.state = "State is required.";
+          isValid = false;
+        }
+        if (!formData.correspondenceAddress.country.trim()) {
+          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
+          tempErrors.correspondenceAddress.country = "Country is required.";
+          isValid = false;
+        }
+        if (!formData.correspondenceAddress.pincode) {
+          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
+          tempErrors.correspondenceAddress.pincode = "Pincode is required.";
+          isValid = false;
+        } else if (formData.correspondenceAddress.pincode.length !== 6) {
+          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
+          tempErrors.correspondenceAddress.pincode = "Pincode must be exactly 6 digits.";
+          isValid = false;
+        }
       }
     }
 
-    if (activeStep === 2) {
+    else if (step === 2) {
       if (!formData.housekeepingRole) {
         tempErrors.housekeepingRole = "Please select a service type.";
+        isValid = false;
       }
       if (formData.housekeepingRole === "COOK" && !formData.cookingSpeciality) {
-        tempErrors.cookingSpeciality =
-          "Please select a speciality for the cook service.";
+        tempErrors.cookingSpeciality = "Please select a speciality for the cook service.";
+        isValid = false;
       }
       if (!formData.diet) {
         tempErrors.diet = "Please select diet.";
+        isValid = false;
       }
       if (!formData.experience) {
-        tempErrors.experience = "Please select experience.";
+        tempErrors.experience = "Please enter years of experience.";
+        isValid = false;
+      } else if (isNaN(Number(formData.experience)) || Number(formData.experience) < 0) {
+        tempErrors.experience = "Please enter a valid experience in years.";
+        isValid = false;
       }
     }
 
-    if (activeStep === 3) {
-      if (!formData.AADHAR || !aadhaarRegex.test(formData.AADHAR)) {
+    else if (step === 3) {
+      if (!formData.AADHAR) {
+        tempErrors.kyc = "Aadhaar number is required.";
+        isValid = false;
+      } else if (!aadhaarRegex.test(formData.AADHAR)) {
         tempErrors.kyc = "Aadhaar number must be exactly 12 digits.";
+        isValid = false;
       }
       if (!formData.documentImage) {
         tempErrors.documentImage = "Aadhaar document is required.";
+        isValid = false;
       }
     }
 
-    if (activeStep === 4) {
+    else if (step === 4) {
       if (!formData.keyFacts) {
         tempErrors.keyFacts = "You must agree to the Key Facts Document";
+        isValid = false;
       }
       if (!formData.terms) {
         tempErrors.terms = "You must agree to the Terms and Conditions";
+        isValid = false;
       }
       if (!formData.privacy) {
         tempErrors.privacy = "You must agree to the Privacy Policy";
+        isValid = false;
       }
     }
 
     setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
+    
+    // Show snackbar if validation fails
+    if (!isValid) {
+      const missingFields = Object.keys(tempErrors).filter(key => tempErrors[key as keyof FormErrors]).map(key => {
+        if (key === 'emailId') return 'Email';
+        if (key === 'mobileNo') return 'Mobile Number';
+        if (key === 'firstName') return 'First Name';
+        if (key === 'lastName') return 'Last Name';
+        if (key === 'gender') return 'Gender';
+        if (key === 'dob') return 'Date of Birth';
+        if (key === 'password') return 'Password';
+        if (key === 'confirmPassword') return 'Confirm Password';
+        if (key === 'housekeepingRole') return 'Service Type';
+        if (key === 'cookingSpeciality') return 'Cooking Speciality';
+        if (key === 'diet') return 'Diet';
+        if (key === 'experience') return 'Experience';
+        if (key === 'kyc') return 'Aadhaar Number';
+        if (key === 'documentImage') return 'Aadhaar Document';
+        if (key === 'keyFacts') return 'Key Facts Agreement';
+        if (key === 'terms') return 'Terms and Conditions';
+        if (key === 'privacy') return 'Privacy Policy';
+        return key;
+      }).join(', ');
+      
+      setSnackbarMessage(`Please fill all required fields: ${missingFields}`);
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+    }
+    
+    return isValid;
   };
 
   const handleNext = () => {
-    if (validateForm()) {
+    if (validateStep(activeStep)) {
       setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
-      if (activeStep === steps.length - 1) {
-        setSnackbarMessage("Registration Successful!");
-        setSnackbarOpen(true);
-      }
     }
   };
 
@@ -988,77 +1184,76 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const handleSubmit = async () => {
     if (activeStep !== steps.length - 1) return;
 
-    if (validateForm()) {
+    if (validateStep(activeStep)) {
       setIsSubmitting(true);
       try {
         let profilePicUrl = "";
 
-       if (image) {
-  try {
-    const profileFormData = new FormData();
-    
-    profileFormData.append("image", {
-      uri: image.uri,
-      type: image.type || 'image/jpeg',
-      name: image.name || 'profile.jpg'
-    });
+        if (image) {
+          try {
+            const profileFormData = new FormData();
 
-    const imageResponse = await axios.post(
-      "http://65.2.153.173:3000/upload",
-      profileFormData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+            profileFormData.append("image", {
+              uri: image.uri,
+              type: image.type || 'image/jpeg',
+              name: image.name || 'profile.jpg'
+            });
 
-    if (imageResponse.status === 200) {
-      profilePicUrl = imageResponse.data.imageUrl;
-    }
-  } catch (error) {
-    console.error("Error uploading profile image:", error);
-    setSnackbarMessage("Failed to upload profile image. Proceeding without it.");
-    setSnackbarSeverity("warning");
-    setSnackbarOpen(true);
-  }
-}
+            const imageResponse = await axios.post(
+              "http://65.2.153.173:3000/upload",
+              profileFormData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                },
+              }
+            );
+
+            if (imageResponse.status === 200) {
+              profilePicUrl = imageResponse.data.imageUrl;
+            }
+          } catch (error) {
+            console.error("Error uploading profile image:", error);
+            setSnackbarMessage("Failed to upload profile image. Proceeding without it.");
+            setSnackbarSeverity("warning");
+            setSnackbarOpen(true);
+          }
+        }
         // Handle Aadhaar document upload
-       // Handle Aadhaar document upload
-let aadhaarDocUrl = "";
-if (formData.documentImage) {
-  try {
-    const aadhaarFormData = new FormData();
-    
-    // Create the file object properly
-    aadhaarFormData.append("image", {
-      uri: formData.documentImage.uri,
-      type: formData.documentImage.type || 'image/jpeg',
-      name: formData.documentImage.name || 'document.jpg'
-    });
+        let aadhaarDocUrl = "";
+        if (formData.documentImage) {
+          try {
+            const aadhaarFormData = new FormData();
 
-    const docResponse = await axios.post(
-      "http://65.2.153.173:3000/upload",
-      aadhaarFormData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+            // Create the file object properly
+            aadhaarFormData.append("image", {
+              uri: formData.documentImage.uri,
+              type: formData.documentImage.type || 'image/jpeg',
+              name: formData.documentImage.name || 'document.jpg'
+            });
 
-    if (docResponse.status === 200) {
-      aadhaarDocUrl = docResponse.data.imageUrl;
-    }
-  } catch (error) {
-    console.error("Error uploading document image:", error);
-    setSnackbarMessage("Failed to upload Aadhaar document. Please try again.");
-    setSnackbarSeverity("error");
-    setSnackbarOpen(true);
-    setIsSubmitting(false);
-    return;
-  }
-}
+            const docResponse = await axios.post(
+              "http://65.2.153.173:3000/upload",
+              aadhaarFormData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                },
+              }
+            );
+
+            if (docResponse.status === 200) {
+              aadhaarDocUrl = docResponse.data.imageUrl;
+            }
+          } catch (error) {
+            console.error("Error uploading document image:", error);
+            setSnackbarMessage("Failed to upload Aadhaar document. Please try again.");
+            setSnackbarSeverity("error");
+            setSnackbarOpen(true);
+            setIsSubmitting(false);
+            return;
+          }
+        }
         const payload = {
           firstName: formData.firstName,
           middleName: formData.middleName,
@@ -1156,9 +1351,6 @@ if (formData.documentImage) {
       }
     } else {
       setIsSubmitting(false);
-      setSnackbarOpen(true);
-      setSnackbarSeverity("warning");
-      setSnackbarMessage("Please fill out all required fields.");
     }
   };
 
@@ -1239,13 +1431,57 @@ if (formData.documentImage) {
     handleChange("experience", value);
   };
 
+  // COMPLETELY REWRITTEN renderStepper function for proper display
+  const renderStepper = () => {
+    return (
+      <View style={styles.stepperContainer}>
+        {steps.map((step, index) => (
+          <View key={index} style={styles.stepWrapper}>
+            <View style={styles.stepItem}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  index < activeStep && styles.completedStep,
+                  index === activeStep && styles.activeStep,
+                  index > activeStep && styles.inactiveStep,
+                ]}
+              >
+                {index < activeStep ? (
+                  <Icon name="check" size={16} color="#fff" />
+                ) : (
+                  <Text style={styles.stepNumber}>{index + 1}</Text>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  index <= activeStep ? styles.activeLabel : styles.inactiveLabel,
+                ]}
+                numberOfLines={2}
+              >
+                {step}
+              </Text>
+            </View>
+            {index < steps.length - 1 && (
+              <View
+                style={[
+                  styles.stepConnector,
+                  index < activeStep ? styles.activeConnector : styles.inactiveConnector,
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
         return (
-          <ScrollView style={styles.formContainer}>
-            
-              <View style={styles.profileImageContainer}>
+          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+            <View style={styles.profileImageContainer}>
               <ProfileImageUpload onImageSelect={handleImageSelect} />
             </View>
             <View style={styles.inputContainer}>
@@ -1297,7 +1533,7 @@ if (formData.documentImage) {
                 <Icon name="calendar-today" size={20} color="#1976d2" />
               </TouchableOpacity>
               {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
-              
+
               {showDatePicker && (
                 <DateTimePicker
                   testID="dateTimePicker"
@@ -1354,6 +1590,7 @@ if (formData.documentImage) {
                   value={formData.emailId}
                   onChangeText={(value) => handleRealTimeValidation("emailId", value)}
                   keyboardType="email-address"
+                  autoCapitalize="none"
                 />
                 {validationResults.email.loading ? (
                   <ActivityIndicator size="small" />
@@ -1441,7 +1678,7 @@ if (formData.documentImage) {
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Alternate Number</Text>
-              <View style={[styles.inputWithIcon, validationResults.alternate.isAvailable === false && styles.inputError]}>
+              <View style={[styles.inputWithIcon, (errors.AlternateNumber || validationResults.alternate.isAvailable === false) && styles.inputError]}>
                 <TextInput
                   style={styles.inputFlex}
                   placeholder="Alternate Number"
@@ -1461,8 +1698,10 @@ if (formData.documentImage) {
                   </TouchableOpacity>
                 ) : null}
               </View>
-              {validationResults.alternate.error && (
-                <Text style={styles.errorText}>{validationResults.alternate.error}</Text>
+              {(errors.AlternateNumber || validationResults.alternate.error) && (
+                <Text style={styles.errorText}>
+                  {errors.AlternateNumber || validationResults.alternate.error}
+                </Text>
               )}
             </View>
           </ScrollView>
@@ -1470,7 +1709,7 @@ if (formData.documentImage) {
 
       case 1:
         return (
-          <ScrollView style={styles.formContainer}>
+          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
             <AddressComponent
               onAddressChange={handleAddressChange}
               permanentAddress={formData.permanentAddress}
@@ -1531,7 +1770,7 @@ if (formData.documentImage) {
 
       case 2:
         return (
-          <ScrollView style={styles.formContainer}>
+          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Select Service Type *</Text>
               <View style={styles.dropdown}>
@@ -1670,7 +1909,7 @@ if (formData.documentImage) {
             {/* Time Slot Selection Section */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Select Time Slot</Text>
-              
+
               {/* Full Time Availability Checkbox - Using TouchableOpacity as checkbox */}
               <TouchableOpacity
                 style={styles.checkboxContainer}
@@ -1814,7 +2053,7 @@ if (formData.documentImage) {
 
       case 3:
         return (
-          <ScrollView style={styles.formContainer}>
+          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Aadhaar Number *</Text>
               <TextInput
@@ -1846,7 +2085,7 @@ if (formData.documentImage) {
 
       case 4:
         return (
-          <ScrollView style={styles.formContainer}>
+          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
             <Text style={styles.confirmationText}>
               Please agree to the following before proceeding with your Registration:
             </Text>
@@ -1858,41 +2097,6 @@ if (formData.documentImage) {
       default:
         return <Text>Unknown step</Text>;
     }
-  };
-
-  const renderStepper = () => {
-    return (
-      <View style={styles.stepper}>
-        {steps.map((step, index) => (
-          <View key={index} style={styles.stepContainer}>
-            <View
-              style={[
-                styles.stepCircle,
-                index <= activeStep ? styles.activeStep : styles.inactiveStep,
-              ]}
-            >
-              <Text style={styles.stepNumber}>{index + 1}</Text>
-            </View>
-            <Text
-              style={[
-                styles.stepLabel,
-                index <= activeStep ? styles.activeLabel : styles.inactiveLabel,
-              ]}
-            >
-              {step}
-            </Text>
-            {index < steps.length - 1 && (
-              <View
-                style={[
-                  styles.stepLine,
-                  index < activeStep ? styles.activeLine : styles.inactiveLine,
-                ]}
-              />
-            )}
-          </View>
-        ))}
-      </View>
-    );
   };
 
   return (
@@ -1912,7 +2116,7 @@ if (formData.documentImage) {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {renderStepper()}
           {renderStepContent(activeStep)}
 
@@ -2000,22 +2204,38 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  stepper: {
+  // NEW stepper styles for proper rendering
+  stepperContainer: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
-  stepContainer: {
+  stepWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+  },
+  stepItem: {
+    alignItems: 'center',
+    width: 70,
   },
   stepCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  completedStep: {
+    backgroundColor: '#4caf50',
   },
   activeStep: {
     backgroundColor: '#1976d2',
@@ -2026,11 +2246,13 @@ const styles = StyleSheet.create({
   stepNumber: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 14,
   },
   stepLabel: {
     fontSize: 10,
-    marginLeft: 8,
-    flexShrink: 1,
+    textAlign: 'center',
+    fontWeight: '500',
+    width: 70,
   },
   activeLabel: {
     color: '#1976d2',
@@ -2039,18 +2261,20 @@ const styles = StyleSheet.create({
   inactiveLabel: {
     color: '#757575',
   },
-  stepLine: {
+  stepConnector: {
     flex: 1,
     height: 2,
-    marginHorizontal: 8,
+    marginHorizontal: 4,
+    alignSelf: 'center',
+    marginTop: -16,
   },
-  activeLine: {
+  activeConnector: {
     backgroundColor: '#1976d2',
   },
-  inactiveLine: {
+  inactiveConnector: {
     backgroundColor: '#e0e0e0',
   },
-   profileImageContainer: {
+  profileImageContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -2307,7 +2531,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
   },
-   checkboxContainer: {
+  checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
