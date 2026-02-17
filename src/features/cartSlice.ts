@@ -1,4 +1,6 @@
-// Base properties shared by all cart items
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+// Your existing interfaces remain the same
 interface BaseCartItem {
   id: string;
   price: number;
@@ -6,7 +8,6 @@ interface BaseCartItem {
   quantity?: number;
 }
 
-// Meal Cart Item
 export interface MealCartItem extends BaseCartItem {
   type: 'meal';
   mealType: string;
@@ -15,7 +16,6 @@ export interface MealCartItem extends BaseCartItem {
   maxPersons: number;
 }
 
-// Maid Service Cart Item
 export interface MaidCartItem extends BaseCartItem {
   type: 'maid';
   serviceType: 'package' | 'addon';
@@ -27,21 +27,18 @@ export interface MaidCartItem extends BaseCartItem {
   };
 }
 
-// Nanny Service Cart Item
 export interface NannyCartItem extends BaseCartItem {
   type: 'nanny';
   careType: 'baby' | 'elderly';
   packageType: 'day' | 'night' | 'fullTime';
   age: number;
-  providerId?: string;  // Added from React code
-  providerName?: string; // Added from React code
+  providerId?: string;
+  providerName?: string;
   activeTab: "baby" | "elderly";
 }
 
-// Combined Cart Item type
 export type CartItem = MealCartItem | MaidCartItem | NannyCartItem;
 
-// Cart State
 export interface CartState {
   items: CartItem[];
 }
@@ -58,3 +55,43 @@ export function isMaidCartItem(item: CartItem): item is MaidCartItem {
 export function isNannyCartItem(item: CartItem): item is NannyCartItem {
   return item.type === 'nanny';
 }
+
+// Initial state
+const initialState: CartState = {
+  items: [],
+};
+
+// Create the slice
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState,
+  reducers: {
+    addToCart: (state, action: PayloadAction<CartItem>) => {
+      state.items.push(action.payload);
+    },
+    removeFromCart: (state, action: PayloadAction<string>) => {
+      state.items = state.items.filter(item => item.id !== action.payload);
+    },
+    updateCartItem: (state, action: PayloadAction<CartItem>) => {
+      const index = state.items.findIndex(item => item.id === action.payload.id);
+      if (index !== -1) {
+        state.items[index] = action.payload;
+      }
+    },
+    clearCart: (state) => {
+      state.items = [];
+    },
+    updateQuantity: (state, action: PayloadAction<{ id: string; quantity: number }>) => {
+      const item = state.items.find(item => item.id === action.payload.id);
+      if (item) {
+        item.quantity = action.payload.quantity;
+      }
+    },
+  },
+});
+
+// Export actions
+export const { addToCart, removeFromCart, updateCartItem, clearCart, updateQuantity } = cartSlice.actions;
+
+// Export reducer as default
+export default cartSlice.reducer;
