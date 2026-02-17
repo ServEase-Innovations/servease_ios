@@ -11,13 +11,10 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
-  Image,
   Platform,
   Linking,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Feather from 'react-native-vector-icons/Feather';
 import axios from "axios";
 import { keys } from "../env";
 import axiosInstance from "../services/axiosInstance";
@@ -32,6 +29,10 @@ import { PERMISSIONS, request, RESULTS } from "react-native-permissions";
 import Slider from '@react-native-community/slider';
 import ProfileImageUpload from "./ProfileImageUpload";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import TnC from "../TermsAndConditions/TnC";
+import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
+import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
+import { Button } from "../common/Button";
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -194,6 +195,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [isSameAddress, setIsSameAddress] = useState(false);
+  // Policy modal states
+  const [policyModalVisible, setPolicyModalVisible] = useState(false);
+  const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
 
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -263,6 +267,24 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     Geocoder.init("AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk"); // Replace with your API key
   }, []);
 
+  const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
+    setActivePolicy(policyType);
+    setPolicyModalVisible(true);
+  };
+
+  const renderPolicyContent = () => {
+    switch (activePolicy) {
+      case 'terms':
+        return <TnC />;
+      case 'privacy':
+        return <PrivacyPolicy />;
+      case 'keyfacts':
+        return <KeyFactsStatement />;
+      default:
+        return null;
+    }
+  };
+
   const handleImageSelect = (file: RNFile | null) => {
     if (file) {
       setImage(file);
@@ -322,13 +344,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!isValidAge) {
         setIsFieldsDisabled(true);
         setErrors(prev => ({ ...prev, dob: "You must be at least 18 years old" }));
-        setSnackbarMessage("You must be at least 18 years old to proceed.");
-        setSnackbarOpen(true);
-        setSnackbarSeverity("error");
       } else {
         setIsFieldsDisabled(false);
         setErrors(prev => ({ ...prev, dob: "" }));
-        setSnackbarOpen(false);
       }
     }
   };
@@ -397,9 +415,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       } catch (error) {
         console.error("Error geocoding address:", error);
-        setSnackbarMessage("Could not get coordinates for this address. Please check the address details.");
-        setSnackbarSeverity("warning");
-        setSnackbarOpen(true);
       }
     }
   };
@@ -703,7 +718,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     addressComponents.forEach((component: any) => {
       const types = component.types;
       const longName = component.long_name;
-      const shortName = component.short_name;
 
       if (types.includes('street_number')) {
         result.apartment = longName;
@@ -1129,34 +1143,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     setErrors(tempErrors);
     
-    // Show snackbar if validation fails
-    if (!isValid) {
-      const missingFields = Object.keys(tempErrors).filter(key => tempErrors[key as keyof FormErrors]).map(key => {
-        if (key === 'emailId') return 'Email';
-        if (key === 'mobileNo') return 'Mobile Number';
-        if (key === 'firstName') return 'First Name';
-        if (key === 'lastName') return 'Last Name';
-        if (key === 'gender') return 'Gender';
-        if (key === 'dob') return 'Date of Birth';
-        if (key === 'password') return 'Password';
-        if (key === 'confirmPassword') return 'Confirm Password';
-        if (key === 'housekeepingRole') return 'Service Type';
-        if (key === 'cookingSpeciality') return 'Cooking Speciality';
-        if (key === 'diet') return 'Diet';
-        if (key === 'experience') return 'Experience';
-        if (key === 'kyc') return 'Aadhaar Number';
-        if (key === 'documentImage') return 'Aadhaar Document';
-        if (key === 'keyFacts') return 'Key Facts Agreement';
-        if (key === 'terms') return 'Terms and Conditions';
-        if (key === 'privacy') return 'Privacy Policy';
-        return key;
-      }).join(', ');
-      
-      setSnackbarMessage(`Please fill all required fields: ${missingFields}`);
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
-    }
-    
     return isValid;
   };
 
@@ -1164,13 +1150,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     if (validateStep(activeStep)) {
       setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
     }
-  };
-
-  const handleChangeCheckbox = (name: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: checked,
-    }));
   };
 
   const handleBack = () => {
@@ -1197,7 +1176,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               uri: image.uri,
               type: image.type || 'image/jpeg',
               name: image.name || 'profile.jpg'
-            });
+            } as any);
 
             const imageResponse = await axios.post(
               "http://65.2.153.173:3000/upload",
@@ -1230,7 +1209,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               uri: formData.documentImage.uri,
               type: formData.documentImage.type || 'image/jpeg',
               name: formData.documentImage.name || 'document.jpg'
-            });
+            } as any);
 
             const docResponse = await axios.post(
               "http://65.2.153.173:3000/upload",
@@ -1366,22 +1345,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     const age = today.diff(birthDate, "years");
 
     return age >= 18;
-  };
-
-  const handleDOBChange = (dob: string) => {
-    setFormData((prev) => ({ ...prev, dob }));
-
-    const isValidAge = validateAge(dob);
-
-    if (!isValidAge) {
-      setIsFieldsDisabled(true);
-      setSnackbarMessage("You must be at least 18 years old to proceed.");
-      setSnackbarOpen(true);
-      setSnackbarSeverity("error");
-    } else {
-      setIsFieldsDisabled(false);
-      setSnackbarOpen(false);
-    }
   };
 
   const handleTermsChange = useCallback((allAccepted: boolean) => {
@@ -2090,7 +2053,18 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               Please agree to the following before proceeding with your Registration:
             </Text>
 
-            <TermsCheckboxes onChange={handleTermsChange} />
+            <TermsCheckboxes 
+              onChange={handleTermsChange} 
+              onLinkPress={handleOpenPolicy}
+              initialValues={{
+                keyFacts: formData.keyFacts,
+                terms: formData.terms,
+                privacy: formData.privacy
+              }}
+            />
+            {errors.keyFacts && <Text style={styles.errorText}>{errors.keyFacts}</Text>}
+            {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
+            {errors.privacy && <Text style={styles.errorText}>{errors.privacy}</Text>}
           </ScrollView>
         );
 
@@ -2121,49 +2095,66 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           {renderStepContent(activeStep)}
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.backButton,
-                (activeStep === 0 || isSubmitting) && styles.buttonDisabled,
-              ]}
+            <Button
+              variant="outline"
+              size="medium"
               onPress={handleBack}
               disabled={activeStep === 0 || isSubmitting}
+              startIcon={<Icon name="arrow-back" size={20} color="#1d4ed8" />}
             >
-              <Icon name="arrow-back" size={20} color="white" />
-              <Text style={styles.buttonText}>Back</Text>
-            </TouchableOpacity>
+              Back
+            </Button>
 
             {activeStep === steps.length - 1 ? (
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  styles.submitButton,
-                  (!(formData.terms && formData.privacy && formData.keyFacts) || isSubmitting) && styles.buttonDisabled,
-                ]}
+              <Button
+                variant="primary"
+                size="medium"
                 onPress={handleSubmit}
                 disabled={!(formData.terms && formData.privacy && formData.keyFacts) || isSubmitting}
+                loading={isSubmitting}
               >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <>
-                    <Text style={styles.buttonText}>Submit</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                Submit
+              </Button>
             ) : (
-              <TouchableOpacity
-                style={[styles.button, styles.nextButton]}
+              <Button
+                variant="primary"
+                size="medium"
                 onPress={handleNext}
                 disabled={isSubmitting}
+                endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
               >
-                <Text style={styles.buttonText}>Next</Text>
-                <Icon name="arrow-forward" size={20} color="white" />
-              </TouchableOpacity>
+                Next
+              </Button>
             )}
           </View>
         </ScrollView>
+
+        {/* Policy Modal */}
+        <Modal
+          visible={policyModalVisible}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setPolicyModalVisible(false)}
+        >
+          <View style={styles.policyModalContainer}>
+            <View style={styles.policyModalHeader}>
+              <Text style={styles.policyModalTitle}>
+                {activePolicy === 'terms' && 'Terms and Conditions'}
+                {activePolicy === 'privacy' && 'Privacy Policy'}
+                {activePolicy === 'keyfacts' && 'Key Facts Statement'}
+              </Text>
+              <TouchableOpacity
+                style={styles.policyModalClose}
+                onPress={() => setPolicyModalVisible(false)}
+              >
+                <Icon name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.policyModalContent}>
+              {renderPolicyContent()}
+            </View>
+          </View>
+        </Modal>
 
         {snackbarOpen && (
           <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`]]}>
@@ -2204,7 +2195,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  // NEW stepper styles for proper rendering
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2484,24 +2474,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
   },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    minWidth: 120,
-  },
-  backButton: {
-    backgroundColor: '#757575',
-  },
-  nextButton: {
-    backgroundColor: '#1976d2',
-  },
-  submitButton: {
-    backgroundColor: '#4caf50',
-  },
   snackbar: {
     position: 'absolute',
     bottom: 0,
@@ -2637,6 +2609,33 @@ const styles = StyleSheet.create({
   datePickerPlaceholder: {
     fontSize: 16,
     color: '#999',
+  },
+  // Policy Modal Styles
+  policyModalContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  policyModalHeader: {
+    backgroundColor: '#1976d2',
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  policyModalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  policyModalClose: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+  },
+  policyModalContent: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
 });
 
