@@ -10,63 +10,88 @@ import {
   Dimensions,
   Linking,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
+import axios from 'axios';
+import io, { Socket } from 'socket.io-client';
+import { useAppUser } from '../context/AppUserContext';
 
-// Mock user data
-const mockUser = {
-  role: 'CUSTOMER',
-  customerDetails: {
-    customerId: 123,
-    firstName: 'John',
-    lastName: 'Doe',
-    currentLocation: 'New York',
-  },
-};
+const ENDPOINT = "https://chat-b3wl.onrender.com";
+const ADMIN_ID = "698ace8b8ea84c91bdc93678";
 
-const generalFaqData = [
-  { question: 'What services do you offer?', answer: 'We offer services for HomeCook, Cleanning Help, and Caregiver.' },
-  { question: 'How do I book a service?', answer: 'You can book a service by selecting a provider and scheduling a time.' },
-  { question: 'Are the service providers verified?', answer: 'Yes, all our service providers go through a verification process.' },
-  { question: 'Can I cancel a booking?', answer: 'Yes, you can cancel a booking from your profile under "My Bookings".' },
-  { question: 'How do I contact customer support?', answer: 'You can reach out to our support team via chat or email.' },
-];
-
-const customerFaqData = [
-  { question: 'How do I track my booking?', answer: 'You can track your booking status in the "My Bookings" section.' },
-  { question: 'Can I reschedule my service?', answer: 'Yes, you can reschedule your service from the booking details page.' },
-  { question: 'How do I make a payment?', answer: 'Payments can be made via credit card, debit card, or UPI.' },
-];
+interface MessageType {
+  _id?: string;
+  content: string;
+  sender: "user" | "admin" | "bot";
+}
 
 interface ChatbotProps {
   open: boolean;
   onClose: () => void;
 }
 
+const generalFaqData = [
+  { question: "What services do you offer?", answer: "We offer services for HomeCook, Cleanning Help, and Caregiver." },
+  { question: "How do I book a service?", answer: "You can book a service by selecting a provider and scheduling a time." },
+  { question: "Are the service providers verified?", answer: "Yes, all our service providers go through a verification process." },
+  { question: "Can I cancel a booking?", answer: "Yes, you can cancel a booking from your profile under 'My Bookings'." },
+  { question: "How do I contact customer support?", answer: "You can reach out to our support team via chat or email." }
+];
+
+const customerFaqData = [
+  { question: "How do I track my booking?", answer: "You can track your booking status in the 'My Bookings' section." },
+  { question: "Can I reschedule my service?", answer: "Yes, you can reschedule your service from the booking details page." },
+  { question: "How do I make a payment?", answer: "Payments can be made via credit card, debit card, or UPI." }
+];
+
 const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
-  const user = mockUser;
-  const role = user?.role;
-  const faqData = role === 'CUSTOMER' ? [...generalFaqData, ...customerFaqData] : generalFaqData;
+  const { appUser } = useAppUser();
 
   const [chatOpen, setChatOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { text: 'Namaste! Welcome to ServEaso. How can we assist you today?', sender: 'bot' },
+  const [isLiveChat, setIsLiveChat] = useState(false);
+  const [messages, setMessages] = useState<MessageType[]>([
+    { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
   ]);
   const [inputText, setInputText] = useState('');
   const [showAllFaq, setShowAllFaq] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedChat, setSelectedChat] = useState<any>(null);
+  const [mongoUser, setMongoUser] = useState<any>(null);
+
+  const socketRef = useRef<Socket | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
+  /* ---------------- SOCKET CONNECT ---------------- */
+  useEffect(() => {
+    socketRef.current = io(ENDPOINT, { transports: ["websocket"] });
+
+    socketRef.current.on("message recieved", (newMessage: any) => {
+      setMessages((prev) => [
+        ...prev,
+        { content: newMessage.content, sender: "admin" }
+      ]);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  /* ---------------- AUTO SCROLL ---------------- */
   useEffect(() => {
     if (scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
     
     if (isMinimized && messages.length > 1) {
@@ -92,23 +117,110 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
       setIsMinimized(false);
       setUnreadCount(0);
       setChatOpen(false);
+      setIsLiveChat(false);
       setShowAllFaq(true);
+      setMessages([
+        { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
+      ]);
     }
   }, [open]);
 
+  /* ---------------- FAQ CLICK ---------------- */
   const handleQuestionClick = (faq: any) => {
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { text: faq.question, sender: 'user' },
-      { text: faq.answer, sender: 'bot' },
+    setMessages((prev) => [
+      ...prev,
+      { content: faq.question, sender: "user" },
+      { content: faq.answer, sender: "bot" }
     ]);
     setShowAllFaq(false);
   };
 
-  const handleSendMessage = () => {
-    if (inputText.trim() !== '') {
-      setMessages((prevMessages) => [...prevMessages, { text: inputText, sender: 'user' }]);
-      setInputText('');
+  /* ---------------- START LIVE CHAT ---------------- */
+  const startLiveChat = async () => {
+    if (!appUser) return;
+
+    try {
+      // find or create Mongo user
+      const { data: userData } = await axios.post(
+        `${ENDPOINT}/api/user/find-or-create`,
+        {
+          name: appUser.name,
+          email: appUser.email,
+        }
+      );
+
+      setMongoUser(userData);
+
+      // access chat with admin
+      const { data: chatData } = await axios.post(
+        `${ENDPOINT}/api/chat`,
+        {
+          userId: ADMIN_ID,
+          currentUserId: userData._id,
+        }
+      );
+
+      setSelectedChat(chatData);
+
+      socketRef.current?.emit("join chat", chatData._id);
+
+      // load previous messages
+      const messageData = await axios.get(
+        `${ENDPOINT}/api/message/${chatData._id}`
+      );
+
+      const formatted = messageData.data.map((m: any) => ({
+        content: m.content,
+        sender: m.sender._id === userData._id ? "user" : "admin"
+      }));
+
+      setMessages((prev) => [...prev, ...formatted]);
+
+      setIsLiveChat(true);
+      setChatOpen(true);
+
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to start live chat. Please try again.');
+    }
+  };
+
+  /* ---------------- SEND MESSAGE ---------------- */
+  const handleSendMessage = async () => {
+    if (!inputText.trim()) return;
+
+    // If not in live chat, treat as FAQ conversation
+    if (!isLiveChat) {
+      setMessages((prev) => [
+        ...prev,
+        { content: inputText, sender: "user" }
+      ]);
+      setInputText("");
+      return;
+    }
+
+    try {
+      const { data } = await axios.post(
+        `${ENDPOINT}/api/message`,
+        {
+          content: inputText,
+          chatId: selectedChat._id,
+          senderId: mongoUser._id,
+        }
+      );
+
+      socketRef.current?.emit("new message", data);
+
+      setMessages((prev) => [
+        ...prev,
+        { content: data.content, sender: "user" }
+      ]);
+
+      setInputText("");
+
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
     }
   };
 
@@ -157,18 +269,30 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
             { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
           ]}
         >
-          <View style={styles.chatContent}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.chatContent}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+          >
             {/* Header Section */}
             <LinearGradient
-                                colors={["#0a2a66ff", "#004aadff"]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.header}
-                              >
-            {/* <View style={styles.header}> */}
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.header}
+            >
               {chatOpen && (
-                <TouchableOpacity onPress={() => setChatOpen(false)} style={styles.backButton}>
-                  <Icon name="arrow-left" size={24} color="#333" />
+                <TouchableOpacity 
+                  onPress={() => {
+                    setChatOpen(false);
+                    setIsLiveChat(false);
+                    setMessages([
+                      { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
+                    ]);
+                  }} 
+                  style={styles.backButton}
+                >
+                  <Icon name="arrow-left" size={24} color="#fff" />
                 </TouchableOpacity>
               )}
               <Text style={styles.headerText}>Chat Support</Text>
@@ -180,7 +304,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                   <Icon name="close" size={24} color="#ffffff" />
                 </TouchableOpacity>
               </View>
-            {/* </View> */}
             </LinearGradient>
 
             {/* Messages and FAQ Section */}
@@ -195,20 +318,29 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                   key={index}
                   style={[
                     styles.messageBubble,
-                    msg.sender === 'user' ? styles.userMessage : styles.botMessage,
+                    msg.sender === 'user' ? styles.userMessage : 
+                    msg.sender === 'admin' ? styles.adminMessage : styles.botMessage,
                   ]}
                 >
-                  <Text style={msg.sender === 'user' ? styles.userMessageText : styles.botMessageText}>
-                    {msg.text}
+                  <Text 
+                    style={
+                      msg.sender === 'user' ? styles.userMessageText : 
+                      msg.sender === 'admin' ? styles.adminMessageText : styles.botMessageText
+                    }
+                  >
+                    {msg.content}
                   </Text>
                 </View>
               ))}
 
-              {!chatOpen && (
+              {/* FAQ SECTION (Only before live chat starts) */}
+              {!isLiveChat && (
                 <>
-                  {/* FAQs */}
-                  {showAllFaq ? (
-                    faqData.map((faq, index) => (
+                  <View style={styles.faqContainer}>
+                    {(appUser?.role === "CUSTOMER"
+                      ? [...generalFaqData, ...customerFaqData]
+                      : generalFaqData
+                    ).map((faq, index) => (
                       <TouchableOpacity
                         key={index}
                         style={styles.faqButton}
@@ -216,46 +348,46 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                       >
                         <Text style={styles.faqButtonText}>{faq.question}</Text>
                       </TouchableOpacity>
-                    ))
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.viewAllFaqButton}
-                      onPress={() => setShowAllFaq(true)}
-                    >
-                      <Text style={styles.viewAllFaqText}>View All FAQs</Text>
-                      <FeatherIcon name="chevron-down" size={16} color="#333" />
-                    </TouchableOpacity>
-                  )}
+                    ))}
+                  </View>
 
-                  {/* Divider */}
                   <View style={styles.divider} />
 
-                  {/* Email Support */}
-                  <TouchableOpacity
-                    style={styles.supportButton}
-                    onPress={handleEmailSupport}
-                  >
-                    <FeatherIcon name="mail" size={18} color="#3b82f6" />
-                    <Text style={styles.supportButtonText}>support@serveaso.com</Text>
-                  </TouchableOpacity>
+                  {/* Live Chat Button */}
+                  {appUser ? (
+                    <TouchableOpacity
+                      style={styles.chatAssistantButton}
+                      onPress={startLiveChat}
+                    >
+                      <FeatherIcon name="message-circle" size={16} color="#fff" />
+                      <Text style={styles.chatAssistantButtonText}>Chat with Assistant</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.loginMessage}>
+                      <Text style={styles.loginMessageText}>
+                        Please login to chat with our support team.
+                      </Text>
+                    </View>
+                  )}
 
-                  {/* Call Support */}
-                  <TouchableOpacity
-                    style={styles.supportButton}
-                    onPress={handleCallSupport}
-                  >
-                    <FeatherIcon name="phone" size={18} color="#10b981" />
-                    <Text style={styles.supportButtonText}>080-123456789</Text>
-                  </TouchableOpacity>
+                  {/* Contact Options */}
+                  <View style={styles.contactContainer}>
+                    <TouchableOpacity
+                      style={styles.supportButton}
+                      onPress={handleEmailSupport}
+                    >
+                      <FeatherIcon name="mail" size={18} color="#3b82f6" />
+                      <Text style={styles.supportButtonText}>support@serveaso.com</Text>
+                    </TouchableOpacity>
 
-                  {/* Chat with Assistant */}
-                  <TouchableOpacity
-                    style={styles.chatAssistantButton}
-                    onPress={() => setChatOpen(true)}
-                  >
-                    <FeatherIcon name="message-circle" size={16} color="#fff" />
-                    <Text style={styles.chatAssistantButtonText}>Chat with Assistant</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.supportButton}
+                      onPress={handleCallSupport}
+                    >
+                      <FeatherIcon name="phone" size={18} color="#10b981" />
+                      <Text style={styles.supportButtonText}>080-123456789</Text>
+                    </TouchableOpacity>
+                  </View>
                 </>
               )}
             </ScrollView>
@@ -267,7 +399,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                   style={styles.textInput}
                   value={inputText}
                   onChangeText={setInputText}
-                  placeholder="Type your question..."
+                  placeholder="Type your message..."
                   placeholderTextColor="#999"
                   onSubmitEditing={handleSendMessage}
                   returnKeyType="send"
@@ -277,7 +409,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
+          </KeyboardAvoidingView>
         </Animated.View>
       )}
     </>
@@ -287,7 +419,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
 const styles = StyleSheet.create({
   minimizedButton: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 20,
     right: 20,
     zIndex: 1001,
   },
@@ -322,10 +454,10 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 80,
     right: 20,
-    width: Dimensions.get('window').width * 0.85,
-    maxWidth: 400,
+    width: Dimensions.get('window').width * 0.9,
+    maxWidth: 380,
     height: Dimensions.get('window').height * 0.7,
     zIndex: 1000,
   },
@@ -349,7 +481,6 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    backgroundColor: '#f8f8f8',
   },
   backButton: {
     marginRight: 10,
@@ -382,7 +513,7 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
   },
   messageBubble: {
-    maxWidth: '75%',
+    maxWidth: '80%',
     padding: 12,
     borderRadius: 12,
     marginBottom: 8,
@@ -397,6 +528,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderBottomLeftRadius: 0,
   },
+  adminMessage: {
+    backgroundColor: '#d1d5db',
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 0,
+  },
   userMessage: {
     backgroundColor: '#3b82f6',
     alignSelf: 'flex-end',
@@ -407,10 +543,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  adminMessageText: {
+    color: '#1f2937',
+    fontSize: 14,
+    lineHeight: 20,
+  },
   userMessageText: {
     color: '#fff',
     fontSize: 14,
     lineHeight: 20,
+  },
+  faqContainer: {
+    marginTop: 10,
   },
   faqButton: {
     backgroundColor: '#fff',
@@ -426,28 +570,44 @@ const styles = StyleSheet.create({
     color: '#374151',
     textAlign: 'left',
   },
-  viewAllFaqButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  viewAllFaqText: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
   divider: {
     height: 1,
     backgroundColor: '#d1d5db',
-    marginVertical: 12,
-    marginHorizontal: 8,
+    marginVertical: 15,
+  },
+  chatAssistantButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  chatAssistantButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  loginMessage: {
+    padding: 15,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  loginMessageText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  contactContainer: {
+    marginTop: 10,
   },
   supportButton: {
     backgroundColor: '#fff',
@@ -470,27 +630,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
-    marginLeft: 8,
-  },
-  chatAssistantButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  chatAssistantButtonText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '600',
     marginLeft: 8,
   },
   inputContainer: {

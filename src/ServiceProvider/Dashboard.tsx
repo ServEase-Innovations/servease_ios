@@ -1352,8 +1352,8 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
 
       {/* Reviews Dialog */}
       <ReviewsDialog
-        open={reviewsDialogOpen}
-        onOpenChange={setReviewsDialogOpen}
+        visible={reviewsDialogOpen}
+        onClose={() => setReviewsDialogOpen(false)}
         serviceProviderId={serviceProviderId}
       />
 
