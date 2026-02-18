@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from "axios";
+import LinearGradient from 'react-native-linear-gradient';
 import { keys } from "../env";
 import axiosInstance from "../services/axiosInstance";
 import CustomFileInput from "./CustomFileInput";
@@ -2080,15 +2081,21 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       transparent={false}
     >
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Service Provider Registration</Text>
+        {/* Updated Header with Linear Gradient */}
+        <LinearGradient
+          colors={["#0a2a66ff", "#004aadff"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerContainer}
+        >
+          <Text style={styles.title}>Service Provider Registration</Text>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => onBackToLogin(true)}
           >
             <Icon name="close" size={24} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {renderStepper()}
@@ -2129,7 +2136,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           </View>
         </ScrollView>
 
-        {/* Policy Modal */}
+        {/* Policy Modal - Updated with Linear Gradient Header */}
         <Modal
           visible={policyModalVisible}
           animationType="slide"
@@ -2137,7 +2144,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           onRequestClose={() => setPolicyModalVisible(false)}
         >
           <View style={styles.policyModalContainer}>
-            <View style={styles.policyModalHeader}>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.policyModalHeader}
+            >
               <Text style={styles.policyModalTitle}>
                 {activePolicy === 'terms' && 'Terms and Conditions'}
                 {activePolicy === 'privacy' && 'Privacy Policy'}
@@ -2149,7 +2161,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               >
                 <Icon name="close" size={24} color="#fff" />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
             <View style={styles.policyModalContent}>
               {renderPolicyContent()}
             </View>
@@ -2174,14 +2186,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  header: {
-    backgroundColor: '#1976d2',
+  headerContainer: {
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   },
-  headerTitle: {
+  title: {
     color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
@@ -2616,7 +2630,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   policyModalHeader: {
-    backgroundColor: '#1976d2',
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
