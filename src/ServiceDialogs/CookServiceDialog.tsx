@@ -816,12 +816,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   packagesContainer: {
+    paddingTop: 20,
     marginBottom: 20,
   },
   packageCard: {
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 15,
+    
     marginBottom: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

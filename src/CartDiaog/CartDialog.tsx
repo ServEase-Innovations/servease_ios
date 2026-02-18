@@ -14,7 +14,6 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { removeFromCart, selectCartItems, updateCartItem } from '../features/addToSlice';
 import { CartItem, isMaidCartItem, isMealCartItem, isNannyCartItem } from '../types/cartSlice';
 import { TermsCheckboxes } from '../common/TermsCheckboxes';
-// import { TermsCheckboxes } from '../common/TermsCheckboxes';
 
 interface CartDialogProps {
   open: boolean;
@@ -24,6 +23,19 @@ interface CartDialogProps {
   handleMaidCheckout?: () => void;
   handleNannyCheckout?: () => void;
 }
+
+// Add the price calculation function here (same as in DemoCook)
+const calculatePriceForPersons = (basePrice: number, persons: number): number => {
+  if (persons <= 3) return basePrice;
+  if (persons > 3 && persons <= 6) return basePrice + basePrice * 0.2 * (persons - 3);
+  if (persons > 6 && persons <= 9) {
+    const priceFor6 = basePrice + basePrice * 0.2 * 3;
+    return priceFor6 + priceFor6 * 0.1 * (persons - 6);
+  }
+  const priceFor6 = basePrice + basePrice * 0.2 * 3;
+  const priceFor9 = priceFor6 + priceFor6 * 0.1 * 3;
+  return priceFor9 + priceFor9 * 0.05 * (persons - 9);
+};
 
 // Utility functions for houseSize handling
 const parseHouseSize = (size?: string): number => {
@@ -52,13 +64,21 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const maidCartItems = allCartItems.filter(isMaidCartItem);
   const nannyCartItems = allCartItems.filter(isNannyCartItem);
   
-  // Calculate totals - Updated with proper null checks
-  const mealCartTotal = mealCartItems.reduce((sum, item) => sum + (item.price || 0), 0);
+  // Calculate totals - Updated with proper price recalculation for meals
+  const mealCartTotal = mealCartItems.reduce((sum, item) => {
+    // Recalculate price based on current persons count to ensure accuracy
+    if (item.basePrice) {
+      const recalculatedPrice = calculatePriceForPersons(item.basePrice, item.persons || 1);
+      return sum + recalculatedPrice;
+    }
+    return sum + (item.price || 0);
+  }, 0);
+  
   const maidCartTotal = maidCartItems.reduce((sum, item) => sum + (item.price || 0), 0);
   const nannyCartTotal = nannyCartItems.reduce((sum, item) => sum + (item.price || 0), 0);
   const totalPrice = mealCartTotal + maidCartTotal + nannyCartTotal;
-  const tax = totalPrice * 0.18; // Updated from 5% to 18%
-  const platformFee = totalPrice * 0.06; // New platform fee
+  const tax = totalPrice * 0.18;
+  const platformFee = totalPrice * 0.06;
   const grandTotal = totalPrice + tax + platformFee;
 
   const handleRemoveItem = (id: string, itemType: CartItem['type']) => {
@@ -67,7 +87,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
 
   const [allTermsAccepted, setAllTermsAccepted] = useState(false);
 
-  // Reset checkboxes whenever dialog closes - New useEffect
+  // Reset checkboxes whenever dialog closes
   useEffect(() => {
     if (!open) {
       setAllTermsAccepted(false);
@@ -79,18 +99,16 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     console.log('All terms accepted:', allTermsAccepted);
   }, [allTermsAccepted]);
 
-  // RENAMED: Handle checkout button click to avoid conflict with prop
+  // Handle checkout button click
   const handleCheckoutClick = () => {
     console.log('Checkout clicked, terms accepted:', allTermsAccepted);
     
-    // Use the generic handleCheckout first if provided
     if (handleCheckout) {
       console.log('Using generic handleCheckout');
       handleCheckout();
       return;
     }
     
-    // Fall back to type-specific handlers
     if (mealCartItems.length > 0 && handleCookCheckout) {
       console.log('Using handleCookCheckout');
       handleCookCheckout();
@@ -105,9 +123,9 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     }
   };
 
-  // Check if checkout is available for current cart items - Updated
+  // Check if checkout is available for current cart items
   const isCheckoutAvailable = () => {
-    if (handleCheckout) return true; // Generic handler available
+    if (handleCheckout) return true;
     
     if (mealCartItems.length > 0 && !handleCookCheckout) return false;
     if (maidCartItems.length > 0 && !handleMaidCheckout) return false;
@@ -209,7 +227,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                   )}
                 </View>
 
-                {/* Pricing Summary - Updated with platform fee */}
+                {/* Pricing Summary */}
                 <View style={styles.pricingContainer}>
                   <View style={styles.pricingRow}>
                     <Text style={styles.pricingLabel}>Subtotal:</Text>
@@ -233,16 +251,26 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                   
                   <View style={styles.termsDivider} />
 
-                  {/* Terms Checkboxes - Updated to use TermsCheckboxes component */}
+                  {/* Terms Checkboxes */}
                   <View style={styles.termsContainer}>
-                    <TermsCheckboxes onChange={setAllTermsAccepted} />
+                    <TermsCheckboxes 
+                      onChange={setAllTermsAccepted}
+                      onLinkPress={(type) => {
+                        const urls: Record<string, string> = {
+                          terms: 'https://servease.com/terms',
+                          privacy: 'https://servease.com/privacy',
+                          keyfacts: 'https://servease.com/keyfacts'
+                        };
+                        openLink(urls[type] || '');
+                      }}
+                    />
                   </View>
                 </View>
               </>
             )}
           </ScrollView>
           
-          {/* Footer - Fixed layout */}
+          {/* Footer */}
           {allCartItems.length > 0 && (
             <View style={styles.dialogFooter}>
               <View style={styles.footerTopRow}>
@@ -294,10 +322,17 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
 
   const handleIncrement = (field: string) => {
     if (isMealCartItem(item)) {
+      const newPersons = (item.persons || 1) + 1;
+      // Recalculate price based on new persons count
+      const newPrice = calculatePriceForPersons(item.basePrice || item.price, newPersons);
+      
       dispatch(updateCartItem({
         id: item.id,
         type: 'meal',
-        updates: { persons: (item.persons || 1) + 1 }
+        updates: { 
+          persons: newPersons,
+          price: newPrice // Update the price as well
+        }
       }));
     } else if (isMaidCartItem(item)) {
       const details = item.details || {};
@@ -338,10 +373,17 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
   const handleDecrement = (field: string) => {
     if (isMealCartItem(item)) {
       if (item.persons > 1) {
+        const newPersons = item.persons - 1;
+        // Recalculate price based on new persons count
+        const newPrice = calculatePriceForPersons(item.basePrice || item.price, newPersons);
+        
         dispatch(updateCartItem({
           id: item.id,
           type: 'meal',
-          updates: { persons: item.persons - 1 }
+          updates: { 
+            persons: newPersons,
+            price: newPrice // Update the price as well
+          }
         }));
       }
     } else if (isMaidCartItem(item)) {
@@ -446,12 +488,22 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
   };
 
   const renderDescriptionItems = () => {
-    return item.description.split('\n').map((line, i) => (
+    // Handle case where description might be undefined or not a string
+    const description = item.description || '';
+    return description.split('\n').map((line, i) => (
       <View key={i} style={styles.descriptionItem}>
         <View style={styles.bulletPoint} />
         <Text style={styles.descriptionText}>{line}</Text>
       </View>
     ));
+  };
+
+  // Get the current price (for meal items, ensure it's recalculated)
+  const getCurrentPrice = (): number => {
+    if (isMealCartItem(item) && item.basePrice) {
+      return calculatePriceForPersons(item.basePrice, item.persons || 1);
+    }
+    return item.price || 0;
   };
 
   return (
@@ -490,13 +542,15 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
       
       <View style={styles.priceContainer}>
         <Text style={styles.priceLabel}>Price:</Text>
-        <Text style={styles.priceValue}>₹{item.price.toFixed(2)}</Text>
+        <Text style={styles.priceValue}>₹{getCurrentPrice().toFixed(2)}</Text>
       </View>
     </View>
   );
 };
 
+// Keep the existing styles object as is
 const styles = StyleSheet.create({
+  // ... (all your existing styles remain exactly the same)
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',

@@ -44,6 +44,40 @@ interface ChildComponentProps {
   providerDetails?: any;
 }
 
+// Popular services data for carousel
+const popularServices = [
+  {
+    id: 1,
+    title: "Home Cook",
+    desc: "Skilled and hygienic cooks who specialize in home-style meals with authentic flavors.",
+    icon: "👩‍🍳",
+    features: ["Professional chefs", "Hygiene certified", "Custom menus"],
+    gradient: ['#0f2027', '#203a43', '#2c5364'],
+    accentColor: '#ff6b6b',
+    iconBg: '#ffe5e5',
+  },
+  {
+    id: 2,
+    title: "Cleaning Help",
+    desc: "Reliable maids for daily, deep, or special occasion cleaning with attention to detail.",
+    icon: "🧹",
+    features: ["Deep cleaning", "Eco-friendly", "Scheduled visits"],
+    gradient: ['#0b3b5c', '#1c5985', '#2a7a9e'],
+    accentColor: '#4ecdc4',
+    iconBg: '#e0f7fa',
+  },
+  {
+    id: 3,
+    title: "Caregiver",
+    desc: "Trained support for children, seniors, or patients at home with compassionate care.",
+    icon: "👶",
+    features: ["CPR certified", "Background checked", "24/7 support"],
+    gradient: ['#42275a', '#734b6d', '#b4869f'],
+    accentColor: '#f8b195',
+    iconBg: '#fff0e5',
+  },
+];
+
 // Define slides with dark color themes
 const howItWorksSlides = [
   {
@@ -75,40 +109,6 @@ const howItWorksSlides = [
   },
 ];
 
-// Popular services data for carousel
-const popularServices = [
-  {
-    title: "Home Cook",
-    desc: "Skilled and hygienic cooks who specialize in home-style meals with authentic flavors.",
-    icon: "👩‍🍳",
-    features: ["Professional chefs", "Hygiene certified", "Custom menus"],
-    gradient: ['#0f2027', '#203a43', '#2c5364'],
-    accentColor: '#ff6b6b',
-    iconBg: '#ffe5e5',
-    image: cookImage,
-  },
-  {
-    title: "Cleaning Help",
-    desc: "Reliable maids for daily, deep, or special occasion cleaning with attention to detail.",
-    icon: "🧹",
-    features: ["Deep cleaning", "Eco-friendly", "Scheduled visits"],
-    gradient: ['#0b3b5c', '#1c5985', '#2a7a9e'],
-    accentColor: '#4ecdc4',
-    iconBg: '#e0f7fa',
-    image: maidImage,
-  },
-  {
-    title: "Caregiver",
-    desc: "Trained support for children, seniors, or patients at home with compassionate care.",
-    icon: "👶",
-    features: ["CPR certified", "Background checked", "24/7 support"],
-    gradient: ['#42275a', '#734b6d', '#b4869f'],
-    accentColor: '#f8b195',
-    iconBg: '#fff0e5',
-    image: nannyImage,
-  },
-];
-
 const HomePage: React.FC<ChildComponentProps> = ({
   sendDataToParent,
   bookingType,
@@ -134,15 +134,19 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentServiceIndex, setCurrentServiceIndex] = useState(0);
   
-  // Animation values for smooth crossfade
+  // Animation values for hero carousel
   const fadeAnim1 = useRef(new Animated.Value(1)).current;
   const fadeAnim2 = useRef(new Animated.Value(0)).current;
   const fadeAnim3 = useRef(new Animated.Value(0)).current;
   
-  // Animation values for service carousel
+  // Animation values for services carousel
   const serviceFadeAnim = useRef(new Animated.Value(1)).current;
   const serviceSlideAnim = useRef(new Animated.Value(0)).current;
-  
+
+  // Animation values for how it works carousel
+  const howItWorksFadeAnim = useRef(new Animated.Value(1)).current;
+  const howItWorksSlideAnim = useRef(new Animated.Value(0)).current;
+
   // Auth0 authentication
   const { user: auth0User, authorize, clearSession } = useAuth0();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -189,9 +193,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
       interval = setInterval(() => {
         const nextIndex = (currentImageIndex + 1) % carouselImages.length;
         
-        // Determine which animation to use based on current and next index
         if (currentImageIndex === 0 && nextIndex === 1) {
-          // Transition from image 1 to 2
           Animated.parallel([
             Animated.timing(fadeAnim1, {
               toValue: 0,
@@ -205,13 +207,11 @@ const HomePage: React.FC<ChildComponentProps> = ({
             }),
           ]).start(() => {
             setCurrentImageIndex(nextIndex);
-            // Reset animations for next transition
             fadeAnim1.setValue(0);
             fadeAnim2.setValue(1);
             fadeAnim3.setValue(0);
           });
         } else if (currentImageIndex === 1 && nextIndex === 2) {
-          // Transition from image 2 to 3
           Animated.parallel([
             Animated.timing(fadeAnim2, {
               toValue: 0,
@@ -225,13 +225,11 @@ const HomePage: React.FC<ChildComponentProps> = ({
             }),
           ]).start(() => {
             setCurrentImageIndex(nextIndex);
-            // Reset animations for next transition
             fadeAnim1.setValue(0);
             fadeAnim2.setValue(0);
             fadeAnim3.setValue(1);
           });
         } else if (currentImageIndex === 2 && nextIndex === 0) {
-          // Transition from image 3 to 1
           Animated.parallel([
             Animated.timing(fadeAnim3, {
               toValue: 0,
@@ -245,7 +243,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
             }),
           ]).start(() => {
             setCurrentImageIndex(nextIndex);
-            // Reset animations for next transition
             fadeAnim1.setValue(1);
             fadeAnim2.setValue(0);
             fadeAnim3.setValue(0);
@@ -263,39 +260,41 @@ const HomePage: React.FC<ChildComponentProps> = ({
     };
   }, [currentImageIndex]);
 
-  // Auto-play for service carousel
+  // Services carousel with smooth transitions
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let serviceInterval: NodeJS.Timeout;
     
     const startServiceCarousel = () => {
-      interval = setInterval(() => {
+      serviceInterval = setInterval(() => {
         const nextIndex = (currentServiceIndex + 1) % popularServices.length;
         
-        // Animate slide change
+        // Animate out current service
         Animated.parallel([
           Animated.timing(serviceFadeAnim, {
             toValue: 0,
-            duration: 800,
+            duration: 400,
             useNativeDriver: true,
           }),
           Animated.timing(serviceSlideAnim, {
             toValue: -50,
-            duration: 800,
+            duration: 400,
             useNativeDriver: true,
           }),
         ]).start(() => {
+          // Change to next service
           setCurrentServiceIndex(nextIndex);
-          serviceSlideAnim.setValue(50);
           
+          // Reset position and animate in new service
+          serviceSlideAnim.setValue(50);
           Animated.parallel([
             Animated.timing(serviceFadeAnim, {
               toValue: 1,
-              duration: 800,
+              duration: 500,
               useNativeDriver: true,
             }),
             Animated.timing(serviceSlideAnim, {
               toValue: 0,
-              duration: 800,
+              duration: 500,
               useNativeDriver: true,
             }),
           ]).start();
@@ -306,169 +305,73 @@ const HomePage: React.FC<ChildComponentProps> = ({
     startServiceCarousel();
     
     return () => {
-      if (interval) {
-        clearInterval(interval);
+      if (serviceInterval) {
+        clearInterval(serviceInterval);
       }
     };
   }, [currentServiceIndex]);
 
+  // How It Works carousel with smooth transitions (matching popular services)
+  useEffect(() => {
+    let howItWorksInterval: NodeJS.Timeout;
+    
+    const startHowItWorksCarousel = () => {
+      howItWorksInterval = setInterval(() => {
+        const nextIndex = (currentSlide + 1) % howItWorksSlides.length;
+        
+        // Animate out current slide
+        Animated.parallel([
+          Animated.timing(howItWorksFadeAnim, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(howItWorksSlideAnim, {
+            toValue: -50,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Change to next slide
+          setCurrentSlide(nextIndex);
+          
+          // Reset position and animate in new slide
+          howItWorksSlideAnim.setValue(50);
+          Animated.parallel([
+            Animated.timing(howItWorksFadeAnim, {
+              toValue: 1,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+            Animated.timing(howItWorksSlideAnim, {
+              toValue: 0,
+              duration: 500,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        });
+      }, 5000);
+    };
+    
+    startHowItWorksCarousel();
+    
+    return () => {
+      if (howItWorksInterval) {
+        clearInterval(howItWorksInterval);
+      }
+    };
+  }, [currentSlide]);
+
   // Initialize animation values
   useEffect(() => {
-    // Set initial states
     fadeAnim1.setValue(1);
     fadeAnim2.setValue(0);
     fadeAnim3.setValue(0);
     serviceFadeAnim.setValue(1);
     serviceSlideAnim.setValue(0);
+    howItWorksFadeAnim.setValue(1);
+    howItWorksSlideAnim.setValue(0);
   }, []);
-
-  // Enhanced HowItWorksSection with smooth transitions and dark themes
-  const HowItWorksSection = () => {
-    const slideAnim = useRef(new Animated.Value(0)).current;
-    const fadeAnim = useRef(new Animated.Value(1)).current;
-
-    useEffect(() => {
-      // Animate slide change
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: -50,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        // Reset and animate in new slide
-        slideAnim.setValue(50);
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-            easing: (value) => value, // Linear easing for smooth transition
-          }),
-        ]).start();
-      });
-    }, [currentSlide]);
-
-    return (
-      <View style={styles.howItWorksSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
-          <Text style={styles.sectionSubtitle}>Simple steps to premium service</Text>
-        </View>
-        
-        <View style={styles.slideshowContainer}>
-          <Animated.View
-            style={[
-              styles.slide,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateX: slideAnim }],
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.5,
-                shadowRadius: 16,
-                elevation: 12,
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={howItWorksSlides[currentSlide].gradientColors}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={styles.gradientContainer}
-            >
-              {/* Decorative Elements */}
-              <View style={styles.glowEffect} />
-              <View style={styles.particleContainer}>
-                <Text style={styles.particle}>✦</Text>
-                <Text style={styles.particle2}>✧</Text>
-                <Text style={styles.particle3}>✦</Text>
-              </View>
-              
-              <View style={[styles.illustrationContainer, { backgroundColor: howItWorksSlides[currentSlide].accentColor }]}>
-                <Text style={styles.illustrationIcon}>
-                  {howItWorksSlides[currentSlide].illustration}
-                </Text>
-              </View>
-              
-              <View style={styles.iconWrapper}>
-                <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-                  <Text style={[styles.stepIcon, { color: '#fff' }]}>
-                    {howItWorksSlides[currentSlide].icon}
-                  </Text>
-                </View>
-              </View>
-              
-              <Text style={styles.stepTitle}>
-                {howItWorksSlides[currentSlide].title}
-              </Text>
-              <Text style={styles.stepDesc}>
-                {howItWorksSlides[currentSlide].desc}
-              </Text>
-
-              {/* Feature Badges */}
-              <View style={styles.slideFeaturesContainer}>
-                {howItWorksSlides[currentSlide].features.map((feature, idx) => (
-                  <View key={idx} style={[styles.slideFeatureBadge, { borderColor: howItWorksSlides[currentSlide].accentColor }]}>
-                    <Text style={styles.slideFeatureBadgeText}>✓ {feature}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Progress Indicator */}
-              <View style={[styles.slideProgress, { backgroundColor: howItWorksSlides[currentSlide].accentColor }]}>
-                <Text style={styles.slideProgressText}>
-                  {currentSlide + 1} / {howItWorksSlides.length}
-                </Text>
-              </View>
-            </LinearGradient>
-          </Animated.View>
-        </View>
-
-        {/* Enhanced Dots Navigation */}
-        <View style={styles.dotsContainer}>
-          {howItWorksSlides.map((_, index) => {
-            const dotScale = index === currentSlide ? 1.3 : 1;
-            const dotWidth = index === currentSlide ? 24 : 10;
-            
-            return (
-              <TouchableOpacity
-                key={index}
-                onPress={() => setCurrentSlide(index)}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={index === currentSlide 
-                    ? howItWorksSlides[index].gradientColors 
-                    : ['#4a5568', '#2d3748']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 0}}
-                  style={[
-                    styles.dot,
-                    {
-                      width: dotWidth,
-                      transform: [{ scale: dotScale }],
-                      opacity: index === currentSlide ? 1 : 0.5,
-                    }
-                  ]}
-                />
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
 
   const handleWorkButtonClick = () => {
     setShowRegistration(true);
@@ -588,23 +491,51 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
   const isServiceDisabled = role === "SERVICE_PROVIDER";
 
-  const handleServiceDotPress = (index: number) => {
-    // Animate to selected slide
+  // Animation for service cards
+  const scaleAnimations = useRef([
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1)
+  ]).current;
+
+  const handleCardPressIn = (index: number) => {
+    Animated.spring(scaleAnimations[index], {
+      toValue: 0.98,
+      useNativeDriver: true,
+      tension: 150,
+      friction: 3
+    }).start();
+  };
+
+  const handleCardPressOut = (index: number) => {
+    Animated.spring(scaleAnimations[index], {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 150,
+      friction: 3
+    }).start();
+  };
+
+  // Navigate to specific service slide
+  const goToServiceSlide = (index: number) => {
+    if (index === currentServiceIndex) return;
+    
+    const direction = index > currentServiceIndex ? -50 : 50;
+    
     Animated.parallel([
       Animated.timing(serviceFadeAnim, {
         toValue: 0,
-        duration: 400,
+        duration: 300,
         useNativeDriver: true,
       }),
       Animated.timing(serviceSlideAnim, {
-        toValue: index > currentServiceIndex ? -50 : 50,
-        duration: 400,
+        toValue: direction,
+        duration: 300,
         useNativeDriver: true,
       }),
     ]).start(() => {
       setCurrentServiceIndex(index);
-      serviceSlideAnim.setValue(index > currentServiceIndex ? 50 : -50);
-      
+      serviceSlideAnim.setValue(direction * -1);
       Animated.parallel([
         Animated.timing(serviceFadeAnim, {
           toValue: 1,
@@ -612,6 +543,41 @@ const HomePage: React.FC<ChildComponentProps> = ({
           useNativeDriver: true,
         }),
         Animated.timing(serviceSlideAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  };
+
+  // Navigate to specific how it works slide
+  const goToHowItWorksSlide = (index: number) => {
+    if (index === currentSlide) return;
+    
+    const direction = index > currentSlide ? -50 : 50;
+    
+    Animated.parallel([
+      Animated.timing(howItWorksFadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(howItWorksSlideAnim, {
+        toValue: direction,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setCurrentSlide(index);
+      howItWorksSlideAnim.setValue(direction * -1);
+      Animated.parallel([
+        Animated.timing(howItWorksFadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(howItWorksSlideAnim, {
           toValue: 0,
           duration: 400,
           useNativeDriver: true,
@@ -794,79 +760,229 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 },
               ]}
             >
-              <LinearGradient
-                colors={popularServices[currentServiceIndex].gradient}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.serviceCardGradient}
+              <TouchableOpacity 
+                style={styles.serviceCard}
+                onPress={() => handleLearnMore(popularServices[currentServiceIndex].title)}
+                onPressIn={() => handleCardPressIn(currentServiceIndex)}
+                onPressOut={() => handleCardPressOut(currentServiceIndex)}
+                activeOpacity={0.95}
               >
-                <View style={styles.serviceCardContent}>
-                  <View style={[styles.serviceIconContainer, { backgroundColor: popularServices[currentServiceIndex].iconBg }]}>
-                    <Text style={styles.serviceIcon}>{popularServices[currentServiceIndex].icon}</Text>
-                  </View>
-                  
-                  <Text style={styles.serviceTitle}>{popularServices[currentServiceIndex].title}</Text>
-                  <Text style={styles.serviceDesc}>{popularServices[currentServiceIndex].desc}</Text>
-                  
-                  <View style={styles.featuresContainer}>
-                    {popularServices[currentServiceIndex].features.map((feature, idx) => (
-                      <View key={idx} style={styles.featureBadge}>
-                        <Text style={styles.featureBadgeText}>✓ {feature}</Text>
-                      </View>
-                    ))}
-                  </View>
-                  
-                  <TouchableOpacity 
-                    style={[styles.learnMoreContainer, { backgroundColor: popularServices[currentServiceIndex].accentColor }]}
-                    onPress={() => handleLearnMore(popularServices[currentServiceIndex].title)}
-                  >
-                    <Text style={styles.learnMoreLink}>Learn More</Text>
-                    <Text style={styles.learnMoreArrow}>→</Text>
-                  </TouchableOpacity>
-
-                  {/* Decorative elements */}
-                  <View style={[styles.decorativeCircle, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-                  <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
-                </View>
-              </LinearGradient>
-            </Animated.View>
-          </View>
-
-          {/* Service Carousel Indicators */}
-          <View style={styles.serviceDotsContainer}>
-            {popularServices.map((_, index) => {
-              const dotScale = index === currentServiceIndex ? 1.3 : 1;
-              const dotWidth = index === currentServiceIndex ? 24 : 10;
-              
-              return (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => handleServiceDotPress(index)}
-                  activeOpacity={0.8}
+                <LinearGradient
+                  colors={popularServices[currentServiceIndex].gradient}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
+                  style={styles.serviceCardGradient}
                 >
-                  <LinearGradient
-                    colors={index === currentServiceIndex 
-                      ? popularServices[index].gradient 
-                      : ['#4a5568', '#2d3748']}
-                    start={{x: 0, y: 0}}
-                    end={{x: 1, y: 0}}
-                    style={[
-                      styles.serviceDot,
-                      {
-                        width: dotWidth,
-                        transform: [{ scale: dotScale }],
-                        opacity: index === currentServiceIndex ? 1 : 0.5,
-                      }
-                    ]}
-                  />
-                </TouchableOpacity>
-              );
-            })}
+                  <View style={styles.serviceCardContent}>
+                    <View style={[styles.serviceIconContainer, { backgroundColor: popularServices[currentServiceIndex].iconBg }]}>
+                      <Text style={styles.serviceIcon}>{popularServices[currentServiceIndex].icon}</Text>
+                    </View>
+                    
+                    <Text style={styles.serviceTitle}>{popularServices[currentServiceIndex].title}</Text>
+                    <Text style={styles.serviceDesc}>{popularServices[currentServiceIndex].desc}</Text>
+                    
+                    <View style={styles.featuresContainer}>
+                      {popularServices[currentServiceIndex].features.map((feature, idx) => (
+                        <View key={idx} style={styles.featureBadge}>
+                          <Text style={styles.featureBadgeText}>✓ {feature}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    
+                    <View style={[styles.learnMoreContainer, { backgroundColor: popularServices[currentServiceIndex].accentColor }]}>
+                      <Text style={styles.learnMoreLink}>Learn More</Text>
+                      <Text style={styles.learnMoreArrow}>→</Text>
+                    </View>
+
+                    {/* Decorative elements */}
+                    <View style={[styles.decorativeCircle, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+                    <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Service Carousel Indicators */}
+            <View style={styles.serviceDotsContainer}>
+              {popularServices.map((_, index) => {
+                const dotScale = index === currentServiceIndex ? 1.3 : 1;
+                const dotWidth = index === currentServiceIndex ? 24 : 10;
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => goToServiceSlide(index)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={index === currentServiceIndex 
+                        ? popularServices[index].gradient 
+                        : ['#4a5568', '#2d3748']}
+                      start={{x: 0, y: 0}}
+                      end={{x: 1, y: 0}}
+                      style={[
+                        styles.serviceDot,
+                        {
+                          width: dotWidth,
+                          transform: [{ scale: dotScale }],
+                          opacity: index === currentServiceIndex ? 1 : 0.5,
+                        }
+                      ]}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Service Navigation Arrows */}
+            <View style={styles.serviceNavigationArrows}>
+              <TouchableOpacity 
+                style={styles.serviceNavArrow}
+                onPress={() => {
+                  const prevIndex = currentServiceIndex === 0 ? popularServices.length - 1 : currentServiceIndex - 1;
+                  goToServiceSlide(prevIndex);
+                }}
+              >
+                <Text style={styles.serviceNavArrowText}>←</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.serviceNavArrow}
+                onPress={() => {
+                  const nextIndex = (currentServiceIndex + 1) % popularServices.length;
+                  goToServiceSlide(nextIndex);
+                }}
+              >
+                <Text style={styles.serviceNavArrowText}>→</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
-        {/* How it works - Enhanced with smooth transitions and dark themes */}
-        <HowItWorksSection />
+        {/* How it works - Now with same carousel style as Popular Services */}
+        <View style={styles.howItWorksSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>How It Works</Text>
+            <Text style={styles.sectionSubtitle}>Simple steps to premium service</Text>
+          </View>
+          
+          <View style={styles.howItWorksCarouselContainer}>
+            <Animated.View
+              style={[
+                styles.howItWorksCarouselSlide,
+                {
+                  opacity: howItWorksFadeAnim,
+                  transform: [{ translateX: howItWorksSlideAnim }],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={howItWorksSlides[currentSlide].gradientColors}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.gradientContainer}
+              >
+                {/* Decorative Elements */}
+                <View style={styles.glowEffect} />
+                <View style={styles.particleContainer}>
+                  <Text style={styles.particle}>✦</Text>
+                  <Text style={styles.particle2}>✧</Text>
+                  <Text style={styles.particle3}>✦</Text>
+                </View>
+                
+                <View style={[styles.illustrationContainer, { backgroundColor: howItWorksSlides[currentSlide].accentColor }]}>
+                  <Text style={styles.illustrationIcon}>
+                    {howItWorksSlides[currentSlide].illustration}
+                  </Text>
+                </View>
+                
+                <View style={styles.iconWrapper}>
+                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                    <Text style={[styles.stepIcon, { color: '#fff' }]}>
+                      {howItWorksSlides[currentSlide].icon}
+                    </Text>
+                  </View>
+                </View>
+                
+                <Text style={styles.stepTitle}>
+                  {howItWorksSlides[currentSlide].title}
+                </Text>
+                <Text style={styles.stepDesc}>
+                  {howItWorksSlides[currentSlide].desc}
+                </Text>
+
+                {/* Feature Badges */}
+                <View style={styles.slideFeaturesContainer}>
+                  {howItWorksSlides[currentSlide].features.map((feature, idx) => (
+                    <View key={idx} style={[styles.slideFeatureBadge, { borderColor: howItWorksSlides[currentSlide].accentColor }]}>
+                      <Text style={styles.slideFeatureBadgeText}>✓ {feature}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Progress Indicator */}
+                <View style={[styles.slideProgress, { backgroundColor: howItWorksSlides[currentSlide].accentColor }]}>
+                  <Text style={styles.slideProgressText}>
+                    {currentSlide + 1} / {howItWorksSlides.length}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+
+            {/* How It Works Carousel Indicators */}
+            <View style={styles.howItWorksDotsContainer}>
+              {howItWorksSlides.map((_, index) => {
+                const dotScale = index === currentSlide ? 1.3 : 1;
+                const dotWidth = index === currentSlide ? 24 : 10;
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => goToHowItWorksSlide(index)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={index === currentSlide 
+                        ? howItWorksSlides[index].gradientColors 
+                        : ['#4a5568', '#2d3748']}
+                      start={{x: 0, y: 0}}
+                      end={{x: 1, y: 0}}
+                      style={[
+                        styles.howItWorksDot,
+                        {
+                          width: dotWidth,
+                          transform: [{ scale: dotScale }],
+                          opacity: index === currentSlide ? 1 : 0.5,
+                        }
+                      ]}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* How It Works Navigation Arrows */}
+            <View style={styles.howItWorksNavigationArrows}>
+              <TouchableOpacity 
+                style={styles.howItWorksNavArrow}
+                onPress={() => {
+                  const prevIndex = currentSlide === 0 ? howItWorksSlides.length - 1 : currentSlide - 1;
+                  goToHowItWorksSlide(prevIndex);
+                }}
+              >
+                <Text style={styles.howItWorksNavArrowText}>←</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.howItWorksNavArrow}
+                onPress={() => {
+                  const nextIndex = (currentSlide + 1) % howItWorksSlides.length;
+                  goToHowItWorksSlide(nextIndex);
+                }}
+              >
+                <Text style={styles.howItWorksNavArrowText}>→</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
         
         {/* Booking Dialog */}
         <BookingDialog
@@ -1009,7 +1125,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     paddingTop: 20,
-    marginBottom: -30, // Negative margin to create overlap effect
+    marginBottom: -30,
     zIndex: 1,
   },
   backgroundImage: {
@@ -1019,7 +1135,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 42, 102, 0.5)', // Dark blue overlay for better text contrast
+    backgroundColor: 'rgba(10, 42, 102, 0.5)',
   },
   heroContent: {
     flex: 1,
@@ -1100,12 +1216,12 @@ const styles = StyleSheet.create({
   },
   servicesSection: {
     padding: 20,
-    paddingTop: 30, // Increased padding to accommodate overlap
+    paddingTop: 50,
     paddingBottom: 40,
     backgroundColor: '#f8fafc',
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    marginTop: -40, // Negative margin to create overlap with hero section
+    marginTop: -40,
     zIndex: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -10 },
@@ -1130,20 +1246,26 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   servicesCarouselContainer: {
-    height: 500,
+    height: 520,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 10,
+    position: 'relative',
   },
   serviceCarouselSlide: {
     width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 24,
-    overflow: 'hidden',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 8,
+  },
+  serviceCard: {
+    width: '100%',
+    borderRadius: 24,
+    overflow: 'hidden',
   },
   serviceCardGradient: {
     borderRadius: 24,
@@ -1267,15 +1389,43 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginHorizontal: 0,
   },
+  serviceNavigationArrows: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    right: 0,
+    paddingHorizontal: 10,
+    transform: [{ translateY: -20 }],
+  },
+  serviceNavArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  serviceNavArrowText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1a2b4c',
+  },
   
-  // How It Works Section - Enhanced Professional Styles with Dark Themes
+  // How It Works Section - Now with carousel style matching Popular Services
   howItWorksSection: {
     backgroundColor: "#ffffff",
-    padding: 40,
-    paddingVertical: 50,
+    padding: 20,
+    paddingVertical: 40,
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    marginTop: -30, // Negative margin to create overlap with services section
+    marginTop: -30,
     zIndex: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -10 },
@@ -1283,11 +1433,22 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
-  slideshowContainer: {
-    height: 380,
+  howItWorksCarouselContainer: {
+    height: 400,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 20,
+    position: 'relative',
+  },
+  howItWorksCarouselSlide: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
   },
   gradientContainer: {
     alignItems: 'center',
@@ -1295,7 +1456,7 @@ const styles = StyleSheet.create({
     padding: 30,
     borderRadius: 32,
     width: '100%',
-    height: '100%',
+    minHeight: 350,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1429,31 +1590,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  slide: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 32,
-    width: '95%',
-    maxWidth: 400,
-    height: '100%',
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  dotsContainer: {
+  howItWorksDotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 20,
     gap: 12,
   },
-  dot: {
+  howItWorksDot: {
     height: 10,
     borderRadius: 5,
     marginHorizontal: 0,
+  },
+  howItWorksNavigationArrows: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    right: 0,
+    paddingHorizontal: 10,
+    transform: [{ translateY: -20 }],
+  },
+  howItWorksNavArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  howItWorksNavArrowText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1a2b4c',
   },
   dialogOverlay: {
     position: 'absolute',
