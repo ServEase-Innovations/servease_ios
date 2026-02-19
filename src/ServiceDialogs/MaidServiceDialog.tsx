@@ -695,22 +695,25 @@ const handleCheckout = async () => {
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
-           <LinearGradient
-                        colors={["#0a2a66ff", "#004aadff"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.linearGradient}
-                      >
-          {/* <View style={styles.header}>   */}
-
-            {/* <TouchableOpacity onPress={handleClose} style={styles.backIcon}>
-              <Icon name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity> */}
-            <Text style={styles.headtitle}>MAID SERVICE PACKAGES</Text>
-            {/* <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
-              <Icon name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View> */}
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.linearGradient}
+          >
+            <View style={styles.headerContainer}>
+              <View style={styles.headerLeft}>
+                {/* Optional: Add back button here if needed */}
+              </View>
+              
+              <Text style={styles.headtitle}>MAID SERVICE PACKAGES</Text>
+              
+              <View style={styles.headerRight}>
+                <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
+                  <Icon name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
           </LinearGradient>
           
           <ScrollView style={styles.scrollView}>
@@ -1133,9 +1136,11 @@ const handleCheckout = async () => {
                   </View>
                 </View>
               </View>
-
-              {/* Voucher Section */}
-              <View style={styles.footerContainer}>
+            </View>
+          </ScrollView>
+          
+          {/* Footer with Checkout */}
+          <View style={styles.footerContainer}>
             <View style={styles.voucherContainer}>
               <TextInput
                 style={styles.voucherInput}
@@ -1150,44 +1155,6 @@ const handleCheckout = async () => {
             <View style={styles.totalContainer}>
               <Text style={styles.footerText}>
                 Total for {countSelectedItems()} items
-              </Text>
-              <Text style={styles.footerPrice}>
-                ₹{calculateTotal().toLocaleString('en-IN')}
-              </Text>
-            </View>
-            
-            <View style={styles.footerButtons}>
-              <TouchableOpacity 
-                style={styles.closeFooterButton}
-                onPress={handleClose}
-              >
-                <Text style={styles.closeFooterButtonText}>CLOSE</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.checkoutButton,
-                  countSelectedItems() === 0 && styles.disabledButton
-                ]}
-                onPress={handleCheckout}
-                disabled={countSelectedItems() === 0}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-            </View>
-          </ScrollView>
-          
-          {/* Footer with Checkout */}
-          <View style={styles.footerContainer}>
-            <View style={styles.totalContainer}>
-              <Text style={styles.footerText}>
-                Total for {countSelectedItems()} services
               </Text>
               <Text style={styles.footerPrice}>
                 ₹{calculateTotal().toLocaleString('en-IN')}
@@ -1242,25 +1209,34 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-   linearGradient: {
+  linearGradient: {
     padding: 20,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  headerLeft: {
+    width: 40, // To balance the header
+  },
+  headerRight: {
+    width: 40, // To balance the header
+    alignItems: 'flex-end',
   },
   headtitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#fff",
     textAlign: "center",
+    flex: 1,
   },
-  // header: {
-  //   flexDirection: 'row',
-  //   justifyContent: 'space-between',
-  //   alignItems: 'center',
-  //   padding: 20,
-  //   borderBottomWidth: 1,
-  //   borderBottomColor: '#eee',
-  // },
+  closeIcon: {
+    padding: 5,
+  },
   backIcon: {
     padding: 5,
     marginRight: 10,
@@ -1271,9 +1247,6 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
     textAlign: 'center',
-  },
-  closeIcon: {
-    padding: 5,
   },
   scrollView: {
     paddingHorizontal: 10,
@@ -1540,9 +1513,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 9,
     backgroundColor: '#f0f0f0',
-    // borderRadius: 8,
     borderWidth: 1,
-     borderColor: "#007AFF",
+    borderColor: "#007AFF",
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,

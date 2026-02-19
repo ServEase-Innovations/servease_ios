@@ -6,14 +6,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Linking,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import LinearGradient from 'react-native-linear-gradient';
 import { removeFromCart, selectCartItems, updateCartItem } from '../features/addToSlice';
 import { CartItem, isMaidCartItem, isMealCartItem, isNannyCartItem } from '../types/cartSlice';
 import { TermsCheckboxes } from '../common/TermsCheckboxes';
+import TnC from "../TermsAndConditions/TnC";
+import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
+import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 
 interface CartDialogProps {
   open: boolean;
@@ -59,6 +62,17 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const dispatch = useDispatch();
   const allCartItems = useSelector(selectCartItems);
   
+  // Terms checkboxes state
+  const [termsAccepted, setTermsAccepted] = useState({
+    keyFacts: false,
+    terms: false,
+    privacy: false
+  });
+
+  // Policy modal state
+  const [policyModalVisible, setPolicyModalVisible] = useState(false);
+  const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
+
   // Filter items by type
   const mealCartItems = allCartItems.filter(isMealCartItem);
   const maidCartItems = allCartItems.filter(isMaidCartItem);
@@ -85,23 +99,65 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     dispatch(removeFromCart({ id, type: itemType }));
   };
 
-  const [allTermsAccepted, setAllTermsAccepted] = useState(false);
+  // Check if all terms are accepted
+  const allTermsAccepted = termsAccepted.keyFacts && termsAccepted.terms && termsAccepted.privacy;
 
   // Reset checkboxes whenever dialog closes
   useEffect(() => {
     if (!open) {
-      setAllTermsAccepted(false);
+      setTermsAccepted({
+        keyFacts: false,
+        terms: false,
+        privacy: false
+      });
     }
   }, [open]);
 
   // Debug: Log when terms acceptance changes
   useEffect(() => {
+    console.log('Terms acceptance state:', termsAccepted);
     console.log('All terms accepted:', allTermsAccepted);
-  }, [allTermsAccepted]);
+  }, [termsAccepted, allTermsAccepted]);
+
+  // Handle terms checkboxes change
+  const handleTermsChange = (allAccepted: boolean) => {
+    // This is called from TermsCheckboxes component when all are checked/unchecked via "Check All"
+    setTermsAccepted({
+      keyFacts: allAccepted,
+      terms: allAccepted,
+      privacy: allAccepted
+    });
+  };
+
+  // Handle individual terms acceptance updates from the TermsCheckboxes component
+  // This will be used to sync with the internal state of TermsCheckboxes
+  const handleTermsUpdate = (updatedTerms: { keyFacts: boolean; terms: boolean; privacy: boolean }) => {
+    setTermsAccepted(updatedTerms);
+  };
+
+  // Handle opening policy modal
+  const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
+    setActivePolicy(policyType);
+    setPolicyModalVisible(true);
+  };
+
+  // Render policy content based on active policy
+  const renderPolicyContent = () => {
+    switch (activePolicy) {
+      case 'terms':
+        return <TnC />;
+      case 'privacy':
+        return <PrivacyPolicy />;
+      case 'keyfacts':
+        return <KeyFactsStatement />;
+      default:
+        return null;
+    }
+  };
 
   // Handle checkout button click
   const handleCheckoutClick = () => {
-    console.log('Checkout clicked, terms accepted:', allTermsAccepted);
+    console.log('Checkout clicked, terms accepted:', termsAccepted);
     
     if (handleCheckout) {
       console.log('Using generic handleCheckout');
@@ -133,181 +189,206 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     return true;
   };
 
-  const openLink = (url: string) => {
-    Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
-  };
-
   // Check if checkout button should be enabled
   const isCheckoutEnabled = allCartItems.length > 0 && allTermsAccepted && isCheckoutAvailable();
 
   console.log('Checkout enabled:', isCheckoutEnabled, 'Items:', allCartItems.length, 'Terms:', allTermsAccepted, 'Available:', isCheckoutAvailable());
 
   return (
-    <Modal
-      visible={open}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Header */}
-          <View style={styles.dialogHeader}>
-            <View style={styles.headerContent}>
-              <Text style={styles.dialogTitle}>Your Order Summary</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={handleClose}
-              >
-                <Icon name="close" size={24} color="#718096" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* Content */}
-          <ScrollView style={styles.dialogContent}>
-            {allCartItems.length === 0 ? (
-              <View style={styles.emptyCartContainer}>
-                <Text style={styles.emptyCartText}>Your cart is empty</Text>
-                <TouchableOpacity 
-                  style={styles.browseButton}
-                  onPress={handleClose}
-                >
-                  <Text style={styles.browseButtonText}>Browse Services</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <View style={styles.itemsContainer}>
-                  {/* Meal Cart Items */}
-                  {mealCartItems.length > 0 && (
-                    <>
-                      <Text style={styles.sectionTitle}>Meal Services</Text>
-                      {mealCartItems.map((item, index) => (
-                        <CartItemCard 
-                          key={`meal_${item.id || index}`}
-                          item={item}
-                          onRemove={() => handleRemoveItem(item.id, 'meal')}
-                          itemType="meal"
-                        />
-                      ))}
-                      <View style={styles.divider} />
-                    </>
-                  )}
-                  
-                  {/* Maid Cart Items */}
-                  {maidCartItems.length > 0 && (
-                    <>
-                      <Text style={styles.sectionTitle}>Maid Services</Text>
-                      {maidCartItems.map((item, index) => (
-                        <CartItemCard 
-                          key={`maid_${item.id || index}`}
-                          item={item}
-                          onRemove={() => handleRemoveItem(item.id, 'maid')}
-                          itemType="maid"
-                        />
-                      ))}
-                      <View style={styles.divider} />
-                    </>
-                  )}
-                  
-                  {/* Nanny Cart Items */}
-                  {nannyCartItems.length > 0 && (
-                    <>
-                      <Text style={styles.sectionTitle}>Nanny Services</Text>
-                      {nannyCartItems.map((item, index) => (
-                        <CartItemCard 
-                          key={`nanny_${item.id || index}`}
-                          item={item}
-                          onRemove={() => handleRemoveItem(item.id, 'nanny')}
-                          itemType="nanny"
-                        />
-                      ))}
-                    </>
-                  )}
-                </View>
-
-                {/* Pricing Summary */}
-                <View style={styles.pricingContainer}>
-                  <View style={styles.pricingRow}>
-                    <Text style={styles.pricingLabel}>Subtotal:</Text>
-                    <Text style={styles.pricingValue}>₹{totalPrice.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.pricingRow}>
-                    <Text style={styles.pricingLabel}>Tax (18%):</Text>
-                    <Text style={styles.pricingValue}>₹{tax.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.pricingRow}>
-                    <Text style={styles.pricingLabel}>Platform Fee (6%):</Text>
-                    <Text style={styles.pricingValue}>₹{platformFee.toFixed(2)}</Text>
-                  </View>
-                  
-                  <View style={styles.divider} />
-                  
-                  <View style={styles.pricingRow}>
-                    <Text style={styles.totalLabel}>Total:</Text>
-                    <Text style={styles.totalValue}>₹{grandTotal.toFixed(2)}</Text>
-                  </View>
-                  
-                  <View style={styles.termsDivider} />
-
-                  {/* Terms Checkboxes */}
-                  <View style={styles.termsContainer}>
-                    <TermsCheckboxes 
-                      onChange={setAllTermsAccepted}
-                      onLinkPress={(type) => {
-                        const urls: Record<string, string> = {
-                          terms: 'https://servease.com/terms',
-                          privacy: 'https://servease.com/privacy',
-                          keyfacts: 'https://servease.com/keyfacts'
-                        };
-                        openLink(urls[type] || '');
-                      }}
-                    />
-                  </View>
-                </View>
-              </>
-            )}
-          </ScrollView>
-          
-          {/* Footer */}
-          {allCartItems.length > 0 && (
-            <View style={styles.dialogFooter}>
-              <View style={styles.footerTopRow}>
-                <Text style={styles.itemCountText}>
-                  {allCartItems.length} item{allCartItems.length !== 1 ? 's' : ''} selected
-                </Text>
-              </View>
-              
-              <View style={styles.footerButtons}>
-                <TouchableOpacity 
-                  style={styles.modifyButton}
-                  onPress={handleClose}
-                >
-                  <Text style={styles.modifyButtonText}>Modify Booking</Text>
-                </TouchableOpacity>
-                
+    <>
+      <Modal
+        visible={open}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={handleClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Header */}
+            <View style={styles.dialogHeader}>
+              <View style={styles.headerContent}>
+                <Text style={styles.dialogTitle}>Your Order Summary</Text>
                 <TouchableOpacity
-                  style={[
-                    styles.checkoutButton,
-                    !isCheckoutEnabled && styles.disabledButton
-                  ]}
-                  onPress={handleCheckoutClick}
-                  disabled={!isCheckoutEnabled}
+                  style={styles.closeButton}
+                  onPress={handleClose}
                 >
-                  <Text style={[
-                    styles.checkoutButtonText,
-                    !isCheckoutEnabled && styles.disabledButtonText
-                  ]}>
-                    Proceed to Checkout (₹{grandTotal.toFixed(2)})
-                  </Text>
+                  <Icon name="close" size={24} color="#718096" />
                 </TouchableOpacity>
               </View>
             </View>
-          )}
+            
+            {/* Content */}
+            <ScrollView style={styles.dialogContent}>
+              {allCartItems.length === 0 ? (
+                <View style={styles.emptyCartContainer}>
+                  <Text style={styles.emptyCartText}>Your cart is empty</Text>
+                  <TouchableOpacity 
+                    style={styles.browseButton}
+                    onPress={handleClose}
+                  >
+                    <Text style={styles.browseButtonText}>Browse Services</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.itemsContainer}>
+                    {/* Meal Cart Items */}
+                    {mealCartItems.length > 0 && (
+                      <>
+                        <Text style={styles.sectionTitle}>Meal Services</Text>
+                        {mealCartItems.map((item, index) => (
+                          <CartItemCard 
+                            key={`meal_${item.id || index}`}
+                            item={item}
+                            onRemove={() => handleRemoveItem(item.id, 'meal')}
+                            itemType="meal"
+                          />
+                        ))}
+                        <View style={styles.divider} />
+                      </>
+                    )}
+                    
+                    {/* Maid Cart Items */}
+                    {maidCartItems.length > 0 && (
+                      <>
+                        <Text style={styles.sectionTitle}>Maid Services</Text>
+                        {maidCartItems.map((item, index) => (
+                          <CartItemCard 
+                            key={`maid_${item.id || index}`}
+                            item={item}
+                            onRemove={() => handleRemoveItem(item.id, 'maid')}
+                            itemType="maid"
+                          />
+                        ))}
+                        <View style={styles.divider} />
+                      </>
+                    )}
+                    
+                    {/* Nanny Cart Items */}
+                    {nannyCartItems.length > 0 && (
+                      <>
+                        <Text style={styles.sectionTitle}>Nanny Services</Text>
+                        {nannyCartItems.map((item, index) => (
+                          <CartItemCard 
+                            key={`nanny_${item.id || index}`}
+                            item={item}
+                            onRemove={() => handleRemoveItem(item.id, 'nanny')}
+                            itemType="nanny"
+                          />
+                        ))}
+                      </>
+                    )}
+                  </View>
+
+                  {/* Pricing Summary */}
+                  <View style={styles.pricingContainer}>
+                    <View style={styles.pricingRow}>
+                      <Text style={styles.pricingLabel}>Subtotal:</Text>
+                      <Text style={styles.pricingValue}>₹{totalPrice.toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.pricingRow}>
+                      <Text style={styles.pricingLabel}>Tax (18%):</Text>
+                      <Text style={styles.pricingValue}>₹{tax.toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.pricingRow}>
+                      <Text style={styles.pricingLabel}>Platform Fee (6%):</Text>
+                      <Text style={styles.pricingValue}>₹{platformFee.toFixed(2)}</Text>
+                    </View>
+                    
+                    <View style={styles.divider} />
+                    
+                    <View style={styles.pricingRow}>
+                      <Text style={styles.totalLabel}>Total:</Text>
+                      <Text style={styles.totalValue}>₹{grandTotal.toFixed(2)}</Text>
+                    </View>
+                    
+                    <View style={styles.termsDivider} />
+
+                    {/* Terms Checkboxes */}
+                    <View style={styles.termsContainer}>
+                      <TermsCheckboxes 
+                        onChange={handleTermsChange}
+                        onIndividualChange={handleTermsUpdate}
+                        initialValues={termsAccepted}
+                        onLinkPress={handleOpenPolicy}
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+            
+            {/* Footer */}
+            {allCartItems.length > 0 && (
+              <View style={styles.dialogFooter}>
+                <View style={styles.footerTopRow}>
+                  <Text style={styles.itemCountText}>
+                    {allCartItems.length} item{allCartItems.length !== 1 ? 's' : ''} selected
+                  </Text>
+                </View>
+                
+                <View style={styles.footerButtons}>
+                  <TouchableOpacity 
+                    style={styles.modifyButton}
+                    onPress={handleClose}
+                  >
+                    <Text style={styles.modifyButtonText}>Modify Booking</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.checkoutButton,
+                      !isCheckoutEnabled && styles.disabledButton
+                    ]}
+                    onPress={handleCheckoutClick}
+                    disabled={!isCheckoutEnabled}
+                  >
+                    <Text style={[
+                      styles.checkoutButtonText,
+                      !isCheckoutEnabled && styles.disabledButtonText
+                    ]}>
+                      Proceed to Checkout (₹{grandTotal.toFixed(2)})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* Policy Modal - Same as in registration page */}
+      <Modal
+        visible={policyModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setPolicyModalVisible(false)}
+      >
+        <View style={styles.policyModalContainer}>
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.policyModalHeader}
+          >
+            <Text style={styles.policyModalTitle}>
+              {activePolicy === 'terms' && 'Terms and Conditions'}
+              {activePolicy === 'privacy' && 'Privacy Policy'}
+              {activePolicy === 'keyfacts' && 'Key Facts Statement'}
+            </Text>
+            <TouchableOpacity
+              style={styles.policyModalClose}
+              onPress={() => setPolicyModalVisible(false)}
+            >
+              <Icon name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+          </LinearGradient>
+          <ScrollView style={styles.policyModalContent}>
+            {renderPolicyContent()}
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -548,9 +629,7 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
   );
 };
 
-// Keep the existing styles object as is
 const styles = StyleSheet.create({
-  // ... (all your existing styles remain exactly the same)
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -843,6 +922,33 @@ const styles = StyleSheet.create({
     color: '#2d3748',
     fontWeight: '600',
     fontSize: 14,
+  },
+  // Policy Modal Styles
+  policyModalContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  policyModalHeader: {
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  policyModalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  policyModalClose: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+  },
+  policyModalContent: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    padding: 16,
   },
 });
 

@@ -17,6 +17,7 @@ import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import LinearGradient from "react-native-linear-gradient";
 import DribbbleDateTimePicker from "../common/DribbbleDateTimePicker";
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
@@ -780,7 +781,19 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               end={{ x: 1, y: 0 }}
               style={styles.headerContainer}
             >
-              <Text style={styles.title}>Select your Booking Option</Text>
+              <View style={styles.headerContent}>
+                <View style={styles.headerLeft}>
+                  {/* Empty view for balance */}
+                </View>
+                
+                <Text style={styles.title}>Select your Booking Option</Text>
+                
+                <View style={styles.headerRight}>
+                  <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+                    <Icon name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </LinearGradient>
 
             {/* Radio options */}
@@ -982,11 +995,28 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  headerLeft: {
+    width: 40,
+  },
+  headerRight: {
+    width: 40,
+    alignItems: "flex-end",
+  },
+  closeIcon: {
+    padding: 5,
+  },
   title: {
     fontSize: 18,
     fontWeight: "700",
     color: "#fff",
     textAlign: "center",
+    flex: 1,
   },
   subtitle: {
     fontSize: 14,

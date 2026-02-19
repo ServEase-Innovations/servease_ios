@@ -1348,12 +1348,24 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     return age >= 18;
   };
 
+  // Handle terms change from TermsCheckboxes component
   const handleTermsChange = useCallback((allAccepted: boolean) => {
+    // This is called when "Check All" is toggled
     setFormData(prev => ({
       ...prev,
       keyFacts: allAccepted,
       terms: allAccepted,
       privacy: allAccepted,
+    }));
+  }, []);
+
+  // Handle individual terms updates
+  const handleTermsUpdate = useCallback((updatedTerms: { keyFacts: boolean; terms: boolean; privacy: boolean }) => {
+    setFormData(prev => ({
+      ...prev,
+      keyFacts: updatedTerms.keyFacts,
+      terms: updatedTerms.terms,
+      privacy: updatedTerms.privacy,
     }));
   }, []);
 
@@ -2056,6 +2068,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
             <TermsCheckboxes 
               onChange={handleTermsChange} 
+              onIndividualChange={handleTermsUpdate}
               onLinkPress={handleOpenPolicy}
               initialValues={{
                 keyFacts: formData.keyFacts,
@@ -2162,9 +2175,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 <Icon name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </LinearGradient>
-            <View style={styles.policyModalContent}>
+            <ScrollView style={styles.policyModalContent}>
               {renderPolicyContent()}
-            </View>
+            </ScrollView>
           </View>
         </Modal>
 
@@ -2649,6 +2662,7 @@ const styles = StyleSheet.create({
   policyModalContent: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    padding: 16,
   },
 });
 

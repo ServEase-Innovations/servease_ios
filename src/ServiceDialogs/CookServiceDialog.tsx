@@ -561,21 +561,28 @@ const handleCheckout = async () => {
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
-           <LinearGradient
-                                  colors={["#0a2a66ff", "#004aadff"]}
-                                  start={{ x: 0, y: 0 }}
-                                  end={{ x: 1, y: 0 }}
-                                  style={styles.linearGradient}
-                                >
-          {/* <View style={styles.header}> */}
-            {/* <TouchableOpacity onPress={handleClose} style={styles.backIcon}>
-              <Icon name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity> */}
-            <Text style={styles.headtitle}>MEAL PACKAGES</Text>
-            {/* <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
-              <Icon name="close" size={24} color="#333" />
-            </TouchableOpacity> */}
-          {/* </View> */}
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.linearGradient}
+          >
+            <View style={styles.headerContainer}>
+              <View style={styles.headerLeft}>
+                {/* Optional: You can add a back button here if needed */}
+                {/* <TouchableOpacity onPress={handleClose} style={styles.backIcon}>
+                  <Icon name="arrow-back" size={24} color="#fff" />
+                </TouchableOpacity> */}
+              </View>
+              
+              <Text style={styles.headtitle}>MEAL PACKAGES</Text>
+              
+              <View style={styles.headerRight}>
+                <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+                  <Icon name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
           </LinearGradient>
           
           <ScrollView style={styles.scrollView}>
@@ -730,17 +737,11 @@ const handleCheckout = async () => {
       </View>
 
       {/* Cart Dialog */}
-      {/* <CartDialog
+      <CartDialog
         open={showCartDialog}
         handleClose={() => setShowCartDialog(false)}
         handleCheckout={handleCheckout}
-        // loading={loading}
-      /> */}
-      <CartDialog
-  open={showCartDialog}
-  handleClose={() => setShowCartDialog(false)}
-  handleCheckout={handleCheckout} // This should work now
-/>
+      />
 
       {/* Snackbar for notifications */}
       <Modal
@@ -785,32 +786,41 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-     linearGradient: {
+  linearGradient: {
     padding: 20,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  headerLeft: {
+    width: 40, // To balance the header
+  },
+  headerRight: {
+    width: 40, // To balance the header
+    alignItems: 'flex-end',
   },
   headtitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#fff",
     textAlign: "center",
+    flex: 1,
   },
-  // header: {
-  //   flexDirection: 'row',
-  //   justifyContent: 'space-between',
-  //   alignItems: 'center',
-  //   padding: 20,
-  //   borderBottomWidth: 1,
-  //   borderBottomColor: '#eee',
-  // },
+  closeIcon: {
+    padding: 5,
+  },
+  backIcon: {
+    padding: 5,
+  },
   dialogTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-  },
-  closeIcon: {
-    padding: 5,
   },
   scrollView: {
     paddingHorizontal: 10,
@@ -823,7 +833,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 15,
-    
     marginBottom: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1019,8 +1028,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 9,
     backgroundColor: '#f0f0f0',
-       borderWidth: 1,
-     borderColor: "#007AFF",
+    borderWidth: 1,
+    borderColor: "#007AFF",
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1037,16 +1046,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // disabledButton: {
-  //   backgroundColor: '#ccc',
-  // },
   checkoutButtonText: {
     color: 'white',
     fontWeight: 'bold',
-  },
-  backIcon: {
-    padding: 5,
-    marginRight: 10,
   },
   snackbarOverlay: {
     position: 'absolute',

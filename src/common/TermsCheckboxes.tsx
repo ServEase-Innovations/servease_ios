@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface TermsCheckboxesProps {
   onChange: (allAccepted: boolean) => void;
+  onIndividualChange?: (values: { keyFacts: boolean; terms: boolean; privacy: boolean }) => void;
   onLinkPress: (type: 'terms' | 'privacy' | 'keyfacts') => void;
   initialValues?: {
     keyFacts: boolean;
@@ -19,6 +20,7 @@ interface TermsCheckboxesProps {
 
 export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
   onChange,
+  onIndividualChange,
   onLinkPress,
   initialValues = { keyFacts: false, terms: false, privacy: false },
 }) => {
@@ -37,7 +39,7 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
     setCheckAll(initialValues.keyFacts && initialValues.terms && initialValues.privacy);
   }, [initialValues]);
 
-  // Handle Check All - fills all individual checkboxes
+  // Handle Check All - toggles all individual checkboxes
   const handleCheckAll = () => {
     const newValue = !checkAll;
     setCheckAll(newValue);
@@ -45,9 +47,18 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
     setTerms(newValue);
     setPrivacy(newValue);
     onChange(newValue);
+    
+    // Notify parent about individual changes
+    if (onIndividualChange) {
+      onIndividualChange({
+        keyFacts: newValue,
+        terms: newValue,
+        privacy: newValue
+      });
+    }
   };
 
-  // Handle individual checkbox - fills single checkbox
+  // Handle individual checkbox - toggles single checkbox
   const handleIndividualCheck = (
     setter: React.Dispatch<React.SetStateAction<boolean>>,
     currentValue: boolean,
@@ -69,12 +80,21 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
       newPrivacy = newValue;
     }
     
-    // Check if all are now filled
+    // Check if all are now checked
     const allChecked = newKeyFacts && newTerms && newPrivacy;
     setCheckAll(allChecked);
     
-    // Notify parent component
+    // Notify parent component about the change
     onChange(allChecked);
+    
+    // Notify parent about individual changes
+    if (onIndividualChange) {
+      onIndividualChange({
+        keyFacts: newKeyFacts,
+        terms: newTerms,
+        privacy: newPrivacy
+      });
+    }
   };
 
   return (
@@ -84,7 +104,7 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
         Please review and agree to the following policies before proceeding.
       </Text>
 
-      {/* Check All option - fills all checkboxes when clicked */}
+      {/* Check All option - toggles all checkboxes when clicked */}
       <TouchableOpacity
         style={styles.checkboxRow}
         onPress={handleCheckAll}
@@ -100,7 +120,7 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
 
       <View style={styles.divider} />
 
-      {/* Key Facts Statement - Individual checkbox (can be filled separately) */}
+      {/* Key Facts Statement - Individual checkbox */}
       <TouchableOpacity
         style={styles.checkboxRow}
         onPress={() => handleIndividualCheck(setKeyFacts, keyFacts, 'keyFacts')}
@@ -120,7 +140,7 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
         </Text>
       </TouchableOpacity>
 
-      {/* Terms and Conditions - Individual checkbox (can be filled separately) */}
+      {/* Terms and Conditions - Individual checkbox */}
       <TouchableOpacity
         style={styles.checkboxRow}
         onPress={() => handleIndividualCheck(setTerms, terms, 'terms')}
@@ -140,7 +160,7 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
         </Text>
       </TouchableOpacity>
 
-      {/* Privacy Statement - Individual checkbox (can be filled separately) */}
+      {/* Privacy Statement - Individual checkbox */}
       <TouchableOpacity
         style={styles.checkboxRow}
         onPress={() => handleIndividualCheck(setPrivacy, privacy, 'privacy')}
@@ -218,3 +238,5 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
 });
+
+export default TermsCheckboxes;

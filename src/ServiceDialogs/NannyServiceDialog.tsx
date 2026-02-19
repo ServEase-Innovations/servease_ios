@@ -725,7 +725,19 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
             end={{ x: 1, y: 0 }}
             style={styles.linearGradient}
           >
-            <Text style={styles.headtitle}>Caregiver Service</Text>
+            <View style={styles.headerContainer}>
+              <View style={styles.headerLeft}>
+                {/* Empty view for balance */}
+              </View>
+              
+              <Text style={styles.headtitle}>Caregiver Service</Text>
+              
+              <View style={styles.headerRight}>
+                <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
+                  <Icon name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
           </LinearGradient>
           
           <View style={styles.tabsContainer}>
@@ -836,11 +848,28 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  headerLeft: {
+    width: 40,
+  },
+  headerRight: {
+    width: 40,
+    alignItems: 'flex-end',
+  },
   headtitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#fff",
     textAlign: "center",
+    flex: 1,
+  },
+  closeIcon: {
+    padding: 5,
   },
   tabsContainer: {
     flexDirection: 'row',
