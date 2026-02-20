@@ -562,14 +562,15 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
     }
   };
 
-  // ✅ FIXED: Package rendering with simple age validation
+  // ✅ UPDATED: Package rendering with new styling (no inCartText)
   const renderPackage = useCallback((key: string, pkg: NannyPackage) => {
     const packageType = key.includes("day") ? "day" 
                     : key.includes("night") ? "night" 
                     : "fullTime";
                     
     const displayPackageType = packageType.charAt(0).toUpperCase() + packageType.slice(1);
-    const color = activeTab === 'baby' ? '#e17055' : '#0984e3';
+    const color = activeTab === 'baby' ? '#0984e3' : '#0984e3';
+    const cartColor = '#0984e3'; // Blue color for cart items
     
     const isBaby = activeTab === 'baby';
     const minAge = isBaby ? 1 : 60;
@@ -577,9 +578,12 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
 
     return (
       <View key={key} style={[
-        styles.packageCard, 
-        pkg.selected && styles.selectedPackage,
-        { borderLeftColor: color }
+        styles.packageCard,
+        pkg.inCart && styles.inCartPackage,
+        { 
+          borderLeftColor: pkg.inCart ? cartColor : color,
+          borderLeftWidth: 5
+        }
       ]}>
         <View style={styles.packageHeader}>
           <View style={styles.packageInfo}>
@@ -598,40 +602,47 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
           </View>
         </View>
 
-        {/* ✅ FIXED: Age Control with Simple Limits */}
+        {/* Age Control with Square Buttons */}
         <View style={styles.personsControl}>
           <Text style={styles.personsLabel}>Age:</Text>
           <View style={styles.personsInput}>
             <TouchableOpacity 
               style={[
                 styles.ageButton,
-                pkg.age <= minAge && styles.disabledAgeButton
+                pkg.age <= minAge && styles.disabledAgeButton,
+                pkg.inCart && styles.inCartAgeButton
               ]}
               onPress={() => handleAgeChange(key, -1)}
               disabled={pkg.age <= minAge}
             >
               <Text style={[
                 styles.ageButtonText, 
-                pkg.age <= minAge && styles.disabledAgeButtonText
-              ]}>-</Text>
+                pkg.age <= minAge && styles.disabledAgeButtonText,
+                pkg.inCart && styles.inCartAgeButtonText
+              ]}>−</Text>
             </TouchableOpacity>
             
             <View style={styles.ageValueContainer}>
-              <Text style={styles.personsValue}>{pkg.age}</Text>
+              <Text style={[
+                styles.personsValue,
+                pkg.inCart && styles.selectedPersonsValue
+              ]}>{pkg.age}</Text>
               <Text style={styles.ageRangeText}>Range: {minAge}-{maxAge}</Text>
             </View>
             
             <TouchableOpacity 
               style={[
                 styles.ageButton,
-                pkg.age >= maxAge && styles.disabledAgeButton
+                pkg.age >= maxAge && styles.disabledAgeButton,
+                pkg.inCart && styles.inCartAgeButton
               ]}
               onPress={() => handleAgeChange(key, 1)}
               disabled={pkg.age >= maxAge}
             >
               <Text style={[
                 styles.ageButtonText,
-                pkg.age >= maxAge && styles.disabledAgeButtonText
+                pkg.age >= maxAge && styles.disabledAgeButtonText,
+                pkg.inCart && styles.inCartAgeButtonText
               ]}>+</Text>
             </TouchableOpacity>
           </View>
@@ -657,7 +668,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
           style={[
             styles.cartButton,
             pkg.inCart && styles.selectedCartButton,
-            { borderColor: color }
+            { borderColor: pkg.inCart ? cartColor : color }
           ]}
           onPress={() => toggleCart(key, pkg)}
         >
@@ -671,7 +682,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
             pkg.inCart && styles.selectedCartButtonText,
             !pkg.inCart && { color }
           ]}>
-            {pkg.inCart ? 'REMOVE FROM CART' : 'ADD TO CART'}
+            {pkg.inCart ? 'ADDED TO CART' : 'ADD TO CART'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -910,15 +921,15 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 1,
     elevation: 3,
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: '#eee',
     borderLeftWidth: 5,
   },
-  selectedPackage: {
-    borderColor: '#3399cc',
-    borderWidth: 2,
+  inCartPackage: {
+    backgroundColor: '#dff0ff', // Light teal background for cart items
+    borderColor: '#0984e3',
   },
   packageHeader: {
     flexDirection: 'row',
@@ -979,26 +990,40 @@ const styles = StyleSheet.create({
   personsInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 2,
   },
   ageButton: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    backgroundColor: '#f0f0f0',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  inCartAgeButton: {
+    backgroundColor: '#0984e3',
+    borderColor: '#0984e3',
   },
   disabledAgeButton: {
     backgroundColor: '#f9f9f9',
     borderColor: '#eee',
   },
   ageButtonText: {
-    fontSize: 18,
-    color: '#333',
-    fontWeight: 'bold',
+    fontSize: 20,
+    color: '#555',
+    fontWeight: '600',
+  },
+  inCartAgeButtonText: {
+    color: 'white',
   },
   disabledAgeButtonText: {
     color: '#ccc',
@@ -1009,10 +1034,14 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   personsValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
     textAlign: 'center',
+    minWidth: 30,
+  },
+  selectedPersonsValue: {
+    color: '#0984e3',
   },
   ageRangeText: {
     fontSize: 10,
@@ -1059,8 +1088,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   selectedCartButton: {
-    backgroundColor: '#3399cc',
-    borderColor: '#3399cc',
+    backgroundColor: '#0984e3',
+    borderColor: '#0984e3',
   },
   cartButtonText: {
     fontSize: 14,

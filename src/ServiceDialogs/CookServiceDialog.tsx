@@ -94,8 +94,12 @@ const DemoCook = ({
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
-//using for location fetching from head.tsx
-    const [currentLocation, setCurrentLocation] = React.useState<LocationData | null>(null);
+  //using for location fetching from head.tsx
+  const [currentLocation, setCurrentLocation] = React.useState<LocationData | null>(null);
+
+  // Consistent blue color for all meal types (like Breakfast in the image)
+  const PRIMARY_COLOR = '#0984e3';
+  const LIGHT_BLUE_BG = '#e6f3ff';
 
   const getBookingTypeFromPreference = (bookingPreference: string | undefined): string => {
     if (!bookingPreference) return 'MONTHLY';
@@ -120,15 +124,6 @@ const DemoCook = ({
       case 'lunch': return '(1.7M reviews)';
       case 'dinner': return '(2.7M reviews)';
       default: return '(1M reviews)';
-    }
-  };
-
-  const getCategoryColor = (category: string): string => {
-    switch(category.toLowerCase()) {
-      case 'breakfast': return '#e17055';
-      case 'lunch': return '#00b894';
-      case 'dinner': return '#0984e3';
-      default: return '#2d3436';
     }
   };
 
@@ -193,43 +188,38 @@ const DemoCook = ({
   };
 
   // Add this helper function to validate payload
- const validatePayload = (payload: BookingPayload) => {
-  const errors: string[] = [];
+  const validatePayload = (payload: BookingPayload) => {
+    const errors: string[] = [];
 
-  if (!payload.customerid || payload.customerid <= 0) {
-    errors.push("Invalid customer ID");
-  }
+    if (!payload.customerid || payload.customerid <= 0) {
+      errors.push("Invalid customer ID");
+    }
 
-  // For ON_DEMAND bookings, serviceproviderid can be null/0
-  // For other types, it should be valid
-  const isOnDemand = payload.booking_type === "ON_DEMAND";
-  if (!isOnDemand && (!payload.serviceproviderid || payload.serviceproviderid <= 0)) {
-    errors.push("Invalid service provider ID");
-  }
+    // For ON_DEMAND bookings, serviceproviderid can be null/0
+    // For other types, it should be valid
+    const isOnDemand = payload.booking_type === "ON_DEMAND";
+    if (!isOnDemand && (!payload.serviceproviderid || payload.serviceproviderid <= 0)) {
+      errors.push("Invalid service provider ID");
+    }
 
-  if (!payload.start_date) {
-    errors.push("Start date is required");
-  }
+    if (!payload.start_date) {
+      errors.push("Start date is required");
+    }
 
-  if (!payload.start_time || !/^\d{2}:\d{2}:\d{2}$/.test(payload.start_time)) {
-    errors.push("Invalid start time format. Expected HH:MM:SS");
-  }
+    if (!payload.start_time || !/^\d{2}:\d{2}:\d{2}$/.test(payload.start_time)) {
+      errors.push("Invalid start time format. Expected HH:MM:SS");
+    }
 
-  if (payload.booking_type === "ON_DEMAND" && !payload.end_time) {
-    errors.push("End time is required for ON_DEMAND bookings");
-  }
+    if (payload.booking_type === "ON_DEMAND" && !payload.end_time) {
+      errors.push("End time is required for ON_DEMAND bookings");
+    }
 
-  if (!payload.base_amount || payload.base_amount <= 0) {
-    errors.push("Invalid base amount");
-  }
+    if (!payload.base_amount || payload.base_amount <= 0) {
+      errors.push("Invalid base amount");
+    }
 
-  // if (errors.length > 0) {
-  //   console.error("🚨 Payload validation errors:", errors);
-  //   return false;
-  // }
-
-  return true;
-};
+    return true;
+  };
 
   const initialPackages = useMemo(() => {
     if (!cookPricing || cookPricing.length === 0) return [];
@@ -325,7 +315,6 @@ const DemoCook = ({
               description: currentPackage.includes.join(', '),
               basePrice: currentPackage.basePrice || currentPackage.price,
               maxPersons: currentPackage.maxPersons || 15,
-              // bookingType: currentPackage.bookingType
             }
           }));
         }, 0);
@@ -352,7 +341,6 @@ const DemoCook = ({
             description: currentPackage.includes.join(', '),
             basePrice: currentPackage.basePrice || currentPackage.price,
             maxPersons: currentPackage.maxPersons || 15,
-            // bookingType: currentPackage.bookingType
           }));
         } else {
           dispatch(removeFromCart({
@@ -388,7 +376,6 @@ const DemoCook = ({
           description: pkg.includes.join(', '),
           basePrice: pkg.basePrice || pkg.price,
           maxPersons: pkg.maxPersons || 15,
-          // bookingType: pkg.bookingType
         }));
       }
     });
@@ -405,143 +392,142 @@ const DemoCook = ({
     setShowCartDialog(true);
   };
 
-const handleCheckout = async () => {
-  try {
-    setLoading(true);
+  const handleCheckout = async () => {
+    try {
+      setLoading(true);
 
-    const selectedPackages = packages.filter(pkg => pkg.selected);
-    
-    if (selectedPackages.length === 0) {
-      Alert.alert("Error", "Please select at least one package");
-      setLoading(false);
-      return;
-    }
-
-    const baseTotal = selectedPackages.reduce((sum, pkg) => sum + pkg.price, 0);
-    const customerId = appUser?.customerid || user?.customerid || 19;
-
-    const responsibilities = {
-      tasks: selectedPackages.map(pkg => ({
-        taskType: pkg.name.charAt(0).toUpperCase() + pkg.name.slice(1),
-        persons: pkg.persons || 1
-      }))
-    };
-
-    // Format start_time properly
-    const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
-    const startTime = formatTimeForBackend(bookingType?.timeRange);
-
-    // Conditional serviceproviderid logic - FIXED
-    const isOnDemand = currentBookingType === "ON_DEMAND";
-    
-    // Handle serviceproviderid properly to match BookingPayload type
-    let serviceproviderid: number | null = null;
-    if (!isOnDemand && providerDetails?.serviceproviderId) {
-      serviceproviderid = Number(providerDetails.serviceproviderId);
-    }
-
-    console.log("Determined serviceproviderid:", bookingType);
-
-    const demoForStartTime = bookingType?.timeRange.split("-");
-    console.log("Demo for start time :", demoForStartTime + ":00")
-    // Prepare payload matching BookingPayload interface
-    const payload: BookingPayload = {
-      customerid: customerId,
-      serviceproviderid: serviceproviderid, // Now properly typed as number | null
-      start_date: bookingType?.demoForStartTime || new Date().toISOString().split("T")[0],
-      end_date: bookingType?.end_Date || new Date().toISOString().split("T")[0],
-      responsibilities: responsibilities,
-      booking_type: currentBookingType,
-      taskStatus: "NOT_STARTED",
-      service_type: "COOK",
-      base_amount: baseTotal,
-      payment_mode: "razorpay",
-      start_time: demoForStartTime[0].trim()
-    };
-
-    console.log("Prepared booking payload:", payload);
-
-
-    console.log("📦 Booking payload:", JSON.stringify(payload, null, 2));
-    console.log(`🔍 Booking Type: ${currentBookingType}, Service Provider ID: ${serviceproviderid}`);
-
-    // Validate payload before sending
-    if (!validatePayload(payload)) {
-      Alert.alert("Validation Error", "Please check your booking details");
-      setLoading(false);
-      return;
-    }
-
-    // ✅ Use the bookAndPay method exactly like in React web version
-    console.log("🚀 Calling BookingService.bookAndPay...");
-    const result = await BookingService.bookAndPay(payload);
-    
-    console.log("✅ bookAndPay result:", result);
-
-    // ✅ Success handling - matching your React web version
-    setSnackbarMessage(result?.verifyResult?.message || "Booking & Payment Successful ✅");
-    setSnackbarSeverity("success");
-    setSnackbarVisible(true);
-
-    // Clear cart and close dialogs
-    selectedPackages.forEach(pkg => {
-      dispatch(removeFromCart({
-        id: pkg.name.toUpperCase(),
-        type: 'meal'
-      }));
-    });
-
-    if (sendDataToParent) {
-      sendDataToParent(BOOKINGS);
-    }
-    
-    setTimeout(() => {
-      setShowCartDialog(false);
-      onClose();
-    }, 2000);
-
-  } catch (error: any) {
-    console.error('❌ Checkout error:', error);
-    
-    // ✅ Enhanced error handling - matching your React web version
-    let backendMessage = "Failed to initiate payment";
-    
-    if (error?.response?.data) {
-      if (typeof error.response.data === "string") {
-        backendMessage = error.response.data;
-      } else if (error.response.data.error) {
-        backendMessage = error.response.data.error;
-      } else if (error.response.data.message) {
-        backendMessage = error.response.data.message;
+      const selectedPackages = packages.filter(pkg => pkg.selected);
+      
+      if (selectedPackages.length === 0) {
+        Alert.alert("Error", "Please select at least one package");
+        setLoading(false);
+        return;
       }
-    } else if (error.message) {
-      backendMessage = error.message;
-    }
 
-    // Handle Razorpay specific errors
-    if (error?.code) {
-      switch (error.code) {
-        case 0:
-          backendMessage = "Payment cancelled by user";
-          break;
-        case 1:
-          backendMessage = "Payment failed. Please try again.";
-          break;
-        case 2:
-          backendMessage = "Network error. Please check your internet connection.";
-          break;
-        default:
-          backendMessage = error.description || "Payment failed";
+      const baseTotal = selectedPackages.reduce((sum, pkg) => sum + pkg.price, 0);
+      const customerId = appUser?.customerid || user?.customerid || 19;
+
+      const responsibilities = {
+        tasks: selectedPackages.map(pkg => ({
+          taskType: pkg.name.charAt(0).toUpperCase() + pkg.name.slice(1),
+          persons: pkg.persons || 1
+        }))
+      };
+
+      // Format start_time properly
+      const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
+      const startTime = formatTimeForBackend(bookingType?.timeRange);
+
+      // Conditional serviceproviderid logic - FIXED
+      const isOnDemand = currentBookingType === "ON_DEMAND";
+      
+      // Handle serviceproviderid properly to match BookingPayload type
+      let serviceproviderid: number | null = null;
+      if (!isOnDemand && providerDetails?.serviceproviderId) {
+        serviceproviderid = Number(providerDetails.serviceproviderId);
       }
-    }
 
-    setSnackbarMessage(backendMessage);
-    setSnackbarSeverity("error");
-    setSnackbarVisible(true);
-  } finally {
-    setLoading(false);
-  }
-};
+      console.log("Determined serviceproviderid:", bookingType);
+
+      const demoForStartTime = bookingType?.timeRange.split("-");
+      console.log("Demo for start time :", demoForStartTime + ":00")
+      // Prepare payload matching BookingPayload interface
+      const payload: BookingPayload = {
+        customerid: customerId,
+        serviceproviderid: serviceproviderid, // Now properly typed as number | null
+        start_date: bookingType?.demoForStartTime || new Date().toISOString().split("T")[0],
+        end_date: bookingType?.end_Date || new Date().toISOString().split("T")[0],
+        responsibilities: responsibilities,
+        booking_type: currentBookingType,
+        taskStatus: "NOT_STARTED",
+        service_type: "COOK",
+        base_amount: baseTotal,
+        payment_mode: "razorpay",
+        start_time: demoForStartTime[0].trim()
+      };
+
+      console.log("Prepared booking payload:", payload);
+
+      console.log("📦 Booking payload:", JSON.stringify(payload, null, 2));
+      console.log(`🔍 Booking Type: ${currentBookingType}, Service Provider ID: ${serviceproviderid}`);
+
+      // Validate payload before sending
+      if (!validatePayload(payload)) {
+        Alert.alert("Validation Error", "Please check your booking details");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Use the bookAndPay method exactly like in React web version
+      console.log("🚀 Calling BookingService.bookAndPay...");
+      const result = await BookingService.bookAndPay(payload);
+      
+      console.log("✅ bookAndPay result:", result);
+
+      // ✅ Success handling - matching your React web version
+      setSnackbarMessage(result?.verifyResult?.message || "Booking & Payment Successful ✅");
+      setSnackbarSeverity("success");
+      setSnackbarVisible(true);
+
+      // Clear cart and close dialogs
+      selectedPackages.forEach(pkg => {
+        dispatch(removeFromCart({
+          id: pkg.name.toUpperCase(),
+          type: 'meal'
+        }));
+      });
+
+      if (sendDataToParent) {
+        sendDataToParent(BOOKINGS);
+      }
+      
+      setTimeout(() => {
+        setShowCartDialog(false);
+        onClose();
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('❌ Checkout error:', error);
+      
+      // ✅ Enhanced error handling - matching your React web version
+      let backendMessage = "Failed to initiate payment";
+      
+      if (error?.response?.data) {
+        if (typeof error.response.data === "string") {
+          backendMessage = error.response.data;
+        } else if (error.response.data.error) {
+          backendMessage = error.response.data.error;
+        } else if (error.response.data.message) {
+          backendMessage = error.response.data.message;
+        }
+      } else if (error.message) {
+        backendMessage = error.message;
+      }
+
+      // Handle Razorpay specific errors
+      if (error?.code) {
+        switch (error.code) {
+          case 0:
+            backendMessage = "Payment cancelled by user";
+            break;
+          case 1:
+            backendMessage = "Payment failed. Please try again.";
+            break;
+          case 2:
+            backendMessage = "Network error. Please check your internet connection.";
+            break;
+          default:
+            backendMessage = error.description || "Payment failed";
+        }
+      }
+
+      setSnackbarMessage(backendMessage);
+      setSnackbarSeverity("error");
+      setSnackbarVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getTotal = () => {
     return packages.reduce((sum, pkg) => {
@@ -568,27 +554,17 @@ const handleCheckout = async () => {
             style={styles.linearGradient}
           >
             <View style={styles.headerContainer}>
-              <View style={styles.headerLeft}>
-                {/* Optional: You can add a back button here if needed */}
-                {/* <TouchableOpacity onPress={handleClose} style={styles.backIcon}>
-                  <Icon name="arrow-back" size={24} color="#fff" />
-                </TouchableOpacity> */}
-              </View>
-              
               <Text style={styles.headtitle}>MEAL PACKAGES</Text>
               
-              <View style={styles.headerRight}>
-                <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
-                  <Icon name="close" size={24} color="#fff" />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+                <Icon name="close" size={24} color="#fff" />
+              </TouchableOpacity>
             </View>
           </LinearGradient>
           
           <ScrollView style={styles.scrollView}>
             <View style={styles.packagesContainer}>
               {packages.map((pkg, index) => {
-                const categoryColor = getCategoryColor(pkg.category || pkg.name);
                 const currentPersons = pkg.persons || 1;
                 const maxPersons = pkg.maxPersons || 3;
                 
@@ -596,13 +572,13 @@ const handleCheckout = async () => {
                   <View key={index} style={[
                     styles.packageCard, 
                     pkg.inCart && styles.selectedPackage,
-                    { borderLeftColor: categoryColor }
+                    { borderLeftColor: PRIMARY_COLOR }
                   ]}>
                     <View style={styles.packageHeader}>
                       <View>
                         <Text style={styles.packageTitle}>{pkg.name}</Text>
                         <View style={styles.ratingContainer}>
-                          <Text style={[styles.ratingValue, { color: categoryColor }]}>{pkg.rating}</Text>
+                          <Text style={[styles.ratingValue, { color: PRIMARY_COLOR }]}>{pkg.rating}</Text>
                           <Text style={styles.reviewsText}>{pkg.reviews}</Text>
                         </View>
                         <Text style={styles.bookingTypeText}>
@@ -610,7 +586,7 @@ const handleCheckout = async () => {
                         </Text>
                       </View>
                       <View style={styles.priceContainer}>
-                        <Text style={[styles.priceValue, { color: categoryColor }]}>
+                        <Text style={[styles.priceValue, { color: PRIMARY_COLOR }]}>
                           ₹{pkg.price.toFixed(2)}
                         </Text>
                         <Text style={styles.preparationTime}>{pkg.prepTime}</Text>
@@ -623,25 +599,38 @@ const handleCheckout = async () => {
                         <TouchableOpacity 
                           style={[
                             styles.decrementButton,
-                            currentPersons <= 1 && styles.disabledButton
+                            currentPersons <= 1 && styles.disabledButton,
+                            pkg.inCart && styles.selectedIncrementButton
                           ]}
                           onPress={() => handlePersonChange(index, 'decrement')}
                           disabled={currentPersons <= 1}
                         >
-                          <Text style={styles.buttonText}>-</Text>
+                          <Text style={[
+                            styles.buttonText,
+                            pkg.inCart && styles.selectedButtonText
+                          ]}>−</Text>
                         </TouchableOpacity>
-                        <Text style={styles.personsValue}>
+                        
+                        <Text style={[
+                          styles.personsValue,
+                          pkg.inCart && styles.selectedPersonsValue
+                        ]}>
                           {currentPersons}
                         </Text>
+                        
                         <TouchableOpacity 
                           style={[
                             styles.incrementButton,
-                            currentPersons >= 15 && styles.disabledButton
+                            currentPersons >= 15 && styles.disabledButton,
+                            pkg.inCart && styles.selectedIncrementButton
                           ]}
                           onPress={() => handlePersonChange(index, 'increment')}
                           disabled={currentPersons >= 15}
                         >
-                          <Text style={styles.buttonText}>+</Text>
+                          <Text style={[
+                            styles.buttonText,
+                            pkg.inCart && styles.selectedButtonText
+                          ]}>+</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -654,30 +643,33 @@ const handleCheckout = async () => {
                       {pkg.includes.map((item, i) => (
                         <View key={i} style={styles.descriptionItem}>
                           <Text style={styles.descriptionBullet}>•</Text>
-                          <Text style={styles.descriptionText}>{item}</Text>
+                          <Text style={[
+                            styles.descriptionText,
+                            pkg.inCart && styles.selectedDescriptionText
+                          ]}>{item}</Text>
                         </View>
                       ))}
-
                     </View>
 
                     <TouchableOpacity
                       style={[
                         styles.cartButton,
-                        pkg.inCart && { backgroundColor: categoryColor, borderColor: categoryColor }
+                        pkg.inCart && styles.selectedCartButton,
+                        { borderColor: PRIMARY_COLOR }
                       ]}
                       onPress={() => toggleCart(index)}
                     >
                       {pkg.inCart ? (
-                        <Icon name="remove-shopping-cart" size={20} color="white" />
+                        <Icon name="remove-shopping-cart" size={20} color="#fff" />
                       ) : (
-                        <Icon name="add-shopping-cart" size={20} color={categoryColor} />
+                        <Icon name="add-shopping-cart" size={20} color={PRIMARY_COLOR} />
                       )}
                       <Text style={[
                         styles.cartButtonText,
                         pkg.inCart && styles.selectedCartButtonText,
-                        !pkg.inCart && { color: categoryColor }
+                        !pkg.inCart && { color: PRIMARY_COLOR }
                       ]}>
-                        {pkg.inCart ? 'REMOVE FROM CART' : 'ADD TO CART'}
+                        {pkg.inCart ? 'ADDED TO CART' : 'ADD TO CART'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -726,9 +718,12 @@ const handleCheckout = async () => {
                 disabled={selectedCount === 0 || loading}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="white" />
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
+                  <>
+                    <Icon name="shopping-cart" size={18} color="#fff" style={styles.checkoutIcon} />
+                    <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </View>
@@ -757,7 +752,7 @@ const handleCheckout = async () => {
           ]}>
             <Text style={styles.snackbarText}>{snackbarMessage}</Text>
             <TouchableOpacity onPress={() => setSnackbarVisible(false)}>
-              <Icon name="close" size={20} color="white" />
+              <Icon name="close" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -775,7 +770,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContainer: {
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
     marginHorizontal: 15,
     borderRadius: 15,
     maxHeight: height * 0.85,
@@ -796,13 +791,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-  },
-  headerLeft: {
-    width: 40, // To balance the header
-  },
-  headerRight: {
-    width: 40, // To balance the header
-    alignItems: 'flex-end',
+    paddingHorizontal: 5,
   },
   headtitle: {
     fontSize: 18,
@@ -816,6 +805,7 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     padding: 5,
+    marginRight: 10,
   },
   dialogTitle: {
     fontSize: 20,
@@ -844,8 +834,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 5,
   },
   selectedPackage: {
-    borderColor: '#3399cc',
-    borderWidth: 2,
+    backgroundColor: '#e6f3ff',
+    borderColor: '#0984e3',
+    borderWidth: 0,
   },
   packageHeader: {
     flexDirection: 'row',
@@ -897,39 +888,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginRight: 10,
     color: '#333',
+    fontWeight: '500',
   },
   personsInput: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 2,
   },
   decrementButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#f0f0f0',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
   },
   incrementButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#f0f0f0',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  selectedIncrementButton: {
+    backgroundColor: '#0984e3',
+    borderColor: '#0984e3',
   },
   disabledButton: {
     backgroundColor: '#e0e0e0',
+    opacity: 0.5,
   },
   buttonText: {
-    fontSize: 18,
-    color: '#333',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#555',
+  },
+  selectedButtonText: {
+    color: '#fff',
   },
   personsValue: {
-    marginHorizontal: 15,
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginHorizontal: 20,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
+    minWidth: 30,
+    textAlign: 'center',
+  },
+  selectedPersonsValue: {
+    color: '#0984e3',
   },
   additionalCharges: {
     fontSize: 12,
@@ -953,6 +976,9 @@ const styles = StyleSheet.create({
     color: '#666',
     flex: 1,
   },
+  selectedDescriptionText: {
+    color: '#333',
+  },
   cartButton: {
     paddingVertical: 12,
     borderRadius: 5,
@@ -962,16 +988,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#3399cc',
+  },
+  selectedCartButton: {
+    backgroundColor: '#0984e3',
+    borderColor: '#0984e3',
   },
   cartButtonText: {
     fontSize: 14,
     fontWeight: 'bold',
-    marginLeft: 5,
-    color: '#3399cc',
+    marginLeft: 8,
   },
   selectedCartButtonText: {
-    color: 'white',
+    color: '#fff',
   },
   footerContainer: {
     padding: 15,
@@ -1002,7 +1030,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   voucherButtonText: {
-    color: 'white',
+    color: '#fff',
     fontWeight: 'bold',
   },
   totalContainer: {
@@ -1028,7 +1056,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 9,
     backgroundColor: '#f0f0f0',
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: "#007AFF",
     alignItems: 'center',
     justifyContent: 'center',
@@ -1045,10 +1073,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
   },
   checkoutButtonText: {
-    color: 'white',
+    color: '#fff',
     fontWeight: 'bold',
+    marginLeft: 5,
+  },
+  checkoutIcon: {
+    marginRight: 5,
   },
   snackbarOverlay: {
     position: 'absolute',
@@ -1076,7 +1109,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f44336',
   },
   snackbarText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 14,
     flex: 1,
     marginRight: 10,
