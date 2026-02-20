@@ -44,6 +44,7 @@ import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 // Add this import at the top with other dialog imports
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
+import { BackHandler } from 'react-native';
 
 // Helper function to log ALL booking data in detail
 const logBookingData = (data: any, source: string) => {
@@ -1273,6 +1274,7 @@ const mapBookingData = (data: any[]) => {
     setSelectedBookingForLeave(booking);
     setHolidayDialogOpen(true);
   };
+  
 
   // Improved cancel booking with PaymentInstance
   const handleCancelBooking = async (booking: Booking) => {

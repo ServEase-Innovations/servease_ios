@@ -1,4 +1,4 @@
-// App.tsx - Updated with deep linking support
+// App.tsx - Fixed version with proper HOME and DASHBOARD separation
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -42,7 +42,7 @@ import Chatbot from "./src/Chatbot/Chatbot";
 import Booking from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/ProfileScreen";
-import { BOOKINGS, DASHBOARD, PROFILE } from "./src/Constants/pagesConstants";
+import { BOOKINGS, DASHBOARD, PROFILE, HOME } from "./src/Constants/pagesConstants";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationButton from "./src/Notifications/NotificationButton";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
@@ -87,7 +87,7 @@ interface DeepLinkData {
 
 const MainApp = () => {
   const [chatbotOpen, setChatbotOpen] = useState(false);
-  const [currentView, setCurrentView] = useState("HOME");
+  const [currentView, setCurrentView] = useState(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -333,7 +333,7 @@ const MainApp = () => {
       
       // 2. Clear all app states to initial values
       console.log("🔄 Resetting all app states...");
-      setCurrentView("HOME");
+      setCurrentView(HOME);
       setChatbotOpen(false);
       setSelectedBookingType("");
       setShowProfileFromDashboard(false);
@@ -404,7 +404,7 @@ const MainApp = () => {
       console.error("❌ Error during app relaunch:", error);
       // Force reset even if errors occur
       setAppResetKey(Date.now());
-      setCurrentView("HOME");
+      setCurrentView(HOME);
       setShowSplash(false);
       setIsResetting(false);
     }
@@ -447,7 +447,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
   switch (type) {
     case "USER":
       handleAuth0Login();   
-      setCurrentView("HOME");
+      setCurrentView(HOME);
       break;
 
     case "PROVIDER":
@@ -481,7 +481,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
 
     if (!appUser) {
       console.log("👤 No user detected, resetting to HOME view");
-      setCurrentView("HOME");
+      setCurrentView(HOME);
       setShowProfileFromDashboard(false);
       setShowNotificationClient(false);
       setShouldShowMobileDialog(false);
@@ -699,7 +699,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
 
   const handleViewChange = (view: string) => {
     if (view === "" || view === "FORCE_HOME") {
-      setCurrentView("HOME");
+      setCurrentView(HOME);
       setShowProfileFromDashboard(false);
     } else {
       setCurrentView(view);
@@ -711,7 +711,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
   const handleNotificationButtonPress = () => setShowNotificationClient(true);
 
   const handleHomeClick = () => {
-    setCurrentView("HOME");
+    setCurrentView(HOME);
     setShowProfileFromDashboard(false);
   };
 
@@ -728,7 +728,8 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
   };
 
   const handleDashboardClick = () => {
-    handleViewChange(DASHBOARD);
+    setCurrentView(DASHBOARD);
+    setShowProfileFromDashboard(false);
   };
 
   const handleAboutClick = () => {
@@ -739,33 +740,39 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
     Alert.alert("Contact Us", "Contact ServEaso support");
   };
 
+  // FIXED: renderContent function - Now properly separates HOME and DASHBOARD
   const renderContent = () => {
-    if (appUser && appUser.role?.toUpperCase() === "SERVICE_PROVIDER" && currentView === "HOME") {
-      return showProfileFromDashboard ? (
-        <ProfileScreen />
-      ) : (
-        <Dashboard onProfilePress={handleDashboardProfilePress} />
-      );
-    }
-
+    // For service providers:
+    // - If currentView is HOME → Show HomePage
+    // - If currentView is DASHBOARD → Show Dashboard
+    // - If currentView is PROFILE → Show ProfileScreen
+    // - If currentView is BOOKINGS → Show Bookings
+    
     switch (currentView) {
-      case "HOME":
+      case HOME:
+        // Always show HomePage when currentView is HOME, regardless of user role
         return (
           <View style={styles.homeContainer}>
             <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
           </View>
         );
+        
       case BOOKINGS:
         return <Booking />;
+        
       case DASHBOARD:
+        // Show Dashboard for service providers, but if profile view is requested from dashboard
         return showProfileFromDashboard ? (
           <ProfileScreen />
         ) : (
           <Dashboard onProfilePress={handleDashboardProfilePress} />
         );
+        
       case PROFILE:
         return <ProfileScreen />;
+        
       default:
+        // This handles "DETAILS" and any other views
         return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
     }
   };
@@ -832,7 +839,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
                 contentInsetAdjustmentBehavior="automatic"
               >
                 {renderContent()}
-                {currentView === "HOME" &&
+                {currentView === HOME &&
                   (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
               </ScrollView>
             )}
@@ -861,6 +868,9 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
                     setCurrentView(BOOKINGS);
                   } else if (page === DASHBOARD) {
                     setCurrentView(DASHBOARD);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === HOME) {
+                    setCurrentView(HOME);
                     setShowProfileFromDashboard(false);
                   }
                 }}

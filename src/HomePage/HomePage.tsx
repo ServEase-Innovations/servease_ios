@@ -1,3 +1,4 @@
+// HomePage.tsx - Updated with complete booking disable for service providers
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -13,6 +14,7 @@ import {
   ImageStyle,
   Animated,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
@@ -380,6 +382,15 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const dispatch = useDispatch();
 
   const handleClick = (data: string) => {
+    // Don't open booking dialog for service providers
+    if (isServiceDisabled) {
+      Alert.alert(
+        "Service Provider Account",
+        "As a service provider, you cannot book services. Please use the customer account to book services.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
     setOpen(true);
     setSelectedtype(data);
   };
@@ -473,6 +484,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const handleLearnMore = (service: string) => {
+    // Allow service providers to view service details (Learn More) but not book
     switch (service) {
       case "Home Cook":
         setSelectedServiceType("cook");
@@ -647,9 +659,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
               ServEaso delivers instant, regular and short term access to safe, affordable, and trained maids, cooks, and caregivers.
             </Text>
             
-            {/* Service Selection Header */}
-            <Text style={styles.selectorTitle}>What service do you need?</Text>
-            <Text style={styles.selectorSubtitle}>Tap to book instantly</Text>
+            {/* Service Selection Header - Show different text for service providers */}
+            <Text style={styles.selectorTitle}>
+              {isServiceDisabled ? "Explore Our Services" : "What service do you need?"}
+            </Text>
+            <Text style={styles.selectorSubtitle}>
+              {isServiceDisabled ? "Learn about our professional services" : "Tap to book instantly"}
+            </Text>
             
             <View style={styles.serviceIconsContainer}>
               {/* Cook Service */}
@@ -658,6 +674,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   style={[
                     styles.serviceIconContainerRectangular,
                     hoveredService === "COOK" && styles.serviceIconContainerRectangularHover,
+                    isServiceDisabled && styles.disabledServiceContainer,
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("COOK")}
                   onPressIn={() => setHoveredService("COOK")}
@@ -668,10 +685,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceImageRectangular,
                     isServiceDisabled && styles.disabledService
                   ]} />
-                  <View style={styles.serviceOverlay}>
+                  <View style={[
+                    styles.serviceOverlay,
+                    isServiceDisabled && styles.disabledServiceOverlay
+                  ]}>
                     <Text style={styles.serviceLabelRectangular}>Home Cook</Text>
                     {isServiceDisabled && (
-                      <Text style={styles.disabledText}>Not available</Text>
+                      <Text style={styles.disabledText}>View Only</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -683,6 +703,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   style={[
                     styles.serviceIconContainerRectangular,
                     hoveredService === "MAID" && styles.serviceIconContainerRectangularHover,
+                    isServiceDisabled && styles.disabledServiceContainer,
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("MAID")}
                   onPressIn={() => setHoveredService("MAID")}
@@ -693,10 +714,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceImageRectangular,
                     isServiceDisabled && styles.disabledService
                   ]} />
-                  <View style={styles.serviceOverlay}>
+                  <View style={[
+                    styles.serviceOverlay,
+                    isServiceDisabled && styles.disabledServiceOverlay
+                  ]}>
                     <Text style={styles.serviceLabelRectangular}>Cleaning Help</Text>
                     {isServiceDisabled && (
-                      <Text style={styles.disabledText}>Not available</Text>
+                      <Text style={styles.disabledText}>View Only</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -708,6 +732,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   style={[
                     styles.serviceIconContainerRectangular,
                     hoveredService === "NANNY" && styles.serviceIconContainerRectangularHover,
+                    isServiceDisabled && styles.disabledServiceContainer,
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("NANNY")}
                   onPressIn={() => setHoveredService("NANNY")}
@@ -718,10 +743,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceImageRectangular,
                     isServiceDisabled && styles.disabledService
                   ]} />
-                  <View style={styles.serviceOverlay}>
+                  <View style={[
+                    styles.serviceOverlay,
+                    isServiceDisabled && styles.disabledServiceOverlay
+                  ]}>
                     <Text style={styles.serviceLabelRectangular}>Caregiver</Text>
                     {isServiceDisabled && (
-                      <Text style={styles.disabledText}>Not available</Text>
+                      <Text style={styles.disabledText}>View Only</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -761,11 +789,15 @@ const HomePage: React.FC<ChildComponentProps> = ({
               ]}
             >
               <TouchableOpacity 
-                style={styles.serviceCard}
+                style={[
+                  styles.serviceCard,
+                  isServiceDisabled && styles.disabledServiceCard
+                ]}
                 onPress={() => handleLearnMore(popularServices[currentServiceIndex].title)}
                 onPressIn={() => handleCardPressIn(currentServiceIndex)}
                 onPressOut={() => handleCardPressOut(currentServiceIndex)}
                 activeOpacity={0.95}
+                disabled={false} // Always allow Learn More for service providers
               >
                 <LinearGradient
                   colors={popularServices[currentServiceIndex].gradient}
@@ -984,22 +1016,24 @@ const HomePage: React.FC<ChildComponentProps> = ({
           </View>
         </View>
         
-        {/* Booking Dialog */}
-        <BookingDialog
-          open={open}
-          onClose={handleClose}
-          onSave={handleSave}
-          selectedOption={selectedRadioButtonValue}
-          onOptionChange={getSelectedValue}
-          startDate={startDate}
-          endDate={endDate}
-          startTime={startTime}
-          endTime={endTime}
-          setStartDate={setStartDate}
-          setEndDate={setEndDate}
-          setStartTime={setStartTime}
-          setEndTime={setEndTime}
-        />
+        {/* Booking Dialog - Only render for non-service providers */}
+        {!isServiceDisabled && (
+          <BookingDialog
+            open={open}
+            onClose={handleClose}
+            onSave={handleSave}
+            selectedOption={selectedRadioButtonValue}
+            onOptionChange={getSelectedValue}
+            startDate={startDate}
+            endDate={endDate}
+            startTime={startTime}
+            endTime={endTime}
+            setStartDate={setStartDate}
+            setEndDate={setEndDate}
+            setStartTime={setStartTime}
+            setEndTime={setEndTime}
+          />
+        )}
 
         {/* Service Dialogs */}
         {showCookDialog && (
@@ -1266,6 +1300,9 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     overflow: 'hidden',
+  },
+  disabledServiceCard: {
+    opacity: 0.9,
   },
   serviceCardGradient: {
     borderRadius: 24,
@@ -1678,6 +1715,10 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff",
     borderWidth: 2,
   },
+  disabledServiceContainer: {
+    opacity: 0.8,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
   serviceImageRectangular: {
     width: '100%',
     height: '100%',
@@ -1692,18 +1733,22 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: 'center',
   },
+  disabledServiceOverlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
   serviceLabelRectangular: {
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
   },
   disabledService: {
-    opacity: 0.5,
+    opacity: 0.7,
   },
   disabledText: {
-    color: '#ff8a8a',
+    color: '#ffd700',
     fontSize: 10,
     marginTop: 3,
+    fontWeight: '500',
   },
 });
 

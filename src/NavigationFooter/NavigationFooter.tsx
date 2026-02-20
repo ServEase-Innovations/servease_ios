@@ -1,4 +1,4 @@
-// NavigationFooter.tsx - UPDATED VERSION WITH PROFILE SCREEN NAVIGATION
+// NavigationFooter.tsx - UPDATED VERSION WITH PROPER HOME NAVIGATION
 import React, { useState } from "react";
 import {
   View,
@@ -16,7 +16,8 @@ import { useAuth0 } from "react-native-auth0";
 import { useDispatch } from "react-redux";
 import { remove } from "../features/userSlice";
 import Snackbar from "react-native-snackbar";
-import { PROFILE, BOOKINGS, DASHBOARD } from "../Constants/pagesConstants";
+import { PROFILE, BOOKINGS, DASHBOARD, HOME } from "../Constants/pagesConstants";
+import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet"; // Import the new component
 
 interface NavigationFooterProps {
   onHomeClick: () => void;
@@ -55,6 +56,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
   
   const { authorize, clearSession, getCredentials } = useAuth0();
   const dispatch = useDispatch();
@@ -65,37 +67,40 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
   const handleProfileButtonClick = () => {
     if (isAuthenticated) {
-      onNavigateToPage(PROFILE);
+      setIsProfileMenuVisible(true); // Open profile menu sheet instead of navigating
     } else {
       handleLoginClick();
     }
   };
 
+  const handleHomeButtonClick = () => {
+    // For ALL users, use onHomeClick which in App.tsx sets currentView to "HOME"
+    // This will render the HomePage component for everyone
+    onHomeClick();
+    setIsProfileMenuVisible(false);
+  };
+
   const handleBookingsButtonClick = () => {
     if (isAuthenticated && isCustomer) {
       onNavigateToPage(BOOKINGS);
+      setIsProfileMenuVisible(false);
     } else if (!isAuthenticated) {
       handleLoginClick();
     } else {
       onBookingsClick();
+      setIsProfileMenuVisible(false);
     }
   };
 
   const handleDashboardButtonClick = () => {
     if (isAuthenticated && isServiceProvider) {
       onNavigateToPage(DASHBOARD);
+      setIsProfileMenuVisible(false);
     } else if (!isAuthenticated) {
       handleLoginClick();
     } else {
       onDashboardClick();
-    }
-  };
-
-  const handleHomeClick = () => {
-    if (isServiceProvider && isAuthenticated) {
-      onNavigateToPage(DASHBOARD);
-    } else {
-      onHomeClick();
+      setIsProfileMenuVisible(false);
     }
   };
 
@@ -133,6 +138,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
 
     setIsSigningOut(true);
+    setIsProfileMenuVisible(false);
     
     try {
       console.log("🚪 Sign out initiated...");
@@ -168,12 +174,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
   };
 
-  // FIXED: Get user's first name only
-  const getUserFirstName = () => {
-    if (!auth0User || !auth0User.name) return "User";
-    // Extract first name only
-    const nameParts = auth0User.name.split(' ');
-    return nameParts[0] || "User";
+  const handleProfileMenuNavigation = (page: string) => {
+    onNavigateToPage(page);
+    setIsProfileMenuVisible(false);
+  };
+
+  const handleWalletOpen = () => {
+    setIsWalletOpen(true);
+    setIsProfileMenuVisible(false);
   };
 
   const renderUserAvatar = (isMobileView: boolean = false) => {
@@ -195,14 +203,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         ) : (
           <View style={isMobileView ? styles.userAvatarPlaceholderMobile : styles.userAvatarPlaceholder}>
             <Text style={isMobileView ? styles.userAvatarPlaceholderTextMobile : styles.userAvatarPlaceholderText}>
-              {getUserFirstName().charAt(0).toUpperCase()}
+              {auth0User.name ? auth0User.name.charAt(0).toUpperCase() : "U"}
             </Text>
           </View>
         )}
         {!isMobileView && (
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {getUserFirstName()} {/* Now shows only first name */}
+              Account
             </Text>
             <FeatherIcon name="chevron-down" size={14} color="#fff" />
           </View>
@@ -213,69 +221,96 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
   // For mobile - render bottom navigation bar
   if (isMobile) {
-    const tabs = [
-      {
-        key: "HOME",
-        label: isServiceProvider && isAuthenticated ? "Dashboard" : "Home",
-        icon: <MaterialIcon name={isServiceProvider && isAuthenticated ? "dashboard" : "home"} size={22} />,
-        onPress: handleHomeClick,
-      },
-      {
-        key: PROFILE,
-        label: auth0User ? getUserFirstName() : "Sign In", // Shows first name only
+    // Define tabs based on user role
+    let tabs = [];
+    
+    // ALWAYS include HOME tab for everyone - using onHomeClick
+    tabs.push({
+      key: HOME,
+      label: "Home",
+      icon: <MaterialIcon name="home" size={22} />,
+      onPress: handleHomeButtonClick, // This will always call onHomeClick
+    });
+    
+    // Add other tabs based on authentication and role
+    if (isAuthenticated) {
+      // For authenticated users, add the profile/account tab
+      tabs.push({
+        key: "ACCOUNT",
+        label: "Account",
         icon: renderUserAvatar(true),
         onPress: handleProfileButtonClick,
-      },
-      ...(isCustomer
-        ? [
-            {
-              key: BOOKINGS,
-              label: "Bookings",
-              icon: <MaterialIcon name="event-note" size={22} />,
-              onPress: handleBookingsButtonClick,
-            },
-          ]
-        : []),
-      // FIXED: Only show notifications for Service Providers
-      ...(isServiceProvider && isAuthenticated
-        ? [
-            {
-              key: "NOTIFICATIONS",
-              label: "Alerts",
-              icon: <MaterialIcon name="notifications" size={22} />,
-              onPress: () => setShowNotifications(true),
-            },
-          ]
-        : []),
-      ...(isCustomer
-        ? [
-            {
-              key: "WALLET",
-              label: "Wallet",
-              icon: <MaterialIcon name="account-balance-wallet" size={22} />,
-              onPress: () => setIsWalletOpen(true),
-            },
-          ]
-        : []),
-      {
-        key: isAuthenticated ? "SIGN_OUT" : "SIGN_UP",
-        label: isAuthenticated ? "Sign Out" : "Sign Up",
+      });
+      
+      // For customers, add Bookings and Wallet
+      if (isCustomer) {
+        tabs.push({
+          key: BOOKINGS,
+          label: "Bookings",
+          icon: <MaterialIcon name="event-note" size={22} />,
+          onPress: handleBookingsButtonClick,
+        });
+        
+        tabs.push({
+          key: "WALLET",
+          label: "Wallet",
+          icon: <MaterialIcon name="account-balance-wallet" size={22} />,
+          onPress: () => setIsWalletOpen(true),
+        });
+      }
+      
+      // For service providers, add Dashboard and Notifications
+      if (isServiceProvider) {
+        tabs.push({
+          key: DASHBOARD,
+          label: "Dashboard",
+          icon: <MaterialIcon name="dashboard" size={22} />,
+          onPress: handleDashboardButtonClick,
+        });
+        
+        tabs.push({
+          key: "NOTIFICATIONS",
+          label: "Alerts",
+          icon: <MaterialIcon name="notifications" size={22} />,
+          onPress: () => setShowNotifications(true),
+        });
+      }
+      
+      // Add Sign Out for all authenticated users
+      tabs.push({
+        key: "SIGN_OUT",
+        label: "Sign Out",
         icon: (
           <MaterialIcon
-            name={isAuthenticated ? "logout" : "person-add"}
+            name="logout"
             size={22}
             color={isSigningOut ? "#94a3b8" : "#fff"}
           />
         ),
-        onPress: isAuthenticated ? handleSignOut : onOpenSignup,
-      },
-    ];
+        onPress: handleSignOut,
+      });
+    } else {
+      // For unauthenticated users, add Sign In/Up options
+      tabs.push({
+        key: "ACCOUNT",
+        label: "Sign In",
+        icon: renderUserAvatar(true),
+        onPress: handleProfileButtonClick,
+      });
+      
+      tabs.push({
+        key: "SIGN_UP",
+        label: "Sign Up",
+        icon: <MaterialIcon name="person-add" size={22} color="#fff" />,
+        onPress: onOpenSignup,
+      });
+    }
 
     return (
       <>
         <View style={styles.mobileNavContainer}>
           {tabs.map((tab, index) => {
-            const isActive = activePage === tab.key;
+            const isActive = activePage === tab.key || (tab.key === "ACCOUNT" && activePage === PROFILE);
             const isLast = index === tabs.length - 1;
             const isDisabled = isAuthenticated && tab.key === "SIGN_OUT" && isSigningOut;
 
@@ -317,114 +352,133 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           open={isWalletOpen}
           onClose={() => setIsWalletOpen(false)}
         />
+
+        <ProfileMenuSheet
+          visible={isProfileMenuVisible}
+          onClose={() => setIsProfileMenuVisible(false)}
+          onProfile={() => handleProfileMenuNavigation(PROFILE)}
+          onBookings={() => handleBookingsButtonClick()}
+          onDashboard={() => handleDashboardButtonClick()}
+          onWallet={handleWalletOpen}
+          onContact={onContactClick}
+        />
       </>
     );
   }
 
   // For desktop - render desktop navigation
   return (
-    <View style={styles.desktopNavContainer}>
-      <View style={styles.desktopNavInner}>
-        <View style={styles.desktopNavLinks}>
-          <TouchableOpacity
-            onPress={handleHomeClick}
-            style={styles.desktopNavItem}
-          >
-            <MaterialIcon 
-              name={isServiceProvider && isAuthenticated ? "dashboard" : "home"} 
-              size={20} 
-              color="#fff" 
-              style={styles.navIcon}
-            />
-            <Text style={styles.desktopNavText}>
-              {isServiceProvider && isAuthenticated ? "Dashboard" : "Home"}
-            </Text>
-          </TouchableOpacity>
-
-          {isCustomer && (
+    <>
+      <View style={styles.desktopNavContainer}>
+        <View style={styles.desktopNavInner}>
+          <View style={styles.desktopNavLinks}>
             <TouchableOpacity
-              onPress={handleBookingsButtonClick}
+              onPress={handleHomeButtonClick} // Use the same handler for desktop
               style={styles.desktopNavItem}
             >
-              <MaterialIcon name="event-note" size={20} color="#fff" style={styles.navIcon} />
-              <Text style={styles.desktopNavText}>My Bookings</Text>
-            </TouchableOpacity>
-          )}
-
-          {!isAuthenticated && (
-            <>
-              <TouchableOpacity
-                onPress={onAboutClick}
-                style={styles.desktopNavItem}
-              >
-                <MaterialIcon name="info" size={20} color="#fff" style={styles.navIcon} />
-                <Text style={styles.desktopNavText}>About Us</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={onContactClick}
-                style={styles.desktopNavItem}
-              >
-                <MaterialIcon name="contact-support" size={20} color="#fff" style={styles.navIcon} />
-                <Text style={styles.desktopNavText}>Contact Us</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
-        <View style={styles.desktopActionIcons}>
-          {/* FIXED: Only show notifications for Service Providers */}
-          {isServiceProvider && isAuthenticated && (
-            <TouchableOpacity
-              onPress={() => setShowNotifications(true)}
-              style={styles.desktopActionIcon}
-            >
-              <MaterialIcon name="notifications" size={22} color="#fff" />
-            </TouchableOpacity>
-          )}
-          
-          {isCustomer && (
-            <TouchableOpacity
-              onPress={() => setIsWalletOpen(true)}
-              style={styles.desktopActionIcon}
-            >
-              <MaterialIcon name="account-balance-wallet" size={22} color="#fff" />
-            </TouchableOpacity>
-          )}
-          
-          <TouchableOpacity 
-            onPress={handleProfileButtonClick}
-            style={[styles.desktopActionIcon, styles.userMenuButton]}
-          >
-            {renderUserAvatar()}
-            {!isAuthenticated && (
-              <Text style={styles.signInText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-          
-          {isAuthenticated && (
-            <TouchableOpacity 
-              onPress={handleSignOut}
-              disabled={isSigningOut}
-              style={[
-                styles.desktopActionIcon, 
-                styles.signOutButton,
-                isSigningOut && styles.disabledDesktopButton
-              ]}
-            >
               <MaterialIcon 
-                name="logout" 
-                size={22} 
-                color={isSigningOut ? "#94a3b8" : "#fff"} 
+                name="home" 
+                size={20} 
+                color="#fff" 
+                style={styles.navIcon}
               />
-              <Text style={[
-                styles.signOutText,
-                isSigningOut && styles.disabledTabText
-              ]}>
-                {isSigningOut ? "Signing Out..." : "Sign Out"}
-              </Text>
+              <Text style={styles.desktopNavText}>Home</Text>
             </TouchableOpacity>
-          )}
+
+            {isCustomer && (
+              <TouchableOpacity
+                onPress={handleBookingsButtonClick}
+                style={styles.desktopNavItem}
+              >
+                <MaterialIcon name="event-note" size={20} color="#fff" style={styles.navIcon} />
+                <Text style={styles.desktopNavText}>My Bookings</Text>
+              </TouchableOpacity>
+            )}
+
+            {isServiceProvider && (
+              <TouchableOpacity
+                onPress={handleDashboardButtonClick}
+                style={styles.desktopNavItem}
+              >
+                <MaterialIcon name="dashboard" size={20} color="#fff" style={styles.navIcon} />
+                <Text style={styles.desktopNavText}>Dashboard</Text>
+              </TouchableOpacity>
+            )}
+
+            {!isAuthenticated && (
+              <>
+                <TouchableOpacity
+                  onPress={onAboutClick}
+                  style={styles.desktopNavItem}
+                >
+                  <MaterialIcon name="info" size={20} color="#fff" style={styles.navIcon} />
+                  <Text style={styles.desktopNavText}>About Us</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={onContactClick}
+                  style={styles.desktopNavItem}
+                >
+                  <MaterialIcon name="contact-support" size={20} color="#fff" style={styles.navIcon} />
+                  <Text style={styles.desktopNavText}>Contact Us</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          <View style={styles.desktopActionIcons}>
+            {isServiceProvider && isAuthenticated && (
+              <TouchableOpacity
+                onPress={() => setShowNotifications(true)}
+                style={styles.desktopActionIcon}
+              >
+                <MaterialIcon name="notifications" size={22} color="#fff" />
+              </TouchableOpacity>
+            )}
+            
+            {isCustomer && (
+              <TouchableOpacity
+                onPress={() => setIsWalletOpen(true)}
+                style={styles.desktopActionIcon}
+              >
+                <MaterialIcon name="account-balance-wallet" size={22} color="#fff" />
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity 
+              onPress={handleProfileButtonClick}
+              style={[styles.desktopActionIcon, styles.userMenuButton]}
+            >
+              {renderUserAvatar()}
+              {!isAuthenticated && (
+                <Text style={styles.signInText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+            
+            {isAuthenticated && (
+              <TouchableOpacity 
+                onPress={handleSignOut}
+                disabled={isSigningOut}
+                style={[
+                  styles.desktopActionIcon, 
+                  styles.signOutButton,
+                  isSigningOut && styles.disabledDesktopButton
+                ]}
+              >
+                <MaterialIcon 
+                  name="logout" 
+                  size={22} 
+                  color={isSigningOut ? "#94a3b8" : "#fff"} 
+                />
+                <Text style={[
+                  styles.signOutText,
+                  isSigningOut && styles.disabledTabText
+                ]}>
+                  {isSigningOut ? "Signing Out..." : "Sign Out"}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -437,7 +491,17 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         open={isWalletOpen}
         onClose={() => setIsWalletOpen(false)}
       />
-    </View>
+
+      <ProfileMenuSheet
+        visible={isProfileMenuVisible}
+        onClose={() => setIsProfileMenuVisible(false)}
+        onProfile={() => handleProfileMenuNavigation(PROFILE)}
+        onBookings={() => handleBookingsButtonClick()}
+        onDashboard={() => handleDashboardButtonClick()}
+        onWallet={handleWalletOpen}
+        onContact={onContactClick}
+      />
+    </>
   );
 };
 

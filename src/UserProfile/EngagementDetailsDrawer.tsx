@@ -16,6 +16,7 @@ import { getServiceTitle, getBookingTypeBadge, getStatusBadge } from '../common/
 import dayjs from 'dayjs';
 import PaymentInstance from '../services/paymentInstance';
 import { Button } from '../common/Button';
+import LinearGradient from 'react-native-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -183,16 +184,25 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     >
       <View style={styles.modalOverlay}>
         <TouchableOpacity style={styles.overlayTouchable} onPress={onClose} />
-        
+       
         <View style={styles.drawerContainer}>
           {/* Header */}
-          <DialogHeader style={styles.header}>
-            <Text style={styles.headerTitle}>Booking Details</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="x" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </DialogHeader>
-
+          {/* <DialogHeader style={styles.header}> */}
+        {/* Header */}
+<LinearGradient
+  colors={["#0a2a66ff", "#004aadff"]}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 0 }}
+  style={styles.header}
+>
+  <View style={styles.headerContent}>
+    <View style={styles.headerLeftPlaceholder} />
+    <Text style={styles.headerTitle}>Booking Details</Text>
+    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+      <Icon name="x" size={24} color="#FFFFFF" />
+    </TouchableOpacity>
+  </View>
+</LinearGradient>
           {/* Content */}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             {/* Booking ID and Status */}
@@ -444,6 +454,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           </ScrollView>
         </View>
       </View>
+      
     </Modal>
   );
 };
@@ -474,17 +485,35 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
-  header: {
-    // Additional header styles if needed
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  closeButton: {
-    padding: 8,
-  },
+header: {
+  // Your existing header styles
+  borderTopLeftRadius: 20,
+  borderTopRightRadius: 20,
+},
+headerContent: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 16,
+  paddingVertical: 12,
+  width: '100%',
+},
+headerLeftPlaceholder: {
+  width: 40, // Same width as close button to maintain center alignment
+},
+headerTitle: {
+  fontSize: 20,
+  fontWeight: '600',
+  color: '#FFFFFF',
+  textAlign: 'center',
+  flex: 1, // Takes up available space
+},
+closeButton: {
+  padding: 8,
+  width: 40, // Fixed width for consistent alignment
+  alignItems: 'center',
+  justifyContent: 'center',
+},
   content: {
     flex: 1,
     padding: 20,
