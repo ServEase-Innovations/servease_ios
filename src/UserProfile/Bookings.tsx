@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable */
+
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,7 +19,8 @@ import {
   StyleProp,
   Modal,
   RefreshControl,
-  Dimensions
+  Dimensions,
+  Linking
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -34,6 +38,7 @@ import VacationManagementDialog from './VacationManagement';
 import ConfirmationDialog from './ConfirmationDialog';
 import AddReviewDialog from './AddReviewDialog';
 import WalletDialog from './WalletDialog';
+import EngagementDetailsDrawer from './EngagementDetailsDrawer';
 import LinearGradient from 'react-native-linear-gradient';
 import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
@@ -413,7 +418,7 @@ const getServiceTitle = (type: string) => {
 const hasVacation = (booking: Booking): boolean => {
   return booking.hasVacation || 
          (booking.vacationDetails && 
-          (booking.vacationDetails.total_days || booking.vacationDetails.leave_days) > 0) || 
+          (booking.vacationDetails.total_days || 0) > 0) || 
          false;
 };
 
@@ -550,6 +555,9 @@ const Booking: React.FC = () => {
   const [selectedBookingForVacationManagement, setSelectedBookingForVacationManagement] = useState<Booking | null>(null);
   // Add this state variable with other state declarations
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
+  
+  // NEW: Engagement Details Drawer state
+  const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
 
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
@@ -594,6 +602,11 @@ const Booking: React.FC = () => {
   const isAuthenticated = auth0User !== undefined && auth0User !== null;
   const { appUser } = useAppUser();
 
+  // Refs for preventing multiple loads and deep link processing
+  const initialLoadDone = useRef(false);
+  const isFetchingRef = useRef(false);
+  const processedDeepLink = useRef(false);
+
   // Helper function to convert Booking for child components
   const convertBookingForChildComponents = (booking: Booking | null): any => {
     if (!booking) return null;
@@ -608,6 +621,143 @@ const Booking: React.FC = () => {
       } : null
     };
   };
+
+  // NEW: Handle view details to open drawer
+  const handleViewDetails = (booking: Booking) => {
+    console.log(`📋 View details for booking ${booking.id}`);
+    setSelectedBooking(booking);
+    setDetailsDrawerOpen(true);
+  };
+
+  // NEW: Handle deep linking
+  const processDeepLink = async (url: string | null) => {
+    if (!url) return;
+    
+    console.log('🔗 Deep link received:', url);
+    
+    // Parse the URL
+    const parsedUrl = new URL(url);
+    const params = new URLSearchParams(parsedUrl.search);
+    
+    const deepLinkCustomerId = params.get('customerId');
+    const deepLinkBookingId = params.get('bookingId');
+    const deepLinkAction = params.get('action');
+    
+    // If no deep link data or already processed, return
+    if ((!deepLinkCustomerId && !deepLinkBookingId) || processedDeepLink.current) {
+      return;
+    }
+
+    console.log('🎯 Deep link data:', {
+      customerId: deepLinkCustomerId,
+      bookingId: deepLinkBookingId,
+      action: deepLinkAction
+    });
+
+    // Mark as processed immediately to prevent multiple executions
+    processedDeepLink.current = true;
+
+    // CASE 1: View ALL bookings for a specific customer
+    if (deepLinkCustomerId && !deepLinkBookingId) {
+      console.log(`📋 VIEWING ALL BOOKINGS FOR CUSTOMER #${deepLinkCustomerId}`);
+      
+      const loggedInCustomerId = appUser?.customerid?.toString();
+      
+      if (loggedInCustomerId !== deepLinkCustomerId) {
+        console.log('👑 Admin view - fetching customer bookings');
+        await refreshBookings(deepLinkCustomerId);
+      }
+      
+    // CASE 2: View specific booking
+    } else if (deepLinkBookingId) {
+      console.log(`🎯 OPENING SPECIFIC BOOKING #${deepLinkBookingId}`);
+      
+      // Helper function to find and highlight booking
+      const findAndHighlightBooking = (bookingId: string) => {
+        const allBookings = [...currentBookings, ...futureBookings, ...pastBookings];
+        const targetBooking = allBookings.find(b => b.id.toString() === bookingId);
+        
+        if (targetBooking) {
+          console.log('✅ Found booking:', targetBooking.id);
+          setSelectedBooking(targetBooking);
+          
+          // Open drawer by default (matching React behavior)
+          const shouldOpenDrawer = deepLinkAction === 'drawer' || !deepLinkAction || deepLinkAction === 'open';
+          
+          if (shouldOpenDrawer) {
+            console.log('📂 Opening details drawer automatically');
+            setTimeout(() => {
+              setDetailsDrawerOpen(true);
+            }, 500);
+          }
+          
+          return true;
+        }
+        return false;
+      };
+      
+      // Try to find booking immediately
+      const found = findAndHighlightBooking(deepLinkBookingId);
+      
+      // If not found, try a few more times as bookings load
+      if (!found) {
+        console.log('⏳ Booking not found yet, waiting for data to load...');
+        let attempts = 0;
+        const maxAttempts = 20; // Try for 20 seconds
+        
+        const checkInterval = setInterval(() => {
+          attempts++;
+          const allBookings = [...currentBookings, ...futureBookings, ...pastBookings];
+          const found = allBookings.find(b => b.id.toString() === deepLinkBookingId);
+          
+          if (found) {
+            console.log(`✅ Found booking after ${attempts} attempts`);
+            clearInterval(checkInterval);
+            
+            setSelectedBooking(found);
+            
+            setTimeout(() => {
+              const shouldOpenDrawer = deepLinkAction === 'drawer' || !deepLinkAction || deepLinkAction === 'open';
+              
+              if (shouldOpenDrawer) {
+                console.log('📂 Opening details drawer automatically (delayed)');
+                setTimeout(() => {
+                  setDetailsDrawerOpen(true);
+                }, 500);
+              }
+            }, 500);
+            
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            console.log('❌ Could not find booking after multiple attempts');
+            Alert.alert('Error', `Booking #${deepLinkBookingId} not found`);
+          }
+        }, 1000);
+      }
+    }
+  };
+
+  // NEW: Set up deep linking listener
+  useEffect(() => {
+    // Handle initial URL if app was opened via deep link
+    const getInitialUrl = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        await processDeepLink(initialUrl);
+      }
+    };
+    
+    getInitialUrl();
+    
+    // Add event listener for deep links when app is already open
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      processDeepLink(url);
+    });
+    
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // DATA FETCHING FUNCTIONS
   useEffect(() => {
@@ -1379,10 +1529,22 @@ const mapBookingData = (data: any[]) => {
     console.log(`   - Payment pending: ${isPaymentPending}`);
     console.log(`   - Can show payment button: ${canShowPaymentButton}`);
 
+    // Add View Details button to all cases
+    const viewDetailsButton = (
+      <Button 
+        style={[styles.actionButton, styles.viewDetailsButton]}
+        onPress={() => handleViewDetails(booking)}
+      >
+        <Icon name="file-document" size={16} color="#3b82f6" />
+        <Text style={styles.viewDetailsButtonText}>Details</Text>
+      </Button>
+    );
+
     // If payment is pending, show payment button as primary action
     if (canShowPaymentButton) {
       return (
         <View style={styles.paymentActionContainer}>
+          {viewDetailsButton}
           <Button
             style={[styles.actionButton, styles.paymentButton]}
             onPress={() => handlePaymentClick(booking)}
@@ -1418,6 +1580,7 @@ const mapBookingData = (data: any[]) => {
       case 'NOT_STARTED':
         return (
           <View style={styles.actionButtonsRow}>
+            {viewDetailsButton}
             <Button 
               style={[styles.actionButton, styles.callButton]}
               onPress={() => {
@@ -1497,6 +1660,7 @@ const mapBookingData = (data: any[]) => {
       case 'IN_PROGRESS':
         return (
           <View style={styles.actionButtonsRow}>
+            {viewDetailsButton}
             <Button 
               style={[styles.actionButton, styles.callButton]}
               onPress={() => {
@@ -1556,6 +1720,7 @@ const mapBookingData = (data: any[]) => {
       case 'COMPLETED':
         return (
           <View style={styles.actionButtonsRow}>
+            {viewDetailsButton}
             {hasReview(booking) ? (
               <Button
                 style={[styles.actionButton, styles.reviewSubmittedButton]}
@@ -1590,6 +1755,7 @@ const mapBookingData = (data: any[]) => {
       case 'CANCELLED':
         return (
           <View style={styles.actionButtonsRow}>
+            {viewDetailsButton}
             <Button 
               style={[styles.actionButton, styles.bookAgainButton]}
               onPress={() => {
@@ -1604,8 +1770,11 @@ const mapBookingData = (data: any[]) => {
         );
 
       default:
-        console.log(`🔘 Unknown task status for booking ${booking.id}: ${booking.taskStatus}`);
-        return null;
+        return (
+          <View style={styles.actionButtonsRow}>
+            {viewDetailsButton}
+          </View>
+        );
     }
   };
 
@@ -2114,6 +2283,17 @@ const mapBookingData = (data: any[]) => {
         }}
       />
 
+      {/* NEW: Engagement Details Drawer */}
+      <EngagementDetailsDrawer
+        isOpen={detailsDrawerOpen}
+        onClose={() => {
+          console.log('❌ Closing details drawer');
+          setDetailsDrawerOpen(false);
+          setSelectedBooking(null);
+        }}
+        booking={selectedBooking}
+      />
+
       {/* Snackbar for notifications */}
       {openSnackbar && (
         <View style={styles.snackbar}>
@@ -2617,6 +2797,16 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     paddingVertical: 12,
     paddingHorizontal: 8,
+  },
+  viewDetailsButton: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+  },
+  viewDetailsButtonText: {
+    color: '#3b82f6',
+    marginLeft: 8,
+    fontWeight: '600',
+    fontSize: 14,
   },
   callButton: {
     backgroundColor: '#3b82f6',
@@ -3136,6 +3326,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 16,
   },
 });
 

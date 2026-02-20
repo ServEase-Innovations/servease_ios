@@ -1,4 +1,4 @@
-// App.tsx - Updated with proper sign out and app relaunch
+// App.tsx - Updated with deep linking support
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -15,10 +15,24 @@ import {
   AppStateStatus,
   Platform,
   Dimensions,
+  Linking,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { Auth0Provider } from "react-native-auth0";
+import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
+
+// Global type augmentation for deep linking
+declare global {
+  var deepLinkCustomerId: string | null;
+  var deepLinkBookingId: string | null;
+  var deepLinkTimestamp: string | null;
+  var deepLinkAction: string | null;
+  var pendingDeepLinkCustomerId: string | null;
+  var pendingDeepLinkBookingId: string | null;
+  var pendingDeepLinkTimestamp: string | null;
+  var pendingDeepLinkAction: string | null;
+}
 import Head from "./src/Header/Header";
 import NavigationFooter from "./src/NavigationFooter/NavigationFooter";
 import HomePage from "./src/HomePage/HomePage";
@@ -46,9 +60,9 @@ import { PaperProvider } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "./src/AgentRegistration/AgentRegistrationForm";
-import { useAuth0 } from "react-native-auth0";
 import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
+// import { ClipLoader } from 'react-native-spinkit'; // or use ActivityIndicator
 
 interface Engagement {
   engagement_id: number;
@@ -62,6 +76,13 @@ interface Engagement {
   customer_name?: string;
   customer_email?: string;
   status?: string;
+}
+
+interface DeepLinkData {
+  openBookings: string;
+  customerId: string | null;
+  bookingId: string | null;
+  action: string | null;
 }
 
 const MainApp = () => {
@@ -90,13 +111,202 @@ const MainApp = () => {
   const [appResetKey, setAppResetKey] = useState(Date.now());
   // Flag to track if we're performing a full app reset
   const [isResetting, setIsResetting] = useState(false);
+  
+  // ============= DEEP LINKING STATES =============
+  const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
+  const [processingDeepLink, setProcessingDeepLink] = useState(false);
+  const [pendingDeepLink, setPendingDeepLink] = useState<DeepLinkData | null>(null);
+  const [showDeepLinkLoading, setShowDeepLinkLoading] = useState(false);
 
   const dispatch = useDispatch();
   const { appUser, clearAppUser } = useAppUser();
 
-  const { authorize } = useAuth0();
-  const { getCredentials } = useAuth0();
-  const { clearSession } = useAuth0();
+  const { authorize, getCredentials, clearSession, user } = useAuth0();
+
+  // ============= DEEP LINKING IMPLEMENTATION =============
+
+  /**
+   * Process deep link after authentication
+   */
+  const processDeepLink = (openBookings: string, customerId: string | null, bookingId: string | null, action: string | null = 'open') => {
+    setProcessingDeepLink(true);
+    setShowDeepLinkLoading(true);
+    
+    // Store data in AsyncStorage for the Booking component
+    if (customerId) {
+      // Using session-like storage (you might want to use AsyncStorage)
+      // For now, we'll use a global variable or context
+      global.deepLinkCustomerId = customerId;
+      console.log(`📦 Will show ALL bookings for customer #${customerId}`);
+    }
+    
+    if (bookingId) {
+      global.deepLinkBookingId = bookingId;
+      console.log(`📦 Will open specific booking #${bookingId}`);
+    }
+    
+    global.deepLinkTimestamp = Date.now().toString();
+    
+    // MODIFIED: Always set action to 'drawer' by default
+    // This ensures that even without action=drawer parameter, the drawer will open
+    global.deepLinkAction = 'drawer';
+    console.log(`📦 Default action set to 'drawer' for automatic drawer opening`);
+    
+    // Set the view to BOOKINGS
+    setCurrentView(BOOKINGS);
+    
+    // Mark as processed
+    setDeepLinkProcessed(true);
+    setPendingDeepLink(null);
+    setProcessingDeepLink(false);
+    
+    // Hide loading after a short delay
+    setTimeout(() => {
+      setShowDeepLinkLoading(false);
+    }, 1000);
+    
+    // Clean up pending data
+    global.pendingDeepLinkCustomerId = null;
+    global.pendingDeepLinkBookingId = null;
+    global.pendingDeepLinkTimestamp = null;
+    global.pendingDeepLinkAction = null;
+    
+    console.log('✅ Deep link processed successfully with automatic drawer opening');
+  };
+
+  /**
+   * Check for deep link parameters on initial load
+   */
+  const checkDeepLink = async (url: string | null) => {
+    if (!url || deepLinkProcessed) return;
+
+    console.log('=== DEEP LINK CHECK ===');
+    console.log('Current URL:', url);
+    
+    // Parse the URL
+    const parsedUrl = new URL(url);
+    const params = parsedUrl.searchParams;
+    
+    const openBookings = params.get('openBookings');
+    const customerId = params.get('customerId');
+    const bookingId = params.get('bookingId');
+    const action = params.get('action');
+    
+    console.log('openBookings param:', openBookings);
+    console.log('customerId param:', customerId);
+    console.log('bookingId param:', bookingId);
+    console.log('action param:', action);
+    console.log('Is authenticated:', !!appUser);
+    console.log('Auth loading:', false);
+
+    if (openBookings === 'true') {
+      if (appUser) {
+        // User is already logged in, process deep link immediately
+        console.log('✅ User authenticated, processing deep link now');
+        processDeepLink(openBookings, customerId, bookingId, action);
+      } else {
+        // User not logged in, store deep link for after login
+        console.log('🔐 User not authenticated, storing deep link for after login');
+        
+        // Store in state
+        setPendingDeepLink({
+          openBookings,
+          customerId,
+          bookingId,
+          action
+        });
+        
+        // Also store in global as backup
+        if (customerId) {
+          global.pendingDeepLinkCustomerId = customerId;
+        }
+        if (bookingId) {
+          global.pendingDeepLinkBookingId = bookingId;
+        }
+        global.pendingDeepLinkTimestamp = Date.now().toString();
+        
+        // MODIFIED: Store action as 'drawer' by default
+        const actionToStore = action || 'drawer';
+        global.pendingDeepLinkAction = actionToStore;
+        console.log(`📦 Stored pending action: ${actionToStore}`);
+        
+        console.log(`📦 Stored pending deep link data:`, {
+          customerId: customerId || 'none',
+          bookingId: bookingId || 'none',
+          action: actionToStore
+        });
+        
+        // Show signup drawer to prompt login
+        setShowSignupDrawer(true);
+      }
+    }
+  };
+
+  /**
+   * Handle incoming deep links
+   */
+  useEffect(() => {
+    // Handle initial URL
+    const getInitialURL = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        await checkDeepLink(initialUrl);
+      }
+    };
+
+    getInitialURL();
+
+    // Handle URL events while app is running
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      checkDeepLink(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [appUser, deepLinkProcessed]);
+
+  /**
+   * Handle post-login deep link processing
+   */
+  useEffect(() => {
+    if (appUser && !deepLinkProcessed) {
+      // Check if we have a pending deep link in state
+      if (pendingDeepLink) {
+        console.log('🔄 User just logged in, processing pending deep link from state');
+        processDeepLink(
+          pendingDeepLink.openBookings, 
+          pendingDeepLink.customerId, 
+          pendingDeepLink.bookingId, 
+          pendingDeepLink.action
+        );
+      } 
+      // Also check global as backup
+      else {
+        const pendingCustomerId = global.pendingDeepLinkCustomerId;
+        const pendingBookingId = global.pendingDeepLinkBookingId;
+        const pendingTimestamp = global.pendingDeepLinkTimestamp;
+        const pendingAction = global.pendingDeepLinkAction;
+        
+        if ((pendingCustomerId || pendingBookingId) && pendingTimestamp) {
+          const now = Date.now();
+          const linkTime = parseInt(pendingTimestamp);
+          const tenMinutes = 10 * 60 * 1000;
+          
+          if (now - linkTime < tenMinutes) {
+            console.log('🔄 Found pending deep link in global storage, processing...');
+            processDeepLink('true', pendingCustomerId, pendingBookingId, pendingAction);
+          } else {
+            // Clear expired deep link
+            global.pendingDeepLinkCustomerId = null;
+            global.pendingDeepLinkBookingId = null;
+            global.pendingDeepLinkTimestamp = null;
+            global.pendingDeepLinkAction = null;
+          }
+        }
+      }
+    }
+  }, [appUser, deepLinkProcessed, pendingDeepLink]);
 
   // COMPLETE APP RELAUNCH METHOD
   const handleAppRelaunchAfterSignOut = async () => {
@@ -138,6 +348,22 @@ const MainApp = () => {
       setShowAgentRegistration(false);
       setShowProfileMenu(false);
       setActiveToast(null);
+      
+      // Reset deep link states
+      setDeepLinkProcessed(false);
+      setProcessingDeepLink(false);
+      setPendingDeepLink(null);
+      setShowDeepLinkLoading(false);
+      
+      // Clear global deep link data
+      global.deepLinkCustomerId = null;
+      global.deepLinkBookingId = null;
+      global.deepLinkTimestamp = null;
+      global.deepLinkAction = null;
+      global.pendingDeepLinkCustomerId = null;
+      global.pendingDeepLinkBookingId = null;
+      global.pendingDeepLinkTimestamp = null;
+      global.pendingDeepLinkAction = null;
       
       // 3. Clear app user context
       if (clearAppUser) {
@@ -221,7 +447,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
   switch (type) {
     case "USER":
       handleAuth0Login();   
-      setCurrentView("HOME"); // Changed from "SIGNUP" to "HOME"
+      setCurrentView("HOME");
       break;
 
     case "PROVIDER":
@@ -229,7 +455,6 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
       break;
 
    case "AGENT":
-      // Simply set this to true, no setTimeout needed
       setShowAgentRegistration(true);
       break;
   }
@@ -562,6 +787,16 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
       <SafeAreaProvider>
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <SafeAreaView style={styles.safeArea} edges={["top"]} key={`app-${appResetKey}`}>
+          {/* Deep linking loading overlay */}
+          {showDeepLinkLoading && (
+            <View style={styles.deepLinkLoadingOverlay}>
+              <View style={styles.deepLinkLoadingContainer}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={styles.deepLinkLoadingText}>Opening your booking...</Text>
+              </View>
+            </View>
+          )}
+
           {/* Fixed Header */}
           <View style={styles.headerWrapper}>
             <Head 
@@ -629,7 +864,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
                     setShowProfileFromDashboard(false);
                   }
                 }}
-                onSignOutComplete={handleAppRelaunchAfterSignOut} // NEW: Pass the relaunch callback
+                onSignOutComplete={handleAppRelaunchAfterSignOut}
               />
 
               <ProfileMenuSheet
@@ -878,6 +1113,35 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     zIndex: 2000,
+  },
+  // Deep linking styles
+  deepLinkLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  deepLinkLoadingContainer: {
+    backgroundColor: 'white',
+    padding: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  deepLinkLoadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
   },
 });
 
