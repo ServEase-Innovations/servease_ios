@@ -13,7 +13,8 @@ import {
   StatusBar,
   Modal,
   TextInput,
-  Linking
+  Linking,
+  Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -34,7 +35,9 @@ import ProviderCalendarBig from './ProviderCalendarBig';
 import { OtpVerificationDialog } from './OtpVerificationDialog';
 import WithdrawalDialog from './WithdrawalDialog';
 import { WithdrawalHistoryDialog } from './WithdrawalHistoryDialog';
-import TrackAddress from './TrackAddress'; // Import the TrackAddress component
+import TrackAddress from './TrackAddress';
+
+const { width } = Dimensions.get('window');
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
@@ -476,12 +479,12 @@ const Card = ({ style, children }: { style?: any; children: React.ReactNode }) =
       style={[
         {
           backgroundColor: '#FFFFFF',
-          borderRadius: 8,
+          borderRadius: 12,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.1,
-          shadowRadius: 3,
-          elevation: 2,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 3,
           marginBottom: 16,
         },
         style,
@@ -639,7 +642,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       change: "+12.5%",
       changeType: "positive" as const,
       icon: "rupee" as const,
-      description: "This month"
+      description: "This month",
+      bgColor: "#E8F0FE",
+      iconBg: "#3B82F6"
     },
     {
       title: "Security Deposit",
@@ -647,7 +652,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       change: payout?.summary?.security_deposit_paid ? "Paid" : "Not Paid",
       changeType: payout?.summary?.security_deposit_paid ? ("positive" as const) : ("negative" as const),
       icon: "home" as const,
-      description: "For active bookings"
+      description: "For active bookings",
+      bgColor: "#FEF3C7",
+      iconBg: "#F59E0B"
     },
     {
       title: "Service Fee",
@@ -657,7 +664,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       change: "-10%",
       changeType: "negative" as const,
       icon: "clock" as const,
-      description: "Service charges"
+      description: "Service charges",
+      bgColor: "#FEE2E2",
+      iconBg: "#EF4444"
     },
     {
       title: "Available Balance",
@@ -665,7 +674,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       change: "+10.2%",
       changeType: "positive" as const,
       icon: "trending-up" as const,
-      description: "After deductions"
+      description: "Ready to withdraw",
+      bgColor: "#D1FAE5",
+      iconBg: "#10B981"
     }
   ];
 
@@ -908,59 +919,31 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     </View>
   );
 
-  // // Header with Profile
-  // const renderHeader = () => (
-  //   <View style={styles.header}>
-  //     <View style={styles.headerContent}>
-  //       <View style={styles.headerLeft}>
-  //         <MaterialIcon name="home" size={24} color="#3B82F6" />
-  //         <Text style={styles.headerTitle}>ServEase Provider</Text>
-  //       </View>
-  //       <View style={styles.headerRight}>
-  //         <TouchableOpacity style={styles.notificationButton}>
-  //           <FeatherIcon name="bell" size={20} color="#6B7280" />
-  //         </TouchableOpacity>
-  //         <TouchableOpacity style={styles.profileButton} onPress={onProfilePress}>
-  //           <View style={styles.profileAvatar}>
-  //             <Text style={styles.profileInitials}>
-  //               {userName ? userName.split(' ').map(n => n[0]).join('').toUpperCase() : 'MP'}
-  //             </Text>
-  //           </View>
-  //           <View style={styles.profileInfo}>
-  //             <Text style={styles.profileName}>{userName || "Maya Patel"}</Text>
-  //             <Text style={styles.profileRole}>Cleaning Specialist</Text>
-  //           </View>
-  //         </TouchableOpacity>
-  //       </View>
-  //     </View>
-  //   </View>
-  // );
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      {/* {renderHeader()} */}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
       >
         {/* Welcome Section */}
         <LinearGradient
           colors={[
-            'rgba(177, 213, 232, 1)', // Blue tone
-            'rgba(213, 229, 233, 0.8)', // Lighter blue
-            'rgba(255,255,255,1)'       // White at the bottom
+            'rgba(177, 213, 232, 1)',
+            'rgba(213, 229, 233, 0.8)',
+            'rgba(255,255,255,1)'
           ]}
           start={{x: 0, y: 0}}
-          end={{x: 0, y: 1}} // Vertical fade
+          end={{x: 0, y: 1}}
           style={styles.welcomeBanner}
         >
           <View style={styles.welcomeContent}>
             <View style={styles.welcomeTextContainer}>
               <View style={styles.welcomeIconRow}>
-                <MaterialIcon name="home" size={16} color="#0e305c" />
+                <MaterialIcon name="home" size={20} color="#0e305c" />
                 <View>
                   <Text style={styles.welcomeBackText}>Welcome back,</Text>
                   <Text style={styles.userNameText}>{userName || "Guest"}</Text>
@@ -971,7 +954,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <View style={styles.statIconContainer}>
-                  <MaterialIcon name="calendar-today" size={16} color="#3b82f6" />
+                  <MaterialIcon name="calendar-today" size={18} color="#3b82f6" />
                   <View style={styles.statBadge}>
                     <Text style={styles.statBadgeText}>+3</Text>
                   </View>
@@ -981,9 +964,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
               
               <View style={styles.statItem}>
                 <View style={styles.statIconContainer}>
-                  <MaterialIcon name="star" size={16} color="#f59e0b" />
+                  <MaterialIcon name="star" size={18} color="#f59e0b" />
                   <View style={styles.statBadge}>
-                    <Text style={styles.statBadgeText}>+2%</Text>
+                    <Text style={styles.statBadgeText}>4.8</Text>
                   </View>
                 </View>
                 <Text style={styles.statLabel}>Rating</Text>
@@ -991,9 +974,9 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
               
               <View style={styles.statItem}>
                 <View style={styles.statIconContainer}>
-                  <MaterialIcon name="trending-up" size={16} color="#10b981" />
+                  <MaterialIcon name="trending-up" size={18} color="#10b981" />
                   <View style={styles.statBadge}>
-                    <Text style={styles.statBadgeText}>+2%</Text>
+                    <Text style={styles.statBadgeText}>98%</Text>
                   </View>
                 </View>
                 <Text style={styles.statLabel}>Completion</Text>
@@ -1007,10 +990,57 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
             Here's what's happening with your services today.
           </Text>
           
-          {/* Metrics Grid */}
+          {/* Enhanced Metrics Grid */}
           <View style={styles.metricsGrid}>
             {metrics.map((metric, index) => (
-              <DashboardMetricCard key={index} {...metric} />
+              <View key={index} style={styles.metricCardWrapper}>
+                <LinearGradient
+                  colors={[metric.bgColor, 'rgba(255,255,255,0.95)']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
+                  style={styles.metricCard}
+                >
+                  <View style={[styles.metricIconContainer, { backgroundColor: metric.iconBg }]}>
+                    <MaterialIcon 
+                      name={
+                        metric.icon === 'rupee' ? 'currency-rupee' :
+                        metric.icon === 'home' ? 'home' :
+                        metric.icon === 'clock' ? 'access-time' :
+                        'trending-up'
+                      } 
+                      size={20} 
+                      color="#FFFFFF" 
+                    />
+                  </View>
+                  
+                  <View style={styles.metricContent}>
+                    <Text style={styles.metricTitle}>{metric.title}</Text>
+                    <Text style={styles.metricValue}>{metric.value}</Text>
+                    
+                    <View style={styles.metricFooter}>
+                      <View style={[
+                        styles.metricChange,
+                        metric.changeType === 'positive' ? styles.positiveChange :
+                        metric.changeType === 'negative' ? styles.negativeChange : null
+                      ]}>
+                        <MaterialIcon 
+                          name={metric.changeType === 'positive' ? 'arrow-upward' : 'arrow-downward'} 
+                          size={12} 
+                          color={metric.changeType === 'positive' ? '#10B981' : '#EF4444'} 
+                        />
+                        <Text style={[
+                          styles.metricChangeText,
+                          metric.changeType === 'positive' ? styles.positiveChangeText :
+                          metric.changeType === 'negative' ? styles.negativeChangeText : null
+                        ]}>
+                          {metric.change}
+                        </Text>
+                      </View>
+                      <Text style={styles.metricDescription}>{metric.description}</Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </View>
             ))}
           </View>
 
@@ -1480,8 +1510,10 @@ const styles = StyleSheet.create({
   },
   welcomeBanner: {
     backgroundColor: 'rgba(177, 213, 232, 1)',
-    padding: 16,
+    padding: 20,
     paddingTop: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   welcomeContent: {
     flexDirection: 'row',
@@ -1499,13 +1531,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   welcomeBackText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#0e305c',
     marginLeft: 8,
     fontWeight: '400',
   },
   userNameText: {
-    fontSize: 20,
+    fontSize: 22,
     color: '#0e305c',
     marginLeft: 8,
     fontWeight: 'bold',
@@ -1513,8 +1545,7 @@ const styles = StyleSheet.create({
   },
   welcomeSubtitle: {
     fontSize: 15,
-    color: '#004aad',
-    opacity: 0.9,
+    color: '#4B5563',
     textAlign: 'center',
     paddingBottom: 20,
     paddingTop: 16,
@@ -1547,8 +1578,8 @@ const styles = StyleSheet.create({
     right: -4,
     backgroundColor: 'rgba(135, 206, 235, 1)',
     borderRadius: 10,
-    width: 16,
-    height: 16,
+    width: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1570,6 +1601,77 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 24,
   },
+  metricCardWrapper: {
+    width: '48%',
+    marginBottom: 12,
+  },
+  metricCard: {
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  metricIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  metricContent: {
+    flex: 1,
+  },
+  metricTitle: {
+    fontSize: 12,
+    color: '#4B5563',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  metricFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metricChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  positiveChange: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  negativeChange: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  metricChangeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  positiveChangeText: {
+    color: '#10B981',
+  },
+  negativeChangeText: {
+    color: '#EF4444',
+  },
+  metricDescription: {
+    fontSize: 10,
+    color: '#6B7280',
+    flex: 1,
+  },
   mainGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1585,12 +1687,12 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
     marginBottom: 16,
   },
   cardHeader: {
@@ -1599,10 +1701,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#f3f4f6',
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#111827',
   },
@@ -1654,8 +1756,8 @@ const styles = StyleSheet.create({
   },
   bookingItem: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
+    borderColor: '#f3f4f6',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     backgroundColor: '#ffffff',
@@ -1879,8 +1981,11 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'flex-start',
     marginBottom: 8,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   actionButtonText: {
     marginLeft: 8,
@@ -1920,7 +2025,7 @@ const styles = StyleSheet.create({
   signOutButton: {
     backgroundColor: '#ef4444',
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 40,
