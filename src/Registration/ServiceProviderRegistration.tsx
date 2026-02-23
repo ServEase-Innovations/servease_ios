@@ -1724,14 +1724,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
               {(formData.latitude !== 0 || formData.longitude !== 0) && (
                 <>
-                  <View style={styles.locationInfo}>
+                  {/* <View style={styles.locationInfo}>
                     <Icon name="check-circle" size={20} color="green" />
                     <Text style={styles.locationText}>
                       <Text style={{ fontWeight: 'bold' }}>Location found:</Text>
                       Lat: {formData.latitude.toFixed(6)},
                       Lng: {formData.longitude.toFixed(6)}
                     </Text>
-                  </View>
+                  </View> */}
 
                   <View style={styles.successAlert}>
                     <Text style={styles.alertText}>

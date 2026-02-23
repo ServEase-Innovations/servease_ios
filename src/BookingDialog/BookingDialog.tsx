@@ -69,12 +69,25 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const maxDate21Days = today.add(21, "day");
   const maxDate90Days = today.add(89, "day");
 
-  // Reset picker state when modal closes
+  // Reset all booking state when modal closes
   useEffect(() => {
     if (!open) {
+      // Reset picker states
       setShowDatePicker(null);
       setShowCustomTimePicker(null);
       setTempDate(null);
+      
+      // Reset booking data
+      setStartDate(null);
+      setEndDate(null);
+      setStartTime(null);
+      setEndTime(null);
+      
+      // Reset custom time picker values to defaults
+      setCustomHours(12);
+      setCustomMinutes(0);
+      setCustomAmPm("AM");
+      setUse24HourFormat(false);
     }
   }, [open]);
 
@@ -766,6 +779,94 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     );
   };
 
+  // New Confirmation Box Component with Duration Selector and Relax Message
+  const renderConfirmationBox = () => {
+    if (!startDate || !startTime) return null;
+
+    const currentDuration = startTime && endTime ? endTime.diff(startTime, 'hour') : 1;
+
+    return (
+      <View style={styles.confirmationContainer}>
+        {/* Header */}
+        <View style={styles.confirmationHeader}>
+          <Text style={styles.confirmationTitle}>Confirm Your Booking</Text>
+        </View>
+
+        {/* Booking Details */}
+        <View style={styles.confirmationSection}>
+          <Text style={styles.confirmationSubtitle}>Booking Details</Text>
+          <Text style={styles.confirmationText}>
+            Start Date: {startDate ? dayjs(startDate).format('MMMM D, YYYY') : 'Not selected'}
+          </Text>
+          <Text style={styles.confirmationText}>
+            Start Time: {startTime ? startTime.format('h:mm A') : 'Not selected'}
+          </Text>
+          <Text style={[styles.confirmationText, styles.confirmationItalic]}>
+            Your service is set to start on {startDate ? dayjs(startDate).format('MMMM D, YYYY') : '___'} at {startTime ? startTime.format('h:mm A') : '___'}.
+          </Text>
+        </View>
+
+        {/* Service Duration */}
+        <View style={styles.confirmationSection}>
+          <Text style={styles.confirmationSubtitle}>Service Duration</Text>
+          <Text style={[styles.confirmationText, styles.confirmationSecondary]}>
+            If you need more time, adjust your service duration below.
+          </Text>
+
+          {/* Duration Selector */}
+          <View style={styles.durationSelector}>
+            <TouchableOpacity
+              style={styles.durationButton}
+              onPress={() => {
+                if (startTime && endTime) {
+                  const currentDuration = endTime.diff(startTime, 'hour');
+                  if (currentDuration > 1) {
+                    const newEnd = startTime.add(currentDuration - 1, 'hour');
+                    setEndTime(newEnd);
+                    setEndDate(newEnd.toISOString());
+                  }
+                }
+              }}
+              disabled={!startTime || !endTime || endTime.diff(startTime, 'hour') <= 1}
+            >
+              <Text style={styles.durationButtonText}>-</Text>
+            </TouchableOpacity>
+
+            <View style={styles.durationDisplay}>
+              <Text style={styles.durationDisplayText}>
+                {currentDuration} hour{currentDuration > 1 ? 's' : ''}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.durationButton}
+              onPress={() => {
+                if (startTime && endTime) {
+                  const currentDuration = endTime.diff(startTime, 'hour');
+                  const newEnd = startTime.add(currentDuration + 1, 'hour');
+                  if (newEnd.hour() < 22) { // max 10 PM
+                    setEndTime(newEnd);
+                    setEndDate(newEnd.toISOString());
+                  }
+                }
+              }}
+              disabled={!startTime || !endTime || (endTime && endTime.hour() >= 21)}
+            >
+              <Text style={styles.durationButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Relax Message */}
+        <View style={styles.relaxMessageContainer}>
+          <Text style={styles.relaxMessageText}>
+            Relax, we'll handle the rest. Our verified professionals ensure your peace of mind.
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <Modal visible={open} transparent animationType="fade">
       <View style={styles.overlay}>
@@ -853,17 +954,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
 
-                {startDate && startTime && (
-                  <View style={styles.confirmBox}>
-                    <Text style={styles.sectionTitle}>Booking Details</Text>
-                    <Text style={styles.sectionText}>
-                      Start: {startTime.format("MMMM D, YYYY [at] HH:mm")} GMT
-                    </Text>
-                    <Text style={styles.sectionText}>
-                      Duration: {duration} hour{duration > 1 ? "s" : ""}
-                    </Text>
-                  </View>
-                )}
+                {/* New Confirmation Box with Relax Message */}
+                {renderConfirmationBox()}
               </>
             )}
 
@@ -988,7 +1080,7 @@ const styles = StyleSheet.create({
     width: Dimensions.get("window").width * 0.9,
     maxHeight: Dimensions.get("window").height * 0.85,
     borderRadius: 12,
-    overflow: "hidden", // Important for gradient corners
+    overflow: "hidden",
   },
   headerContainer: {
     padding: 20,
@@ -1289,5 +1381,96 @@ const styles = StyleSheet.create({
   },
   customTimePickerButtonTextConfirm: {
     color: "#fff",
+  },
+  // New styles for confirmation box
+  confirmationContainer: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: "#fafafa",
+  },
+  confirmationHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  confirmationTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmationSection: {
+    marginBottom: 16,
+  },
+  confirmationSubtitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  confirmationText: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 4,
+  },
+  confirmationItalic: {
+    fontStyle: "italic",
+    color: "#007AFF",
+    marginTop: 4,
+  },
+  confirmationSecondary: {
+    color: "#666",
+    marginBottom: 8,
+  },
+  durationSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+  },
+  durationButton: {
+    borderWidth: 1,
+    borderColor: "#007AFF",
+    borderRadius: 6,
+    minWidth: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  durationButtonText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#007AFF",
+  },
+  durationDisplay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  durationDisplayText: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  // Relax Message Styles
+  relaxMessageContainer: {
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#f0f8ff",
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  relaxMessageText: {
+    fontSize: 12,
+    fontStyle: "italic",
+    color: "#666",
+    textAlign: "center",
   },
 });
