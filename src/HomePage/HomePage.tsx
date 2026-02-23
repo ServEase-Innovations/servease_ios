@@ -1650,6 +1650,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -20 }],
   },
   howItWorksNavArrow: {
+    
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -1750,6 +1751,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontWeight: '500',
   },
+  
 });
 
 export default HomePage;

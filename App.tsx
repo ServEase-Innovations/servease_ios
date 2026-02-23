@@ -44,7 +44,7 @@ import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/ProfileScreen";
 import { BOOKINGS, DASHBOARD, PROFILE, HOME } from "./src/Constants/pagesConstants";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-import NotificationButton from "./src/Notifications/NotificationButton";
+// import NotificationButton from "./src/Notifications/NotificationButton";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
 import io, { Socket } from "socket.io-client";
@@ -816,11 +816,11 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
           </View>
 
           {/* Notification Button for Service Providers */}
-          {appUser && appUser.role?.toUpperCase() === "SERVICE_PROVIDER" && (
+          {/* {appUser && appUser.role?.toUpperCase() === "SERVICE_PROVIDER" && (
             <View style={styles.notificationButtonContainer}>
               <NotificationButton onPress={handleNotificationButtonPress} />
             </View>
-          )}
+          )} */}
 
           {/* Scrollable Content Area */}
           <View style={styles.contentContainer}>

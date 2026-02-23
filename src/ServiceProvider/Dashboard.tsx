@@ -1,4 +1,4 @@
-// Dashboard.tsx
+// Dashboard.tsx (updated)
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -34,6 +34,10 @@ import ProviderCalendarBig from './ProviderCalendarBig';
 import { OtpVerificationDialog } from './OtpVerificationDialog';
 import WithdrawalDialog from './WithdrawalDialog';
 import { WithdrawalHistoryDialog } from './WithdrawalHistoryDialog';
+import TrackAddress from './TrackAddress'; // Import the TrackAddress component
+
+// Google Maps API Key
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
 
 // Types for API response
 interface CustomerHoliday {
@@ -216,7 +220,7 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
   return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
 };
 
-// Function to handle calling customer
+// Function to handle calling customer (keep this for phone calls)
 const handleCallCustomer = (phoneNumber: string, clientName: string) => {
   if (!phoneNumber || phoneNumber === "Contact info not available") {
     Alert.alert("No Contact Info", "Customer contact information is not available.");
@@ -226,21 +230,6 @@ const handleCallCustomer = (phoneNumber: string, clientName: string) => {
   const telLink = `tel:${phoneNumber}`;
   Linking.openURL(telLink).catch(() => {
     Alert.alert("Error", "Could not open phone dialer");
-  });
-};
-
-// Function to handle tracking address
-const handleTrackAddress = (address: string) => {
-  if (!address || address === "Address not provided") {
-    Alert.alert("No Address", "Address is not provided for this booking.");
-    return;
-  }
-  
-  const encodedAddress = encodeURIComponent(address);
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-  
-  Linking.openURL(googleMapsUrl).catch(() => {
-    Alert.alert("Error", "Could not open maps application");
   });
 };
 
@@ -615,6 +604,10 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [withdrawalHistoryDialogOpen, setWithdrawalHistoryDialogOpen] = useState(false);
   const [withdrawalDialogOpen, setWithdrawalDialogOpen] = useState(false);
+  
+  // Add state for Track Address dialog
+  const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
+  
   const verificationCompletedRef = useRef(false);
 
   // Check if user is authenticated
@@ -675,6 +668,11 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       description: "After deductions"
     }
   ];
+
+  // Handle track address button click
+  const handleTrackAddress = () => {
+    setTrackAddressDialogOpen(true);
+  };
 
   // Fetch data function
   const fetchData = async () => {
@@ -910,38 +908,38 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     </View>
   );
 
-  // Header with Profile
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerContent}>
-        <View style={styles.headerLeft}>
-          <MaterialIcon name="home" size={24} color="#3B82F6" />
-          <Text style={styles.headerTitle}>ServEase Provider</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.notificationButton}>
-            <FeatherIcon name="bell" size={20} color="#6B7280" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.profileButton} onPress={onProfilePress}>
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileInitials}>
-                {userName ? userName.split(' ').map(n => n[0]).join('').toUpperCase() : 'MP'}
-              </Text>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{userName || "Maya Patel"}</Text>
-              <Text style={styles.profileRole}>Cleaning Specialist</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
+  // // Header with Profile
+  // const renderHeader = () => (
+  //   <View style={styles.header}>
+  //     <View style={styles.headerContent}>
+  //       <View style={styles.headerLeft}>
+  //         <MaterialIcon name="home" size={24} color="#3B82F6" />
+  //         <Text style={styles.headerTitle}>ServEase Provider</Text>
+  //       </View>
+  //       <View style={styles.headerRight}>
+  //         <TouchableOpacity style={styles.notificationButton}>
+  //           <FeatherIcon name="bell" size={20} color="#6B7280" />
+  //         </TouchableOpacity>
+  //         <TouchableOpacity style={styles.profileButton} onPress={onProfilePress}>
+  //           <View style={styles.profileAvatar}>
+  //             <Text style={styles.profileInitials}>
+  //               {userName ? userName.split(' ').map(n => n[0]).join('').toUpperCase() : 'MP'}
+  //             </Text>
+  //           </View>
+  //           <View style={styles.profileInfo}>
+  //             <Text style={styles.profileName}>{userName || "Maya Patel"}</Text>
+  //             <Text style={styles.profileRole}>Cleaning Specialist</Text>
+  //           </View>
+  //         </TouchableOpacity>
+  //       </View>
+  //     </View>
+  //   </View>
+  // );
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      {renderHeader()}
+      {/* {renderHeader()} */}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -1137,13 +1135,13 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                             </View>
                           </View>
                           
-                          {/* Address with Track Button */}
+                          {/* Address with Track Button - UPDATED */}
                           <View style={styles.addressContainer}>
                             <View style={styles.addressHeader}>
                               <Text style={styles.detailLabel}>Address</Text>
                               <TouchableOpacity
                                 style={styles.trackAddressButton}
-                                onPress={() => handleTrackAddress(booking.location)}
+                                onPress={handleTrackAddress}
                               >
                                 <MaterialIcon name="location-on" size={14} color="#374151" />
                                 <Text style={styles.trackAddressText}>Track Address</Text>
@@ -1395,6 +1393,19 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
         availableBalance={payout?.summary?.available_to_withdraw || 0}
         onWithdrawalSuccess={handleWithdrawalSuccess}
       />
+
+      {/* Track Address Dialog */}
+      <Modal
+        visible={trackAddressDialogOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setTrackAddressDialogOpen(false)}
+      >
+        <TrackAddress 
+          onClose={() => setTrackAddressDialogOpen(false)}
+          googleMapsApiKey={GOOGLE_MAPS_API_KEY}
+        />
+      </Modal>
     </SafeAreaView>
   );
 }

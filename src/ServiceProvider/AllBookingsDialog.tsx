@@ -1,3 +1,4 @@
+// AllBookingsDialog.tsx (updated)
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { 
@@ -20,6 +21,10 @@ import dayjs, { Dayjs } from "dayjs";
 import { Booking, BookingHistoryResponse } from "./Dashboard";
 import axios from "axios";
 import { OtpVerificationDialog } from "./OtpVerificationDialog";
+import TrackAddress from "./TrackAddress"; // Import the TrackAddress component
+
+// Google Maps API Key
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
 
 interface AllBookingsDialogProps {
   bookings: BookingHistoryResponse | null;
@@ -50,11 +55,6 @@ const formatTimeToAMPM = (timeString: string): string => {
   }
 };
 
-// Function to format time range from start and end time strings
-const formatTimeRange = (startTime: string, endTime: string): string => {
-  return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
-};
-
 // Function to handle calling customer
 const handleCallCustomer = (phoneNumber: string, clientName: string) => {
   if (!phoneNumber || phoneNumber === "Contact info not available") {
@@ -65,21 +65,6 @@ const handleCallCustomer = (phoneNumber: string, clientName: string) => {
   const telLink = `tel:${phoneNumber}`;
   Linking.openURL(telLink).catch(() => {
     Alert.alert("Error", "Could not open phone dialer");
-  });
-};
-
-// Function to handle tracking address
-const handleTrackAddress = (address: string) => {
-  if (!address || address === "Address not provided") {
-    Alert.alert("No Address", "Address is not provided for this booking.");
-    return;
-  }
-  
-  const encodedAddress = encodeURIComponent(address);
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-  
-  Linking.openURL(googleMapsUrl).catch(() => {
-    Alert.alert("Error", "Could not open maps application");
   });
 };
 
@@ -104,6 +89,9 @@ export function AllBookingsDialog({
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [currentBooking, setCurrentBooking] = useState<any>(null);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+  
+  // Add state for Track Address dialog
+  const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
 
   const mapApiBookingToBooking = (apiBooking: any): Booking => {
     let date, timeRange;
@@ -143,7 +131,7 @@ export function AllBookingsDialog({
       startDate.setHours(startHours, startMinutes);
       endDate.setHours(endHours, endMinutes);
 
-      timeRange = formatTimeRange(apiBooking.startTime, apiBooking.endTime);
+      timeRange = formatTimeToAMPM(apiBooking.startTime) + " - " + formatTimeToAMPM(apiBooking.endTime);
       
       date = startDate.toLocaleDateString("en-IN", {
         day: "2-digit",
@@ -360,6 +348,11 @@ export function AllBookingsDialog({
     }
   };
 
+  // Handle track address button click
+  const handleTrackAddress = () => {
+    setTrackAddressDialogOpen(true);
+  };
+
   // Handle tab change with month reset
   const handleTabChange = (newValue: "ongoing" | "future" | "past") => {
     // Reset month to default for the new tab
@@ -420,18 +413,9 @@ export function AllBookingsDialog({
       }
     };
 
-    const getTextStyle = () => {
-      switch (variant) {
-        case "outline":
-          return styles.badgeOutlineText;
-        default:
-          return styles.badgeText;
-      }
-    };
-
     return (
       <View style={[styles.badge, getVariantStyle(), style]}>
-        <Text style={[getTextStyle(), styles.badgeText]}>{children}</Text>
+        <Text style={styles.badgeText}>{children}</Text>
       </View>
     );
   };
@@ -868,13 +852,13 @@ export function AllBookingsDialog({
                           {/* Responsibilities Section */}
                           {renderResponsibilities(booking)}
 
-                          {/* Location with Track Address Button */}
+                          {/* Location with Track Address Button - UPDATED */}
                           <View style={styles.locationSection}>
                             <View style={styles.locationHeader}>
                               <Text style={styles.locationLabel}>Address</Text>
                               <TouchableOpacity
                                 style={styles.trackButton}
-                                onPress={() => handleTrackAddress(booking.location)}
+                                onPress={handleTrackAddress}
                               >
                                 <MapPin size={14} color="#374151" />
                                 <Text style={styles.trackButtonText}>Track Address</Text>
@@ -983,6 +967,19 @@ export function AllBookingsDialog({
           bookingId: currentBooking.bookingData?.engagement_id || currentBooking.bookingData?.id,
         } : undefined}
       />
+
+      {/* Track Address Dialog */}
+      <Modal
+        visible={trackAddressDialogOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setTrackAddressDialogOpen(false)}
+      >
+        <TrackAddress 
+          onClose={() => setTrackAddressDialogOpen(false)}
+          googleMapsApiKey={GOOGLE_MAPS_API_KEY}
+        />
+      </Modal>
     </>
   );
 }
@@ -1452,9 +1449,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#d1d5db',
-  },
-  badgeOutlineText: {
-    color: '#374151',
   },
   // Button styles
   button: {
