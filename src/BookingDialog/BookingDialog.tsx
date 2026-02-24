@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Alert,
   Dimensions,
   ScrollView,
 } from "react-native";
@@ -65,9 +64,46 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [customAmPm, setCustomAmPm] = useState<"AM" | "PM">("AM");
   const [use24HourFormat, setUse24HourFormat] = useState<boolean>(false);
 
+  // Business hours and cutoff configuration
+  const BUSINESS_HOURS = {
+    openingHour: 5,      // 5 AM
+    openingMinute: 0,
+    cutoffHour: 22,      // 10 PM
+    cutoffMinute: 0,
+  };
+
   const today = dayjs();
   const maxDate21Days = today.add(21, "day");
   const maxDate90Days = today.add(89, "day");
+
+  // Function to check if a date should be disabled based on cutoff time
+  const isDateDisabled = (date: Dayjs): boolean => {
+    const now = dayjs();
+    
+    // If it's a past date, it's disabled
+    if (date.isBefore(now, 'day')) return true;
+    
+    // If it's today, check if current time is past cutoff
+    if (date.isSame(now, 'day')) {
+      const currentTotalMinutes = now.hour() * 60 + now.minute();
+      const cutoffTotalMinutes = BUSINESS_HOURS.cutoffHour * 60 + BUSINESS_HOURS.cutoffMinute;
+      
+      // If current time is past cutoff (10 PM), disable today
+      if (currentTotalMinutes >= cutoffTotalMinutes) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Check if current time is past cutoff
+  const isPastCutoff = (): boolean => {
+    const now = dayjs();
+    const currentTotalMinutes = now.hour() * 60 + now.minute();
+    const cutoffTotalMinutes = BUSINESS_HOURS.cutoffHour * 60 + BUSINESS_HOURS.cutoffMinute;
+    return currentTotalMinutes >= cutoffTotalMinutes;
+  };
 
   // Reset all booking state when modal closes
   useEffect(() => {
@@ -104,10 +140,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       }
 
       // Adjust to valid time range if needed
-      if (defaultTime.hour() < 5) {
-        defaultTime = defaultTime.hour(5).minute(0);
-      } else if (defaultTime.hour() >= 22) {
-        defaultTime = defaultTime.hour(21).minute(55);
+      if (defaultTime.hour() < BUSINESS_HOURS.openingHour) {
+        defaultTime = defaultTime.hour(BUSINESS_HOURS.openingHour).minute(0);
+      } else if (defaultTime.hour() >= BUSINESS_HOURS.cutoffHour) {
+        defaultTime = defaultTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
       }
 
       const hours = defaultTime.hour();
@@ -173,6 +209,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       ? dayjs(tempDate).hour(hours24).minute(minutes)
       : dayjs().hour(hours24).minute(minutes);
 
+    // Check if the date itself is disabled
+    if (isDateDisabled(selectedDateTime)) {
+      return false;
+    }
+
     // For start time, check 30-minute minimum gap
     if (type === "start") {
       if (
@@ -183,8 +224,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       }
     }
 
-    // Check 5 AM - 10 PM range (5 to 21:59)
-    if (hours24 < 5 || hours24 >= 22) {
+    // Check business hours range (5 AM - 10 PM)
+    if (hours24 < BUSINESS_HOURS.openingHour || hours24 >= BUSINESS_HOURS.cutoffHour) {
       return false;
     }
 
@@ -194,6 +235,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const getValidTimeOptions = (type: "start" | "end") => {
     const now = dayjs();
     const isToday = tempDate ? dayjs(tempDate).isSame(now, "day") : true;
+
+    // If today is disabled by cutoff, return empty hours
+    if (isToday && isDateDisabled(now)) {
+      return { validHours: [], validMinutes: [] };
+    }
 
     // For 24-hour format: 5 to 21 (5 AM to 9 PM)
     const hours24 = [
@@ -213,7 +259,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         }
       }
 
-      return hour24 >= 5 && hour24 < 22;
+      return hour24 >= BUSINESS_HOURS.openingHour && hour24 < BUSINESS_HOURS.cutoffHour;
     });
 
     return { validHours, validMinutes: minutes };
@@ -221,58 +267,20 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   const handleCustomTimeConfirm = () => {
     if (showCustomTimePicker) {
-      console.log(
-        "🕒 handleCustomTimeConfirm called for:",
-        showCustomTimePicker,
-      );
-
       // Convert to 24-hour format for storage
       let hours24 = customHours;
       if (!use24HourFormat) {
-        console.log("🔄 Converting from 12-hour to 24-hour format");
-        console.log("📊 Before conversion:", { customHours, customAmPm });
-
         // Convert from 12-hour to 24-hour format
         if (customAmPm === "PM" && customHours !== 12) {
           hours24 = customHours + 12;
         } else if (customAmPm === "AM" && customHours === 12) {
           hours24 = 0;
         }
-        // If AM and not 12, hours24 remains the same
-        // If PM and 12, hours24 remains 12
-
-        console.log("📊 After conversion:", { hours24 });
       }
-
-      // Store as clean 24-hour format string
-      const timeString = `${hours24.toString().padStart(2, "0")}:${customMinutes
-        .toString()
-        .padStart(2, "0")}`;
-      console.log("✅ Final time string (24h):", timeString);
 
       // Validate time
       if (!isTimeValid(hours24, customMinutes, showCustomTimePicker)) {
-        const now = dayjs();
-        const selectedDateTime = tempDate
-          ? dayjs(tempDate).hour(hours24).minute(customMinutes)
-          : dayjs().hour(hours24).minute(customMinutes);
-
-        if (
-          selectedDateTime.isBefore(now.add(30, "minute")) &&
-          showCustomTimePicker === "start"
-        ) {
-          Alert.alert(
-            "Invalid Time",
-            "Please select a time at least 30 minutes from now",
-          );
-          return;
-        } else if (hours24 < 5 || hours24 >= 22) {
-          Alert.alert(
-            "Invalid Time",
-            "Please select a time between 5 AM (05:00) and 10 PM (22:00)",
-          );
-          return;
-        }
+        return;
       }
 
       let selectedDateTime: Dayjs;
@@ -283,7 +291,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           .minute(customMinutes)
           .second(0)
           .millisecond(0);
-        console.log("📅 Using tempDate with time:", selectedDateTime.format());
         setTempDate(null);
       } else {
         const currentDateTime =
@@ -294,10 +301,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             .minute(customMinutes)
             .second(0)
             .millisecond(0);
-          console.log(
-            "📅 Using existing datetime with new time:",
-            selectedDateTime.format(),
-          );
         } else {
           // Create new datetime with today's date and selected time
           selectedDateTime = dayjs()
@@ -305,24 +308,15 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             .minute(customMinutes)
             .second(0)
             .millisecond(0);
-          console.log("📅 Creating new datetime:", selectedDateTime.format());
         }
       }
 
       // Apply final validation and adjustments
       if (showCustomTimePicker === "start") {
-        console.log("🚀 Updating start date/time");
         updateStartDateTime(selectedDateTime);
       } else {
-        console.log("🏁 Updating end date/time");
         updateEndDateTime(selectedDateTime);
       }
-
-      // Log the final state
-      console.log("🎯 Time selection completed:");
-      console.log("   - Selected time (24h):", timeString);
-      console.log("   - Selected datetime:", selectedDateTime.format());
-      console.log("   - For:", showCustomTimePicker);
     }
 
     setShowCustomTimePicker(null);
@@ -337,7 +331,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     const now = dayjs();
     let adjustedDateTime = newDateTime;
 
-    console.log("🔄 updateStartDateTime called:", newDateTime.format());
+    // Check if date is disabled by cutoff
+    if (isDateDisabled(adjustedDateTime)) {
+      return;
+    }
 
     // Ensure start time is at least 30 minutes from now if it's today
     if (
@@ -345,120 +342,150 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       newDateTime.isBefore(now.add(30, "minute"))
     ) {
       adjustedDateTime = now.add(30, "minute");
-      console.log(
-        "⏰ Adjusted to 30 mins from now:",
-        adjustedDateTime.format(),
-      );
     }
 
-    // Ensure time is within 5 AM - 10 PM
+    // Ensure time is within business hours
     const hour = adjustedDateTime.hour();
-    if (hour < 5) {
-      adjustedDateTime = adjustedDateTime.hour(5).minute(0);
-      console.log("🌅 Adjusted to 5 AM:", adjustedDateTime.format());
-    } else if (hour >= 22) {
-      adjustedDateTime = adjustedDateTime.hour(21).minute(55);
-      console.log("🌙 Adjusted to 9:55 PM:", adjustedDateTime.format());
+    if (hour < BUSINESS_HOURS.openingHour) {
+      adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
+    } else if (hour >= BUSINESS_HOURS.cutoffHour) {
+      adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
     }
 
     // Store dates and times in clean formats
-    setStartDate(adjustedDateTime.format("YYYY-MM-DD")); // Clean date format
-    setStartTime(adjustedDateTime); // Store as dayjs object
-
-    console.log("💾 Stored start data:");
-    console.log("   - Date:", adjustedDateTime.format("YYYY-MM-DD"));
-    console.log("   - Time (24h):", adjustedDateTime.format("HH:mm"));
-    console.log("   - Full datetime:", adjustedDateTime.format());
+    setStartDate(adjustedDateTime.format("YYYY-MM-DD"));
+    setStartTime(adjustedDateTime);
 
     // Set default end time based on booking option
     if (selectedOption === "Date") {
       const defaultEnd = adjustedDateTime.add(1, "hour");
-      // Ensure end time doesn't go beyond 10 PM
+      // Ensure end time doesn't go beyond cutoff
       let finalEnd = defaultEnd;
-      if (defaultEnd.hour() >= 22) {
-        finalEnd = adjustedDateTime.hour(21).minute(55);
+      if (defaultEnd.hour() >= BUSINESS_HOURS.cutoffHour) {
+        finalEnd = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
       }
       setEndDate(finalEnd.format("YYYY-MM-DD"));
       setEndTime(finalEnd);
-      console.log("⏱️ Set default end time:", finalEnd.format("HH:mm"));
     } else if (selectedOption === "Monthly") {
       const endDateValue = adjustedDateTime.add(1, "month");
       setEndDate(endDateValue.format("YYYY-MM-DD"));
       setEndTime(endDateValue);
-      console.log(
-        "📅 Set monthly end date:",
-        endDateValue.format("YYYY-MM-DD"),
-      );
     }
   };
 
   const updateEndDateTime = (newDateTime: Dayjs) => {
     let adjustedDateTime = newDateTime;
 
-    console.log("🔄 updateEndDateTime called:", newDateTime.format());
-
     // Ensure end time is after start time
     if (startTime && newDateTime.isBefore(startTime)) {
       adjustedDateTime = startTime.add(1, "hour");
-      console.log(
-        "⏩ Adjusted end time to be after start:",
-        adjustedDateTime.format(),
-      );
     }
 
-    // Ensure time is within 5 AM - 10 PM
+    // Ensure time is within business hours
     const hour = adjustedDateTime.hour();
-    if (hour < 5) {
-      adjustedDateTime = adjustedDateTime.hour(5).minute(0);
-      console.log("🌅 Adjusted to 5 AM:", adjustedDateTime.format());
-    } else if (hour >= 22) {
-      adjustedDateTime = adjustedDateTime.hour(21).minute(55);
-      console.log("🌙 Adjusted to 9:55 PM:", adjustedDateTime.format());
+    if (hour < BUSINESS_HOURS.openingHour) {
+      adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
+    } else if (hour >= BUSINESS_HOURS.cutoffHour) {
+      adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
     }
 
     // Store in clean formats
     setEndDate(adjustedDateTime.format("YYYY-MM-DD"));
     setEndTime(adjustedDateTime);
-
-    console.log("💾 Stored end data:");
-    console.log("   - Date:", adjustedDateTime.format("YYYY-MM-DD"));
-    console.log("   - Time (24h):", adjustedDateTime.format("HH:mm"));
-    console.log("   - Full datetime:", adjustedDateTime.format());
   };
 
   const isConfirmDisabled = () => {
+    // If past cutoff, disable confirm button
+    if (isPastCutoff()) {
+      return true;
+    }
+
     if (selectedOption === "Date") {
-      return !startDate || !startTime;
+      if (!startDate || !startTime) return true;
+      
+      // Check if the selected start time is disabled
+      if (isDateDisabled(startTime)) {
+        return true;
+      }
+      
+      const now = dayjs();
+      if (startTime.isSame(now, "day") && startTime.isBefore(now.add(30, "minute"))) {
+        return true;
+      }
+      
+      const hour = startTime.hour();
+      if (hour < BUSINESS_HOURS.openingHour || hour >= BUSINESS_HOURS.cutoffHour) {
+        return true;
+      }
+      
     } else if (selectedOption === "Short term") {
       if (!startDate || !endDate || !startTime || !endTime) return true;
-      return dayjs(endDate).isBefore(dayjs(startDate));
+      
+      // Check if start time is disabled
+      if (isDateDisabled(startTime)) {
+        return true;
+      }
+      
+      const now = dayjs();
+      if (startTime.isSame(now, "day") && startTime.isBefore(now.add(30, "minute"))) {
+        return true;
+      }
+      
+      const startHour = startTime.hour();
+      if (startHour < BUSINESS_HOURS.openingHour || startHour >= BUSINESS_HOURS.cutoffHour) {
+        return true;
+      }
+      
+      // Check if end time is after start time
+      if (endTime.isBefore(startTime)) return true;
+      
+      // Check if end time is within business hours
+      const endHour = endTime.hour();
+      if (endHour < BUSINESS_HOURS.openingHour || endHour >= BUSINESS_HOURS.cutoffHour) {
+        return true;
+      }
+      
     } else if (selectedOption === "Monthly") {
-      return !startDate || !startTime;
+      if (!startDate || !startTime) return true;
+      
+      // Check if start time is disabled
+      if (isDateDisabled(startTime)) {
+        return true;
+      }
+      
+      const now = dayjs();
+      if (startTime.isSame(now, "day") && startTime.isBefore(now.add(30, "minute"))) {
+        return true;
+      }
+      
+      const startHour = startTime.hour();
+      if (startHour < BUSINESS_HOURS.openingHour || startHour >= BUSINESS_HOURS.cutoffHour) {
+        return true;
+      }
     }
-    return true;
+    
+    return false;
   };
 
   const handleAccept = () => {
     // Final validation before saving
     if (startTime) {
       const now = dayjs();
+      
+      // Check cutoff for start date
+      if (isDateDisabled(startTime)) {
+        return;
+      }
+      
       if (
         startTime.isSame(now, "day") &&
         startTime.isBefore(now.add(30, "minute"))
       ) {
-        Alert.alert(
-          "Invalid Time",
-          "Please select a start time at least 30 minutes from now",
-        );
         return;
       }
 
       const hour = startTime.hour();
-      if (hour < 5 || hour >= 22) {
-        Alert.alert(
-          "Invalid Time",
-          "Please select a time between 5 AM (05:00) and 10 PM (22:00)",
-        );
+      if (hour < BUSINESS_HOURS.openingHour || hour >= BUSINESS_HOURS.cutoffHour) {
         return;
       }
     }
@@ -495,6 +522,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     );
     const now = dayjs();
     const isToday = tempDate ? dayjs(tempDate).isSame(now, "day") : true;
+
+    // If today is disabled, show message instead of time picker
+    if (isToday && isDateDisabled(now)) {
+      return (
+        <View style={styles.customTimePickerContainer}>
+          <Text style={styles.customTimePickerTitle}>
+            Select {showCustomTimePicker === "start" ? "Start" : "End"} Time
+          </Text>
+          <View style={styles.cutoffMessageContainer}>
+            <Icon name="access-time" size={40} color="#FF3B30" />
+            <Text style={styles.cutoffMessageTitle}>
+              Booking Cutoff Reached
+            </Text>
+            <Text style={styles.cutoffMessageText}>
+              Bookings for today are no longer accepted after {BUSINESS_HOURS.cutoffHour}:00 PM.
+              Please select a future date.
+            </Text>
+          </View>
+          <View style={styles.customTimePickerActions}>
+            <TouchableOpacity
+              style={styles.customTimePickerButton}
+              onPress={handleCustomTimeCancel}
+            >
+              <Text style={styles.customTimePickerButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
 
     // Convert current selection to 24-hour format for validation
     let currentHours24 = customHours;
@@ -580,8 +636,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         </View>
 
         <Text style={styles.timeRangeInfo}>
-          Available: 5 AM - 10 PM (05:00 - 22:00 GMT)
-          {showCustomTimePicker === "start" && isToday
+          Available: {BUSINESS_HOURS.openingHour}:00 AM - {BUSINESS_HOURS.cutoffHour-1}:55 PM ({BUSINESS_HOURS.openingHour.toString().padStart(2, '0')}:00 - {BUSINESS_HOURS.cutoffHour-1}:55 GMT)
+          {showCustomTimePicker === "start" && isToday && !isDateDisabled(now)
             ? " • Min. 30 mins from now"
             : ""}
         </Text>
@@ -740,13 +796,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             Selected: {getDisplayTime()}
           </Text>
           <Text style={styles.gmtTimeText}>GMT: {get24HourDisplay()}</Text>
-          {!isCurrentTimeValid && (
-            <Text style={styles.validationText}>
-              {showCustomTimePicker === "start" && isToday
-                ? "Must be at least 30 minutes from now"
-                : "Must be between 05:00 and 22:00 GMT"}
-            </Text>
-          )}
         </View>
 
         <View style={styles.customTimePickerActions}>
@@ -779,7 +828,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     );
   };
 
-  // New Confirmation Box Component with Duration Selector and Relax Message
+  // Confirmation Box Component with Duration Selector and Relax Message
   const renderConfirmationBox = () => {
     if (!startDate || !startTime) return null;
 
@@ -816,20 +865,26 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           {/* Duration Selector */}
           <View style={styles.durationSelector}>
             <TouchableOpacity
-              style={styles.durationButton}
+              style={[
+                styles.durationButton,
+                currentDuration <= 1 && styles.durationButtonDisabled
+              ]}
               onPress={() => {
                 if (startTime && endTime) {
                   const currentDuration = endTime.diff(startTime, 'hour');
                   if (currentDuration > 1) {
                     const newEnd = startTime.add(currentDuration - 1, 'hour');
                     setEndTime(newEnd);
-                    setEndDate(newEnd.toISOString());
+                    setEndDate(newEnd.format("YYYY-MM-DD"));
                   }
                 }
               }}
-              disabled={!startTime || !endTime || endTime.diff(startTime, 'hour') <= 1}
+              disabled={!startTime || !endTime || currentDuration <= 1}
             >
-              <Text style={styles.durationButtonText}>-</Text>
+              <Text style={[
+                styles.durationButtonText,
+                currentDuration <= 1 && styles.durationButtonTextDisabled
+              ]}>-</Text>
             </TouchableOpacity>
 
             <View style={styles.durationDisplay}>
@@ -839,20 +894,26 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
 
             <TouchableOpacity
-              style={styles.durationButton}
+              style={[
+                styles.durationButton,
+                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && styles.durationButtonDisabled
+              ]}
               onPress={() => {
                 if (startTime && endTime) {
                   const currentDuration = endTime.diff(startTime, 'hour');
                   const newEnd = startTime.add(currentDuration + 1, 'hour');
-                  if (newEnd.hour() < 22) { // max 10 PM
+                  if (newEnd.hour() < BUSINESS_HOURS.cutoffHour) {
                     setEndTime(newEnd);
-                    setEndDate(newEnd.toISOString());
+                    setEndDate(newEnd.format("YYYY-MM-DD"));
                   }
                 }
               }}
-              disabled={!startTime || !endTime || (endTime && endTime.hour() >= 21)}
+              disabled={!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)}
             >
-              <Text style={styles.durationButtonText}>+</Text>
+              <Text style={[
+                styles.durationButtonText,
+                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && styles.durationButtonTextDisabled
+              ]}>+</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -934,6 +995,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       // ⛔ past dates
                       if (selected.isBefore(now, "day")) return;
 
+                      // ⛔ cutoff time check - disable if today and past cutoff
+                      if (isDateDisabled(selected)) {
+                        return;
+                      }
+
                       // ⛔ max 21 days
                       if (selected.isAfter(maxDate21Days, "day")) return;
 
@@ -942,10 +1008,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                         selected.isSame(now, "day") &&
                         selected.isBefore(now.add(30, "minute"))
                       ) {
-                        Alert.alert(
-                          "Invalid Time",
-                          "Select at least 30 minutes from now",
-                        );
                         return;
                       }
 
@@ -954,7 +1016,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
 
-                {/* New Confirmation Box with Relax Message */}
+                {/* Confirmation Box with Relax Message */}
                 {renderConfirmationBox()}
               </>
             )}
@@ -975,9 +1037,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       const start = dayjs(startDate);
                       const end = dayjs(endDate);
 
+                      // ⛔ past dates
+                      if (start.isBefore(dayjs(), "day")) return;
+
+                      // ⛔ cutoff time check for start date
+                      if (isDateDisabled(start)) {
+                        return;
+                      }
+
                       // ⛔ max 21 days
                       if (end.diff(start, "day") > 21) {
-                        Alert.alert("Invalid Range", "Maximum 21 days allowed");
                         return;
                       }
 
@@ -1014,6 +1083,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       const start = dayjs(date);
 
                       if (start.isBefore(dayjs(), "day")) return;
+                      
+                      // ⛔ cutoff time check
+                      if (isDateDisabled(start)) {
+                        return;
+                      }
+                      
                       if (start.isAfter(maxDate90Days, "day")) return;
 
                       const end = start.add(1, "month");
@@ -1382,7 +1457,7 @@ const styles = StyleSheet.create({
   customTimePickerButtonTextConfirm: {
     color: "#fff",
   },
-  // New styles for confirmation box
+  // Styles for confirmation box
   confirmationContainer: {
     borderWidth: 1,
     borderColor: "#e0e0e0",
@@ -1445,10 +1520,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#fff",
   },
+  durationButtonDisabled: {
+    borderColor: "#ccc",
+    backgroundColor: "#f5f5f5",
+  },
   durationButtonText: {
     fontSize: 20,
     fontWeight: "bold",
     color: "#007AFF",
+  },
+  durationButtonTextDisabled: {
+    color: "#999",
   },
   durationDisplay: {
     flex: 1,
@@ -1472,5 +1554,26 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: "#666",
     textAlign: "center",
+  },
+  // Cutoff message styles
+  cutoffMessageContainer: {
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginVertical: 10,
+  },
+  cutoffMessageTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FF3B30",
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  cutoffMessageText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });
