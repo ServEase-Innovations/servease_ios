@@ -657,7 +657,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       iconBg: "#F59E0B"
     },
     {
-      title: "Service Fee",
+      title: "Withdrawl",
       value: `₹${(
         (payout?.summary?.total_earned || 0) - (payout?.summary?.available_to_withdraw || 0)
       ).toLocaleString("en-IN")}`,
@@ -669,7 +669,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
       iconBg: "#EF4444"
     },
     {
-      title: "Available Balance",
+      title: "Actual Payout Balance",
       value: `₹${payout?.summary?.available_to_withdraw?.toLocaleString("en-IN") || 0}`,
       change: "+10.2%",
       changeType: "positive" as const,
@@ -951,37 +951,6 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
               </View>
             </View>
             
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <View style={styles.statIconContainer}>
-                  <MaterialIcon name="calendar-today" size={18} color="#3b82f6" />
-                  <View style={styles.statBadge}>
-                    <Text style={styles.statBadgeText}>+3</Text>
-                  </View>
-                </View>
-                <Text style={styles.statLabel}>Bookings</Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <View style={styles.statIconContainer}>
-                  <MaterialIcon name="star" size={18} color="#f59e0b" />
-                  <View style={styles.statBadge}>
-                    <Text style={styles.statBadgeText}>4.8</Text>
-                  </View>
-                </View>
-                <Text style={styles.statLabel}>Rating</Text>
-              </View>
-              
-              <View style={styles.statItem}>
-                <View style={styles.statIconContainer}>
-                  <MaterialIcon name="trending-up" size={18} color="#10b981" />
-                  <View style={styles.statBadge}>
-                    <Text style={styles.statBadgeText}>98%</Text>
-                  </View>
-                </View>
-                <Text style={styles.statLabel}>Completion</Text>
-              </View>
-            </View>
           </View>
         </LinearGradient>
 

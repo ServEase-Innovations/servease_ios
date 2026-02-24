@@ -1,4 +1,4 @@
-// Head.tsx - UPDATED: With closeDropdowns prop
+// Head.tsx - UPDATED: With alerts button after location selector
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -449,7 +449,7 @@ const Head: React.FC<ChildComponentProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Location Selector - Expanded to fill available space */}
+        {/* Location Selector - Slightly shrinked to accommodate alerts button */}
         <View style={styles.locationContainer}>
           <LocationSelector
             userPreference={userPreference}
@@ -457,6 +457,17 @@ const Head: React.FC<ChildComponentProps> = ({
             onLocationChange={handleLocationChange}
           />
         </View>
+
+        {/* Alerts Button - Always displayed after location selector */}
+        <TouchableOpacity
+          onPress={handleNotificationClick}
+          style={styles.alertsButton}
+        >
+          <View style={styles.alertsButtonInner}>
+            <MaterialIcon name="notifications" size={22} color="#fff" />
+            <Text style={styles.alertsButtonText}>Alerts</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* REMOVED: Entire right actions container including user menu */}
       </LinearGradient>
@@ -468,6 +479,12 @@ const Head: React.FC<ChildComponentProps> = ({
       <WalletDialog
         open={isWalletOpen}
         onClose={() => setIsWalletOpen(false)}
+      />
+
+      {/* Notifications Dialog */}
+      <NotificationsDialog
+        visible={showNotifications}
+        onClose={handleCloseNotifications}
       />
 
       {/* Terms and Conditions Modal */}
@@ -536,7 +553,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", // Changed from space-between to evenly distribute
     height: 70,
     elevation: 3,
-    // paddingHorizontal: 16, // Add padding for better spacing
+    paddingHorizontal: 12, // Slightly reduced padding to accommodate alerts button
   },
   logoContainer: {
     flex: 1,
@@ -550,16 +567,35 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   locationContainer: {
-   flex: 3, // Increased from 2 to take even more space
-  justifyContent: "center",
-  alignItems: "stretch", // Changed from "center" to fill width
-  height: 50, // Increased from 36 to make it taller
-  // marginHorizontal: 10,
-paddingBottom: 10,
-    
-    // maxWidth: width * 0.6, // Increased max width for better visibility
+    flex: 2.5, // Slightly reduced from 3 to make room for alerts button
+    justifyContent: "center",
+    alignItems: "stretch", // Changed from "center" to fill width
+    height: 50, // Increased from 36 to make it taller
+    marginHorizontal: 8, // Added horizontal margin for spacing
+    paddingBottom: 10,
+    // maxWidth: width * 0.5, // Reduced max width to accommodate alerts button
   },
-  // REMOVED: All rightActionsContainer and user menu related styles
+  alertsButton: {
+    flex: 0.5, // Fixed width for alerts button
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    marginLeft: 4,
+    height: 50,
+  },
+  alertsButtonInner: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 3,
+  },
+  alertsButtonText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "500",
+  },
   
   modalContainer: {
     flex: 1,
