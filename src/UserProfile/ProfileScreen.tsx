@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useAuth0 } from "react-native-auth0";
-import LinearGradient from 'react-native-linear-gradient';
+import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/Feather";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { useAppUser } from "../context/AppUserContext";
@@ -26,7 +26,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/userStore";
 import { setHasMobileNumber } from "../features/customerSlice";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 // Interfaces
 interface Address {
@@ -113,7 +113,7 @@ interface OriginalData {
 const ProfileScreen = () => {
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
   const { appUser } = useAppUser();
-  
+
   // USE REDUX STATE
   const dispatch = useDispatch();
   const {
@@ -124,7 +124,7 @@ const ProfileScreen = () => {
     lastName,
     emailId,
     hasMobileNumber,
-    loading: customerLoading
+    loading: customerLoading,
   } = useSelector((state: RootState) => state.customer);
 
   console.log("App User from Context:", appUser);
@@ -134,8 +134,11 @@ const ProfileScreen = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [userRole, setUserRole] = useState<string>("CUSTOMER");
-  const [serviceProviderData, setServiceProviderData] = useState<ServiceProvider | null>(null);
-  const [customerData, setCustomerData] = useState<CustomerDetails | null>(null);
+  const [serviceProviderData, setServiceProviderData] =
+    useState<ServiceProvider | null>(null);
+  const [customerData, setCustomerData] = useState<CustomerDetails | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [expandedAddressIds, setExpandedAddressIds] = useState<string[]>([]);
   const [showMobileDialog, setShowMobileDialog] = useState(false);
@@ -145,7 +148,7 @@ const ProfileScreen = () => {
     firstName: "",
     lastName: "",
     contactNumber: "",
-    altContactNumber: ""
+    altContactNumber: "",
   });
 
   const [originalData, setOriginalData] = useState<OriginalData>({
@@ -153,11 +156,11 @@ const ProfileScreen = () => {
       firstName: "",
       lastName: "",
       contactNumber: "",
-      altContactNumber: ""
+      altContactNumber: "",
     },
-    addresses: []
+    addresses: [],
   });
-  
+
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({
@@ -166,38 +169,42 @@ const ProfileScreen = () => {
     street: "",
     city: "",
     country: "",
-    postalCode: ""
+    postalCode: "",
   });
   const [countryCode, setCountryCode] = useState("+91");
   const [altCountryCode, setAltCountryCode] = useState("+91");
   const [showCountryCodePicker, setShowCountryCodePicker] = useState(false);
-  const [showAltCountryCodePicker, setShowAltCountryCodePicker] = useState(false);
+  const [showAltCountryCodePicker, setShowAltCountryCodePicker] =
+    useState(false);
 
   // Validation states
   const [contactValidation, setContactValidation] = useState<ValidationState>({
     loading: false,
-    error: '',
+    error: "",
     isAvailable: null,
-    formatError: false
+    formatError: false,
   });
-  const [altContactValidation, setAltContactValidation] = useState<ValidationState>({
-    loading: false,
-    error: '',
-    isAvailable: null,
-    formatError: false
-  });
+  const [altContactValidation, setAltContactValidation] =
+    useState<ValidationState>({
+      loading: false,
+      error: "",
+      isAvailable: null,
+      formatError: false,
+    });
 
   // Track which fields have been validated
-  const [validatedFields, setValidatedFields] = useState<Set<string>>(new Set());
+  const [validatedFields, setValidatedFields] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Function to handle user preference selection
   const handleUserPreference = (preference?: string) => {
     console.log("User preference selected: ", preference);
 
     if (!preference) {
-      setNewAddress(prev => ({ ...prev, type: "Other", customType: "" }));
+      setNewAddress((prev) => ({ ...prev, type: "Other", customType: "" }));
     } else {
-      setNewAddress(prev => ({ ...prev, type: preference, customType: "" }));
+      setNewAddress((prev) => ({ ...prev, type: preference, customType: "" }));
     }
   };
 
@@ -210,8 +217,16 @@ const ProfileScreen = () => {
   // Function to get background color based on user initial
   const getAvatarBackgroundColor = (initial: string) => {
     const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
-      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+      "#FF6B6B",
+      "#4ECDC4",
+      "#45B7D1",
+      "#96CEB4",
+      "#FFEAA7",
+      "#DDA0DD",
+      "#98D8C8",
+      "#F7DC6F",
+      "#BB8FCE",
+      "#85C1E9",
     ];
     const charCode = initial.charCodeAt(0);
     return colors[charCode % colors.length];
@@ -220,7 +235,7 @@ const ProfileScreen = () => {
   // Function to render profile picture with fallback
   const renderProfilePicture = () => {
     const profilePictureUri = auth0User?.picture || appUser?.picture;
-    
+
     if (profilePictureUri) {
       return (
         <Image
@@ -231,7 +246,7 @@ const ProfileScreen = () => {
     } else {
       const initial = getUserInitial();
       const backgroundColor = getAvatarBackgroundColor(initial);
-      
+
       return (
         <View style={[styles.avatarFallback, { backgroundColor }]}>
           <Text style={styles.avatarText}>{initial}</Text>
@@ -240,22 +255,26 @@ const ProfileScreen = () => {
     }
   };
 
- const getUserIdDisplay = () => {
-  if (userRole === "SERVICE_PROVIDER") {
-    // Try multiple sources for service provider ID
-    return appUser?.serviceProviderId?.toString() || 
-           userId?.toString() || 
-           serviceProviderData?.serviceproviderId?.toString() || 
-           "N/A";
-  } else {
-    // Try multiple sources for customer ID
-    return appUser?.customerid?.toString() || 
-           userId?.toString() || 
-           customerId?.toString() || 
-           customerData?.customerid?.toString() || 
-           "N/A";
-  }
-};
+  const getUserIdDisplay = () => {
+    if (userRole === "SERVICE_PROVIDER") {
+      // Try multiple sources for service provider ID
+      return (
+        appUser?.serviceProviderId?.toString() ||
+        userId?.toString() ||
+        serviceProviderData?.serviceproviderId?.toString() ||
+        "N/A"
+      );
+    } else {
+      // Try multiple sources for customer ID
+      return (
+        appUser?.customerid?.toString() ||
+        userId?.toString() ||
+        customerId?.toString() ||
+        customerData?.customerid?.toString() ||
+        "N/A"
+      );
+    }
+  };
 
   // Function to get display name for greeting
   const getDisplayName = () => {
@@ -274,58 +293,69 @@ const ProfileScreen = () => {
     return mobilePattern.test(number);
   };
 
-  const checkMobileAvailability = async (number: string, isAlternate: boolean = false): Promise<boolean> => {
+  const checkMobileAvailability = async (
+    number: string,
+    isAlternate: boolean = false,
+  ): Promise<boolean> => {
     if (!number || !validateMobileFormat(number)) {
       return false;
     }
 
-    const setValidation = isAlternate ? setAltContactValidation : setContactValidation;
-    const fieldName = isAlternate ? 'altContactNumber' : 'contactNumber';
-    
+    const setValidation = isAlternate
+      ? setAltContactValidation
+      : setContactValidation;
+    const fieldName = isAlternate ? "altContactNumber" : "contactNumber";
+
     setValidation({
       loading: true,
-      error: '',
+      error: "",
       isAvailable: null,
-      formatError: false
+      formatError: false,
     });
 
     try {
-      const endpoint = '/api/service-providers/check-mobile';
+      const endpoint = "/api/service-providers/check-mobile";
       const payload = { mobile: number };
-      
+
       const response = await providerInstance.post(endpoint, payload);
-      
+
       let isAvailable = true;
-      let errorMessage = '';
-      
+      let errorMessage = "";
+
       if (response.data.exists !== undefined) {
         isAvailable = !response.data.exists;
-        errorMessage = response.data.exists 
-          ? `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered` 
-          : '';
+        errorMessage = response.data.exists
+          ? `${
+              isAlternate ? "Alternate" : "Mobile"
+            } number is already registered`
+          : "";
       } else if (response.data.available !== undefined) {
         isAvailable = response.data.available;
-        errorMessage = !response.data.available 
-          ? `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered` 
-          : '';
+        errorMessage = !response.data.available
+          ? `${
+              isAlternate ? "Alternate" : "Mobile"
+            } number is already registered`
+          : "";
       } else if (response.data.isAvailable !== undefined) {
         isAvailable = response.data.isAvailable;
-        errorMessage = !response.data.isAvailable 
-          ? `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered` 
-          : '';
+        errorMessage = !response.data.isAvailable
+          ? `${
+              isAlternate ? "Alternate" : "Mobile"
+            } number is already registered`
+          : "";
       } else {
         isAvailable = true;
       }
-      
+
       setValidation({
         loading: false,
         error: errorMessage,
         isAvailable,
-        formatError: false
+        formatError: false,
       });
 
       if (isAvailable) {
-        setValidatedFields(prev => {
+        setValidatedFields((prev) => {
           const newSet = new Set(prev);
           newSet.add(fieldName);
           return newSet;
@@ -334,13 +364,15 @@ const ProfileScreen = () => {
 
       return isAvailable;
     } catch (error: any) {
-      console.error('Error validating mobile number:', error);
-      
-      let errorMessage = `Error checking ${isAlternate ? 'alternate' : 'mobile'} number`;
-      
+      console.error("Error validating mobile number:", error);
+
+      let errorMessage = `Error checking ${
+        isAlternate ? "alternate" : "mobile"
+      } number`;
+
       if (error.response?.data) {
         const apiError = error.response.data;
-        if (typeof apiError === 'string') {
+        if (typeof apiError === "string") {
           errorMessage = apiError;
         } else if (apiError.message) {
           errorMessage = apiError.message;
@@ -348,18 +380,22 @@ const ProfileScreen = () => {
           errorMessage = apiError.error;
         }
       } else if (error.response?.status === 400) {
-        errorMessage = `Invalid ${isAlternate ? 'alternate' : 'mobile'} number format`;
+        errorMessage = `Invalid ${
+          isAlternate ? "alternate" : "mobile"
+        } number format`;
       } else if (error.response?.status === 409) {
-        errorMessage = `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered`;
+        errorMessage = `${
+          isAlternate ? "Alternate" : "Mobile"
+        } number is already registered`;
       } else if (error.response?.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
+        errorMessage = "Server error. Please try again later.";
       }
 
       setValidation({
         loading: false,
         error: errorMessage,
         isAvailable: false,
-        formatError: false
+        formatError: false,
       });
 
       return false;
@@ -370,12 +406,12 @@ const ProfileScreen = () => {
   const useDebouncedValidation = () => {
     const timeouts = {
       contact: null as NodeJS.Timeout | null,
-      alternate: null as NodeJS.Timeout | null
+      alternate: null as NodeJS.Timeout | null,
     };
 
     return (number: string, isAlternate: boolean = false) => {
-      const timeoutKey = isAlternate ? 'alternate' : 'contact';
-      
+      const timeoutKey = isAlternate ? "alternate" : "contact";
+
       if (timeouts[timeoutKey]) {
         clearTimeout(timeouts[timeoutKey]!);
       }
@@ -389,40 +425,49 @@ const ProfileScreen = () => {
   const debouncedValidation = useDebouncedValidation();
 
   const handleContactNumberChange = (value: string) => {
-    const cleanedValue = value.replace(/\D/g, '').slice(0, 10);
-    setUserData(prev => ({ ...prev, contactNumber: cleanedValue }));
+    const cleanedValue = value.replace(/\D/g, "").slice(0, 10);
+    setUserData((prev) => ({ ...prev, contactNumber: cleanedValue }));
 
-    setContactValidation(prev => ({
+    setContactValidation((prev) => ({
       ...prev,
       loading: false,
-      error: '',
+      error: "",
       isAvailable: null,
-      formatError: false
+      formatError: false,
     }));
 
     if (cleanedValue.length === 10) {
-      setContactValidation(prev => ({
+      setContactValidation((prev) => ({
         ...prev,
         formatError: false,
-        error: prev.error === 'Please enter a valid 10-digit mobile number' ? '' : prev.error
+        error:
+          prev.error === "Please enter a valid 10-digit mobile number"
+            ? ""
+            : prev.error,
       }));
-      
+
       debouncedValidation(cleanedValue, false);
-      
+
       if (userData.altContactNumber === cleanedValue) {
-        setAltContactValidation(prev => ({
+        setAltContactValidation((prev) => ({
           ...prev,
-          error: 'Alternate number cannot be same as contact number',
+          error: "Alternate number cannot be same as contact number",
           isAvailable: false,
-          formatError: false
+          formatError: false,
         }));
-      } else if (userData.altContactNumber && userData.altContactNumber.length === 10) {
-        if (altContactValidation.error === 'Alternate number cannot be same as contact number') {
-          setAltContactValidation(prev => ({
+      } else if (
+        userData.altContactNumber &&
+        userData.altContactNumber.length === 10
+      ) {
+        if (
+          altContactValidation.error ===
+          "Alternate number cannot be same as contact number"
+        ) {
+          setAltContactValidation((prev) => ({
             ...prev,
-            error: '',
+            error: "",
             isAvailable: null,
-            formatError: false
+            formatError: false,
           }));
           debouncedValidation(userData.altContactNumber, true);
         }
@@ -430,46 +475,49 @@ const ProfileScreen = () => {
     } else if (cleanedValue) {
       setContactValidation({
         loading: false,
-        error: 'Please enter a valid 10-digit mobile number',
+        error: "Please enter a valid 10-digit mobile number",
         isAvailable: null,
-        formatError: true
+        formatError: true,
       });
     } else {
       setContactValidation({
         loading: false,
-        error: '',
+        error: "",
         isAvailable: null,
-        formatError: false
+        formatError: false,
       });
     }
   };
 
   const handleAltContactNumberChange = (value: string) => {
-    const cleanedValue = value.replace(/\D/g, '').slice(0, 10);
-    setUserData(prev => ({ ...prev, altContactNumber: cleanedValue }));
+    const cleanedValue = value.replace(/\D/g, "").slice(0, 10);
+    setUserData((prev) => ({ ...prev, altContactNumber: cleanedValue }));
 
-    setAltContactValidation(prev => ({
+    setAltContactValidation((prev) => ({
       ...prev,
       loading: false,
-      error: '',
+      error: "",
       isAvailable: null,
-      formatError: false
+      formatError: false,
     }));
 
     if (cleanedValue) {
       if (cleanedValue.length === 10) {
-        setAltContactValidation(prev => ({
+        setAltContactValidation((prev) => ({
           ...prev,
           formatError: false,
-          error: prev.error === 'Please enter a valid 10-digit mobile number' ? '' : prev.error
+          error:
+            prev.error === "Please enter a valid 10-digit mobile number"
+              ? ""
+              : prev.error,
         }));
 
         if (cleanedValue === userData.contactNumber) {
           setAltContactValidation({
             loading: false,
-            error: 'Alternate number cannot be same as contact number',
+            error: "Alternate number cannot be same as contact number",
             isAvailable: false,
-            formatError: false
+            formatError: false,
           });
         } else {
           debouncedValidation(cleanedValue, true);
@@ -477,17 +525,17 @@ const ProfileScreen = () => {
       } else {
         setAltContactValidation({
           loading: false,
-          error: 'Please enter a valid 10-digit mobile number',
+          error: "Please enter a valid 10-digit mobile number",
           isAvailable: null,
-          formatError: true
+          formatError: true,
         });
       }
     } else {
       setAltContactValidation({
         loading: false,
-        error: '',
+        error: "",
         isAvailable: null,
-        formatError: false
+        formatError: false,
       });
     }
   };
@@ -499,13 +547,13 @@ const ProfileScreen = () => {
 
   // Check if any field has been modified
   const hasChanges = (): boolean => {
-    const userDataChanged = 
+    const userDataChanged =
       userData.firstName !== originalData.userData.firstName ||
       userData.lastName !== originalData.userData.lastName ||
       userData.contactNumber !== originalData.userData.contactNumber ||
       userData.altContactNumber !== originalData.userData.altContactNumber;
 
-    const addressesChanged = 
+    const addressesChanged =
       addresses.length !== originalData.addresses.length ||
       addresses.some((addr, index) => {
         const originalAddr = originalData.addresses[index];
@@ -523,42 +571,63 @@ const ProfileScreen = () => {
   };
 
   const validateAllFields = async (): Promise<boolean> => {
-    const contactNumberChanged = userData.contactNumber !== originalData.userData.contactNumber;
-    const altContactNumberChanged = userData.altContactNumber !== originalData.userData.altContactNumber;
+    const contactNumberChanged =
+      userData.contactNumber !== originalData.userData.contactNumber;
+    const altContactNumberChanged =
+      userData.altContactNumber !== originalData.userData.altContactNumber;
 
     let allValid = true;
     const validationPromises: Promise<boolean>[] = [];
 
     if (contactNumberChanged) {
       if (!validateMobileFormat(userData.contactNumber)) {
-        Alert.alert("Validation Error", "Please enter a valid 10-digit contact number");
+        Alert.alert(
+          "Validation Error",
+          "Please enter a valid 10-digit contact number",
+        );
         return false;
       }
 
-      if (!validatedFields.has('contactNumber') || contactValidation.isAvailable === null) {
-        validationPromises.push(checkMobileAvailability(userData.contactNumber, false));
+      if (
+        !validatedFields.has("contactNumber") ||
+        contactValidation.isAvailable === null
+      ) {
+        validationPromises.push(
+          checkMobileAvailability(userData.contactNumber, false),
+        );
       }
     }
 
     if (altContactNumberChanged && userData.altContactNumber) {
       if (!validateMobileFormat(userData.altContactNumber)) {
-        Alert.alert("Validation Error", "Please enter a valid 10-digit alternate contact number");
+        Alert.alert(
+          "Validation Error",
+          "Please enter a valid 10-digit alternate contact number",
+        );
         return false;
       }
 
       if (!areNumbersUnique()) {
-        Alert.alert("Validation Error", "Contact number and alternate contact number must be different");
+        Alert.alert(
+          "Validation Error",
+          "Contact number and alternate contact number must be different",
+        );
         return false;
       }
 
-      if (!validatedFields.has('altContactNumber') || altContactValidation.isAvailable === null) {
-        validationPromises.push(checkMobileAvailability(userData.altContactNumber, true));
+      if (
+        !validatedFields.has("altContactNumber") ||
+        altContactValidation.isAvailable === null
+      ) {
+        validationPromises.push(
+          checkMobileAvailability(userData.altContactNumber, true),
+        );
       }
     }
 
     if (validationPromises.length > 0) {
       const results = await Promise.all(validationPromises);
-      allValid = results.every(result => result === true);
+      allValid = results.every((result) => result === true);
     }
 
     if (contactNumberChanged && contactValidation.isAvailable === false) {
@@ -566,8 +635,15 @@ const ProfileScreen = () => {
       allValid = false;
     }
 
-    if (altContactNumberChanged && userData.altContactNumber && altContactValidation.isAvailable === false) {
-      Alert.alert("Validation Error", "Alternate contact number is not available");
+    if (
+      altContactNumberChanged &&
+      userData.altContactNumber &&
+      altContactValidation.isAvailable === false
+    ) {
+      Alert.alert(
+        "Validation Error",
+        "Alternate contact number is not available",
+      );
       allValid = false;
     }
 
@@ -583,52 +659,55 @@ const ProfileScreen = () => {
       const currentSettings = response.data;
 
       let existingLocations = [];
-      
+
       if (Array.isArray(currentSettings) && currentSettings.length > 0) {
         existingLocations = currentSettings[0].savedLocations || [];
       } else {
         await utilsInstance.post("/user-settings", {
           customerId: userId,
-          savedLocations: []
+          savedLocations: [],
         });
       }
 
-      const addressType = addressData.type === "Other" && addressData.customType 
-        ? addressData.customType 
-        : addressData.type;
+      const addressType =
+        addressData.type === "Other" && addressData.customType
+          ? addressData.customType
+          : addressData.type;
 
       const newLocation = {
         name: addressType,
         location: {
-          address: [{
-            formatted_address: addressData.street,
-            address_components: [
-              { long_name: addressData.city, types: ["locality"] },
-              { long_name: addressData.country, types: ["country"] },
-              { long_name: addressData.postalCode, types: ["postal_code"] },
-            ],
-            geometry: {
-              location: {
-                lat: addressData.rawData?.latitude || 0,
-                lng: addressData.rawData?.longitude || 0
-              }
+          address: [
+            {
+              formatted_address: addressData.street,
+              address_components: [
+                { long_name: addressData.city, types: ["locality"] },
+                { long_name: addressData.country, types: ["country"] },
+                { long_name: addressData.postalCode, types: ["postal_code"] },
+              ],
+              geometry: {
+                location: {
+                  lat: addressData.rawData?.latitude || 0,
+                  lng: addressData.rawData?.longitude || 0,
+                },
+              },
+              place_id: addressData.rawData?.placeId || `manual_${Date.now()}`,
             },
-            place_id: addressData.rawData?.placeId || `manual_${Date.now()}`
-          }],
+          ],
           lat: addressData.rawData?.latitude || 0,
-          lng: addressData.rawData?.longitude || 0
-        }
+          lng: addressData.rawData?.longitude || 0,
+        },
       };
 
       const updatedLocations = [...existingLocations, newLocation];
 
       const payload = {
         customerId: userId,
-        savedLocations: updatedLocations
+        savedLocations: updatedLocations,
       };
 
       await utilsInstance.put(`/user-settings/${userId}`, payload);
-      
+
       console.log("✅ Address saved successfully to user settings");
       return true;
     } catch (error) {
@@ -648,30 +727,32 @@ const ProfileScreen = () => {
         return {
           name: addressType,
           location: {
-            address: [{
-              formatted_address: addr.street,
-              address_components: [
-                { long_name: addr.city, types: ["locality"] },
-                { long_name: addr.country, types: ["country"] },
-                { long_name: addr.postalCode, types: ["postal_code"] },
-              ],
-              geometry: {
-                location: {
-                  lat: addr.rawData?.latitude || 0,
-                  lng: addr.rawData?.longitude || 0
-                }
+            address: [
+              {
+                formatted_address: addr.street,
+                address_components: [
+                  { long_name: addr.city, types: ["locality"] },
+                  { long_name: addr.country, types: ["country"] },
+                  { long_name: addr.postalCode, types: ["postal_code"] },
+                ],
+                geometry: {
+                  location: {
+                    lat: addr.rawData?.latitude || 0,
+                    lng: addr.rawData?.longitude || 0,
+                  },
+                },
+                place_id: addr.rawData?.placeId || `manual_${Date.now()}`,
               },
-              place_id: addr.rawData?.placeId || `manual_${Date.now()}`
-            }],
+            ],
             lat: addr.rawData?.latitude || 0,
-            lng: addr.rawData?.longitude || 0
-          }
+            lng: addr.rawData?.longitude || 0,
+          },
         };
       });
 
       const payload = {
         customerId: userId,
-        savedLocations: savedLocations
+        savedLocations: savedLocations,
       };
 
       await utilsInstance.put(`/user-settings/${userId}`, payload);
@@ -686,39 +767,43 @@ const ProfileScreen = () => {
   const fetchCustomerDetails = async (customerId: number) => {
     try {
       console.log("Fetching customer details for ID:", customerId);
-      const response = await axiosInstance.get(`/api/customer/get-customer-by-id/${customerId}`);
+      const response = await axiosInstance.get(
+        `/api/customer/get-customer-by-id/${customerId}`,
+      );
       console.log("API Response:", response.data);
-      
+
       const customer = response.data;
 
-      const mobileNo = customer?.mobileNo ?? 
-                      customer?.mobileNumber ?? 
-                      customer?.phoneNumber ?? 
-                      customer?.contactNumber ?? 
-                      customer?.phone ?? 
-                      "";
-      
-      const altMobileNo = customer?.altMobileNo ?? 
-                         customer?.alternateMobileNo ?? 
-                         customer?.altPhoneNumber ?? 
-                         customer?.alternateContactNumber ?? 
-                         "";
+      const mobileNo =
+        customer?.mobileNo ??
+        customer?.mobileNumber ??
+        customer?.phoneNumber ??
+        customer?.contactNumber ??
+        customer?.phone ??
+        "";
+
+      const altMobileNo =
+        customer?.altMobileNo ??
+        customer?.alternateMobileNo ??
+        customer?.altPhoneNumber ??
+        customer?.alternateContactNumber ??
+        "";
 
       console.log("Mapped mobile numbers:", { mobileNo, altMobileNo });
 
       setCustomerData(customer);
-      
+
       const updatedUserData = {
         firstName: customer.firstName || "",
         lastName: customer.lastName || "",
         contactNumber: mobileNo ? mobileNo.toString() : "",
-        altContactNumber: altMobileNo ? altMobileNo.toString() : ""
+        altContactNumber: altMobileNo ? altMobileNo.toString() : "",
       };
 
       setUserData(updatedUserData);
-      setOriginalData(prev => ({
+      setOriginalData((prev) => ({
         ...prev,
-        userData: updatedUserData
+        userData: updatedUserData,
       }));
 
       return customer;
@@ -735,68 +820,74 @@ const ProfileScreen = () => {
       const data = response.data;
 
       if (Array.isArray(data) && data.length > 0) {
-        const allSavedLocations = data.flatMap(doc => doc.savedLocations || []);
+        const allSavedLocations = data.flatMap(
+          (doc) => doc.savedLocations || [],
+        );
 
         const uniqueAddresses = new Map();
-        
+
         allSavedLocations
           .filter((loc: any) => loc.location?.address?.[0]?.formatted_address)
           .forEach((loc: any, idx: number) => {
             const primaryAddress = loc.location.address[0];
             const addressComponents = primaryAddress.address_components || [];
-            
+
             const getComponent = (type: string) => {
-              const component = addressComponents.find((c: any) => c.types.includes(type));
+              const component = addressComponents.find((c: any) =>
+                c.types.includes(type),
+              );
               return component?.long_name || "";
             };
 
-            const locationKey = loc.location.lat && loc.location.lng 
-              ? `${loc.location.lat},${loc.location.lng}`
-              : primaryAddress.formatted_address;
+            const locationKey =
+              loc.location.lat && loc.location.lng
+                ? `${loc.location.lat},${loc.location.lng}`
+                : primaryAddress.formatted_address;
 
             if (!uniqueAddresses.has(locationKey)) {
               uniqueAddresses.set(locationKey, {
                 id: loc._id || `addr_${idx}`,
                 type: loc.name || "Other",
                 street: primaryAddress.formatted_address,
-                city: getComponent("locality") || 
-                      getComponent("administrative_area_level_3") || 
-                      getComponent("administrative_area_level_4") || 
-                      "",
+                city:
+                  getComponent("locality") ||
+                  getComponent("administrative_area_level_3") ||
+                  getComponent("administrative_area_level_4") ||
+                  "",
                 country: getComponent("country") || "",
                 postalCode: getComponent("postal_code") || "",
                 rawData: {
                   formattedAddress: primaryAddress.formatted_address,
                   latitude: loc.location.lat,
                   longitude: loc.location.lng,
-                  placeId: primaryAddress.place_id
-                }
+                  placeId: primaryAddress.place_id,
+                },
               });
             }
           });
 
         const mappedAddresses = Array.from(uniqueAddresses.values());
-        
+
         setAddresses(mappedAddresses);
-        setOriginalData(prev => ({
+        setOriginalData((prev) => ({
           ...prev,
-          addresses: mappedAddresses
+          addresses: mappedAddresses,
         }));
         console.log("Deduplicated addresses:", mappedAddresses);
       } else {
         console.log("No address data found");
         setAddresses([]);
-        setOriginalData(prev => ({
+        setOriginalData((prev) => ({
           ...prev,
-          addresses: []
+          addresses: [],
         }));
       }
     } catch (err) {
       console.error("Failed to fetch customer addresses:", err);
       setAddresses([]);
-      setOriginalData(prev => ({
+      setOriginalData((prev) => ({
         ...prev,
-        addresses: []
+        addresses: [],
       }));
     }
   };
@@ -805,7 +896,7 @@ const ProfileScreen = () => {
   const fetchServiceProviderData = async (serviceProviderId: number) => {
     try {
       const response = await axiosInstance.get(
-        `/api/serviceproviders/get/serviceprovider/${serviceProviderId}`
+        `/api/serviceproviders/get/serviceprovider/${serviceProviderId}`,
       );
 
       const data = response.data;
@@ -815,48 +906,52 @@ const ProfileScreen = () => {
         firstName: data.firstName || "",
         lastName: data.lastName || "",
         contactNumber: data.mobileNo ? data.mobileNo.toString() : "",
-        altContactNumber: data.alternateNo ? data.alternateNo.toString() : ""
+        altContactNumber: data.alternateNo ? data.alternateNo.toString() : "",
       };
 
       setUserData(updatedUserData);
-      setOriginalData(prev => ({
+      setOriginalData((prev) => ({
         ...prev,
-        userData: updatedUserData
+        userData: updatedUserData,
       }));
 
       const addresses: Address[] = [];
 
       if (data.permanentAddress) {
         const permAddr = data.permanentAddress;
-        const streetAddress = `${permAddr.field1 || ""} ${permAddr.field2 || ""}`.trim() || 
-                             data.street || 
-                             data.buildingName || 
-                             "";
-        
+        const streetAddress =
+          `${permAddr.field1 || ""} ${permAddr.field2 || ""}`.trim() ||
+          data.street ||
+          data.buildingName ||
+          "";
+
         addresses.push({
           id: "permanent",
           type: "Permanent",
           street: streetAddress || "Address not specified",
           city: permAddr.ctArea || data.locality || data.currentLocation || "",
           country: permAddr.country || "India",
-          postalCode: permAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
+          postalCode:
+            permAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
         });
       }
 
       if (data.correspondenceAddress) {
         const corrAddr = data.correspondenceAddress;
-        const streetAddress = `${corrAddr.field1 || ""} ${corrAddr.field2 || ""}`.trim() || 
-                             data.street || 
-                             data.buildingName || 
-                             "";
-        
+        const streetAddress =
+          `${corrAddr.field1 || ""} ${corrAddr.field2 || ""}`.trim() ||
+          data.street ||
+          data.buildingName ||
+          "";
+
         addresses.push({
           id: "correspondence",
           type: "Correspondence",
           street: streetAddress || "Address not specified",
           city: corrAddr.ctArea || data.locality || data.currentLocation || "",
           country: corrAddr.country || "India",
-          postalCode: corrAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
+          postalCode:
+            corrAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
         });
       }
 
@@ -864,7 +959,9 @@ const ProfileScreen = () => {
         const serviceProviderAddress: Address = {
           id: "1",
           type: "Home",
-          street: `${data.buildingName || ""} ${data.street || ""} ${data.locality || ""}`.trim(),
+          street: `${data.buildingName || ""} ${data.street || ""} ${
+            data.locality || ""
+          }`.trim(),
           city: data.nearbyLocation || data.currentLocation || "",
           country: "India",
           postalCode: data.pincode ? data.pincode.toString() : "",
@@ -873,9 +970,9 @@ const ProfileScreen = () => {
       }
 
       setAddresses(addresses);
-      setOriginalData(prev => ({
+      setOriginalData((prev) => ({
         ...prev,
-        addresses: addresses
+        addresses: addresses,
       }));
     } catch (error) {
       console.error("Failed to fetch service provider data:", error);
@@ -892,10 +989,16 @@ const ProfileScreen = () => {
 
   // Add Address functionality
   const handleAddAddress = async () => {
-    if (newAddress.street && newAddress.city && newAddress.country && newAddress.postalCode) {
-      const addressType = newAddress.type === "Other" && newAddress.customType 
-        ? newAddress.customType 
-        : newAddress.type;
+    if (
+      newAddress.street &&
+      newAddress.city &&
+      newAddress.country &&
+      newAddress.postalCode
+    ) {
+      const addressType =
+        newAddress.type === "Other" && newAddress.customType
+          ? newAddress.customType
+          : newAddress.type;
 
       const addressToAdd: Address = {
         type: addressType,
@@ -908,8 +1011,8 @@ const ProfileScreen = () => {
           formattedAddress: newAddress.street,
           latitude: 0,
           longitude: 0,
-          placeId: `manual_${Date.now()}`
-        }
+          placeId: `manual_${Date.now()}`,
+        },
       };
 
       const updatedAddresses = [...addresses, addressToAdd];
@@ -934,7 +1037,7 @@ const ProfileScreen = () => {
         street: "",
         city: "",
         country: "",
-        postalCode: ""
+        postalCode: "",
       });
       setShowAddAddress(false);
     } else {
@@ -945,9 +1048,9 @@ const ProfileScreen = () => {
   // Remove address
   const removeAddress = async (id: string) => {
     if (addresses.length <= 1) return;
-    
-    const updatedAddresses = addresses.filter(addr => addr.id !== id);
-    
+
+    const updatedAddresses = addresses.filter((addr) => addr.id !== id);
+
     setAddresses(updatedAddresses);
 
     if (userRole === "CUSTOMER" && userId) {
@@ -971,10 +1074,11 @@ const ProfileScreen = () => {
         const role = appUser?.role || "CUSTOMER";
         setUserRole(role);
 
-        const id = role === "SERVICE_PROVIDER" 
-          ? appUser?.serviceProviderId 
-          : appUser?.customerid;
-        
+        const id =
+          role === "SERVICE_PROVIDER"
+            ? appUser?.serviceProviderId
+            : appUser?.customerid;
+
         setUserName(name);
         setUserId(id ? Number(id) : null);
 
@@ -985,36 +1089,36 @@ const ProfileScreen = () => {
           } else if (role === "CUSTOMER" && id) {
             if (customerLoading) {
               console.log("⏳ Waiting for Redux customer data to load...");
-              await new Promise(resolve => setTimeout(resolve, 500));
+              await new Promise((resolve) => setTimeout(resolve, 500));
             }
-            
+
             const updatedUserData = {
               firstName: firstName || name?.split(" ")[0] || "",
               lastName: lastName || name?.split(" ").slice(1).join(" ") || "",
               contactNumber: mobileNo || "",
-              altContactNumber: alternateNo || ""
+              altContactNumber: alternateNo || "",
             };
-            
+
             setUserData(updatedUserData);
-            setOriginalData(prev => ({
+            setOriginalData((prev) => ({
               ...prev,
-              userData: updatedUserData
+              userData: updatedUserData,
             }));
-            
+
             console.log("✅ Profile data loaded from Redux:", {
               firstName,
               lastName,
               mobileNo,
-              hasMobileNumber
+              hasMobileNumber,
             });
-            
+
             if (!hasMobileNumber && !dialogShownInSession) {
               setTimeout(() => {
                 setShowMobileDialog(true);
                 setDialogShownInSession(true);
               }, 1000);
             }
-            
+
             await fetchCustomerAddresses(Number(id));
           }
         } catch (err) {
@@ -1037,15 +1141,15 @@ const ProfileScreen = () => {
         firstName: firstName || userData.firstName || "",
         lastName: lastName || userData.lastName || "",
         contactNumber: mobileNo || userData.contactNumber || "",
-        altContactNumber: alternateNo || userData.altContactNumber || ""
+        altContactNumber: alternateNo || userData.altContactNumber || "",
       };
-      
+
       if (JSON.stringify(userData) !== JSON.stringify(updatedUserData)) {
         setUserData(updatedUserData);
         if (!isEditing) {
-          setOriginalData(prev => ({
+          setOriginalData((prev) => ({
             ...prev,
-            userData: updatedUserData
+            userData: updatedUserData,
           }));
         }
       }
@@ -1053,9 +1157,9 @@ const ProfileScreen = () => {
   }, [firstName, lastName, mobileNo, alternateNo, userRole, isEditing]);
 
   const handleInputChange = (name: keyof UserData, value: string) => {
-    setUserData(prev => ({
+    setUserData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -1082,38 +1186,45 @@ const ProfileScreen = () => {
         if (userData.contactNumber !== originalData.userData.contactNumber) {
           payload.mobileNo = userData.contactNumber?.replace("+", "") || null;
         }
-        if (userData.altContactNumber !== originalData.userData.altContactNumber) {
-          payload.alternateNo = userData.altContactNumber?.replace("+", "") || null;
+        if (
+          userData.altContactNumber !== originalData.userData.altContactNumber
+        ) {
+          payload.alternateNo =
+            userData.altContactNumber?.replace("+", "") || null;
         }
 
-        const permanentAddress = addresses.find(addr => addr.type === "Permanent");
-        const correspondenceAddress = addresses.find(addr => addr.type === "Correspondence");
+        const permanentAddress = addresses.find(
+          (addr) => addr.type === "Permanent",
+        );
+        const correspondenceAddress = addresses.find(
+          (addr) => addr.type === "Correspondence",
+        );
 
         if (permanentAddress) {
           payload.permanentAddress = {
-            field1: permanentAddress.street.split(' ')[0] || "",
+            field1: permanentAddress.street.split(" ")[0] || "",
             field2: permanentAddress.street || "",
             ctArea: permanentAddress.city || "",
             pinNo: permanentAddress.postalCode || "",
             state: "West Bengal",
-            country: permanentAddress.country || "India"
+            country: permanentAddress.country || "India",
           };
         }
 
         if (correspondenceAddress) {
           payload.correspondenceAddress = {
-            field1: correspondenceAddress.street.split(' ')[0] || "",
+            field1: correspondenceAddress.street.split(" ")[0] || "",
             field2: correspondenceAddress.street || "",
             ctArea: correspondenceAddress.city || "",
             pinNo: correspondenceAddress.postalCode || "",
             state: "West Bengal",
-            country: correspondenceAddress.country || "India"
+            country: correspondenceAddress.country || "India",
           };
         }
 
         await axiosInstance.put(
           `/api/serviceproviders/update/serviceprovider/${userId}`,
-          payload
+          payload,
         );
         await fetchServiceProviderData(userId);
         Alert.alert("Success", "Profile updated successfully");
@@ -1131,30 +1242,45 @@ const ProfileScreen = () => {
         if (userData.contactNumber !== originalData.userData.contactNumber) {
           payload.mobileNo = userData.contactNumber?.replace("+", "") || null;
         }
-        if (userData.altContactNumber !== originalData.userData.altContactNumber) {
-          payload.alternateNo = userData.altContactNumber?.replace("+", "") || null;
+        if (
+          userData.altContactNumber !== originalData.userData.altContactNumber
+        ) {
+          payload.alternateNo =
+            userData.altContactNumber?.replace("+", "") || null;
         }
 
         await axiosInstance.put(
           `/api/customer/update-customer/${userId}`,
-          payload
+          payload,
         );
-        
+
         if (userData.contactNumber) {
           dispatch(setHasMobileNumber(true));
         }
-        
-        if (JSON.stringify(addresses) !== JSON.stringify(originalData.addresses)) {
+
+        if (
+          JSON.stringify(addresses) !== JSON.stringify(originalData.addresses)
+        ) {
           await updateAddressesInUserSettings(addresses);
         }
-        
+
         Alert.alert("Success", "Profile updated successfully");
       }
 
       setValidatedFields(new Set());
-      setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
-      setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
-      
+      setContactValidation({
+        loading: false,
+        error: "",
+        isAvailable: null,
+        formatError: false,
+      });
+      setAltContactValidation({
+        loading: false,
+        error: "",
+        isAvailable: null,
+        formatError: false,
+      });
+
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to save data:", error);
@@ -1167,33 +1293,48 @@ const ProfileScreen = () => {
   const handleCancel = () => {
     setIsEditing(false);
     setShowAddAddress(false);
-    
+
     setUserData(originalData.userData);
     setAddresses([...originalData.addresses]);
-    
+
     setValidatedFields(new Set());
-    setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
-    setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
+    setContactValidation({
+      loading: false,
+      error: "",
+      isAvailable: null,
+      formatError: false,
+    });
+    setAltContactValidation({
+      loading: false,
+      error: "",
+      isAvailable: null,
+      formatError: false,
+    });
   };
 
   const handleEditStart = () => {
     setOriginalData({
       userData: { ...userData },
-      addresses: [...addresses]
+      addresses: [...addresses],
     });
     setIsEditing(true);
   };
 
   const toggleAddress = (id: string) => {
     setExpandedAddressIds((prev) =>
-      prev.includes(id) ? prev.filter((addrId) => addrId !== id) : [...prev, id]
+      prev.includes(id)
+        ? prev.filter((addrId) => addrId !== id)
+        : [...prev, id],
     );
   };
 
-  const handleAddressInputChange = (name: keyof typeof newAddress, value: string) => {
-    setNewAddress(prev => ({
+  const handleAddressInputChange = (
+    name: keyof typeof newAddress,
+    value: string,
+  ) => {
+    setNewAddress((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -1204,18 +1345,24 @@ const ProfileScreen = () => {
   };
 
   const isFormValid = (): boolean => {
-    const contactNumberChanged = userData.contactNumber !== originalData.userData.contactNumber;
-    const altContactNumberChanged = userData.altContactNumber !== originalData.userData.altContactNumber;
+    const contactNumberChanged =
+      userData.contactNumber !== originalData.userData.contactNumber;
+    const altContactNumberChanged =
+      userData.altContactNumber !== originalData.userData.altContactNumber;
 
-    const contactValid = !contactNumberChanged || 
-      (validateMobileFormat(userData.contactNumber) && 
-       (contactValidation.isAvailable === true || contactValidation.isAvailable === null));
+    const contactValid =
+      !contactNumberChanged ||
+      (validateMobileFormat(userData.contactNumber) &&
+        (contactValidation.isAvailable === true ||
+          contactValidation.isAvailable === null));
 
-    const altContactValid = !altContactNumberChanged || 
-      (!userData.altContactNumber ||
-       (validateMobileFormat(userData.altContactNumber) && 
-        (altContactValidation.isAvailable === true || altContactValidation.isAvailable === null) &&
-        areNumbersUnique()));
+    const altContactValid =
+      !altContactNumberChanged ||
+      !userData.altContactNumber ||
+      (validateMobileFormat(userData.altContactNumber) &&
+        (altContactValidation.isAvailable === true ||
+          altContactValidation.isAvailable === null) &&
+        areNumbersUnique());
 
     return contactValid && altContactValid;
   };
@@ -1236,7 +1383,9 @@ const ProfileScreen = () => {
       <View style={styles.loadingContent}>
         <ActivityIndicator size="large" color="#0E305C" />
         <Text style={styles.loadingText}>Loading your profile</Text>
-        <Text style={styles.loadingSubtext}>Please wait while we fetch your information</Text>
+        <Text style={styles.loadingSubtext}>
+          Please wait while we fetch your information
+        </Text>
       </View>
     </View>
   );
@@ -1246,9 +1395,9 @@ const ProfileScreen = () => {
     <View style={styles.container}>
       {/* Header Skeleton */}
       <LinearGradient
-        colors={['rgba(177, 213, 232, 0.8)', 'rgba(255, 255, 255, 1)']}
-        start={{x: 0, y: 0}}
-        end={{x: 0, y: 1}}
+        colors={["rgba(177, 213, 232, 0.8)", "rgba(255, 255, 255, 1)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
         style={styles.headerSkeleton}
       >
         <View style={styles.headerContentSkeleton}>
@@ -1338,7 +1487,7 @@ const ProfileScreen = () => {
   return (
     <ScrollView style={styles.container}>
       {/* Mobile Number Dialog */}
-      <MobileNumberDialog 
+      <MobileNumberDialog
         visible={showMobileDialog}
         onClose={() => setShowMobileDialog(false)}
         customerId={appUser?.customerid}
@@ -1347,9 +1496,9 @@ const ProfileScreen = () => {
 
       {/* Header with Linear Gradient */}
       <LinearGradient
-        colors={['rgba(177, 213, 232, 0.8)', 'rgba(255, 255, 255, 1)']}
-        start={{x: 0, y: 0}}
-        end={{x: 0, y: 1}}
+        colors={["rgba(177, 213, 232, 0.8)", "rgba(255, 255, 255, 1)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -1357,15 +1506,19 @@ const ProfileScreen = () => {
           <View style={styles.profileSection}>
             {renderProfilePicture()}
             <View style={styles.profileTextContainer}>
-              <Text style={styles.greeting}>
-                Hello, {getDisplayName()}
-              </Text>
+              <Text style={styles.greeting}>Hello, {getDisplayName()}</Text>
               <Text style={styles.roleText}>
-                {userRole === "SERVICE_PROVIDER" ? "Service Provider" : "Customer"}, {getUserIdDisplay()}
+                {userRole === "SERVICE_PROVIDER"
+                  ? "Service Provider"
+                  : "Customer"}
+                , {getUserIdDisplay()}
                 {userRole === "CUSTOMER" && !hasMobileNumber && (
-                  <Text style={styles.mobileWarningSmall}> ⚠️ Mobile number required</Text>
+                  <Text style={styles.mobileWarningSmall}>
+                    {" "}
+                    ⚠️ Mobile number required
+                  </Text>
                 )}
-              </Text>   
+              </Text>
             </View>
           </View>
 
@@ -1393,68 +1546,83 @@ const ProfileScreen = () => {
                 onPress={() => setShowMobileDialog(true)}
                 style={styles.addMobileButton}
               >
-                <Text style={styles.addMobileButtonText}>Add Mobile Number</Text>
+                <Text style={styles.addMobileButtonText}>
+                  Add Mobile Number
+                </Text>
               </TouchableOpacity>
             )}
           </View>
 
           {/* User Info Section */}
-         {/* User Info Section */}
-<View>
-  <Text style={styles.sectionTitle}>User Information</Text>
+          {/* User Info Section */}
+          <View>
+            <Text style={styles.sectionTitle}>User Information</Text>
 
-  <View style={styles.inputRow}>
-    <View style={styles.inputContainer}>
-      <Text style={styles.inputLabel}>Username</Text>
-      <TextInput
-        style={[styles.input, styles.readOnlyInput]}
-        value={appUser?.nickname || userName || "User"}
-        editable={false}
-      />
-    </View>
-    <View style={styles.inputContainer}>
-      <Text style={styles.inputLabel}>Email address</Text>
-      <TextInput
-        style={[styles.input, styles.readOnlyInput]}
-        value={appUser?.email || auth0User?.email || emailId || "No email available"}
-        editable={false}
-      />
-    </View>
-  </View>
+            <View style={styles.inputRow}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Username</Text>
+                <TextInput
+                  style={[styles.input, styles.readOnlyInput]}
+                  value={appUser?.nickname || userName || "User"}
+                  editable={false}
+                />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Email address</Text>
+                <TextInput
+                  style={[styles.input, styles.readOnlyInput]}
+                  value={
+                    appUser?.email ||
+                    auth0User?.email ||
+                    emailId ||
+                    "No email available"
+                  }
+                  editable={false}
+                />
+              </View>
+            </View>
 
-  <View style={styles.ultraCompactNameRow}>
-    <View style={styles.ultraCompactNameInput}>
-      <Text style={styles.compactLabel}>First name</Text>
-      <TextInput
-        style={[styles.ultraCompactInput, !isEditing && styles.readOnlyInput]}
-        value={userData.firstName}
-        onChangeText={(value) => handleInputChange("firstName", value)}
-        editable={isEditing}
-        placeholder="First"
-      />
-    </View>
-    <View style={styles.ultraCompactNameInput}>
-      <Text style={styles.compactLabel}>Last name</Text>
-      <TextInput
-        style={[styles.ultraCompactInput, !isEditing && styles.readOnlyInput]}
-        value={userData.lastName}
-        onChangeText={(value) => handleInputChange("lastName", value)}
-        editable={isEditing}
-        placeholder="Last"
-      />
-    </View>
-    <View style={styles.ultraCompactNameInput}>
-      <Text style={styles.compactLabel}>
-        {userRole === "SERVICE_PROVIDER" ? "Provider ID" : "User ID"}
-      </Text>
-      <TextInput
-        style={[styles.ultraCompactInput, styles.readOnlyInput]}
-        value={getUserIdDisplay()}
-        editable={false}
-      />
-    </View>
-  </View>
-</View>
+            <View style={styles.ultraCompactNameRow}>
+              <View style={styles.ultraCompactNameInput}>
+                <Text style={styles.compactLabel}>First name</Text>
+                <TextInput
+                  style={[
+                    styles.ultraCompactInput,
+                    !isEditing && styles.readOnlyInput,
+                  ]}
+                  value={userData.firstName}
+                  onChangeText={(value) =>
+                    handleInputChange("firstName", value)
+                  }
+                  editable={isEditing}
+                  placeholder="First"
+                />
+              </View>
+              <View style={styles.ultraCompactNameInput}>
+                <Text style={styles.compactLabel}>Last name</Text>
+                <TextInput
+                  style={[
+                    styles.ultraCompactInput,
+                    !isEditing && styles.readOnlyInput,
+                  ]}
+                  value={userData.lastName}
+                  onChangeText={(value) => handleInputChange("lastName", value)}
+                  editable={isEditing}
+                  placeholder="Last"
+                />
+              </View>
+              <View style={styles.ultraCompactNameInput}>
+                <Text style={styles.compactLabel}>
+                  {userRole === "SERVICE_PROVIDER" ? "Provider ID" : "User ID"}
+                </Text>
+                <TextInput
+                  style={[styles.ultraCompactInput, styles.readOnlyInput]}
+                  value={getUserIdDisplay()}
+                  editable={false}
+                />
+              </View>
+            </View>
+          </View>
 
           <View style={styles.divider} />
 
@@ -1465,12 +1633,16 @@ const ProfileScreen = () => {
             {/* Contact Number */}
             <View style={styles.inputContainer}>
               <View style={styles.labelContainer}>
-                <Text style={styles.inputLabel}>
-                  Contact Number
-                </Text>
+                <Text style={styles.inputLabel}>Contact Number</Text>
                 {userRole === "CUSTOMER" && (
-                  <Text style={!hasMobileNumber ? styles.mobileWarningSmall : styles.mobileSuccess}>
-                    {!hasMobileNumber ? ' ⚠️' : ' ✓'}
+                  <Text
+                    style={
+                      !hasMobileNumber
+                        ? styles.mobileWarningSmall
+                        : styles.mobileSuccess
+                    }
+                  >
+                    {!hasMobileNumber ? " ⚠️" : " ✓"}
                   </Text>
                 )}
               </View>
@@ -1484,16 +1656,20 @@ const ProfileScreen = () => {
                     <Icon name="chevron-down" size={16} color="#4a5568" />
                   </TouchableOpacity>
                 ) : (
-                  <View style={[styles.countryCodeContainer, styles.readOnlyInput]}>
+                  <View
+                    style={[styles.countryCodeContainer, styles.readOnlyInput]}
+                  >
                     <Text style={styles.countryCodeText}>{countryCode}</Text>
                   </View>
                 )}
                 <TextInput
                   style={[
-                    styles.phoneInput, 
+                    styles.phoneInput,
                     !isEditing && styles.readOnlyInput,
-                    !hasMobileNumber && userRole === "CUSTOMER" && styles.invalidInput,
-                    contactValidation.error && styles.invalidInput
+                    !hasMobileNumber &&
+                      userRole === "CUSTOMER" &&
+                      styles.invalidInput,
+                    contactValidation.error && styles.invalidInput,
                   ]}
                   value={formatMobileNumber(userData.contactNumber)}
                   onChangeText={handleContactNumberChange}
@@ -1507,25 +1683,33 @@ const ProfileScreen = () => {
                     {contactValidation.loading && (
                       <ActivityIndicator size="small" color="#3b82f6" />
                     )}
-                    {contactValidation.isAvailable && !contactValidation.loading && (
-                      <Icon name="check" size={16} color="#10b981" />
-                    )}
-                    {contactValidation.isAvailable === false && !contactValidation.loading && (
-                      <Icon name="alert-circle" size={16} color="#ef4444" />
-                    )}
+                    {contactValidation.isAvailable &&
+                      !contactValidation.loading && (
+                        <Icon name="check" size={16} color="#10b981" />
+                      )}
+                    {contactValidation.isAvailable === false &&
+                      !contactValidation.loading && (
+                        <Icon name="alert-circle" size={16} color="#ef4444" />
+                      )}
                   </View>
                 )}
               </View>
-              
+
               {/* Validation Messages */}
               {contactValidation.error && (
-                <Text style={styles.validationError}>{contactValidation.error}</Text>
+                <Text style={styles.validationError}>
+                  {contactValidation.error}
+                </Text>
               )}
               {contactValidation.formatError && isEditing && (
-                <Text style={styles.validationError}>Please enter exactly 10 digits</Text>
+                <Text style={styles.validationError}>
+                  Please enter exactly 10 digits
+                </Text>
               )}
               {contactValidation.isAvailable && (
-                <Text style={styles.validationSuccess}>Contact number is available</Text>
+                <Text style={styles.validationSuccess}>
+                  Contact number is available
+                </Text>
               )}
               {userRole === "CUSTOMER" && !hasMobileNumber && !isEditing && (
                 <View style={styles.mobileWarningContainer}>
@@ -1533,7 +1717,9 @@ const ProfileScreen = () => {
                     Mobile number is required for bookings and notifications
                   </Text>
                   <TouchableOpacity onPress={() => setShowMobileDialog(true)}>
-                    <Text style={styles.addLink}>Click here to add mobile number</Text>
+                    <Text style={styles.addLink}>
+                      Click here to add mobile number
+                    </Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -1552,15 +1738,17 @@ const ProfileScreen = () => {
                     <Icon name="chevron-down" size={16} color="#4a5568" />
                   </TouchableOpacity>
                 ) : (
-                  <View style={[styles.countryCodeContainer, styles.readOnlyInput]}>
+                  <View
+                    style={[styles.countryCodeContainer, styles.readOnlyInput]}
+                  >
                     <Text style={styles.countryCodeText}>{altCountryCode}</Text>
                   </View>
                 )}
                 <TextInput
                   style={[
-                    styles.phoneInput, 
+                    styles.phoneInput,
                     !isEditing && styles.readOnlyInput,
-                    altContactValidation.error && styles.invalidInput
+                    altContactValidation.error && styles.invalidInput,
                   ]}
                   value={formatMobileNumber(userData.altContactNumber)}
                   onChangeText={handleAltContactNumberChange}
@@ -1574,25 +1762,33 @@ const ProfileScreen = () => {
                     {altContactValidation.loading && (
                       <ActivityIndicator size="small" color="#3b82f6" />
                     )}
-                    {altContactValidation.isAvailable && !altContactValidation.loading && (
-                      <Icon name="check" size={16} color="#10b981" />
-                    )}
-                    {altContactValidation.isAvailable === false && !altContactValidation.loading && (
-                      <Icon name="alert-circle" size={16} color="#ef4444" />
-                    )}
+                    {altContactValidation.isAvailable &&
+                      !altContactValidation.loading && (
+                        <Icon name="check" size={16} color="#10b981" />
+                      )}
+                    {altContactValidation.isAvailable === false &&
+                      !altContactValidation.loading && (
+                        <Icon name="alert-circle" size={16} color="#ef4444" />
+                      )}
                   </View>
                 )}
               </View>
-              
+
               {/* Validation Messages */}
               {altContactValidation.error && (
-                <Text style={styles.validationError}>{altContactValidation.error}</Text>
+                <Text style={styles.validationError}>
+                  {altContactValidation.error}
+                </Text>
               )}
               {altContactValidation.formatError && isEditing && (
-                <Text style={styles.validationError}>Please enter exactly 10 digits</Text>
+                <Text style={styles.validationError}>
+                  Please enter exactly 10 digits
+                </Text>
               )}
               {altContactValidation.isAvailable && (
-                <Text style={styles.validationSuccess}>Alternate number is available</Text>
+                <Text style={styles.validationSuccess}>
+                  Alternate number is available
+                </Text>
               )}
             </View>
           </View>
@@ -1614,7 +1810,11 @@ const ProfileScreen = () => {
                   }}
                 >
                   {countryCodes.map((code) => (
-                    <Picker.Item key={code.value} label={code.label} value={code.value} />
+                    <Picker.Item
+                      key={code.value}
+                      label={code.label}
+                      value={code.value}
+                    />
                   ))}
                 </Picker>
                 <TouchableOpacity
@@ -1643,7 +1843,11 @@ const ProfileScreen = () => {
                   }}
                 >
                   {countryCodes.map((code) => (
-                    <Picker.Item key={code.value} label={code.label} value={code.value} />
+                    <Picker.Item
+                      key={code.value}
+                      label={code.label}
+                      value={code.value}
+                    />
                   ))}
                 </Picker>
                 <TouchableOpacity
@@ -1674,14 +1878,14 @@ const ProfileScreen = () => {
             {showAddAddress && isEditing && (
               <View style={styles.addAddressForm}>
                 <View style={styles.addAddressFormHeader}>
-                  <Text style={styles.addAddressFormTitle}>Add New Address</Text>
-                  <TouchableOpacity 
-                    onPress={() => setShowAddAddress(false)}
-                  >
+                  <Text style={styles.addAddressFormTitle}>
+                    Add New Address
+                  </Text>
+                  <TouchableOpacity onPress={() => setShowAddAddress(false)}>
                     <Icon name="x" size={20} color="#666" />
                   </TouchableOpacity>
                 </View>
-                
+
                 <View style={styles.addressTypeContainer}>
                   <Text style={styles.formLabel}>Save As</Text>
                   <View style={styles.addressTypeButtons}>
@@ -1689,40 +1893,76 @@ const ProfileScreen = () => {
                       onPress={() => handleUserPreference("Home")}
                       style={[
                         styles.addressTypeButton,
-                        newAddress.type === "Home" && styles.addressTypeButtonActive
+                        newAddress.type === "Home" &&
+                          styles.addressTypeButtonActive,
                       ]}
                     >
-                      <Icon name="home" size={14} color={newAddress.type === "Home" ? "#2563eb" : "#4b5563"} />
-                      <Text style={[
-                        styles.addressTypeText,
-                        newAddress.type === "Home" && styles.addressTypeTextActive
-                      ]}>Home</Text>
+                      <Icon
+                        name="home"
+                        size={14}
+                        color={
+                          newAddress.type === "Home" ? "#2563eb" : "#4b5563"
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.addressTypeText,
+                          newAddress.type === "Home" &&
+                            styles.addressTypeTextActive,
+                        ]}
+                      >
+                        Home
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleUserPreference("Work")}
                       style={[
                         styles.addressTypeButton,
-                        newAddress.type === "Work" && styles.addressTypeButtonActive
+                        newAddress.type === "Work" &&
+                          styles.addressTypeButtonActive,
                       ]}
                     >
-                      <MaterialCommunityIcons name="office-building" size={14} color={newAddress.type === "Work" ? "#2563eb" : "#4b5563"} />
-                      <Text style={[
-                        styles.addressTypeText,
-                        newAddress.type === "Work" && styles.addressTypeTextActive
-                      ]}>Work</Text>
+                      <MaterialCommunityIcons
+                        name="office-building"
+                        size={14}
+                        color={
+                          newAddress.type === "Work" ? "#2563eb" : "#4b5563"
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.addressTypeText,
+                          newAddress.type === "Work" &&
+                            styles.addressTypeTextActive,
+                        ]}
+                      >
+                        Work
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleUserPreference()}
                       style={[
                         styles.addressTypeButton,
-                        newAddress.type === "Other" && styles.addressTypeButtonActive
+                        newAddress.type === "Other" &&
+                          styles.addressTypeButtonActive,
                       ]}
                     >
-                      <Icon name="map-pin" size={14} color={newAddress.type === "Other" ? "#2563eb" : "#4b5563"} />
-                      <Text style={[
-                        styles.addressTypeText,
-                        newAddress.type === "Other" && styles.addressTypeTextActive
-                      ]}>Other</Text>
+                      <Icon
+                        name="map-pin"
+                        size={14}
+                        color={
+                          newAddress.type === "Other" ? "#2563eb" : "#4b5563"
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.addressTypeText,
+                          newAddress.type === "Other" &&
+                            styles.addressTypeTextActive,
+                        ]}
+                      >
+                        Other
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1734,57 +1974,72 @@ const ProfileScreen = () => {
                       style={styles.formInput}
                       placeholder="Enter location name"
                       value={newAddress.customType}
-                      onChangeText={(value) => handleAddressInputChange('customType', value)}
+                      onChangeText={(value) =>
+                        handleAddressInputChange("customType", value)
+                      }
                     />
                   </View>
                 )}
-                
+
                 <View style={styles.addressFormInput}>
                   <Text style={styles.inputLabel}>Street Address</Text>
                   <TextInput
                     style={styles.input}
                     value={newAddress.street}
-                    onChangeText={(value) => handleAddressInputChange("street", value)}
+                    onChangeText={(value) =>
+                      handleAddressInputChange("street", value)
+                    }
                     placeholder="Enter street address"
                   />
                 </View>
-                
+
                 <View style={styles.addressFormRow}>
                   <View style={[styles.addressFormInput, { flex: 1 }]}>
                     <Text style={styles.inputLabel}>City</Text>
                     <TextInput
                       style={styles.input}
                       value={newAddress.city}
-                      onChangeText={(value) => handleAddressInputChange("city", value)}
+                      onChangeText={(value) =>
+                        handleAddressInputChange("city", value)
+                      }
                       placeholder="Enter city"
                     />
                   </View>
-                  
+
                   <View style={[styles.addressFormInput, { flex: 1 }]}>
                     <Text style={styles.inputLabel}>Country</Text>
                     <TextInput
                       style={styles.input}
                       value={newAddress.country}
-                      onChangeText={(value) => handleAddressInputChange("country", value)}
+                      onChangeText={(value) =>
+                        handleAddressInputChange("country", value)
+                      }
                       placeholder="Enter country"
                     />
                   </View>
-                  
+
                   <View style={[styles.addressFormInput, { flex: 1 }]}>
                     <Text style={styles.inputLabel}>Postal Code</Text>
                     <TextInput
                       style={styles.input}
                       value={newAddress.postalCode}
-                      onChangeText={(value) => handleAddressInputChange("postalCode", value)}
+                      onChangeText={(value) =>
+                        handleAddressInputChange("postalCode", value)
+                      }
                       placeholder="Enter postal code"
                     />
                   </View>
                 </View>
-                
+
                 <TouchableOpacity
                   onPress={handleAddAddress}
                   style={styles.addAddressSubmitButton}
-                  disabled={!newAddress.street || !newAddress.city || !newAddress.country || !newAddress.postalCode}
+                  disabled={
+                    !newAddress.street ||
+                    !newAddress.city ||
+                    !newAddress.country ||
+                    !newAddress.postalCode
+                  }
                 >
                   <Text style={styles.addAddressSubmitText}>Add Address</Text>
                 </TouchableOpacity>
@@ -1796,14 +2051,16 @@ const ProfileScreen = () => {
             ) : (
               <View style={styles.addressesList}>
                 {addresses.map((address) => {
-                  const isExpanded = userRole === "SERVICE_PROVIDER" || expandedAddressIds.includes(address.id);
+                  const isExpanded =
+                    userRole === "SERVICE_PROVIDER" ||
+                    expandedAddressIds.includes(address.id);
 
                   return (
                     <View
                       key={address.id}
                       style={[
                         styles.addressCard,
-                        isExpanded && styles.expandedAddressCard
+                        isExpanded && styles.expandedAddressCard,
                       ]}
                     >
                       {/* Header */}
@@ -1819,30 +2076,36 @@ const ProfileScreen = () => {
                               style={styles.addressActionButton}
                             >
                               <Icon
-                                name={isExpanded ? "chevron-up" : "chevron-down"}
+                                name={
+                                  isExpanded ? "chevron-up" : "chevron-down"
+                                }
                                 size={20}
                                 color="#666"
                               />
                             </TouchableOpacity>
                           )}
-                          {isEditing && userRole === "CUSTOMER" && addresses.length > 1 && (
-                            <TouchableOpacity
-                              onPress={() => removeAddress(address.id)}
-                              style={styles.addressActionButton}
-                            >
-                              <Icon name="x" size={20} color="#dc2626" />
-                            </TouchableOpacity>
-                          )}
+                          {isEditing &&
+                            userRole === "CUSTOMER" &&
+                            addresses.length > 1 && (
+                              <TouchableOpacity
+                                onPress={() => removeAddress(address.id)}
+                                style={styles.addressActionButton}
+                              >
+                                <Icon name="x" size={20} color="#dc2626" />
+                              </TouchableOpacity>
+                            )}
                         </View>
                       </View>
 
                       {/* Body (only show when expanded) */}
                       {isExpanded && (
                         <View style={styles.addressDetails}>
-                          <Text style={styles.addressText}>{address.street}</Text>
                           <Text style={styles.addressText}>
-                            {(address.city || "No city")},{" "}
-                            {(address.country || "No country")}{" "}
+                            {address.street}
+                          </Text>
+                          <Text style={styles.addressText}>
+                            {address.city || "No city"},{" "}
+                            {address.country || "No country"}{" "}
                             {address.postalCode || ""}
                           </Text>
                           {userRole === "SERVICE_PROVIDER" && (
@@ -1869,20 +2132,22 @@ const ProfileScreen = () => {
           {userRole === "SERVICE_PROVIDER" && (
             <View style={styles.serviceStatusSection}>
               <View style={styles.divider} />
-              
+
               <Text style={styles.sectionTitle}>Service Status</Text>
-              
+
               <View style={styles.statusCard}>
                 <View style={styles.statusGrid}>
                   <View style={styles.statusItem}>
                     <Text style={styles.statusLabel}>Account Status</Text>
                     <View style={styles.statusValue}>
-                      <View style={[styles.statusIndicator, styles.statusActive]} />
+                      <View
+                        style={[styles.statusIndicator, styles.statusActive]}
+                      />
                       <Text style={styles.statusText}>Verified</Text>
                     </View>
                   </View>
                 </View>
-                
+
                 <View style={styles.statusFooter}>
                   <Text style={styles.statusUpdateText}>
                     Active Service Provider
@@ -1904,7 +2169,11 @@ const ProfileScreen = () => {
                   <Text style={styles.buttonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.button, styles.saveButton, (!isFormValid() || !hasChanges()) && styles.disabledButton]}
+                  style={[
+                    styles.button,
+                    styles.saveButton,
+                    (!isFormValid() || !hasChanges()) && styles.disabledButton,
+                  ]}
                   onPress={handleSave}
                   disabled={isSaving || !isFormValid() || !hasChanges()}
                 >
@@ -1970,7 +2239,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     paddingHorizontal: 20,
-    width: '100%',
+    width: "100%",
   },
   profileSection: {
     flexDirection: "row",
@@ -1991,14 +2260,14 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     borderWidth: 3,
     borderColor: "#0a2a66",
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 15,
   },
   avatarText: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
   },
   profileTextContainer: {
     flex: 1,
@@ -2014,9 +2283,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   editButtonTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#4ea6e9ff',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4ea6e9ff",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -2052,7 +2321,7 @@ const styles = StyleSheet.create({
     color: "#2563eb",
     fontSize: 12,
     marginTop: 4,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
   mainContent: {
     alignItems: "center",
@@ -2123,8 +2392,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   labelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   input: {
@@ -2348,89 +2617,89 @@ const styles = StyleSheet.create({
   },
   // Phone input styles
   phoneInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
   },
   countryCodeContainer: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: "#e2e8f0",
     borderRightWidth: 0,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
-    backgroundColor: '#f7fafc',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: "#f7fafc",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     minWidth: 80,
   },
   countryCodeText: {
     fontSize: 14,
-    color: '#4a5568',
+    color: "#4a5568",
   },
   phoneInput: {
     flex: 1,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: "#e2e8f0",
     borderTopRightRadius: 8,
     borderBottomRightRadius: 8,
     fontSize: 14,
   },
   validationIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 12,
-    top: '50%',
+    top: "50%",
     transform: [{ translateY: -8 }],
   },
   validationError: {
-    color: '#dc2626',
+    color: "#dc2626",
     fontSize: 12,
     marginTop: 4,
   },
   validationSuccess: {
-    color: '#16a34a',
+    color: "#16a34a",
     fontSize: 12,
     marginTop: 4,
   },
   addressesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   addAddressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   addAddressText: {
-    color: '#0a2a66',
-    fontWeight: '600',
+    color: "#0a2a66",
+    fontWeight: "600",
     marginLeft: 4,
   },
   addAddressForm: {
     borderWidth: 1,
-    borderColor: '#93c5fd',
+    borderColor: "#93c5fd",
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
-    backgroundColor: '#dbeafe',
+    backgroundColor: "#dbeafe",
   },
   addAddressFormHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   addAddressFormTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#1e40af',
+    fontWeight: "500",
+    color: "#1e40af",
   },
   addressFormRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
     gap: 12,
   },
@@ -2439,54 +2708,54 @@ const styles = StyleSheet.create({
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: "#e2e8f0",
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   picker: {
     height: 44,
-    backgroundColor: 'white',
+    backgroundColor: "white",
   },
   // Modal styles for country code picker
   modalContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   pickerModal: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
   },
   pickerTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   pickerButton: {
-    backgroundColor: '#0a2a66',
+    backgroundColor: "#0a2a66",
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
   },
   pickerButtonText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
   },
   // Service status section styles
   serviceStatusSection: {
     marginBottom: 20,
   },
   statusCard: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: "#e2e8f0",
     borderRadius: 8,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -2496,24 +2765,24 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statusGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   statusItem: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   statusLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#718096',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    color: "#718096",
+    textTransform: "uppercase",
     marginBottom: 8,
   },
   statusValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   statusIndicator: {
     width: 8,
@@ -2522,24 +2791,24 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusActive: {
-    backgroundColor: '#10b981',
+    backgroundColor: "#10b981",
   },
   statusText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#2d3748',
+    fontWeight: "600",
+    color: "#2d3748",
   },
   statusFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: "#f1f5f9",
   },
   statusUpdateText: {
     fontSize: 12,
-    color: '#718096',
+    color: "#718096",
   },
   // Ultra compact styles
   ultraCompactNameRow: {
@@ -2571,11 +2840,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    alignItems: 'center',
+    borderTopColor: "#e2e8f0",
+    alignItems: "center",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   button: {
@@ -2588,7 +2857,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     minWidth: 120,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButton: {
     backgroundColor: "#6c757d",
@@ -2604,12 +2873,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   addressTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   addressActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   addressActionButton: {
     padding: 4,
@@ -2620,35 +2889,35 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#4b5563',
+    fontWeight: "500",
+    color: "#4b5563",
     marginBottom: 8,
   },
   addressTypeButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   addressTypeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
+    borderColor: "#d1d5db",
+    backgroundColor: "#fff",
   },
   addressTypeButtonActive: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#93c5fd',
+    backgroundColor: "#dbeafe",
+    borderColor: "#93c5fd",
   },
   addressTypeText: {
     fontSize: 14,
-    color: '#4b5563',
+    color: "#4b5563",
   },
   addressTypeTextActive: {
-    color: '#2563eb',
+    color: "#2563eb",
   },
   formField: {
     marginBottom: 12,
@@ -2657,21 +2926,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: "#d1d5db",
     borderRadius: 6,
     fontSize: 14,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   addAddressSubmitButton: {
-    backgroundColor: '#0a2a66',
+    backgroundColor: "#0a2a66",
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   addAddressSubmitText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
   },
 });
 

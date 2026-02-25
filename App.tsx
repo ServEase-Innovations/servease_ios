@@ -908,8 +908,9 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
           {/* Modals and Dialogs */}
           {shouldShowMobileDialog && (
             <MobileNumberDialog 
-              open={shouldShowMobileDialog}
+              visible={shouldShowMobileDialog}
               onClose={handleMobileDialogClose}
+              customerId={appUser?.customerid}
               onSuccess={handleMobileDialogSuccess}
             />
           )}

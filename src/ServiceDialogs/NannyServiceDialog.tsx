@@ -145,7 +145,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   const nannyCartItems = allCartItems.filter(isNannyCartItem);
   const dispatch = useDispatch();
 
-  const providerFullName = `${providerDetails?.firstName} ${providerDetails?.lastName}`;
+  const providerFullName = `${providerDetails?.firstname} ${providerDetails?.lastName}`;
 
   const bookingTypeLabel = useMemo((): BookingType => {
     const isOnDemand = bookingType?.bookingPreference?.toLowerCase() === "date";

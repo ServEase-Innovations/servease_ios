@@ -48,12 +48,12 @@ export const BookingService = {
    * Create a new engagement
    */
   createEngagement: async (payload: BookingPayload) => {
-
     console.log("Creating engagement with payload:", payload);
     try {
-      const res = await PaymentInstance.post(`/api/engagements`, payload, {
+      const res = await PaymentInstance.post(`/api/v2/createEngagements`, payload, {
         headers: { "Content-Type": "application/json" },
       });
+      console.log("Create engagement response:", JSON.stringify(res.data, null, 2));
       return res.data;
     } catch (error) {
       console.error("Error creating engagement:", error);
@@ -74,7 +74,7 @@ export const BookingService = {
         description: "Booking Payment",
         image: "https://your-logo-url.com/logo.png",
         currency,
-        key: "rzp_test_lTdgjtSRlEwreA",
+        key: "rzp_test_SHU1MPGbiCzst9",
         amount: amountPaise,
         name: "Serveaso",
         order_id: orderId,
@@ -91,6 +91,7 @@ export const BookingService = {
 
       RazorpayCheckout.open(options)
         .then((data: any) => {
+          console.log("Razorpay success response:", data);
           if (!data.razorpay_payment_id || !data.razorpay_order_id || !data.razorpay_signature) {
             reject({
               code: -1,
@@ -119,7 +120,7 @@ export const BookingService = {
    */
   verifyPayment: async (paymentData: RazorpayPaymentResponse) => {
     try {
-      const res = await PaymentInstance.post(`/api/payments/verify`, paymentData, {
+      const res = await PaymentInstance.post(`/api/v2/createEngagements/verify`, paymentData, {
         headers: { "Content-Type": "application/json" },
       });
       return res.data;
@@ -127,6 +128,53 @@ export const BookingService = {
       console.error("Error verifying payment:", error);
       throw error;
     }
+  },
+
+  /**
+   * Helper function to extract order ID from various response structures
+   */
+  extractOrderId: (engagementData: any): string | null => {
+    console.log("Attempting to extract order ID from response:", engagementData);
+    
+    // Log the entire response structure to help debug
+    console.log("Response keys:", Object.keys(engagementData));
+    
+    // Try different possible paths where order ID might be
+    const possiblePaths = [
+      engagementData?.payment?.razorpay_order_id,
+      engagementData?.razorpayOrder?.id,
+      engagementData?.razorpay_order_id,
+      engagementData?.orderId,
+      engagementData?.order_id,
+      engagementData?.data?.razorpay_order_id,
+      engagementData?.data?.orderId,
+      engagementData?.result?.razorpay_order_id,
+      engagementData?.engagement?.paymentDetails?.razorpay_order_id,
+    ];
+
+    for (const path of possiblePaths) {
+      if (path) {
+        console.log("Found order ID at path:", path);
+        return path;
+      }
+    }
+
+    // If the response itself is the order ID (string)
+    if (typeof engagementData === 'string') {
+      console.log("Response is a string, treating as order ID:", engagementData);
+      return engagementData;
+    }
+
+    // If the response has a property that might contain the order ID
+    for (const key in engagementData) {
+      if (typeof engagementData[key] === 'string' && 
+          (key.includes('order') || key.includes('razorpay'))) {
+        console.log(`Found potential order ID in property ${key}:`, engagementData[key]);
+        return engagementData[key];
+      }
+    }
+
+    return null;
   },
 
   /**
@@ -177,22 +225,28 @@ export const BookingService = {
 
       // Create engagement
       const engagementData = await BookingService.createEngagement(payload);
+      console.log("Engagement data received:", JSON.stringify(engagementData, null, 2));
 
-      // Extract order id & amount
-      const orderId =
-        engagementData?.payment?.razorpay_order_id ||
-        engagementData?.razorpayOrder?.id;
+      // Extract order id using helper function
+      const orderId = BookingService.extractOrderId(engagementData);
 
       if (!orderId) {
-        throw new Error("Razorpay order id not found in response");
+        console.error("Could not extract order ID from response:", engagementData);
+        throw new Error("Razorpay order id not found in response. Please check the API response structure.");
       }
+
+      console.log("Extracted order ID:", orderId);
 
       // Calculate amount in paise
       let amountPaise: number;
+      
+      // Try to extract amount from various possible locations
       if (engagementData?.razorpayOrder?.amount) {
         amountPaise = Number(engagementData.razorpayOrder.amount);
       } else if (engagementData?.payment?.total_amount) {
         amountPaise = Math.round(Number(engagementData.payment.total_amount) * 100);
+      } else if (engagementData?.amount) {
+        amountPaise = Math.round(Number(engagementData.amount) * 100);
       } else {
         amountPaise = Math.round(payload.base_amount * 100);
       }
@@ -205,8 +259,10 @@ export const BookingService = {
         amountPaise
       );
 
-      // Set engagement ID for verification
-      paymentResponse.engagementId = engagementData?.engagement?.engagement_id;
+      // Set engagement ID for verification - try to extract from response
+      paymentResponse.engagementId = engagementData?.engagement?.engagement_id || 
+                                     engagementData?.engagementId || 
+                                     engagementData?.id || 0;
 
       // Verify payment on backend
       const verifyResult = await BookingService.verifyPayment(paymentResponse);

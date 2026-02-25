@@ -17,6 +17,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import LinearGradient from "react-native-linear-gradient";
 import DribbbleDateTimePicker from "../common/DribbbleDateTimePicker";
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useAppUser } from '../context/AppUserContext';
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
@@ -52,6 +53,19 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   setStartTime,
   setEndTime,
 }) => {
+  const { appUser } = useAppUser();
+  const [role, setRole] = useState<string | null>(null);
+  const [isServiceDisabled, setIsServiceDisabled] = useState(false);
+
+  useEffect(() => {
+    if (appUser) {
+      const userRole = appUser.role || "CUSTOMER";
+      setRole(userRole);
+      setIsServiceDisabled(userRole === "SERVICE_PROVIDER");
+      console.log("BookingDialog - User role:", userRole);
+    }
+  }, [appUser]);
+
   const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(
     null,
   );
@@ -395,6 +409,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const isConfirmDisabled = () => {
+    // If user is service provider, always disable confirm
+    if (isServiceDisabled) {
+      return true;
+    }
+
     // If past cutoff, disable confirm button
     if (isPastCutoff()) {
       return true;
@@ -468,6 +487,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const handleAccept = () => {
+    // Don't allow service providers to confirm booking
+    if (isServiceDisabled) {
+      return;
+    }
+
     // Final validation before saving
     if (startTime) {
       const now = dayjs();
@@ -514,6 +538,48 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
     return new Date(maxDate21Days.toISOString());
   };
+
+  // If user is service provider, show disabled message
+  if (isServiceDisabled) {
+    return (
+      <Modal visible={open} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <View style={styles.container}>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.headerContainer}
+            >
+              <View style={styles.headerContent}>
+                <View style={styles.headerLeft} />
+                <Text style={styles.title}>Booking Not Available</Text>
+                <View style={styles.headerRight}>
+                  <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+                    <Icon name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </LinearGradient>
+
+            <View style={styles.disabledContainer}>
+              <Icon name="info-outline" size={60} color="#FFA500" />
+              <Text style={styles.disabledTitle}>Service Provider Account</Text>
+              <Text style={styles.disabledMessage}>
+                As a service provider, you cannot book services. Please use a customer account to book services.
+              </Text>
+              <TouchableOpacity
+                style={styles.disabledCloseButton}
+                onPress={onClose}
+              >
+                <Text style={styles.disabledCloseButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   // Custom Time Picker Component
   const renderCustomTimePicker = () => {
@@ -1309,6 +1375,7 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     backgroundColor: "#ccc",
+    opacity: 0.6,
   },
   // Custom Time Picker Styles
   customTimePickerContainer: {
@@ -1575,5 +1642,38 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
+  },
+  // Disabled styles for service providers
+  disabledContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  disabledTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#FFA500",
+    marginTop: 20,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  disabledMessage: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 30,
+    lineHeight: 24,
+  },
+  disabledCloseButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  disabledCloseButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

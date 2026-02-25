@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -10,6 +10,7 @@ import {
   Image,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch } from 'react-redux';
@@ -19,6 +20,7 @@ import BookingDialog from '../BookingDialog/BookingDialog';
 import CookServicesDialog from '../ServiceDialogs/CookServiceDialog';
 import MaidServiceDialog from '../ServiceDialogs/MaidServiceDialog';
 import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
+import { useAppUser } from '../context/AppUserContext'; // Import the context
 
 // Import DETAILS constant
 import { DETAILS } from '../Constants/pagesConstants';
@@ -55,6 +57,22 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   const screenWidth = Dimensions.get('window').width;
   const isMobile = screenWidth < 600;
 
+  // Use AppUserContext instead of useAuth0
+  const { appUser } = useAppUser();
+  const [role, setRole] = useState<string | null>(null);
+
+  // Check user role from context
+  useEffect(() => {
+    if (appUser) {
+      // Get role from appUser - adjust based on your appUser structure
+      const userRole = appUser.role || "CUSTOMER";
+      setRole(userRole);
+      console.log("ServicesDialog - User role from context:", userRole);
+    } else {
+      setRole(null);
+    }
+  }, [appUser]);
+
   // Booking states - SIMILAR TO HOMEPAGE
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<'COOK' | 'MAID' | 'NANNY' | ''>('');
@@ -71,7 +89,20 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   const [showMaidServiceDialog, setShowMaidServiceDialog] = useState(false);
   const [showNannyServicesDialog, setShowNannyServicesDialog] = useState(false);
 
+  // Check if user is a service provider
+  const isServiceDisabled = role === "SERVICE_PROVIDER";
+
   const handleServiceSelect = (serviceId: string) => {
+    // Don't open booking dialog for service providers
+    if (isServiceDisabled) {
+      Alert.alert(
+        "Service Provider Account",
+        "As a service provider, you cannot book services. Please use a customer account to book services.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     let serviceType: 'COOK' | 'MAID' | 'NANNY' = 'COOK';
     let serviceName = '';
 
@@ -357,7 +388,7 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
             <View style={styles.header}>
               <View style={styles.headerContent}>
                 <Text style={styles.headerTitle}>
-                  Select Your Service
+                  {isServiceDisabled ? "Explore Our Services" : "Select Your Service"}
                 </Text>
 
                 <TouchableOpacity
@@ -384,21 +415,27 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                     key={service.id}
                     style={[
                       styles.serviceCard,
-                      { borderLeftColor: service.accentColor }
+                      { borderLeftColor: service.accentColor },
+                      isServiceDisabled && styles.disabledServiceCard
                     ]}
                     onPress={() => handleServiceSelect(service.id)}
                     activeOpacity={0.7}
+                    disabled={isServiceDisabled}
                   >
                     <View style={styles.cardContent}>
                       {/* Circular Image Container */}
                       <View style={styles.imageContainer}>
                         <View style={[
                           styles.circleImageWrapper,
-                          { backgroundColor: alpha(service.accentColor, 0.2) }
+                          { backgroundColor: alpha(service.accentColor, 0.2) },
+                          isServiceDisabled && styles.disabledImageWrapper
                         ]}>
                           <Image
                             source={service.imageSource}
-                            style={styles.serviceImage}
+                            style={[
+                              styles.serviceImage,
+                              isServiceDisabled && styles.disabledService
+                            ]}
                             resizeMode="cover"
                           />
                           <View style={styles.imageOverlay} />
@@ -407,28 +444,46 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
 
                       {/* Title and Description */}
                       <View style={styles.textContainer}>
-                        <Text style={styles.serviceTitle}>
+                        <Text style={[
+                          styles.serviceTitle,
+                          isServiceDisabled && styles.disabledText
+                        ]}>
                           {service.title}
                         </Text>
                         
-                        <Text style={styles.serviceDescription}>
+                        <Text style={[
+                          styles.serviceDescription,
+                          isServiceDisabled && styles.disabledText
+                        ]}>
                           {service.description}
                         </Text>
                       </View>
 
-                      {/* Select Service Button */}
+                      {/* Select Service Button - Shows different text for service providers */}
                       <TouchableOpacity
                         style={[
                           styles.selectButton,
-                          { backgroundColor: service.accentColor }
+                          { backgroundColor: service.accentColor },
+                          isServiceDisabled && styles.disabledSelectButton
                         ]}
                         onPress={() => handleServiceSelect(service.id)}
                         activeOpacity={0.8}
+                        disabled={isServiceDisabled}
                       >
                         <Text style={styles.buttonText}>
-                          Select Service
+                          {isServiceDisabled ? "View Only" : "Select Service"}
                         </Text>
                       </TouchableOpacity>
+
+                      {/* Show service provider message if applicable */}
+                      {isServiceDisabled && (
+                        <View style={styles.serviceProviderBadge}>
+                          <Icon name="info-outline" size={16} color="#FFA500" />
+                          <Text style={styles.serviceProviderBadgeText}>
+                            Service Provider - Booking Disabled
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -438,67 +493,83 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
         </View>
       </Modal>
 
-      {/* Booking Dialog - Updated to use new handler */}
-      <BookingDialog
-        open={bookingDialogOpen}
-        onClose={handleBookingDialogClose}
-        onSave={handleBookingSave}
-        selectedOption={selectedOption}
-        onOptionChange={handleOptionChange}
-        startDate={startDate}
-        endDate={endDate}
-        startTime={startTime}
-        endTime={endTime}
-        setStartDate={setStartDate}
-        setEndDate={setEndDate}
-        setStartTime={setStartTime}
-        setEndTime={setEndTime}
-      />
-
-      {/* Service Dialogs - UPDATED TO MATCH HOMEPAGE PATTERN EXACTLY */}
-      
-      {/* CookServicesDialog - uses onClose prop (no open prop) */}
-      {showCookDialog && (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogBox}>
-            <CookServicesDialog
-              onClose={handleServiceDialogClose}
-              sendDataToParent={sendDataToParent}
-              bookingType={getBookingType()}
-            />
-          </View>
-        </View>
+      {/* Booking Dialog - Only render for non-service providers */}
+      {!isServiceDisabled && (
+        <BookingDialog
+          open={bookingDialogOpen}
+          onClose={handleBookingDialogClose}
+          onSave={handleBookingSave}
+          selectedOption={selectedOption}
+          onOptionChange={handleOptionChange}
+          startDate={startDate}
+          endDate={endDate}
+          startTime={startTime}
+          endTime={endTime}
+          setStartDate={setStartDate}
+          setEndDate={setEndDate}
+          setStartTime={setStartTime}
+          setEndTime={setEndTime}
+        />
       )}
 
-      {/* NannyServicesDialog - uses open and handleClose props */}
-      {showNannyServicesDialog && (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogBox}>
-            <NannyServicesDialog
-              open={showNannyServicesDialog}
-              handleClose={handleServiceDialogClose}
-              sendDataToParent={sendDataToParent}
-              bookingType={getBookingType()}
-            />
-          </View>
-        </View>
-      )}
+      {/* Service Dialogs - Only render for non-service providers */}
+      {!isServiceDisabled && (
+        <>
+          {/* CookServicesDialog - uses onClose prop (no open prop) */}
+          {showCookDialog && (
+            <View style={styles.dialogOverlay}>
+              <View style={styles.dialogBox}>
+                <CookServicesDialog
+                  onClose={handleServiceDialogClose}
+                  sendDataToParent={sendDataToParent}
+                  bookingType={getBookingType()}
+                />
+              </View>
+            </View>
+          )}
 
-      {/* MaidServiceDialog - uses open and handleClose props */}
-      {showMaidServiceDialog && (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogBox}>
-            <MaidServiceDialog
-              open={showMaidServiceDialog}
-              handleClose={handleServiceDialogClose}
-              sendDataToParent={sendDataToParent}
-              bookingType={getBookingType()}
-            />
-          </View>
-        </View>
+          {/* NannyServicesDialog - uses open and handleClose props */}
+          {showNannyServicesDialog && (
+            <View style={styles.dialogOverlay}>
+              <View style={styles.dialogBox}>
+                <NannyServicesDialog
+                  open={showNannyServicesDialog}
+                  handleClose={handleServiceDialogClose}
+                  sendDataToParent={sendDataToParent}
+                  bookingType={getBookingType()}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* MaidServiceDialog - uses open and handleClose props */}
+          {showMaidServiceDialog && (
+            <View style={styles.dialogOverlay}>
+              <View style={styles.dialogBox}>
+                <MaidServiceDialog
+                  open={showMaidServiceDialog}
+                  handleClose={handleServiceDialogClose}
+                  sendDataToParent={sendDataToParent}
+                  bookingType={getBookingType()}
+                />
+              </View>
+            </View>
+          )}
+        </>
       )}
     </>
   );
+};
+
+// Helper function for alpha colors
+const alpha = (color: string, opacity: number) => {
+  if (color.startsWith('rgb')) {
+    const rgb = color.match(/\d+/g);
+    if (rgb) {
+      return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`;
+    }
+  }
+  return color;
 };
 
 const styles = StyleSheet.create({
@@ -566,6 +637,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  disabledServiceCard: {
+    opacity: 0.8,
+    backgroundColor: '#f5f5f5',
+  },
   cardContent: {
     padding: 24,
     alignItems: 'center',
@@ -588,10 +663,17 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 5,
   },
+  disabledImageWrapper: {
+    opacity: 0.6,
+    borderColor: '#ccc',
+  },
   serviceImage: {
     width: '100%',
     height: '100%',
     position: 'absolute',
+  },
+  disabledService: {
+    opacity: 0.5,
   },
   imageOverlay: {
     position: 'absolute',
@@ -620,6 +702,9 @@ const styles = StyleSheet.create({
     lineHeight: 19.5,
     textAlign: 'center',
   },
+  disabledText: {
+    color: '#999',
+  },
   selectButton: {
     marginTop: 'auto',
     borderRadius: 8,
@@ -627,11 +712,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     minWidth: 140,
   },
+  disabledSelectButton: {
+    backgroundColor: '#ccc',
+  },
   buttonText: {
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
     textAlign: 'center',
+  },
+  serviceProviderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 16,
+    gap: 6,
+  },
+  serviceProviderBadgeText: {
+    fontSize: 12,
+    color: '#FFA500',
+    fontWeight: '500',
   },
   dialogOverlay: {
     position: 'absolute',
@@ -657,16 +760,5 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 });
-
-// Helper function for alpha colors
-const alpha = (color: string, opacity: number) => {
-  if (color.startsWith('rgb')) {
-    const rgb = color.match(/\d+/g);
-    if (rgb) {
-      return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`;
-    }
-  }
-  return color;
-};
 
 export default ServicesDialog;

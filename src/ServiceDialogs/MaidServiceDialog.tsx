@@ -165,7 +165,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
   
   const users = useSelector((state: any) => state.user?.value);
   const currentLocation = users?.customerDetails?.currentLocation;
-  const providerFullName = `${providerDetails?.firstName} ${providerDetails?.lastName}`;
+  const providerFullName = `${providerDetails?.firstname} ${providerDetails?.lastName}`;
   const customerId = appUser?.customerid || user?.customerid || 19;
 
   // Normalize pricing source
