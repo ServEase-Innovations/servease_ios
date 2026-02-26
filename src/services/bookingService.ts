@@ -113,6 +113,7 @@ export const BookingService = {
           reject(error);
         });
     });
+    
   },
 
   /**

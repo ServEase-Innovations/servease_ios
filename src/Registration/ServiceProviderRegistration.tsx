@@ -268,6 +268,56 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     Geocoder.init("AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk"); // Replace with your API key
   }, []);
 
+  // Add axios interceptors for debugging
+  useEffect(() => {
+    // Request interceptor
+    const requestInterceptor = axiosInstance.interceptors.request.use(
+      (config) => {
+        console.log('Request:', {
+          url: config.url,
+          method: config.method,
+          data: config.data,
+          headers: config.headers
+        });
+        return config;
+      },
+      (error) => {
+        console.error('Request Error:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor
+    const responseInterceptor = axiosInstance.interceptors.response.use(
+      (response) => {
+        console.log('Response:', {
+          status: response.status,
+          data: response.data,
+          headers: response.headers
+        });
+        return response;
+      },
+      (error) => {
+        console.error('Response Error:', {
+          message: error.message,
+          response: error.response ? {
+            status: error.response.status,
+            data: error.response.data,
+            headers: error.response.headers
+          } : 'No response',
+          request: error.request ? 'Request made' : 'No request'
+        });
+        return Promise.reject(error);
+      }
+    );
+
+    // Cleanup interceptors
+    return () => {
+      axiosInstance.interceptors.request.eject(requestInterceptor);
+      axiosInstance.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
+
   const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
     setActivePolicy(policyType);
     setPolicyModalVisible(true);
@@ -662,10 +712,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     if (name === "AADHAR") {
       const trimmedValue = value.trim();
-      if (!aadhaarPattern.test(trimmedValue)) {
+      if (trimmedValue && !aadhaarPattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          AADHAR: "AADHAR number must be exactly 12 digits.",
+          AADHAR: "AADHAR number must be exactly 12 digits if provided.",
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1114,15 +1164,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
 
     else if (step === 3) {
-      if (!formData.AADHAR) {
-        tempErrors.kyc = "Aadhaar number is required.";
-        isValid = false;
-      } else if (!aadhaarRegex.test(formData.AADHAR)) {
-        tempErrors.kyc = "Aadhaar number must be exactly 12 digits.";
+      // AADHAR is now optional - only validate format if provided
+      if (formData.AADHAR && !aadhaarRegex.test(formData.AADHAR)) {
+        tempErrors.kyc = "Aadhaar number must be exactly 12 digits if provided.";
         isValid = false;
       }
-      if (!formData.documentImage) {
-        tempErrors.documentImage = "Aadhaar document is required.";
+      // Document image is now optional
+      if (formData.documentImage && !formData.documentImage.uri) {
+        tempErrors.documentImage = "Invalid document file.";
         isValid = false;
       }
     }
@@ -1199,7 +1248,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             setSnackbarOpen(true);
           }
         }
-        // Handle Aadhaar document upload
+        
+        // Handle Aadhaar document upload (optional)
         let aadhaarDocUrl = "";
         if (formData.documentImage) {
           try {
@@ -1227,75 +1277,85 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             }
           } catch (error) {
             console.error("Error uploading document image:", error);
-            setSnackbarMessage("Failed to upload Aadhaar document. Please try again.");
-            setSnackbarSeverity("error");
+            setSnackbarMessage("Failed to upload Aadhaar document. Proceeding without it.");
+            setSnackbarSeverity("warning");
             setSnackbarOpen(true);
-            setIsSubmitting(false);
-            return;
           }
         }
-        const payload = {
+
+        // Create base payload without kyc field
+        const basePayload: any = {
           firstName: formData.firstName,
-          middleName: formData.middleName,
+          middleName: formData.middleName || "",
           lastName: formData.lastName,
-          mobileNo: parseInt(formData.mobileNo) || 0,
-          alternateNo: parseInt(formData.AlternateNumber) || 0,
+          mobileNo: formData.mobileNo ? parseInt(formData.mobileNo) : 0,
+          alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : 0,
           emailId: formData.emailId,
           gender: formData.gender,
-          buildingName: formData.buildingName,
-          locality: formData.locality,
-          latitude: currentLocation?.latitude || formData.latitude,
-          longitude: currentLocation?.longitude || formData.longitude,
-          street: formData.street,
-          pincode: parseInt(formData.pincode) || 0,
-          currentLocation: formData.currentLocation,
-          nearbyLocation: formData.nearbyLocation,
-          location: formData.currentLocation,
+          buildingName: formData.buildingName || "",
+          locality: formData.locality || "",
+          latitude: currentLocation?.latitude || formData.latitude || 0,
+          longitude: currentLocation?.longitude || formData.longitude || 0,
+          street: formData.street || "",
+          pincode: formData.pincode ? parseInt(formData.pincode) : 0,
+          currentLocation: formData.currentLocation || "",
+          nearbyLocation: formData.nearbyLocation || "",
+          location: formData.currentLocation || "",
           housekeepingRole: formData.housekeepingRole,
           diet: formData.diet,
-          ...(formData.housekeepingRole === "COOK" && {
-            cookingSpeciality: formData.cookingSpeciality
-          }),
-          timeslot: formData.timeslot,
+          timeslot: formData.timeslot || "06:00-20:00",
           expectedSalary: 0,
-          experience: parseInt(formData.experience) || 0,
+          experience: formData.experience ? parseInt(formData.experience) : 0,
           username: formData.emailId,
           password: formData.password,
           privacy: formData.privacy,
           keyFacts: formData.keyFacts,
           permanentAddress: {
-            field1: formData.permanentAddress.apartment,
-            field2: formData.permanentAddress.street,
-            ctArea: formData.permanentAddress.city,
-            pinNo: formData.permanentAddress.pincode,
-            state: formData.permanentAddress.state,
-            country: formData.permanentAddress.country
+            field1: formData.permanentAddress.apartment || "",
+            field2: formData.permanentAddress.street || "",
+            ctArea: formData.permanentAddress.city || "",
+            pinNo: formData.permanentAddress.pincode || "",
+            state: formData.permanentAddress.state || "",
+            country: formData.permanentAddress.country || "India"
           },
           correspondenceAddress: {
-            field1: formData.correspondenceAddress.apartment,
-            field2: formData.correspondenceAddress.street,
-            ctArea: formData.correspondenceAddress.city,
-            pinNo: formData.correspondenceAddress.pincode,
-            state: formData.correspondenceAddress.state,
-            country: formData.correspondenceAddress.country
+            field1: formData.correspondenceAddress.apartment || "",
+            field2: formData.correspondenceAddress.street || "",
+            ctArea: formData.correspondenceAddress.city || "",
+            pinNo: formData.correspondenceAddress.pincode || "",
+            state: formData.correspondenceAddress.state || "",
+            country: formData.correspondenceAddress.country || "India"
           },
           active: true,
-          kyc: formData.kyc,
-          aadhaarNumber: formData.AADHAR,
+          aadhaarNumber: formData.AADHAR || "",
           aadhaarDocumentUrl: aadhaarDocUrl,
           dob: formData.dob,
           profilePic: profilePicUrl
         };
 
+        // Add cookingSpeciality only if housekeepingRole is COOK
+        if (formData.housekeepingRole === "COOK") {
+          basePayload.cookingSpeciality = formData.cookingSpeciality;
+        }
+
+        // Only add kyc field if AADHAR is provided (since enum only accepts "AADHAR")
+        if (formData.AADHAR) {
+          basePayload.kyc = "AADHAR";
+        }
+
+        console.log("Submitting payload:", JSON.stringify(basePayload, null, 2));
+
         const response = await axiosInstance.post(
           "/api/serviceproviders/serviceprovider/add",
-          payload,
+          basePayload,
           {
             headers: {
               "Content-Type": "application/json",
             },
           }
         );
+
+        console.log("Response:", response.data);
 
         setSnackbarOpen(true);
         setSnackbarSeverity("success");
@@ -1322,12 +1382,53 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             onBackToLogin(true);
           }
         }, 3000);
-      } catch (error) {
-        setIsSubmitting(false);
+      } catch (error: any) {
+        console.error("Error submitting form:", error);
+        
+        // Enhanced error handling to capture response data
+        let errorMessage = "Failed to add service provider. Please try again.";
+        
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          console.error("Error response status:", error.response.status);
+          console.error("Error response headers:", error.response.headers);
+          
+          // Try to get response data
+          const responseData = error.response.data;
+          console.error("Error response data:", responseData);
+          
+          // Try to extract error message from different possible formats
+          if (responseData) {
+            if (typeof responseData === 'string') {
+              errorMessage = responseData;
+            } else if (responseData.message) {
+              errorMessage = responseData.message;
+            } else if (responseData.error) {
+              errorMessage = responseData.error;
+            } else if (responseData.msg) {
+              errorMessage = responseData.msg;
+            } else if (Array.isArray(responseData) && responseData.length > 0) {
+              errorMessage = responseData[0].msg || responseData[0].message || JSON.stringify(responseData);
+            } else {
+              // If we can't find a specific message, stringify the whole response
+              errorMessage = JSON.stringify(responseData);
+            }
+          }
+        } else if (error.request) {
+          // The request was made but no response was received
+          console.error("Error request:", error.request);
+          errorMessage = "No response from server. Please check your network connection.";
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          console.error("Error message:", error.message);
+          errorMessage = error.message;
+        }
+        
         setSnackbarOpen(true);
         setSnackbarSeverity("error");
-        setSnackbarMessage("Failed to add service provider. Please try again.");
-        console.error("Error submitting form:", error);
+        setSnackbarMessage(errorMessage);
+        setIsSubmitting(false);
       }
     } else {
       setIsSubmitting(false);
@@ -1724,15 +1825,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
               {(formData.latitude !== 0 || formData.longitude !== 0) && (
                 <>
-                  {/* <View style={styles.locationInfo}>
-                    <Icon name="check-circle" size={20} color="green" />
-                    <Text style={styles.locationText}>
-                      <Text style={{ fontWeight: 'bold' }}>Location found:</Text>
-                      Lat: {formData.latitude.toFixed(6)},
-                      Lng: {formData.longitude.toFixed(6)}
-                    </Text>
-                  </View> */}
-
                   <View style={styles.successAlert}>
                     <Text style={styles.alertText}>
                       <Text style={{ fontWeight: 'bold' }}>Address detected:</Text> {formData.currentLocation || "No address available"}
@@ -2031,10 +2123,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         return (
           <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Aadhaar Number *</Text>
+              <Text style={styles.label}>Aadhaar Number (Optional)</Text>
               <TextInput
                 style={[styles.input, errors.kyc && styles.inputError]}
-                placeholder="12-digit Aadhaar Number"
+                placeholder="12-digit Aadhaar Number (Optional)"
                 placeholderTextColor="#999"
                 value={formData.AADHAR || ""}
                 onChangeText={(value) => handleRealTimeValidation("AADHAR", value)}
@@ -2045,14 +2137,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Upload Aadhaar Document *</Text>
+              <Text style={styles.label}>Upload Aadhaar Document (Optional)</Text>
               <CustomFileInput
                 name="documentImage"
                 accept="image/*"
-                required
                 value={formData.documentImage}
                 onChange={(file) => handleChange("documentImage", file)}
-                buttonText="Upload Aadhaar Document"
+                buttonText="Upload Aadhaar Document (Optional)"
               />
               {errors.documentImage && <Text style={styles.errorText}>{errors.documentImage}</Text>}
             </View>
