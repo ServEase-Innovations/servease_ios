@@ -15,6 +15,7 @@ import {
   Linking,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import axios from "axios";
 import LinearGradient from 'react-native-linear-gradient';
 import { keys } from "../env";
@@ -34,6 +35,11 @@ import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { Button } from "../common/Button";
+
+// Import the new components
+import BasicInformation from "./BasicInformation";
+import ServiceDetails from "./ServiceDetails";
+import KYCVerification from "./KYCVerification";
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -57,7 +63,7 @@ interface FormData {
   AADHAR: string;
   pan: string;
   panImage: RNFile | null;
-  housekeepingRole: string;
+  housekeepingRole: string[];
   description: string;
   experience: string;
   kyc: string;
@@ -65,6 +71,7 @@ interface FormData {
   otherDetails: string;
   profileImage: RNFile | null;
   cookingSpeciality: string;
+  nannyCareType: string;
   age: string;
   diet: string;
   dob: string;
@@ -75,6 +82,8 @@ interface FormData {
   terms: boolean;
   privacy: boolean;
   keyFacts: boolean;
+  kycType: string;
+  kycNumber: string;
   permanentAddress: {
     apartment: string;
     street: string;
@@ -128,8 +137,11 @@ interface FormErrors {
   kyc?: string;
   documentImage?: string;
   cookingSpeciality?: string;
+  nannyCareType?: string;
   diet?: string;
   dob?: string;
+  kycType?: string;
+  kycNumber?: string;
   permanentAddress?: {
     apartment?: string;
     street?: string;
@@ -156,6 +168,10 @@ const strongPasswordRegex =
 const phoneRegex = /^[0-9]{10}$/;
 const pincodeRegex = /^[0-9]{6}$/;
 const aadhaarRegex = /^[0-9]{12}$/;
+const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const drivingLicenseRegex = /^[A-Z]{2}[0-9]{2}[0-9]{4,11}$/;
+const voterIdRegex = /^[A-Z]{3}[0-9]{7}$/;
+const passportRegex = /^[A-Z]{1}[0-9]{7}$/;
 const MAX_NAME_LENGTH = 30;
 
 // Fixed steps without extra spaces
@@ -180,10 +196,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "warning" | "info">("success");
-  const [sliderDisabled, setSliderDisabled] = useState(true);
-  const [sliderValueMorning, setSliderValueMorning] = useState([6, 12]);
-  const [sliderValueEvening, setSliderValueEvening] = useState([12, 20]);
   const [isCookSelected, setIsCookSelected] = useState(false);
+  const [isNannySelected, setIsNannySelected] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -196,6 +210,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [isSameAddress, setIsSameAddress] = useState(false);
+  const [isDobValid, setIsDobValid] = useState(true);
+  
+  // New state variables for multi-slot time selection
+  const [morningSlots, setMorningSlots] = useState<number[][]>([[6, 12]]);
+  const [eveningSlots, setEveningSlots] = useState<number[][]>([[12, 20]]);
+  const [isFullTime, setIsFullTime] = useState(true);
+  const [selectedTimeSlots, setSelectedTimeSlots] = useState<string>("06:00-20:00");
+
   // Policy modal states
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
   const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
@@ -225,7 +247,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     AADHAR: "",
     pan: "",
     panImage: null,
-    housekeepingRole: "",
+    housekeepingRole: [],
     description: "",
     experience: "",
     kyc: "AADHAR",
@@ -233,6 +255,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     otherDetails: "",
     profileImage: null,
     cookingSpeciality: "",
+    nannyCareType: "",
     age: "",
     diet: "",
     dob: "",
@@ -243,6 +266,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     terms: false,
     privacy: false,
     keyFacts: false,
+    kycType: "AADHAR",
+    kycNumber: "",
     permanentAddress: {
       apartment: "",
       street: "",
@@ -265,7 +290,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   // Initialize Geocoder
   useEffect(() => {
-    Geocoder.init("AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk"); // Replace with your API key
+    Geocoder.init(keys.api_key);
   }, []);
 
   // Add axios interceptors for debugging
@@ -318,6 +343,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     };
   }, []);
 
+  const { validationResults, validateField, resetValidation } = useFieldValidation();
+
   const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
     setActivePolicy(policyType);
     setPolicyModalVisible(true);
@@ -336,10 +363,340 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
 
+  // Helper function to check if two time ranges overlap
+  const isRangeOverlapping = (range1: number[], range2: number[]): boolean => {
+    return !(range1[1] <= range2[0] || range1[0] >= range2[1]);
+  };
+
+  // Get disabled ranges for a specific slot (all other slots)
+  const getDisabledRangesForSlot = (slots: number[][], currentIndex: number): number[][] => {
+    return slots.filter((_, index) => index !== currentIndex);
+  };
+
+  // Helper function to format time display
+  const formatDisplayTime = (value: number): string => {
+    const hour = Math.floor(value);
+    const minute = Math.round((value - hour) * 60);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour;
+    const displayHourFormatted = displayHour === 0 ? 12 : displayHour;
+    const minuteFormatted = minute === 30 ? '30' : '00';
+    return `${displayHourFormatted}:${minuteFormatted} ${period}`;
+  };
+
+  // Helper function to format time for storage (24-hour format)
+  const formatTimeForStorage = (value: number): string => {
+    const hour = Math.floor(value);
+    const minute = value % 1 === 0.5 ? "30" : "00";
+    const formattedHour = hour < 10 ? `0${hour}` : `${hour}`;
+    return `${formattedHour}:${minute}`;
+  };
+
+  // Custom Slider component with disabled ranges
+  const TimeSliderWithDisabledRanges: React.FC<{
+    value: number[];
+    onChange: (newValue: number[]) => void;
+    min: number;
+    max: number;
+    marks?: Array<{ value: number; label: string }>;
+    disabledRanges: number[][];
+  }> = ({ value, onChange, min, max, marks, disabledRanges }) => {
+    
+    const handleSliderChange = (newValues: number[]) => {
+      const [start, end] = newValues;
+      
+      // Check if the new range overlaps with any disabled ranges
+      const hasOverlap = disabledRanges.some(disabledRange => 
+        isRangeOverlapping([start, end], disabledRange)
+      );
+      
+      if (!hasOverlap) {
+        onChange(newValues);
+      } else {
+        setSnackbarMessage("This time range overlaps with another selected slot");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+      }
+    };
+
+    return (
+      <View style={styles.sliderContainer}>
+        <View style={styles.sliderWrapper}>
+          <Slider
+            value={value[0]}
+            minimumValue={min}
+            maximumValue={max}
+            step={0.5}
+            onValueChange={(val) => handleSliderChange([val, value[1]])}
+            minimumTrackTintColor="#1976d2"
+            maximumTrackTintColor="#bfbfbf"
+          />
+          <Slider
+            value={value[1]}
+            minimumValue={min}
+            maximumValue={max}
+            step={0.5}
+            onValueChange={(val) => handleSliderChange([value[0], val])}
+            minimumTrackTintColor="#1976d2"
+            maximumTrackTintColor="#bfbfbf"
+            style={styles.sliderOverlay}
+          />
+        </View>
+        <View style={styles.sliderLabels}>
+          <Text style={styles.sliderLabel}>{formatDisplayTime(value[0])}</Text>
+          <Text style={styles.sliderLabel}>{formatDisplayTime(value[1])}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  // Component to visually show disabled ranges
+  const DisabledRangesIndicator: React.FC<{
+    ranges: number[][];
+    min: number;
+    max: number;
+  }> = ({ ranges, min, max }) => {
+    if (ranges.length === 0) return null;
+
+    const totalWidth = max - min;
+    
+    return (
+      <View style={styles.disabledRangesContainer}>
+        <View style={styles.disabledRangesTrack} />
+        {ranges.map((range, index) => {
+          const startPercent = ((range[0] - min) / totalWidth) * 100;
+          const widthPercent = ((range[1] - range[0]) / totalWidth) * 100;
+          
+          return (
+            <View
+              key={index}
+              style={[
+                styles.disabledRange,
+                {
+                  left: `${startPercent}%`,
+                  width: `${widthPercent}%`,
+                }
+              ]}
+            />
+          );
+        })}
+      </View>
+    );
+  };
+
+  // Update selected time slots summary
+  const updateSelectedTimeSlots = useCallback(() => {
+    if (isFullTime) {
+      setSelectedTimeSlots("06:00 - 20:00 (Full Day)");
+      setFormData((prev) => ({ ...prev, timeslot: "06:00-20:00" }));
+      return;
+    }
+
+    const morningSlotStrings = morningSlots.map(([start, end]) => 
+      `${formatTimeForStorage(start)}-${formatTimeForStorage(end)}`
+    );
+    
+    const eveningSlotStrings = eveningSlots.map(([start, end]) => 
+      `${formatTimeForStorage(start)}-${formatTimeForStorage(end)}`
+    );
+
+    let displaySlots: string[] = [];
+    let storageSlots: string[] = [];
+
+    // Format for display (with AM/PM)
+    morningSlots.forEach(([start, end]) => {
+      displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
+    });
+    
+    eveningSlots.forEach(([start, end]) => {
+      displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
+    });
+
+    // Format for storage (24-hour format)
+    morningSlotStrings.forEach(slot => storageSlots.push(slot));
+    eveningSlotStrings.forEach(slot => storageSlots.push(slot));
+
+    if (displaySlots.length > 0) {
+      setSelectedTimeSlots(displaySlots.join(', '));
+      setFormData((prev) => ({ ...prev, timeslot: storageSlots.join(', ') }));
+    } else {
+      setSelectedTimeSlots('No slots selected');
+      setFormData((prev) => ({ ...prev, timeslot: '' }));
+    }
+  }, [isFullTime, morningSlots, eveningSlots]);
+
+  // Update slots when they change
+  useEffect(() => {
+    updateSelectedTimeSlots();
+  }, [morningSlots, eveningSlots, isFullTime, updateSelectedTimeSlots]);
+
+  const handleAddMorningSlot = () => {
+    setMorningSlots(prevSlots => {
+      // Find an available time range that doesn't conflict with existing slots
+      const existingRanges = prevSlots;
+      let newStart = 6;
+      let newEnd = 6.5;
+      let foundAvailableSlot = false;
+
+      // Try to find an available 30-minute slot
+      for (let time = 6; time < 12; time += 0.5) {
+        const potentialEnd = time + 0.5;
+        const hasConflict = existingRanges.some(range => 
+          isRangeOverlapping([time, potentialEnd], range)
+        );
+        
+        if (!hasConflict) {
+          newStart = time;
+          newEnd = potentialEnd;
+          foundAvailableSlot = true;
+          break;
+        }
+      }
+
+      // If no 30-minute slot available, try to find any non-overlapping range
+      if (!foundAvailableSlot) {
+        for (let time = 6; time < 12; time += 0.5) {
+          for (let endTime = time + 0.5; endTime <= 12; endTime += 0.5) {
+            const hasConflict = existingRanges.some(range => 
+              isRangeOverlapping([time, endTime], range)
+            );
+            
+            if (!hasConflict) {
+              newStart = time;
+              newEnd = endTime;
+              foundAvailableSlot = true;
+              break;
+            }
+          }
+          if (foundAvailableSlot) break;
+        }
+      }
+
+      // If still no slot found
+      if (!foundAvailableSlot) {
+        setSnackbarMessage("No available time slots remaining in morning");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+        return prevSlots;
+      }
+
+      return [...prevSlots, [newStart, newEnd]];
+    });
+  };
+
+  const handleRemoveMorningSlot = (index: number) => {
+    const newSlots = morningSlots.filter((_, i) => i !== index);
+    setMorningSlots(newSlots.length > 0 ? newSlots : []);
+  };
+
+  const handleAddEveningSlot = () => {
+    setEveningSlots(prevSlots => {
+      // Find an available time range that doesn't conflict with existing slots
+      const existingRanges = prevSlots;
+      let newStart = 12;
+      let newEnd = 12.5;
+      let foundAvailableSlot = false;
+
+      // Try to find an available 30-minute slot
+      for (let time = 12; time < 20; time += 0.5) {
+        const potentialEnd = time + 0.5;
+        const hasConflict = existingRanges.some(range => 
+          isRangeOverlapping([time, potentialEnd], range)
+        );
+        
+        if (!hasConflict) {
+          newStart = time;
+          newEnd = potentialEnd;
+          foundAvailableSlot = true;
+          break;
+        }
+      }
+
+      // If no 30-minute slot available, try to find any non-overlapping range
+      if (!foundAvailableSlot) {
+        for (let time = 12; time < 20; time += 0.5) {
+          for (let endTime = time + 0.5; endTime <= 20; endTime += 0.5) {
+            const hasConflict = existingRanges.some(range => 
+              isRangeOverlapping([time, endTime], range)
+            );
+            
+            if (!hasConflict) {
+              newStart = time;
+              newEnd = endTime;
+              foundAvailableSlot = true;
+              break;
+            }
+          }
+          if (foundAvailableSlot) break;
+        }
+      }
+
+      // If still no slot found
+      if (!foundAvailableSlot) {
+        setSnackbarMessage("No available time slots remaining in evening");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+        return prevSlots;
+      }
+
+      return [...prevSlots, [newStart, newEnd]];
+    });
+  };
+
+  const handleRemoveEveningSlot = (index: number) => {
+    const newSlots = eveningSlots.filter((_, i) => i !== index);
+    setEveningSlots(newSlots.length > 0 ? newSlots : []);
+  };
+
+  const handleClearMorningSlots = () => {
+    setMorningSlots([]);
+  };
+
+  const handleClearEveningSlots = () => {
+    setEveningSlots([]);
+  };
+
+  const handleMorningSlotChange = (index: number, newValue: number[]) => {
+    const updatedSlots = [...morningSlots];
+    const otherSlots = updatedSlots.filter((_, i) => i !== index);
+    
+    // Check if new range overlaps with any other slots
+    const hasOverlap = otherSlots.some(slot => 
+      isRangeOverlapping(newValue, slot)
+    );
+    
+    if (!hasOverlap && newValue[0] <= newValue[1]) {
+      updatedSlots[index] = newValue;
+      setMorningSlots(updatedSlots);
+    }
+  };
+
+  const handleEveningSlotChange = (index: number, newValue: number[]) => {
+    const updatedSlots = [...eveningSlots];
+    const otherSlots = updatedSlots.filter((_, i) => i !== index);
+    
+    // Check if new range overlaps with any other slots
+    const hasOverlap = otherSlots.some(slot => 
+      isRangeOverlapping(newValue, slot)
+    );
+    
+    if (!hasOverlap && newValue[0] <= newValue[1]) {
+      updatedSlots[index] = newValue;
+      setEveningSlots(updatedSlots);
+    }
+  };
+
+  const handleFullTimeToggle = (checked: boolean) => {
+    setIsFullTime(checked);
+    if (checked) {
+      setMorningSlots([[6, 12]]);
+      setEveningSlots([[12, 20]]);
+    }
+  };
+
   const handleImageSelect = (file: RNFile | null) => {
     if (file) {
       setImage(file);
-      // Also update formData with profileImage
       setFormData(prev => ({
         ...prev,
         profileImage: file
@@ -361,19 +718,45 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setShowConfirmPassword(!showConfirmPassword);
   };
 
-  const handleChange = (name: keyof FormData, value: string | boolean | RNFile | null) => {
+  const handleChange = (name: keyof FormData, value: string | boolean | RNFile | string[] | null) => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
     
-    // Real-time validation for gender
-    if (name === "gender") {
-      setErrors((prevErrors) => ({
-        ...prevErrors,
-        gender: value ? "" : "Please select a gender.",
+    // Clear error for this field when user types
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ""
       }));
     }
+  };
+
+  // Handler for KYC type change
+  const handleKycTypeChange = (kycType: string) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      kycType,
+      kycNumber: "" // Clear the number when type changes
+    }));
+    setErrors(prev => ({ 
+      ...prev, 
+      kycType: "",
+      kycNumber: "" 
+    }));
+  };
+
+  // Helper function to get KYC label
+  const getKycLabel = (kycType: string): string => {
+    const labels: Record<string, string> = {
+      "AADHAR": "Aadhaar",
+      "PAN": "PAN",
+      "DRIVING_LICENSE": "Driving License",
+      "VOTER_ID": "Voter ID",
+      "PASSPORT": "Passport"
+    };
+    return labels[kycType] || "KYC";
   };
 
   // Date Picker Handlers
@@ -390,11 +773,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       setFormData((prev) => ({ ...prev, dob: formattedDate }));
 
       // Validate age
-      const isValidAge = validateAge(formattedDate);
+      const { isValid, message } = validateAge(formattedDate);
+      setIsDobValid(isValid);
 
-      if (!isValidAge) {
+      if (!isValid) {
         setIsFieldsDisabled(true);
-        setErrors(prev => ({ ...prev, dob: "You must be at least 18 years old" }));
+        setErrors(prev => ({ ...prev, dob: message }));
       } else {
         setIsFieldsDisabled(false);
         setErrors(prev => ({ ...prev, dob: "" }));
@@ -403,28 +787,36 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   };
 
   const handleAddressChange = async (type: 'permanent' | 'correspondence', data: any) => {
-    setFormData(prev => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       [type === 'permanent' ? 'permanentAddress' : 'correspondenceAddress']: data
-    }));
+    };
+    
+    // If isSameAddress is true and we're updating permanent address, also update correspondence address
+    if (isSameAddress && type === 'permanent') {
+      newFormData.correspondenceAddress = data;
+    }
+    
+    setFormData(newFormData);
 
+    // Clear address errors when address is being filled
     if (type === 'permanent') {
-      // Also update main form fields for backward compatibility
-      setFormData(prev => ({
+      setErrors(prev => ({
         ...prev,
-        buildingName: data.apartment,
-        street: data.street,
-        locality: data.city,
-        pincode: data.pincode,
-        currentLocation: `${data.apartment}, ${data.street}, ${data.city}, ${data.state}, ${data.country} - ${data.pincode}`
+        permanentAddress: undefined
+      }));
+    } else if (!isSameAddress) {
+      setErrors(prev => ({
+        ...prev,
+        correspondenceAddress: undefined
       }));
     }
 
-    // If same address is checked, update correspondence address too
+    // If permanent address is updated and isSameAddress is true, also clear correspondence errors
     if (type === 'permanent' && isSameAddress) {
-      setFormData(prev => ({
+      setErrors(prev => ({
         ...prev,
-        correspondenceAddress: data
+        correspondenceAddress: undefined
       }));
     }
 
@@ -466,22 +858,30 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       } catch (error) {
         console.error("Error geocoding address:", error);
+        setSnackbarMessage("Could not get coordinates for this address. Please check the address details.");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
       }
     }
   };
 
   const handleSameAddressToggle = (checked: boolean) => {
     setIsSameAddress(checked);
+    
     if (checked) {
       // Copy permanent address to correspondence address
       setFormData(prev => ({
         ...prev,
-        correspondenceAddress: prev.permanentAddress
+        correspondenceAddress: { ...prev.permanentAddress }
+      }));
+      
+      // Clear correspondence address errors
+      setErrors(prev => ({
+        ...prev,
+        correspondenceAddress: undefined
       }));
     }
   };
-
-  const { validationResults, validateField, resetValidation } = useFieldValidation();
 
   // Add debounced validation functions
   const debouncedEmailValidation = useCallback(
@@ -523,8 +923,41 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     resetValidation('alternate');
   };
 
-  const handleRealTimeValidation = (name: keyof FormData, value: string) => {
-    const aadhaarPattern = /^[0-9]{12}$/;
+  // Helper function to check if step 0 is ready for next
+  const isStep0ReadyForNext = () => {
+    // Check if required fields are filled
+    const requiredFieldsFilled = formData.firstName.trim() && 
+                                 formData.lastName.trim() && 
+                                 formData.gender && 
+                                 formData.emailId.trim() && 
+                                 formData.password.trim() && 
+                                 formData.confirmPassword.trim() && 
+                                 formData.mobileNo.trim() &&
+                                 formData.dob.trim();
+
+    // Check if there are any validation errors
+    const hasValidationErrors = validationResults.email.error || 
+                               validationResults.mobile.error ||
+                               !validationResults.email.isAvailable ||
+                               !validationResults.mobile.isAvailable ||
+                               !!errors.dob;
+
+    // Check if DOB is valid
+    const isDobFieldValid = isDobValid && !errors.dob;
+
+    return requiredFieldsFilled && !hasValidationErrors && isDobFieldValid;
+  };
+
+  const handleRealTimeValidation = (e: any) => {
+    const { name, value } = e.target;
+
+    // Clear error for this field when user starts typing
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ""
+      }));
+    }
 
     if (name === "firstName") {
       const trimmedValue = value.trim();
@@ -710,18 +1143,45 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
     }
 
-    if (name === "AADHAR") {
+    if (name === "kycNumber") {
       const trimmedValue = value.trim();
-      if (trimmedValue && !aadhaarPattern.test(trimmedValue)) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          AADHAR: "AADHAR number must be exactly 12 digits if provided.",
-        }));
+      setFormData(prev => ({ ...prev, kycNumber: trimmedValue }));
+      
+      // Validate based on kycType
+      if (trimmedValue) {
+        let isValid = true;
+        let errorMessage = "";
+        
+        switch(formData.kycType) {
+          case "AADHAR":
+            isValid = /^[0-9]{12}$/.test(trimmedValue);
+            errorMessage = "Aadhaar number must be exactly 12 digits.";
+            break;
+          case "PAN":
+            isValid = panRegex.test(trimmedValue);
+            errorMessage = "Please enter a valid PAN (e.g., ABCDE1234F).";
+            break;
+          case "DRIVING_LICENSE":
+            isValid = trimmedValue.length >= 8;
+            errorMessage = "Please enter a valid driving license number.";
+            break;
+          case "VOTER_ID":
+            isValid = voterIdRegex.test(trimmedValue);
+            errorMessage = "Please enter a valid 10-digit Voter ID.";
+            break;
+          case "PASSPORT":
+            isValid = passportRegex.test(trimmedValue);
+            errorMessage = "Please enter a valid 8-character passport number.";
+            break;
+        }
+        
+        if (!isValid) {
+          setErrors(prev => ({ ...prev, kycNumber: errorMessage }));
+        } else {
+          setErrors(prev => ({ ...prev, kycNumber: "" }));
+        }
       } else {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          AADHAR: "",
-        }));
+        setErrors(prev => ({ ...prev, kycNumber: `${getKycLabel(formData.kycType)} number is required.` }));
       }
     }
 
@@ -753,6 +1213,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const handleCookingSpecialityChange = (value: string) => {
     setFormData((prevData) => ({ ...prevData, cookingSpeciality: value }));
+    setErrors(prevErrors => ({ ...prevErrors, cookingSpeciality: "" }));
+  };
+
+  // Handler for nanny care type
+  const handleNannyCareTypeChange = (value: string) => {
+    setFormData(prev => ({ ...prev, nannyCareType: value }));
+    setErrors(prev => ({ ...prev, nannyCareType: "" }));
   };
 
   // Helper function to parse address components
@@ -964,7 +1431,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     let isValid = true;
 
     if (step === 0) {
-      // First Name validation
       if (!formData.firstName.trim()) {
         tempErrors.firstName = "First Name is required.";
         isValid = false;
@@ -976,7 +1442,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         isValid = false;
       }
 
-      // Last Name validation
       if (!formData.lastName.trim()) {
         tempErrors.lastName = "Last Name is required.";
         isValid = false;
@@ -988,27 +1453,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         isValid = false;
       }
 
-      // Gender validation
       if (!formData.gender) {
         tempErrors.gender = "Please select a gender.";
         isValid = false;
-      } else {
-        tempErrors.gender = ""; // Clear error when gender is selected
       }
-
-      // Date of Birth validation
-      if (!formData.dob) {
-        tempErrors.dob = "Date of birth is required.";
-        isValid = false;
-      } else {
-        const isValidAge = validateAge(formData.dob);
-        if (!isValidAge) {
-          tempErrors.dob = "You must be at least 18 years old.";
-          isValid = false;
-        }
-      }
-
-      // Email validation
+      
       if (!formData.emailId.trim()) {
         tempErrors.emailId = "Email is required.";
         isValid = false;
@@ -1018,28 +1467,28 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       } else if (validationResults.email.error) {
         tempErrors.emailId = validationResults.email.error;
         isValid = false;
+      } else if (!validationResults.email.isAvailable) {
+        tempErrors.emailId = "Email is not available.";
+        isValid = false;
       }
-
-      // Password validation
-      if (!formData.password) {
+      
+      if (!formData.password.trim()) {
         tempErrors.password = "Password is required.";
         isValid = false;
       } else if (!strongPasswordRegex.test(formData.password)) {
-        tempErrors.password = "Password must contain at least 8 characters, including uppercase, lowercase, number and special character.";
+        tempErrors.password = "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.";
         isValid = false;
       }
-
-      // Confirm Password validation
-      if (!formData.confirmPassword) {
-        tempErrors.confirmPassword = "Please confirm your password.";
+      
+      if (!formData.confirmPassword.trim()) {
+        tempErrors.confirmPassword = "Confirm Password is required.";
         isValid = false;
       } else if (formData.password !== formData.confirmPassword) {
         tempErrors.confirmPassword = "Passwords do not match.";
         isValid = false;
       }
-
-      // Mobile Number validation
-      if (!formData.mobileNo) {
+      
+      if (!formData.mobileNo.trim()) {
         tempErrors.mobileNo = "Mobile number is required.";
         isValid = false;
       } else if (!phoneRegex.test(formData.mobileNo)) {
@@ -1048,106 +1497,120 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       } else if (validationResults.mobile.error) {
         tempErrors.mobileNo = validationResults.mobile.error;
         isValid = false;
+      } else if (!validationResults.mobile.isAvailable) {
+        tempErrors.mobileNo = "Mobile number is not available.";
+        isValid = false;
       }
       
-      // Alternate Number validation (optional but if provided must be valid and not same as mobile)
-      if (formData.AlternateNumber) {
+      // Validate alternate number if provided
+      if (formData.AlternateNumber.trim()) {
         if (!phoneRegex.test(formData.AlternateNumber)) {
           tempErrors.AlternateNumber = "Please enter a valid 10-digit mobile number.";
           isValid = false;
         } else if (formData.AlternateNumber === formData.mobileNo) {
-          tempErrors.AlternateNumber = "Alternate number cannot be the same as mobile number.";
+          tempErrors.AlternateNumber = "Alternate number must be different from primary mobile number.";
           isValid = false;
-        } else if (validationResults.alternate.error) {
-          tempErrors.AlternateNumber = validationResults.alternate.error;
+        } else if (!validationResults.alternate.isAvailable) {
+          tempErrors.AlternateNumber = "Alternate number is not available.";
+          isValid = false;
+        }
+      }
+
+      // Validate DOB
+      if (!formData.dob.trim()) {
+        tempErrors.dob = "Date of Birth is required.";
+        isValid = false;
+      } else {
+        const { isValid: isAgeValid, message } = validateAge(formData.dob);
+        if (!isAgeValid) {
+          tempErrors.dob = message;
           isValid = false;
         }
       }
     }
 
     else if (step === 1) {
-      // Validate permanent address
-      if (!formData.permanentAddress.apartment.trim()) {
-        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
-        tempErrors.permanentAddress.apartment = "Apartment is required.";
+      const permanentErrors: any = {};
+      if (!formData.permanentAddress.apartment?.trim()) {
+        permanentErrors.apartment = "Apartment is required.";
         isValid = false;
       }
-      if (!formData.permanentAddress.street.trim()) {
-        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
-        tempErrors.permanentAddress.street = "Street is required.";
+      if (!formData.permanentAddress.street?.trim()) {
+        permanentErrors.street = "Street is required.";
         isValid = false;
       }
-      if (!formData.permanentAddress.city.trim()) {
-        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
-        tempErrors.permanentAddress.city = "City is required.";
+      if (!formData.permanentAddress.city?.trim()) {
+        permanentErrors.city = "City is required.";
         isValid = false;
       }
-      if (!formData.permanentAddress.state.trim()) {
-        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
-        tempErrors.permanentAddress.state = "State is required.";
+      if (!formData.permanentAddress.state?.trim()) {
+        permanentErrors.state = "State is required.";
         isValid = false;
       }
-      if (!formData.permanentAddress.country.trim()) {
-        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
-        tempErrors.permanentAddress.country = "Country is required.";
+      if (!formData.permanentAddress.country?.trim()) {
+        permanentErrors.country = "Country is required.";
         isValid = false;
       }
-      if (!formData.permanentAddress.pincode) {
-        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
-        tempErrors.permanentAddress.pincode = "Pincode is required.";
+      if (!formData.permanentAddress.pincode?.trim()) {
+        permanentErrors.pincode = "Pincode is required.";
         isValid = false;
       } else if (formData.permanentAddress.pincode.length !== 6) {
-        if (!tempErrors.permanentAddress) tempErrors.permanentAddress = {};
-        tempErrors.permanentAddress.pincode = "Pincode must be exactly 6 digits.";
+        permanentErrors.pincode = "Pincode must be exactly 6 digits.";
         isValid = false;
       }
 
-      // Validate correspondence address if not same as permanent
+      if (Object.keys(permanentErrors).length > 0) {
+        tempErrors.permanentAddress = permanentErrors;
+      }
+
+      // Only validate correspondence address if not same as permanent
       if (!isSameAddress) {
-        if (!formData.correspondenceAddress.apartment.trim()) {
-          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
-          tempErrors.correspondenceAddress.apartment = "Apartment is required.";
+        const correspondenceErrors: any = {};
+        if (!formData.correspondenceAddress.apartment?.trim()) {
+          correspondenceErrors.apartment = "Apartment is required.";
           isValid = false;
         }
-        if (!formData.correspondenceAddress.street.trim()) {
-          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
-          tempErrors.correspondenceAddress.street = "Street is required.";
+        if (!formData.correspondenceAddress.street?.trim()) {
+          correspondenceErrors.street = "Street is required.";
           isValid = false;
         }
-        if (!formData.correspondenceAddress.city.trim()) {
-          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
-          tempErrors.correspondenceAddress.city = "City is required.";
+        if (!formData.correspondenceAddress.city?.trim()) {
+          correspondenceErrors.city = "City is required.";
           isValid = false;
         }
-        if (!formData.correspondenceAddress.state.trim()) {
-          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
-          tempErrors.correspondenceAddress.state = "State is required.";
+        if (!formData.correspondenceAddress.state?.trim()) {
+          correspondenceErrors.state = "State is required.";
           isValid = false;
         }
-        if (!formData.correspondenceAddress.country.trim()) {
-          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
-          tempErrors.correspondenceAddress.country = "Country is required.";
+        if (!formData.correspondenceAddress.country?.trim()) {
+          correspondenceErrors.country = "Country is required.";
           isValid = false;
         }
-        if (!formData.correspondenceAddress.pincode) {
-          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
-          tempErrors.correspondenceAddress.pincode = "Pincode is required.";
+        if (!formData.correspondenceAddress.pincode?.trim()) {
+          correspondenceErrors.pincode = "Pincode is required.";
           isValid = false;
         } else if (formData.correspondenceAddress.pincode.length !== 6) {
-          if (!tempErrors.correspondenceAddress) tempErrors.correspondenceAddress = {};
-          tempErrors.correspondenceAddress.pincode = "Pincode must be exactly 6 digits.";
+          correspondenceErrors.pincode = "Pincode must be exactly 6 digits.";
           isValid = false;
+        }
+
+        if (Object.keys(correspondenceErrors).length > 0) {
+          tempErrors.correspondenceAddress = correspondenceErrors;
         }
       }
     }
 
     else if (step === 2) {
-      if (!formData.housekeepingRole) {
-        tempErrors.housekeepingRole = "Please select a service type.";
+      if (formData.housekeepingRole.length === 0) {
+        tempErrors.housekeepingRole = "Please select at least one service type.";
         isValid = false;
       }
-      if (formData.housekeepingRole === "COOK" && !formData.cookingSpeciality) {
+      if (formData.housekeepingRole.includes("COOK") && !formData.cookingSpeciality) {
         tempErrors.cookingSpeciality = "Please select a speciality for the cook service.";
+        isValid = false;
+      }
+      if (formData.housekeepingRole.includes("NANNY") && !formData.nannyCareType) {
+        tempErrors.nannyCareType = "Please select a care type for the nanny service.";
         isValid = false;
       }
       if (!formData.diet) {
@@ -1164,14 +1627,50 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
 
     else if (step === 3) {
-      // AADHAR is now optional - only validate format if provided
-      if (formData.AADHAR && !aadhaarRegex.test(formData.AADHAR)) {
-        tempErrors.kyc = "Aadhaar number must be exactly 12 digits if provided.";
+      if (!formData.kycType) {
+        tempErrors.kycType = "Please select a KYC document type.";
         isValid = false;
       }
-      // Document image is now optional
-      if (formData.documentImage && !formData.documentImage.uri) {
-        tempErrors.documentImage = "Invalid document file.";
+      if (!formData.kycNumber) {
+        tempErrors.kycNumber = `${getKycLabel(formData.kycType)} number is required.`;
+        isValid = false;
+      } else {
+        // Add specific validation based on KYC type
+        switch(formData.kycType) {
+          case "AADHAR":
+            if (!aadhaarRegex.test(formData.kycNumber)) {
+              tempErrors.kycNumber = "Aadhaar number must be exactly 12 digits.";
+              isValid = false;
+            }
+            break;
+          case "PAN":
+            if (!panRegex.test(formData.kycNumber)) {
+              tempErrors.kycNumber = "Please enter a valid PAN (e.g., ABCDE1234F).";
+              isValid = false;
+            }
+            break;
+          case "DRIVING_LICENSE":
+            if (formData.kycNumber.length < 8) {
+              tempErrors.kycNumber = "Please enter a valid driving license number.";
+              isValid = false;
+            }
+            break;
+          case "VOTER_ID":
+            if (!voterIdRegex.test(formData.kycNumber)) {
+              tempErrors.kycNumber = "Please enter a valid 10-digit Voter ID.";
+              isValid = false;
+            }
+            break;
+          case "PASSPORT":
+            if (!passportRegex.test(formData.kycNumber)) {
+              tempErrors.kycNumber = "Please enter a valid 8-character passport number.";
+              isValid = false;
+            }
+            break;
+        }
+      }
+      if (!formData.documentImage) {
+        tempErrors.documentImage = "Please upload your KYC document.";
         isValid = false;
       }
     }
@@ -1197,8 +1696,38 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   };
 
   const handleNext = () => {
-    if (validateStep(activeStep)) {
-      setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
+    // For step 0, check if validations are complete before proceeding
+    if (activeStep === 0) {
+      if (validationResults.email.loading || validationResults.mobile.loading) {
+        setSnackbarMessage("Please wait for email/mobile validation to complete.");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+        return;
+      }
+      
+      // Validate the current step
+      if (!validateStep(activeStep)) {
+        return;
+      }
+      
+      // Additional check for validation results
+      if (!isStep0ReadyForNext()) {
+        setSnackbarMessage("Please fix all validation errors before proceeding.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        return;
+      }
+    } else {
+      // For other steps, just validate
+      if (!validateStep(activeStep)) {
+        return;
+      }
+    }
+    
+    setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
+    if (activeStep === steps.length - 1) {
+      setSnackbarMessage("Registration Successful!");
+      setSnackbarOpen(true);
     }
   };
 
@@ -1249,14 +1778,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           }
         }
         
-        // Handle Aadhaar document upload (optional)
-        let aadhaarDocUrl = "";
+        // Handle document upload
+        let documentUrl = "";
         if (formData.documentImage) {
           try {
-            const aadhaarFormData = new FormData();
+            const docFormData = new FormData();
 
-            // Create the file object properly
-            aadhaarFormData.append("image", {
+            docFormData.append("image", {
               uri: formData.documentImage.uri,
               type: formData.documentImage.type || 'image/jpeg',
               name: formData.documentImage.name || 'document.jpg'
@@ -1264,7 +1792,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
             const docResponse = await axios.post(
               "http://65.2.153.173:3000/upload",
-              aadhaarFormData,
+              docFormData,
               {
                 headers: {
                   "Content-Type": "multipart/form-data",
@@ -1273,18 +1801,19 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             );
 
             if (docResponse.status === 200) {
-              aadhaarDocUrl = docResponse.data.imageUrl;
+              documentUrl = docResponse.data.imageUrl;
             }
           } catch (error) {
             console.error("Error uploading document image:", error);
-            setSnackbarMessage("Failed to upload Aadhaar document. Proceeding without it.");
+            setSnackbarMessage("Failed to upload KYC document. Proceeding without it.");
             setSnackbarSeverity("warning");
             setSnackbarOpen(true);
           }
         }
 
-        // Create base payload without kyc field
-        const basePayload: any = {
+        const primaryRole = formData.housekeepingRole.length > 0 ? formData.housekeepingRole[0] : "";
+        
+        const payload = {
           firstName: formData.firstName,
           middleName: formData.middleName || "",
           lastName: formData.lastName,
@@ -1301,8 +1830,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           currentLocation: formData.currentLocation || "",
           nearbyLocation: formData.nearbyLocation || "",
           location: formData.currentLocation || "",
-          housekeepingRole: formData.housekeepingRole,
+          housekeepingRole: primaryRole,
+          serviceTypes: formData.housekeepingRole,
           diet: formData.diet,
+          ...(formData.housekeepingRole.includes("COOK") && {
+            cookingSpeciality: formData.cookingSpeciality
+          }),
+          ...(formData.housekeepingRole.includes("NANNY") && {
+            nannyCareType: formData.nannyCareType
+          }),
           timeslot: formData.timeslot || "06:00-20:00",
           expectedSalary: 0,
           experience: formData.experience ? parseInt(formData.experience) : 0,
@@ -1327,27 +1863,18 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             country: formData.correspondenceAddress.country || "India"
           },
           active: true,
-          aadhaarNumber: formData.AADHAR || "",
-          aadhaarDocumentUrl: aadhaarDocUrl,
+          kycType: formData.kycType,
+          kycNumber: formData.kycNumber,
+          kycDocumentUrl: documentUrl,
           dob: formData.dob,
           profilePic: profilePicUrl
         };
 
-        // Add cookingSpeciality only if housekeepingRole is COOK
-        if (formData.housekeepingRole === "COOK") {
-          basePayload.cookingSpeciality = formData.cookingSpeciality;
-        }
-
-        // Only add kyc field if AADHAR is provided (since enum only accepts "AADHAR")
-        if (formData.AADHAR) {
-          basePayload.kyc = "AADHAR";
-        }
-
-        console.log("Submitting payload:", JSON.stringify(basePayload, null, 2));
+        console.log("Submitting payload:", JSON.stringify(payload, null, 2));
 
         const response = await axiosInstance.post(
           "/api/serviceproviders/serviceprovider/add",
-          basePayload,
+          payload,
           {
             headers: {
               "Content-Type": "application/json",
@@ -1389,16 +1916,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         let errorMessage = "Failed to add service provider. Please try again.";
         
         if (error.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
           console.error("Error response status:", error.response.status);
           console.error("Error response headers:", error.response.headers);
           
-          // Try to get response data
           const responseData = error.response.data;
           console.error("Error response data:", responseData);
           
-          // Try to extract error message from different possible formats
           if (responseData) {
             if (typeof responseData === 'string') {
               errorMessage = responseData;
@@ -1411,17 +1934,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             } else if (Array.isArray(responseData) && responseData.length > 0) {
               errorMessage = responseData[0].msg || responseData[0].message || JSON.stringify(responseData);
             } else {
-              // If we can't find a specific message, stringify the whole response
               errorMessage = JSON.stringify(responseData);
             }
           }
         } else if (error.request) {
-          // The request was made but no response was received
-          console.error("Error request:", error.request);
           errorMessage = "No response from server. Please check your network connection.";
         } else {
-          // Something happened in setting up the request that triggered an Error
-          console.error("Error message:", error.message);
           errorMessage = error.message;
         }
         
@@ -1439,19 +1957,24 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setSnackbarOpen(false);
   };
 
-  const validateAge = (dob: string) => {
-    if (!dob) return false;
+  const validateAge = (dob: string): { isValid: boolean; message: string } => {
+    if (!dob) {
+      return { isValid: false, message: "Date of Birth is required." };
+    }
 
     const birthDate = moment(dob, "YYYY-MM-DD");
     const today = moment();
     const age = today.diff(birthDate, "years");
 
-    return age >= 18;
+    if (age < 18) {
+      return { isValid: false, message: "You must be at least 18 years old to register." };
+    }
+
+    return { isValid: true, message: "" };
   };
 
   // Handle terms change from TermsCheckboxes component
   const handleTermsChange = useCallback((allAccepted: boolean) => {
-    // This is called when "Check All" is toggled
     setFormData(prev => ({
       ...prev,
       keyFacts: allAccepted,
@@ -1470,320 +1993,90 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }));
   }, []);
 
-  // Function to format display time
-  const formatDisplayTime = (value: number) => {
-    const hour = Math.floor(value);
-    const minutes = value % 1 === 0.5 ? "30" : "00";
-    const formattedHour = hour < 10 ? `0${hour}` : `${hour}`;
-    return `${formattedHour}:${minutes}`;
-  };
-
-  // Function to update form time slot
-  const updateFormTimeSlot = (
-    morningRange: number[],
-    eveningRange: number[]
-  ) => {
-    const startMorning = formatDisplayTime(morningRange[0]);
-    const endMorning = formatDisplayTime(morningRange[1]);
-    const startEvening = formatDisplayTime(eveningRange[0]);
-    const endEvening = formatDisplayTime(eveningRange[1]);
-
-    const formattedTimeSlot = `${startMorning}-${endMorning}, ${startEvening}-${endEvening}`;
-    setFormData((prev) => ({ ...prev, timeslot: formattedTimeSlot }));
-  };
-
-  // Handle service type change
-  const handleServiceTypeChange = (value: string) => {
-    handleChange("housekeepingRole", value);
-    setIsCookSelected(value === "COOK");
+  // Handler for service type change (updated for multi-select)
+  const handleServiceTypeChange = (e: any) => {
+    const value = e.target.value;
+    let updatedRoles: string[];
+    
+    if (formData.housekeepingRole.includes(value)) {
+      // Remove if already selected
+      updatedRoles = formData.housekeepingRole.filter(role => role !== value);
+      // Clear related fields when service is deselected
+      if (value === "COOK") {
+        setFormData(prev => ({ ...prev, cookingSpeciality: "" }));
+      }
+      if (value === "NANNY") {
+        setFormData(prev => ({ ...prev, nannyCareType: "" }));
+      }
+    } else {
+      // Add if not selected
+      updatedRoles = [...formData.housekeepingRole, value];
+    }
+    
+    setFormData(prev => ({ ...prev, housekeepingRole: updatedRoles }));
+    setIsCookSelected(updatedRoles.includes("COOK"));
+    setIsNannySelected(updatedRoles.includes("NANNY"));
+    
+    // Clear error if at least one role is selected
+    if (updatedRoles.length > 0) {
+      setErrors(prev => ({ ...prev, housekeepingRole: "" }));
+    }
   };
 
   // Handle diet change
-  const handledietChange = (value: string) => {
-    handleChange("diet", value);
+  const handledietChange = (e: any) => {
+    const { value } = e.target;
+    setFormData((prevData) => ({ ...prevData, diet: value }));
+    setErrors(prevErrors => ({ ...prevErrors, diet: "" }));
   };
 
   // Handle experience change
-  const handleExperienceChange = (value: string) => {
-    handleChange("experience", value);
+  const handleExperienceChange = (e: any) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, experience: value }));
+    setErrors(prev => ({ ...prev, experience: "" }));
   };
 
-  // COMPLETELY REWRITTEN renderStepper function for proper display
-  const renderStepper = () => {
-    return (
-      <View style={styles.stepperContainer}>
-        {steps.map((step, index) => (
-          <View key={index} style={styles.stepWrapper}>
-            <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  index < activeStep && styles.completedStep,
-                  index === activeStep && styles.activeStep,
-                  index > activeStep && styles.inactiveStep,
-                ]}
-              >
-                {index < activeStep ? (
-                  <Icon name="check" size={16} color="#fff" />
-                ) : (
-                  <Text style={styles.stepNumber}>{index + 1}</Text>
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.stepLabel,
-                  index <= activeStep ? styles.activeLabel : styles.inactiveLabel,
-                ]}
-                numberOfLines={2}
-              >
-                {step}
-              </Text>
-            </View>
-            {index < steps.length - 1 && (
-              <View
-                style={[
-                  styles.stepConnector,
-                  index < activeStep ? styles.activeConnector : styles.inactiveConnector,
-                ]}
-              />
-            )}
-          </View>
-        ))}
-      </View>
-    );
+  // Handle description change
+  const handleDescriptionChange = (e: any) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, description: value }));
+  };
+
+  // Handle referral code change
+  const handleReferralCodeChange = (e: any) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, referralCode: value }));
+  };
+
+  // Handle document upload
+  const handleDocumentUpload = (file: RNFile | null) => {
+    setFormData(prev => ({ ...prev, documentImage: file }));
   };
 
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
         return (
-          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-            <View style={styles.profileImageContainer}>
-              <ProfileImageUpload onImageSelect={handleImageSelect} />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>First Name *</Text>
-              <TextInput
-                style={[styles.input, errors.firstName && styles.inputError]}
-                placeholder="First Name"
-                placeholderTextColor="#999"
-                value={formData.firstName}
-                onChangeText={(value) => handleRealTimeValidation("firstName", value)}
-                maxLength={MAX_NAME_LENGTH}
-              />
-              {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Middle Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Middle Name"
-                placeholderTextColor="#999"
-                value={formData.middleName}
-                onChangeText={(value) => handleChange("middleName", value)}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Last Name *</Text>
-              <TextInput
-                style={[styles.input, errors.lastName && styles.inputError]}
-                placeholder="Last Name"
-                placeholderTextColor="#999"
-                value={formData.lastName}
-                onChangeText={(value) => handleRealTimeValidation("lastName", value)}
-                maxLength={MAX_NAME_LENGTH}
-              />
-              {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Date of Birth *</Text>
-              <TouchableOpacity
-                style={[styles.datePickerButton, errors.dob && styles.inputError]}
-                onPress={handleDatePress}
-              >
-                <Text style={formData.dob ? styles.datePickerText : styles.datePickerPlaceholder}>
-                  {formData.dob ? moment(formData.dob).format("DD/MM/YYYY") : "Select Date of Birth"}
-                </Text>
-                <Icon name="calendar-today" size={20} color="#1976d2" />
-              </TouchableOpacity>
-              {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
-
-              {showDatePicker && (
-                <DateTimePicker
-                  testID="dateTimePicker"
-                  value={selectedDate || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={handleDateChange}
-                  maximumDate={new Date()}
-                />
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Gender *</Text>
-              <View style={styles.radioGroup}>
-                <TouchableOpacity
-                  style={styles.radioOption}
-                  onPress={() => handleChange("gender", "MALE")}
-                >
-                  <View style={styles.radioCircle}>
-                    {formData.gender === "MALE" && <View style={styles.selectedRb} />}
-                  </View>
-                  <Text style={styles.radioLabel}>Male</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.radioOption}
-                  onPress={() => handleChange("gender", "FEMALE")}
-                >
-                  <View style={styles.radioCircle}>
-                    {formData.gender === "FEMALE" && <View style={styles.selectedRb} />}
-                  </View>
-                  <Text style={styles.radioLabel}>Female</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.radioOption}
-                  onPress={() => handleChange("gender", "OTHER")}
-                >
-                  <View style={styles.radioCircle}>
-                    {formData.gender === "OTHER" && <View style={styles.selectedRb} />}
-                  </View>
-                  <Text style={styles.radioLabel}>Other</Text>
-                </TouchableOpacity>
-              </View>
-              {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email *</Text>
-              <View style={[styles.inputWithIcon, errors.emailId && styles.inputError]}>
-                <TextInput
-                  style={styles.inputFlex}
-                  placeholder="Email"
-                  placeholderTextColor="#999"
-                  value={formData.emailId}
-                  onChangeText={(value) => handleRealTimeValidation("emailId", value)}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-                {validationResults.email.loading ? (
-                  <ActivityIndicator size="small" />
-                ) : validationResults.email.isAvailable ? (
-                  <Icon name="check-circle" size={24} color="green" />
-                ) : validationResults.email.isAvailable === false ? (
-                  <TouchableOpacity onPress={handleClearEmail}>
-                    <Icon name="close" size={24} color="red" />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              {(errors.emailId || validationResults.email.error) && (
-                <Text style={styles.errorText}>
-                  {errors.emailId || validationResults.email.error}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password *</Text>
-              <View style={[styles.inputWithIcon, errors.password && styles.inputError]}>
-                <TextInput
-                  style={styles.inputFlex}
-                  placeholder="Password"
-                  placeholderTextColor="#999"
-                  value={formData.password}
-                  onChangeText={(value) => handleRealTimeValidation("password", value)}
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity onPress={handleTogglePasswordVisibility}>
-                  <Icon name={showPassword ? "visibility" : "visibility-off"} size={24} color="#333" />
-                </TouchableOpacity>
-              </View>
-              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirm Password *</Text>
-              <View style={[styles.inputWithIcon, errors.confirmPassword && styles.inputError]}>
-                <TextInput
-                  style={styles.inputFlex}
-                  placeholder="Confirm Password"
-                  placeholderTextColor="#999"
-                  value={formData.confirmPassword}
-                  onChangeText={(value) => handleRealTimeValidation("confirmPassword", value)}
-                  secureTextEntry={!showConfirmPassword}
-                />
-                <TouchableOpacity onPress={handleToggleConfirmPasswordVisibility}>
-                  <Icon name={showConfirmPassword ? "visibility" : "visibility-off"} size={24} color="#333" />
-                </TouchableOpacity>
-              </View>
-              {errors.confirmPassword && (
-                <Text style={styles.errorText}>{errors.confirmPassword}</Text>
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Mobile Number *</Text>
-              <View style={[styles.inputWithIcon, errors.mobileNo && styles.inputError]}>
-                <TextInput
-                  style={styles.inputFlex}
-                  placeholder="Mobile Number"
-                  placeholderTextColor="#999"
-                  value={formData.mobileNo}
-                  onChangeText={(value) => handleRealTimeValidation("mobileNo", value)}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                />
-                {validationResults.mobile.loading ? (
-                  <ActivityIndicator size="small" />
-                ) : validationResults.mobile.isAvailable ? (
-                  <Icon name="check-circle" size={24} color="green" />
-                ) : validationResults.mobile.isAvailable === false ? (
-                  <TouchableOpacity onPress={handleClearMobile}>
-                    <Icon name="close" size={24} color="red" />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              {(errors.mobileNo || validationResults.mobile.error) && (
-                <Text style={styles.errorText}>
-                  {errors.mobileNo || validationResults.mobile.error}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Alternate Number</Text>
-              <View style={[styles.inputWithIcon, (errors.AlternateNumber || validationResults.alternate.isAvailable === false) && styles.inputError]}>
-                <TextInput
-                  style={styles.inputFlex}
-                  placeholder="Alternate Number"
-                  placeholderTextColor="#999"
-                  value={formData.AlternateNumber}
-                  onChangeText={(value) => handleRealTimeValidation("AlternateNumber", value)}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                />
-                {validationResults.alternate.loading ? (
-                  <ActivityIndicator size="small" />
-                ) : validationResults.alternate.isAvailable ? (
-                  <Icon name="check-circle" size={24} color="green" />
-                ) : validationResults.alternate.isAvailable === false ? (
-                  <TouchableOpacity onPress={handleClearAlternate}>
-                    <Icon name="close" size={24} color="red" />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              {(errors.AlternateNumber || validationResults.alternate.error) && (
-                <Text style={styles.errorText}>
-                  {errors.AlternateNumber || validationResults.alternate.error}
-                </Text>
-              )}
-            </View>
-          </ScrollView>
+          <BasicInformation
+            formData={formData}
+            errors={errors}
+            validationResults={validationResults}
+            showPassword={showPassword}
+            showConfirmPassword={showConfirmPassword}
+            isDobValid={isDobValid}
+            onImageSelect={handleImageSelect}
+            onFieldChange={handleRealTimeValidation}
+            onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
+            onDobChange={handleDateChange}
+            onTogglePasswordVisibility={handleTogglePasswordVisibility}
+            onToggleConfirmPasswordVisibility={handleToggleConfirmPasswordVisibility}
+            onClearEmail={handleClearEmail}
+            onClearMobile={handleClearMobile}
+            onClearAlternate={handleClearAlternate}
+          />
         );
-
+      
       case 1:
         return (
           <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
@@ -1838,316 +2131,48 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       case 2:
         return (
-          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Select Service Type *</Text>
-              <View style={styles.dropdown}>
-                <TouchableOpacity
-                  style={styles.dropdownButton}
-                  onPress={() => setModalVisible(true)}
-                >
-                  <Text style={styles.dropdownText}>
-                    {formData.housekeepingRole || "Select Service Type"}
-                  </Text>
-                  <Icon name="arrow-drop-down" size={24} />
-                </TouchableOpacity>
-              </View>
-              {errors.housekeepingRole && (
-                <Text style={styles.errorText}>{errors.housekeepingRole}</Text>
-              )}
-            </View>
-
-            <Modal
-              visible={modalVisible}
-              transparent={true}
-              animationType="slide"
-            >
-              <View style={styles.modalContainer}>
-                <View style={styles.modalContent}>
-                  <Text style={styles.modalTitle}>Select Service Type</Text>
-                  {["COOK", "NANNY", "MAID"].map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={styles.modalOption}
-                      onPress={() => {
-                        handleServiceTypeChange(option);
-                        setModalVisible(false);
-                      }}
-                    >
-                      <Text style={styles.modalOptionText}>{option}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  <TouchableOpacity
-                    style={styles.modalCloseButton}
-                    onPress={() => setModalVisible(false)}
-                  >
-                    <Text style={styles.modalCloseText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-
-            {isCookSelected && (
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Cooking Speciality *</Text>
-                <View style={styles.radioGroup}>
-                  {["VEG", "NONVEG", "BOTH"].map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={styles.radioOption}
-                      onPress={() => handleCookingSpecialityChange(option)}
-                    >
-                      <View style={styles.radioCircle}>
-                        {formData.cookingSpeciality === option && (
-                          <View style={styles.selectedRb} />
-                        )}
-                      </View>
-                      <Text style={styles.radioLabel}>
-                        {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                {errors.cookingSpeciality && (
-                  <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>
-                )}
-              </View>
-            )}
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Diet *</Text>
-              <View style={styles.radioGroup}>
-                {["VEG", "NONVEG", "BOTH"].map((option) => (
-                  <TouchableOpacity
-                    key={option}
-                    style={styles.radioOption}
-                    onPress={() => handledietChange(option)}
-                  >
-                    <View style={styles.radioCircle}>
-                      {formData.diet === option && <View style={styles.selectedRb} />}
-                    </View>
-                    <Text style={styles.radioLabel}>
-                      {option === "VEG" ? "Veg" : option === "NONVEG" ? "Non-Veg" : "Both"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {errors.diet && <Text style={styles.errorText}>{errors.diet}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Description about your services"
-                placeholderTextColor="#999"
-                value={formData.description}
-                onChangeText={(value) => handleChange("description", value)}
-                multiline
-                numberOfLines={4}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Experience *</Text>
-              <TextInput
-                style={[styles.input, errors.experience && styles.inputError]}
-                placeholder="Years of experience"
-                placeholderTextColor="#999"
-                value={formData.experience}
-                onChangeText={(value) => handleExperienceChange(value)}
-                keyboardType="numeric"
-              />
-              {errors.experience && (
-                <Text style={styles.errorText}>{errors.experience}</Text>
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Referral Code (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Referral Code"
-                placeholderTextColor="#999"
-                value={formData.referralCode || ""}
-                onChangeText={(value) => handleChange("referralCode", value)}
-              />
-            </View>
-
-            {/* Time Slot Selection Section */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Select Time Slot</Text>
-
-              {/* Full Time Availability Checkbox - Using TouchableOpacity as checkbox */}
-              <TouchableOpacity
-                style={styles.checkboxContainer}
-                onPress={() => {
-                  const newValue = formData.timeslot !== "06:00-20:00";
-                  if (newValue) {
-                    handleChange("timeslot", "06:00-20:00");
-                    setSliderDisabled(true);
-                  } else {
-                    handleChange("timeslot", "");
-                    setSliderDisabled(false);
-                  }
-                }}
-              >
-                <View style={[styles.checkboxBox, formData.timeslot === "06:00-20:00" && styles.checkboxChecked]}>
-                  {formData.timeslot === "06:00-20:00" && (
-                    <Icon name="check" size={16} color="#fff" />
-                  )}
-                </View>
-                <Text style={styles.checkboxLabel}>
-                  Choose Full Time Availability (6:00 AM - 8:00 PM)
-                </Text>
-              </TouchableOpacity>
-
-              {/* Morning Slider */}
-              <View style={styles.sliderContainer}>
-                <Text style={styles.sliderTitle}>Morning (6:00 AM - 12:00 PM)</Text>
-                <View style={styles.sliderRow}>
-                  <Text style={styles.sliderTimeLabel}>
-                    {formatDisplayTime(sliderValueMorning[0])}
-                  </Text>
-                  <Slider
-                    style={styles.slider}
-                    minimumValue={6}
-                    maximumValue={12}
-                    step={0.5}
-                    value={sliderValueMorning[0]}
-                    onValueChange={(value) => {
-                      const newValues = [value, sliderValueMorning[1]];
-                      setSliderValueMorning(newValues);
-                      updateFormTimeSlot(newValues, sliderValueEvening);
-                    }}
-                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-                    maximumTrackTintColor="#e0e0e0"
-                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-                    disabled={sliderDisabled}
-                  />
-                </View>
-                <View style={styles.sliderRow}>
-                  <Text style={styles.sliderTimeLabel}>
-                    {formatDisplayTime(sliderValueMorning[1])}
-                  </Text>
-                  <Slider
-                    style={styles.slider}
-                    minimumValue={6}
-                    maximumValue={12}
-                    step={0.5}
-                    value={sliderValueMorning[1]}
-                    onValueChange={(value) => {
-                      const newValues = [sliderValueMorning[0], value];
-                      setSliderValueMorning(newValues);
-                      updateFormTimeSlot(newValues, sliderValueEvening);
-                    }}
-                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-                    maximumTrackTintColor="#e0e0e0"
-                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-                    disabled={sliderDisabled}
-                  />
-                </View>
-                <View style={styles.sliderLabels}>
-                  <Text style={styles.sliderLabel}>6:00 AM</Text>
-                  <Text style={styles.sliderLabel}>12:00 PM</Text>
-                </View>
-                <Text style={styles.sliderValue}>
-                  Selected: {formatDisplayTime(sliderValueMorning[0])} - {formatDisplayTime(sliderValueMorning[1])}
-                </Text>
-              </View>
-
-              {/* Evening Slider */}
-              <View style={styles.sliderContainer}>
-                <Text style={styles.sliderTitle}>Evening (12:00 PM - 8:00 PM)</Text>
-                <View style={styles.sliderRow}>
-                  <Text style={styles.sliderTimeLabel}>
-                    {formatDisplayTime(sliderValueEvening[0])}
-                  </Text>
-                  <Slider
-                    style={styles.slider}
-                    minimumValue={12}
-                    maximumValue={20}
-                    step={0.5}
-                    value={sliderValueEvening[0]}
-                    onValueChange={(value) => {
-                      const newValues = [value, sliderValueEvening[1]];
-                      setSliderValueEvening(newValues);
-                      updateFormTimeSlot(sliderValueMorning, newValues);
-                    }}
-                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-                    maximumTrackTintColor="#e0e0e0"
-                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-                    disabled={sliderDisabled}
-                  />
-                </View>
-                <View style={styles.sliderRow}>
-                  <Text style={styles.sliderTimeLabel}>
-                    {formatDisplayTime(sliderValueEvening[1])}
-                  </Text>
-                  <Slider
-                    style={styles.slider}
-                    minimumValue={12}
-                    maximumValue={20}
-                    step={0.5}
-                    value={sliderValueEvening[1]}
-                    onValueChange={(value) => {
-                      const newValues = [sliderValueEvening[0], value];
-                      setSliderValueEvening(newValues);
-                      updateFormTimeSlot(sliderValueMorning, newValues);
-                    }}
-                    minimumTrackTintColor={sliderDisabled ? "#bdbdbd" : "#1976d2"}
-                    maximumTrackTintColor="#e0e0e0"
-                    thumbTintColor={sliderDisabled ? "#9e9e9e" : "#1976d2"}
-                    disabled={sliderDisabled}
-                  />
-                </View>
-                <View style={styles.sliderLabels}>
-                  <Text style={styles.sliderLabel}>12:00 PM</Text>
-                  <Text style={styles.sliderLabel}>8:00 PM</Text>
-                </View>
-                <Text style={styles.sliderValue}>
-                  Selected: {formatDisplayTime(sliderValueEvening[0])} - {formatDisplayTime(sliderValueEvening[1])}
-                </Text>
-              </View>
-
-              {/* Current Time Slot Display */}
-              <View style={styles.timeSlotDisplay}>
-                <Text style={styles.timeSlotTitle}>Selected Time Slot:</Text>
-                <Text style={styles.timeSlotValue}>{formData.timeslot}</Text>
-              </View>
-            </View>
-          </ScrollView>
+          <ServiceDetails
+            formData={formData}
+            errors={errors}
+            isCookSelected={isCookSelected}
+            isNannySelected={isNannySelected}
+            morningSlots={morningSlots}
+            eveningSlots={eveningSlots}
+            isFullTime={isFullTime}
+            selectedTimeSlots={selectedTimeSlots}
+            onServiceTypeChange={handleServiceTypeChange}
+            onCookingSpecialityChange={(e) => handleCookingSpecialityChange(e.target.value)}
+            onNannyCareTypeChange={(e) => handleNannyCareTypeChange(e.target.value)}
+            onDietChange={handledietChange}
+            onExperienceChange={handleExperienceChange}
+            onDescriptionChange={handleDescriptionChange}
+            onReferralCodeChange={handleReferralCodeChange}
+            onFullTimeToggle={handleFullTimeToggle}
+            onAddMorningSlot={handleAddMorningSlot}
+            onRemoveMorningSlot={handleRemoveMorningSlot}
+            onClearMorningSlots={handleClearMorningSlots}
+            onAddEveningSlot={handleAddEveningSlot}
+            onRemoveEveningSlot={handleRemoveEveningSlot}
+            onClearEveningSlots={handleClearEveningSlots}
+            onMorningSlotChange={handleMorningSlotChange}
+            onEveningSlotChange={handleEveningSlotChange}
+            TimeSliderWithDisabledRanges={TimeSliderWithDisabledRanges}
+            DisabledRangesIndicator={DisabledRangesIndicator}
+            getDisabledRangesForSlot={getDisabledRangesForSlot}
+            formatDisplayTime={formatDisplayTime}
+          />
         );
 
       case 3:
         return (
-          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Aadhaar Number (Optional)</Text>
-              <TextInput
-                style={[styles.input, errors.kyc && styles.inputError]}
-                placeholder="12-digit Aadhaar Number (Optional)"
-                placeholderTextColor="#999"
-                value={formData.AADHAR || ""}
-                onChangeText={(value) => handleRealTimeValidation("AADHAR", value)}
-                keyboardType="numeric"
-                maxLength={12}
-              />
-              {errors.kyc && <Text style={styles.errorText}>{errors.kyc}</Text>}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Upload Aadhaar Document (Optional)</Text>
-              <CustomFileInput
-                name="documentImage"
-                accept="image/*"
-                value={formData.documentImage}
-                onChange={(file) => handleChange("documentImage", file)}
-                buttonText="Upload Aadhaar Document (Optional)"
-              />
-              {errors.documentImage && <Text style={styles.errorText}>{errors.documentImage}</Text>}
-            </View>
-          </ScrollView>
+          <KYCVerification
+            formData={formData}
+            errors={errors}
+            onFieldChange={handleRealTimeValidation}
+            onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
+            onDocumentUpload={handleDocumentUpload}
+            onKycTypeChange={handleKycTypeChange}
+          />
         );
 
       case 4:
@@ -2176,6 +2201,51 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       default:
         return <Text>Unknown step</Text>;
     }
+  };
+
+  // COMPLETELY REWRITTEN renderStepper function for proper display
+  const renderStepper = () => {
+    return (
+      <View style={styles.stepperContainer}>
+        {steps.map((step, index) => (
+          <View key={index} style={styles.stepWrapper}>
+            <View style={styles.stepItem}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  index < activeStep && styles.completedStep,
+                  index === activeStep && styles.activeStep,
+                  index > activeStep && styles.inactiveStep,
+                ]}
+              >
+                {index < activeStep ? (
+                  <Icon name="check" size={16} color="#fff" />
+                ) : (
+                  <Text style={styles.stepNumber}>{index + 1}</Text>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  index <= activeStep ? styles.activeLabel : styles.inactiveLabel,
+                ]}
+                numberOfLines={2}
+              >
+                {step}
+              </Text>
+            </View>
+            {index < steps.length - 1 && (
+              <View
+                style={[
+                  styles.stepConnector,
+                  index < activeStep ? styles.activeConnector : styles.inactiveConnector,
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
   };
 
   return (
@@ -2285,6 +2355,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   );
 };
 
+// [Keep all the existing styles from the old code]
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2382,11 +2453,6 @@ const styles = StyleSheet.create({
   inactiveConnector: {
     backgroundColor: '#e0e0e0',
   },
-  profileImageContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
   formContainer: {
     flex: 1,
   },
@@ -2408,23 +2474,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     color: '#333',
   },
-  inputFlex: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    paddingVertical: 12,
-  },
   inputError: {
     borderColor: '#f44336',
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
   },
   errorText: {
     color: '#f44336',
@@ -2505,17 +2556,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  locationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  locationText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
   },
   successAlert: {
     backgroundColor: '#d4edda',
@@ -2652,6 +2692,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+  sliderWrapper: {
+    height: 40,
+    position: 'relative',
+  },
+  sliderOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   sliderTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -2754,6 +2805,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
     padding: 16,
+  },
+  disabledRangesContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 4,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  disabledRangesTrack: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+  },
+  disabledRange: {
+    position: 'absolute',
+    height: '100%',
+    backgroundColor: '#ff9800',
+    opacity: 0.5,
+    borderRadius: 2,
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+  },
+  inputFlex: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 12,
+  },
+  profileImageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
 });
 

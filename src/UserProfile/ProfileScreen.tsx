@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  BackHandler, // Add this import
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useAuth0 } from "react-native-auth0";
@@ -110,7 +111,11 @@ interface OriginalData {
   addresses: Address[];
 }
 
-const ProfileScreen = () => {
+interface ProfileScreenProps {
+  onBackToHome?: () => void; // Add this prop for back navigation
+}
+
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
   const { appUser } = useAppUser();
 
@@ -1377,6 +1382,77 @@ const ProfileScreen = () => {
     { label: "+971 (UAE)", value: "+971" },
   ];
 
+  // ============= BACK BUTTON AND HARDWARE BACK HANDLING =============
+  
+  // Handle back button press
+  const handleBackPress = () => {
+    console.log('⬅️ Back button pressed in ProfileScreen');
+    
+    // Close any open dialogs or modals first
+    if (showMobileDialog) {
+      console.log('📱 Closing mobile dialog');
+      setShowMobileDialog(false);
+      return true; // Prevent default back behavior
+    }
+    
+    if (showCountryCodePicker) {
+      console.log('🌍 Closing country code picker');
+      setShowCountryCodePicker(false);
+      return true;
+    }
+    
+    if (showAltCountryCodePicker) {
+      console.log('🌍 Closing alternate country code picker');
+      setShowAltCountryCodePicker(false);
+      return true;
+    }
+    
+    if (showAddAddress) {
+      console.log('🏠 Closing add address form');
+      setShowAddAddress(false);
+      return true;
+    }
+    
+    // If in editing mode, cancel editing first
+    if (isEditing) {
+      console.log('✏️ Canceling edit mode');
+      handleCancel();
+      return true;
+    }
+    
+    // If no dialogs are open and not in edit mode, navigate back to home
+    if (onBackToHome) {
+      console.log('🏠 Navigating back to HomePage');
+      onBackToHome();
+      return true; // Prevent default back behavior
+    }
+    
+    return false; // Let default back behavior happen
+  };
+
+  // Set up hardware back button listener
+  useEffect(() => {
+    console.log('🎯 Setting up back button handler for ProfileScreen');
+    
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
+
+    // Clean up listener on unmount
+    return () => {
+      console.log('🧹 Cleaning up back button handler for ProfileScreen');
+      backHandler.remove();
+    };
+  }, [
+    onBackToHome,
+    showMobileDialog,
+    showCountryCodePicker,
+    showAltCountryCodePicker,
+    showAddAddress,
+    isEditing
+  ]);
+
   // Loading Screen Component
   const LoadingScreen = () => (
     <View style={styles.loadingContainer}>
@@ -1494,7 +1570,7 @@ const ProfileScreen = () => {
         onSuccess={handleMobileNumberUpdateSuccess}
       />
 
-      {/* Header with Linear Gradient */}
+      {/* Header with Linear Gradient and Back Button */}
       <LinearGradient
         colors={["rgba(177, 213, 232, 0.8)", "rgba(255, 255, 255, 1)"]}
         start={{ x: 0, y: 0 }}
@@ -1502,6 +1578,14 @@ const ProfileScreen = () => {
         style={styles.header}
       >
         <View style={styles.headerContent}>
+          {/* Back Button */}
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={handleBackPress}
+          >
+            <Icon name="arrow-left" size={24} color="#0a2a66" />
+          </TouchableOpacity>
+          
           {/* Profile Section */}
           <View style={styles.profileSection}>
             {renderProfilePicture()}
@@ -1553,7 +1637,6 @@ const ProfileScreen = () => {
             )}
           </View>
 
-          {/* User Info Section */}
           {/* User Info Section */}
           <View>
             <Text style={styles.sectionTitle}>User Information</Text>
@@ -2240,11 +2323,30 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingHorizontal: 20,
     width: "100%",
+    position: "relative",
+  },
+  backButton: {
+    position: "absolute",
+    left: 20,
+    top: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
   },
   profileSection: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    marginLeft: 40, // Add margin to account for back button
   },
   profileImage: {
     width: 80,

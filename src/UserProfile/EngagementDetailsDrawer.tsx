@@ -56,14 +56,6 @@ const Separator: React.FC<{ style?: any }> = ({ style }) => {
   return <View style={[styles.separator, style]} />;
 };
 
-// Built-in DialogHeader Component
-const DialogHeader: React.FC<{
-  children: React.ReactNode;
-  style?: any;
-}> = ({ children, style }) => {
-  return <View style={[styles.dialogHeader, style]}>{children}</View>;
-};
-
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
   try {
@@ -90,6 +82,9 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   onPaymentComplete 
 }) => {
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
+  const [isCallLoading, setIsCallLoading] = React.useState(false);
+  const [isMessageLoading, setIsMessageLoading] = React.useState(false);
+  const [isCancelLoading, setIsCancelLoading] = React.useState(false);
 
   if (!isOpen || !booking) return null;
 
@@ -142,7 +137,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               onPaymentComplete();
             }
             
-            console.log('Payment completed successfully');
+            Alert.alert("Success", "Payment completed successfully!");
             
           } catch (verifyError) {
             console.error("Payment verification error:", verifyError);
@@ -166,6 +161,75 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     }
   };
 
+  const handleCallProvider = () => {
+    setIsCallLoading(true);
+    console.log(`📞 Calling provider for booking ${booking.id}`);
+    
+    // Simulate loading state for better UX
+    setTimeout(() => {
+      setIsCallLoading(false);
+      Alert.alert('Call', `Call provider for ${getServiceTitle(booking.service_type)} service`);
+    }, 500);
+  };
+
+  const handleMessageProvider = () => {
+    setIsMessageLoading(true);
+    console.log(`💬 Messaging provider for booking ${booking.id}`);
+    
+    // Simulate loading state for better UX
+    setTimeout(() => {
+      setIsMessageLoading(false);
+      Alert.alert('Message', `Message provider for ${getServiceTitle(booking.service_type)} service`);
+    }, 500);
+  };
+
+  const handleCancelBooking = async () => {
+    Alert.alert(
+      "Cancel Booking",
+      `Are you sure you want to cancel your ${getServiceTitle(booking.service_type)} booking? This action cannot be undone.`,
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            setIsCancelLoading(true);
+            try {
+              console.log(`🚫 Cancelling booking ${booking.id}`);
+              
+              await PaymentInstance.put(
+                `/api/engagements/${booking.id}`,
+                {
+                  task_status: "CANCELLED"
+                },
+                {
+                  headers: {
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+
+              console.log(`✅ Booking ${booking.id} cancelled successfully`);
+              Alert.alert("Success", "Booking cancelled successfully");
+              
+              if (onPaymentComplete) {
+                onPaymentComplete(); // Refresh bookings
+              }
+              
+              onClose(); // Close drawer after cancellation
+              
+            } catch (error: any) {
+              console.error("❌ Error cancelling engagement:", error);
+              Alert.alert("Error", "Failed to cancel booking. Please try again.");
+            } finally {
+              setIsCancelLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getServiceIcon = (serviceType: string) => {
     switch (serviceType) {
       case 'maid': return '🧹';
@@ -173,6 +237,12 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       case 'nanny': return '❤️';
       default: return '🧹';
     }
+  };
+
+  // Determine if booking is cancellable
+  const isCancellable = () => {
+    const nonCancellableStatuses = ['COMPLETED', 'CANCELLED'];
+    return !nonCancellableStatuses.includes(booking.taskStatus);
   };
 
   return (
@@ -187,22 +257,21 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
        
         <View style={styles.drawerContainer}>
           {/* Header */}
-          {/* <DialogHeader style={styles.header}> */}
-        {/* Header */}
-<LinearGradient
-  colors={["#0a2a66ff", "#004aadff"]}
-  start={{ x: 0, y: 0 }}
-  end={{ x: 1, y: 0 }}
-  style={styles.header}
->
-  <View style={styles.headerContent}>
-    <View style={styles.headerLeftPlaceholder} />
-    <Text style={styles.headerTitle}>Booking Details</Text>
-    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-      <Icon name="x" size={24} color="#FFFFFF" />
-    </TouchableOpacity>
-  </View>
-</LinearGradient>
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.header}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.headerLeftPlaceholder} />
+              <Text style={styles.headerTitle}>Booking Details</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon name="x" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+
           {/* Content */}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             {/* Booking ID and Status */}
@@ -228,6 +297,56 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 <Text style={styles.serviceLabel}>Service Type</Text>
                 <Text style={styles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
               </View>
+            </View>
+
+            {/* Action Buttons - Call, Message, Cancel */}
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.callButton]}
+                onPress={handleCallProvider}
+                disabled={isCallLoading}
+              >
+                {isCallLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="phone" size={18} color="#FFFFFF" />
+                    {/* <Text style={styles.actionButtonText}>Call</Text> */}
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.messageButton]}
+                onPress={handleMessageProvider}
+                disabled={isMessageLoading}
+              >
+                {isMessageLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Icon name="message-square" size={18} color="#FFFFFF" />
+                    {/* <Text style={styles.actionButtonText}>Message</Text> */}
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {isCancellable() && (
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.cancelButton]}
+                  onPress={handleCancelBooking}
+                  disabled={isCancelLoading}
+                >
+                  {isCancelLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Icon name="x-circle" size={18} color="#FFFFFF" />
+                      <Text style={styles.actionButtonText}>Cancel</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Schedule Information */}
@@ -367,12 +486,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                   {/* Complete Payment Button - Show only for PENDING status */}
                   {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
                     <View style={styles.completePaymentContainer}>
-                      <Button
-                        variant="primary"
-                        size="large"
+                      <TouchableOpacity
+                        style={styles.completePaymentButton}
                         onPress={handleCompletePayment}
                         disabled={isProcessingPayment}
-                        style={styles.completePaymentButton}
                       >
                         {isProcessingPayment ? (
                           <ActivityIndicator size="small" color="#FFFFFF" />
@@ -382,7 +499,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                             <Text style={styles.completePaymentText}>Complete Payment Now</Text>
                           </>
                         )}
-                      </Button>
+                      </TouchableOpacity>
                       <Text style={styles.completePaymentNote}>
                         Complete payment to confirm your booking
                       </Text>
@@ -454,7 +571,6 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           </ScrollView>
         </View>
       </View>
-      
     </Modal>
   );
 };
@@ -475,45 +591,34 @@ const styles = StyleSheet.create({
     height: '90%',
     width: '100%',
   },
-  dialogHeader: {
-    backgroundColor: '#111827',
+  header: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    width: '100%',
   },
-header: {
-  // Your existing header styles
-  borderTopLeftRadius: 20,
-  borderTopRightRadius: 20,
-},
-headerContent: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: 16,
-  paddingVertical: 12,
-  width: '100%',
-},
-headerLeftPlaceholder: {
-  width: 40, // Same width as close button to maintain center alignment
-},
-headerTitle: {
-  fontSize: 20,
-  fontWeight: '600',
-  color: '#FFFFFF',
-  textAlign: 'center',
-  flex: 1, // Takes up available space
-},
-closeButton: {
-  padding: 8,
-  width: 40, // Fixed width for consistent alignment
-  alignItems: 'center',
-  justifyContent: 'center',
-},
+  headerLeftPlaceholder: {
+    width: 40,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    flex: 1,
+  },
+  closeButton: {
+    padding: 8,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   content: {
     flex: 1,
     padding: 20,
@@ -565,6 +670,38 @@ closeButton: {
     fontSize: 20,
     fontWeight: '700',
     color: '#111827',
+  },
+  // Action Buttons Styles
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 20,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    gap: 6,
+    minHeight: 44,
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  callButton: {
+    backgroundColor: '#163972',
+  },
+  messageButton: {
+    backgroundColor: '#163972',
+  },
+  cancelButton: {
+    backgroundColor: '#EF4444',
   },
   section: {
     marginBottom: 24,

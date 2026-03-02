@@ -20,7 +20,8 @@ import {
   Modal,
   RefreshControl,
   Dimensions,
-  Linking
+  Linking,
+  BackHandler, // Add this import
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -44,7 +45,6 @@ import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 // Add this import at the top with other dialog imports
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
-import { BackHandler } from 'react-native';
 
 // Helper function to log ALL booking data in detail
 const logBookingData = (data: any, source: string) => {
@@ -156,11 +156,16 @@ const logMappedBooking = (booking: any, index: number) => {
 };
 
 // Implement Card component
-const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle> }> = ({ children, style }) => {
+const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
+  const Container = onPress ? TouchableOpacity : View;
   return (
-    <View style={[styles.card, style]}>
+    <Container 
+      style={[styles.card, style]} 
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       {children}
-    </View>
+    </Container>
   );
 };
 
@@ -311,6 +316,10 @@ interface Booking {
   modifications: Modification[];
   today_service?: TodayService;
   payment?: Payment; // Added payment interface
+}
+
+interface BookingProps {
+  onBackToHome?: () => void; // Add this prop for back navigation
 }
 
 const getServiceIcon = (type: string) => {
@@ -530,7 +539,7 @@ const formatDateForDisplay = (dateString: string) => {
   });
 };
 
-const Booking: React.FC = () => {
+const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   // STATE VARIABLES
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -1531,22 +1540,10 @@ const mapBookingData = (data: any[]) => {
     console.log(`   - Payment pending: ${isPaymentPending}`);
     console.log(`   - Can show payment button: ${canShowPaymentButton}`);
 
-    // Add View Details button to all cases
-    const viewDetailsButton = (
-      <Button 
-        style={[styles.actionButton, styles.viewDetailsButton]}
-        onPress={() => handleViewDetails(booking)}
-      >
-        <Icon name="file-document" size={16} color="#3b82f6" />
-        <Text style={styles.viewDetailsButtonText}>Details</Text>
-      </Button>
-    );
-
     // If payment is pending, show payment button as primary action
     if (canShowPaymentButton) {
       return (
         <View style={styles.paymentActionContainer}>
-          {viewDetailsButton}
           <Button
             style={[styles.actionButton, styles.paymentButton]}
             onPress={() => handlePaymentClick(booking)}
@@ -1579,90 +1576,57 @@ const mapBookingData = (data: any[]) => {
 
     // Regular action buttons based on task status
     switch (booking.taskStatus) {
-      case 'NOT_STARTED':
-        return (
-          <View style={styles.actionButtonsRow}>
-            {viewDetailsButton}
-            <Button 
-              style={[styles.actionButton, styles.callButton]}
-              onPress={() => {
-                console.log(`📞 Call provider for booking ${booking.id}`);
-                Alert.alert('Call', `Call provider for ${getServiceTitle(booking.service_type)} service`);
-              }}
+   case 'NOT_STARTED':
+  return (
+    <View style={styles.compactActionRow}>
+      {booking.bookingType === "MONTHLY" && (
+        <Button
+          style={[
+            styles.compactActionButton, 
+            styles.modifyButton,
+            modificationDisabled && styles.disabledButton
+          ]}
+          onPress={() => handleModifyClick(booking)}
+          disabled={modificationDisabled}
+        >
+          <Icon name="pencil" size={16} color={modificationDisabled ? "#9ca3af" : "#1e40af"} />
+          <Text style={[
+            styles.modifyButtonText,
+            modificationDisabled && styles.disabledButtonText
+          ]}>
+            Modify
+          </Text>
+        </Button>
+      )}
+
+      {booking.bookingType === "MONTHLY" && (
+        <>
+          {hasExistingVacation ? (
+            <Button
+              style={[styles.compactActionButton, styles.vacationModifiedButton]}
+              onPress={() => handleModifyVacationClick(booking)}
+              disabled={isRefreshing}
             >
-              <Icon name="phone" size={16} color="#fff" />
-              <Text style={styles.callButtonText}>Call</Text>
+              <Icon name="pencil" size={16} color="#1e40af" />
+              <Text style={styles.vacationModifiedText}>Modify Vacation</Text>
             </Button>
-
-            <Button 
-              style={[styles.actionButton, styles.messageButton]}
-              onPress={() => {
-                console.log(`💬 Message provider for booking ${booking.id}`);
-                Alert.alert('Message', `Message provider for ${getServiceTitle(booking.service_type)} service`);
-              }}
+          ) : (
+            <Button
+              style={[styles.compactActionButton, styles.vacationButton]}
+              onPress={() => handleVacationClick(booking)}
+              disabled={isRefreshing}
             >
-              <Icon name="message-text" size={16} color="#fff" />
-              <Text style={styles.messageButtonText}>Message</Text>
+              <Icon name="calendar" size={16} color="#1e40af" />
+              <Text style={styles.vacationButtonText}>Add Vacation</Text>
             </Button>
-
-            <Button 
-              style={[styles.actionButton, styles.cancelButton]}
-              onPress={() => handleCancelClick(booking)}
-            >
-              <Icon name="close-circle" size={16} color="#fff" />
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </Button>
-
-            {booking.bookingType === "MONTHLY" && (
-              <Button
-                style={[
-                  styles.actionButton, 
-                  styles.modifyButton,
-                  modificationDisabled && styles.disabledButton
-                ]}
-                onPress={() => handleModifyClick(booking)}
-                disabled={modificationDisabled}
-              >
-                <Icon name="pencil" size={16} color={modificationDisabled ? "#9ca3af" : "#1e40af"} />
-                <Text style={[
-                  styles.modifyButtonText,
-                  modificationDisabled && styles.disabledButtonText
-                ]}>
-                  {modificationDisabled ? "Modify" : "Modify"}
-                </Text>
-              </Button>
-            )}
-
-            {booking.bookingType === "MONTHLY" && (
-              <>
-                {hasExistingVacation ? (
-                  <Button
-                    style={[styles.actionButton, styles.vacationModifiedButton]}
-                    onPress={() => handleModifyVacationClick(booking)}
-                    disabled={isRefreshing}
-                  >
-                    <Icon name="pencil" size={16} color="#1e40af" />
-                    <Text style={styles.vacationModifiedText}>Modify Vacation</Text>
-                  </Button>
-                ) : (
-                  <Button
-                    style={[styles.actionButton, styles.vacationButton]}
-                    onPress={() => handleVacationClick(booking)}
-                    disabled={isRefreshing}
-                  >
-                    <Icon name="calendar" size={16} color="#1e40af" />
-                    <Text style={styles.vacationButtonText}>Add Vacation</Text>
-                  </Button>
-                )}
-              </>
-            )}
-          </View>
-        );
-
+          )}
+        </>
+      )}
+    </View>
+  );
       case 'IN_PROGRESS':
         return (
           <View style={styles.actionButtonsRow}>
-            {viewDetailsButton}
             <Button 
               style={[styles.actionButton, styles.callButton]}
               onPress={() => {
@@ -1722,7 +1686,6 @@ const mapBookingData = (data: any[]) => {
       case 'COMPLETED':
         return (
           <View style={styles.actionButtonsRow}>
-            {viewDetailsButton}
             {hasReview(booking) ? (
               <Button
                 style={[styles.actionButton, styles.reviewSubmittedButton]}
@@ -1757,7 +1720,6 @@ const mapBookingData = (data: any[]) => {
       case 'CANCELLED':
         return (
           <View style={styles.actionButtonsRow}>
-            {viewDetailsButton}
             <Button 
               style={[styles.actionButton, styles.bookAgainButton]}
               onPress={() => {
@@ -1774,7 +1736,7 @@ const mapBookingData = (data: any[]) => {
       default:
         return (
           <View style={styles.actionButtonsRow}>
-            {viewDetailsButton}
+            {/* No buttons for default case */}
           </View>
         );
     }
@@ -1834,7 +1796,10 @@ const mapBookingData = (data: any[]) => {
     console.log(`   - Payment Pending: ${isPaymentPending}`);
     
     return (
-      <Card style={styles.bookingCard}>
+      <Card 
+        style={styles.bookingCard}
+        onPress={() => handleViewDetails(item)}
+      >
         {/* Header with Service Title and Status - Clean minimal design */}
         <View style={styles.cardHeader}>
           <View style={styles.serviceInfoContainer}>
@@ -1853,8 +1818,25 @@ const mapBookingData = (data: any[]) => {
           </View>
         </View>
 
-        {/* Booking ID */}
-        <Text style={styles.bookingId}>Booking #{item.id}</Text>
+        {/* Payment Pending Badge - Placed after service title */}
+        {isPaymentPending && item.taskStatus !== 'CANCELLED' && (
+          <View style={styles.paymentPendingRow}>
+            <Badge style={styles.paymentPendingBadge}>
+              <Icon name="alert-circle" size={14} color="#dc2626" />
+              <Text style={styles.paymentPendingBadgeText}>Payment Required</Text>
+            </Badge>
+          </View>
+        )}
+
+        {/* Awaiting Assignment Badge (if applicable) */}
+        {item.assignmentStatus === "UNASSIGNED" && !isPaymentPending && (
+          <View style={styles.awaitingRow}>
+            <Badge style={styles.awaitingBadge}>
+              <Icon name="clock" size={14} color="#ca8a04" />
+              <Text style={styles.awaitingBadgeText}>Awaiting Assignment</Text>
+            </Badge>
+          </View>
+        )}
 
         {/* Date and Time - Clean row */}
         <View style={styles.dateTimeRow}>
@@ -1868,41 +1850,6 @@ const mapBookingData = (data: any[]) => {
           </View>
         </View>
 
-        {/* Provider and Amount - Clean row */}
-        <View style={styles.providerAmountRow}>
-          <View style={styles.infoItem}>
-            <Icon name="account" size={16} color="#6b7280" />
-            <Text style={styles.providerText} numberOfLines={1}>
-              {item.assignmentStatus === "UNASSIGNED" ? "Awaiting Assignment" : item.serviceProviderName}
-            </Text>
-          </View>
-          
-          {/* Amount */}
-          <View style={styles.amountBadge}>
-            <Text style={styles.amountText}>₹{item.monthlyAmount}</Text>
-          </View>
-        </View>
-
-        {/* Payment Pending Badge (if applicable) */}
-        {isPaymentPending && item.taskStatus !== 'CANCELLED' && (
-          <View style={styles.paymentPendingRow}>
-            <Badge style={styles.paymentPendingBadge}>
-              <Icon name="alert-circle" size={14} color="#dc2626" />
-              <Text style={styles.paymentPendingBadgeText}>Payment Required</Text>
-            </Badge>
-          </View>
-        )}
-
-        {/* Awaiting Assignment Badge (if applicable) */}
-        {item.assignmentStatus === "UNASSIGNED" && (
-          <View style={styles.awaitingRow}>
-            <Badge style={styles.awaitingBadge}>
-              <Icon name="clock" size={14} color="#ca8a04" />
-              <Text style={styles.awaitingBadgeText}>Awaiting Assignment</Text>
-            </Badge>
-          </View>
-        )}
-
         {/* Scheduled Message Section */}
         <View style={styles.scheduledMessageSection}>
           {renderScheduledMessage(item)}
@@ -1910,13 +1857,110 @@ const mapBookingData = (data: any[]) => {
 
         <Separator style={styles.separator} />
 
-        {/* Action Buttons */}
+        {/* Action Buttons - Details button removed, now using card click */}
         <View style={styles.actionButtonsContainer}>
           {renderActionButtons(item)}
+        </View>
+
+        {/* View Details Indicator - Subtle arrow at bottom right like Flipkart */}
+        <View style={styles.viewDetailsIndicator}>
+          <Text style={styles.viewDetailsText}>Tap to view details</Text>
+          <Icon name="chevron-right" size={16} color="#9ca3af" />
         </View>
       </Card>
     );
   };
+
+  // ============= BACK BUTTON AND HARDWARE BACK HANDLING =============
+  
+  // Handle back button press
+  const handleBackPress = () => {
+    console.log('⬅️ Back button pressed in Booking component');
+    
+    // Close any open dialogs first
+    if (detailsDrawerOpen) {
+      console.log('📂 Closing details drawer');
+      setDetailsDrawerOpen(false);
+      return true; // Prevent default back behavior
+    }
+    
+    if (modifyDialogOpen) {
+      console.log('❌ Closing modify dialog');
+      setModifyDialogOpen(false);
+      return true;
+    }
+    
+    if (holidayDialogOpen) {
+      console.log('❌ Closing holiday dialog');
+      setHolidayDialogOpen(false);
+      return true;
+    }
+    
+    if (vacationManagementDialogOpen) {
+      console.log('❌ Closing vacation management dialog');
+      setVacationManagementDialogOpen(false);
+      return true;
+    }
+    
+    if (reviewDialogVisible) {
+      console.log('❌ Closing review dialog');
+      setReviewDialogVisible(false);
+      return true;
+    }
+    
+    if (servicesDialogOpen) {
+      console.log('❌ Closing services dialog');
+      setServicesDialogOpen(false);
+      return true;
+    }
+    
+    if (walletDialogOpen) {
+      console.log('💰 Closing wallet dialog');
+      setWalletDialogOpen(false);
+      return true;
+    }
+    
+    if (confirmationDialog.open) {
+      console.log('❌ Closing confirmation dialog');
+      setConfirmationDialog(prev => ({ ...prev, open: false }));
+      return true;
+    }
+    
+    // If no dialogs are open, navigate back to home
+    if (onBackToHome) {
+      console.log('🏠 Navigating back to HomePage');
+      onBackToHome();
+      return true; // Prevent default back behavior
+    }
+    
+    return false; // Let default back behavior happen
+  };
+
+  // Set up hardware back button listener
+  useEffect(() => {
+    console.log('🎯 Setting up back button handler for Booking component');
+    
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
+
+    // Clean up listener on unmount
+    return () => {
+      console.log('🧹 Cleaning up back button handler for Booking component');
+      backHandler.remove();
+    };
+  }, [
+    onBackToHome,
+    detailsDrawerOpen,
+    modifyDialogOpen,
+    holidayDialogOpen,
+    vacationManagementDialogOpen,
+    reviewDialogVisible,
+    servicesDialogOpen,
+    walletDialogOpen,
+    confirmationDialog.open
+  ]);
 
   if (isLoading) {
     console.log('⏳ Loading state active');
@@ -1930,7 +1974,7 @@ const mapBookingData = (data: any[]) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header with Back Button */}
       <LinearGradient
         colors={[
           'rgba(139, 187, 221, 0.8)', // Blue tone
@@ -1941,10 +1985,19 @@ const mapBookingData = (data: any[]) => {
         end={{x: 0, y: 1}} // Vertical fade
         style={styles.header}
       >
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>My Bookings</Text>
-          <Text style={styles.headerSubtitle}>Manage your household service appointments</Text>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={handleBackPress}
+          >
+            <Icon name="arrow-left" size={24} color="#0a2a66" />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>My Bookings</Text>
+            <Text style={styles.headerSubtitle}>Manage your household service appointments</Text>
+          </View>
         </View>
+        
         <View style={styles.headerRight}>
           <View style={styles.searchContainer}>
             <TextInput
@@ -2268,8 +2321,27 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e7eb',
     paddingTop: 50,
   },
-  headerContent: {
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerContent: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {
@@ -2429,7 +2501,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   serviceInfoContainer: {
     flexDirection: 'row',
@@ -2453,12 +2525,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
 
-  // Booking ID
-  bookingId: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280',
-    marginBottom: 12,
+  // Payment Pending Row - Now placed right after header
+  paymentPendingRow: {
+    marginBottom: 8,
+  },
+  awaitingRow: {
+    marginBottom: 8,
   },
 
   // Info rows - Clean minimal layout
@@ -2477,71 +2549,26 @@ const styles = StyleSheet.create({
     color: '#4b5563',
   },
 
-  // Provider and Amount row
-  providerAmountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  providerText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: '#4b5563',
-    fontWeight: '500',
-    maxWidth: '70%',
-  },
-
-  // Amount Badge
-  amountBadge: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-  },
-  amountText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#3b82f6',
-  },
-
-  // Payment Pending Row
-  paymentPendingRow: {
-    marginTop: 8,
-  },
-  awaitingRow: {
-    marginTop: 8,
-  },
-
   // Action Buttons Styles
   actionButtonsContainer: {
     width: '100%',
+    marginBottom: 8,
   },
   actionButtonsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  actionButton: {
-    flex: 1,
-    minWidth: '22%',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  viewDetailsButton: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
-  },
-  viewDetailsButtonText: {
-    color: '#3b82f6',
-    marginLeft: 6,
-    fontWeight: '600',
-    fontSize: 12,
-  },
+ actionButton: {
+  flex: 1,
+  minWidth: '22%', // This was causing the extra space
+  justifyContent: 'center',
+  backgroundColor: '#fff',
+  borderWidth: 1,
+  borderColor: '#e5e7eb',
+  paddingVertical: 8,
+  paddingHorizontal: 4,
+},
   callButton: {
     backgroundColor: '#3b82f6',
     borderColor: '#3b82f6',
@@ -2576,6 +2603,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderColor: '#1e40af',
   },
+  // Add these to your existing styles object
+compactActionRow: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 8,
+  width: '100%',
+  justifyContent: 'flex-start',
+  marginTop: 4,
+  marginBottom: 4,
+},
+
+compactActionButton: {
+  flex: 0, // Don't allow flex growth
+  minWidth: 'auto', // Remove minWidth constraint
+  paddingVertical: 8,
+  paddingHorizontal: 16,
+  backgroundColor: '#fff',
+  borderWidth: 1,
+  borderColor: '#e5e7eb',
+  borderRadius: 8,
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexDirection: 'row',
+  marginRight: 8, // Add spacing between buttons
+  alignSelf: 'flex-start', // Don't stretch
+},
   modifyButtonText: {
     color: '#1e40af',
     marginLeft: 6,
@@ -2636,12 +2689,29 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
 
+  // View Details Indicator - Flipkart style
+  viewDetailsIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginRight: 4,
+  },
+
   // Payment Button
   paymentActionContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     width: '100%',
+    marginBottom: 8,
   },
   paymentButton: {
     backgroundColor: '#dc2626',

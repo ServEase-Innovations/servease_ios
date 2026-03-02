@@ -741,41 +741,44 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
   };
 
   // FIXED: renderContent function - Now properly separates HOME and DASHBOARD
-  const renderContent = () => {
-    // For service providers:
-    // - If currentView is HOME → Show HomePage
-    // - If currentView is DASHBOARD → Show Dashboard
-    // - If currentView is PROFILE → Show ProfileScreen
-    // - If currentView is BOOKINGS → Show Bookings
-    
-    switch (currentView) {
-      case HOME:
-        // Always show HomePage when currentView is HOME, regardless of user role
-        return (
-          <View style={styles.homeContainer}>
-            <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
-          </View>
-        );
-        
-      case BOOKINGS:
-        return <Booking />;
-        
-      case DASHBOARD:
-        // Show Dashboard for service providers, but if profile view is requested from dashboard
-        return showProfileFromDashboard ? (
-          <ProfileScreen />
-        ) : (
-          <Dashboard onProfilePress={handleDashboardProfilePress} />
-        );
-        
-      case PROFILE:
-        return <ProfileScreen />;
-        
-      default:
-        // This handles "DETAILS" and any other views
-        return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
-    }
-  };
+
+// In App.tsx, update the renderContent function:
+
+const renderContent = () => {
+  // For service providers:
+  // - If currentView is HOME → Show HomePage
+  // - If currentView is DASHBOARD → Show Dashboard
+  // - If currentView is PROFILE → Show ProfileScreen
+  // - If currentView is BOOKINGS → Show Bookings
+  
+  switch (currentView) {
+    case HOME:
+      // Always show HomePage when currentView is HOME, regardless of user role
+      return (
+        <View style={styles.homeContainer}>
+          <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
+        </View>
+      );
+      
+    case BOOKINGS:
+      return <Booking onBackToHome={() => setCurrentView(HOME)} />;
+      
+    case DASHBOARD:
+      // Show Dashboard for service providers, but if profile view is requested from dashboard
+      return showProfileFromDashboard ? (
+        <ProfileScreen onBackToHome={() => setCurrentView(HOME)} /> // ← Add this prop
+      ) : (
+        <Dashboard onProfilePress={handleDashboardProfilePress} />
+      );
+      
+    case PROFILE:
+      return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />; // ← Add this prop
+      
+    default:
+      // This handles "DETAILS" and any other views
+      return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
+  }
+};
 
   if (showSplash) {
     return (
