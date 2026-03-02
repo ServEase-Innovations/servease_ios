@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   ImageBackground,
   StyleSheet,
-  Image,
-  Modal,
   SafeAreaView,
   StatusBar
 } from 'react-native';
@@ -18,132 +16,121 @@ interface AboutUsProps {
   visible?: boolean;
 }
 
-const AboutUs = ({ onBack, visible }: AboutUsProps) => {
+const AboutUs = ({ onBack, visible = true }: AboutUsProps) => { // Set default to true for testing
   return (
-    <Modal
-      animationType="slide"
-      transparent={false} // Changed from true to false for full screen
-      visible={visible}
-      onRequestClose={onBack}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
-        
-        {/* Back Button */}
-        <View style={styles.backButtonContainer}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Text style={styles.backButtonArrow}>←</Text>
-            <Text style={styles.backButtonText}>Back to Home</Text>
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f3f4f6" />
+      
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Text style={styles.backButtonArrow}>←</Text>
+          <Text style={styles.backButtonText}>Back to Home</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Main Content */}
-        <ScrollView 
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
+      {/* Main Content */}
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Section */}
+        <ImageBackground
+          source={{
+            uri: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?fit=crop&w=1600&q=80'
+          }}
+          style={styles.heroSection}
+          resizeMode="cover"
         >
-          {/* Hero Section */}
-          <ImageBackground
-            source={{
-              uri: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?fit=crop&w=1600&q=80'
-            }}
-            style={styles.heroSection}
-            resizeMode="cover"
-          >
-            <View style={styles.heroOverlay}>
-              <Text style={styles.heroTitle}>About Us</Text>
-              <Text style={styles.heroText}>
-                We are <Text style={styles.bold}>ServEaso</Text> – a house helps service provider.
-                "ServEaso" collectively means "Service Made Easy" or "Easy Services."
-                We simplify the process of connecting customers who need home
-                services with reliable and verified professionals.
-              </Text>
-            </View>
-          </ImageBackground>
+          <View style={styles.heroOverlay}>
+            <Text style={styles.heroTitle}>About Us</Text>
+            <Text style={styles.heroText}>
+              We are <Text style={styles.bold}>ServEaso</Text> – a house helps service provider.
+              "ServEaso" collectively means "Service Made Easy" or "Easy Services."
+              We simplify the process of connecting customers who need home
+              services with reliable and verified professionals.
+            </Text>
+          </View>
+        </ImageBackground>
 
-          {/* Our Story */}
-          <View style={styles.ourStorySection}>
-            <Text style={styles.sectionTitle}>Our Story</Text>
-            <View style={styles.storyContent}>
-              <Text style={styles.paragraph}>
-                ServEaso provides trained and verified house helps to simplify the
-                lives of individuals and families who struggle to balance their
-                professional commitments with household responsibilities.
-              </Text>
-              <Text style={styles.paragraph}>
-                ServEaso offers a convenient and reliable solution for those in need
-                of house care services, ensuring peace of mind and quality care for
-                customers.
-              </Text>
-              <Text style={styles.subtitle}>
-                Challenges We Solve
-              </Text>
-              <View style={styles.listContainer}>
-                {[
-                  {
-                    title: "High Turnover:",
-                    description: "Difficulty in retaining house helps due to factors like demanding work conditions, low wages, or lack of work-life balance."
-                  },
-                  {
-                    title: "Skills Gap:",
-                    description: "Lack of necessary skills or training for specific tasks, leading to subpar performance or safety concerns."
-                  },
-                  {
-                    title: "Communication Barriers:",
-                    description: "Language or cultural differences hindering effective communication."
-                  },
-                  {
-                    title: "Trust and Security:",
-                    description: "Concerns about theft, privacy violations, or family safety."
-                  },
-                  {
-                    title: "Dependence and Entitlement:",
-                    description: "Overreliance on employers, reducing household independence."
-                  },
-                  {
-                    title: "Lack of Legal Protection:",
-                    description: "Exploitation due to unclear legal frameworks or poor enforcement."
-                  },
-                  {
-                    title: "Social Isolation:",
-                    description: "Loneliness from living away from families and communities."
-                  },
-                  {
-                    title: "Employer-Maid Relationship Dynamics:",
-                    description: "Difficulty in building respectful, trust-based relationships."
-                  },
-                  {
-                    title: "Limited Access to Healthcare:",
-                    description: "Lack of affordable healthcare or insurance coverage."
-                  },
-                  {
-                    title: "Lack of Standardized Practices:",
-                    description: "No clear guidelines for hiring, training, and managing domestic workers."
-                  }
-                ].map((item, index) => (
-                  <View key={index} style={styles.listItem}>
-                    <Text style={styles.bullet}>•</Text>
-                    <View style={styles.listTextContainer}>
-                      <Text style={styles.listItemTitle}>{item.title}</Text>
-                      <Text style={styles.listItemDescription}>{item.description}</Text>
-                    </View>
+        {/* Our Story */}
+        <View style={styles.ourStorySection}>
+          <Text style={styles.sectionTitle}>Our Story</Text>
+          <View style={styles.storyContent}>
+            <Text style={styles.paragraph}>
+              ServEaso provides trained and verified house helps to simplify the
+              lives of individuals and families who struggle to balance their
+              professional commitments with household responsibilities.
+            </Text>
+            <Text style={styles.paragraph}>
+              ServEaso offers a convenient and reliable solution for those in need
+              of house care services, ensuring peace of mind and quality care for
+              customers.
+            </Text>
+            <Text style={styles.subtitle}>
+              Challenges We Solve
+            </Text>
+            <View style={styles.listContainer}>
+              {[
+                {
+                  title: "High Turnover:",
+                  description: "Difficulty in retaining house helps due to factors like demanding work conditions, low wages, or lack of work-life balance."
+                },
+                {
+                  title: "Skills Gap:",
+                  description: "Lack of necessary skills or training for specific tasks, leading to subpar performance or safety concerns."
+                },
+                {
+                  title: "Communication Barriers:",
+                  description: "Language or cultural differences hindering effective communication."
+                },
+                {
+                  title: "Trust and Security:",
+                  description: "Concerns about theft, privacy violations, or family safety."
+                },
+                {
+                  title: "Dependence and Entitlement:",
+                  description: "Overreliance on employers, reducing household independence."
+                },
+                {
+                  title: "Lack of Legal Protection:",
+                  description: "Exploitation due to unclear legal frameworks or poor enforcement."
+                },
+                {
+                  title: "Social Isolation:",
+                  description: "Loneliness from living away from families and communities."
+                },
+                {
+                  title: "Employer-Maid Relationship Dynamics:",
+                  description: "Difficulty in building respectful, trust-based relationships."
+                },
+                {
+                  title: "Limited Access to Healthcare:",
+                  description: "Lack of affordable healthcare or insurance coverage."
+                },
+                {
+                  title: "Lack of Standardized Practices:",
+                  description: "No clear guidelines for hiring, training, and managing domestic workers."
+                }
+              ].map((item, index) => (
+                <View key={index} style={styles.listItem}>
+                  <Text style={styles.bullet}>•</Text>
+                  <View style={styles.listTextContainer}>
+                    <Text style={styles.listItemTitle}>{item.title}</Text>
+                    <Text style={styles.listItemDescription}>{item.description}</Text>
                   </View>
-                ))}
-              </View>
+                </View>
+              ))}
             </View>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  container: {
     flex: 1,
     backgroundColor: '#ffffff',
   },
@@ -256,66 +243,6 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     lineHeight: 22,
     marginTop: 2,
-  },
-  // Team section styles (commented out but included for reference)
-  teamSection: {
-    paddingVertical: 64,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-  },
-  teamGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 32,
-  },
-  teamMemberCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    alignItems: 'center',
-    width: '45%',
-    minWidth: 200,
-  },
-  teamMemberImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    marginBottom: 16,
-  },
-  teamMemberName: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  teamMemberRole: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  teamMemberDesc: {
-    fontSize: 14,
-    color: '#374151',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  readMoreLink: {
-    color: '#2563eb',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  socialLink: {
-    marginTop: 8,
-  },
-  linkedinLink: {
-    color: '#2563eb',
-    fontSize: 14,
   },
 });
 

@@ -83,12 +83,12 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
       {/* Header with close button */}
       <View style={styles.header}>
         <Text style={styles.appName}>ServEaso</Text>
-        {/* <TouchableOpacity 
+        <TouchableOpacity 
           style={styles.closeButton}
           onPress={goHome}
         >
           <X size={Platform.OS === 'ios' ? 28 : 24} color="#374151" />
-        </TouchableOpacity> */}
+        </TouchableOpacity>
       </View>
 
       <View style={styles.contentWrapper}>
