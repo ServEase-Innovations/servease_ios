@@ -7,7 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Platform,
+  Alert,
 } from "react-native";
 import {
   HelperText,
@@ -15,7 +15,6 @@ import {
 } from "react-native-paper";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import moment from "moment";
 import ProfileImageUpload from "./ProfileImageUpload";
 
@@ -55,27 +54,105 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   onClearAlternate,
 }) => {
   const MAX_NAME_LENGTH = 30;
-  const [showDatePicker, setShowDatePicker] = React.useState(false);
+  const [year, setYear] = React.useState('');
+  const [month, setMonth] = React.useState('');
+  const [day, setDay] = React.useState('');
+
+  // Initialize date fields from formData if exists (format: YYYY-MM-DD)
+  React.useEffect(() => {
+    if (formData.dob) {
+      const [yearVal, monthVal, dayVal] = formData.dob.split('-');
+      setYear(yearVal || '');
+      setMonth(monthVal || '');
+      setDay(dayVal || '');
+    }
+  }, [formData.dob]);
 
   const handleTextChange = (fieldName: string, text: string) => {
     onFieldChange({ target: { name: fieldName, value: text } });
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      const formattedDate = moment(selectedDate).format('YYYY-MM-DD');
-      // Trigger the change to update form data
+  const handleYearChange = (text: string) => {
+    // Allow only numbers
+    const numericText = text.replace(/[^0-9]/g, '');
+    if (numericText.length <= 4) {
+      setYear(numericText);
+      validateAndUpdateDate(numericText, month, day);
+    }
+  };
+
+  const handleMonthChange = (text: string) => {
+    // Allow only numbers
+    const numericText = text.replace(/[^0-9]/g, '');
+    if (numericText.length <= 2) {
+      setMonth(numericText);
+      validateAndUpdateDate(year, numericText, day);
+    }
+  };
+
+  const handleDayChange = (text: string) => {
+    // Allow only numbers
+    const numericText = text.replace(/[^0-9]/g, '');
+    if (numericText.length <= 2) {
+      setDay(numericText);
+      validateAndUpdateDate(year, month, numericText);
+    }
+  };
+
+  const validateAndUpdateDate = (yearVal: string, monthVal: string, dayVal: string) => {
+    // Only validate and update if all fields are filled
+    if (yearVal.length === 4 && monthVal.length === 2 && dayVal.length === 2) {
+      const yearNum = parseInt(yearVal, 10);
+      const monthNum = parseInt(monthVal, 10);
+      const dayNum = parseInt(dayVal, 10);
+      const currentYear = new Date().getFullYear();
+      const minYear = currentYear - 100;
+      const maxYear = currentYear - 18;
+
+      // Basic validation
+      if (yearNum < minYear || yearNum > maxYear) {
+        Alert.alert('Invalid Year', `Year must be between ${minYear} and ${maxYear}`);
+        return;
+      }
+
+      if (monthNum < 1 || monthNum > 12) {
+        Alert.alert('Invalid Month', 'Month must be between 01 and 12');
+        return;
+      }
+
+      if (dayNum < 1 || dayNum > 31) {
+        Alert.alert('Invalid Day', 'Day must be between 01 and 31');
+        return;
+      }
+
+      // Create date string in YYYY-MM-DD format
+      const formattedDate = `${yearVal}-${monthVal}-${dayVal}`;
+      
+      // Check if date is valid
+      const date = moment(formattedDate, 'YYYY-MM-DD');
+      if (!date.isValid()) {
+        Alert.alert('Invalid Date', 'Please enter a valid date');
+        return;
+      }
+
+      // Check age
+      const today = moment();
+      const birthDate = moment(formattedDate, 'YYYY-MM-DD');
+      const age = today.diff(birthDate, 'years');
+
+      if (age < 18) {
+        Alert.alert('Age Restriction', 'You must be at least 18 years old');
+        return;
+      }
+
+      // Update form data with YYYY-MM-DD format
       onDobChange({ target: { name: 'dob', value: formattedDate } });
     }
   };
 
-  const handleGenderChange = (value: string) => {
-    onFieldChange({ target: { name: 'gender', value } });
+  const handleGenderChange = (gender: string) => {
+    handleTextChange('gender', gender);
   };
-
-  const maxDate = moment().subtract(18, 'years').toDate();
-  const minDate = moment().subtract(100, 'years').toDate();
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -90,6 +167,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           <TextInput
             style={[styles.input, errors.firstName && styles.inputError]}
             placeholder="Enter your first name"
+            placeholderTextColor="#999"
             value={formData.firstName}
             onChangeText={(text) => handleTextChange('firstName', text)}
             onFocus={() => onFieldFocus('firstName')}
@@ -108,6 +186,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           <TextInput
             style={styles.input}
             placeholder="Enter your middle name"
+            placeholderTextColor="#999"
             value={formData.middleName}
             onChangeText={(text) => handleTextChange('middleName', text)}
           />
@@ -119,6 +198,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           <TextInput
             style={[styles.input, errors.lastName && styles.inputError]}
             placeholder="Enter your last name"
+            placeholderTextColor="#999"
             value={formData.lastName}
             onChangeText={(text) => handleTextChange('lastName', text)}
             onFocus={() => onFieldFocus('lastName')}
@@ -131,40 +211,67 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Date of Birth */}
+        {/* Date of Birth - YYYY MM DD Format */}
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Date of Birth <Text style={styles.required}>*</Text></Text>
-          <TouchableOpacity
-            style={[styles.input, styles.dateInput, errors.dob && styles.inputError]}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={[
-              styles.dateText,
-              !formData.dob && styles.placeholderText
-            ]}>
-              {formData.dob ? moment(formData.dob).format('DD/MM/YYYY') : 'Select your date of birth'}
-            </Text>
-          </TouchableOpacity>
+          
+          <View style={styles.dobRow}>
+            <View style={[styles.dobField, styles.dobFieldYear]}>
+              <TextInput
+                style={[styles.dobInput, errors.dob && styles.inputError]}
+                placeholder="YYYY"
+                placeholderTextColor="#999"
+                value={year}
+                onChangeText={handleYearChange}
+                keyboardType="numeric"
+                maxLength={4}
+                textAlign="center"
+              />
+            </View>
+            
+            <View style={styles.dobField}>
+              <TextInput
+                style={[styles.dobInput, errors.dob && styles.inputError]}
+                placeholder="MM"
+                placeholderTextColor="#999"
+                value={month}
+                onChangeText={handleMonthChange}
+                keyboardType="numeric"
+                maxLength={2}
+                textAlign="center"
+              />
+            </View>
+            
+            <View style={styles.dobField}>
+              <TextInput
+                style={[styles.dobInput, errors.dob && styles.inputError]}
+                placeholder="DD"
+                placeholderTextColor="#999"
+                value={day}
+                onChangeText={handleDayChange}
+                keyboardType="numeric"
+                maxLength={2}
+                textAlign="center"
+              />
+            </View>
+          </View>
+
+          {formData.dob && (
+            <HelperText type="info" visible={true}>
+              Age: {moment().diff(moment(formData.dob), 'years')} years
+            </HelperText>
+          )}
+          
           {errors.dob && (
             <HelperText type="error" visible={!!errors.dob}>
               {errors.dob}
             </HelperText>
           )}
-          {!errors.dob && (
-            <HelperText type="info" visible={true}>
-              You must be at least 18 years old
-            </HelperText>
-          )}
           
-          {showDatePicker && (
-            <DateTimePicker
-              value={formData.dob ? new Date(formData.dob) : new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-              maximumDate={maxDate}
-              minimumDate={minDate}
-            />
+          {!errors.dob && !formData.dob && (
+            <HelperText type="info" visible={true}>
+              Enter your date of birth (YYYY/MM/DD) - You must be at least 18 years old
+            </HelperText>
           )}
         </View>
         
@@ -225,6 +332,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <TextInput
               style={[styles.input, (errors.emailId || validationResults.email.isAvailable === false) && styles.inputError]}
               placeholder="Enter your email address"
+              placeholderTextColor="#999"
               value={formData.emailId}
               onChangeText={(text) => handleTextChange('emailId', text)}
               onFocus={() => onFieldFocus('emailId')}
@@ -263,6 +371,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <TextInput
               style={[styles.input, errors.password && styles.inputError]}
               placeholder="Enter your password"
+              placeholderTextColor="#999"
               secureTextEntry={!showPassword}
               value={formData.password}
               onChangeText={(text) => handleTextChange('password', text)}
@@ -293,6 +402,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <TextInput
               style={[styles.input, errors.confirmPassword && styles.inputError]}
               placeholder="Confirm your password"
+              placeholderTextColor="#999"
               secureTextEntry={!showConfirmPassword}
               value={formData.confirmPassword}
               onChangeText={(text) => handleTextChange('confirmPassword', text)}
@@ -323,6 +433,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <TextInput
               style={[styles.input, (errors.mobileNo || validationResults.mobile.isAvailable === false) && styles.inputError]}
               placeholder="Enter your mobile number"
+              placeholderTextColor="#999"
               value={formData.mobileNo}
               onChangeText={(text) => handleTextChange('mobileNo', text)}
               onFocus={() => onFieldFocus('mobileNo')}
@@ -361,6 +472,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <TextInput
               style={[styles.input, (errors.AlternateNumber || validationResults.alternate.isAvailable === false) && styles.inputError]}
               placeholder="Enter alternate number (optional)"
+              placeholderTextColor="#999"
               value={formData.AlternateNumber}
               onChangeText={(text) => handleTextChange('AlternateNumber', text)}
               keyboardType="phone-pad"
@@ -432,6 +544,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fff',
     width: '100%',
+    color: '#000',
   },
   inputError: {
     borderColor: '#d32f2f',
@@ -442,31 +555,30 @@ const styles = StyleSheet.create({
     top: 12,
     zIndex: 1,
   },
-  rowContainer: {
+  // DOB Styles - YYYY MM DD Format
+  dobRow: {
     flexDirection: 'row',
-    width: '100%',
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  halfWidth: {
+  dobField: {
     flex: 1,
   },
-  dateInput: {
-    justifyContent: 'center',
+  dobFieldYear: {
+    flex: 1.5, // Give more space for year
   },
-  dateText: {
+  dobInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
+    backgroundColor: '#fff',
+    textAlign: 'center',
     color: '#000',
-  },
-  placeholderText: {
-    color: '#999',
   },
   genderContainer: {
     marginBottom: 12,
-  },
-  genderLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
   },
   radioGroup: {
     flexDirection: 'row',

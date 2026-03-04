@@ -1,4 +1,3 @@
-// AllBookingsDialog.tsx (updated)
 /* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { 
@@ -21,7 +20,8 @@ import dayjs, { Dayjs } from "dayjs";
 import { Booking, BookingHistoryResponse } from "./Dashboard";
 import axios from "axios";
 import { OtpVerificationDialog } from "./OtpVerificationDialog";
-import TrackAddress from "./TrackAddress"; // Import the TrackAddress component
+import TrackAddress from "./TrackAddress";
+import LinearGradient from "react-native-linear-gradient";
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
@@ -92,6 +92,7 @@ export function AllBookingsDialog({
   
   // Add state for Track Address dialog
   const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
+  const [selectedBookingForTrack, setSelectedBookingForTrack] = useState<any>(null);
 
   const mapApiBookingToBooking = (apiBooking: any): Booking => {
     let date, timeRange;
@@ -349,7 +350,8 @@ export function AllBookingsDialog({
   };
 
   // Handle track address button click
-  const handleTrackAddress = () => {
+  const handleTrackAddress = (booking: any) => {
+    setSelectedBookingForTrack(booking);
     setTrackAddressDialogOpen(true);
   };
 
@@ -603,33 +605,58 @@ export function AllBookingsDialog({
     <View style={[styles.skeleton, { width, height }, style]} />
   );
 
+  // FIXED: Render responsibilities section properly matching the working Booking.tsx
   const renderResponsibilities = (booking: Booking) => {
     if (!booking.responsibilities) return null;
+
+    const responsibilities = booking.responsibilities;
+    
+    // Check if there are tasks or add-ons to display
+    const hasTasks = responsibilities.tasks && responsibilities.tasks.length > 0;
+    const hasAddOns = responsibilities.add_ons && responsibilities.add_ons.length > 0;
+    
+    if (!hasTasks && !hasAddOns) return null;
 
     return (
       <View style={styles.responsibilitiesSection}>
         <Text style={styles.responsibilitiesTitle}>Responsibilities</Text>
         <View style={styles.responsibilitiesList}>
-          {booking.responsibilities?.tasks?.map((task: any, index: number) => {
+          {/* Render tasks */}
+          {hasTasks && responsibilities.tasks?.map((task: any, index: number) => {
             const taskLabel = task.persons ? `${task.persons} persons` : "";
+            const taskType = task.taskType || task.type || '';
+            
             return (
-              <Badge key={index} variant="outline" style={styles.responsibilityBadge}>
-                <Text style={styles.responsibilityText}>
-                  {task.taskType} {taskLabel}
-                </Text>
-              </Badge>
+              <View key={`task-${index}`} style={styles.responsibilityItem}>
+                <View style={styles.responsibilityBadge}>
+                  <Text style={styles.responsibilityBadgeText}>
+                    {taskType} {taskLabel}
+                  </Text>
+                </View>
+              </View>
             );
           })}
-          {booking.responsibilities?.add_ons?.map((addon: any, index: number) => (
-            <Badge key={`addon-${index}`} variant="outline" style={[styles.responsibilityBadge, styles.addonBadge]}>
-              <Text style={styles.responsibilityText}>
-                Add-on: {typeof addon === 'object' ? JSON.stringify(addon) : addon}
-              </Text>
-            </Badge>
-          ))}
-          {(!booking.responsibilities?.tasks?.length && !booking.responsibilities?.add_ons?.length) && (
-            <Text style={styles.noResponsibilitiesText}>No responsibilities listed</Text>
-          )}
+          
+          {/* Render add-ons */}
+          {hasAddOns && responsibilities.add_ons?.map((addon: any, index: number) => {
+            // Handle different add-on formats (string or object)
+            let addonText = '';
+            if (typeof addon === 'string') {
+              addonText = addon;
+            } else if (addon && typeof addon === 'object') {
+              addonText = addon.name || addon.type || JSON.stringify(addon);
+            }
+            
+            return (
+              <View key={`addon-${index}`} style={styles.responsibilityItem}>
+                <View style={[styles.responsibilityBadge, styles.addonBadge]}>
+                  <Text style={styles.responsibilityBadgeText}>
+                    Add-on: {addonText}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
       </View>
     );
@@ -675,7 +702,12 @@ export function AllBookingsDialog({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.modalHeader}
+            >
               <Text style={styles.modalTitle}>
                 View all Bookings
               </Text>
@@ -686,7 +718,7 @@ export function AllBookingsDialog({
               >
                 <X size={24} color="#ffffff" />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
             <View style={styles.tabsContainer}>
               <TabButton 
@@ -795,6 +827,7 @@ export function AllBookingsDialog({
 
                     return (
                       <View key={booking.id} style={styles.card}>
+                        {/* Card Header - Service Title and Status */}
                         <View style={styles.cardHeader}>
                           <View style={styles.cardHeaderTop}>
                             <Text style={styles.bookingId}>
@@ -849,22 +882,22 @@ export function AllBookingsDialog({
                             </View>
                           </View>
 
-                          {/* Responsibilities Section */}
+                          {/* FIXED: Responsibilities Section - Now properly displayed */}
                           {renderResponsibilities(booking)}
 
-                          {/* Location with Track Address Button - UPDATED */}
+                          {/* Location with Track Address Button */}
                           <View style={styles.locationSection}>
                             <View style={styles.locationHeader}>
                               <Text style={styles.locationLabel}>Address</Text>
                               <TouchableOpacity
                                 style={styles.trackButton}
-                                onPress={handleTrackAddress}
+                                onPress={() => handleTrackAddress(booking)}
                               >
                                 <MapPin size={14} color="#374151" />
                                 <Text style={styles.trackButtonText}>Track Address</Text>
                               </TouchableOpacity>
                             </View>
-                            <Text style={styles.locationText}>
+                            <Text style={styles.locationText} numberOfLines={2}>
                               {booking.location || "Address not provided"}
                             </Text>
                           </View>
@@ -1007,7 +1040,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#3b82f6',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
@@ -1193,6 +1225,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
     overflow: 'hidden',
+    marginBottom: 16,
   },
   cardHeader: {
     padding: 16,
@@ -1293,8 +1326,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f3f4f6',
   },
+  // FIXED: Responsibilities section styles - matching Booking.tsx
   responsibilitiesSection: {
     marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   responsibilitiesTitle: {
     fontSize: 14,
@@ -1307,21 +1346,35 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  responsibilityBadge: {
+  responsibilityItem: {
+    marginRight: 8,
     marginBottom: 4,
   },
-  addonBadge: {
+  responsibilityBadge: {
     backgroundColor: '#eff6ff',
+    borderWidth: 1,
     borderColor: '#93c5fd',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  responsibilityText: {
+  responsibilityBadgeText: {
     fontSize: 12,
     fontWeight: '500',
+    color: '#1d4ed8',
+  },
+  addonBadge: {
+    backgroundColor: '#fdf2f8',
+    borderColor: '#fbcfe8',
+  },
+  addonBadgeText: {
+    color: '#be185d',
   },
   noResponsibilitiesText: {
     fontSize: 12,
     color: '#9ca3af',
     fontStyle: 'italic',
+    paddingVertical: 4,
   },
   locationSection: {
     marginBottom: 16,
@@ -1360,6 +1413,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 16,
+    padding: 8,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
   },
   todayServiceLabel: {
     fontSize: 14,

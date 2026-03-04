@@ -2057,25 +2057,52 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
-        return (
-          <BasicInformation
-            formData={formData}
-            errors={errors}
-            validationResults={validationResults}
-            showPassword={showPassword}
-            showConfirmPassword={showConfirmPassword}
-            isDobValid={isDobValid}
-            onImageSelect={handleImageSelect}
-            onFieldChange={handleRealTimeValidation}
-            onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
-            onDobChange={handleDateChange}
-            onTogglePasswordVisibility={handleTogglePasswordVisibility}
-            onToggleConfirmPasswordVisibility={handleToggleConfirmPasswordVisibility}
-            onClearEmail={handleClearEmail}
-            onClearMobile={handleClearMobile}
-            onClearAlternate={handleClearAlternate}
-          />
-        );
+  return (
+    <BasicInformation
+      formData={formData}
+      errors={errors}
+      validationResults={validationResults}
+      showPassword={showPassword}
+      showConfirmPassword={showConfirmPassword}
+      isDobValid={isDobValid}
+      onImageSelect={handleImageSelect}
+      onFieldChange={handleRealTimeValidation}
+      onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
+      onDobChange={(e) => {
+        // e.target.value contains the date in YYYY-MM-DD format
+        const formattedDate = e.target.value;
+        
+        // Create a Date object for the DateTimePicker if needed
+        if (formattedDate) {
+          const dateObj = new Date(formattedDate);
+          // Call your existing handleDateChange with the proper format
+          // Since handleDateChange expects a different signature, we need to adapt it
+          handleDateChange(null, dateObj);
+        } else {
+          handleDateChange(null, undefined);
+        }
+        
+        // Also directly update the formData if needed
+        setFormData(prev => ({ ...prev, dob: formattedDate }));
+        
+        // Validate age
+        if (formattedDate) {
+          const { isValid, message } = validateAge(formattedDate);
+          setIsDobValid(isValid);
+          if (!isValid) {
+            setErrors(prev => ({ ...prev, dob: message }));
+          } else {
+            setErrors(prev => ({ ...prev, dob: "" }));
+          }
+        }
+      }}
+      onTogglePasswordVisibility={handleTogglePasswordVisibility}
+      onToggleConfirmPasswordVisibility={handleToggleConfirmPasswordVisibility}
+      onClearEmail={handleClearEmail}
+      onClearMobile={handleClearMobile}
+      onClearAlternate={handleClearAlternate}
+    />
+  );
       
       case 1:
         return (
@@ -2156,10 +2183,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             onClearEveningSlots={handleClearEveningSlots}
             onMorningSlotChange={handleMorningSlotChange}
             onEveningSlotChange={handleEveningSlotChange}
-            TimeSliderWithDisabledRanges={TimeSliderWithDisabledRanges}
-            DisabledRangesIndicator={DisabledRangesIndicator}
-            getDisabledRangesForSlot={getDisabledRangesForSlot}
-            formatDisplayTime={formatDisplayTime}
           />
         );
 

@@ -104,20 +104,25 @@ export default function DribbbleDateTimePicker(props: Props) {
       return true;
     }
 
-    // Get the selected date(s) to check if it's today
+    // Get the selected date(s) to check
     let selectedDateToCheck: Dayjs | null = null;
     
     if (mode === "single") {
       selectedDateToCheck = selectedDate;
     } else if (mode === "range" && rangeStart) {
       // For range mode, we check against the start date
-      // You might want to adjust this logic based on your requirements
       selectedDateToCheck = rangeStart;
     }
 
-    // If no date selected, don't disable (but times might be disabled by other conditions)
+    // If no date selected, disable times
     if (!selectedDateToCheck) {
-      return mode === "range"; // In range mode, disable if no dates selected
+      return true;
+    }
+
+    // Check if the selected date itself is disabled (past date)
+    // This is the key fix - check if the date is before today
+    if (selectedDateToCheck.isBefore(today, "day")) {
+      return true; // Disable all times for past dates
     }
 
     // Only apply time restrictions if the selected date is today
@@ -236,8 +241,14 @@ export default function DribbbleDateTimePicker(props: Props) {
     }
     
     const selectedDateToCheck = mode === "single" ? selectedDate : rangeStart;
-    if (selectedDateToCheck && isToday(selectedDateToCheck)) {
-      return "Past times are disabled for today";
+    
+    if (selectedDateToCheck) {
+      if (selectedDateToCheck.isBefore(today, "day")) {
+        return "Cannot select time for past dates";
+      }
+      if (isToday(selectedDateToCheck)) {
+        return "Past times are disabled for today";
+      }
     }
     
     return null;

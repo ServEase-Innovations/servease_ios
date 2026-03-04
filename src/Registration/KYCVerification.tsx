@@ -7,13 +7,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
-  Alert,
 } from "react-native";
 import {
-  RadioButton,
   HelperText,
   Divider,
-  Card,
 } from "react-native-paper";
 import CustomFileInput from "./CustomFileInput";
 
@@ -39,46 +36,41 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
       value: "AADHAR", 
       label: "Aadhaar Card", 
       description: "Government ID proof", 
-      placeholder: "Aadhaar Number *", 
+      placeholder: "Enter 12-digit Aadhaar number", 
       pattern: "[0-9]{12}", 
       maxLength: 12, 
-      helperText: "Enter 12-digit Aadhaar number" 
     },
     { 
       value: "PAN", 
       label: "PAN Card", 
-      description: "Permanent Account Number", 
-      placeholder: "PAN Number *", 
+      description: "Permanent Account Number (PAN)", 
+      placeholder: "Enter 10-digit PAN number", 
       pattern: "[A-Z]{5}[0-9]{4}[A-Z]{1}", 
       maxLength: 10, 
-      helperText: "Enter 10-digit PAN (e.g., ABCDE1234F)" 
     },
     { 
       value: "DRIVING_LICENSE", 
       label: "Driving License", 
       description: "Driving License", 
-      placeholder: "Driving License Number *", 
+      placeholder: "Enter driving license number", 
       pattern: "^[A-Z]{2}[0-9]{2}[0-9]{4,11}*$", 
       maxLength: 16, 
-      helperText: "Enter your driving license number" 
     },
     { 
       value: "VOTER_ID", 
       label: "Voter ID", 
       description: "Voter Identification Card", 
-      placeholder: "Voter ID Number *", 
+      placeholder: "Enter 10-digit Voter ID", 
       pattern: "[A-Z]{3}[0-9]{7}", 
       maxLength: 10, 
-      helperText: "Enter 10-digit Voter ID" 
     },
     { 
       value: "PASSPORT", 
       label: "Passport", 
       description: "Passport", 
-      placeholder: "Passport Number *", 
+      placeholder: "Enter passport number", 
       pattern: "[A-Z]{1}[0-9]{7}", 
       maxLength: 8, 
-      helperText: "Enter 8-character passport number" 
     },
   ];
 
@@ -96,22 +88,27 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
     onFieldChange({ target: { name: 'kycNumber', value: text } });
   };
 
+  const handleFileChange = (file: any) => {
+    onDocumentUpload(file);
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.spacing}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
+
         {/* KYC Type Selection */}
-        <View>
-          <Text style={styles.label}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
             Select KYC Document Type <Text style={styles.asterisk}>*</Text>
           </Text>
           
-          <View style={styles.optionsGrid}>
+          <View style={styles.optionsContainer}>
             {kycOptions.map((option) => (
               <TouchableOpacity
                 key={option.value}
                 style={[
                   styles.optionCard,
-                  formData.kycType === option.value && styles.selectedOption,
+                  formData.kycType === option.value && styles.selectedOptionCard,
                 ]}
                 onPress={() => handleKycTypePress(option.value)}
               >
@@ -119,9 +116,8 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
                   <Text
                     style={[
                       styles.optionLabel,
-                      formData.kycType === option.value && styles.selectedOptionText,
+                      formData.kycType === option.value && styles.selectedOptionLabel,
                     ]}
-                    numberOfLines={1}
                   >
                     {option.label}
                   </Text>
@@ -130,7 +126,6 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
                       styles.optionDescription,
                       formData.kycType === option.value && styles.selectedOptionDescription,
                     ]}
-                    numberOfLines={1}
                   >
                     {option.description}
                   </Text>
@@ -140,70 +135,85 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
           </View>
           
           {errors.kycType && (
-            <HelperText type="error" visible={!!errors.kycType} style={styles.helperText}>
+            <HelperText type="error" visible={!!errors.kycType} style={styles.errorText}>
               {errors.kycType}
             </HelperText>
           )}
         </View>
 
-        <View style={styles.dividerContainer}>
-          <Divider style={styles.divider} />
+        <Divider style={styles.divider} />
+
+        {/* Selected KYC Document Section */}
+        <View style={styles.section}>
+          <View style={styles.selectedDocHeader}>
+            <Text style={styles.selectedDocTitle}>
+              {currentOption.label}
+            </Text>
+            <Text style={styles.selectedDocDescription}>
+              {currentOption.description}
+            </Text>
+          </View>
+
+          {/* Document Number Input */}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={[
+                styles.input,
+                errors.kycNumber && styles.inputError
+              ]}
+              placeholder={currentOption.placeholder}
+              placeholderTextColor="#999"
+              value={formData.kycNumber || ""}
+              onChangeText={handleTextChange}
+              onFocus={() => onFieldFocus("kycNumber")}
+              maxLength={currentOption.maxLength}
+              keyboardType={currentOption.value === "AADHAR" ? "numeric" : "default"}
+            />
+            
+            {/* Helper text based on KYC type */}
+            {currentOption.value === "AADHAR" && !errors.kycNumber && (
+              <HelperText type="info" visible={true} style={styles.helperInfo}>
+                Enter 12-digit Aadhaar number
+              </HelperText>
+            )}
+            
+            {errors.kycNumber && (
+              <HelperText type="error" visible={!!errors.kycNumber} style={styles.errorText}>
+                {errors.kycNumber}
+              </HelperText>
+            )}
+          </View>
+
+          {/* Document Upload */}
+          <View style={styles.uploadSection}>
+            <Text style={styles.uploadLabel}>
+              Upload {currentOption.label} <Text style={styles.asterisk}>*</Text>
+            </Text>
+            <CustomFileInput
+              name="documentImage"
+              accept="image/*,.pdf"
+              required
+              value={formData.documentImage}
+              onChange={handleFileChange}
+              buttonText="Choose File"
+            />
+            {errors.documentImage && (
+              <HelperText type="error" visible={!!errors.documentImage} style={styles.errorText}>
+                {errors.documentImage}
+              </HelperText>
+            )}
+          </View>
+
+          {/* Upload Note */}
+          <View style={styles.noteContainer}>
+            <Text style={styles.noteText}>
+              <Text style={styles.noteBold}>Note: </Text>
+              Please upload a clear image of your {currentOption.label}. 
+              Accepted formats: JPG, PNG, PDF. Max size: 5MB.
+            </Text>
+          </View>
         </View>
 
-        {/* Selected KYC Type Header */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.selectedKycTitle}>
-            {currentOption.label}
-          </Text>
-          <Text style={styles.selectedKycDescription}>
-            {currentOption.description}
-          </Text>
-        </View>
-
-        {/* Dynamic Document Number Field based on KYC Type */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[
-              styles.input,
-              errors.kycNumber && styles.inputError
-            ]}
-            placeholder={currentOption.placeholder}
-            value={formData.kycNumber || ""}
-            onChangeText={handleTextChange}
-            onFocus={() => onFieldFocus("kycNumber")}
-            maxLength={currentOption.maxLength}
-            keyboardType={currentOption.value === "AADHAR" ? "numeric" : "default"}
-          />
-          {errors.kycNumber ? (
-            <HelperText type="error" visible={!!errors.kycNumber} style={styles.helperText}>
-              {errors.kycNumber}
-            </HelperText>
-          ) : (
-            <HelperText type="info" visible={true} style={styles.helperText}>
-              {currentOption.helperText}
-            </HelperText>
-          )}
-        </View>
-
-        {/* Document Upload Section */}
-        <View style={styles.uploadContainer}>
-          <CustomFileInput
-            name="documentImage"
-            accept="image/*,.pdf"
-            required
-            value={formData.documentImage}
-            onChange={onDocumentUpload}
-            buttonText={`Upload ${currentOption.label} Document`}
-          />
-        </View>
-
-        {/* Helper Text based on KYC Type */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoText}>
-            <Text style={styles.infoNote}>Note: </Text>
-            Please upload a clear image of your {currentOption.label}. Accepted formats: JPG, PNG, PDF. Max size: 5MB.
-          </Text>
-        </View>
       </View>
     </ScrollView>
   );
@@ -214,122 +224,167 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  spacing: {
-    padding: 16,
-    gap: 20,
+  content: {
+    padding: 20,
   },
-  label: {
-    fontSize: 14,
+  stepIndicator: {
+    marginBottom: 24,
+  },
+  stepText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1976d2',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#000',
-    marginBottom: 12,
+    color: '#333',
+    marginBottom: 16,
   },
   asterisk: {
     color: '#d32f2f',
-    fontSize: 14,
   },
-  optionsGrid: {
+  optionsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
-    width: '100%',
+    marginHorizontal: -4,
   },
   optionCard: {
-    flex: 1,
-    minWidth: 90,
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#e0e0e0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: 2,
-  },
-  selectedOption: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#1976d2',
+    width: '50%',
+    paddingHorizontal: 4,
+    marginBottom: 8,
   },
   optionContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#fff',
+    minHeight: 70,
+  },
+  selectedOptionCard: {
+    borderColor: '#1976d2',
+    backgroundColor: '#E3F2FD',
+    borderWidth: 2,
   },
   optionLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#000',
-    textAlign: 'center',
-    marginBottom: 2,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
   },
   optionDescription: {
-    fontSize: 9,
+    fontSize: 12,
     color: '#666',
-    textAlign: 'center',
-    opacity: 0.8,
+    lineHeight: 16,
   },
-  selectedOptionText: {
+  selectedOptionLabel: {
     color: '#1976d2',
-    fontWeight: '600',
   },
   selectedOptionDescription: {
     color: '#1976d2',
   },
-  helperText: {
-    fontSize: 11,
+  errorText: {
+    fontSize: 12,
+    color: '#d32f2f',
     marginTop: 4,
     marginLeft: 0,
-  },
-  dividerContainer: {
-    marginVertical: 8,
   },
   divider: {
     height: 1,
     backgroundColor: '#e0e0e0',
+    marginVertical: 20,
   },
-  headerContainer: {
-    marginBottom: 8,
+  selectedDocHeader: {
+    marginBottom: 16,
   },
-  selectedKycTitle: {
-    fontSize: 13,
+  selectedDocTitle: {
+    fontSize: 18,
     fontWeight: '600',
     color: '#1976d2',
     marginBottom: 2,
   },
-  selectedKycDescription: {
-    fontSize: 11,
+  selectedDocDescription: {
+    fontSize: 14,
     color: '#666',
   },
-  inputContainer: {
-    width: '100%',
+  inputWrapper: {
+    marginBottom: 20,
   },
   input: {
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    borderRadius: 6,
-    padding: 12,
-    fontSize: 13,
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 15,
     backgroundColor: '#fff',
+    color: '#333',
   },
   inputError: {
     borderColor: '#d32f2f',
   },
-  uploadContainer: {
-    width: '100%',
-  },
-  infoCard: {
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  infoText: {
-    fontSize: 11,
+  helperInfo: {
+    fontSize: 12,
     color: '#666',
-    textAlign: 'left',
+    marginTop: 6,
+    marginLeft: 4,
   },
-  infoNote: {
+  uploadSection: {
+    marginBottom: 16,
+  },
+  uploadLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
+  },
+  noteContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  noteText: {
+    fontSize: 13,
+    color: '#555',
+    lineHeight: 18,
+  },
+  noteBold: {
     fontWeight: '600',
     color: '#1976d2',
+  },
+  navigationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  backButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1976d2',
+  },
+  backButtonText: {
+    color: '#1976d2',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  nextButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    backgroundColor: '#1976d2',
+  },
+  nextButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
 

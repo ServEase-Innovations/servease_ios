@@ -107,12 +107,13 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
     <View style={styles.container}>
       {!value ? (
         <Button
-          variant="contained"
+          variant="primary"
           onPress={handleFilePick}
           style={styles.button}
           disabled={disabled}
-          title={buttonText}
-        />
+        >
+          {buttonText}
+        </Button>
       ) : (
         <View style={styles.fileContainer}>
           <View style={styles.fileInfoContainer}>
@@ -144,12 +145,13 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
             )}
           </View>
           <Button
-            variant="outlined"
+            variant="outline"
             onPress={handleFilePick}
             size="small"
             style={styles.changeButton}
-            title="Change File"
-          />
+          >
+            Change File
+          </Button>
         </View>
       )}
     </View>
