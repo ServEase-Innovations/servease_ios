@@ -12,9 +12,8 @@ import { useAuth0 } from "react-native-auth0";
 import { useAppUser } from "../context/AppUserContext";
 import { useDispatch } from "react-redux";
 import { remove } from "../features/userSlice";
-import ContactUs from "../ContactUs/ContactUs"; // Adjust import path as needed
+import ContactUs from "../ContactUs/ContactUs";
 import AboutUs from "../AboutUs/AboutPage";
-// import AboutUs from "../AboutUs/AboutPage"; // Adjust import path as needed
 
 interface Props {
   visible: boolean;
@@ -43,6 +42,9 @@ const ProfileMenuSheet: React.FC<Props> = ({
   const [showContactUs, setShowContactUs] = useState(false);
   const [showAboutUs, setShowAboutUs] = useState(false);
 
+  const isCustomer = appUser?.role === "CUSTOMER";
+  const isServiceProvider = appUser?.role === "SERVICE_PROVIDER";
+
   const handleLogout = async () => {
     try {
       await clearSession({
@@ -50,20 +52,20 @@ const ProfileMenuSheet: React.FC<Props> = ({
       });
 
       dispatch(remove());
-      onClose(); // Close the menu after logout
+      onClose();
     } catch (e) {
       console.log("Log out error:", e);
     }
   };
 
   const handleContactPress = () => {
-    onClose(); // Close the menu
-    setShowContactUs(true); // Open Contact Us modal
+    onClose();
+    setShowContactUs(true);
   };
 
   const handleAboutPress = () => {
-    onClose(); // Close the menu
-    setShowAboutUs(true); // Open About Us modal
+    onClose();
+    setShowAboutUs(true);
   };
 
   const handleCloseContactUs = () => {
@@ -72,6 +74,13 @@ const ProfileMenuSheet: React.FC<Props> = ({
 
   const handleCloseAboutUs = () => {
     setShowAboutUs(false);
+  };
+
+  const handleSettingsPress = () => {
+    // For demo purposes - you can implement actual settings navigation
+    console.log("Settings pressed");
+    onClose();
+    // You can add navigation to settings page or show a toast
   };
 
   return (
@@ -86,22 +95,38 @@ const ProfileMenuSheet: React.FC<Props> = ({
             {appUser?.name || appUser?.email || "User"}
           </Text>
 
+          {/* Profile - Always show for authenticated users */}
           <MenuItem label="Profile" icon="person" onPress={onProfile} />
 
-          {appUser?.role === "CUSTOMER" && (
-            <MenuItem label="My Bookings" icon="event-note" onPress={onBookings} />
+          {/* Customer specific menu items */}
+          {isCustomer && (
+            <>
+              <MenuItem label="My Bookings" icon="event-note" onPress={onBookings} />
+              <MenuItem label="Wallet" icon="account-balance-wallet" onPress={onWallet} />
+            </>
           )}
 
-          {appUser?.role === "SERVICE_PROVIDER" && (
-            <MenuItem label="Dashboard" icon="dashboard" onPress={onDashboard} />
+          {/* Service Provider specific menu items */}
+          {isServiceProvider && (
+            <>
+              <MenuItem label="Dashboard" icon="dashboard" onPress={onDashboard} />
+            </>
           )}
 
-          <MenuItem label="Wallet" icon="account-balance-wallet" onPress={onWallet} />
-          
-          {/* New Menu Items */}
+          {/* Common menu items for both roles */}
           <MenuItem label="Contact Us" icon="phone" onPress={handleContactPress} />
           <MenuItem label="About Us" icon="info" onPress={handleAboutPress} />
+          
+          {/* Settings button for both roles (demo) */}
+          <MenuItem label="Settings" icon="settings" onPress={handleSettingsPress} />
 
+          {/* Logout - Always show at bottom for authenticated users */}
+          <MenuItem 
+            label="Logout" 
+            icon="logout" 
+            onPress={handleLogout} 
+            danger={true} 
+          />
         </View>
       </Modal>
 
@@ -149,7 +174,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
-    paddingBottom: 30, // Add extra padding at bottom
+    paddingBottom: 30,
   },
   item: {
     flexDirection: "row",

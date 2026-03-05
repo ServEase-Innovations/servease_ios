@@ -1243,10 +1243,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     fontWeight: '500',
+    flex: 1,
   },
   headerBadges: {
     flexDirection: 'row',
     gap: 4,
+    flexShrink: 1,
   },
   cardHeaderMain: {
     flexDirection: 'row',
@@ -1282,9 +1284,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 16,
+    flexWrap: 'wrap',
   },
   dateTimeSection: {
     flex: 1,
+    marginRight: 12,
+    minWidth: 150,
   },
   infoLabel: {
     fontSize: 12,
@@ -1296,16 +1301,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
   infoText: {
     fontSize: 14,
     color: '#4b5563',
     fontWeight: '500',
+    flex: 1,
   },
   amountSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   amountInfo: {
     alignItems: 'flex-end',
@@ -1347,7 +1355,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   responsibilityItem: {
-    marginRight: 8,
     marginBottom: 4,
   },
   responsibilityBadge: {
@@ -1384,6 +1391,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   locationLabel: {
     fontSize: 14,
@@ -1416,6 +1425,7 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#f9fafb',
     borderRadius: 8,
+    flexWrap: 'wrap',
   },
   todayServiceLabel: {
     fontSize: 14,
@@ -1463,6 +1473,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
     paddingTop: 16,
+    flexWrap: 'wrap',
+    gap: 12,
   },
   taskStatusLabel: {
     fontSize: 14,
@@ -1472,6 +1484,7 @@ const styles = StyleSheet.create({
   taskButtons: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'wrap',
   },
   // Badge styles
   badge: {

@@ -19,6 +19,7 @@ import Snackbar from "react-native-snackbar";
 import { PROFILE, BOOKINGS, DASHBOARD, HOME } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet"; // Import the new component
 
+
 interface NavigationFooterProps {
   onHomeClick: () => void;
   onBookingsClick: () => void;

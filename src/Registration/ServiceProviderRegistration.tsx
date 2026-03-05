@@ -40,6 +40,7 @@ import { Button } from "../common/Button";
 import BasicInformation from "./BasicInformation";
 import ServiceDetails from "./ServiceDetails";
 import KYCVerification from "./KYCVerification";
+import providerInstance from "../services/providerInstance";
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -1872,8 +1873,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
         console.log("Submitting payload:", JSON.stringify(payload, null, 2));
 
-        const response = await axiosInstance.post(
-          "/api/serviceproviders/serviceprovider/add",
+        const response = await providerInstance.post(
+          "/api/service-providers/serviceprovider/add",
           payload,
           {
             headers: {

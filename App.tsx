@@ -742,8 +742,6 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
 
   // FIXED: renderContent function - Now properly separates HOME and DASHBOARD
 
-// In App.tsx, update the renderContent function:
-
 const renderContent = () => {
   // For service providers:
   // - If currentView is HOME → Show HomePage
@@ -766,13 +764,16 @@ const renderContent = () => {
     case DASHBOARD:
       // Show Dashboard for service providers, but if profile view is requested from dashboard
       return showProfileFromDashboard ? (
-        <ProfileScreen onBackToHome={() => setCurrentView(HOME)} /> // ← Add this prop
+        <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />
       ) : (
-        <Dashboard onProfilePress={handleDashboardProfilePress} />
+        <Dashboard 
+          onProfilePress={handleDashboardProfilePress} 
+          onBackToHome={() => setCurrentView(HOME)} // ← Add this prop
+        />
       );
       
     case PROFILE:
-      return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />; // ← Add this prop
+      return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />;
       
     default:
       // This handles "DETAILS" and any other views
@@ -880,24 +881,25 @@ const renderContent = () => {
                 onSignOutComplete={handleAppRelaunchAfterSignOut}
               />
 
-              <ProfileMenuSheet
-                visible={showProfileMenu}
-                onClose={() => setShowProfileMenu(false)}
-                onProfile={() => {
-                  setShowProfileMenu(false);
-                  setCurrentView(PROFILE);
-                }}
-                onBookings={() => {
-                  setShowProfileMenu(false);
-                  setCurrentView(BOOKINGS);
-                }}
-                onDashboard={() => {
-                  setShowProfileMenu(false);
-                  setCurrentView(DASHBOARD);
-                }}
-                onWallet={() => setIsWalletOpen(true)}
-                onContact={handleContactClick}
-              />
+
+<ProfileMenuSheet
+  visible={showProfileMenu}
+  onClose={() => setShowProfileMenu(false)}
+  onProfile={() => {
+    setShowProfileMenu(false);
+    setCurrentView(PROFILE);
+  }}
+  onBookings={() => {
+    setShowProfileMenu(false);
+    setCurrentView(BOOKINGS);
+  }}
+  onDashboard={() => {
+    setShowProfileMenu(false);
+    setCurrentView(DASHBOARD);
+  }}
+  onWallet={() => setIsWalletOpen(true)}
+  onContact={handleContactClick}
+/>
             </View>
           )}
 

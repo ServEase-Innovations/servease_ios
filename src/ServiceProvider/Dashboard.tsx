@@ -1,4 +1,4 @@
-// Dashboard.tsx (updated)
+// Dashboard.tsx (updated with back button logic)
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -14,7 +14,8 @@ import {
   Modal,
   TextInput,
   Linking,
-  Dimensions
+  Dimensions,
+  BackHandler // Add this import
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -36,6 +37,7 @@ import { OtpVerificationDialog } from './OtpVerificationDialog';
 import WithdrawalDialog from './WithdrawalDialog';
 import { WithdrawalHistoryDialog } from './WithdrawalHistoryDialog';
 import TrackAddress from './TrackAddress';
+import { Calendar, MapPin, X, Phone, Clock, Loader2, CheckCircle } from "lucide-react-native";
 
 const { width } = Dimensions.get('window');
 
@@ -350,18 +352,26 @@ const Button = ({
   loading?: boolean;
 }) => {
   const getVariantStyle = () => {
+    if (disabled) {
+      return {
+        backgroundColor: '#f3f4f6',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+      };
+    }
+    
     switch (variant) {
       case 'outline':
         return {
           backgroundColor: 'transparent',
           borderWidth: 1,
-          borderColor: '#D1D5DB',
+          borderColor: '#d1d5db',
         };
       case 'destructive':
         return {
-          backgroundColor: '#EF4444',
+          backgroundColor: '#ef4444',
           borderWidth: 1,
-          borderColor: '#EF4444',
+          borderColor: '#ef4444',
         };
       case 'secondary':
         return {
@@ -371,15 +381,15 @@ const Button = ({
         };
       case 'success':
         return {
-          backgroundColor: '#10B981',
+          backgroundColor: '#10b981',
           borderWidth: 1,
-          borderColor: '#10B981',
+          borderColor: '#10b981',
         };
       case 'primary':
         return {
-          backgroundColor: '#3B82F6',
+          backgroundColor: '#3b82f6',
           borderWidth: 1,
-          borderColor: '#3B82F6',
+          borderColor: '#3b82f6',
         };
       case 'ghost':
         return {
@@ -388,48 +398,28 @@ const Button = ({
         };
       default:
         return {
-          backgroundColor: '#3B82F6',
+          backgroundColor: '#3b82f6',
           borderWidth: 1,
-          borderColor: '#3B82F6',
-        };
-    }
-  };
-
-  const getSizeStyle = () => {
-    switch (size) {
-      case 'sm':
-        return {
-          paddingVertical: 6,
-          paddingHorizontal: 12,
-        };
-      case 'lg':
-        return {
-          paddingVertical: 12,
-          paddingHorizontal: 24,
-        };
-      default:
-        return {
-          paddingVertical: 10,
-          paddingHorizontal: 16,
+          borderColor: '#3b82f6',
         };
     }
   };
 
   const getTextColor = () => {
-    if (disabled) return '#9CA3AF';
+    if (disabled) return '#9ca3af';
     
     switch (variant) {
       case 'outline':
+        return '#374151';
+      case 'ghost':
         return '#374151';
       case 'destructive':
       case 'success':
       case 'primary':
       case 'default':
-        return '#FFFFFF';
-      case 'ghost':
-        return '#374151';
+        return '#ffffff';
       default:
-        return '#FFFFFF';
+        return '#ffffff';
     }
   };
 
@@ -437,35 +427,31 @@ const Button = ({
     <TouchableOpacity
       style={[
         {
-          borderRadius: 6,
+          borderRadius: 8,
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'row',
           opacity: disabled ? 0.6 : 1,
         },
         getVariantStyle(),
-        getSizeStyle(),
+        size === 'sm' ? styles.buttonSm : size === 'lg' ? styles.buttonLg : styles.buttonMd,
         style,
       ]}
       onPress={onPress}
       disabled={disabled || loading}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={variant === 'outline' ? '#374151' : '#FFFFFF'} />
+        <ActivityIndicator size="small" color={getTextColor()} />
       ) : (
         <>
           {icon && <View style={{marginRight: 8}}>{icon}</View>}
-          {typeof children === 'string' ? (
-            <Text style={{ 
-              color: getTextColor(), 
-              fontWeight: '500',
-              fontSize: size === 'sm' ? 12 : 14
-            }}>
-              {children}
-            </Text>
-          ) : (
-            children
-          )}
+          <Text style={{ 
+            color: getTextColor(), 
+            fontWeight: '600',
+            fontSize: size === 'sm' ? 12 : 14
+          }}>
+            {children}
+          </Text>
         </>
       )}
     </TouchableOpacity>
@@ -513,25 +499,25 @@ const Badge = ({
         };
       case 'destructive':
         return {
-          backgroundColor: '#FEF2F2',
+          backgroundColor: '#fef2f2',
         };
       case 'success':
         return {
-          backgroundColor: '#10B981',
+          backgroundColor: '#10b981',
         };
       case 'primary':
         return {
-          backgroundColor: '#3B82F6',
+          backgroundColor: '#3b82f6',
         };
       case 'outline':
         return {
           backgroundColor: 'transparent',
           borderWidth: 1,
-          borderColor: '#D1D5DB',
+          borderColor: '#d1d5db',
         };
       default:
         return {
-          backgroundColor: '#F3F4F6',
+          backgroundColor: '#f3f4f6',
         };
     }
   };
@@ -540,11 +526,11 @@ const Badge = ({
     switch (variant) {
       case 'success':
       case 'primary':
-        return '#FFFFFF';
+        return '#ffffff';
+      case 'destructive':
+        return '#dc2626';
       case 'outline':
         return '#374151';
-      case 'destructive':
-        return '#DC2626';
       default:
         return '#111827';
     }
@@ -583,9 +569,10 @@ const Badge = ({
 
 interface DashboardProps {
   onProfilePress: () => void;
+  onBackToHome?: () => void; // Add this prop for back navigation
 }
 
-export default function Dashboard({ onProfilePress }: DashboardProps) {
+export default function Dashboard({ onProfilePress, onBackToHome }: DashboardProps) {
   const { clearSession, user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
   const [bookings, setBookings] = useState<BookingHistoryResponse | null>(null);
@@ -612,6 +599,84 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
   const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
   
   const verificationCompletedRef = useRef(false);
+
+  // ============= BACK BUTTON AND HARDWARE BACK HANDLING =============
+  
+  // Handle back button press
+  const handleBackPress = () => {
+    console.log('⬅️ Back button pressed in Dashboard component');
+    
+    // Close any open dialogs first
+    if (showAllBookings) {
+      console.log('📋 Closing all bookings dialog');
+      setShowAllBookings(false);
+      return true; // Prevent default back behavior
+    }
+    
+    if (reviewsDialogOpen) {
+      console.log('⭐ Closing reviews dialog');
+      setReviewsDialogOpen(false);
+      return true;
+    }
+    
+    if (otpDialogOpen) {
+      console.log('🔐 Closing OTP dialog');
+      setOtpDialogOpen(false);
+      setCurrentBooking(null);
+      return true;
+    }
+    
+    if (withdrawalHistoryDialogOpen) {
+      console.log('💰 Closing withdrawal history dialog');
+      setWithdrawalHistoryDialogOpen(false);
+      return true;
+    }
+    
+    if (withdrawalDialogOpen) {
+      console.log('💰 Closing withdrawal dialog');
+      setWithdrawalDialogOpen(false);
+      return true;
+    }
+    
+    if (trackAddressDialogOpen) {
+      console.log('📍 Closing track address dialog');
+      setTrackAddressDialogOpen(false);
+      return true;
+    }
+    
+    // If no dialogs are open, navigate back to home
+    if (onBackToHome) {
+      console.log('🏠 Navigating back to HomePage');
+      onBackToHome();
+      return true; // Prevent default back behavior
+    }
+    
+    return false; // Let default back behavior happen
+  };
+
+  // Set up hardware back button listener
+  useEffect(() => {
+    console.log('🎯 Setting up back button handler for Dashboard component');
+    
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress
+    );
+
+    // Clean up listener on unmount
+    return () => {
+      console.log('🧹 Cleaning up back button handler for Dashboard component');
+      backHandler.remove();
+    };
+  }, [
+    onBackToHome,
+    showAllBookings,
+    reviewsDialogOpen,
+    otpDialogOpen,
+    withdrawalHistoryDialogOpen,
+    withdrawalDialogOpen,
+    trackAddressDialogOpen
+  ]);
 
   // Check if user is authenticated
   useEffect(() => {
@@ -893,31 +958,60 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
     }
   };
 
-  // Helper component for disabled button with loading
-  const DisabledButtonWithLoader = ({ isLoading }: { isLoading: boolean }) => (
-    <View
-      style={[
-        {
-          borderRadius: 6,
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'row',
-          opacity: 0.6,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          borderWidth: 1,
-          borderColor: '#D1D5DB',
-          backgroundColor: '#F3F4F6',
-        }
-      ]}
-    >
-      {isLoading ? (
-        <ActivityIndicator size="small" color="#3B82F6" />
-      ) : (
-        <Text style={{ color: '#6B7280', fontSize: 12 }}>Loading...</Text>
-      )}
-    </View>
-  );
+  // Render responsibilities function matching AllBookingsDialog
+  const renderResponsibilities = (booking: any) => {
+    if (!booking.responsibilities) return null;
+
+    const responsibilities = booking.responsibilities;
+    
+    const hasTasks = responsibilities.tasks && responsibilities.tasks.length > 0;
+    const hasAddOns = responsibilities.add_ons && responsibilities.add_ons.length > 0;
+    
+    if (!hasTasks && !hasAddOns) return null;
+
+    return (
+      <View style={styles.responsibilitiesSection}>
+        <Text style={styles.responsibilitiesTitle}>Responsibilities</Text>
+        <View style={styles.responsibilitiesList}>
+          {/* Render tasks */}
+          {hasTasks && responsibilities.tasks?.map((task: any, index: number) => {
+            const taskLabel = task.persons ? `${task.persons} persons` : "";
+            const taskType = task.taskType || task.type || '';
+            
+            return (
+              <View key={`task-${index}`} style={styles.responsibilityItem}>
+                <View style={styles.responsibilityBadge}>
+                  <Text style={styles.responsibilityBadgeText}>
+                    {taskType} {taskLabel}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+          
+          {/* Render add-ons */}
+          {hasAddOns && responsibilities.add_ons?.map((addon: any, index: number) => {
+            let addonText = '';
+            if (typeof addon === 'string') {
+              addonText = addon;
+            } else if (addon && typeof addon === 'object') {
+              addonText = addon.name || addon.type || JSON.stringify(addon);
+            }
+            
+            return (
+              <View key={`addon-${index}`} style={styles.responsibilityItem}>
+                <View style={[styles.responsibilityBadge, styles.addonBadge]}>
+                  <Text style={styles.responsibilityBadgeText}>
+                    Add-on: {addonText}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -929,7 +1023,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Welcome Section */}
+        {/* Welcome Section with Back Button */}
         <LinearGradient
           colors={[
             'rgba(177, 213, 232, 1)',
@@ -943,6 +1037,13 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
           <View style={styles.welcomeContent}>
             <View style={styles.welcomeTextContainer}>
               <View style={styles.welcomeIconRow}>
+                {/* Back Button */}
+                <TouchableOpacity 
+                  style={styles.backButton}
+                  onPress={handleBackPress}
+                >
+                  <MaterialIcon name="arrow-back" size={24} color="#0e305c" />
+                </TouchableOpacity>
                 <MaterialIcon name="home" size={20} color="#0e305c" />
                 <View>
                   <Text style={styles.welcomeBackText}>Welcome back,</Text>
@@ -950,7 +1051,6 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                 </View>
               </View>
             </View>
-            
           </View>
         </LinearGradient>
 
@@ -1039,7 +1139,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                         style={styles.retryButton}
                         onPress={() => onRefresh()}
                       >
-                        <Text style={styles.retryButtonText}>Retry</Text>
+                        Retry
                       </Button>
                     </View>
                   ) : latestBooking.length === 0 ? (
@@ -1069,168 +1169,156 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                       const showCompletedButton = isCompleted;
 
                       return (
-                        <View key={booking.id} style={styles.bookingItem}>
-                          {/* Header */}
-                          <View style={styles.bookingHeader}>
-                            <View>
-                              <Text style={styles.bookingIdText}>Booking ID: {booking.bookingId || "N/A"}</Text>
-                              <Text style={styles.clientName}>{booking.clientName}</Text>
-                              <Text style={styles.serviceType}>{booking.service}</Text>
-                            </View>
-                            <View style={styles.badgeContainer}>
-                              {getBookingTypeBadge(booking.bookingData.booking_type || booking.bookingData.bookingType)}
-                              {getStatusBadge(booking.bookingData.task_status)}
-                            </View>
-                          </View>
-
-                          {/* Date & Amount with Phone */}
-                          <View style={styles.bookingDetailsGrid}>
-                            <View style={styles.dateTimeSection}>
-                              <Text style={styles.detailLabel}>Date & Time</Text>
-                              <Text style={styles.detailValue}>{booking.date} at {booking.time}</Text>
-                            </View>
-                            <View style={styles.amountSection}>
-                              <View style={styles.amountInfo}>
-                                <Text style={styles.detailLabel}>Amount</Text>
-                                <Text style={styles.amountValue}>{booking.amount}</Text>
+                        <View key={booking.id} style={styles.bookingCard}>
+                          {/* Card Header - Service Title and Status */}
+                          <View style={styles.bookingCardHeader}>
+                            <View style={styles.bookingCardHeaderTop}>
+                              <Text style={styles.bookingId}>
+                                Booking ID: {booking.bookingId || "N/A"}
+                              </Text>
+                              <View style={styles.headerBadges}>
+                                {getBookingTypeBadge(booking.bookingData.booking_type || booking.bookingData.bookingType)}
+                                {getStatusBadge(booking.bookingData.task_status)}
                               </View>
-                              {booking.bookingData?.mobileno && (
-                                <TouchableOpacity
-                                  style={styles.phoneIconButton}
-                                  onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName)}
-                                >
-                                  <MaterialIcon name="phone" size={16} color="#374151" />
-                                </TouchableOpacity>
-                              )}
                             </View>
-                          </View>
-                          
-                          {/* Responsibilities */}
-                          <View style={styles.responsibilitiesContainer}>
-                            <Text style={styles.detailLabel}>Responsibilities</Text>
-                            <View style={styles.responsibilitiesList}>
-                              {booking.bookingData?.responsibilities?.tasks?.map((task: any, index: number) => {
-                                const taskLabel = task.persons ? `${task.persons} persons` : "";
-                                return (
-                                  <Badge key={index} variant="outline" style={styles.responsibilityBadge}>
-                                    <Text style={styles.responsibilityText}>
-                                      {task.taskType} {taskLabel}
-                                    </Text>
-                                  </Badge>
-                                );
-                              })}
-                              {booking.bookingData?.responsibilities?.add_ons?.map((addon: any, index: number) => (
-                                <Badge key={`addon-${index}`} variant="outline" style={[styles.responsibilityBadge, styles.addonBadge]}>
-                                  <Text style={[styles.responsibilityText, styles.addonText]}>
-                                    Add-on: {typeof addon === 'object' ? JSON.stringify(addon) : addon}
-                                  </Text>
-                                </Badge>
-                              ))}
-                              {(!booking.bookingData?.responsibilities?.tasks?.length && !booking.bookingData?.responsibilities?.add_ons?.length) && (
-                                <Text style={[styles.responsibilityText, styles.noResponsibilitiesText]}>
-                                  No responsibilities listed
+                            <View style={styles.bookingCardHeaderMain}>
+                              <View style={styles.bookingCardHeaderLeft}>
+                                <Text style={styles.bookingCardTitle}>
+                                  {booking.clientName}
                                 </Text>
-                              )}
+                                <View style={styles.serviceStatusRow}>
+                                  <Text style={styles.serviceText}>
+                                    {booking.service}
+                                  </Text>
+                                </View>
+                              </View>
                             </View>
-                          </View>
-                          
-                          {/* Address with Track Button - UPDATED */}
-                          <View style={styles.addressContainer}>
-                            <View style={styles.addressHeader}>
-                              <Text style={styles.detailLabel}>Address</Text>
-                              <TouchableOpacity
-                                style={styles.trackAddressButton}
-                                onPress={handleTrackAddress}
-                              >
-                                <MaterialIcon name="location-on" size={14} color="#374151" />
-                                <Text style={styles.trackAddressText}>Track Address</Text>
-                              </TouchableOpacity>
-                            </View>
-                            <Text style={styles.addressText}>{booking.location || "Address not provided"}</Text>
                           </View>
 
-                          {/* Today's Service Status Badge */}
-                          {todayServiceStatus && (
-                            <View style={styles.todayServiceContainer}>
-                              <View style={styles.todayServiceRow}>
-                                <Text style={styles.detailLabel}>Today's Service:</Text>
-                                <Badge 
-                                  variant="outline"
-                                  style={[
-                                    styles.todayServiceBadge,
-                                    todayServiceStatus === 'SCHEDULED' && styles.scheduledBadge,
-                                    todayServiceStatus === 'IN_PROGRESS' && styles.inProgressBadge,
-                                    todayServiceStatus === 'COMPLETED' && styles.completedBadge
-                                  ]}
+                          <View style={styles.bookingCardContent}>
+                            {/* Date, Time and Amount with Phone Icon */}
+                            <View style={styles.infoGrid}>
+                              <View style={styles.dateTimeSection}>
+                                <Text style={styles.infoLabel}>Date & Time</Text>
+                                <View style={styles.infoRow}>
+                                  <Calendar size={14} color="#6b7280" />
+                                  <Text style={styles.infoText}>
+                                    {booking.date} at {booking.time}
+                                  </Text>
+                                </View>
+                              </View>
+                              <View style={styles.amountSection}>
+                                <View style={styles.amountInfo}>
+                                  <Text style={styles.amountLabel}>Amount</Text>
+                                  <Text style={styles.amountText}>
+                                    {booking.amount}
+                                  </Text>
+                                </View>
+                                {booking.bookingData?.mobileno && (
+                                  <TouchableOpacity
+                                    style={styles.phoneButton}
+                                    onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName)}
+                                  >
+                                    <Phone size={16} color="#374151" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            </View>
+
+                            {/* Responsibilities Section */}
+                            {renderResponsibilities(booking)}
+
+                            {/* Location with Track Address Button */}
+                            <View style={styles.locationSection}>
+                              <View style={styles.locationHeader}>
+                                <Text style={styles.locationLabel}>Address</Text>
+                                <TouchableOpacity
+                                  style={styles.trackButton}
+                                  onPress={handleTrackAddress}
                                 >
+                                  <MapPin size={14} color="#374151" />
+                                  <Text style={styles.trackButtonText}>Track Address</Text>
+                                </TouchableOpacity>
+                              </View>
+                              <Text style={styles.locationText} numberOfLines={2}>
+                                {booking.location || "Address not provided"}
+                              </Text>
+                            </View>
+
+                            {/* Today's Service Status Badge */}
+                            {todayServiceStatus && (
+                              <View style={styles.todayServiceSection}>
+                                <Text style={styles.todayServiceLabel}>Today's Service:</Text>
+                                <View style={[
+                                  styles.todayServiceBadge,
+                                  todayServiceStatus === 'SCHEDULED' && styles.scheduledBadge,
+                                  todayServiceStatus === 'IN_PROGRESS' && styles.inProgressBadge,
+                                  todayServiceStatus === 'COMPLETED' && styles.completedBadge
+                                ]}>
                                   <Text style={[
-                                    styles.todayServiceBadgeText,
+                                    styles.todayServiceText,
                                     todayServiceStatus === 'SCHEDULED' && styles.scheduledText,
                                     todayServiceStatus === 'IN_PROGRESS' && styles.inProgressText,
                                     todayServiceStatus === 'COMPLETED' && styles.completedText
                                   ]}>
                                     {todayServiceStatus}
                                   </Text>
-                                </Badge>
+                                </View>
                               </View>
-                            </View>
-                          )}
+                            )}
 
-                          {/* Task Action Buttons */}
-                          <View style={styles.taskActionContainer}>
-                            <Text style={styles.taskStatusLabel}>
-                              {isInProgress 
-                                ? "Task In Progress" 
-                                : isCompleted 
-                                  ? 'Task Completed' 
-                                  : isNotStarted
-                                    ? 'Not Started' 
-                                    : 'Upcoming'
-                              }
-                            </Text>
-                            <View style={styles.actionButtons}>
-                              {taskStatusUpdating[booking.id] ? (
-                                <View style={{
-                                  borderRadius: 6,
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  flexDirection: 'row',
-                                  paddingVertical: 6,
-                                  paddingHorizontal: 12,
-                                  borderWidth: 1,
-                                  borderColor: '#D1D5DB',
-                                  backgroundColor: '#F3F4F6',
-                                }}>
-                                  <ActivityIndicator size="small" color="#374151" />
-                                </View>
-                              ) : showCompleteButton ? (
-                                <Button 
-                                  variant="destructive" 
-                                  size="sm"
-                                  onPress={() => handleStopTask(booking.id, booking.bookingData)}
-                                >
-                                  <Text style={styles.stopButtonText}>Complete Task</Text>
-                                </Button>
-                              ) : showCompletedButton ? (
-                                <View style={[styles.completedButtonContainer]}>
-                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                    <MaterialIcon name="check-circle" size={16} color="#166534" style={{marginRight: 4}} />
-                                    <Text style={{color: '#166534', fontWeight: '500', fontSize: 12}}>Completed</Text>
+                            {/* Task Action Buttons */}
+                            <View style={styles.taskActionsSection}>
+                              <Text style={styles.taskStatusLabel}>
+                                {isInProgress 
+                                  ? "Task In Progress" 
+                                  : isCompleted 
+                                    ? 'Task Completed' 
+                                    : isNotStarted
+                                      ? 'Not Started' 
+                                      : 'Upcoming'
+                                }
+                              </Text>
+                              <View style={styles.taskButtons}>
+                                {taskStatusUpdating[booking.id] ? (
+                                  <View style={[styles.button, styles.buttonSm]}>
+                                    <ActivityIndicator size="small" color="#374151" />
                                   </View>
-                                </View>
-                              ) : showStartButton ? (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onPress={() => handleStartTask(booking.id, booking.bookingData)}
-                                >
-                                  <Text style={styles.startButtonText}>Start Task</Text>
-                                </Button>
-                              ) : (
-                                <View style={[styles.disabledButtonContainer]}>
-                                  <Text style={{color: '#6b7280', fontSize: 12}}>Cannot Start Yet</Text>
-                                </View>
-                              )}
+                                ) : showCompleteButton ? (
+                                  <Button 
+                                    variant="destructive" 
+                                    size="sm"
+                                    onPress={() => handleStopTask(booking.id, booking.bookingData)}
+                                  >
+                                    Complete Task
+                                  </Button>
+                                ) : showCompletedButton ? (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    disabled
+                                    icon={<CheckCircle size={14} color="#10b981" />}
+                                  >
+                                    Completed
+                                  </Button>
+                                ) : showStartButton ? (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onPress={() => handleStartTask(booking.id, booking.bookingData)}
+                                  >
+                                    Start Task
+                                  </Button>
+                                ) : (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    disabled
+                                  >
+                                    Cannot Start Yet
+                                  </Button>
+                                )}
+                              </View>
                             </View>
                           </View>
                         </View>
@@ -1254,7 +1342,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     onPress={() => setShowAllBookings(true)}
                   >
                     <MaterialIcon name="people" size={16} style={styles.buttonIcon} />
-                    <Text style={styles.actionButtonText}>View All Bookings</Text>
+                    View All Bookings
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1262,7 +1350,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     onPress={() => setWithdrawalDialogOpen(true)}
                   >
                     <MaterialIcon name="account-balance-wallet" size={16} style={styles.buttonIcon} />
-                    <Text style={styles.actionButtonText}>Request Withdrawal</Text>
+                    Request Withdrawal
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1270,7 +1358,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     onPress={() => setWithdrawalHistoryDialogOpen(true)}
                   >
                     <MaterialIcon name="receipt" size={16} style={styles.buttonIcon} />
-                    <Text style={styles.actionButtonText}>Withdrawal History</Text>
+                    Withdrawal History
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1278,7 +1366,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     onPress={() => {}}
                   >
                     <MaterialIcon name="calendar-today" size={16} style={styles.buttonIcon} />
-                    <Text style={styles.actionButtonText}>Apply Leave</Text>
+                    Apply Leave
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1286,7 +1374,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     onPress={() => {}}
                   >
                     <MaterialIcon name="access-time" size={16} style={styles.buttonIcon} />
-                    <Text style={styles.actionButtonText}>Update Availability</Text>
+                    Update Availability
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1294,7 +1382,7 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                     onPress={() => setReviewsDialogOpen(true)}
                   >
                     <MaterialIcon name="star" size={16} style={styles.buttonIcon} />
-                    <Text style={styles.actionButtonText}>View Reviews</Text>
+                    View Reviews
                   </Button>
                 </View>
               </Card>
@@ -1308,19 +1396,19 @@ export default function Dashboard({ onProfilePress }: DashboardProps) {
                   <View style={styles.statusItem}>
                     <Text style={styles.statusLabel}>Profile Status</Text>
                     <Badge variant="success">
-                      <Text style={styles.statusBadgeText}>Active</Text>
+                      Active
                     </Badge>
                   </View>
                   <View style={styles.statusItem}>
                     <Text style={styles.statusLabel}>Verification</Text>
                     <Badge variant="success">
-                      <Text style={styles.statusBadgeText}>Verified</Text>
+                      Verified
                     </Badge>
                   </View>
                   <View style={styles.statusItem}>
                     <Text style={styles.statusLabel}>Availability</Text>
                     <Badge variant="primary">
-                      <Text style={styles.statusBadgeText}>Available</Text>
+                      Available
                     </Badge>
                   </View>
                 </View>
@@ -1511,6 +1599,20 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: 'bold',
     marginTop: 2,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   welcomeSubtitle: {
     fontSize: 15,
@@ -1710,11 +1812,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
-  retryButtonText: {
-    color: '#111827',
-    fontWeight: '500',
-    fontSize: 14,
-  },
   emptyContainer: {
     alignItems: 'center',
     padding: 32,
@@ -1723,119 +1820,185 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 14,
   },
-  bookingItem: {
-    borderWidth: 1,
-    borderColor: '#f3f4f6',
+  // Booking Card Styles (matching AllBookingsDialog)
+  bookingCard: {
+    backgroundColor: 'white',
     borderRadius: 12,
-    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+    overflow: 'hidden',
     marginBottom: 16,
-    backgroundColor: '#ffffff',
   },
-  bookingHeader: {
+  bookingCardHeader: {
+    padding: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  bookingCardHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  bookingIdText: {
+  bookingId: {
     fontSize: 12,
     color: '#6b7280',
-    marginBottom: 4,
+    fontWeight: '500',
+    flex: 1,
   },
-  clientName: {
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#111827',
-    marginBottom: 2,
-  },
-  serviceType: {
-    color: '#6b7280',
-    fontSize: 14,
-  },
-  badgeContainer: {
+  headerBadges: {
     flexDirection: 'row',
     gap: 4,
-    flexWrap: 'wrap',
+    flexShrink: 1,
   },
-  bookingDetailsGrid: {
+  bookingCardHeaderMain: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+  },
+  bookingCardHeaderLeft: {
+    flex: 1,
+  },
+  bookingCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  serviceStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  serviceText: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  bookingCardContent: {
+    padding: 16,
+    paddingTop: 12,
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    flexWrap: 'wrap',
   },
   dateTimeSection: {
+    flex: 1,
+    marginRight: 12,
+    minWidth: 150,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#4b5563',
+    fontWeight: '500',
     flex: 1,
   },
   amountSection: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   amountInfo: {
     alignItems: 'flex-end',
   },
-  detailLabel: {
+  amountLabel: {
     fontSize: 12,
-    fontWeight: '500',
     color: '#6b7280',
     marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#111827',
     fontWeight: '500',
   },
-  amountValue: {
+  amountText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1f2937',
   },
-  phoneIconButton: {
-    padding: 6,
-    borderRadius: 6,
+  phoneButton: {
+    padding: 8,
+    borderRadius: 8,
     backgroundColor: '#f3f4f6',
-    marginTop: 4,
   },
-  responsibilitiesContainer: {
-    marginBottom: 12,
+  // Responsibilities Section
+  responsibilitiesSection: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  responsibilitiesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
   },
   responsibilitiesList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 4,
-    gap: 4,
+    gap: 8,
+  },
+  responsibilityItem: {
+    marginBottom: 4,
   },
   responsibilityBadge: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-  },
-  responsibilityText: {
-    fontSize: 10,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  addonBadge: {
     backgroundColor: '#eff6ff',
+    borderWidth: 1,
     borderColor: '#93c5fd',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  addonText: {
+  responsibilityBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
     color: '#1d4ed8',
   },
-  noResponsibilitiesText: {
-    color: '#9ca3af',
-    fontStyle: 'italic',
-    fontSize: 12,
+  addonBadge: {
+    backgroundColor: '#fdf2f8',
+    borderColor: '#fbcfe8',
   },
-  addressContainer: {
-    marginBottom: 12,
+  // Location Section
+  locationSection: {
+    marginBottom: 16,
   },
-  addressHeader: {
+  locationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  trackAddressButton: {
+  locationLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  trackButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -1843,108 +2006,107 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#f3f4f6',
   },
-  trackAddressText: {
+  trackButtonText: {
     fontSize: 12,
     color: '#374151',
     fontWeight: '500',
   },
-  addressText: {
+  locationText: {
     fontSize: 14,
     color: '#4b5563',
     lineHeight: 20,
   },
-  todayServiceContainer: {
-    marginBottom: 12,
-  },
-  todayServiceRow: {
+  // Today's Service Section
+  todayServiceSection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 16,
+    padding: 8,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    flexWrap: 'wrap',
+  },
+  todayServiceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
   todayServiceBadge: {
-    borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    borderRadius: 6,
   },
   scheduledBadge: {
     backgroundColor: '#eff6ff',
-    borderColor: '#93c5fd',
     borderWidth: 1,
+    borderColor: '#93c5fd',
   },
   inProgressBadge: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#86efac',
+    backgroundColor: '#f0fdf4',
     borderWidth: 1,
+    borderColor: '#86efac',
   },
   completedBadge: {
     backgroundColor: '#faf5ff',
-    borderColor: '#c4b5fd',
     borderWidth: 1,
+    borderColor: '#d8b4fe',
   },
-  todayServiceBadgeText: {
+  todayServiceText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   scheduledText: {
-    color: '#1e40af',
+    color: '#1d4ed8',
   },
   inProgressText: {
     color: '#166534',
   },
   completedText: {
-    color: '#5b21b6',
+    color: '#7c3aed',
   },
-  taskActionContainer: {
+  // Task Actions Section
+  taskActionsSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
     paddingTop: 16,
+    flexWrap: 'wrap',
+    gap: 12,
   },
   taskStatusLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#374151',
   },
-  actionButtons: {
+  taskButtons: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'wrap',
   },
-  completedButtonContainer: {
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#dcfce7',
-    borderColor: '#22c55e',
+  // Button Styles
+  button: {
+    borderRadius: 8,
     borderWidth: 1,
-  },
-  disabledButtonContainer: {
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#f9fafb',
     borderColor: '#d1d5db',
-    borderWidth: 1,
-    opacity: 0.6,
   },
-  startButtonText: {
-    color: '#3b82f6',
-    fontWeight: '500',
-    fontSize: 12,
+  buttonSm: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  stopButtonText: {
-    color: '#ffffff',
-    fontWeight: '500',
-    fontSize: 12,
+  buttonMd: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  buttonLg: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  buttonIcon: {
+    color: '#6b7280',
   },
   actionButton: {
     width: '100%',
@@ -1956,15 +2118,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  actionButtonText: {
-    marginLeft: 8,
-    color: '#111827',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  buttonIcon: {
-    color: '#6b7280',
-  },
   statusItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1974,11 +2127,6 @@ const styles = StyleSheet.create({
   statusLabel: {
     color: '#6b7280',
     fontSize: 14,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FFFFFF',
   },
   bottomSection: {
     flexDirection: 'column',
