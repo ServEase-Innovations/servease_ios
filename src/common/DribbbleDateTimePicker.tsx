@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
 } from "react-native";
 import dayjs, { Dayjs } from "dayjs";
 
@@ -22,6 +23,7 @@ const generateTimeSlots = () => {
 };
 
 const TIMES = generateTimeSlots();
+const MAX_RANGE_DAYS = 21;
 
 /* -------------------- Types -------------------- */
 
@@ -52,23 +54,21 @@ type Props = SingleProps | RangeProps;
 
 export default function DribbbleDateTimePicker(props: Props) {
   const mode = props.mode ?? "single";
-  const today = dayjs().startOf("day");
-  const now = dayjs();
+  const value = props.value;
 
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [showTimeHint, setShowTimeHint] = useState(false);
 
-  /* ---------- Single ---------- */
+  /* ---------- Single Date ---------- */
   const [selectedDate, setSelectedDate] = useState<Dayjs>(
-    mode === "single" && props.value instanceof Date
-      ? dayjs(props.value)
-      : today
+    mode === "single" && value instanceof Date ? dayjs(value) : dayjs()
   );
 
   /* ---------- Range ---------- */
   const rangeValue =
-    mode === "range" && props.value && "startDate" in props.value
-      ? (props.value as RangeValue)
+    mode === "range" && value && typeof value === "object" && "startDate" in value
+      ? value
       : undefined;
 
   const [rangeStart, setRangeStart] = useState<Dayjs | null>(
@@ -80,6 +80,9 @@ export default function DribbbleDateTimePicker(props: Props) {
   );
 
   /* -------------------- Calendar Setup -------------------- */
+
+  const today = dayjs().startOf("day");
+  const now = dayjs();
 
   const startOfMonth = currentMonth.startOf("month");
   const daysInMonth = currentMonth.daysInMonth();
@@ -97,6 +100,16 @@ export default function DribbbleDateTimePicker(props: Props) {
     return date.isSame(now, "day");
   };
 
+  // Check if a date is in the past (before today)
+  const isPastDate = (date: Dayjs): boolean => {
+    return date.isBefore(today, "day");
+  };
+
+  // Check if a month is in the past
+  const isPastMonth = (month: Dayjs): boolean => {
+    return month.isBefore(today, "month");
+  };
+
   // Check if a time slot should be disabled based on selected date
   const isTimeSlotDisabled = (time: string): boolean => {
     // For range mode, if no dates selected, disable all times
@@ -110,19 +123,17 @@ export default function DribbbleDateTimePicker(props: Props) {
     if (mode === "single") {
       selectedDateToCheck = selectedDate;
     } else if (mode === "range" && rangeStart) {
-      // For range mode, we check against the start date
       selectedDateToCheck = rangeStart;
     }
 
-    // If no date selected, disable times
+    // If no date selected, disable in range mode
     if (!selectedDateToCheck) {
-      return true;
+      return mode === "range";
     }
 
-    // Check if the selected date itself is disabled (past date)
-    // This is the key fix - check if the date is before today
-    if (selectedDateToCheck.isBefore(today, "day")) {
-      return true; // Disable all times for past dates
+    // If the selected date is in the past, disable ALL time slots
+    if (isPastDate(selectedDateToCheck)) {
+      return true;
     }
 
     // Only apply time restrictions if the selected date is today
@@ -141,31 +152,19 @@ export default function DribbbleDateTimePicker(props: Props) {
     // Create a datetime object for today with the selected time
     const timeDateTime = now.hour(hour).minute(0).second(0).millisecond(0);
 
-    // Check if this time has already passed (including current time)
-    // For start times, we also want to ensure at least 30 minutes buffer
+    // For start times, require at least 30 minutes buffer
     if (mode === "single" || (mode === "range" && rangeStart === selectedDateToCheck)) {
-      // For start time, require at least 30 minutes from now
       return timeDateTime.isBefore(now.add(30, "minute"));
     } else {
-      // For end time or other cases, just check if time has passed
       return timeDateTime.isBefore(now);
     }
   };
 
-  const isDisabled = (day: number) => {
-    const date = currentMonth.date(day);
+  const isRangeStart = (day: number) =>
+    rangeStart && currentMonth.date(day).isSame(rangeStart, "day");
 
-    // ⛔ Past dates
-    if (date.isBefore(today, "day")) return true;
-
-    // ⛔ Range rules
-    if (mode === "range" && rangeStart) {
-      if (date.isBefore(rangeStart, "day")) return true;
-      if (date.diff(rangeStart, "day") > 21) return true;
-    }
-
-    return false;
-  };
+  const isRangeEnd = (day: number) =>
+    rangeEnd && currentMonth.date(day).isSame(rangeEnd, "day");
 
   const isInRange = (day: number) => {
     if (!rangeStart || !rangeEnd) return false;
@@ -173,34 +172,87 @@ export default function DribbbleDateTimePicker(props: Props) {
     return d.isAfter(rangeStart, "day") && d.isBefore(rangeEnd, "day");
   };
 
+  const isDisabledInRangeMode = (day: number) => {
+    const date = currentMonth.date(day);
+
+    // ❌ Disable ALL past dates (including previous months)
+    if (isPastDate(date)) {
+      return true;
+    }
+
+    // ❌ Range mode: disable dates beyond +21 days from start
+    if (mode === "range" && rangeStart && !rangeEnd) {
+      if (date.isAfter(rangeStart.add(MAX_RANGE_DAYS, "day"), "day")) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Get the appropriate message for disabled times
+  const getDisabledTimeMessage = () => {
+    if (mode === "range" && (!rangeStart || !rangeEnd)) {
+      return "Select start and end dates first";
+    }
+    
+    const selectedDateToCheck = mode === "single" ? selectedDate : rangeStart;
+    
+    if (selectedDateToCheck) {
+      if (isPastDate(selectedDateToCheck)) {
+        return "Past dates cannot be booked";
+      }
+      if (isToday(selectedDateToCheck)) {
+        return "Past times are disabled for today";
+      }
+    }
+    
+    return null;
+  };
+
+  // Determine if time selection should be disabled overall
+  const isTimeSelectionDisabled = mode === "range" && (!rangeStart || !rangeEnd);
+
   /* -------------------- Handlers -------------------- */
 
   const selectDate = (day: number) => {
-    if (isDisabled(day)) return;
-
     const date = currentMonth.date(day);
+
+    // Don't allow selecting disabled dates
+    if (isDisabledInRangeMode(day)) return;
 
     if (mode === "single") {
       setSelectedDate(date);
-      // Clear selected time when date changes
-      setSelectedTime(null);
+      setSelectedTime(null); // Clear selected time when date changes
       return;
     }
 
-    // Range logic
+    // RANGE MODE
     if (!rangeStart || rangeEnd) {
       setRangeStart(date);
       setRangeEnd(null);
-      setSelectedTime(null);
+      setSelectedTime(null); // Clear selected time when date changes
       return;
     }
 
-    if (date.isSame(rangeStart, "day")) return;
-
-    if (date.diff(rangeStart, "day") <= 21) {
-      setRangeEnd(date);
-      setSelectedTime(null);
+    // Prevent selecting same day as range start
+    if (date.isSame(rangeStart, "day")) {
+      return;
     }
+
+    // ⛔ Prevent selecting more than 21 days
+    if (date.diff(rangeStart, "day") > MAX_RANGE_DAYS) {
+      setShowTimeHint(true);
+      setTimeout(() => setShowTimeHint(false), 3000);
+      return;
+    }
+
+    if (date.isBefore(rangeStart, "day")) {
+      setRangeStart(date);
+    } else {
+      setRangeEnd(date);
+    }
+    setSelectedTime(null); // Clear selected time when date changes
   };
 
   const selectTime = (time: string) => {
@@ -219,39 +271,25 @@ export default function DribbbleDateTimePicker(props: Props) {
     if (meridian === "AM" && hour === 12) hour = 0;
 
     if (mode === "single") {
-      const finalDate = selectedDate.hour(hour).minute(0).toDate();
-      (props as SingleProps).onChange(finalDate);
+      const finalDate = selectedDate
+        .hour(hour)
+        .minute(0)
+        .second(0)
+        .toDate();
+
+      const singleProps = props as SingleProps;
+      singleProps.onChange(finalDate);
       return;
     }
 
-    (props as RangeProps).onChange({
-      startDate: rangeStart!.hour(hour).minute(0).toDate(),
-      endDate: rangeEnd!.hour(hour).minute(0).toDate(),
+    if (!rangeStart || !rangeEnd) return;
+
+    const rangeProps = props as RangeProps;
+    rangeProps.onChange({
+      startDate: rangeStart.hour(hour).minute(0).toDate(),
+      endDate: rangeEnd.hour(hour).minute(0).toDate(),
       time,
     });
-  };
-
-  // Determine if time selection should be disabled overall
-  const isTimeSelectionDisabled = mode === "range" && (!rangeStart || !rangeEnd);
-
-  // Get the appropriate message for disabled times
-  const getDisabledTimeMessage = () => {
-    if (mode === "range" && (!rangeStart || !rangeEnd)) {
-      return "Select start and end dates first";
-    }
-    
-    const selectedDateToCheck = mode === "single" ? selectedDate : rangeStart;
-    
-    if (selectedDateToCheck) {
-      if (selectedDateToCheck.isBefore(today, "day")) {
-        return "Cannot select time for past dates";
-      }
-      if (isToday(selectedDateToCheck)) {
-        return "Past times are disabled for today";
-      }
-    }
-    
-    return null;
   };
 
   /* -------------------- Render -------------------- */
@@ -260,7 +298,14 @@ export default function DribbbleDateTimePicker(props: Props) {
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setCurrentMonth(m => m.subtract(1, "month"))}>
+        <TouchableOpacity 
+          onPress={() => setCurrentMonth(m => m.subtract(1, "month"))}
+          disabled={isPastMonth(currentMonth.subtract(1, "month"))}
+          style={[
+            styles.arrowButton,
+            isPastMonth(currentMonth.subtract(1, "month")) && styles.disabledArrow
+          ]}
+        >
           <Text style={styles.arrow}>‹</Text>
         </TouchableOpacity>
 
@@ -268,12 +313,15 @@ export default function DribbbleDateTimePicker(props: Props) {
           {currentMonth.format("MMMM YYYY")}
         </Text>
 
-        <TouchableOpacity onPress={() => setCurrentMonth(m => m.add(1, "month"))}>
+        <TouchableOpacity 
+          onPress={() => setCurrentMonth(m => m.add(1, "month"))}
+          style={styles.arrowButton}
+        >
           <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Weekdays */}
+      {/* Week Days */}
       <View style={styles.weekRow}>
         {WEEK_DAYS.map(d => (
           <Text key={d} style={styles.weekDay}>{d}</Text>
@@ -283,43 +331,52 @@ export default function DribbbleDateTimePicker(props: Props) {
       {/* Calendar */}
       <View style={styles.grid}>
         {calendarCells.map((day, i) => {
-          if (!day) return <View key={i} style={styles.emptyCell} />;
-
-          const date = currentMonth.date(day);
-          const disabled = isDisabled(day);
-
-          const isStart = rangeStart?.isSame(date, "day");
-          const isEnd = rangeEnd?.isSame(date, "day");
+          const disabled = day ? isDisabledInRangeMode(day) : true;
 
           return (
             <TouchableOpacity
               key={i}
-              disabled={disabled}
-              onPress={() => selectDate(day)}
               style={[
                 styles.day,
-                isStart && styles.rangeStart,
-                isEnd && styles.rangeEnd,
-                isInRange(day) && styles.rangeMiddle,
                 disabled && styles.disabledDay,
-                mode === "single" &&
-                  selectedDate.isSame(date, "day") &&
-                  styles.singleActive,
+                day && mode === "single" &&
+                selectedDate.isSame(currentMonth.date(day), "day")
+                  ? styles.singleActive
+                  : {},
+                day && mode === "range" && isRangeStart(day) ? styles.rangeStart : {},
+                day && mode === "range" && isRangeEnd(day) ? styles.rangeEnd : {},
+                day && mode === "range" && isInRange(day) ? styles.rangeMiddle : {},
+                !day ? styles.emptyCell : {},
               ]}
+              onPress={() => !disabled && day && selectDate(day)}
+              disabled={disabled}
             >
-              <Text
-                style={[
-                  styles.dayText,
-                  (isStart || isEnd) && styles.activeText,
-                  disabled && styles.disabledText,
-                ]}
-              >
-                {day}
-              </Text>
+              {day && (
+                <Text
+                  style={[
+                    styles.dayText,
+                    (isRangeStart(day) || isRangeEnd(day) || 
+                     (mode === "single" && selectedDate.isSame(currentMonth.date(day), "day"))) 
+                     && styles.activeText,
+                    disabled && styles.disabledText,
+                  ]}
+                >
+                  {day}
+                </Text>
+              )}
             </TouchableOpacity>
           );
         })}
       </View>
+
+      {/* Range hint */}
+      {showTimeHint && (
+        <View style={styles.rangeHint}>
+          <Text style={styles.rangeHintText}>
+            Maximum range is {MAX_RANGE_DAYS} days
+          </Text>
+        </View>
+      )}
 
       {/* Time */}
       <View style={styles.divider} />
@@ -330,7 +387,11 @@ export default function DribbbleDateTimePicker(props: Props) {
         )}
       </View>
 
-      <View style={styles.timeGrid}>
+      <ScrollView 
+        horizontal={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.timeGrid}
+      >
         {TIMES.map(time => {
           const isDisabled = isTimeSlotDisabled(time);
           const isSelected = selectedTime === time;
@@ -338,13 +399,13 @@ export default function DribbbleDateTimePicker(props: Props) {
           return (
             <TouchableOpacity
               key={time}
-              disabled={isDisabled || isTimeSelectionDisabled}
               style={[
                 styles.timeChip,
                 isSelected && styles.timeActive,
                 (isDisabled || isTimeSelectionDisabled) && styles.timeDisabled,
               ]}
               onPress={() => selectTime(time)}
+              disabled={isDisabled || isTimeSelectionDisabled}
             >
               <Text
                 style={[
@@ -358,7 +419,7 @@ export default function DribbbleDateTimePicker(props: Props) {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -371,13 +432,20 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     width: "100%",
-    maxWidth: 380,   // optional, keeps Dribbble look on tablets
+    maxWidth: 380,
     alignSelf: "center",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
+  },
+  arrowButton: {
+    padding: 8,
+  },
+  disabledArrow: {
+    opacity: 0.3,
   },
   arrow: {
     fontSize: 22,
@@ -386,29 +454,26 @@ const styles = StyleSheet.create({
   month: {
     fontSize: 16,
     fontWeight: "700",
+    color: "#222",
   },
   weekRow: {
     flexDirection: "row",
-    // justifyContent: "space-between",
-    // marginTop: 12,
+    marginBottom: 4,
   },
   weekDay: {
     flex: 1,
     textAlign: "center",
     color: "#999",
+    fontSize: 12,
+    fontWeight: "500",
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 6,
-  },
-  emptyCell: {
-    width: "14.28%",
-    height: 36,
   },
   day: {
-    flexBasis: "14.2857%", // safer than width
-    height: 36,
+    width: "14.28%",
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -416,19 +481,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#222",
   },
+  emptyCell: {
+    width: "14.28%",
+    height: 40,
+  },
   singleActive: {
     backgroundColor: "#3E57D0",
-    borderRadius: 18,
+    borderRadius: 20,
   },
   rangeStart: {
     backgroundColor: "#3E57D0",
-    borderTopLeftRadius: 18,
-    borderBottomLeftRadius: 18,
+    borderTopLeftRadius: 20,
+    borderBottomLeftRadius: 20,
   },
   rangeEnd: {
     backgroundColor: "#3E57D0",
-    borderTopRightRadius: 18,
-    borderBottomRightRadius: 18,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
   },
   rangeMiddle: {
     backgroundColor: "#3E57D022",
@@ -443,20 +512,33 @@ const styles = StyleSheet.create({
   disabledText: {
     color: "#999",
   },
+  rangeHint: {
+    backgroundColor: "#FFE5E5",
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    alignItems: "center",
+  },
+  rangeHintText: {
+    color: "#FF3B30",
+    fontSize: 12,
+    fontWeight: "500",
+  },
   divider: {
     height: 1,
     backgroundColor: "#eee",
-    marginVertical: 12,
+    marginVertical: 16,
   },
   timeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   timeTitle: {
     fontSize: 14,
     fontWeight: "600",
+    color: "#222",
   },
   timeHint: {
     fontSize: 11,
@@ -467,11 +549,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    paddingBottom: 8,
   },
   timeChip: {
-    flexBasis: "32%",   // 3 columns with gap
-    paddingVertical: 10,
-    borderRadius: 20,
+    width: "31%",
+    paddingVertical: 12,
+    borderRadius: 24,
     backgroundColor: "#F4F6FB",
     alignItems: "center",
     marginBottom: 10,
@@ -486,6 +569,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 13,
     color: "#333",
+    fontWeight: "500",
   },
   timeTextActive: {
     color: "#fff",
