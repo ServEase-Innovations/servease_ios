@@ -1,4 +1,4 @@
-// App.tsx - Fixed version with proper HOME and DASHBOARD separation
+// App.tsx - Complete version with ThemeProvider and Settings integration
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -22,6 +22,9 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
 
+// Import Theme Provider
+import { ThemeProvider, useTheme } from "./src/Settings/ThemeContext";
+
 // Global type augmentation for deep linking
 declare global {
   var deepLinkCustomerId: string | null;
@@ -33,6 +36,7 @@ declare global {
   var pendingDeepLinkTimestamp: string | null;
   var pendingDeepLinkAction: string | null;
 }
+
 import Head from "./src/Header/Header";
 import NavigationFooter from "./src/NavigationFooter/NavigationFooter";
 import HomePage from "./src/HomePage/HomePage";
@@ -64,6 +68,7 @@ import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
 // import { ClipLoader } from 'react-native-spinkit'; // or use ActivityIndicator
 
+
 interface Engagement {
   engagement_id: number;
   service_type: string;
@@ -85,7 +90,10 @@ interface DeepLinkData {
   action: string | null;
 }
 
+// Main App component with theme
 const MainApp = () => {
+  const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [currentView, setCurrentView] = useState(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
@@ -122,6 +130,20 @@ const MainApp = () => {
   const { appUser, clearAppUser } = useAppUser();
 
   const { authorize, getCredentials, clearSession, user } = useAuth0();
+
+  // Get font size styles based on settings
+  const getFontSizeStyles = () => {
+    switch (fontSize) {
+      case 'small':
+        return { textSize: 14, headingSize: 18, smallText: 12 };
+      case 'large':
+        return { textSize: 18, headingSize: 24, smallText: 16 };
+      default:
+        return { textSize: 16, headingSize: 20, smallText: 14 };
+    }
+  };
+
+  const fontStyles = getFontSizeStyles();
 
   // ============= DEEP LINKING IMPLEMENTATION =============
 
@@ -424,7 +446,7 @@ const MainApp = () => {
       Snackbar.show({
         text: "Logged in successfully!",
         duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: "#10b981",
+        backgroundColor: colors.success,
         textColor: "#ffffff",
       });
     } catch (e) {
@@ -432,7 +454,7 @@ const MainApp = () => {
       Snackbar.show({
         text: "Login failed. Please try again.",
         duration: Snackbar.LENGTH_LONG,
-        backgroundColor: "#ef4444",
+        backgroundColor: colors.error,
         textColor: "#ffffff",
       });
     }
@@ -441,24 +463,24 @@ const MainApp = () => {
   const { height, width } = Dimensions.get('window');
   const isMobile = width < 768;
 
-const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
-  setShowSignupDrawer(false);
+  const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
+    setShowSignupDrawer(false);
 
-  switch (type) {
-    case "USER":
-      handleAuth0Login();   
-      setCurrentView(HOME);
-      break;
+    switch (type) {
+      case "USER":
+        handleAuth0Login();   
+        setCurrentView(HOME);
+        break;
 
-    case "PROVIDER":
-      setShowProviderRegistration(true);
-      break;
+      case "PROVIDER":
+        setShowProviderRegistration(true);
+        break;
 
-   case "AGENT":
-      setShowAgentRegistration(true);
-      break;
-  }
-};
+      case "AGENT":
+        setShowAgentRegistration(true);
+        break;
+    }
+  };
 
   const handleProviderRegistrationSuccess = () => {
     console.log("✅ Provider registration successful");
@@ -467,7 +489,7 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
     Snackbar.show({
       text: "Registration successful! Please login.",
       duration: Snackbar.LENGTH_LONG,
-      backgroundColor: "#10b981",
+      backgroundColor: colors.success,
       textColor: "#ffffff",
     });
   };
@@ -741,49 +763,48 @@ const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
   };
 
   // FIXED: renderContent function - Now properly separates HOME and DASHBOARD
-
-const renderContent = () => {
-  // For service providers:
-  // - If currentView is HOME → Show HomePage
-  // - If currentView is DASHBOARD → Show Dashboard
-  // - If currentView is PROFILE → Show ProfileScreen
-  // - If currentView is BOOKINGS → Show Bookings
-  
-  switch (currentView) {
-    case HOME:
-      // Always show HomePage when currentView is HOME, regardless of user role
-      return (
-        <View style={styles.homeContainer}>
-          <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
-        </View>
-      );
-      
-    case BOOKINGS:
-      return <Booking onBackToHome={() => setCurrentView(HOME)} />;
-      
-    case DASHBOARD:
-      // Show Dashboard for service providers, but if profile view is requested from dashboard
-      return showProfileFromDashboard ? (
-        <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />
-      ) : (
-        <Dashboard 
-          onProfilePress={handleDashboardProfilePress} 
-          onBackToHome={() => setCurrentView(HOME)} // ← Add this prop
-        />
-      );
-      
-    case PROFILE:
-      return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />;
-      
-    default:
-      // This handles "DETAILS" and any other views
-      return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
-  }
-};
+  const renderContent = () => {
+    // For service providers:
+    // - If currentView is HOME → Show HomePage
+    // - If currentView is DASHBOARD → Show Dashboard
+    // - If currentView is PROFILE → Show ProfileScreen
+    // - If currentView is BOOKINGS → Show Bookings
+    
+    switch (currentView) {
+      case HOME:
+        // Always show HomePage when currentView is HOME, regardless of user role
+        return (
+          <View style={styles.homeContainer}>
+            <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
+          </View>
+        );
+        
+      case BOOKINGS:
+        return <Booking onBackToHome={() => setCurrentView(HOME)} />;
+        
+      case DASHBOARD:
+        // Show Dashboard for service providers, but if profile view is requested from dashboard
+        return showProfileFromDashboard ? (
+          <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />
+        ) : (
+          <Dashboard 
+            onProfilePress={handleDashboardProfilePress} 
+            onBackToHome={() => setCurrentView(HOME)} // ← Add this prop
+          />
+        );
+        
+      case PROFILE:
+        return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />;
+        
+      default:
+        // This handles "DETAILS" and any other views
+        return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
+    }
+  };
 
   if (showSplash) {
     return (
-      <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
+      <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim, backgroundColor: colors.primary }]}>
         <Image
           source={require("./assets/images/serveasologo.png")}
           style={styles.splashImage}
@@ -796,20 +817,35 @@ const renderContent = () => {
   return (
     <PaperProvider>
       <SafeAreaProvider>
-        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-        <SafeAreaView style={styles.safeArea} edges={["top"]} key={`app-${appResetKey}`}>
+        <StatusBar 
+          translucent 
+          backgroundColor="transparent" 
+          barStyle={isDarkMode ? "light-content" : "dark-content"} 
+        />
+        <SafeAreaView 
+          style={[
+            styles.safeArea, 
+            { 
+              backgroundColor: colors.headerBackground,
+            }
+          ]} 
+          edges={["top"]} 
+          key={`app-${appResetKey}`}
+        >
           {/* Deep linking loading overlay */}
           {showDeepLinkLoading && (
-            <View style={styles.deepLinkLoadingOverlay}>
-              <View style={styles.deepLinkLoadingContainer}>
-                <ActivityIndicator size="large" color="#3b82f6" />
-                <Text style={styles.deepLinkLoadingText}>Opening your booking...</Text>
+            <View style={[styles.deepLinkLoadingOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+              <View style={[styles.deepLinkLoadingContainer, { backgroundColor: colors.surface }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.deepLinkLoadingText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+                  Opening your booking...
+                </Text>
               </View>
             </View>
           )}
 
           {/* Fixed Header */}
-          <View style={styles.headerWrapper}>
+          <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
             <Head 
               sendDataToParent={handleViewChange} 
               bookingType={selectedBookingType}
@@ -827,7 +863,7 @@ const renderContent = () => {
           )} */}
 
           {/* Scrollable Content Area */}
-          <View style={styles.contentContainer}>
+          <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
             {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) ? (
               <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
                 {renderContent()}
@@ -851,7 +887,7 @@ const renderContent = () => {
 
           {/* Fixed Navigation Footer for Mobile */}
           {isMobile && (
-            <View style={styles.navigationFooterContainer}>
+            <View style={[styles.navigationFooterContainer, { backgroundColor: colors.footerBackground }]}>
               <NavigationFooter
                 activePage={currentView}
                 onHomeClick={handleHomeClick}
@@ -881,31 +917,33 @@ const renderContent = () => {
                 onSignOutComplete={handleAppRelaunchAfterSignOut}
               />
 
-
-<ProfileMenuSheet
-  visible={showProfileMenu}
-  onClose={() => setShowProfileMenu(false)}
-  onProfile={() => {
-    setShowProfileMenu(false);
-    setCurrentView(PROFILE);
-  }}
-  onBookings={() => {
-    setShowProfileMenu(false);
-    setCurrentView(BOOKINGS);
-  }}
-  onDashboard={() => {
-    setShowProfileMenu(false);
-    setCurrentView(DASHBOARD);
-  }}
-  onWallet={() => setIsWalletOpen(true)}
-  onContact={handleContactClick}
-/>
+              <ProfileMenuSheet
+                visible={showProfileMenu}
+                onClose={() => setShowProfileMenu(false)}
+                onProfile={() => {
+                  setShowProfileMenu(false);
+                  setCurrentView(PROFILE);
+                }}
+                onBookings={() => {
+                  setShowProfileMenu(false);
+                  setCurrentView(BOOKINGS);
+                }}
+                onDashboard={() => {
+                  setShowProfileMenu(false);
+                  setCurrentView(DASHBOARD);
+                }}
+                onWallet={() => setIsWalletOpen(true)}
+                onContact={handleContactClick}
+              />
             </View>
           )}
 
           {/* Chat Button - Positioned above Navigation Footer */}
           {!chatbotOpen && isMobile && (
-            <TouchableOpacity style={styles.chatButton} onPress={() => setChatbotOpen(true)}>
+            <TouchableOpacity 
+              style={[styles.chatButton, { backgroundColor: colors.secondary }]} 
+              onPress={() => setChatbotOpen(true)}
+            >
               <Icon name="chat" size={28} color="#fff" />
             </TouchableOpacity>
           )}
@@ -966,12 +1004,14 @@ const renderContent = () => {
             animationType="slide"
             onRequestClose={() => setShowNotificationClient(false)}
           >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
+            <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+              <View style={[styles.modalHeader, { backgroundColor: colors.headerBackground, borderBottomColor: colors.border }]}>
                 <TouchableOpacity style={styles.closeButton} onPress={() => setShowNotificationClient(false)}>
-                  <Icon name="close" size={24} color="#333" />
+                  <Icon name="close" size={24} color={colors.headerText} />
                 </TouchableOpacity>
-                <Text style={styles.modalTitle}>Notifications</Text>
+                <Text style={[styles.modalTitle, { color: colors.headerText, fontSize: fontStyles.headingSize }]}>
+                  Notifications
+                </Text>
               </View>
               <NotificationClient />
             </View>
@@ -1008,10 +1048,13 @@ const renderContent = () => {
   );
 };
 
+// Wrap the entire app with providers
 const App = () => (
   <Auth0Provider domain={config.domain} clientId={config.clientId}>
     <AppUserProvider>
-      <MainApp />
+      <ThemeProvider>
+        <MainApp />
+      </ThemeProvider>
     </AppUserProvider>
   </Auth0Provider>
 );
@@ -1019,7 +1062,6 @@ const App = () => (
 const styles = StyleSheet.create({
   splashContainer: {
     flex: 1,
-    backgroundColor: "#0d2b61ff",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1029,11 +1071,9 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    backgroundColor: "#0a2a66",
   },
   headerWrapper: {
     width: "100%",
-    backgroundColor: "#0a2a66ff",
     zIndex: 50,
   },
   homeContainer: { 
@@ -1044,7 +1084,6 @@ const styles = StyleSheet.create({
     top: 80,
     right: 20,
     zIndex: 45,
-    backgroundColor: "#3b82f6",
     borderRadius: 30,
     padding: 12,
     shadowColor: "#000",
@@ -1056,7 +1095,6 @@ const styles = StyleSheet.create({
   contentContainer: { 
     flex: 1, 
     marginTop: 50,
-    backgroundColor: "#fff",
     paddingBottom: 50,
   },
   mainScrollView: { 
@@ -1078,31 +1116,26 @@ const styles = StyleSheet.create({
   },
   modalContainer: { 
     flex: 1, 
-    backgroundColor: "#fff" 
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
     paddingTop: Platform.OS === 'ios' ? 50 : 16,
   },
   closeButton: { 
     padding: 4 
   },
   modalTitle: { 
-    fontSize: 18, 
     fontWeight: "bold", 
     marginLeft: 16, 
-    color: "#333" 
   },
   navigationFooterContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#0a2a66",
     zIndex: 100,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
@@ -1120,7 +1153,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#3b82f6",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -1137,13 +1169,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
   },
   deepLinkLoadingContainer: {
-    backgroundColor: 'white',
     padding: 30,
     borderRadius: 12,
     alignItems: 'center',
@@ -1155,9 +1185,7 @@ const styles = StyleSheet.create({
   },
   deepLinkLoadingText: {
     marginTop: 16,
-    fontSize: 16,
     fontWeight: '500',
-    color: '#333',
   },
 });
 
