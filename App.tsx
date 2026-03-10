@@ -1,4 +1,4 @@
-// App.tsx - Complete version with ThemeProvider and Settings integration
+// App.tsx - Complete version with ThemeProvider, Settings, and Multi-language support
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -21,6 +21,8 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
+import { I18nextProvider } from 'react-i18next';
+import i18n, { initI18n } from "./i18n"; // Fixed import path
 
 // Import Theme Provider
 import { ThemeProvider, useTheme } from "./src/Settings/ThemeContext";
@@ -66,8 +68,6 @@ import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegis
 import AgentRegistrationForm from "./src/AgentRegistration/AgentRegistrationForm";
 import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
-// import { ClipLoader } from 'react-native-spinkit'; // or use ActivityIndicator
-
 
 interface Engagement {
   engagement_id: number;
@@ -444,7 +444,7 @@ const MainApp = () => {
       console.log("Login successful", credentials);
       
       Snackbar.show({
-        text: "Logged in successfully!",
+        text: i18n.t('common.success'),
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: colors.success,
         textColor: "#ffffff",
@@ -452,7 +452,7 @@ const MainApp = () => {
     } catch (e) {
       console.log("Login error:", e);
       Snackbar.show({
-        text: "Login failed. Please try again.",
+        text: i18n.t('common.error'),
         duration: Snackbar.LENGTH_LONG,
         backgroundColor: colors.error,
         textColor: "#ffffff",
@@ -487,7 +487,7 @@ const MainApp = () => {
     setShowProviderRegistration(false);
     
     Snackbar.show({
-      text: "Registration successful! Please login.",
+      text: i18n.t('common.success'),
       duration: Snackbar.LENGTH_LONG,
       backgroundColor: colors.success,
       textColor: "#ffffff",
@@ -677,8 +677,8 @@ const MainApp = () => {
         console.log("[socket] new-engagement", payload);
         const engagement = payload?.engagement ?? payload;
         Alert.alert(
-          "New Booking Request",
-          `Booking for ${engagement?.service_type ?? "a service"}`
+          i18n.t('common.notification'),
+          `${i18n.t('common.bookingRequest')} ${engagement?.service_type ?? i18n.t('common.service')}`
         );
       });
 
@@ -710,12 +710,12 @@ const MainApp = () => {
   }, [appUser]);
 
   const handleAccept = (id: number) => {
-    Alert.alert("Success", "Booking request accepted successfully");
+    Alert.alert(i18n.t('common.success'), i18n.t('booking.accepted'));
     setActiveToast(null);
   };
 
   const handleReject = (id: number) => {
-    Alert.alert("Rejected", "Booking request has been rejected");
+    Alert.alert(i18n.t('common.rejected'), i18n.t('booking.rejected'));
     setActiveToast(null);
   };
 
@@ -755,11 +755,11 @@ const MainApp = () => {
   };
 
   const handleAboutClick = () => {
-    Alert.alert("About Us", "ServEaso - Your trusted service provider");
+    Alert.alert(i18n.t('about.title'), i18n.t('about.description'));
   };
 
   const handleContactClick = () => {
-    Alert.alert("Contact Us", "Contact ServEaso support");
+    Alert.alert(i18n.t('contact.title'), i18n.t('contact.description'));
   };
 
   // FIXED: renderContent function - Now properly separates HOME and DASHBOARD
@@ -838,7 +838,7 @@ const MainApp = () => {
               <View style={[styles.deepLinkLoadingContainer, { backgroundColor: colors.surface }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={[styles.deepLinkLoadingText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                  Opening your booking...
+                  {i18n.t('common.openingBooking')}
                 </Text>
               </View>
             </View>
@@ -1010,7 +1010,7 @@ const MainApp = () => {
                   <Icon name="close" size={24} color={colors.headerText} />
                 </TouchableOpacity>
                 <Text style={[styles.modalTitle, { color: colors.headerText, fontSize: fontStyles.headingSize }]}>
-                  Notifications
+                  {i18n.t('common.notifications')}
                 </Text>
               </View>
               <NotificationClient />
@@ -1049,15 +1049,45 @@ const MainApp = () => {
 };
 
 // Wrap the entire app with providers
-const App = () => (
-  <Auth0Provider domain={config.domain} clientId={config.clientId}>
-    <AppUserProvider>
-      <ThemeProvider>
-        <MainApp />
-      </ThemeProvider>
-    </AppUserProvider>
-  </Auth0Provider>
-);
+const App = () => {
+  const [i18nInitialized, setI18nInitialized] = useState(false);
+
+  useEffect(() => {
+    // Initialize i18n when app starts
+    initI18n().then(() => {
+      setI18nInitialized(true);
+    }).catch((error) => {
+      console.error('Failed to initialize i18n:', error);
+      // Still set initialized to true to show the app even if i18n fails
+      setI18nInitialized(true);
+    });
+  }, []);
+
+  if (!i18nInitialized) {
+    // Show a minimal loading screen while i18n initializes
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#004aadff' }}>
+        <Image
+          source={require("./assets/images/serveasologo.png")}
+          style={{ width: 200, height: 200 }}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <Auth0Provider domain={config.domain} clientId={config.clientId}>
+      <AppUserProvider>
+        <ThemeProvider>
+          <I18nextProvider i18n={i18n}>
+            <MainApp />
+          </I18nextProvider>
+        </ThemeProvider>
+      </AppUserProvider>
+    </Auth0Provider>
+  );
+};
 
 const styles = StyleSheet.create({
   splashContainer: {

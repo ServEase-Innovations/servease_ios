@@ -18,7 +18,9 @@ import ContactUs from '../ContactUs/ContactUs';
 import AboutUs from '../AboutUs/AboutPage';
 import TnC from '../TermsAndConditions/TnC';
 import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
-// import PrivacyPolicy from '../PrivacyPolicy/PrivacyPolicy'; // Import PrivacyPolicy component
+import { useTranslation } from 'react-i18next';
+import { changeLanguage } from '../../i18n';
+// import { changeLanguage } from './i18n'; // Adjust path as needed
 
 interface SettingsProps {
   visible: boolean;
@@ -26,6 +28,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
+  const { t } = useTranslation();
   const {
     theme,
     isDarkMode,
@@ -47,27 +50,37 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showTnCModal, setShowTnCModal] = useState(false);
-  const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false); // Add state for Privacy Policy
+  const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
 
+  // Updated languages list with all 15 languages
   const languages = [
     { code: 'en', name: 'English', nativeName: 'English' },
-    { code: 'es', name: 'Spanish', nativeName: 'Español' },
-    { code: 'fr', name: 'French', nativeName: 'Français' },
-    { code: 'de', name: 'German', nativeName: 'Deutsch' },
     { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
-    { code: 'zh', name: 'Chinese', nativeName: '中文' },
+    { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' },
+    { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
+    { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
+    { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+    { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം' },
+    { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
+    { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
+    { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ' },
+    { code: 'or', name: 'Odia', nativeName: 'ଓଡ଼ିଆ' },
+    { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া' },
+    { code: 'ur', name: 'Urdu', nativeName: 'اردو' },
+    { code: 'sa', name: 'Sanskrit', nativeName: 'संस्कृतम्' },
+    { code: 'ne', name: 'Nepali', nativeName: 'नेपाली' },
   ];
 
   const fontSizes = [
-    { value: 'small', label: 'Small', icon: 'text-fields', size: 14 },
-    { value: 'medium', label: 'Medium', icon: 'text-fields', size: 16 },
-    { value: 'large', label: 'Large', icon: 'text-fields', size: 18 },
+    { value: 'small', label: t('settings.small'), icon: 'text-fields', size: 14 },
+    { value: 'medium', label: t('settings.medium'), icon: 'text-fields', size: 16 },
+    { value: 'large', label: t('settings.large'), icon: 'text-fields', size: 18 },
   ];
 
   const themeOptions = [
-    { value: 'light', label: 'Light', icon: 'wb-sunny' },
-    { value: 'dark', label: 'Dark', icon: 'nights-stay' },
-    { value: 'system', label: 'System Default', icon: 'settings-overscan' },
+    { value: 'light', label: t('settings.light'), icon: 'wb-sunny' },
+    { value: 'dark', label: t('settings.dark'), icon: 'nights-stay' },
+    { value: 'system', label: t('settings.system'), icon: 'settings-overscan' },
   ];
 
   const getFontSizeStyles = () => {
@@ -85,12 +98,12 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
 
   const clearAllPreferences = async () => {
     Alert.alert(
-      'Reset Settings',
-      'Are you sure you want to reset all settings to default?',
+      t('settings.resetConfirm'),
+      t('settings.resetMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('common.confirm'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -104,6 +117,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               setTheme('system');
               setFontSize('medium');
               setLanguage('en');
+              await changeLanguage('en');
               setNotifications(true);
               setCompactMode(false);
             } catch (error) {
@@ -113,6 +127,12 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
         },
       ]
     );
+  };
+
+  const handleLanguageChange = async (code: string) => {
+    setLanguage(code);
+    await changeLanguage(code);
+    setShowLanguageModal(false);
   };
 
   const handleAboutPress = () => {
@@ -208,7 +228,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-            Settings
+            {t('settings.title')}
           </Text>
           <TouchableOpacity onPress={clearAllPreferences} style={styles.headerButton}>
             <MaterialIcon name="refresh" size={24} color="#ffffff" />
@@ -217,35 +237,35 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Appearance Section */}
-          <SectionHeader title="Appearance" />
+          <SectionHeader title={t('settings.appearance')} />
           
           <SettingItem
             icon="palette"
-            label="Theme"
+            label={t('settings.theme')}
             value={themeOptions.find(t => t.value === theme)?.label}
             onPress={() => setShowThemeModal(true)}
           />
           
           <SettingItem
             icon="format-size"
-            label="Font Size"
+            label={t('settings.fontSize')}
             value={fontSizes.find(f => f.value === fontSize)?.label}
             onPress={() => setShowFontSizeModal(true)}
           />
           
           <SettingItem
             icon="language"
-            label="Language"
-            value={languages.find(l => l.code === language)?.name}
+            label={t('settings.language')}
+            value={languages.find(l => l.code === language)?.nativeName}
             onPress={() => setShowLanguageModal(true)}
           />
 
           {/* Preferences Section */}
-          <SectionHeader title="Preferences" />
+          <SectionHeader title={t('settings.preferences')} />
           
           <SettingItem
             icon="notifications"
-            label="Push Notifications"
+            label={t('settings.notifications')}
             showSwitch={true}
             switchValue={notifications}
             onSwitchChange={setNotifications}
@@ -253,86 +273,86 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
           
           <SettingItem
             icon="dashboard"
-            label="Compact Mode"
+            label={t('settings.compactMode')}
             showSwitch={true}
             switchValue={compactMode}
             onSwitchChange={setCompactMode}
           />
 
           {/* Privacy & Security Section */}
-          <SectionHeader title="Privacy & Security" />
+          <SectionHeader title={t('settings.privacy')} />
           
           <SettingItem
             icon="lock"
-            label="Privacy Policy"
-            onPress={handlePrivacyPolicyPress} // Connect to Privacy Policy
+            label={t('settings.privacyPolicy')}
+            onPress={handlePrivacyPolicyPress}
           />
           
           <SettingItem
             icon="security"
-            label="Security"
-            onPress={() => Alert.alert('Security', 'Manage your security preferences.')}
+            label={t('settings.security')}
+            onPress={() => Alert.alert(t('settings.security'), 'Manage your security preferences.')}
           />
           
           <SettingItem
             icon="gpp-good"
-            label="Data Sharing"
-            value="Disabled"
+            label={t('settings.dataSharing')}
+            value={t('settings.disabled')}
             onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon.')}
           />
 
           {/* About Section */}
-          <SectionHeader title="About" />
+          <SectionHeader title={t('settings.about')} />
           
           <SettingItem
             icon="info"
-            label="About App"
+            label={t('settings.aboutApp')}
             onPress={handleAboutPress}
           />
           
           <SettingItem
             icon="phone"
-            label="Contact Us"
+            label={t('settings.contactUs')}
             onPress={handleContactPress}
           />
           
           <SettingItem
             icon="update"
-            label="App Version"
+            label={t('settings.appVersion')}
             value="1.0.0 (Build 101)"
             onPress={() => {}}
           />
           
           <SettingItem
             icon="description"
-            label="Terms & Conditions"
+            label={t('settings.termsConditions')}
             onPress={handleTnCPress}
           />
           
           <SettingItem
             icon="star"
-            label="Rate the App"
+            label={t('settings.rateApp')}
             onPress={() => Alert.alert('Rate Us', 'Thank you for rating our app!')}
           />
 
           {/* Support Section */}
-          <SectionHeader title="Support" />
+          <SectionHeader title={t('settings.support')} />
           
           <SettingItem
             icon="help"
-            label="Help Center"
-            onPress={() => Alert.alert('Help Center', 'How can we help you?')}
+            label={t('settings.helpCenter')}
+            onPress={() => Alert.alert(t('settings.helpCenter'), 'How can we help you?')}
           />
           
           <SettingItem
             icon="feedback"
-            label="Send Feedback"
+            label={t('settings.sendFeedback')}
             onPress={() => Alert.alert('Feedback', 'Thank you for your feedback!')}
           />
           
           <SettingItem
             icon="bug-report"
-            label="Report a Problem"
+            label={t('settings.reportProblem')}
             onPress={() => Alert.alert('Report Issue', 'Please describe the issue you encountered.')}
           />
 
@@ -343,7 +363,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
           >
             <MaterialIcon name="settings-backup-restore" size={22} color={colors.error} />
             <Text style={[styles.resetButtonText, { color: colors.error, fontSize: fontStyles.textSize }]}>
-              Reset All Settings
+              {t('settings.resetSettings')}
             </Text>
           </TouchableOpacity>
 
@@ -356,7 +376,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.modalTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-                  Select Theme
+                  {t('settings.selectTheme')}
                 </Text>
                 <TouchableOpacity onPress={() => setShowThemeModal(false)}>
                   <MaterialIcon name="close" size={24} color={colors.text} />
@@ -396,7 +416,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.modalTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-                  Select Font Size
+                  {t('settings.selectFontSize')}
                 </Text>
                 <TouchableOpacity onPress={() => setShowFontSizeModal(false)}>
                   <MaterialIcon name="close" size={24} color={colors.text} />
@@ -436,36 +456,40 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.modalTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-                  Select Language
+                  {t('settings.selectLanguage')}
                 </Text>
                 <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
                   <MaterialIcon name="close" size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
-              {languages.map((lang) => (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.modalItem,
-                    { borderBottomColor: colors.border },
-                    language === lang.code && { backgroundColor: colors.primary + '20' }
-                  ]}
-                  onPress={() => {
-                    setLanguage(lang.code);
-                    setShowLanguageModal(false);
-                  }}
-                >
-                  <View style={styles.modalItemLeft}>
-                    <MaterialIcon name="language" size={22} color={colors.primary} />
-                    <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                      {lang.name} ({lang.nativeName})
-                    </Text>
-                  </View>
-                  {language === lang.code && (
-                    <MaterialIcon name="check" size={22} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
+              <ScrollView style={{ maxHeight: 400 }}>
+                {languages.map((lang) => (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[
+                      styles.modalItem,
+                      { borderBottomColor: colors.border },
+                      language === lang.code && { backgroundColor: colors.primary + '20' }
+                    ]}
+                    onPress={() => handleLanguageChange(lang.code)}
+                  >
+                    <View style={styles.modalItemLeft}>
+                      <MaterialIcon name="language" size={22} color={colors.primary} />
+                      <View>
+                        <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+                          {lang.name}
+                        </Text>
+                        <Text style={[styles.modalItemSubText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                          {lang.nativeName}
+                        </Text>
+                      </View>
+                    </View>
+                    {language === lang.code && (
+                      <MaterialIcon name="check" size={22} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           </View>
         </Modal>
@@ -505,7 +529,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                 <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
               </TouchableOpacity>
               <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                Terms & Conditions
+                {t('settings.termsConditions')}
               </Text>
             </LinearGradient>
             <TnC />
@@ -529,7 +553,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                 <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
               </TouchableOpacity>
               <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                Privacy Policy
+                {t('settings.privacyPolicy')}
               </Text>
             </LinearGradient>
             <PrivacyPolicy />
@@ -651,6 +675,9 @@ const styles = StyleSheet.create({
   },
   modalItemText: {
     fontWeight: '500',
+  },
+  modalItemSubText: {
+    marginTop: 2,
   },
 });
 
