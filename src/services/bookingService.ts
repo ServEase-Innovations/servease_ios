@@ -37,6 +37,7 @@ export interface LocationData {
   };
 }
 
+
 // Error types for better error handling
 export interface RazorpayError {
   code: number;
