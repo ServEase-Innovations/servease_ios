@@ -1,4 +1,4 @@
-// HomePage.tsx - Updated with complete booking disable for service providers
+// HomePage.tsx - Updated with theme support
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -9,9 +9,6 @@ import {
   ScrollView,
   Modal,
   Platform,
-  TextStyle,
-  ViewStyle,
-  ImageStyle,
   Animated,
   Dimensions,
   Alert,
@@ -30,6 +27,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import AgentRegistrationForm from '../AgentRegistration/AgentRegistrationForm';
 import { useAuth0 } from 'react-native-auth0';
 import BookingDialog from '../BookingDialog/BookingDialog';
+import { useTheme } from '../Settings/ThemeContext'; // Import useTheme
 
 // Import local images
 const cookImage = require("../../assets/images/Cooknew.png");
@@ -46,7 +44,7 @@ interface ChildComponentProps {
   providerDetails?: any;
 }
 
-// Popular services data for carousel
+// Popular services data for carousel - Keep gradients as they are for visual appeal
 const popularServices = [
   {
     id: 1,
@@ -80,7 +78,7 @@ const popularServices = [
   },
 ];
 
-// Define slides with dark color themes
+// How it works slides - Keep gradients as they are for visual appeal
 const howItWorksSlides = [
   {
     icon: "🔍",
@@ -115,6 +113,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
   sendDataToParent,
   bookingType,
 }) => {
+  // Get theme values
+  const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  
   const [open, setOpen] = useState(false);
   const [selectedType, setSelectedtype] = useState("");
   const [selectedRadioButtonValue, setSelectedRadioButtonValue] = useState("");
@@ -153,6 +154,23 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const { user: auth0User, authorize, clearSession } = useAuth0();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<string | null>(null);
+
+  // Get font size styles based on settings
+  const getFontSizeStyles = () => {
+    switch (fontSize) {
+      case 'small':
+        return { textSize: 14, headingSize: 18, smallText: 12 };
+      case 'large':
+        return { textSize: 18, headingSize: 24, smallText: 16 };
+      default:
+        return { textSize: 16, headingSize: 20, smallText: 14 };
+    }
+  };
+
+  const fontStyles = getFontSizeStyles();
+
+  // Get spacing multiplier based on compact mode
+  const spacingMultiplier = compactMode ? 0.8 : 1;
 
   // Carousel images array
   const carouselImages = [heroImage1, heroImage2, heroImage3];
@@ -313,7 +331,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
     };
   }, [currentServiceIndex]);
 
-  // How It Works carousel with smooth transitions (matching popular services)
+  // How It Works carousel with smooth transitions
   useEffect(() => {
     let howItWorksInterval: NodeJS.Timeout;
     
@@ -599,7 +617,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   return (
-    <View style={styles.mainContainer}>
+    <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
       {/* Main Home Page Content */}
       <ScrollView 
         style={styles.container} 
@@ -648,22 +666,22 @@ const HomePage: React.FC<ChildComponentProps> = ({
           </View>
           
           {/* Dark Overlay for better text readability */}
-          <View style={styles.overlay} />
+          <View style={[styles.overlay, { backgroundColor: 'rgba(10, 42, 102, 0.5)' }]} />
           
           {/* Hero Content */}
           <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>
+            <Text style={[styles.heroTitle, { fontSize: fontStyles.headingSize }]}>
               Book trusted household help in minutes
             </Text>
-            <Text style={styles.heroSubtitle}>
+            <Text style={[styles.heroSubtitle, { fontSize: fontStyles.textSize }]}>
               ServEaso delivers instant, regular and short term access to safe, affordable, and trained maids, cooks, and caregivers.
             </Text>
             
             {/* Service Selection Header - Show different text for service providers */}
-            <Text style={styles.selectorTitle}>
+            <Text style={[styles.selectorTitle, { fontSize: fontStyles.headingSize - 2 }]}>
               {isServiceDisabled ? "Explore Our Services" : "What service do you need?"}
             </Text>
-            <Text style={styles.selectorSubtitle}>
+            <Text style={[styles.selectorSubtitle, { fontSize: fontStyles.smallText }]}>
               {isServiceDisabled ? "Learn about our professional services" : "Tap to book instantly"}
             </Text>
             
@@ -675,6 +693,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceIconContainerRectangular,
                     hoveredService === "COOK" && styles.serviceIconContainerRectangularHover,
                     isServiceDisabled && styles.disabledServiceContainer,
+                    { borderColor: isServiceDisabled ? colors.border : 'rgba(255, 255, 255, 0.8)' }
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("COOK")}
                   onPressIn={() => setHoveredService("COOK")}
@@ -687,11 +706,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   ]} />
                   <View style={[
                     styles.serviceOverlay,
-                    isServiceDisabled && styles.disabledServiceOverlay
+                    isServiceDisabled && styles.disabledServiceOverlay,
+                    { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
                   ]}>
-                    <Text style={styles.serviceLabelRectangular}>Home Cook</Text>
+                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>Home Cook</Text>
                     {isServiceDisabled && (
-                      <Text style={styles.disabledText}>View Only</Text>
+                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>View Only</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -704,6 +724,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceIconContainerRectangular,
                     hoveredService === "MAID" && styles.serviceIconContainerRectangularHover,
                     isServiceDisabled && styles.disabledServiceContainer,
+                    { borderColor: isServiceDisabled ? colors.border : 'rgba(255, 255, 255, 0.8)' }
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("MAID")}
                   onPressIn={() => setHoveredService("MAID")}
@@ -716,11 +737,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   ]} />
                   <View style={[
                     styles.serviceOverlay,
-                    isServiceDisabled && styles.disabledServiceOverlay
+                    isServiceDisabled && styles.disabledServiceOverlay,
+                    { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
                   ]}>
-                    <Text style={styles.serviceLabelRectangular}>Cleaning Help</Text>
+                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>Cleaning Help</Text>
                     {isServiceDisabled && (
-                      <Text style={styles.disabledText}>View Only</Text>
+                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>View Only</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -733,6 +755,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceIconContainerRectangular,
                     hoveredService === "NANNY" && styles.serviceIconContainerRectangularHover,
                     isServiceDisabled && styles.disabledServiceContainer,
+                    { borderColor: isServiceDisabled ? colors.border : 'rgba(255, 255, 255, 0.8)' }
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("NANNY")}
                   onPressIn={() => setHoveredService("NANNY")}
@@ -745,11 +768,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   ]} />
                   <View style={[
                     styles.serviceOverlay,
-                    isServiceDisabled && styles.disabledServiceOverlay
+                    isServiceDisabled && styles.disabledServiceOverlay,
+                    { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
                   ]}>
-                    <Text style={styles.serviceLabelRectangular}>Caregiver</Text>
+                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>Caregiver</Text>
                     {isServiceDisabled && (
-                      <Text style={styles.disabledText}>View Only</Text>
+                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>View Only</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -764,7 +788,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 key={index}
                 style={[
                   styles.heroIndicator,
-                  index === currentImageIndex && styles.heroIndicatorActive
+                  index === currentImageIndex && styles.heroIndicatorActive,
+                  { backgroundColor: index === currentImageIndex ? '#fff' : 'rgba(255, 255, 255, 0.5)' }
                 ]}
               />
             ))}
@@ -772,10 +797,14 @@ const HomePage: React.FC<ChildComponentProps> = ({
         </View>
         
         {/* Services Section - Enhanced Professional Design with Carousel */}
-        <View style={styles.servicesSection}>
+        <View style={[styles.servicesSection, { backgroundColor: isDarkMode ? colors.surface : '#f8fafc' }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular Services</Text>
-            <Text style={styles.sectionSubtitle}>Choose from our trusted professional services</Text>
+            <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
+              Popular Services
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
+              Choose from our trusted professional services
+            </Text>
           </View>
           
           <View style={styles.servicesCarouselContainer}>
@@ -810,19 +839,23 @@ const HomePage: React.FC<ChildComponentProps> = ({
                       <Text style={styles.serviceIcon}>{popularServices[currentServiceIndex].icon}</Text>
                     </View>
                     
-                    <Text style={styles.serviceTitle}>{popularServices[currentServiceIndex].title}</Text>
-                    <Text style={styles.serviceDesc}>{popularServices[currentServiceIndex].desc}</Text>
+                    <Text style={[styles.serviceTitle, { fontSize: fontStyles.headingSize - 2 }]}>
+                      {popularServices[currentServiceIndex].title}
+                    </Text>
+                    <Text style={[styles.serviceDesc, { fontSize: fontStyles.smallText }]}>
+                      {popularServices[currentServiceIndex].desc}
+                    </Text>
                     
                     <View style={styles.featuresContainer}>
                       {popularServices[currentServiceIndex].features.map((feature, idx) => (
-                        <View key={idx} style={styles.featureBadge}>
-                          <Text style={styles.featureBadgeText}>✓ {feature}</Text>
+                        <View key={idx} style={[styles.featureBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                          <Text style={[styles.featureBadgeText, { fontSize: fontStyles.smallText - 2 }]}>✓ {feature}</Text>
                         </View>
                       ))}
                     </View>
                     
                     <View style={[styles.learnMoreContainer, { backgroundColor: popularServices[currentServiceIndex].accentColor }]}>
-                      <Text style={styles.learnMoreLink}>Learn More</Text>
+                      <Text style={[styles.learnMoreLink, { fontSize: fontStyles.smallText }]}>Learn More</Text>
                       <Text style={styles.learnMoreArrow}>→</Text>
                     </View>
 
@@ -849,7 +882,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     <LinearGradient
                       colors={index === currentServiceIndex 
                         ? popularServices[index].gradient 
-                        : ['#4a5568', '#2d3748']}
+                        : [colors.disabled, colors.border]}
                       start={{x: 0, y: 0}}
                       end={{x: 1, y: 0}}
                       style={[
@@ -869,32 +902,36 @@ const HomePage: React.FC<ChildComponentProps> = ({
             {/* Service Navigation Arrows */}
             <View style={styles.serviceNavigationArrows}>
               <TouchableOpacity 
-                style={styles.serviceNavArrow}
+                style={[styles.serviceNavArrow, { backgroundColor: colors.surface }]}
                 onPress={() => {
                   const prevIndex = currentServiceIndex === 0 ? popularServices.length - 1 : currentServiceIndex - 1;
                   goToServiceSlide(prevIndex);
                 }}
               >
-                <Text style={styles.serviceNavArrowText}>←</Text>
+                <Text style={[styles.serviceNavArrowText, { color: colors.text }]}>←</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.serviceNavArrow}
+                style={[styles.serviceNavArrow, { backgroundColor: colors.surface }]}
                 onPress={() => {
                   const nextIndex = (currentServiceIndex + 1) % popularServices.length;
                   goToServiceSlide(nextIndex);
                 }}
               >
-                <Text style={styles.serviceNavArrowText}>→</Text>
+                <Text style={[styles.serviceNavArrowText, { color: colors.text }]}>→</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
         {/* How it works - Now with same carousel style as Popular Services */}
-        <View style={styles.howItWorksSection}>
+        <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff' }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>How It Works</Text>
-            <Text style={styles.sectionSubtitle}>Simple steps to premium service</Text>
+            <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
+              How It Works
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
+              Simple steps to premium service
+            </Text>
           </View>
           
           <View style={styles.howItWorksCarouselContainer}>
@@ -935,10 +972,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   </View>
                 </View>
                 
-                <Text style={styles.stepTitle}>
+                <Text style={[styles.stepTitle, { fontSize: fontStyles.headingSize }]}>
                   {howItWorksSlides[currentSlide].title}
                 </Text>
-                <Text style={styles.stepDesc}>
+                <Text style={[styles.stepDesc, { fontSize: fontStyles.textSize }]}>
                   {howItWorksSlides[currentSlide].desc}
                 </Text>
 
@@ -946,14 +983,14 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 <View style={styles.slideFeaturesContainer}>
                   {howItWorksSlides[currentSlide].features.map((feature, idx) => (
                     <View key={idx} style={[styles.slideFeatureBadge, { borderColor: howItWorksSlides[currentSlide].accentColor }]}>
-                      <Text style={styles.slideFeatureBadgeText}>✓ {feature}</Text>
+                      <Text style={[styles.slideFeatureBadgeText, { fontSize: fontStyles.smallText - 1 }]}>✓ {feature}</Text>
                     </View>
                   ))}
                 </View>
 
                 {/* Progress Indicator */}
                 <View style={[styles.slideProgress, { backgroundColor: howItWorksSlides[currentSlide].accentColor }]}>
-                  <Text style={styles.slideProgressText}>
+                  <Text style={[styles.slideProgressText, { fontSize: fontStyles.smallText - 2 }]}>
                     {currentSlide + 1} / {howItWorksSlides.length}
                   </Text>
                 </View>
@@ -975,7 +1012,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     <LinearGradient
                       colors={index === currentSlide 
                         ? howItWorksSlides[index].gradientColors 
-                        : ['#4a5568', '#2d3748']}
+                        : [colors.disabled, colors.border]}
                       start={{x: 0, y: 0}}
                       end={{x: 1, y: 0}}
                       style={[
@@ -995,22 +1032,22 @@ const HomePage: React.FC<ChildComponentProps> = ({
             {/* How It Works Navigation Arrows */}
             <View style={styles.howItWorksNavigationArrows}>
               <TouchableOpacity 
-                style={styles.howItWorksNavArrow}
+                style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface }]}
                 onPress={() => {
                   const prevIndex = currentSlide === 0 ? howItWorksSlides.length - 1 : currentSlide - 1;
                   goToHowItWorksSlide(prevIndex);
                 }}
               >
-                <Text style={styles.howItWorksNavArrowText}>←</Text>
+                <Text style={[styles.howItWorksNavArrowText, { color: colors.text }]}>←</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.howItWorksNavArrow}
+                style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface }]}
                 onPress={() => {
                   const nextIndex = (currentSlide + 1) % howItWorksSlides.length;
                   goToHowItWorksSlide(nextIndex);
                 }}
               >
-                <Text style={styles.howItWorksNavArrowText}>→</Text>
+                <Text style={[styles.howItWorksNavArrowText, { color: colors.text }]}>→</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1037,8 +1074,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
         {/* Service Dialogs */}
         {showCookDialog && (
-          <View style={styles.dialogOverlay}>
-            <View style={styles.dialogBox}>
+          <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
+            <View style={[styles.dialogBox, { backgroundColor: colors.surface }]}>
               <DemoCook
                 onClose={() => setShowCookDialog(false)}
                 sendDataToParent={sendDataToParent}
@@ -1057,8 +1094,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
         )}
 
         {showNannyServicesDialog && (
-          <View style={styles.dialogOverlay}>
-            <View style={styles.dialogBox}>
+          <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
+            <View style={[styles.dialogBox, { backgroundColor: colors.surface }]}>
               <NannyServicesDialog
                 open={showNannyServicesDialog}
                 handleClose={() => setShowNannyServicesDialog(false)}
@@ -1087,8 +1124,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
         )}
 
         {showMaidServiceDialog && (
-          <View style={styles.dialogOverlay}>
-            <View style={styles.dialogBox}>
+          <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
+            <View style={[styles.dialogBox, { backgroundColor: colors.surface }]}>
               <MaidServiceDialog
                 open={showMaidServiceDialog}
                 handleClose={() => setShowMaidServiceDialog(false)}
@@ -1146,7 +1183,6 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   container: {
     flex: 1,
@@ -1169,7 +1205,6 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 42, 102, 0.5)',
   },
   heroContent: {
     flex: 1,
@@ -1178,7 +1213,6 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   heroTitle: {
-    fontSize: 28,
     fontWeight: "bold",
     marginBottom: 12,
     textAlign: "center",
@@ -1188,7 +1222,6 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
   },
   heroSubtitle: {
-    fontSize: 16,
     color: "#ffffff",
     marginBottom: 24,
     textAlign: "center",
@@ -1199,7 +1232,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectorTitle: {
-    fontSize: 20,
     fontWeight: '700',
     color: '#ffffff',
     textAlign: 'center',
@@ -1211,7 +1243,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   selectorSubtitle: {
-    fontSize: 15,
     color: '#ffffff',
     textAlign: 'center',
     marginBottom: 24,
@@ -1244,18 +1275,15 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: 4,
   },
   heroIndicatorActive: {
-    backgroundColor: '#fff',
     width: 20,
   },
   servicesSection: {
     padding: 20,
     paddingTop: 50,
     paddingBottom: 40,
-    backgroundColor: '#f8fafc',
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     marginTop: -40,
@@ -1270,15 +1298,11 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   sectionTitle: {
-    fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    color: '#1a2b4c',
     letterSpacing: -0.5,
   },
   sectionSubtitle: {
-    fontSize: 15,
-    color: '#64748b',
     textAlign: "center",
     marginTop: 8,
   },
@@ -1337,7 +1361,6 @@ const styles = StyleSheet.create({
     fontSize: 36,
   },
   serviceTitle: {
-    fontSize: 22,
     fontWeight: "700",
     color: '#fff',
     textAlign: 'center',
@@ -1347,7 +1370,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   serviceDesc: {
-    fontSize: 14,
     color: "rgba(255, 255, 255, 0.95)",
     textAlign: "center",
     lineHeight: 20,
@@ -1362,7 +1384,6 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   featureBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
@@ -1370,7 +1391,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   featureBadgeText: {
-    fontSize: 12,
     color: '#fff',
     fontWeight: '500',
   },
@@ -1389,7 +1409,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   learnMoreLink: {
-    fontSize: 15,
     color: "#fff",
     fontWeight: '600',
     letterSpacing: 0.3,
@@ -1443,7 +1462,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: "#000",
@@ -1455,12 +1473,10 @@ const styles = StyleSheet.create({
   serviceNavArrowText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1a2b4c',
   },
   
   // How It Works Section - Now with carousel style matching Popular Services
   howItWorksSection: {
-    backgroundColor: "#ffffff",
     padding: 20,
     paddingVertical: 40,
     borderTopLeftRadius: 40,
@@ -1578,7 +1594,6 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
   stepTitle: {
-    fontSize: 24,
     fontWeight: "700",
     marginBottom: 12,
     color: '#fff',
@@ -1588,7 +1603,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   stepDesc: {
-    fontSize: 15,
     color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
     paddingHorizontal: 20,
@@ -1611,7 +1625,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   slideFeatureBadgeText: {
-    fontSize: 12,
     color: '#fff',
     fontWeight: '600',
   },
@@ -1627,7 +1640,6 @@ const styles = StyleSheet.create({
   },
   slideProgressText: {
     color: '#fff',
-    fontSize: 12,
     fontWeight: '600',
   },
   howItWorksDotsContainer: {
@@ -1653,11 +1665,9 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -20 }],
   },
   howItWorksNavArrow: {
-    
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: "#000",
@@ -1669,7 +1679,6 @@ const styles = StyleSheet.create({
   howItWorksNavArrowText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1a2b4c',
   },
   dialogOverlay: {
     position: 'absolute',
@@ -1677,7 +1686,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
@@ -1685,7 +1693,6 @@ const styles = StyleSheet.create({
   dialogBox: {
     width: '92%',
     maxHeight: '85%',
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 20,
     shadowColor: '#000',
@@ -1698,10 +1705,8 @@ const styles = StyleSheet.create({
     width: 110,
     height: 160,
     borderRadius: 16,
-    backgroundColor: "#f0f0f0",
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.8)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -1721,7 +1726,6 @@ const styles = StyleSheet.create({
   },
   disabledServiceContainer: {
     opacity: 0.8,
-    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   serviceImageRectangular: {
     width: '100%',
@@ -1733,7 +1737,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     padding: 10,
     alignItems: 'center',
   },
@@ -1742,7 +1745,6 @@ const styles = StyleSheet.create({
   },
   serviceLabelRectangular: {
     color: '#fff',
-    fontSize: 13,
     fontWeight: '600',
   },
   disabledService: {
@@ -1750,7 +1752,6 @@ const styles = StyleSheet.create({
   },
   disabledText: {
     color: '#ffd700',
-    fontSize: 10,
     marginTop: 3,
     fontWeight: '500',
   },

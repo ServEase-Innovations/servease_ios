@@ -24,6 +24,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
 import { ServiceProviderDTO } from "../types/ProviderDetailsType";
 import ProviderFilter, { FilterCriteria } from "./ProviderFilter";
+import { useTheme } from '../Settings/ThemeContext'; // Import useTheme
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;
@@ -38,6 +39,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   checkoutItem,
   selectedProvider,
 }) => {
+  // Get theme values
+  const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  
   const [serviceProvidersData, setServiceProvidersData] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -52,6 +56,23 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [activeFilters, setActiveFilters] = useState<FilterCriteria | null>(null);
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   
+  // Get font size styles based on settings
+  const getFontSizeStyles = () => {
+    switch (fontSize) {
+      case 'small':
+        return { textSize: 14, headingSize: 18, smallText: 12 };
+      case 'large':
+        return { textSize: 18, headingSize: 24, smallText: 16 };
+      default:
+        return { textSize: 16, headingSize: 20, smallText: 14 };
+    }
+  };
+
+  const fontStyles = getFontSizeStyles();
+
+  // Get spacing multiplier based on compact mode
+  const spacingMultiplier = compactMode ? 0.8 : 1;
+
   const { getBookingType, getPricingData, getFilteredPricing } = usePricingFilterService();
   const bookingType = getBookingType();
   
@@ -187,7 +208,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
       if (latitude === 0 && longitude === 0) {
         console.warn('⚠️ No valid coordinates found');
-        Alert.alert('Location Required', 'Please enable location services to find providers near you');
+        Alert.alert(
+          'Location Required', 
+          'Please enable location services to find providers near you',
+          [{ text: 'OK' }]
+        );
         setServiceProviderData([]);
         setFilteredProviders([]);
         setLoading(false);
@@ -400,51 +425,71 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const renderContent = () => {
     if (loading && isInitialLoad) {
       return (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#007bff" />
-          <Text style={styles.loadingText}>Searching providers near you...</Text>
+        <View style={[styles.centerContainer, { minHeight: 400 }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
+            Searching providers near you...
+          </Text>
         </View>
       );
     } else if (Array.isArray(filteredProviders) && filteredProviders.length > 0) {
       return (
         <>
-          <View style={styles.headerContainer}>
+          <View style={[styles.headerContainer, { paddingHorizontal: 16 * spacingMultiplier }]}>
             <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
-              <Icon name="arrow-back" size={24} color="#333" />
-              <Text style={styles.backText}>Back</Text>
+              <Icon name="arrow-back" size={24} color={colors.text} />
+              <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+                Back
+              </Text>
             </TouchableOpacity>
             
-            <View style={styles.filterContainer}>
+            <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
               <TouchableOpacity
-                style={styles.filterButton}
+                style={[styles.filterButton, { 
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  paddingHorizontal: 12 * spacingMultiplier,
+                  paddingVertical: 8 * spacingMultiplier,
+                }]}
                 onPress={() => setFilterOpen(true)}
               >
-                <Icon name="filter-list" size={24} color="#333" />
-                <Text style={styles.filterButtonText}>Filter</Text>
+                <Icon name="filter-list" size={24} color={colors.text} />
+                <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
+                  Filter
+                </Text>
                 {activeFilterCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{activeFilterCount}</Text>
+                  <View style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+                    <Text style={[styles.badgeText, { fontSize: fontStyles.smallText - 2 }]}>{activeFilterCount}</Text>
                   </View>
                 )}
               </TouchableOpacity>
               
               {activeFilterCount > 0 && (
                 <TouchableOpacity
-                  style={styles.clearButton}
+                  style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
                   onPress={handleClearFilters}
                 >
-                  <Text style={styles.clearButtonText}>Clear all</Text>
+                  <Text style={[styles.clearButtonText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
+                    Clear all
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
           </View>
 
-          <Text style={styles.resultsCount}>
+          <Text style={[styles.resultsCount, { 
+            color: colors.textSecondary, 
+            fontSize: fontStyles.smallText,
+            backgroundColor: colors.surface,
+            marginHorizontal: 16 * spacingMultiplier,
+            paddingHorizontal: 16 * spacingMultiplier,
+            paddingVertical: 8 * spacingMultiplier,
+          }]}>
             Found {filteredProviders.length} provider{filteredProviders.length !== 1 ? 's' : ''} near you
           </Text>
           
           {filteredProviders.map((provider, index) => (
-            <View key={index} style={styles.providerContainer}>
+            <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier, paddingTop: 4 * spacingMultiplier }]}>
               <ProviderDetails 
                 {...provider} 
                 selectedProvider={handleProviderSelection}
@@ -456,11 +501,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       );
     } else if (!loading && hasPerformedSearch) {
       return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.title}>
+        <View style={[styles.centerContainer, { minHeight: 400 }]}>
+          <Text style={[styles.title, { color: colors.text, fontSize: fontStyles.headingSize }]}>
             {activeFilters ? "No Providers Match Your Filters" : "Service Not Available in Your Area"}
           </Text>
-          <Text style={styles.message}>
+          <Text style={[styles.message, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
             {activeFilters 
               ? "Try adjusting your filters to see more providers." 
               : "Currently, we are unable to provide services in your location. We hope to be available in your area soon."}
@@ -468,33 +513,33 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           
           {activeFilters && (
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: '#007bff', marginBottom: 12 }]}
+              style={[styles.button, { backgroundColor: colors.primary, marginBottom: 12 * spacingMultiplier }]}
               onPress={handleClearFilters}
             >
-              <Text style={styles.buttonText}>Clear Filters</Text>
+              <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Clear Filters</Text>
             </TouchableOpacity>
           )}
           
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: activeFilters ? '#6c757d' : '#007bff' }]}
+            style={[styles.button, { backgroundColor: activeFilters ? colors.disabled : colors.primary }]}
             onPress={() => sendDataToParent("")}
           >
-            <Text style={styles.buttonText}>Go Back</Text>
+            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Go Back</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: '#6c757d', marginTop: 12 }]}
+            style={[styles.button, { backgroundColor: colors.secondary, marginTop: 12 * spacingMultiplier }]}
             onPress={performSearch}
           >
-            <Text style={styles.buttonText}>Try Again</Text>
+            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Try Again</Text>
           </TouchableOpacity>
         </View>
       );
     } else {
       // Initial state - no search performed yet
       return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.initialStateText}>
+        <View style={[styles.centerContainer, { minHeight: 400 }]}>
+          <Text style={[styles.initialStateText, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
             Select booking details to find providers
           </Text>
         </View>
@@ -503,9 +548,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView 
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={[
           styles.contentContainer,
           filteredProviders.length === 0 && { justifyContent: 'center', flexGrow: 1 }
@@ -515,8 +560,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           <RefreshControl
             refreshing={loading}
             onRefresh={performSearch}
-            colors={['#007bff']}
-            tintColor="#007bff"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
@@ -537,7 +582,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   container: {
     flex: 1,
@@ -551,7 +595,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    paddingHorizontal: 8,
   },
   backButton: {
     flexDirection: 'row',
@@ -559,30 +602,21 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   backText: {
-    fontSize: 16,
-    color: '#333',
     marginLeft: 4,
     fontWeight: '500',
   },
   filterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
     position: 'relative',
   },
   filterButtonText: {
-    fontSize: 14,
-    color: '#333',
     marginLeft: 4,
     marginRight: 4,
   },
@@ -590,55 +624,38 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#007bff',
     borderRadius: 12,
     minWidth: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
   },
   badgeText: {
     color: '#fff',
-    fontSize: 10,
     fontWeight: 'bold',
   },
-  clearButton: {
-    padding: 8,
-  },
+  clearButton: {},
   clearButtonText: {
-    fontSize: 12,
-    color: '#666',
     textDecorationLine: 'underline',
   },
-  providerContainer: {
-    marginBottom: 16,
-    paddingTop: 4,
-  },
+  providerContainer: {},
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    minHeight: 400,
   },
   loadingText: {
-    fontSize: 16,
-    color: '#333',
     marginTop: 16,
     textAlign: 'center',
   },
   title: {
-    fontSize: 18,
     fontWeight: '600',
-    color: '#333',
     marginBottom: 10,
     textAlign: 'center',
   },
   message: {
-    fontSize: 14,
-    color: '#666',
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: 20,
@@ -646,25 +663,18 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#007bff',
     borderRadius: 8,
     width: 200,
   },
   buttonText: {
-    fontSize: 14,
     fontWeight: '500',
     color: 'white',
     textAlign: 'center',
   },
   resultsCount: {
-    fontSize: 14,
-    color: '#666',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    marginBottom: 12,
     borderRadius: 8,
     textAlign: 'center',
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -672,8 +682,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   initialStateText: {
-    fontSize: 16,
-    color: '#666',
     textAlign: 'center',
     marginTop: 20,
   },

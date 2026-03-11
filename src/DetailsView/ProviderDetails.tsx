@@ -24,6 +24,7 @@ import { useAppUser } from "../context/AppUserContext";
 import { ServiceProviderDTO, EnhancedProviderDetails } from "../types/ProviderDetailsType";
 import ProviderAvailabilityDrawer from "./ProviderAvailabilityDrawer";
 import { CONFIRMATION } from "../Constants/pagesConstants";
+import { useTheme } from '../Settings/ThemeContext';
 
 interface BookingType {
   serviceproviderId: string;
@@ -41,6 +42,9 @@ interface ProviderDetailsProps extends ServiceProviderDTO {
 }
 
 const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
+  // Get theme values
+  const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  
   const [isExpanded, setIsExpanded] = useState(false);
   const [eveningSelection, setEveningSelection] = useState<number | null>(null);
   const [morningSelection, setMorningSelection] = useState<number | null>(null);
@@ -61,6 +65,23 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Get font size styles based on settings
+  const getFontSizeStyles = () => {
+    switch (fontSize) {
+      case 'small':
+        return { textSize: 14, headingSize: 18, smallText: 12, xSmall: 10 };
+      case 'large':
+        return { textSize: 18, headingSize: 24, smallText: 16, xSmall: 14 };
+      default:
+        return { textSize: 16, headingSize: 20, smallText: 14, xSmall: 12 };
+    }
+  };
+
+  const fontStyles = getFontSizeStyles();
+
+  // Get spacing multiplier based on compact mode
+  const spacingMultiplier = compactMode ? 0.8 : 1;
+
   const hasCheckedRef = useRef(false);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isMobile = windowWidth < 768;
@@ -78,7 +99,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const bookingType = useSelector((state: any) => state.bookingType?.value);
   const user = useSelector((state: any) => state.user?.value);
 
-  // Helper functions from React code
+  // Helper functions
   const calculateAge = (dob: string) => {
     if (!dob) return "";
     return moment().diff(moment(dob), "years");
@@ -109,7 +130,30 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return moment(timeString, "HH:mm").format("hh:mm A");
   };
 
-  // Get availability status for the chip
+  // Get diet color - more subtle in dark mode
+  const getDietColor = () => {
+    if (isDarkMode) {
+      switch(props.diet?.toUpperCase()) {
+        case 'VEG':
+          return '#4ade80'; // Softer green
+        case 'NONVEG':
+          return '#f87171'; // Softer red
+        default:
+          return colors.textSecondary;
+      }
+    } else {
+      switch(props.diet?.toUpperCase()) {
+        case 'VEG':
+          return colors.veg;
+        case 'NONVEG':
+          return colors.nonVeg;
+        default:
+          return colors.textSecondary;
+      }
+    }
+  };
+
+  // Get availability status
   const getAvailabilityStatus = () => {
     if (!props.monthlyAvailability) return "Available";
     
@@ -117,25 +161,51 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
       return "Fully Available";
     } else {
       const exceptions = props.monthlyAvailability.exceptions?.length || 0;
-      if (exceptions > 0) {
-        return `Partially Available (${exceptions} exception${exceptions > 1 ? 's' : ''})`;
+      if (exceptions > 20) {
+        return `Very Limited (${exceptions} exceptions)`;
+      } else if (exceptions > 10) {
+        return `Limited (${exceptions} exceptions)`;
+      } else if (exceptions > 0) {
+        return `Partially Available (${exceptions} exceptions)`;
       }
       return "Partially Available";
     }
   };
 
-  // Get availability chip style
+  // Get availability chip style - more subtle for dark mode
   const getAvailabilityStyle = () => {
-    if (!props.monthlyAvailability) return styles.availabilityChipAvailable;
+    if (!props.monthlyAvailability) return {
+      container: { backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface2 },
+      text: { color: isDarkMode ? '#94a3b8' : colors.textSecondary }
+    };
     
     if (props.monthlyAvailability.fullyAvailable) {
-      return styles.availabilityChipFullyAvailable;
+      return {
+        container: { backgroundColor: isDarkMode ? '#1a3a2a' : colors.successLight },
+        text: { color: isDarkMode ? '#4ade80' : colors.success }
+      };
     } else {
-      return styles.availabilityChipPartial;
+      const exceptions = props.monthlyAvailability.exceptions?.length || 0;
+      if (exceptions > 20) {
+        return {
+          container: { backgroundColor: isDarkMode ? '#3a2a2a' : colors.errorLight },
+          text: { color: isDarkMode ? '#f87171' : colors.error }
+        };
+      } else if (exceptions > 10) {
+        return {
+          container: { backgroundColor: isDarkMode ? '#3a352a' : colors.warningLight },
+          text: { color: isDarkMode ? '#fbbf24' : colors.warning }
+        };
+      } else {
+        return {
+          container: { backgroundColor: isDarkMode ? '#1a2a3a' : colors.infoLight },
+          text: { color: isDarkMode ? '#60a5fa' : colors.info }
+        };
+      }
     }
   };
 
-  // Get availability message (similar to React)
+  // Get availability message
   const getAvailabilityMessage = () => {
     if (!props.monthlyAvailability) {
       return "Availability not specified";
@@ -158,26 +228,26 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return `Available at ${formatTimeForDisplay(props.monthlyAvailability.preferredTime)}`;
   };
 
-  // Get time icon color based on availability
+  // Get time icon color - more subtle for dark mode
   const getTimeIconColor = () => {
-    if (!props.monthlyAvailability) return "#757575";
+    if (!props.monthlyAvailability) return isDarkMode ? '#64748b' : colors.textTertiary;
     
     if (props.monthlyAvailability.fullyAvailable) {
-      return "#4caf50";
+      return isDarkMode ? '#4ade80' : colors.success;
     }
     
     const exceptions = props.monthlyAvailability.exceptions?.length || 0;
     
-    if (exceptions > 10) {
-      return "#ff9800";
-    } else if (exceptions > 0) {
-      return "#1976d2";
+    if (exceptions > 20) {
+      return isDarkMode ? '#f87171' : colors.error;
+    } else if (exceptions > 10) {
+      return isDarkMode ? '#fbbf24' : colors.warning;
+    } else {
+      return isDarkMode ? '#60a5fa' : colors.info;
     }
-    
-    return "#1976d2";
   };
 
-  // Check if it's monthly or short term based on daysAtPreferredTime
+  // Get availability duration
   const getAvailabilityDuration = () => {
     if (!props.monthlyAvailability) return "Short Term";
     
@@ -188,7 +258,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     }
   };
 
-  // Get gender symbol - Updated to match image format (M, F)
+  // Get gender symbol
   const getGenderSymbol = (gender: string) => {
     if (!gender) return "";
     switch (gender.toUpperCase()) {
@@ -242,35 +312,28 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     setIsFavorite(!isFavorite);
   };
 
-  // Get provider ID - FIXED: Handle property name variations correctly
+  // Get provider ID
   const getProviderId = () => {
-    // Try to get the provider ID from different property names
     const id = props.serviceproviderId || props.serviceproviderid;
-    console.log("Provider ID check:", {
-      serviceproviderId: props.serviceproviderId,
-      serviceproviderid: props.serviceproviderid,
-      
-      selected: id
-    });
     return id ? String(id) : undefined;
   };
 
-  // Get first name - FIXED: Handle property name variations
+  // Get first name
   const getFirstName = () => {
     return props.firstName || props.firstname || '';
   };
 
-  // Get last name - FIXED: Handle property name variations
+  // Get last name
   const getLastName = () => {
     return props.lastName || props.lastname || '';
   };
 
-  // Get housekeeping role - FIXED: Handle property name variations
+  // Get housekeeping role
   const getHousekeepingRole = () => {
     return props.housekeepingRole || props.housekeepingrole || "UNKNOWN";
   };
 
-  // Handle Book Now - FIXED VERSION
+  // Handle Book Now
   const handleBookNow = () => {
     const providerId = getProviderId();
     console.log("Book Now clicked for provider ID:", providerId);
@@ -317,12 +380,11 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     
     props.selectedProvider(providerDetails);
     
-    // FIXED: Directly open the dialog (matching web behavior)
     setOpen(true);
     console.log("Dialog opened state:", true);
   };
 
-  // Handle login - Simplified version
+  // Handle login
   const handleLogin = () => {
     setOpen(true);
   };
@@ -385,7 +447,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Get distance display
   const getDistanceDisplay = () => {
-    return props.distance_km || 0;
+    return props.distance_km?.toFixed(2) || "0.00";
   };
 
   // Get experience display
@@ -393,20 +455,13 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return props.experience || 1;
   };
 
-  // Render service dialog - FIXED VERSION
+  // Render service dialog
   const renderServiceDialog = () => {
     const providerId = getProviderId();
     const housekeepingRole = getHousekeepingRole();
     const firstName = getFirstName();
     const lastName = getLastName();
     
-    console.log("Rendering service dialog, open:", open);
-    console.log("Provider role:", housekeepingRole);
-    console.log("Provider ID:", providerId);
-    console.log("First Name:", firstName);
-    console.log("Last Name:", lastName);
-    
-    // FIXED: Create providerDetailsData exactly like in your React web version
     const providerDetailsData: any = {
       ...props,
       serviceproviderid: providerId,
@@ -425,16 +480,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
       endTime
     };
 
-    console.log("Dialog data prepared:", {
-      id: providerDetailsData.serviceproviderId,
-      name: `${providerDetailsData.firstName} ${providerDetailsData.lastName}`,
-      role: providerDetailsData.housekeepingRole
-    });
-
-    // FIXED: Use the variable that handles both property name variations
     switch (housekeepingRole) {
       case "COOK":
-        console.log("Rendering COOK dialog");
         return (
           <DemoCook 
             visible={open}
@@ -446,7 +493,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           />
         );
       case "MAID":
-        console.log("Rendering MAID dialog");
         return (
           <MaidServiceDialog
             open={open}
@@ -458,7 +504,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           />
         );
       case "NANNY":
-        console.log("Rendering NANNY dialog");
         return (
           <NannyServicesDialog 
             open={open}
@@ -470,7 +515,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           />
         );
       default:
-        console.log("No dialog for role:", housekeepingRole);
         return null;
     }
   };
@@ -482,24 +526,35 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const fullName = `${firstName} ${lastName}`.trim();
   const housekeepingRole = getHousekeepingRole();
   const providerId = getProviderId();
+  const availabilityStyle = getAvailabilityStyle();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { 
+      padding: 12 * spacingMultiplier, 
+      backgroundColor: 'transparent'
+    }]}>
       <View style={[
         styles.card,
         isMobile && styles.cardMobile,
         isSmallScreen && styles.cardSmall,
+        { 
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          shadowColor: colors.shadow,
+        }
       ]}>
         {/* Best Match Ribbon */}
         {props.bestMatch && (
           <View style={[
             styles.bestMatchRibbon,
-            isMobile && styles.bestMatchRibbonMobile
+            isMobile && styles.bestMatchRibbonMobile,
+            { backgroundColor: isDarkMode ? '#3b3f5c' : colors.accent }
           ]}>
-            <MaterialCommunityIcons name="fire" size={14} color="white" />
+            <MaterialCommunityIcons name="fire" size={14} color="#ffffff" />
             <Text style={[
               styles.bestMatchRibbonText,
-              isMobile && styles.bestMatchRibbonTextMobile
+              isMobile && styles.bestMatchRibbonTextMobile,
+              { fontSize: fontStyles.xSmall }
             ]}>Best Match</Text>
           </View>
         )}
@@ -507,7 +562,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
         {/* Main Content */}
         <View style={[
           styles.mainContent,
-          isMobile && styles.mainContentMobile
+          isMobile && styles.mainContentMobile,
+          { gap: 20 * spacingMultiplier }
         ]}>
           {/* Left Section - Provider Info */}
           <View style={[
@@ -515,19 +571,24 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             isMobile && styles.leftSectionMobile
           ]}>
             {/* Name and Basic Info */}
-            <View style={styles.nameRow}>
+            <View style={[styles.nameRow, { marginBottom: 8 * spacingMultiplier, gap: 8 }]}>
               <Text style={[
                 styles.nameText,
-                isMobile && styles.nameTextMobile
+                isMobile && styles.nameTextMobile,
+                { color: colors.text, fontSize: fontStyles.headingSize }
               ]}>
                 {fullName}
               </Text>
-              <View style={styles.genderAgeChip}>
+              <View style={[styles.genderAgeChip, { 
+                borderColor: isDarkMode ? '#4b5563' : colors.primary,
+                backgroundColor: isDarkMode ? '#2d3a4f' : 'transparent'
+              }]}>
                 <Text style={[
                   styles.genderAgeText,
-                  isMobile && styles.genderAgeTextMobile
+                  isMobile && styles.genderAgeTextMobile,
+                  { color: isDarkMode ? '#e2e8f0' : colors.primary, fontSize: fontStyles.xSmall, fontWeight: '600' }
                 ]}>
-                  {genderSymbol}. {age}
+                  {genderSymbol} • {age} yrs
                 </Text>
               </View>
             </View>
@@ -535,56 +596,70 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             {/* Meta Info Row */}
             <View style={[
               styles.metaRow,
-              isMobile && styles.metaRowMobile
+              isMobile && styles.metaRowMobile,
+              { marginBottom: 16 * spacingMultiplier, gap: 12 * spacingMultiplier }
             ]}>
-              <View style={styles.metaItem}>
-                <Icon name="restaurant" size={14} color="#666" />
+              <View style={[styles.metaItem, { gap: 4 }]}>
+                <Icon name="restaurant" size={14} color={getDietColor()} />
                 <Text style={[
                   styles.metaText,
-                  isMobile && styles.metaTextMobile
+                  isMobile && styles.metaTextMobile,
+                  { color: colors.textSecondary, fontSize: fontStyles.smallText }
                 ]}>{props.diet || "NONVEG"}</Text>
               </View>
 
-              <View style={styles.metaDivider} />
+              <View style={[styles.metaDivider, { 
+                backgroundColor: colors.border,
+                height: 12 * spacingMultiplier,
+              }]} />
 
-              <View style={styles.metaItem}>
-                <Icon name="language" size={14} color="#666" />
+              <View style={[styles.metaItem, { gap: 4 }]}>
+                <Icon name="language" size={14} color={isDarkMode ? '#94a3b8' : colors.secondary} />
                 <Text style={[
                   styles.metaText,
-                  isMobile && styles.metaTextMobile
+                  isMobile && styles.metaTextMobile,
+                  { color: colors.textSecondary, fontSize: fontStyles.smallText }
                 ]}>{getLanguageDisplay()}</Text>
               </View>
 
-              <View style={styles.metaDivider} />
+              <View style={[styles.metaDivider, { 
+                backgroundColor: colors.border,
+                height: 12 * spacingMultiplier,
+              }]} />
 
-              <View style={styles.metaItem}>
-                <Icon name="location-on" size={14} color="#666" />
+              <View style={[styles.metaItem, { gap: 4 }]}>
+                <Icon name="location-on" size={14} color={isDarkMode ? '#94a3b8' : colors.info} />
                 <Text style={[
                   styles.metaText,
-                  isMobile && styles.metaTextMobile
-                ]}>{props.locality || "sukna forest"}</Text>
+                  isMobile && styles.metaTextMobile,
+                  { color: colors.textSecondary, fontSize: fontStyles.smallText }
+                ]}>{props.locality || "Location not specified"}</Text>
               </View>
             </View>
 
             {/* Availability Section */}
             <View style={[
               styles.availabilitySection,
-              isMobile && styles.availabilitySectionMobile
+              isMobile && styles.availabilitySectionMobile,
+              { marginBottom: 16 * spacingMultiplier }
             ]}>
               <Text style={[
                 styles.availabilityLabel,
-                isMobile && styles.availabilityLabelMobile
+                isMobile && styles.availabilityLabelMobile,
+                { color: colors.textSecondary, fontSize: fontStyles.smallText, fontWeight: '600' }
               ]}>Availability</Text>
               
               {/* Availability Info Row */}
               <View style={[
                 styles.availabilityInfoRow,
-                isMobile && styles.availabilityInfoRowMobile
+                isMobile && styles.availabilityInfoRowMobile,
+                { marginBottom: 8 * spacingMultiplier }
               ]}>
                 <Icon name="access-time" size={16} color={getTimeIconColor()} />
                 <Text style={[
                   styles.availabilityMessage,
-                  isMobile && styles.availabilityMessageMobile
+                  isMobile && styles.availabilityMessageMobile,
+                  { color: colors.text, fontSize: fontStyles.textSize }
                 ]}>
                   {getAvailabilityMessage()}
                 </Text>
@@ -593,15 +668,21 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               {/* Availability Chips Row */}
               <View style={[
                 styles.availabilityChipsRow,
-                isMobile && styles.availabilityChipsRowMobile
+                isMobile && styles.availabilityChipsRowMobile,
+                { gap: 8 * spacingMultiplier, marginBottom: 8 * spacingMultiplier }
               ]}>
                 <View style={[
                   styles.durationChip,
-                  isMobile && styles.durationChipMobile
+                  isMobile && styles.durationChipMobile,
+                  { 
+                    borderColor: isDarkMode ? '#4b5563' : colors.secondary,
+                    backgroundColor: isDarkMode ? '#2d3a4f' : 'transparent'
+                  }
                 ]}>
                   <Text style={[
                     styles.durationChipText,
-                    isMobile && styles.durationChipTextMobile
+                    isMobile && styles.durationChipTextMobile,
+                    { color: isDarkMode ? '#e2e8f0' : colors.secondary, fontSize: fontStyles.xSmall, fontWeight: '600' }
                   ]}>
                     {getAvailabilityDuration()}
                   </Text>
@@ -609,12 +690,14 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
                 <View style={[
                   styles.availabilityChipContainer,
-                  getAvailabilityStyle(),
-                  isMobile && styles.availabilityChipContainerMobile
+                  isMobile && styles.availabilityChipContainerMobile,
+                  availabilityStyle.container
                 ]}>
                   <Text style={[
                     styles.availabilityChipText,
-                    isMobile && styles.availabilityChipTextMobile
+                    isMobile && styles.availabilityChipTextMobile,
+                    { fontSize: fontStyles.xSmall, fontWeight: '600' },
+                    availabilityStyle.text
                   ]}>
                     {getAvailabilityStatus()}
                   </Text>
@@ -623,31 +706,37 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
               {/* Additional Availability Info */}
               {props.monthlyAvailability?.exceptions && props.monthlyAvailability.exceptions.length > 0 && (
-                <Text style={[
-                  styles.exceptionText,
-                  isMobile && styles.exceptionTextMobile
-                ]}>
-                  ▲ {props.monthlyAvailability.exceptions.length} schedule exceptions this month
-                </Text>
+                <View style={[styles.exceptionContainer, { 
+                  backgroundColor: isDarkMode ? '#3a352a' : colors.warningLight,
+                  padding: 6 * spacingMultiplier,
+                  borderRadius: 6,
+                  marginTop: 4 * spacingMultiplier
+                }]}>
+                  <Text style={[
+                    styles.exceptionText,
+                    isMobile && styles.exceptionTextMobile,
+                    { color: isDarkMode ? '#fffefc' : colors.warning, fontSize: fontStyles.xSmall, fontWeight: '500' }
+                  ]}>
+                    ⚠️ {props.monthlyAvailability.exceptions.length} schedule exceptions this month
+                  </Text>
+                </View>
               )}
 
               {props.monthlyAvailability?.fullyAvailable && (
-                <Text style={[
-                  styles.fullyAvailableText,
-                  isMobile && styles.fullyAvailableTextMobile
-                ]}>
-                  ✓ Fully available all month
-                </Text>
-              )}
-
-              {props.monthlyAvailability && !props.monthlyAvailability.fullyAvailable && 
-               (!props.monthlyAvailability.exceptions || props.monthlyAvailability.exceptions.length === 0) && (
-                <Text style={[
-                  styles.partiallyAvailableText,
-                  isMobile && styles.partiallyAvailableTextMobile
-                ]}>
-                  ⚠️ Partially available this month
-                </Text>
+                <View style={[styles.fullyAvailableContainer, { 
+                  backgroundColor: isDarkMode ? '#1a3a2a' : colors.successLight,
+                  padding: 6 * spacingMultiplier,
+                  borderRadius: 6,
+                  marginTop: 4 * spacingMultiplier
+                }]}>
+                  <Text style={[
+                    styles.fullyAvailableText,
+                    isMobile && styles.fullyAvailableTextMobile,
+                    { color: isDarkMode ? '#4ade80' : colors.success, fontSize: fontStyles.xSmall, fontWeight: '500' }
+                  ]}>
+                    ✓ Fully available all month
+                  </Text>
+                </View>
               )}
             </View>
           </View>
@@ -655,69 +744,106 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           {/* Metrics Section - Center */}
           <View style={[
             styles.metricsSection,
-            isMobile && styles.metricsSectionMobile
+            isMobile && styles.metricsSectionMobile,
+            { gap: 8 * spacingMultiplier }
           ]}>
             <View style={[
               styles.metricBox,
-              isMobile && styles.metricBoxMobile
+              isMobile && styles.metricBoxMobile,
+              { 
+                backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface,
+                borderColor: isDarkMode ? '#4b5563' : colors.borderLight,
+                padding: 12 * spacingMultiplier,
+                minWidth: isSmallScreen ? 60 : 70
+              }
             ]}>
               <Text style={[
                 styles.metricValue,
-                isMobile && styles.metricValueMobile
+                isMobile && styles.metricValueMobile,
+                { color: colors.text, fontSize: fontStyles.textSize, fontWeight: '700' }
               ]}>{getDistanceDisplay()}</Text>
               <Text style={[
                 styles.metricLabel,
-                isMobile && styles.metricLabelMobile
+                isMobile && styles.metricLabelMobile,
+                { color: colors.textTertiary, fontSize: fontStyles.xSmall }
               ]}>km away</Text>
             </View>
 
             <View style={[
               styles.metricBox,
-              isMobile && styles.metricBoxMobile
+              isMobile && styles.metricBoxMobile,
+              { 
+                backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface,
+                borderColor: isDarkMode ? '#4b5563' : colors.borderLight,
+                padding: 12 * spacingMultiplier,
+                minWidth: isSmallScreen ? 60 : 70
+              }
             ]}>
-              <View style={styles.ratingRow}>
-                <Icon name="star" size={14} color="#FFD700" />
+              <View style={[styles.ratingRow, { gap: 4 * spacingMultiplier }]}>
+                <Icon name="star" size={14} color={isDarkMode ? '#fbbf24' : colors.rating} />
                 <Text style={[
                   styles.metricValue,
-                  isMobile && styles.metricValueMobile
+                  isMobile && styles.metricValueMobile,
+                  { color: colors.text, fontSize: fontStyles.textSize, fontWeight: '700' }
                 ]}>{getRatingDisplay()}</Text>
               </View>
               <Text style={[
                 styles.metricLabel,
-                isMobile && styles.metricLabelMobile
+                isMobile && styles.metricLabelMobile,
+                { color: colors.textTertiary, fontSize: fontStyles.xSmall }
               ]}>{getReviewCount()} reviews</Text>
             </View>
 
             <View style={[
               styles.metricBox,
-              isMobile && styles.metricBoxMobile
+              isMobile && styles.metricBoxMobile,
+              { 
+                backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface,
+                borderColor: isDarkMode ? '#4b5563' : colors.borderLight,
+                padding: 12 * spacingMultiplier,
+                minWidth: isSmallScreen ? 60 : 70
+              }
             ]}>
               <Text style={[
                 styles.metricValue,
                 styles.experienceValue,
-                isMobile && styles.metricValueMobile
+                isMobile && styles.metricValueMobile,
+                { color: isDarkMode ? '#4ade80' : colors.success, fontSize: fontStyles.textSize, fontWeight: '700' }
               ]}>{getExperienceDisplay()}</Text>
               <Text style={[
                 styles.metricLabel,
-                isMobile && styles.metricLabelMobile
-              ]}>yrs experience</Text>
+                isMobile && styles.metricLabelMobile,
+                { color: colors.textTertiary, fontSize: fontStyles.xSmall }
+              ]}>years exp</Text>
             </View>
           </View>
 
           {/* Right Section - Actions */}
           <View style={[
             styles.rightSection,
-            isMobile && styles.rightSectionMobile
+            isMobile && styles.rightSectionMobile,
+            { gap: 8 * spacingMultiplier }
           ]}>
-            {/* Role Chip - FIXED: Use the function that handles both property names */}
+            {/* Role Chip */}
             {housekeepingRole && housekeepingRole !== "UNKNOWN" && (
               <View style={[
                 styles.roleChip,
-                isMobile && styles.roleChipMobile
+                isMobile && styles.roleChipMobile,
+                { 
+                  backgroundColor: isDarkMode ? '#4b5563' : colors.accent,
+                  shadowColor: colors.shadow,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: isDarkMode ? 0.2 : 0.3,
+                  shadowRadius: 4,
+                  elevation: isDarkMode ? 2 : 5,
+                  paddingHorizontal: 12 * spacingMultiplier,
+                  paddingVertical: 6 * spacingMultiplier,
+                }
               ]}>
                 <Text style={[
                   styles.roleChipText,
-                  isMobile && styles.roleChipTextMobile
+                  isMobile && styles.roleChipTextMobile,
+                  { color: '#ffffff', fontSize: fontStyles.smallText, fontWeight: '700' }
                 ]}>
                   {housekeepingRole}
                 </Text>
@@ -728,14 +854,23 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             <TouchableOpacity 
               style={[
                 styles.detailsButton,
-                isMobile && styles.detailsButtonMobile
+                isMobile && styles.detailsButtonMobile,
+                { 
+                  borderColor: isDarkMode ? '#4b5563' : colors.primary,
+                  backgroundColor: isDarkMode ? '#2d3a4f' : colors.infoLight,
+                  gap: 6 * spacingMultiplier,
+                  paddingHorizontal: 12 * spacingMultiplier,
+                  paddingVertical: 8 * spacingMultiplier,
+                  borderRadius: 8,
+                }
               ]}
               onPress={handleViewDetails}
             >
-              <Icon name="info-outline" size={16} color="#1976d2" />
+              <Icon name="info-outline" size={16} color={isDarkMode ? '#e2e8f0' : colors.primary} />
               <Text style={[
                 styles.detailsButtonText,
-                isMobile && styles.detailsButtonTextMobile
+                isMobile && styles.detailsButtonTextMobile,
+                { color: isDarkMode ? '#e2e8f0' : colors.primary, fontSize: fontStyles.smallText, fontWeight: '600' }
               ]}>
                 Details
               </Text>
@@ -745,15 +880,27 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             <TouchableOpacity 
               style={[
                 styles.bookNowButton,
-                isMobile && styles.bookNowButtonMobile
+                isMobile && styles.bookNowButtonMobile,
+                { 
+                  backgroundColor: isDarkMode ? '#3b82f6' : colors.primary,
+                  paddingHorizontal: 12 * spacingMultiplier,
+                  paddingVertical: 10 * spacingMultiplier,
+                  borderRadius: 8,
+                  shadowColor: isDarkMode ? '#3b82f6' : colors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: isDarkMode ? 0.2 : 0.3,
+                  shadowRadius: 8,
+                  elevation: isDarkMode ? 3 : 5,
+                }
               ]}
               onPress={handleBookNow}
             >
               <Text style={[
                 styles.bookNowButtonText,
-                isMobile && styles.bookNowButtonTextMobile
+                isMobile && styles.bookNowButtonTextMobile,
+                { color: '#ffffff', fontSize: fontStyles.textSize, fontWeight: '700' }
               ]}>
-                Book
+                Book Now
               </Text>
             </TouchableOpacity>
           </View>
@@ -769,15 +916,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
       {/* Render the dialog */}
       {renderServiceDialog()}
-      
-      {/* Debug overlay - helpful for development */}
-      {/* {__DEV__ && (
-        <View style={styles.debugOverlay}>
-          <Text style={styles.debugText}>Name: {fullName}</Text>
-          <Text style={styles.debugText}>Provider ID: {providerId}</Text>
-          <Text style={styles.debugText}>Role: {housekeepingRole}</Text>
-        </View>
-      )} */}
     </View>
   );
 };
@@ -786,21 +924,17 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
-    backgroundColor: '#f5f5f5',
+    flex: 1,
   },
   card: {
-    backgroundColor: 'white',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     position: 'relative',
   },
   cardMobile: {
@@ -820,11 +954,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#ff9800',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -839,19 +971,14 @@ const styles = StyleSheet.create({
   bestMatchRibbonText: {
     color: 'white',
     fontWeight: '700',
-    fontSize: 12,
   },
-  bestMatchRibbonTextMobile: {
-    fontSize: 10,
-  },
+  bestMatchRibbonTextMobile: {},
   mainContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 20,
   },
   mainContentMobile: {
     flexDirection: 'column',
-    gap: 16,
   },
   leftSection: {
     flex: 1,
@@ -862,80 +989,50 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
     flexWrap: 'wrap',
   },
   nameText: {
-    fontSize: 18,
     fontWeight: '700',
-    color: '#333',
-    marginRight: 8,
   },
   nameTextMobile: {
     fontSize: 16,
   },
   genderAgeChip: {
-    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#666',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   genderAgeText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  genderAgeTextMobile: {
-    fontSize: 11,
-  },
+  genderAgeTextMobile: {},
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
     flexWrap: 'wrap',
   },
-  metaRowMobile: {
-    marginBottom: 12,
-  },
+  metaRowMobile: {},
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 8,
   },
   metaText: {
-    fontSize: 13,
-    color: '#666',
-    marginLeft: 4,
+    marginLeft: 2,
   },
-  metaTextMobile: {
-    fontSize: 12,
-  },
+  metaTextMobile: {},
   metaDivider: {
     width: 1,
-    height: 12,
-    backgroundColor: '#e0e0e0',
-    marginRight: 8,
   },
-  availabilitySection: {
-    marginBottom: 16,
-  },
-  availabilitySectionMobile: {
-    marginBottom: 12,
-  },
+  availabilitySection: {},
+  availabilitySectionMobile: {},
   availabilityLabel: {
-    fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
-  availabilityLabelMobile: {
-    fontSize: 13,
-  },
+  availabilityLabelMobile: {},
   availabilityInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
   },
   availabilityInfoRowMobile: {
     flexDirection: 'row',
@@ -943,158 +1040,96 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   availabilityMessage: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
     marginLeft: 6,
+    flex: 1,
   },
-  availabilityMessageMobile: {
-    fontSize: 14,
-  },
+  availabilityMessageMobile: {},
   availabilityChipsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    flexWrap: 'wrap',
   },
   availabilityChipsRowMobile: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    flexWrap: 'wrap',
   },
   durationChip: {
     borderWidth: 1,
-    borderColor: '#1976d2',
-    borderRadius: 10,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  durationChipMobile: {
+    borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  durationChipMobile: {
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
   durationChipText: {
-    fontSize: 11,
-    color: '#1976d2',
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  durationChipTextMobile: {
-    fontSize: 10,
-  },
+  durationChipTextMobile: {},
   availabilityChipContainer: {
-    borderRadius: 10,
-    paddingHorizontal: 8,
+    borderRadius: 16,
+    paddingHorizontal: 10,
     paddingVertical: 4,
   },
   availabilityChipContainerMobile: {
-    borderRadius: 8,
-    paddingHorizontal: 6,
+    borderRadius: 14,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  availabilityChipAvailable: {
-    backgroundColor: '#e8f5e9',
-  },
-  availabilityChipFullyAvailable: {
-    backgroundColor: '#e8f5e9',
-  },
-  availabilityChipPartial: {
-    backgroundColor: '#fff3e0',
-  },
   availabilityChipText: {
-    fontSize: 11,
     fontWeight: '600',
   },
-  availabilityChipTextMobile: {
-    fontSize: 10,
-  },
-  exceptionText: {
-    fontSize: 12,
-    color: '#ff9800',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  exceptionTextMobile: {
-    fontSize: 11,
-  },
-  fullyAvailableText: {
-    fontSize: 12,
-    color: '#4caf50',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  fullyAvailableTextMobile: {
-    fontSize: 11,
-  },
-  partiallyAvailableText: {
-    fontSize: 12,
-    color: '#ff9800',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  partiallyAvailableTextMobile: {
-    fontSize: 11,
-  },
+  availabilityChipTextMobile: {},
+  exceptionContainer: {},
+  exceptionText: {},
+  exceptionTextMobile: {},
+  fullyAvailableContainer: {},
+  fullyAvailableText: {},
+  fullyAvailableTextMobile: {},
+  partiallyAvailableText: {},
+  partiallyAvailableTextMobile: {},
   metricsSection: {
     flexDirection: 'row',
-    gap: 12,
     alignItems: 'center',
     justifyContent: 'space-between',
-    minWidth: 240,
   },
   metricsSectionMobile: {
     width: '100%',
-    gap: 8,
+    justifyContent: 'space-around',
   },
   metricBox: {
-    backgroundColor: '#f8f9fa',
     borderRadius: 12,
-    padding: 12,
     borderWidth: 1,
-    borderColor: '#e9ecef',
     alignItems: 'center',
-    minWidth: 70,
+    flex: 1,
   },
-  metricBoxMobile: {
-    padding: 10,
-    minWidth: 65,
-  },
+  metricBoxMobile: {},
   metricValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
     textAlign: 'center',
   },
-  metricValueMobile: {
-    fontSize: 15,
-  },
-  experienceValue: {
-    color: '#2e7d32',
-  },
+  metricValueMobile: {},
+  experienceValue: {},
   metricLabel: {
-    fontSize: 11,
-    color: '#666',
-    marginTop: 2,
+    marginTop: 4,
     textAlign: 'center',
   },
-  metricLabelMobile: {
-    fontSize: 10,
-  },
+  metricLabelMobile: {},
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
   },
   rightSection: {
     flexDirection: 'column',
-    gap: 12,
     alignItems: 'stretch',
     minWidth: 100,
   },
   rightSectionMobile: {
     width: '100%',
     flexDirection: 'row',
-    gap: 8,
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
@@ -1103,90 +1138,41 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   roleChip: {
-    backgroundColor: '#1976d2',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 20,
     alignSelf: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleChipMobile: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 16,
   },
   roleChipText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
+    textAlign: 'center',
   },
-  roleChipTextMobile: {
-    fontSize: 11,
-  },
+  roleChipTextMobile: {},
   detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     borderWidth: 1,
-    borderColor: '#1976d2',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   detailsButtonMobile: {
     flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    minHeight: 36,
+    minHeight: 40,
   },
-  detailsButtonText: {
-    color: '#1976d2',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  detailsButtonTextMobile: {
-    fontSize: 12,
-  },
+  detailsButtonText: {},
+  detailsButtonTextMobile: {},
   bookNowButton: {
-    backgroundColor: '#1976d2',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
   },
   bookNowButtonMobile: {
     flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    minHeight: 36,
+    minHeight: 40,
   },
-  bookNowButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  bookNowButtonTextMobile: {
-    fontSize: 13,
-  },
-  // Debug styles
-  // debugOverlay: {
-  //   position: 'absolute',
-  //   bottom: 10,
-  //   right: 10,
-  //   backgroundColor: 'rgba(0,0,0,0.7)',
-  //   padding: 5,
-  //   borderRadius: 5,
-  // },
-  // debugText: {
-  //   color: 'white',
-  //   fontSize: 10,
-  // },
+  bookNowButtonText: {},
+  bookNowButtonTextMobile: {},
 });
 
 export default ProviderDetails;

@@ -21,6 +21,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import moment from 'moment';
 import { ServiceProviderDTO } from '../types/ProviderDetailsType';
+import LinearGradient from 'react-native-linear-gradient';
 
 interface ProviderAvailabilityDrawerProps {
   open: boolean;
@@ -60,7 +61,14 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
+    <>
+    {/* <View style={styles.header}> */}
+     <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.header}
+            >
       <View style={styles.headerContent}>
         <Text variant="headlineMedium" style={styles.headerTitle}>
           Availability Details
@@ -78,9 +86,11 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
         </View>
       </View>
       <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-        <Icon name="close" size={28} color="#000" />
+        <Icon name="close" size={28} color="#fcf7f7" />
       </TouchableOpacity>
-    </View>
+    {/* </View> */}
+    </LinearGradient>
+</>
   );
 
   const renderBestMatchAlert = () => {
@@ -375,7 +385,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 24,
     marginBottom: 8,
-    color: '#000',
+    color: '#ffffff',
   },
   providerInfo: {
     flexDirection: 'row',
@@ -385,7 +395,7 @@ const styles = StyleSheet.create({
   providerName: {
     fontWeight: '600',
     fontSize: 16,
-    color: '#000',
+    color: '#ffffff',
     marginRight: 8,
   },
   bestMatchBadge: {

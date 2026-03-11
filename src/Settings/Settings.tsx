@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Modal,
   SafeAreaView,
   Alert,
+  TextInput,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -19,8 +21,7 @@ import AboutUs from '../AboutUs/AboutPage';
 import TnC from '../TermsAndConditions/TnC';
 import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
 import { useTranslation } from 'react-i18next';
-import { changeLanguage } from '../../i18n';
-// import { changeLanguage } from './i18n'; // Adjust path as needed
+import { changeLanguage, getSupportedLanguages } from '../../i18n';
 
 interface SettingsProps {
   visible: boolean;
@@ -51,8 +52,11 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showTnCModal, setShowTnCModal] = useState(false);
   const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
-
-  // Updated languages list with all 15 languages
+  
+  // Language search state
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Define languages array before using it
   const languages = [
     { code: 'en', name: 'English', nativeName: 'English' },
     { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
@@ -71,6 +75,9 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     { code: 'ne', name: 'Nepali', nativeName: 'नेपाली' },
   ];
 
+  // Initialize filteredLanguages state after languages is defined
+  const [filteredLanguages, setFilteredLanguages] = useState(languages);
+
   const fontSizes = [
     { value: 'small', label: t('settings.small'), icon: 'text-fields', size: 14 },
     { value: 'medium', label: t('settings.medium'), icon: 'text-fields', size: 16 },
@@ -82,6 +89,21 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     { value: 'dark', label: t('settings.dark'), icon: 'nights-stay' },
     { value: 'system', label: t('settings.system'), icon: 'settings-overscan' },
   ];
+
+  // Filter languages based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredLanguages(languages);
+    } else {
+      const query = searchQuery.toLowerCase().trim();
+      const filtered = languages.filter(
+        lang => 
+          lang.name.toLowerCase().includes(query) || 
+          lang.nativeName.toLowerCase().includes(query)
+      );
+      setFilteredLanguages(filtered);
+    }
+  }, [searchQuery]);
 
   const getFontSizeStyles = () => {
     switch (fontSize) {
@@ -133,6 +155,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     setLanguage(code);
     await changeLanguage(code);
     setShowLanguageModal(false);
+    setSearchQuery(''); // Reset search when closing
   };
 
   const handleAboutPress = () => {
@@ -165,6 +188,11 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
 
   const handleClosePrivacyPolicy = () => {
     setShowPrivacyPolicyModal(false);
+  };
+
+  const handleCloseLanguageModal = () => {
+    setShowLanguageModal(false);
+    setSearchQuery(''); // Reset search when closing
   };
 
   const SettingItem = ({
@@ -372,126 +400,184 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
 
         {/* Theme Selection Modal */}
         <Modal visible={showThemeModal} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.modalTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-                  {t('settings.selectTheme')}
-                </Text>
-                <TouchableOpacity onPress={() => setShowThemeModal(false)}>
-                  <MaterialIcon name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              {themeOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.modalItem,
-                    { borderBottomColor: colors.border },
-                    theme === option.value && { backgroundColor: colors.primary + '20' }
-                  ]}
-                  onPress={() => {
-                    setTheme(option.value as 'light' | 'dark' | 'system');
-                    setShowThemeModal(false);
-                  }}
-                >
-                  <View style={styles.modalItemLeft}>
-                    <MaterialIcon name={option.icon} size={22} color={colors.primary} />
-                    <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                      {option.label}
+          <TouchableWithoutFeedback onPress={() => setShowThemeModal(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+                  <LinearGradient
+                    colors={["#0a2a66ff", "#004aadff"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.modalHeader, { borderBottomWidth: 0 }]}
+                  >
+                    <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+                      {t('settings.selectTheme')}
                     </Text>
-                  </View>
-                  {theme === option.value && (
-                    <MaterialIcon name="check" size={22} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
+                    <TouchableOpacity onPress={() => setShowThemeModal(false)}>
+                      <MaterialIcon name="close" size={24} color="#ffffff" />
+                    </TouchableOpacity>
+                  </LinearGradient>
+                  {themeOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.modalItem,
+                        { borderBottomColor: colors.border },
+                        theme === option.value && { backgroundColor: colors.primary + '20' }
+                      ]}
+                      onPress={() => {
+                        setTheme(option.value as 'light' | 'dark' | 'system');
+                        setShowThemeModal(false);
+                      }}
+                    >
+                      <View style={styles.modalItemLeft}>
+                        <MaterialIcon name={option.icon} size={22} color={colors.primary} />
+                        <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+                          {option.label}
+                        </Text>
+                      </View>
+                      {theme === option.value && (
+                        <MaterialIcon name="check" size={22} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
 
         {/* Font Size Selection Modal */}
         <Modal visible={showFontSizeModal} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.modalTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-                  {t('settings.selectFontSize')}
-                </Text>
-                <TouchableOpacity onPress={() => setShowFontSizeModal(false)}>
-                  <MaterialIcon name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              {fontSizes.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.modalItem,
-                    { borderBottomColor: colors.border },
-                    fontSize === option.value && { backgroundColor: colors.primary + '20' }
-                  ]}
-                  onPress={() => {
-                    setFontSize(option.value as 'small' | 'medium' | 'large');
-                    setShowFontSizeModal(false);
-                  }}
-                >
-                  <View style={styles.modalItemLeft}>
-                    <MaterialIcon name={option.icon} size={22} color={colors.primary} />
-                    <Text style={[styles.modalItemText, { color: colors.text, fontSize: option.size }]}>
-                      {option.label}
-                    </Text>
-                  </View>
-                  {fontSize === option.value && (
-                    <MaterialIcon name="check" size={22} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </Modal>
-
-        {/* Language Selection Modal */}
-        <Modal visible={showLanguageModal} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.modalTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-                  {t('settings.selectLanguage')}
-                </Text>
-                <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
-                  <MaterialIcon name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={{ maxHeight: 400 }}>
-                {languages.map((lang) => (
-                  <TouchableOpacity
-                    key={lang.code}
-                    style={[
-                      styles.modalItem,
-                      { borderBottomColor: colors.border },
-                      language === lang.code && { backgroundColor: colors.primary + '20' }
-                    ]}
-                    onPress={() => handleLanguageChange(lang.code)}
+          <TouchableWithoutFeedback onPress={() => setShowFontSizeModal(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+                  <LinearGradient
+                    colors={["#0a2a66ff", "#004aadff"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.modalHeader, { borderBottomWidth: 0 }]}
                   >
-                    <View style={styles.modalItemLeft}>
-                      <MaterialIcon name="language" size={22} color={colors.primary} />
-                      <View>
-                        <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                          {lang.name}
-                        </Text>
-                        <Text style={[styles.modalItemSubText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
-                          {lang.nativeName}
+                    <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+                      {t('settings.selectFontSize')}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowFontSizeModal(false)}>
+                      <MaterialIcon name="close" size={24} color="#ffffff" />
+                    </TouchableOpacity>
+                  </LinearGradient>
+                  {fontSizes.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.modalItem,
+                        { borderBottomColor: colors.border },
+                        fontSize === option.value && { backgroundColor: colors.primary + '20' }
+                      ]}
+                      onPress={() => {
+                        setFontSize(option.value as 'small' | 'medium' | 'large');
+                        setShowFontSizeModal(false);
+                      }}
+                    >
+                      <View style={styles.modalItemLeft}>
+                        <MaterialIcon name={option.icon} size={22} color={colors.primary} />
+                        <Text style={[styles.modalItemText, { color: colors.text, fontSize: option.size }]}>
+                          {option.label}
                         </Text>
                       </View>
-                    </View>
-                    {language === lang.code && (
-                      <MaterialIcon name="check" size={22} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                      {fontSize === option.value && (
+                        <MaterialIcon name="check" size={22} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Language Selection Modal with Search */}
+        <Modal visible={showLanguageModal} transparent animationType="fade">
+          <TouchableWithoutFeedback onPress={handleCloseLanguageModal}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '80%' }]}>
+                  <LinearGradient
+                    colors={["#0a2a66ff", "#004aadff"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.modalHeader, { borderBottomWidth: 0 }]}
+                  >
+                    <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+                      {t('settings.selectLanguage')}
+                    </Text>
+                    <TouchableOpacity onPress={handleCloseLanguageModal}>
+                      <MaterialIcon name="close" size={24} color="#ffffff" />
+                    </TouchableOpacity>
+                  </LinearGradient>
+                  
+                  {/* Search Input */}
+                  <View style={[styles.searchContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                    <MaterialIcon name="search" size={20} color={colors.textSecondary} />
+                    <TextInput
+                      style={[styles.searchInput, { color: colors.text, fontSize: fontStyles.textSize }]}
+                      placeholder={t('settings.searchLanguage')}
+                      placeholderTextColor={colors.textSecondary}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      autoFocus
+                    />
+                    {searchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setSearchQuery('')}>
+                        <MaterialIcon name="clear" size={20} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <ScrollView style={{ maxHeight: 400 }}>
+                    {filteredLanguages.length > 0 ? (
+                      filteredLanguages.map((lang) => (
+                        <TouchableOpacity
+                          key={lang.code}
+                          style={[
+                            styles.modalItem,
+                            { borderBottomColor: colors.border },
+                            language === lang.code && { backgroundColor: colors.primary + '20' }
+                          ]}
+                          onPress={() => handleLanguageChange(lang.code)}
+                        >
+                          <View style={styles.modalItemLeft}>
+                            <MaterialIcon name="language" size={22} color={colors.primary} />
+                            <View>
+                              <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+                                {lang.name}
+                              </Text>
+                              <Text style={[styles.modalItemSubText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                                {lang.nativeName}
+                              </Text>
+                            </View>
+                          </View>
+                          {language === lang.code && (
+                            <MaterialIcon name="check" size={22} color={colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={styles.noResultsContainer}>
+                        <MaterialIcon name="search-off" size={48} color={colors.textSecondary} />
+                        <Text style={[styles.noResultsText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+                          {t('settings.noLanguagesFound')}
+                        </Text>
+                        <Text style={[styles.noResultsSubText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                          {t('settings.tryDifferentSearch')}
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
         </Modal>
 
         {/* About Us Modal */}
@@ -655,6 +741,7 @@ const styles = StyleSheet.create({
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
   },
@@ -678,6 +765,31 @@ const styles = StyleSheet.create({
   },
   modalItemSubText: {
     marginTop: 2,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    paddingVertical: 8,
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  noResultsText: {
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  noResultsSubText: {
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 

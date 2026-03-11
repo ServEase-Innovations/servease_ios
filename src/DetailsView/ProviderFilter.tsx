@@ -11,8 +11,9 @@ import {
   Platform,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { Picker } from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import LinearGradient from 'react-native-linear-gradient';
+import { useTheme } from '../Settings/ThemeContext';
 
 interface FilterProps {
   open: boolean;
@@ -52,6 +53,23 @@ const ProviderFilter: React.FC<FilterProps> = ({
   onApplyFilters,
   initialFilters
 }) => {
+  const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+
+  // Get font size styles
+  const getFontSizeStyles = () => {
+    switch (fontSize) {
+      case 'small':
+        return { textSize: 14, headingSize: 18, smallText: 12 };
+      case 'large':
+        return { textSize: 18, headingSize: 24, smallText: 16 };
+      default:
+        return { textSize: 16, headingSize: 20, smallText: 14 };
+    }
+  };
+
+  const fontStyles = getFontSizeStyles();
+  const spacingMultiplier = compactMode ? 0.8 : 1;
+
   const [filters, setFilters] = useState<FilterCriteria>(
     initialFilters || {
       experience: [0, 30],
@@ -137,7 +155,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
           <Icon
             name={i <= rating ? 'star' : 'star-border'}
             size={30}
-            color="#FFD700"
+            color={colors.rating}
           />
         </TouchableOpacity>
       );
@@ -147,15 +165,23 @@ const ProviderFilter: React.FC<FilterProps> = ({
 
   const renderLanguageChips = () => {
     return (
-      <View style={styles.languageChipsContainer}>
+      <View style={[styles.languageChipsContainer, { gap: 8 * spacingMultiplier }]}>
         {tempFilters.language.map((lang) => (
-          <View key={lang} style={styles.chip}>
-            <Text style={styles.chipText}>{lang}</Text>
+          <View key={lang} style={[styles.chip, { 
+            backgroundColor: isDarkMode ? colors.surface2 : '#e3f2fd',
+            paddingHorizontal: 8 * spacingMultiplier,
+            paddingVertical: 4 * spacingMultiplier,
+            gap: 4 * spacingMultiplier
+          }]}>
+            <Text style={[styles.chipText, { 
+              color: isDarkMode ? colors.primary : '#1976d2',
+              fontSize: fontStyles.smallText
+            }]}>{lang}</Text>
             <TouchableOpacity
               onPress={() => handleLanguageToggle(lang)}
               style={styles.chipDelete}
             >
-              <Icon name="close" size={16} color="#666" />
+              <Icon name="close" size={16} color={isDarkMode ? colors.textSecondary : '#666'} />
             </TouchableOpacity>
           </View>
         ))}
@@ -170,25 +196,42 @@ const ProviderFilter: React.FC<FilterProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.drawer}>
-          <View style={styles.header}>
+      <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.drawer, { backgroundColor: colors.background }]}>
+          <LinearGradient
+            colors={isDarkMode ? ['#1e293b', '#0f172a'] : ["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.header, { padding: 16 * spacingMultiplier }]}
+          >
             <View style={styles.headerTitle}>
-              <Icon name="filter-list" size={24} color="#000" />
-              <Text style={styles.headerText}>Filter Providers</Text>
+              <Icon name="filter-list" size={24} color={colors.headerText} />
+              <Text style={[styles.headerText, { 
+                color: colors.headerText, 
+                fontSize: fontStyles.headingSize,
+                marginLeft: 8 * spacingMultiplier
+              }]}>
+                Filter Providers
+              </Text>
             </View>
             <TouchableOpacity onPress={onClose}>
-              <Icon name="close" size={24} color="#000" />
+              <Icon name="close" size={24} color={colors.headerText} />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-          <ScrollView style={styles.content}>
+          <ScrollView style={[styles.content, { padding: 16 * spacingMultiplier }]}>
             {/* Experience Filter */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Experience (years)</Text>
-              <View style={styles.sliderContainer}>
+            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
+              <Text style={[styles.sectionTitle, { 
+                color: colors.text, 
+                fontSize: fontStyles.textSize,
+                marginBottom: 12 * spacingMultiplier
+              }]}>
+                Experience (years)
+              </Text>
+              <View style={[styles.sliderContainer, { paddingHorizontal: 8 * spacingMultiplier }]}>
                 <Slider
                   value={tempFilters.experience[1]}
                   onValueChange={(value) => 
@@ -197,31 +240,55 @@ const ProviderFilter: React.FC<FilterProps> = ({
                   minimumValue={0}
                   maximumValue={30}
                   step={1}
-                  minimumTrackTintColor="#1976d2"
-                  maximumTrackTintColor="#ddd"
+                  minimumTrackTintColor={colors.primary}
+                  maximumTrackTintColor={colors.border}
+                  thumbTintColor={colors.primary}
                 />
-                <View style={styles.sliderLabels}>
-                  <Text style={styles.sliderLabel}>0</Text>
-                  <Text style={styles.sliderValue}>{tempFilters.experience[1]} years</Text>
-                  <Text style={styles.sliderLabel}>30</Text>
+                <View style={[styles.sliderLabels, { marginTop: 8 * spacingMultiplier }]}>
+                  <Text style={[styles.sliderLabel, { 
+                    color: colors.textSecondary,
+                    fontSize: fontStyles.smallText
+                  }]}>0</Text>
+                  <Text style={[styles.sliderValue, { 
+                    color: colors.primary,
+                    fontSize: fontStyles.textSize
+                  }]}>{tempFilters.experience[1]} years</Text>
+                  <Text style={[styles.sliderLabel, { 
+                    color: colors.textSecondary,
+                    fontSize: fontStyles.smallText
+                  }]}>30</Text>
                 </View>
               </View>
             </View>
 
             {/* Rating Filter */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Minimum Rating</Text>
-              <View style={styles.ratingContainer}>
+            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
+              <Text style={[styles.sectionTitle, { 
+                color: colors.text, 
+                fontSize: fontStyles.textSize,
+                marginBottom: 12 * spacingMultiplier
+              }]}>
+                Minimum Rating
+              </Text>
+              <View style={[styles.ratingContainer, { gap: 8 * spacingMultiplier }]}>
                 <View style={styles.starsContainer}>
                   {renderRatingStars()}
                 </View>
                 {tempFilters.rating && (
-                  <View style={styles.ratingChip}>
-                    <Text style={styles.ratingChipText}>{tempFilters.rating}+</Text>
+                  <View style={[styles.ratingChip, { 
+                    backgroundColor: isDarkMode ? colors.surface2 : '#e3f2fd',
+                    paddingHorizontal: 8 * spacingMultiplier,
+                    paddingVertical: 4 * spacingMultiplier,
+                    gap: 4 * spacingMultiplier
+                  }]}>
+                    <Text style={[styles.ratingChipText, { 
+                      color: colors.primary,
+                      fontSize: fontStyles.smallText
+                    }]}>{tempFilters.rating}+</Text>
                     <TouchableOpacity
                       onPress={() => setTempFilters(prev => ({ ...prev, rating: null }))}
                     >
-                      <Icon name="close" size={16} color="#666" />
+                      <Icon name="close" size={16} color={isDarkMode ? colors.textSecondary : '#666'} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -229,9 +296,15 @@ const ProviderFilter: React.FC<FilterProps> = ({
             </View>
 
             {/* Distance Filter */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Distance (km)</Text>
-              <View style={styles.sliderContainer}>
+            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
+              <Text style={[styles.sectionTitle, { 
+                color: colors.text, 
+                fontSize: fontStyles.textSize,
+                marginBottom: 12 * spacingMultiplier
+              }]}>
+                Distance (km)
+              </Text>
+              <View style={[styles.sliderContainer, { paddingHorizontal: 8 * spacingMultiplier }]}>
                 <Slider
                   value={tempFilters.distance[1]}
                   onValueChange={(value) => 
@@ -240,33 +313,62 @@ const ProviderFilter: React.FC<FilterProps> = ({
                   minimumValue={0}
                   maximumValue={50}
                   step={1}
-                  minimumTrackTintColor="#1976d2"
-                  maximumTrackTintColor="#ddd"
+                  minimumTrackTintColor={colors.primary}
+                  maximumTrackTintColor={colors.border}
+                  thumbTintColor={colors.primary}
                 />
-                <View style={styles.sliderLabels}>
-                  <Text style={styles.sliderLabel}>0</Text>
-                  <Text style={styles.sliderValue}>{tempFilters.distance[1]} km</Text>
-                  <Text style={styles.sliderLabel}>50</Text>
+                <View style={[styles.sliderLabels, { marginTop: 8 * spacingMultiplier }]}>
+                  <Text style={[styles.sliderLabel, { 
+                    color: colors.textSecondary,
+                    fontSize: fontStyles.smallText
+                  }]}>0</Text>
+                  <Text style={[styles.sliderValue, { 
+                    color: colors.primary,
+                    fontSize: fontStyles.textSize
+                  }]}>{tempFilters.distance[1]} km</Text>
+                  <Text style={[styles.sliderLabel, { 
+                    color: colors.textSecondary,
+                    fontSize: fontStyles.smallText
+                  }]}>50</Text>
                 </View>
               </View>
             </View>
 
             {/* Gender Filter */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Gender</Text>
-              <View style={styles.chipGroup}>
+            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
+              <Text style={[styles.sectionTitle, { 
+                color: colors.text, 
+                fontSize: fontStyles.textSize,
+                marginBottom: 12 * spacingMultiplier
+              }]}>
+                Gender
+              </Text>
+              <View style={[styles.chipGroup, { gap: 8 * spacingMultiplier }]}>
                 {genderOptions.map(gender => (
                   <TouchableOpacity
                     key={gender}
                     style={[
                       styles.filterChip,
-                      tempFilters.gender.includes(gender) && styles.filterChipSelected
+                      tempFilters.gender.includes(gender) && styles.filterChipSelected,
+                      { 
+                        borderColor: colors.border,
+                        backgroundColor: tempFilters.gender.includes(gender) 
+                          ? colors.primary 
+                          : isDarkMode ? colors.surface : colors.card,
+                        paddingHorizontal: 12 * spacingMultiplier,
+                        paddingVertical: 6 * spacingMultiplier,
+                      }
                     ]}
                     onPress={() => handleGenderChange(gender)}
                   >
                     <Text style={[
                       styles.filterChipText,
-                      tempFilters.gender.includes(gender) && styles.filterChipTextSelected
+                      { 
+                        color: tempFilters.gender.includes(gender) 
+                          ? '#ffffff' 
+                          : colors.textSecondary,
+                        fontSize: fontStyles.smallText
+                      }
                     ]}>
                       {gender}
                     </Text>
@@ -276,21 +378,40 @@ const ProviderFilter: React.FC<FilterProps> = ({
             </View>
 
             {/* Diet Filter */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Diet Preference</Text>
-              <View style={styles.chipGroup}>
+            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
+              <Text style={[styles.sectionTitle, { 
+                color: colors.text, 
+                fontSize: fontStyles.textSize,
+                marginBottom: 12 * spacingMultiplier
+              }]}>
+                Diet Preference
+              </Text>
+              <View style={[styles.chipGroup, { gap: 8 * spacingMultiplier }]}>
                 {dietOptions.map(diet => (
                   <TouchableOpacity
                     key={diet}
                     style={[
                       styles.filterChip,
-                      tempFilters.diet.includes(diet) && styles.filterChipSelected
+                      tempFilters.diet.includes(diet) && styles.filterChipSelected,
+                      { 
+                        borderColor: colors.border,
+                        backgroundColor: tempFilters.diet.includes(diet) 
+                          ? colors.primary 
+                          : isDarkMode ? colors.surface : colors.card,
+                        paddingHorizontal: 12 * spacingMultiplier,
+                        paddingVertical: 6 * spacingMultiplier,
+                      }
                     ]}
                     onPress={() => handleDietChange(diet)}
                   >
                     <Text style={[
                       styles.filterChipText,
-                      tempFilters.diet.includes(diet) && styles.filterChipTextSelected
+                      { 
+                        color: tempFilters.diet.includes(diet) 
+                          ? '#ffffff' 
+                          : colors.textSecondary,
+                        fontSize: fontStyles.smallText
+                      }
                     ]}>
                       {diet}
                     </Text>
@@ -300,13 +421,27 @@ const ProviderFilter: React.FC<FilterProps> = ({
             </View>
 
             {/* Language Filter */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Languages</Text>
+            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
+              <Text style={[styles.sectionTitle, { 
+                color: colors.text, 
+                fontSize: fontStyles.textSize,
+                marginBottom: 12 * spacingMultiplier
+              }]}>
+                Languages
+              </Text>
               <TouchableOpacity
-                style={styles.languageSelector}
+                style={[styles.languageSelector, { 
+                  borderColor: colors.border,
+                  backgroundColor: isDarkMode ? colors.surface : colors.card,
+                  padding: 12 * spacingMultiplier,
+                  marginBottom: 8 * spacingMultiplier
+                }]}
                 onPress={() => setShowLanguagePicker(!showLanguagePicker)}
               >
-                <Text style={styles.languageSelectorText}>
+                <Text style={[styles.languageSelectorText, { 
+                  color: colors.textSecondary,
+                  fontSize: fontStyles.smallText
+                }]}>
                   {tempFilters.language.length === 0 
                     ? 'Select Languages' 
                     : `${tempFilters.language.length} language(s) selected`}
@@ -314,24 +449,35 @@ const ProviderFilter: React.FC<FilterProps> = ({
                 <Icon 
                   name={showLanguagePicker ? 'arrow-drop-up' : 'arrow-drop-down'} 
                   size={24} 
-                  color="#666" 
+                  color={colors.textSecondary} 
                 />
               </TouchableOpacity>
 
               {renderLanguageChips()}
 
               {showLanguagePicker && (
-                <View style={styles.languagePickerContainer}>
-                  <ScrollView style={styles.languageList}>
+                <View style={[styles.languagePickerContainer, { 
+                  borderColor: colors.border,
+                  backgroundColor: isDarkMode ? colors.surface : colors.card,
+                  maxHeight: 300 * spacingMultiplier,
+                  marginBottom: 8 * spacingMultiplier
+                }]}>
+                  <ScrollView style={[styles.languageList, { padding: 8 * spacingMultiplier }]}>
                     {LANGUAGES.map((language) => (
                       <TouchableOpacity
                         key={language}
-                        style={styles.languageItem}
+                        style={[styles.languageItem, { 
+                          padding: 12 * spacingMultiplier,
+                          borderBottomColor: colors.border
+                        }]}
                         onPress={() => handleLanguageToggle(language)}
                       >
-                        <Text style={styles.languageItemText}>{language}</Text>
+                        <Text style={[styles.languageItemText, { 
+                          color: colors.text,
+                          fontSize: fontStyles.smallText
+                        }]}>{language}</Text>
                         {tempFilters.language.includes(language) && (
-                          <Icon name="check" size={20} color="#1976d2" />
+                          <Icon name="check" size={20} color={colors.primary} />
                         )}
                       </TouchableOpacity>
                     ))}
@@ -341,30 +487,52 @@ const ProviderFilter: React.FC<FilterProps> = ({
 
               {tempFilters.language.length > 0 && (
                 <TouchableOpacity
-                  style={styles.clearButton}
+                  style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
                   onPress={() => setTempFilters(prev => ({ ...prev, language: [] }))}
                 >
-                  <Text style={styles.clearButtonText}>Clear languages</Text>
+                  <Text style={[styles.clearButtonText, { 
+                    color: colors.primary,
+                    fontSize: fontStyles.smallText
+                  }]}>Clear languages</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Availability Filter */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Availability Status</Text>
-              <View style={styles.chipGroup}>
+            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
+              <Text style={[styles.sectionTitle, { 
+                color: colors.text, 
+                fontSize: fontStyles.textSize,
+                marginBottom: 12 * spacingMultiplier
+              }]}>
+                Availability Status
+              </Text>
+              <View style={[styles.chipGroup, { gap: 8 * spacingMultiplier }]}>
                 {availabilityOptions.map(status => (
                   <TouchableOpacity
                     key={status}
                     style={[
                       styles.filterChip,
-                      tempFilters.availability.includes(status) && styles.filterChipSelected
+                      tempFilters.availability.includes(status) && styles.filterChipSelected,
+                      { 
+                        borderColor: colors.border,
+                        backgroundColor: tempFilters.availability.includes(status) 
+                          ? colors.primary 
+                          : isDarkMode ? colors.surface : colors.card,
+                        paddingHorizontal: 12 * spacingMultiplier,
+                        paddingVertical: 6 * spacingMultiplier,
+                      }
                     ]}
                     onPress={() => handleAvailabilityChange(status)}
                   >
                     <Text style={[
                       styles.filterChipText,
-                      tempFilters.availability.includes(status) && styles.filterChipTextSelected
+                      { 
+                        color: tempFilters.availability.includes(status) 
+                          ? '#ffffff' 
+                          : colors.textSecondary,
+                        fontSize: fontStyles.smallText
+                      }
                     ]}>
                       {status}
                     </Text>
@@ -374,20 +542,36 @@ const ProviderFilter: React.FC<FilterProps> = ({
             </View>
           </ScrollView>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-          <View style={styles.footer}>
+          <View style={[styles.footer, { 
+            gap: 16 * spacingMultiplier,
+            padding: 16 * spacingMultiplier
+          }]}>
             <TouchableOpacity
-              style={[styles.button, styles.resetButton]}
+              style={[styles.button, styles.resetButton, { 
+                borderColor: colors.primary,
+                backgroundColor: isDarkMode ? colors.surface : '#fff',
+                paddingVertical: 12 * spacingMultiplier
+              }]}
               onPress={handleReset}
             >
-              <Text style={styles.resetButtonText}>Reset All</Text>
+              <Text style={[styles.resetButtonText, { 
+                color: colors.primary,
+                fontSize: fontStyles.textSize
+              }]}>Reset All</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.applyButton]}
+              style={[styles.button, styles.applyButton, { 
+                backgroundColor: colors.primary,
+                paddingVertical: 12 * spacingMultiplier
+              }]}
               onPress={handleApply}
             >
-              <Text style={styles.applyButtonText}>Apply Filters</Text>
+              <Text style={[styles.applyButtonText, { 
+                color: '#ffffff',
+                fontSize: fontStyles.textSize
+              }]}>Apply Filters</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -399,11 +583,9 @@ const ProviderFilter: React.FC<FilterProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   drawer: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     height: '90%',
@@ -413,30 +595,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   headerTitle: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerText: {
-    fontSize: 18,
     fontWeight: '600',
-    marginLeft: 8,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
   },
   content: {
     flex: 1,
-    padding: 16,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -447,21 +625,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
   },
   sliderLabel: {
     fontSize: 12,
-    color: '#666',
   },
   sliderValue: {
-    fontSize: 14,
-    color: '#1976d2',
     fontWeight: '500',
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   starsContainer: {
     flexDirection: 'row',
@@ -469,132 +642,72 @@ const styles = StyleSheet.create({
   ratingChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e3f2fd',
     borderRadius: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
   },
-  ratingChipText: {
-    color: '#1976d2',
-    fontSize: 14,
-  },
+  ratingChipText: {},
   chipGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
   },
-  filterChipSelected: {
-    backgroundColor: '#1976d2',
-    borderColor: '#1976d2',
-  },
-  filterChipText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  filterChipTextSelected: {
-    color: '#fff',
-  },
+  filterChipSelected: {},
+  filterChipText: {},
   languageSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
   },
-  languageSelectorText: {
-    fontSize: 14,
-    color: '#666',
-  },
+  languageSelectorText: {},
   languageChipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e3f2fd',
     borderRadius: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
   },
-  chipText: {
-    fontSize: 12,
-    color: '#1976d2',
-  },
+  chipText: {},
   chipDelete: {
     padding: 2,
   },
   languagePickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
-    maxHeight: 300,
-    marginBottom: 8,
   },
-  languageList: {
-    padding: 8,
-  },
+  languageList: {},
   languageItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
-  languageItemText: {
-    fontSize: 14,
-  },
+  languageItemText: {},
   clearButton: {
     alignSelf: 'flex-end',
-    padding: 8,
   },
-  clearButtonText: {
-    color: '#1976d2',
-    fontSize: 14,
-  },
+  clearButtonText: {},
   footer: {
     flexDirection: 'row',
-    gap: 16,
-    padding: 16,
   },
   button: {
     flex: 1,
-    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   resetButton: {
     borderWidth: 1,
-    borderColor: '#1976d2',
-    backgroundColor: '#fff',
   },
   resetButtonText: {
-    color: '#1976d2',
-    fontSize: 16,
     fontWeight: '500',
   },
-  applyButton: {
-    backgroundColor: '#1976d2',
-  },
+  applyButton: {},
   applyButtonText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: '500',
   },
 });

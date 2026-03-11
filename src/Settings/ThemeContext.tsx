@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { changeLanguage as changeI18nLanguage } from '../../i18n'; // Import i18n language changer
+import { changeLanguage as changeI18nLanguage } from '../../i18n';
 
 type ThemeType = 'light' | 'dark' | 'system';
 
@@ -20,55 +20,53 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', rtl: false },
   { code: 'or', name: 'Odia', nativeName: 'ଓଡ଼ିଆ', rtl: false },
   { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া', rtl: false },
-  { code: 'ur', name: 'Urdu', nativeName: 'اردو', rtl: true }, // Urdu is RTL
+  { code: 'ur', name: 'Urdu', nativeName: 'اردو', rtl: true },
   { code: 'sa', name: 'Sanskrit', nativeName: 'संस्कृतम्', rtl: false },
   { code: 'ne', name: 'Nepali', nativeName: 'नेपाली', rtl: false },
 ];
 
 interface ThemeContextType {
-  // Theme properties
   theme: ThemeType;
   isDarkMode: boolean;
   setTheme: (theme: ThemeType) => void;
   colors: typeof lightColors;
-  
-  // Font size properties
   fontSize: 'small' | 'medium' | 'large';
   setFontSize: (size: 'small' | 'medium' | 'large') => void;
-  
-  // Language properties
   language: string;
   setLanguage: (lang: string) => void;
   currentLanguageDetails: typeof SUPPORTED_LANGUAGES[0] | undefined;
   isRTL: boolean;
-  
-  // Notification properties
   notifications: boolean;
   setNotifications: (enabled: boolean) => void;
-  
-  // UI properties
   compactMode: boolean;
   setCompactMode: (enabled: boolean) => void;
-  
-  // Helper methods
   getFontSizeMultiplier: () => number;
   getSpacingMultiplier: () => number;
 }
 
-// Light theme colors
+// Light theme colors - Keep as is, they look good
 const lightColors = {
   primary: '#0a2a66',
   secondary: '#3b82f6',
+  accent: '#6366f1',
   background: '#ffffff',
   surface: '#f5f5f5',
+  surface2: '#eaeef5',
   text: '#111111',
-  textSecondary: '#666666',
+  textSecondary: '#4b5563',
+  textTertiary: '#6b7280',
   border: '#e0e0e0',
+  borderLight: '#eef2f6',
   error: '#ef4444',
+  errorLight: '#fee2e2',
   success: '#10b981',
+  successLight: '#d1fae5',
   warning: '#f59e0b',
+  warningLight: '#fef3c7',
   info: '#3b82f6',
+  infoLight: '#dbeafe',
   card: '#ffffff',
+  cardElevated: '#fafafa',
   notification: '#3b82f6',
   headerBackground: '#0a2a66',
   headerText: '#ffffff',
@@ -80,33 +78,73 @@ const lightColors = {
   overlay: 'rgba(0,0,0,0.5)',
   disabled: '#cccccc',
   placeholder: '#999999',
+  rating: '#fbbf24',
+  veg: '#22c55e',
+  nonVeg: '#ef4444',
+  available: '#10b981',
+  partiallyAvailable: '#f59e0b',
+  limited: '#f97316',
+  unavailable: '#ef4444',
 };
 
-// Dark theme colors
+// Enhanced Dark theme colors - More vibrant and eye-catching
 const darkColors = {
-  primary: '#142c6e',
-  secondary: '#60a5fa',
-  background: '#121212',
-  surface: '#1e1e1e',
-  text: '#ffffff',
-  textSecondary: '#b0b0b0',
-  border: '#333333',
-  error: '#f87171',
-  success: '#34d399',
-  warning: '#fbbf24',
+  // Primary brand colors - brighter for better visibility
+  primary: '#063792', // Brighter blue
+  secondary: '#0c4daf', // Purple accent
+  accent: '#f43f5e', // Pink accent for highlights
+  
+  // Backgrounds - deep but with character
+  background: '#0f172a', // Deep slate blue
+  surface: '#1e293b', // Lighter slate
+  surface2: '#334155', // Medium slate for contrast
+  
+  // Text - improved contrast
+  text: '#f8fafc', // Almost white
+  textSecondary: '#cbd5e1', // Light slate
+  textTertiary: '#94a3b8', // Muted slate
+  
+  // Borders - subtle but visible
+  border: '#334155',
+  borderLight: '#475569',
+  
+  // Status colors - vibrant and visible
+  error: '#f87171', // Bright red
+  errorLight: '#7f1d1d',
+  success: '#4ade80', // Bright green
+  successLight: '#14532d',
+  warning: '#fbbf24', // Amber
+  warningLight: '#78350f',
   info: '#60a5fa',
-  card: '#1e1e1e',
+  infoLight: '#1e3a8a',
+  
+  // Cards - elevated surfaces
+  card: '#1e293b',
+  cardElevated: '#2d3a4f',
+  
+  // UI Elements
   notification: '#60a5fa',
-  headerBackground: '#0a2a66',
-  headerText: '#ffffff',
-  footerBackground: '#1e1e1e',
-  footerText: '#ffffff',
-  tabBar: '#1e1e1e',
-  tabBarInactive: '#8e98a3',
+  headerBackground: '#0f172a',
+  headerText: '#f8fafc',
+  footerBackground: '#0f172a',
+  footerText: '#f8fafc',
+  tabBar: '#0f172a',
+  tabBarInactive: '#64748b',
+  
+  // Effects
   shadow: '#000000',
-  overlay: 'rgba(0,0,0,0.7)',
-  disabled: '#555555',
-  placeholder: '#666666',
+  overlay: 'rgba(0,0,0,0.8)',
+  disabled: '#475569',
+  placeholder: '#64748b',
+  
+  // Semantic colors
+  rating: '#fbbf24', // Gold for stars
+  veg: '#4ade80', // Bright green
+  nonVeg: '#449b0a', // Bright red
+  available: '#4ade80',
+  partiallyAvailable: '#fbbf24',
+  limited: '#fb923c',
+  unavailable: '#f87171',
 };
 
 // Font size configurations
@@ -145,7 +183,6 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
   
-  // State declarations
   const [theme, setThemeState] = useState<ThemeType>('system');
   const [fontSize, setFontSizeState] = useState<'small' | 'medium' | 'large'>('medium');
   const [language, setLanguageState] = useState<string>('en');
@@ -153,12 +190,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [compactMode, setCompactModeState] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Load all saved preferences on mount
   useEffect(() => {
     loadAllPreferences();
   }, []);
 
-  // Load all preferences from AsyncStorage
   const loadAllPreferences = async () => {
     try {
       setIsLoading(true);
@@ -181,7 +216,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (savedFontSize) setFontSizeState(savedFontSize as 'small' | 'medium' | 'large');
       if (savedLanguage) {
         setLanguageState(savedLanguage);
-        // Also update i18n language
         await changeI18nLanguage(savedLanguage);
       }
       if (savedNotifications) setNotificationsState(savedNotifications === 'true');
@@ -195,7 +229,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Theme setter with persistence
   const setTheme = async (newTheme: ThemeType) => {
     try {
       setThemeState(newTheme);
@@ -206,7 +239,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Font size setter with persistence
   const setFontSize = async (size: 'small' | 'medium' | 'large') => {
     try {
       setFontSizeState(size);
@@ -217,19 +249,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Language setter with persistence and i18n sync
   const setLanguage = async (lang: string) => {
     try {
       setLanguageState(lang);
       await AsyncStorage.setItem('language', lang);
-      await changeI18nLanguage(lang); // Update i18n language
+      await changeI18nLanguage(lang);
       console.log(`✅ Language saved and applied: ${lang}`);
     } catch (error) {
       console.error('❌ Error saving language:', error);
     }
   };
 
-  // Notifications setter with persistence
   const setNotifications = async (enabled: boolean) => {
     try {
       setNotificationsState(enabled);
@@ -240,7 +270,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Compact mode setter with persistence
   const setCompactMode = async (enabled: boolean) => {
     try {
       setCompactModeState(enabled);
@@ -251,83 +280,36 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Reset all settings to default
-  const resetAllSettings = async () => {
-    try {
-      await Promise.all([
-        AsyncStorage.multiRemove([
-          'theme',
-          'fontSize',
-          'language',
-          'notifications',
-          'compactMode',
-        ]),
-      ]);
-      
-      setThemeState('system');
-      setFontSizeState('medium');
-      setLanguageState('en');
-      await changeI18nLanguage('en');
-      setNotificationsState(true);
-      setCompactModeState(false);
-      
-      console.log('✅ All settings reset to default');
-    } catch (error) {
-      console.error('❌ Error resetting settings:', error);
-    }
-  };
-
-  // Derived values
   const isDarkMode = theme === 'system' ? systemColorScheme === 'dark' : theme === 'dark';
   const colors = isDarkMode ? darkColors : lightColors;
   
-  // Get current language details
   const currentLanguageDetails = SUPPORTED_LANGUAGES.find(l => l.code === language);
   const isRTL = currentLanguageDetails?.rtl || false;
 
-  // Helper to get font size multiplier
   const getFontSizeMultiplier = () => FONT_SIZE_CONFIG[fontSize].multiplier;
-
-  // Helper to get spacing multiplier based on compact mode
   const getSpacingMultiplier = () => compactMode ? 0.8 : 1;
 
-  // Get font sizes based on current settings
-  const getFontSizes = () => FONT_SIZE_CONFIG[fontSize];
-
-  // Context value
   const contextValue: ThemeContextType = {
-    // Theme
     theme,
     isDarkMode,
     setTheme,
     colors,
-    
-    // Font size
     fontSize,
     setFontSize,
-    
-    // Language
     language,
     setLanguage,
     currentLanguageDetails,
     isRTL,
-    
-    // Notifications
     notifications,
     setNotifications,
-    
-    // UI
     compactMode,
     setCompactMode,
-    
-    // Helpers
     getFontSizeMultiplier,
     getSpacingMultiplier,
   };
 
-  // Show loading if needed (optional - you might want to show a splash screen)
   if (isLoading) {
-    return null; // Or return a loading component
+    return null;
   }
 
   return (
@@ -337,8 +319,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
-// Custom hook to use theme context
-export const useTheme = () => {
+export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider');
@@ -346,7 +327,6 @@ export const useTheme = () => {
   return context;
 };
 
-// Helper hook to get font styles based on current settings
 export const useFontStyles = () => {
   const { fontSize, compactMode } = useTheme();
   
@@ -355,15 +335,12 @@ export const useFontStyles = () => {
     const spacingMultiplier = compactMode ? 0.8 : 1;
     
     return {
-      // Font sizes
       text: { fontSize: sizes.text },
       heading: { fontSize: sizes.heading, fontWeight: 'bold' as const },
       subheading: { fontSize: sizes.subheading, fontWeight: '600' as const },
       small: { fontSize: sizes.small },
       button: { fontSize: sizes.button, fontWeight: '600' as const },
       input: { fontSize: sizes.input },
-      
-      // Spacing with compact mode support
       padding: {
         small: { padding: 8 * spacingMultiplier },
         medium: { padding: 16 * spacingMultiplier },
@@ -379,8 +356,6 @@ export const useFontStyles = () => {
         medium: { gap: 16 * spacingMultiplier },
         large: { gap: 24 * spacingMultiplier },
       },
-      
-      // Raw values for calculations
       rawValues: {
         ...sizes,
         spacingMultiplier,
@@ -391,7 +366,6 @@ export const useFontStyles = () => {
   return getFontSizeStyles();
 };
 
-// Helper hook to check if current language is RTL
 export const useRTL = () => {
   const { isRTL } = useTheme();
   
@@ -410,5 +384,4 @@ export const useRTL = () => {
   };
 };
 
-// Export color schemes and font size config for use in other components
 export { lightColors, darkColors, FONT_SIZE_CONFIG };
