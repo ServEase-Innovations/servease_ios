@@ -39,6 +39,7 @@ import { useAppUser } from "../context/AppUserContext";
 import NotificationsDialog from "../Notifications/NotificationsPage";
 import { addLocation } from "../features/geoLocationSlice";
 import Booking from "../UserProfile/Bookings";
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 interface ChildComponentProps {
   sendDataToParent: (data: string) => void;
@@ -71,6 +72,7 @@ const Head: React.FC<ChildComponentProps> = ({
   onLogoClick,
   closeDropdowns = false // CHANGED: Default value changed to false
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const {
     authorize,
     clearSession,
@@ -93,6 +95,29 @@ const Head: React.FC<ChildComponentProps> = ({
   const [selectedService, setSelectedService] = useState("");
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
 
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          alertsButtonText: 9,
+          modalTitle: 16,
+        };
+      case 'large':
+        return {
+          alertsButtonText: 12,
+          modalTitle: 20,
+        };
+      default:
+        return {
+          alertsButtonText: 10,
+          modalTitle: 18,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
+
   // NEW: Close dropdowns when parent triggers it
   useEffect(() => {
     if (closeDropdowns) {
@@ -107,7 +132,7 @@ const Head: React.FC<ChildComponentProps> = ({
     Snackbar.show({
       text: message,
       duration: Snackbar.LENGTH_SHORT,
-      backgroundColor: "#10b981",
+      backgroundColor: colors.success,
       textColor: "#ffffff",
     });
   };
@@ -116,7 +141,7 @@ const Head: React.FC<ChildComponentProps> = ({
     Snackbar.show({
       text: message,
       duration: Snackbar.LENGTH_LONG,
-      backgroundColor: "#ef4444",
+      backgroundColor: colors.error,
       textColor: "#ffffff",
     });
   };
@@ -125,7 +150,7 @@ const Head: React.FC<ChildComponentProps> = ({
     Snackbar.show({
       text: message,
       duration: Snackbar.LENGTH_SHORT,
-      backgroundColor: "#3b82f6",
+      backgroundColor: colors.info,
       textColor: "#ffffff",
     });
   };
@@ -431,13 +456,67 @@ const Head: React.FC<ChildComponentProps> = ({
 
   // REMOVED: All menu rendering functions since menu is completely removed
 
+  const dynamicStyles = StyleSheet.create({
+    headerContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 50,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      height: 70,
+      elevation: 3,
+      paddingHorizontal: 12,
+    },
+    alertsButton: {
+      flex: 0.5,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 20,
+      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      marginLeft: 4,
+      height: 50,
+    },
+    alertsButtonText: {
+      color: "#fff",
+      fontSize: fontSizes.alertsButtonText,
+      fontWeight: "500",
+    },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 16,
+      paddingTop: Platform.OS === 'ios' ? 40 : 16,
+    },
+    modalTitle: {
+      fontSize: fontSizes.modalTitle,
+      fontWeight: '700',
+      color: '#fff',
+      textAlign: 'center',
+      flex: 1,
+    },
+  });
+
   return (
     <View style={{ position: "relative" }}>
       <LinearGradient
         colors={["#0a2a66", "#004aad"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.headerContainer}
+        style={dynamicStyles.headerContainer}
       >
         {/* Logo Section - Centered */}
         <View style={styles.logoContainer}>
@@ -461,11 +540,11 @@ const Head: React.FC<ChildComponentProps> = ({
         {/* Alerts Button - Always displayed after location selector */}
         <TouchableOpacity
           onPress={handleNotificationClick}
-          style={styles.alertsButton}
+          style={dynamicStyles.alertsButton}
         >
           <View style={styles.alertsButtonInner}>
             <MaterialIcon name="notifications" size={22} color="#fff" />
-            <Text style={styles.alertsButtonText}>Alerts</Text>
+            <Text style={dynamicStyles.alertsButtonText}>Alerts</Text>
           </View>
         </TouchableOpacity>
 
@@ -493,14 +572,14 @@ const Head: React.FC<ChildComponentProps> = ({
         animationType="slide"
         onRequestClose={() => setShowTnC(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={dynamicStyles.modalContainer}>
           <LinearGradient
             colors={["#0a2a66", "#004aad"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
+            style={dynamicStyles.modalHeader}
           >
-            <Text style={styles.modalTitle}>Terms and Conditions</Text>
+            <Text style={dynamicStyles.modalTitle}>Terms and Conditions</Text>
             <TouchableOpacity onPress={() => setShowTnC(false)}>
               <Icon name="close" size={24} color="#fff" />
             </TouchableOpacity>
@@ -518,14 +597,14 @@ const Head: React.FC<ChildComponentProps> = ({
         animationType="slide"
         onRequestClose={() => setShowContactUs(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={dynamicStyles.modalContainer}>
           <LinearGradient
             colors={["#0a2a66", "#004aad"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
+            style={dynamicStyles.modalHeader}
           >
-            <Text style={styles.modalTitle}>Contact Us</Text>
+            <Text style={dynamicStyles.modalTitle}>Contact Us</Text>
             <TouchableOpacity onPress={() => setShowContactUs(false)}>
               <Icon name="close" size={24} color="#fff" />
             </TouchableOpacity>
@@ -538,26 +617,9 @@ const Head: React.FC<ChildComponentProps> = ({
 };
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between", // Changed from space-between to evenly distribute
-    height: 70,
-    elevation: 3,
-    paddingHorizontal: 12, // Slightly reduced padding to accommodate alerts button
-  },
   logoContainer: {
     flex: 1,
-    alignItems: "flex-start", // Align logo to left
+    alignItems: "flex-start",
     justifyContent: "center",
     paddingTop: 60,
   },
@@ -567,53 +629,17 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   locationContainer: {
-    flex: 2.5, // Slightly reduced from 3 to make room for alerts button
+    flex: 2.5,
     justifyContent: "center",
-    alignItems: "stretch", // Changed from "center" to fill width
-    height: 50, // Increased from 36 to make it taller
-    marginHorizontal: 8, // Added horizontal margin for spacing
-    paddingBottom: 10,
-    // maxWidth: width * 0.5, // Reduced max width to accommodate alerts button
-  },
-  alertsButton: {
-    flex: 0.5, // Fixed width for alerts button
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    marginLeft: 4,
+    alignItems: "stretch",
     height: 50,
+    marginHorizontal: 8,
+    paddingBottom: 10,
   },
   alertsButtonInner: {
     flexDirection: "column",
     alignItems: "center",
     gap: 3,
-  },
-  alertsButtonText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "500",
-  },
-  
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "white",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 40 : 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    textAlign: 'center',
-    flex: 1,
   },
 });
 

@@ -15,6 +15,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
 import ConfirmationDialog from './ConfirmationDialog';
 import LinearGradient from 'react-native-linear-gradient';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface Booking {
   id: number;
@@ -32,6 +33,7 @@ interface UserHolidayProps {
 }
 
 const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLeaveSubmit }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const [leaveStartDate, setLeaveStartDate] = useState<Date | null>(null);
   const [leaveEndDate, setLeaveEndDate] = useState<Date | null>(null);
   const [minDate, setMinDate] = useState<Date | undefined>();
@@ -41,6 +43,44 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          dialogTitle: 16,
+          dateLabel: 13,
+          dateValue: 14,
+          helperText: 12,
+          bookingText: 12,
+          buttonText: 13,
+          snackbarText: 13,
+        };
+      case 'large':
+        return {
+          dialogTitle: 20,
+          dateLabel: 16,
+          dateValue: 18,
+          helperText: 15,
+          bookingText: 15,
+          buttonText: 16,
+          snackbarText: 16,
+        };
+      default:
+        return {
+          dialogTitle: 18,
+          dateLabel: 14,
+          dateValue: 16,
+          helperText: 14,
+          bookingText: 14,
+          buttonText: 14,
+          snackbarText: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   const getServiceTitle = (serviceType: string) => {
     const serviceMap: { [key: string]: string } = {
@@ -137,22 +177,166 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
       <TouchableOpacity
         style={[
           styles.button,
-          isOutline ? styles.outlineButton : styles.primaryButton,
-          disabled && styles.disabledButton,
+          isOutline ? [styles.outlineButton, { borderColor: colors.border }] : [styles.primaryButton, { backgroundColor: colors.primary }],
+          disabled && [styles.disabledButton, { opacity: 0.6 }],
         ]}
         onPress={onPress}
         disabled={disabled}
       >
         <Text style={[
           styles.buttonText,
-          isOutline ? styles.outlineButtonText : styles.primaryButtonText,
-          disabled && styles.disabledText
+          { fontSize: fontSizes.buttonText },
+          isOutline ? [styles.outlineButtonText, { color: colors.text }] : [styles.primaryButtonText, { color: '#ffffff' }],
+          disabled && [styles.disabledText, { color: colors.textSecondary }]
         ]}>
           {children}
         </Text>
       </TouchableOpacity>
     );
   };
+
+  const dynamicStyles = StyleSheet.create({
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+    },
+    overlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    dialogContainer: {
+      backgroundColor: colors.card,
+      borderRadius: 8,
+      width: '100%',
+      maxWidth: 500,
+      maxHeight: '80%',
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    dialogTitle: {
+      fontSize: fontSizes.dialogTitle,
+      fontWeight: '600',
+      color: '#ffffff',
+    },
+    closeButton: {
+      padding: 4,
+    },
+    closeIcon: {
+      fontSize: 24,
+      color: '#ffffff',
+      fontWeight: 'bold',
+    },
+    content: {
+      padding: 16,
+      maxHeight: 400,
+    },
+    datePickerContainer: {
+      gap: 16,
+    },
+    dateInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 16,
+      backgroundColor: colors.card,
+    },
+    dateLabel: {
+      fontSize: fontSizes.dateLabel,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    dateValue: {
+      fontSize: fontSizes.dateValue,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    helperText: {
+      fontSize: fontSizes.helperText,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      marginTop: 8,
+    },
+    bookingInfo: {
+      marginTop: 16,
+      padding: 12,
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+    },
+    bookingText: {
+      fontSize: fontSizes.bookingText,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    button: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 100,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+    },
+    outlineButton: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+    },
+    buttonText: {
+      fontWeight: '500',
+    },
+    primaryButtonText: {
+      color: '#ffffff',
+    },
+    outlineButtonText: {
+      color: colors.text,
+    },
+    disabledButton: {
+      opacity: 0.6,
+    },
+    disabledText: {
+      opacity: 0.6,
+    },
+    snackbar: {
+      position: 'absolute',
+      bottom: 20,
+      left: 20,
+      right: 20,
+      backgroundColor: colors.success,
+      padding: 16,
+      borderRadius: 8,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    snackbarText: {
+      color: '#ffffff',
+      fontWeight: '500',
+      fontSize: fontSizes.snackbarText,
+    },
+    snackbarClose: {
+      color: '#ffffff',
+      fontSize: 20,
+      fontWeight: 'bold',
+    },
+  });
 
   return (
     <>
@@ -162,49 +346,46 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
         transparent={true}
         onRequestClose={onClose}
       >
-        <SafeAreaView style={styles.modalContainer}>
-           
-          <View style={styles.overlay}>
-            <View style={styles.dialogContainer}>
+        <SafeAreaView style={dynamicStyles.modalContainer}>
+          <View style={dynamicStyles.overlay}>
+            <View style={dynamicStyles.dialogContainer}>
               {/* Header */}
               <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.header}
-                  >
-              {/* <View style={styles.header}> */}
-                <Text style={styles.dialogTitle}>Apply Holiday</Text>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Text style={styles.closeIcon}>×</Text>
+                colors={["#0a2a66ff", "#004aadff"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={dynamicStyles.header}
+              >
+                <Text style={dynamicStyles.dialogTitle}>Apply Holiday</Text>
+                <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
+                  <Text style={dynamicStyles.closeIcon}>×</Text>
                 </TouchableOpacity>
-              {/* </View> */}
-                </LinearGradient>
+              </LinearGradient>
 
               {/* Content */}
-              <ScrollView style={styles.content}>
-                <View style={styles.datePickerContainer}>
+              <ScrollView style={dynamicStyles.content}>
+                <View style={dynamicStyles.datePickerContainer}>
                   {/* Start Date Picker */}
                   <TouchableOpacity 
-                    style={styles.dateInput}
+                    style={dynamicStyles.dateInput}
                     onPress={() => setShowStartPicker(true)}
                   >
-                    <Text style={styles.dateLabel}>Start Date</Text>
-                    <Text style={styles.dateValue}>
+                    <Text style={dynamicStyles.dateLabel}>Start Date</Text>
+                    <Text style={dynamicStyles.dateValue}>
                       {leaveStartDate ? dayjs(leaveStartDate).format('MMMM DD, YYYY') : 'Select start date'}
                     </Text>
                   </TouchableOpacity>
 
                   {/* End Date Picker */}
                   <TouchableOpacity 
-                    style={styles.dateInput}
+                    style={dynamicStyles.dateInput}
                     onPress={() => setShowEndPicker(true)}
                     disabled={!leaveStartDate}
                   >
-                    <Text style={styles.dateLabel}>End Date</Text>
+                    <Text style={dynamicStyles.dateLabel}>End Date</Text>
                     <Text style={[
-                      styles.dateValue,
-                      !leaveStartDate && styles.disabledText
+                      dynamicStyles.dateValue,
+                      !leaveStartDate && { color: colors.textTertiary || colors.textSecondary }
                     ]}>
                       {leaveEndDate ? dayjs(leaveEndDate).format('MMMM DD, YYYY') : 'Select end date'}
                     </Text>
@@ -233,20 +414,20 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                   )}
 
                   {/* Helper message */}
-                  <Text style={styles.helperText}>
+                  <Text style={dynamicStyles.helperText}>
                     📌 Note: Holiday applications must be for a minimum of 10 days.  
                     You can only select an end date that is at least 9 days after your start date.
                   </Text>
 
                   {booking && (
-                    <View style={styles.bookingInfo}>
-                      <Text style={styles.bookingText}>
+                    <View style={dynamicStyles.bookingInfo}>
+                      <Text style={dynamicStyles.bookingText}>
                         Your booked period: {dayjs(booking.startDate).format('DD/MM/YYYY')} to {dayjs(booking.endDate).format('DD/MM/YYYY')}
                       </Text>
-                      <Text style={styles.bookingText}>
+                      <Text style={dynamicStyles.bookingText}>
                         Service Type: {booking.serviceType}
                       </Text>
-                      <Text style={styles.bookingText}>
+                      <Text style={dynamicStyles.bookingText}>
                         Booking Type: {booking.bookingType}
                       </Text>
                     </View>
@@ -255,7 +436,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
               </ScrollView>
 
               {/* Actions */}
-              <View style={styles.actions}>
+              <View style={dynamicStyles.actions}>
                 <Button
                   variant="outline"
                   onPress={onClose}
@@ -270,7 +451,6 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                   Submit
                 </Button>
               </View>
-            
             </View>
           </View>
         </SafeAreaView>
@@ -290,10 +470,10 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
 
       {/* Snackbar equivalent */}
       {snackbarOpen && (
-        <View style={styles.snackbar}>
-          <Text style={styles.snackbarText}>Vacation application submitted successfully!</Text>
+        <View style={dynamicStyles.snackbar}>
+          <Text style={dynamicStyles.snackbarText}>Vacation application submitted successfully!</Text>
           <TouchableOpacity onPress={() => setSnackbarOpen(false)}>
-            <Text style={styles.snackbarClose}>×</Text>
+            <Text style={dynamicStyles.snackbarClose}>×</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -301,95 +481,8 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
   );
 };
 
+// Base styles without theme colors
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  dialogContainer: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    width: '100%',
-    maxWidth: 500,
-    maxHeight: '80%',
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  dialogTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeIcon: {
-    fontSize: 24,
-    color: '#f6f9ff',
-    fontWeight: 'bold',
-  },
-  content: {
-    padding: 16,
-    maxHeight: 400,
-  },
-  datePickerContainer: {
-    gap: 16,
-  },
-  dateInput: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 16,
-    backgroundColor: 'white',
-  },
-  dateLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  dateValue: {
-    fontSize: 16,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  helperText: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
-    marginTop: 8,
-  },
-  bookingInfo: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-  },
-  bookingText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
   button: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -398,51 +491,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 100,
   },
-  primaryButton: {
-    backgroundColor: '#2563eb',
-  },
+  primaryButton: {},
   outlineButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#d1d5db',
   },
   buttonText: {
-    fontSize: 14,
     fontWeight: '500',
   },
-  primaryButtonText: {
-    color: 'white',
-  },
-  outlineButtonText: {
-    color: '#374151',
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  disabledText: {
-    opacity: 0.6,
-  },
-  snackbar: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: '#10b981',
-    padding: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  snackbarText: {
-    color: 'white',
-    fontWeight: '500',
-  },
-  snackbarClose: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  primaryButtonText: {},
+  outlineButtonText: {},
+  disabledButton: {},
+  disabledText: {},
 });
 
 export default UserHoliday;

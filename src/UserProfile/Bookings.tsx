@@ -21,7 +21,7 @@ import {
   RefreshControl,
   Dimensions,
   Linking,
-  BackHandler, // Add this import
+  BackHandler,
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -29,6 +29,7 @@ import axiosInstance from '../services/axiosInstance';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import RazorpayCheckout from 'react-native-razorpay';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 // Import existing components
 import UserHoliday from './UserHoliday';
@@ -157,10 +158,11 @@ const logMappedBooking = (booking: any, index: number) => {
 
 // Implement Card component
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
+  const { colors } = useTheme();
   const Container = onPress ? TouchableOpacity : View;
   return (
     <Container 
-      style={[styles.card, style]} 
+      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]} 
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -176,9 +178,10 @@ const Button: React.FC<{
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
 }> = ({ children, onPress, style, disabled = false }) => {
+  const { colors } = useTheme();
   return (
     <Pressable
-      style={[styles.button, style, disabled && styles.disabledButton]}
+      style={[styles.button, { backgroundColor: colors.card, borderColor: colors.border }, style, disabled && styles.disabledButton]}
       onPress={onPress}
       disabled={disabled}
     >
@@ -192,8 +195,9 @@ const Badge: React.FC<{
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }> = ({ children, style }) => {
+  const { colors } = useTheme();
   return (
-    <View style={[styles.badgeBase, style]}>
+    <View style={[styles.badgeBase, { borderColor: colors.border }, style]}>
       {children}
     </View>
   );
@@ -201,8 +205,9 @@ const Badge: React.FC<{
 
 // Implement Separator component
 const Separator: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => {
+  const { colors } = useTheme();
   return (
-    <View style={[styles.separatorBase, style]} />
+    <View style={[styles.separatorBase, { backgroundColor: colors.border }, style]} />
   );
 };
 
@@ -338,41 +343,42 @@ const getServiceIcon = (type: string) => {
   }
 };
 
-const getStatusBadge = (status: string) => {
+// FIXED: These functions now accept colors and fontSizes as parameters instead of using hooks
+const getStatusBadge = (status: string, colors: any, fontSizes: any) => {
   switch (status) {
     case 'ACTIVE':
       return (
-        <Badge style={styles.activeBadge}>
-          <Icon name="alert-circle" size={14} color="#3b82f6" />
-          <Text style={styles.activeBadgeText}>Active</Text>
+        <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+          <Icon name="alert-circle" size={14} color={colors.primary} />
+          <Text style={[styles.activeBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>Active</Text>
         </Badge>
       );
     case 'COMPLETED':
       return (
-        <Badge style={styles.completedBadge}>
-          <Icon name="check-circle" size={14} color="#10b981" />
-          <Text style={styles.completedBadgeText}>Completed</Text>
+        <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+          <Icon name="check-circle" size={14} color={colors.success} />
+          <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
         </Badge>
       );
     case 'CANCELLED':
       return (
-        <Badge style={styles.cancelledBadge}>
-          <Icon name="close-circle" size={14} color="#ef4444" />
-          <Text style={styles.cancelledBadgeText}>Cancelled</Text>
+        <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
+          <Icon name="close-circle" size={14} color={colors.error} />
+          <Text style={[styles.cancelledBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Cancelled</Text>
         </Badge>
       );
     case 'IN_PROGRESS':
       return (
-        <Badge style={styles.inProgressBadge}>
-          <Icon name="clock" size={14} color="#6b7280" />
-          <Text style={styles.inProgressBadgeText}>In Progress</Text>
+        <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
+          <Icon name="clock" size={14} color={colors.warning} />
+          <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
         </Badge>
       );
     case 'NOT_STARTED':
       return (
-        <Badge style={styles.notStartedBadge}>
-          <Icon name="clock" size={14} color="#6b7280" />
-          <Text style={styles.notStartedBadgeText}>Not Started</Text>
+        <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+          <Icon name="clock" size={14} color={colors.textSecondary} />
+          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>Not Started</Text>
         </Badge>
       );
     default:
@@ -380,30 +386,30 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-const getBookingTypeBadge = (type: string) => {
+const getBookingTypeBadge = (type: string, colors: any, fontSizes: any) => {
   switch (type) {
     case 'ON_DEMAND':
       return (
-        <Badge style={styles.onDemandBadge}>
-          <Text style={styles.onDemandBadgeText}>On Demand</Text>
+        <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
+          <Text style={[styles.onDemandBadgeText, { color: colors.info, fontSize: fontSizes.badgeText }]}>On Demand</Text>
         </Badge>
       );
     case 'MONTHLY':
       return (
-        <Badge style={styles.monthlyBadge}>
-          <Text style={styles.monthlyBadgeText}>Monthly</Text>
+        <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+          <Text style={[styles.monthlyBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>Monthly</Text>
         </Badge>
       );
     case 'SHORT_TERM':
       return (
-        <Badge style={styles.shortTermBadge}>
-          <Text style={styles.shortTermBadgeText}>Short Term</Text>
+        <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+          <Text style={[styles.shortTermBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Short Term</Text>
         </Badge>
       );
     default:
       return (
-        <Badge style={styles.defaultBadge}>
-          <Text style={styles.defaultBadgeText}>{type}</Text>
+        <Badge style={[styles.defaultBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+          <Text style={[styles.defaultBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{type}</Text>
         </Badge>
       );
   }
@@ -540,6 +546,8 @@ const formatDateForDisplay = (dateString: string) => {
 };
 
 const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
+  
   // STATE VARIABLES
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -616,6 +624,59 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const initialLoadDone = useRef(false);
   const isFetchingRef = useRef(false);
   const processedDeepLink = useRef(false);
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          headerTitle: 24,
+          headerSubtitle: 14,
+          sectionTitle: 20,
+          sectionSubtitle: 13,
+          serviceTitle: 15,
+          infoText: 13,
+          viewDetailsText: 11,
+          buttonText: 11,
+          badgeText: 11,
+          emptyStateTitle: 18,
+          emptyStateText: 15,
+          searchInput: 14,
+        };
+      case 'large':
+        return {
+          headerTitle: 32,
+          headerSubtitle: 18,
+          sectionTitle: 24,
+          sectionSubtitle: 16,
+          serviceTitle: 18,
+          infoText: 16,
+          viewDetailsText: 14,
+          buttonText: 14,
+          badgeText: 14,
+          emptyStateTitle: 22,
+          emptyStateText: 18,
+          searchInput: 18,
+        };
+      default:
+        return {
+          headerTitle: 28,
+          headerSubtitle: 16,
+          sectionTitle: 22,
+          sectionSubtitle: 14,
+          serviceTitle: 16,
+          infoText: 14,
+          viewDetailsText: 12,
+          buttonText: 12,
+          badgeText: 12,
+          emptyStateTitle: 20,
+          emptyStateText: 16,
+          searchInput: 16,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   // Helper function to convert Booking for child components
   const convertBookingForChildComponents = (booking: Booking | null): any => {
@@ -1074,7 +1135,7 @@ const mapBookingData = (data: any[]) => {
           email: customer?.email || auth0User?.email || '',
         },
         theme: {
-          color: "#0A7CFF",
+          color: colors.primary,
         },
       };
 
@@ -1386,20 +1447,20 @@ const mapBookingData = (data: any[]) => {
     switch (status) {
       case "SCHEDULED":
         return (
-          <View style={styles.scheduledMessageContainer}>
-            <View style={styles.scheduledMessageCard}>
+          <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
+            <View style={[styles.scheduledMessageCard, { backgroundColor: colors.infoLight, borderColor: colors.info }]}>
               <View style={styles.scheduledMessageHeader}>
-                <Icon name="check-circle" size={16} color="#10b981" />
+                <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={styles.scheduledMessageTitle}>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
                     Confirmed: Scheduled for today.
                   </Text>
-                  <Badge style={styles.scheduledBadge}>
-                    <Text style={styles.scheduledBadgeText}>Scheduled</Text>
+                  <Badge style={[styles.scheduledBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+                    <Text style={[styles.scheduledBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Scheduled</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={styles.scheduledMessageText}>
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
                 We are waiting for the provider to initiate start process at {formatTimeToAMPM(booking.start_time)}.
               </Text>
             </View>
@@ -1408,39 +1469,39 @@ const mapBookingData = (data: any[]) => {
 
       case "IN_PROGRESS":
         return (
-          <View style={styles.scheduledMessageContainer}>
-            <View style={styles.inProgressMessageCard}>
+          <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
+            <View style={[styles.inProgressMessageCard, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
               <View style={styles.scheduledMessageHeader}>
-                <Icon name="check-circle" size={16} color="#10b981" />
+                <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={styles.scheduledMessageTitle}>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
                     Your service is in progress!
                   </Text>
-                  <Badge style={styles.inProgressBadge}>
-                    <Text style={styles.inProgressBadgeText}>In Progress</Text>
+                  <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
+                    <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={styles.scheduledMessageText}>
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
                 The provider has started session. Please generate OTP below so they can complete task.
               </Text>
               
               {/* OTP Generation Button */}
               <View style={styles.otpButtonContainer}>
                 <Button
-                  style={[styles.otpButton, otpLoading === booking.id && styles.disabledButton]}
+                  style={[styles.otpButton, { backgroundColor: colors.primary, borderColor: colors.primary }, otpLoading === booking.id && styles.disabledButton]}
                   onPress={() => handleGenerateOTP(booking)}
                   disabled={otpLoading === booking.id || !booking.today_service?.can_generate_otp}
                 >
                   {otpLoading === booking.id ? (
                     <>
                       <ActivityIndicator size="small" color="#fff" />
-                      <Text style={styles.otpButtonText}>Generating...</Text>
+                      <Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Generating...</Text>
                     </>
                   ) : (
                     <>
                       <Icon name="check-circle" size={16} color="#fff" />
-                      <Text style={styles.otpButtonText}>
+                      <Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
                         {booking.today_service.otp_active ? "OTP Generated" : "Generate & Share OTP"}
                       </Text>
                     </>
@@ -1448,28 +1509,28 @@ const mapBookingData = (data: any[]) => {
                 </Button>
                 
                 {booking.today_service.otp_active && (
-                  <Badge style={styles.otpActiveBadge}>
-                    <Text style={styles.otpActiveBadgeText}>OTP Active</Text>
+                  <Badge style={[styles.otpActiveBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+                    <Text style={[styles.otpActiveBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>OTP Active</Text>
                   </Badge>
                 )}
               </View>
               
               {/* OTP Display Section (if OTP is generated) */}
               {booking.today_service.otp_active && generatedOTPs[booking.id] && (
-                <View style={styles.otpDisplayContainer}>
-                  <Text style={styles.otpDisplayLabel}>Share this OTP with your provider:</Text>
+                <View style={[styles.otpDisplayContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.otpDisplayLabel, { color: colors.text, fontSize: fontSizes.infoText }]}>Share this OTP with your provider:</Text>
                   <View style={styles.otpDisplay}>
-                    <Text style={styles.otpCode}>{generatedOTPs[booking.id]}</Text>
+                    <Text style={[styles.otpCode, { color: colors.text, fontSize: fontSizes.headerTitle }]}>{generatedOTPs[booking.id]}</Text>
                     <Button
-                      style={styles.copyOtpButton}
+                      style={[styles.copyOtpButton, { borderColor: colors.border }]}
                       onPress={() => {
                         Alert.alert("Success", "OTP copied to clipboard!");
                       }}
                     >
-                      <Text style={styles.copyOtpButtonText}>Copy</Text>
+                      <Text style={[styles.copyOtpButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Copy</Text>
                     </Button>
                   </View>
-                  <Text style={styles.otpExpiryText}>Valid for 10 minutes</Text>
+                  <Text style={[styles.otpExpiryText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Valid for 10 minutes</Text>
                 </View>
               )}
             </View>
@@ -1478,40 +1539,40 @@ const mapBookingData = (data: any[]) => {
 
       case "COMPLETED":
         return (
-          <View style={styles.scheduledMessageContainer}>
-            <View style={styles.completedMessageCard}>
+          <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
+            <View style={[styles.completedMessageCard, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
               <View style={styles.scheduledMessageHeader}>
-                <Icon name="check-circle" size={16} color="#10b981" />
+                <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={styles.scheduledMessageTitle}>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
                     Service Completed Successfully!
                   </Text>
-                  <Badge style={styles.completedBadge}>
-                    <Text style={styles.completedBadgeText}>Completed</Text>
+                  <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+                    <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={styles.scheduledMessageText}>
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
                 Your {getServiceTitle(booking.service_type)} service has been completed at {formatTimeToAMPM(booking.end_time)}. 
                 We hope you enjoyed the service!
               </Text>
               
               {/* Review Prompt Section */}
-              <View style={styles.reviewPromptContainer}>
+              <View style={[styles.reviewPromptContainer, { borderTopColor: colors.success }]}>
                 <View style={styles.reviewPromptContent}>
-                  <Text style={styles.reviewPromptTitle}>
+                  <Text style={[styles.reviewPromptTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
                     How was your experience?
                   </Text>
-                  <Text style={styles.reviewPromptSubtitle}>
+                  <Text style={[styles.reviewPromptSubtitle, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
                     Help us improve by leaving a review for your provider
                   </Text>
                 </View>
                 <Button
-                  style={styles.leaveReviewButton}
+                  style={[styles.leaveReviewButton, { borderColor: colors.border }]}
                   onPress={() => handleLeaveReviewClick(booking)}
                 >
-                  <Icon name="message-text" size={16} color="#000" />
-                  <Text style={styles.leaveReviewButtonText}>Leave Review</Text>
+                  <Icon name="message-text" size={16} color={colors.text} />
+                  <Text style={[styles.leaveReviewButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Leave Review</Text>
                 </Button>
               </View>
             </View>
@@ -1545,30 +1606,30 @@ const mapBookingData = (data: any[]) => {
       return (
         <View style={styles.paymentActionContainer}>
           <Button
-            style={[styles.actionButton, styles.paymentButton]}
+            style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.error, borderColor: colors.error }]}
             onPress={() => handlePaymentClick(booking)}
             disabled={paymentLoading === booking.id}
           >
             {paymentLoading === booking.id ? (
               <>
                 <ActivityIndicator size="small" color="#fff" />
-                <Text style={styles.paymentButtonText}>Processing...</Text>
+                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Processing...</Text>
               </>
             ) : (
               <>
                 <Icon name="credit-card" size={16} color="#fff" />
-                <Text style={styles.paymentButtonText}>Complete Payment</Text>
+                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Complete Payment</Text>
               </>
             )}
           </Button>
           
           {/* Optionally show cancel button even when payment is pending */}
           <Button 
-            style={[styles.actionButton, styles.cancelButton]}
+            style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]}
             onPress={() => handleCancelClick(booking)}
           >
             <Icon name="close-circle" size={16} color="#fff" />
-            <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+            <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel Booking</Text>
           </Button>
         </View>
       );
@@ -1584,15 +1645,17 @@ const mapBookingData = (data: any[]) => {
           style={[
             styles.compactActionButton, 
             styles.modifyButton,
+            { borderColor: colors.primary, backgroundColor: colors.card },
             modificationDisabled && styles.disabledButton
           ]}
           onPress={() => handleModifyClick(booking)}
           disabled={modificationDisabled}
         >
-          <Icon name="pencil" size={16} color={modificationDisabled ? "#9ca3af" : "#1e40af"} />
+          <Icon name="pencil" size={16} color={modificationDisabled ? colors.textSecondary : colors.primary} />
           <Text style={[
             styles.modifyButtonText,
-            modificationDisabled && styles.disabledButtonText
+            { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.buttonText },
+            modificationDisabled && { color: colors.textSecondary }
           ]}>
             Modify
           </Text>
@@ -1603,21 +1666,21 @@ const mapBookingData = (data: any[]) => {
         <>
           {hasExistingVacation ? (
             <Button
-              style={[styles.compactActionButton, styles.vacationModifiedButton]}
+              style={[styles.compactActionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]}
               onPress={() => handleModifyVacationClick(booking)}
               disabled={isRefreshing}
             >
-              <Icon name="pencil" size={16} color="#1e40af" />
-              <Text style={styles.vacationModifiedText}>Modify Vacation</Text>
+              <Icon name="pencil" size={16} color={colors.primary} />
+              <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
             </Button>
           ) : (
             <Button
-              style={[styles.compactActionButton, styles.vacationButton]}
+              style={[styles.compactActionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
               onPress={() => handleVacationClick(booking)}
               disabled={isRefreshing}
             >
-              <Icon name="calendar" size={16} color="#1e40af" />
-              <Text style={styles.vacationButtonText}>Add Vacation</Text>
+              <Icon name="calendar" size={16} color={colors.primary} />
+              <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
             </Button>
           )}
         </>
@@ -1628,54 +1691,54 @@ const mapBookingData = (data: any[]) => {
         return (
           <View style={styles.actionButtonsRow}>
             <Button 
-              style={[styles.actionButton, styles.callButton]}
+              style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
               onPress={() => {
                 console.log(`📞 Call provider for booking ${booking.id}`);
                 Alert.alert('Call', `Call provider for ongoing ${getServiceTitle(booking.service_type)} service`);
               }}
             >
               <Icon name="phone" size={16} color="#fff" />
-              <Text style={styles.callButtonText}>Call</Text>
+              <Text style={[styles.callButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Call</Text>
             </Button>
 
             <Button 
-              style={[styles.actionButton, styles.messageButton]}
+              style={[styles.actionButton, styles.messageButton, { backgroundColor: colors.success, borderColor: colors.success }]}
               onPress={() => {
                 console.log(`💬 Message provider for booking ${booking.id}`);
                 Alert.alert('Message', `Message provider for ongoing ${getServiceTitle(booking.service_type)} service`);
               }}
             >
               <Icon name="message-text" size={16} color="#fff" />
-              <Text style={styles.messageButtonText}>Message</Text>
+              <Text style={[styles.messageButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Message</Text>
             </Button>
 
             <Button 
-              style={[styles.actionButton, styles.cancelButton]}
+              style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]}
               onPress={() => handleCancelClick(booking)}
             >
               <Icon name="close-circle" size={16} color="#fff" />
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel</Text>
             </Button>
 
             {booking.bookingType === "MONTHLY" && (
               <>
                 {hasExistingVacation ? (
                   <Button
-                    style={[styles.actionButton, styles.vacationModifiedButton]}
+                    style={[styles.actionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]}
                     onPress={() => handleModifyVacationClick(booking)}
                     disabled={isRefreshing}
                   >
-                    <Icon name="pencil" size={16} color="#1e40af" />
-                    <Text style={styles.vacationModifiedText}>Modify Vacation</Text>
+                    <Icon name="pencil" size={16} color={colors.primary} />
+                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
                   </Button>
                 ) : (
                   <Button
-                    style={[styles.actionButton, styles.vacationButton]}
+                    style={[styles.actionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
                     onPress={() => handleVacationClick(booking)}
                     disabled={isRefreshing}
                   >
-                    <Icon name="calendar" size={16} color="#1e40af" />
-                    <Text style={styles.vacationButtonText}>Add Vacation</Text>
+                    <Icon name="calendar" size={16} color={colors.primary} />
+                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
                   </Button>
                 )}
               </>
@@ -1688,31 +1751,31 @@ const mapBookingData = (data: any[]) => {
           <View style={styles.actionButtonsRow}>
             {hasReview(booking) ? (
               <Button
-                style={[styles.actionButton, styles.reviewSubmittedButton]}
+                style={[styles.actionButton, styles.reviewSubmittedButton, { backgroundColor: colors.successLight, borderColor: colors.success }]}
                 disabled={true}
               >
-                <Icon name="check-circle" size={16} color="#10b981" />
-                <Text style={styles.reviewSubmittedText}>Reviewed</Text>
+                <Icon name="check-circle" size={16} color={colors.success} />
+                <Text style={[styles.reviewSubmittedText, { color: colors.success, fontSize: fontSizes.buttonText }]}>Reviewed</Text>
               </Button>
             ) : (
               <Button
-                style={[styles.actionButton, styles.reviewButton]}
+                style={[styles.actionButton, styles.reviewButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
                 onPress={() => handleLeaveReviewClick(booking)}
               >
-                <Icon name="message-text" size={16} color="#1e40af" />
-                <Text style={styles.reviewButtonText}>Review</Text>
+                <Icon name="message-text" size={16} color={colors.primary} />
+                <Text style={[styles.reviewButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Review</Text>
               </Button>
             )}
 
             <Button 
-              style={[styles.actionButton, styles.bookAgainButton]}
+              style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
               onPress={() => {
                 console.log(`📅 Book again for service ${booking.serviceType}`);
                 setServicesDialogOpen(true);
               }}
             >
-              <Icon name="calendar-plus" size={16} color="#3b82f6" />
-              <Text style={styles.bookAgainText}>Book Again</Text>
+              <Icon name="calendar-plus" size={16} color={colors.primary} />
+              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </Button>
           </View>
         );
@@ -1721,14 +1784,14 @@ const mapBookingData = (data: any[]) => {
         return (
           <View style={styles.actionButtonsRow}>
             <Button 
-              style={[styles.actionButton, styles.bookAgainButton]}
+              style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
               onPress={() => {
                 console.log(`📅 Book again for cancelled service ${booking.serviceType}`);
                 setServicesDialogOpen(true);
               }}
             >
-              <Icon name="calendar-plus" size={16} color="#3b82f6" />
-              <Text style={styles.bookAgainText}>Book Again</Text>
+              <Icon name="calendar-plus" size={16} color={colors.primary} />
+              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </Button>
           </View>
         );
@@ -1797,33 +1860,34 @@ const mapBookingData = (data: any[]) => {
     
     return (
       <Card 
-        style={styles.bookingCard}
+        style={[styles.bookingCard, { borderColor: colors.border }]}
         onPress={() => handleViewDetails(item)}
       >
         {/* Header with Service Title and Status - Clean minimal design */}
         <View style={styles.cardHeader}>
           <View style={styles.serviceInfoContainer}>
-            <View style={styles.serviceIconContainer}>
+            <View style={[styles.serviceIconContainer, { backgroundColor: colors.primary + '15' }]}>
               <Icon 
                 name={getServiceIcon(serviceType)} 
                 size={20} 
-                color="#3b82f6"
+                color={colors.primary}
               />
             </View>
-            <Text style={styles.serviceTitle}>{getServiceTitle(serviceType)}</Text>
+            <Text style={[styles.serviceTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{getServiceTitle(serviceType)}</Text>
           </View>
           
           <View style={styles.statusContainer}>
-            {getBookingTypeBadge(item.bookingType)}
+            {/* Pass colors and fontSizes to the badge functions */}
+            {getBookingTypeBadge(item.bookingType, colors, fontSizes)}
           </View>
         </View>
 
         {/* Payment Pending Badge - Placed after service title */}
         {isPaymentPending && item.taskStatus !== 'CANCELLED' && (
           <View style={styles.paymentPendingRow}>
-            <Badge style={styles.paymentPendingBadge}>
-              <Icon name="alert-circle" size={14} color="#dc2626" />
-              <Text style={styles.paymentPendingBadgeText}>Payment Required</Text>
+            <Badge style={[styles.paymentPendingBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
+              <Icon name="alert-circle" size={14} color={colors.error} />
+              <Text style={[styles.paymentPendingBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Payment Required</Text>
             </Badge>
           </View>
         )}
@@ -1831,9 +1895,9 @@ const mapBookingData = (data: any[]) => {
         {/* Awaiting Assignment Badge (if applicable) */}
         {item.assignmentStatus === "UNASSIGNED" && !isPaymentPending && (
           <View style={styles.awaitingRow}>
-            <Badge style={styles.awaitingBadge}>
-              <Icon name="clock" size={14} color="#ca8a04" />
-              <Text style={styles.awaitingBadgeText}>Awaiting Assignment</Text>
+            <Badge style={[styles.awaitingBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
+              <Icon name="clock" size={14} color={colors.warning} />
+              <Text style={[styles.awaitingBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>Awaiting Assignment</Text>
             </Badge>
           </View>
         )}
@@ -1841,12 +1905,12 @@ const mapBookingData = (data: any[]) => {
         {/* Date and Time - Clean row */}
         <View style={styles.dateTimeRow}>
           <View style={styles.infoItem}>
-            <Icon name="calendar" size={16} color="#6b7280" />
-            <Text style={styles.infoText}>{dayjs(item.date).format('ddd, MMM D, YYYY')}</Text>
+            <Icon name="calendar" size={16} color={colors.textSecondary} />
+            <Text style={[styles.infoText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{dayjs(item.date).format('ddd, MMM D, YYYY')}</Text>
           </View>
           <View style={styles.infoItem}>
-            <Icon name="clock" size={16} color="#6b7280" />
-            <Text style={styles.infoText}>{formatTimeRange(item.start_time, item.end_time)}</Text>
+            <Icon name="clock" size={16} color={colors.textSecondary} />
+            <Text style={[styles.infoText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{formatTimeRange(item.start_time, item.end_time)}</Text>
           </View>
         </View>
 
@@ -1864,8 +1928,8 @@ const mapBookingData = (data: any[]) => {
 
         {/* View Details Indicator - Subtle arrow at bottom right like Flipkart */}
         <View style={styles.viewDetailsIndicator}>
-          <Text style={styles.viewDetailsText}>Tap to view details</Text>
-          <Icon name="chevron-right" size={16} color="#9ca3af" />
+          <Text style={[styles.viewDetailsText, { color: colors.textSecondary, fontSize: fontSizes.viewDetailsText }]}>Tap to view details</Text>
+          <Icon name="chevron-right" size={16} color={colors.textSecondary} />
         </View>
       </Card>
     );
@@ -1965,21 +2029,21 @@ const mapBookingData = (data: any[]) => {
   if (isLoading) {
     console.log('⏳ Loading state active');
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Loading your bookings...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Loading your bookings...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header with Back Button */}
       <LinearGradient
         colors={[
-          'rgba(139, 187, 221, 0.8)', // Blue tone
-          'rgba(213, 229, 233, 0.8)', // Lighter blue
-          'rgba(255,255,255,1)'       // White at the bottom
+          isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)',
+          isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)',
+          isDarkMode ? colors.background : 'rgba(255,255,255,1)'
         ]}
         start={{x: 0, y: 0}}
         end={{x: 0, y: 1}} // Vertical fade
@@ -1987,23 +2051,28 @@ const mapBookingData = (data: any[]) => {
       >
         <View style={styles.headerTopRow}>
           <TouchableOpacity 
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]}
             onPress={handleBackPress}
           >
-            <Icon name="arrow-left" size={24} color="#0a2a66" />
+            <Icon name="arrow-left" size={24} color={colors.primary} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>My Bookings</Text>
-            <Text style={styles.headerSubtitle}>Manage your household service appointments</Text>
+            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>Manage your household service appointments</Text>
           </View>
         </View>
         
         <View style={styles.headerRight}>
           <View style={styles.searchContainer}>
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { 
+                backgroundColor: colors.card, 
+                borderColor: colors.border, 
+                color: colors.text,
+                fontSize: fontSizes.searchInput
+              }]}
               placeholder="Search bookings..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.placeholder}
               value={searchTerm}
               onChangeText={(text) => {
                 console.log(`🔍 Search term changed: "${text}"`);
@@ -2018,19 +2087,19 @@ const mapBookingData = (data: any[]) => {
                   setSearchTerm('');
                 }}
               >
-                <Icon name="close-circle" size={20} color="#9ca3af" />
+                <Icon name="close-circle" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
           <TouchableOpacity 
-            style={styles.walletButton}
+            style={[styles.walletButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               console.log('💰 Opening wallet dialog');
               setWalletDialogOpen(true);
             }}
           >
             <Icon name="wallet" size={24} color="#fff" />
-            <Text style={styles.walletText}>Wallet</Text>
+            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>Wallet</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -2040,21 +2109,22 @@ const mapBookingData = (data: any[]) => {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
+            tintColor={colors.primary}
           />
         }
       >
         {/* Upcoming Bookings */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Icon name="alert-circle" size={24} color="#3b82f6" />
+          <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
+            <Icon name="alert-circle" size={24} color={colors.primary} />
             <View style={styles.sectionHeaderContent}>
-              <Text style={styles.sectionTitle}>Upcoming Bookings</Text>
-              <Text style={styles.sectionSubtitle}>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Upcoming Bookings</Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
                 {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? 'booking' : 'bookings'} scheduled
               </Text>
             </View>
-            <Badge style={styles.sectionBadge}>
-              <Text style={styles.sectionBadgeText}>{upcomingBookings.length}</Text>
+            <Badge style={[styles.sectionBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+              <Text style={[styles.sectionBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{upcomingBookings.length}</Text>
             </Badge>
           </View>
 
@@ -2066,7 +2136,8 @@ const mapBookingData = (data: any[]) => {
                   key={tab.value}
                   style={[
                     styles.statusTab,
-                    statusFilter === tab.value && styles.statusTabActive
+                    { backgroundColor: colors.surface },
+                    statusFilter === tab.value && { backgroundColor: colors.primary }
                   ]}
                   onPress={() => {
                     console.log(`📊 Status filter changed to: ${tab.value}`);
@@ -2075,12 +2146,13 @@ const mapBookingData = (data: any[]) => {
                 >
                   <Text style={[
                     styles.statusTabText,
-                    statusFilter === tab.value && styles.statusTabTextActive
+                    { color: colors.textSecondary, fontSize: fontSizes.badgeText },
+                    statusFilter === tab.value && { color: '#fff' }
                   ]}>
                     {tab.label}
                   </Text>
-                  <View style={styles.statusTabCount}>
-                    <Text style={styles.statusTabCountText}>{tab.count}</Text>
+                  <View style={[styles.statusTabCount, { backgroundColor: colors.border }]}>
+                    <Text style={[styles.statusTabCountText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{tab.count}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -2095,19 +2167,19 @@ const mapBookingData = (data: any[]) => {
               scrollEnabled={false}
             />
           ) : (
-            <Card style={styles.emptyStateCard}>
-              <Icon name="calendar" size={48} color="#9ca3af" />
-              <Text style={styles.emptyStateTitle}>No Upcoming Bookings</Text>
-              <Text style={styles.emptyStateText}>Ready to book your next service?</Text>
+            <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Icon name="calendar" size={48} color={colors.textSecondary} />
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Upcoming Bookings</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>Ready to book your next service?</Text>
               {/* Update the empty state button in the upcoming bookings section */}
               <Button 
-                style={styles.emptyStateButton}
+                style={[styles.emptyStateButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
                 onPress={() => {
                   console.log('📅 Opening services dialog from empty state');
                   setServicesDialogOpen(true);
                 }}
               >
-                <Text>Book a Service</Text>
+                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>Book a Service</Text>
               </Button>
             </Card>
           )}
@@ -2115,16 +2187,16 @@ const mapBookingData = (data: any[]) => {
 
         {/* Past Bookings */}
         <View style={styles.section}>
-          <View style={[styles.sectionHeader, styles.pastSectionHeader]}>
-            <Icon name="history" size={24} color="#6b7280" />
+          <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
+            <Icon name="history" size={24} color={colors.textSecondary} />
             <View style={styles.sectionHeaderContent}>
-              <Text style={styles.sectionTitle}>Past Bookings</Text>
-              <Text style={styles.sectionSubtitle}>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Past Bookings</Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
                 {filteredPastBookings.length} {filteredPastBookings.length === 1 ? 'booking' : 'bookings'} in history
               </Text>
             </View>
-            <Badge style={[styles.sectionBadge, styles.pastBadge]}>
-              <Text style={[styles.sectionBadgeText, styles.pastBadgeText]}>{pastBookings.length}</Text>
+            <Badge style={[styles.sectionBadge, styles.pastBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+              <Text style={[styles.sectionBadgeText, styles.pastBadge, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{pastBookings.length}</Text>
             </Badge>
           </View>
 
@@ -2136,10 +2208,10 @@ const mapBookingData = (data: any[]) => {
               scrollEnabled={false}
             />
           ) : (
-            <Card style={styles.emptyStateCard}>
-              <Icon name="clock" size={48} color="#9ca3af" />
-              <Text style={styles.emptyStateTitle}>No Past Bookings</Text>
-              <Text style={styles.emptyStateText}>Your completed and cancelled bookings will appear here.</Text>
+            <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Icon name="clock" size={48} color={colors.textSecondary} />
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Past Bookings</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>Your completed and cancelled bookings will appear here.</Text>
             </Card>
           )}
         </View>
@@ -2238,8 +2310,8 @@ const mapBookingData = (data: any[]) => {
 
       {/* Snackbar for notifications */}
       {openSnackbar && (
-        <View style={styles.snackbar}>
-          <Text style={styles.snackbarText}>Operation completed successfully!</Text>
+        <View style={[styles.snackbar, { backgroundColor: colors.success }]}>
+          <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.infoText }]}>Operation completed successfully!</Text>
           <TouchableOpacity onPress={() => {
             console.log('❌ Closing snackbar');
             setOpenSnackbar(false);
@@ -2256,7 +2328,6 @@ const mapBookingData = (data: any[]) => {
 const styles = StyleSheet.create({
   // Basic Components
   card: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -2267,7 +2338,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   button: {
-    backgroundColor: '#fff',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -2275,7 +2345,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     minHeight: 40,
   },
   disabledButton: {
@@ -2293,24 +2362,20 @@ const styles = StyleSheet.create({
   },
   separatorBase: {
     height: 1,
-    backgroundColor: '#e5e7eb',
     marginVertical: 16,
   },
 
   // Container
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
   },
   loadingText: {
     marginTop: 16,
-    color: '#4b5563',
     fontSize: 16,
   },
 
@@ -2330,7 +2395,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -2345,13 +2409,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 28,
     fontWeight: 'bold',
-    color: 'rgb(14, 48, 92)',
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(14, 48, 92, 0.8)',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -2367,14 +2427,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   searchInput: {
-    backgroundColor: '#fff',
-    color: '#000',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    fontSize: 16,
   },
   clearSearchButton: {
     position: 'absolute',
@@ -2382,7 +2438,6 @@ const styles = StyleSheet.create({
     top: 12,
   },
   walletButton: {
-    backgroundColor: 'rgb(14, 48, 92)',
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -2390,8 +2445,6 @@ const styles = StyleSheet.create({
     width: 70,
   },
   walletText: {
-    color: '#fff',
-    fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
   },
@@ -2405,13 +2458,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     padding: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
   },
   pastSectionHeader: {
-    backgroundColor: 'rgba(156, 163, 175, 0.08)',
     borderLeftColor: 'rgba(156, 163, 175, 0.4)',
   },
   sectionHeaderContent: {
@@ -2419,18 +2469,12 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   sectionTitle: {
-    fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
   },
   sectionSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
     marginTop: 4,
   },
   sectionBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -2439,12 +2483,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(156, 163, 175, 0.4)',
   },
   sectionBadgeText: {
-    color: '#3b82f6',
-    fontSize: 16,
     fontWeight: '700',
-  },
-  pastBadgeText: {
-    color: '#6b7280',
   },
 
   // Status Filter Tabs
@@ -2457,23 +2496,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f3f4f6',
     marginRight: 10,
   },
   statusTabActive: {
     backgroundColor: '#3b82f6',
   },
   statusTabText: {
-    color: '#4b5563',
     fontWeight: '600',
     marginRight: 8,
-    fontSize: 14,
-  },
-  statusTabTextActive: {
-    color: '#fff',
   },
   statusTabCount: {
-    backgroundColor: '#e5e7eb',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -2481,8 +2513,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusTabCountText: {
-    fontSize: 12,
-    color: '#4b5563',
     fontWeight: '600',
   },
 
@@ -2492,8 +2522,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#f0f0f0',
-    backgroundColor: '#fff',
   },
 
   // Card Header - Service title and status
@@ -2511,15 +2539,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#eff6ff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   serviceTitle: {
-    fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
   },
   statusContainer: {
     flexDirection: 'row',
@@ -2545,8 +2570,6 @@ const styles = StyleSheet.create({
   },
   infoText: {
     marginLeft: 6,
-    fontSize: 14,
-    color: '#4b5563',
   },
 
   // Action Buttons Styles
@@ -2559,16 +2582,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
- actionButton: {
-  flex: 1,
-  minWidth: '22%', // This was causing the extra space
-  justifyContent: 'center',
-  backgroundColor: '#fff',
-  borderWidth: 1,
-  borderColor: '#e5e7eb',
-  paddingVertical: 8,
-  paddingHorizontal: 4,
-},
+  actionButton: {
+    flex: 1,
+    minWidth: '22%', // This was causing the extra space
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
   callButton: {
     backgroundColor: '#3b82f6',
     borderColor: '#3b82f6',
@@ -2577,7 +2599,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   messageButton: {
     backgroundColor: '#10b981',
@@ -2587,7 +2608,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   cancelButton: {
     backgroundColor: '#ef4444',
@@ -2597,7 +2617,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   modifyButton: {
     backgroundColor: '#fff',
@@ -2621,7 +2640,6 @@ compactActionButton: {
   paddingHorizontal: 16,
   backgroundColor: '#fff',
   borderWidth: 1,
-  borderColor: '#e5e7eb',
   borderRadius: 8,
   alignItems: 'center',
   justifyContent: 'center',
@@ -2633,7 +2651,6 @@ compactActionButton: {
     color: '#1e40af',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   vacationButton: {
     backgroundColor: '#fff',
@@ -2643,7 +2660,6 @@ compactActionButton: {
     color: '#1e40af',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   vacationModifiedButton: {
     backgroundColor: '#dbeafe',
@@ -2653,7 +2669,6 @@ compactActionButton: {
     color: '#1e40af',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   reviewButton: {
     backgroundColor: '#fff',
@@ -2663,7 +2678,6 @@ compactActionButton: {
     color: '#1e40af',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   reviewSubmittedButton: {
     backgroundColor: '#f0fdf4',
@@ -2673,7 +2687,6 @@ compactActionButton: {
     color: '#10b981',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   bookAgainButton: {
     backgroundColor: '#fff',
@@ -2683,7 +2696,6 @@ compactActionButton: {
     color: '#3b82f6',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
   disabledButtonText: {
     color: '#9ca3af',
@@ -2700,8 +2712,6 @@ compactActionButton: {
     borderTopColor: '#f0f0f0',
   },
   viewDetailsText: {
-    fontSize: 12,
-    color: '#9ca3af',
     marginRight: 4,
   },
 
@@ -2723,135 +2733,90 @@ compactActionButton: {
     color: '#fff',
     marginLeft: 6,
     fontWeight: '600',
-    fontSize: 12,
   },
 
   // Badge Styles
   activeBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   activeBadgeText: {
-    color: '#3b82f6',
-    fontSize: 12,
     marginLeft: 4,
     fontWeight: '600',
   },
   completedBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   completedBadgeText: {
-    color: '#10b981',
-    fontSize: 12,
     marginLeft: 4,
     fontWeight: '600',
   },
   cancelledBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   cancelledBadgeText: {
-    color: '#ef4444',
-    fontSize: 12,
     marginLeft: 4,
     fontWeight: '600',
   },
   inProgressBadge: {
-    backgroundColor: 'rgba(107, 114, 128, 0.15)',
-    borderColor: 'rgba(107, 114, 128, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   inProgressBadgeText: {
-    color: '#6b7280',
-    fontSize: 12,
     marginLeft: 4,
     fontWeight: '600',
   },
   notStartedBadge: {
-    backgroundColor: 'rgba(107, 114, 128, 0.15)',
-    borderColor: 'rgba(107, 114, 128, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   notStartedBadgeText: {
-    color: '#6b7280',
-    fontSize: 12,
     marginLeft: 4,
     fontWeight: '600',
   },
   onDemandBadge: {
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    borderColor: 'rgba(168, 85, 247, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   onDemandBadgeText: {
-    color: '#8b5cf6',
-    fontSize: 12,
     fontWeight: '600',
   },
   monthlyBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderColor: 'rgba(59, 130, 246, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   monthlyBadgeText: {
-    color: '#3b82f6',
-    fontSize: 12,
     fontWeight: '600',
   },
   shortTermBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   shortTermBadgeText: {
-    color: '#10b981',
-    fontSize: 12,
     fontWeight: '600',
   },
   defaultBadge: {
-    backgroundColor: 'rgba(156, 163, 175, 0.15)',
-    borderColor: 'rgba(156, 163, 175, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   defaultBadgeText: {
-    color: '#6b7280',
-    fontSize: 12,
     fontWeight: '600',
   },
   awaitingBadge: {
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    borderColor: 'rgba(234, 179, 8, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   awaitingBadgeText: {
-    color: '#ca8a04',
-    fontSize: 12,
     marginLeft: 4,
     fontWeight: '600',
   },
   paymentPendingBadge: {
-    backgroundColor: 'rgba(220, 38, 38, 0.15)',
-    borderColor: 'rgba(220, 38, 38, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   paymentPendingBadgeText: {
-    color: '#dc2626',
-    fontSize: 12,
     marginLeft: 4,
     fontWeight: '600',
   },
@@ -2866,23 +2831,17 @@ compactActionButton: {
   },
   scheduledMessageCard: {
     padding: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
     borderWidth: 1,
-    borderColor: '#93c5fd',
     borderRadius: 8,
   },
   inProgressMessageCard: {
     padding: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderWidth: 1,
-    borderColor: '#a7f3d0',
     borderRadius: 8,
   },
   completedMessageCard: {
     padding: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderWidth: 1,
-    borderColor: '#a7f3d0',
     borderRadius: 8,
   },
   scheduledMessageHeader: {
@@ -2899,28 +2858,20 @@ compactActionButton: {
     flexWrap: 'wrap',
   },
   scheduledMessageTitle: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
     flex: 1,
   },
   scheduledMessageText: {
-    fontSize: 13,
-    color: '#6b7280',
     marginBottom: 12,
     lineHeight: 18,
     fontWeight: '400',
   },
   scheduledBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
     marginLeft: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   scheduledBadgeText: {
-    color: '#10b981',
-    fontSize: 11,
     fontWeight: '600',
   },
   otpButtonContainer: {
@@ -2931,41 +2882,29 @@ compactActionButton: {
     marginBottom: 12,
   },
   otpButton: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
     minWidth: 160,
     flex: 1,
     paddingVertical: 10,
   },
   otpButtonText: {
-    color: '#fff',
     marginLeft: 8,
     fontWeight: '600',
-    fontSize: 13,
   },
   otpActiveBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   otpActiveBadgeText: {
-    color: '#10b981',
-    fontSize: 12,
     fontWeight: '600',
   },
   otpDisplayContainer: {
-    backgroundColor: '#f9fafb',
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   otpDisplayLabel: {
-    fontSize: 13,
     fontWeight: '500',
-    color: '#4b5563',
     marginBottom: 6,
   },
   otpDisplay: {
@@ -2975,25 +2914,19 @@ compactActionButton: {
     marginBottom: 6,
   },
   otpCode: {
-    fontSize: 22,
     fontWeight: 'bold',
     letterSpacing: 4,
-    color: '#111827',
   },
   copyOtpButton: {
     backgroundColor: 'transparent',
-    borderColor: '#d1d5db',
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   copyOtpButtonText: {
-    color: '#4b5563',
     fontSize: 12,
     fontWeight: '600',
   },
   otpExpiryText: {
-    fontSize: 12,
-    color: '#6b7280',
     fontStyle: 'italic',
   },
   reviewPromptContainer: {
@@ -3001,7 +2934,6 @@ compactActionButton: {
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#a7f3d0',
     paddingTop: 12,
     marginTop: 12,
   },
@@ -3009,27 +2941,20 @@ compactActionButton: {
     flex: 1,
   },
   reviewPromptTitle: {
-    fontSize: 13,
     fontWeight: '600',
-    color: '#4b5563',
   },
   reviewPromptSubtitle: {
-    fontSize: 12,
-    color: '#6b7280',
     marginTop: 2,
     lineHeight: 16,
   },
   leaveReviewButton: {
     backgroundColor: 'transparent',
-    borderColor: '#d1d5db',
     marginLeft: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
   leaveReviewButtonText: {
-    color: '#000',
     marginLeft: 6,
-    fontSize: 12,
     fontWeight: '600',
   },
 
@@ -3037,28 +2962,20 @@ compactActionButton: {
   emptyStateCard: {
     alignItems: 'center',
     padding: 40,
-    backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   emptyStateTitle: {
-    fontSize: 20,
     fontWeight: '700',
     marginTop: 20,
-    color: '#111827',
   },
   emptyStateText: {
-    color: '#6b7280',
     marginTop: 8,
     textAlign: 'center',
-    fontSize: 16,
     lineHeight: 24,
   },
   emptyStateButton: {
     marginTop: 24,
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
     paddingVertical: 16,
     paddingHorizontal: 32,
   },
@@ -3069,7 +2986,6 @@ compactActionButton: {
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: '#10b981',
     padding: 16,
     borderRadius: 8,
     flexDirection: 'row',
@@ -3082,14 +2998,11 @@ compactActionButton: {
     elevation: 5,
   },
   snackbarText: {
-    color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
     flex: 1,
   },
   separator: {
     height: 1,
-    backgroundColor: '#e5e7eb',
     marginVertical: 12,
   },
 });

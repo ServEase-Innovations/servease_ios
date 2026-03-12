@@ -18,6 +18,7 @@ import { remove } from "../features/userSlice";
 import Snackbar from "react-native-snackbar";
 import { PROFILE, BOOKINGS, DASHBOARD, HOME } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet"; // Import the new component
+import { useTranslation } from 'react-i18next';
 
 
 interface NavigationFooterProps {
@@ -58,6 +59,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
+  const { t } = useTranslation();
   
   const { authorize, clearSession, getCredentials } = useAuth0();
   const dispatch = useDispatch();
@@ -116,7 +118,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       console.log("Login successful");
       
       Snackbar.show({
-        text: "Logged in successfully!",
+        text: t('navigation.loggedInSuccess'),
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: "#10b981",
         textColor: "#ffffff",
@@ -124,7 +126,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     } catch (e) {
       console.log("Login error:", e);
       Snackbar.show({
-        text: "Login failed. Please try again.",
+        text: t('navigation.loginFailed'),
         duration: Snackbar.LENGTH_LONG,
         backgroundColor: "#ef4444",
         textColor: "#ffffff",
@@ -145,7 +147,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       console.log("🚪 Sign out initiated...");
       
       Snackbar.show({
-        text: "Signing out...",
+        text: t('navigation.signingOutMsg'),
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: "#3b82f6",
         textColor: "#ffffff",
@@ -166,7 +168,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     } catch (e) {
       console.log("❌ Log out error:", e);
       Snackbar.show({
-        text: "Failed to sign out",
+        text: t('navigation.signOut'),
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: "#ef4444",
         textColor: "#ffffff",
@@ -211,7 +213,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         {!isMobileView && (
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              Account
+              {t('navigation.account')}
             </Text>
             <FeatherIcon name="chevron-down" size={14} color="#fff" />
           </View>
@@ -228,7 +230,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     // ALWAYS include HOME tab for everyone - using onHomeClick
     tabs.push({
       key: HOME,
-      label: "Home",
+      label: t('navigation.home'),
       icon: <MaterialIcon name="home" size={22} />,
       onPress: handleHomeButtonClick, // This will always call onHomeClick
     });
@@ -238,7 +240,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       // For authenticated users, add the profile/account tab
       tabs.push({
         key: "ACCOUNT",
-        label: "Account",
+        label: t('navigation.account'),
         icon: renderUserAvatar(true),
         onPress: handleProfileButtonClick,
       });
@@ -247,14 +249,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       if (isCustomer) {
         tabs.push({
           key: BOOKINGS,
-          label: "Bookings",
+          label: t('navigation.bookings'),
           icon: <MaterialIcon name="event-note" size={22} />,
           onPress: handleBookingsButtonClick,
         });
         
         tabs.push({
           key: "WALLET",
-          label: "Wallet",
+          label: t('navigation.wallet'),
           icon: <MaterialIcon name="account-balance-wallet" size={22} />,
           onPress: () => setIsWalletOpen(true),
         });
@@ -264,14 +266,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       if (isServiceProvider) {
         tabs.push({
           key: DASHBOARD,
-          label: "Dashboard",
+          label: t('navigation.dashboard'),
           icon: <MaterialIcon name="dashboard" size={22} />,
           onPress: handleDashboardButtonClick,
         });
         
         tabs.push({
           key: "NOTIFICATIONS",
-          label: "Alerts",
+          label: t('navigation.alerts'),
           icon: <MaterialIcon name="notifications" size={22} />,
           onPress: () => setShowNotifications(true),
         });
@@ -280,7 +282,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       // Add Sign Out for all authenticated users
       tabs.push({
         key: "SIGN_OUT",
-        label: "Sign Out",
+        label: t('navigation.signOut'),
         icon: (
           <MaterialIcon
             name="logout"
@@ -294,14 +296,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       // For unauthenticated users, add Sign In/Up options
       tabs.push({
         key: "ACCOUNT",
-        label: "Sign In",
+        label: t('navigation.signIn'),
         icon: renderUserAvatar(true),
         onPress: handleProfileButtonClick,
       });
       
       tabs.push({
         key: "SIGN_UP",
-        label: "Sign Up",
+        label: t('navigation.signUp'),
         icon: <MaterialIcon name="person-add" size={22} color="#fff" />,
         onPress: onOpenSignup,
       });
@@ -383,7 +385,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 color="#fff" 
                 style={styles.navIcon}
               />
-              <Text style={styles.desktopNavText}>Home</Text>
+              <Text style={styles.desktopNavText}>{t('navigation.home')}</Text>
             </TouchableOpacity>
 
             {isCustomer && (
@@ -392,7 +394,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 style={styles.desktopNavItem}
               >
                 <MaterialIcon name="event-note" size={20} color="#fff" style={styles.navIcon} />
-                <Text style={styles.desktopNavText}>My Bookings</Text>
+                <Text style={styles.desktopNavText}>{t('navigation.myBookings')}</Text>
               </TouchableOpacity>
             )}
 
@@ -402,7 +404,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 style={styles.desktopNavItem}
               >
                 <MaterialIcon name="dashboard" size={20} color="#fff" style={styles.navIcon} />
-                <Text style={styles.desktopNavText}>Dashboard</Text>
+                <Text style={styles.desktopNavText}>{t('navigation.dashboard')}</Text>
               </TouchableOpacity>
             )}
 
@@ -413,7 +415,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   style={styles.desktopNavItem}
                 >
                   <MaterialIcon name="info" size={20} color="#fff" style={styles.navIcon} />
-                  <Text style={styles.desktopNavText}>About Us</Text>
+                  <Text style={styles.desktopNavText}>{t('navigation.aboutUs')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -421,7 +423,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   style={styles.desktopNavItem}
                 >
                   <MaterialIcon name="contact-support" size={20} color="#fff" style={styles.navIcon} />
-                  <Text style={styles.desktopNavText}>Contact Us</Text>
+                  <Text style={styles.desktopNavText}>{t('navigation.contactUs')}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -452,7 +454,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             >
               {renderUserAvatar()}
               {!isAuthenticated && (
-                <Text style={styles.signInText}>Sign In</Text>
+                <Text style={styles.signInText}>{t('navigation.signIn')}</Text>
               )}
             </TouchableOpacity>
             
@@ -475,7 +477,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   styles.signOutText,
                   isSigningOut && styles.disabledTabText
                 ]}>
-                  {isSigningOut ? "Signing Out..." : "Sign Out"}
+                  {isSigningOut ? t('navigation.signingOut') : t('navigation.signOut')}
                 </Text>
               </TouchableOpacity>
             )}

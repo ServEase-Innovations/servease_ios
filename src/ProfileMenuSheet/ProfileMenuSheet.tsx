@@ -11,6 +11,7 @@ import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { useAppUser } from "../context/AppUserContext";
 import Settings from "../Settings/Settings"; // Import the Settings component
 import { useTheme } from "../Settings/ThemeContext"; // Import useTheme
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   visible: boolean;
@@ -33,6 +34,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
 }) => {
   const { appUser } = useAppUser();
   const { colors } = useTheme(); // Get theme colors
+  const { t } = useTranslation();
 
   // State for settings modal
   const [showSettings, setShowSettings] = useState(false);
@@ -64,12 +66,12 @@ const ProfileMenuSheet: React.FC<Props> = ({
 
         <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
           <Text style={[styles.userName, { color: colors.text }]}>
-            {appUser?.name || appUser?.email || "User"}
+            {appUser?.name || appUser?.email || t('profileMenu.user')}
           </Text>
 
           {/* Profile - Always show for authenticated users */}
           <MenuItem 
-            label="Profile" 
+            label={t('profileMenu.profile')} 
             icon="person" 
             onPress={onProfile} 
             colors={colors}
@@ -79,13 +81,13 @@ const ProfileMenuSheet: React.FC<Props> = ({
           {isCustomer && (
             <>
               <MenuItem 
-                label="My Bookings" 
+                label={t('profileMenu.myBookings')} 
                 icon="event-note" 
                 onPress={onBookings} 
                 colors={colors}
               />
               <MenuItem 
-                label="Wallet" 
+                label={t('profileMenu.wallet')} 
                 icon="account-balance-wallet" 
                 onPress={onWallet} 
                 colors={colors}
@@ -97,7 +99,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
           {isServiceProvider && (
             <>
               <MenuItem 
-                label="Dashboard" 
+                label={t('profileMenu.dashboard')} 
                 icon="dashboard" 
                 onPress={onDashboard} 
                 colors={colors}
@@ -107,7 +109,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
 
           {/* Settings button - now contains all settings including About and Contact */}
           <MenuItem 
-            label="Settings" 
+            label={t('profileMenu.settings')} 
             icon="settings" 
             onPress={handleSettingsPress} 
             colors={colors}

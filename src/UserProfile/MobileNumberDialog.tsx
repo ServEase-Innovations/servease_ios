@@ -20,6 +20,7 @@ import providerInstance from "../services/providerInstance";
 import { useDispatch } from "react-redux";
 import { setHasMobileNumber } from "../features/customerSlice";
 import LinearGradient from "react-native-linear-gradient";
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 interface MobileNumberDialogProps {
   visible: boolean;
@@ -49,6 +50,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
   customerId,
   onSuccess,
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const [contactNumber, setContactNumber] = useState("");
   const [altContactNumber, setAltContactNumber] = useState("");
   const [loading, setLoading] = useState(false);
@@ -82,6 +84,50 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
     contact: null,
     alternate: null
   });
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          headerTitle: 16,
+          description: 13,
+          label: 13,
+          input: 14,
+          buttonText: 13,
+          snackbarText: 13,
+          errorText: 11,
+          successText: 11,
+          warningText: 13,
+        };
+      case 'large':
+        return {
+          headerTitle: 20,
+          description: 16,
+          label: 16,
+          input: 18,
+          buttonText: 16,
+          snackbarText: 16,
+          errorText: 14,
+          successText: 14,
+          warningText: 16,
+        };
+      default:
+        return {
+          headerTitle: 18,
+          description: 14,
+          label: 14,
+          input: 16,
+          buttonText: 14,
+          snackbarText: 14,
+          errorText: 12,
+          successText: 12,
+          warningText: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   useEffect(() => {
     if (visible && appUser) {
@@ -473,6 +519,166 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
     });
   };
 
+  const dynamicStyles = StyleSheet.create({
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      width: '90%',
+      maxWidth: 400,
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      overflow: 'hidden',
+      maxHeight: '80%',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+    },
+    headerTitle: {
+      color: '#fff',
+      fontSize: fontSizes.headerTitle,
+      fontWeight: '600',
+    },
+    closeButton: {
+      padding: 4,
+    },
+    content: {
+      padding: 20,
+    },
+    description: {
+      color: colors.textSecondary,
+      fontSize: fontSizes.description,
+      marginBottom: 20,
+    },
+    inputContainer: {
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: fontSizes.label,
+      fontWeight: '500',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    inputWrapper: {
+      position: 'relative',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: fontSizes.input,
+      paddingRight: 40,
+      backgroundColor: colors.card,
+      color: colors.text,
+    },
+    inputError: {
+      borderColor: colors.error,
+    },
+    inputIcon: {
+      position: 'absolute',
+      right: 12,
+      top: 12,
+    },
+    errorText: {
+      color: colors.error,
+      fontSize: fontSizes.errorText,
+      marginTop: 4,
+    },
+    successText: {
+      color: colors.success,
+      fontSize: fontSizes.successText,
+      marginTop: 4,
+    },
+    warningContainer: {
+      backgroundColor: colors.errorLight,
+      borderWidth: 1,
+      borderColor: colors.error,
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 8,
+    },
+    warningText: {
+      color: colors.error,
+      fontSize: fontSizes.warningText,
+    },
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      gap: 12,
+    },
+    button: {
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      minWidth: 100,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cancelButtonText: {
+      color: colors.text,
+      fontWeight: '500',
+      fontSize: fontSizes.buttonText,
+    },
+    submitButton: {
+      backgroundColor: colors.primary,
+    },
+    submitButtonText: {
+      color: '#fff',
+      fontWeight: '500',
+      fontSize: fontSizes.buttonText,
+    },
+    disabledButton: {
+      backgroundColor: colors.disabled,
+    },
+    loadingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    snackbar: {
+      position: 'absolute',
+      bottom: 20,
+      left: 20,
+      right: 20,
+      padding: 16,
+      borderRadius: 8,
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+    },
+    snackbarSuccess: {
+      backgroundColor: colors.success,
+    },
+    snackbarError: {
+      backgroundColor: colors.error,
+    },
+    snackbarInfo: {
+      backgroundColor: colors.info,
+    },
+    snackbarText: {
+      color: '#fff',
+      fontSize: fontSizes.snackbarText,
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+  });
+
   return (
     <Modal
       visible={visible}
@@ -482,130 +688,130 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
     >
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.modalContainer}
+        style={dynamicStyles.modalContainer}
       >
-        <View style={styles.modalContent}>
-          {/* <View style={styles.header}> */}
-           <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.header}
-                  >
-            <Text style={styles.headerTitle}>Update Contact Numbers</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <View style={dynamicStyles.modalContent}>
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={dynamicStyles.header}
+          >
+            <Text style={dynamicStyles.headerTitle}>Update Contact Numbers</Text>
+            <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
               <Icon name="close" size={24} color="#fff" />
             </TouchableOpacity>
-          {/* </View> */}
           </LinearGradient>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            <Text style={styles.description}>
+          <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
+            <Text style={dynamicStyles.description}>
               Please enter your mobile and alternative contact numbers to continue.
             </Text>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Contact Number *</Text>
-              <View style={styles.inputWrapper}>
+            <View style={dynamicStyles.inputContainer}>
+              <Text style={dynamicStyles.label}>Contact Number *</Text>
+              <View style={dynamicStyles.inputWrapper}>
                 <TextInput
                   style={[
-                    styles.input,
-                    (!!contactValidation.error || contactValidation.formatError) && styles.inputError
+                    dynamicStyles.input,
+                    (!!contactValidation.error || contactValidation.formatError) && dynamicStyles.inputError
                   ]}
                   placeholder="10-digit mobile number"
+                  placeholderTextColor={colors.placeholder}
                   value={contactNumber}
                   onChangeText={handleContactNumberChange}
                   keyboardType="phone-pad"
                   maxLength={10}
                 />
-                <View style={styles.inputIcon}>
+                <View style={dynamicStyles.inputIcon}>
                   {contactValidation.loading ? (
-                    <ActivityIndicator size="small" color="#666" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : contactValidation.isAvailable ? (
-                    <Icon name="check-circle" size={20} color="#4caf50" />
+                    <Icon name="check-circle" size={20} color={colors.success} />
                   ) : contactValidation.isAvailable === false ? (
                     <TouchableOpacity onPress={handleClearContactNumber}>
-                      <Icon name="cancel" size={20} color="#f44336" />
+                      <Icon name="cancel" size={20} color={colors.error} />
                     </TouchableOpacity>
                   ) : null}
                 </View>
               </View>
               {contactValidation.error ? (
-                <Text style={styles.errorText}>{contactValidation.error}</Text>
+                <Text style={dynamicStyles.errorText}>{contactValidation.error}</Text>
               ) : contactValidation.formatError ? (
-                <Text style={styles.errorText}>Please enter exactly 10 digits</Text>
+                <Text style={dynamicStyles.errorText}>Please enter exactly 10 digits</Text>
               ) : contactValidation.isAvailable ? (
-                <Text style={styles.successText}>Contact number is available</Text>
+                <Text style={dynamicStyles.successText}>Contact number is available</Text>
               ) : null}
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Alternative Contact Number (Optional)</Text>
-              <View style={styles.inputWrapper}>
+            <View style={dynamicStyles.inputContainer}>
+              <Text style={dynamicStyles.label}>Alternative Contact Number (Optional)</Text>
+              <View style={dynamicStyles.inputWrapper}>
                 <TextInput
                   style={[
-                    styles.input,
-                    (!!altContactValidation.error || altContactValidation.formatError) && styles.inputError
+                    dynamicStyles.input,
+                    (!!altContactValidation.error || altContactValidation.formatError) && dynamicStyles.inputError
                   ]}
                   placeholder="10-digit mobile number"
+                  placeholderTextColor={colors.placeholder}
                   value={altContactNumber}
                   onChangeText={handleAltContactNumberChange}
                   keyboardType="phone-pad"
                   maxLength={10}
                 />
-                <View style={styles.inputIcon}>
+                <View style={dynamicStyles.inputIcon}>
                   {altContactValidation.loading ? (
-                    <ActivityIndicator size="small" color="#666" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : altContactValidation.isAvailable ? (
-                    <Icon name="check-circle" size={20} color="#4caf50" />
+                    <Icon name="check-circle" size={20} color={colors.success} />
                   ) : altContactValidation.isAvailable === false ? (
                     <TouchableOpacity onPress={handleClearAltContactNumber}>
-                      <Icon name="cancel" size={20} color="#f44336" />
+                      <Icon name="cancel" size={20} color={colors.error} />
                     </TouchableOpacity>
                   ) : null}
                 </View>
               </View>
               {altContactValidation.error ? (
-                <Text style={styles.errorText}>{altContactValidation.error}</Text>
+                <Text style={dynamicStyles.errorText}>{altContactValidation.error}</Text>
               ) : altContactValidation.formatError ? (
-                <Text style={styles.errorText}>Please enter exactly 10 digits</Text>
+                <Text style={dynamicStyles.errorText}>Please enter exactly 10 digits</Text>
               ) : altContactValidation.isAvailable ? (
-                <Text style={styles.successText}>Alternate number is available</Text>
+                <Text style={dynamicStyles.successText}>Alternate number is available</Text>
               ) : null}
             </View>
 
             {!areNumbersUnique() && contactNumber && altContactNumber && (
-              <View style={styles.warningContainer}>
-                <Text style={styles.warningText}>
+              <View style={dynamicStyles.warningContainer}>
+                <Text style={dynamicStyles.warningText}>
                   ⚠️ Contact number and alternate contact number must be different
                 </Text>
               </View>
             )}
           </ScrollView>
 
-          <View style={styles.actions}>
+          <View style={dynamicStyles.actions}>
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
+              style={[dynamicStyles.button, dynamicStyles.cancelButton]}
               onPress={onClose}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={dynamicStyles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
-                styles.button,
-                styles.submitButton,
-                (loading || !isFormValid()) && styles.disabledButton
+                dynamicStyles.button,
+                dynamicStyles.submitButton,
+                (loading || !isFormValid()) && dynamicStyles.disabledButton
               ]}
               onPress={handleSubmit}
               disabled={loading || !isFormValid()}
             >
               {loading ? (
-                <View style={styles.loadingContainer}>
+                <View style={dynamicStyles.loadingContainer}>
                   <ActivityIndicator size="small" color="#fff" />
-                  <Text style={styles.submitButtonText}> Updating...</Text>
+                  <Text style={dynamicStyles.submitButtonText}> Updating...</Text>
                 </View>
               ) : (
-                <Text style={styles.submitButtonText}>Submit</Text>
+                <Text style={dynamicStyles.submitButtonText}>Submit</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -614,173 +820,16 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
 
       {snackbar.visible && (
         <View style={[
-          styles.snackbar,
-          snackbar.type === 'success' ? styles.snackbarSuccess :
-          snackbar.type === 'error' ? styles.snackbarError :
-          styles.snackbarInfo
+          dynamicStyles.snackbar,
+          snackbar.type === 'success' ? dynamicStyles.snackbarSuccess :
+          snackbar.type === 'error' ? dynamicStyles.snackbarError :
+          dynamicStyles.snackbarInfo
         ]}>
-          <Text style={styles.snackbarText}>{snackbar.message}</Text>
+          <Text style={dynamicStyles.snackbarText}>{snackbar.message}</Text>
         </View>
       )}
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    maxWidth: 400,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    maxHeight: '80%',
-  },
-  header: {
-    backgroundColor: '#2563eb',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  content: {
-    padding: 20,
-  },
-  description: {
-    color: '#4b5563',
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  inputWrapper: {
-    position: 'relative',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    paddingRight: 40,
-  },
-  inputError: {
-    borderColor: '#ef4444',
-  },
-  inputIcon: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  successText: {
-    color: '#10b981',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  warningContainer: {
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fee2e2',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-  },
-  warningText: {
-    color: '#b91c1c',
-    fontSize: 14,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    gap: 12,
-  },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-  },
-  cancelButtonText: {
-    color: '#374151',
-    fontWeight: '500',
-  },
-  submitButton: {
-    backgroundColor: '#2563eb',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: '500',
-  },
-  disabledButton: {
-    backgroundColor: '#9ca3af',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  snackbar: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    padding: 16,
-    borderRadius: 8,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  snackbarSuccess: {
-    backgroundColor: '#4caf50',
-  },
-  snackbarError: {
-    backgroundColor: '#f44336',
-  },
-  snackbarInfo: {
-    backgroundColor: '#2196f3',
-  },
-  snackbarText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-});
 
 export default MobileNumberDialog;

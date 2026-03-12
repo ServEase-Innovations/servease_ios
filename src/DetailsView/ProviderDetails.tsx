@@ -25,6 +25,7 @@ import { ServiceProviderDTO, EnhancedProviderDetails } from "../types/ProviderDe
 import ProviderAvailabilityDrawer from "./ProviderAvailabilityDrawer";
 import { CONFIRMATION } from "../Constants/pagesConstants";
 import { useTheme } from '../Settings/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface BookingType {
   serviceproviderId: string;
@@ -44,6 +45,7 @@ interface ProviderDetailsProps extends ServiceProviderDTO {
 const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Get theme values
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  const { t } = useTranslation();
   
   const [isExpanded, setIsExpanded] = useState(false);
   const [eveningSelection, setEveningSelection] = useState<number | null>(null);
@@ -340,7 +342,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     
     if (!providerId) {
       console.error("No provider ID found!");
-      Alert.alert("Error", "Provider ID not found");
+      Alert.alert(t('common.error'), t('errors.generic'));
       return;
     }
 
@@ -791,7 +793,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 styles.metricLabel,
                 isMobile && styles.metricLabelMobile,
                 { color: colors.textTertiary, fontSize: fontStyles.xSmall }
-              ]}>{getReviewCount()} reviews</Text>
+              ]}>{t('provider.reviews', { count: getReviewCount() })}</Text>
             </View>
 
             <View style={[
@@ -872,7 +874,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 isMobile && styles.detailsButtonTextMobile,
                 { color: isDarkMode ? '#e2e8f0' : colors.primary, fontSize: fontStyles.smallText, fontWeight: '600' }
               ]}>
-                Details
+                {t('provider.viewDetails')}
               </Text>
             </TouchableOpacity>
 
@@ -900,7 +902,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 isMobile && styles.bookNowButtonTextMobile,
                 { color: '#ffffff', fontSize: fontStyles.textSize, fontWeight: '700' }
               ]}>
-                Book Now
+                {t('provider.bookNow')}
               </Text>
             </TouchableOpacity>
           </View>

@@ -10,10 +10,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import dayjs from 'dayjs';
-import PaymentInstance from '../services/paymentInstance'; // Updated import
+import PaymentInstance from '../services/paymentInstance';
 import axiosInstance from '../services/axiosInstance';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import VacationManagementDialog from './VacationManagement';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface Booking {
   bookingType: string;
@@ -21,17 +22,17 @@ interface Booking {
   startDate: string;
   endDate: string;
   timeSlot: string;
-  service_type: string; // Updated from serviceType to service_type
+  service_type: string;
   customerId?: number;
   modifiedDate: string;
   bookingDate: string;
   hasVacation?: boolean;
   vacationDetails?: {
-    start_date?: string; // Updated field names
+    start_date?: string;
     end_date?: string;
     leave_days?: number;
   };
-  modifications?: Array<{ // New field from React code
+  modifications?: Array<{
     date: string;
     action: string;
     changes?: {
@@ -58,8 +59,8 @@ interface ModifyBookingDialogProps {
     timeSlot: string;
   }) => void;
   customerId: number | null;
-  refreshBookings: () => Promise<void>; // New prop from React code
-  setOpenSnackbar: React.Dispatch<React.SetStateAction<boolean>>; // New prop from React code
+  refreshBookings: () => Promise<void>;
+  setOpenSnackbar: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
@@ -69,9 +70,10 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
   timeSlots,
   onSave,
   customerId,
-  refreshBookings, // New prop
-  setOpenSnackbar, // New prop
+  refreshBookings,
+  setOpenSnackbar,
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const today = dayjs();
   const maxDate90Days = dayjs().add(90, 'day');
 
@@ -92,6 +94,59 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
   const [selectedSection, setSelectedSection] = useState<
     'OPTIONS' | 'BOOKING_DATE' | 'BOOKING_TIME' | 'VACATION'
   >('OPTIONS');
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          title: 16,
+          bookingInfoText: 13,
+          bookingDetailText: 12,
+          modificationCountText: 12,
+          lastModificationText: 11,
+          errorText: 12,
+          successText: 12,
+          sectionDescription: 13,
+          label: 12,
+          buttonText: 13,
+          statusMessage: 12,
+          loadingText: 12,
+        };
+      case 'large':
+        return {
+          title: 20,
+          bookingInfoText: 16,
+          bookingDetailText: 15,
+          modificationCountText: 15,
+          lastModificationText: 14,
+          errorText: 15,
+          successText: 15,
+          sectionDescription: 16,
+          label: 15,
+          buttonText: 16,
+          statusMessage: 15,
+          loadingText: 15,
+        };
+      default:
+        return {
+          title: 18,
+          bookingInfoText: 14,
+          bookingDetailText: 13,
+          modificationCountText: 13,
+          lastModificationText: 12,
+          errorText: 14,
+          successText: 14,
+          sectionDescription: 14,
+          label: 14,
+          buttonText: 14,
+          statusMessage: 14,
+          loadingText: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   const shouldDisableStartDate = (date: Date) => dayjs(date).isBefore(today, 'day');
 
@@ -343,14 +398,19 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
         disabled={disabled}
         style={[
           styles.button,
-          variant === 'contained' ? styles.containedButton : styles.outlinedButton,
+          variant === 'contained' 
+            ? [styles.containedButton, { backgroundColor: colors.primary }] 
+            : [styles.outlinedButton, { borderColor: colors.primary }],
           disabled && styles.disabledButton
         ]}
       >
         <Text style={[
           styles.buttonText,
-          variant === 'contained' ? styles.containedButtonText : styles.outlinedButtonText,
-          disabled && styles.disabledButtonText
+          { fontSize: fontSizes.buttonText },
+          variant === 'contained' 
+            ? [styles.containedButtonText, { color: '#fff' }] 
+            : [styles.outlinedButtonText, { color: colors.primary }],
+          disabled && [styles.disabledButtonText, { color: colors.textSecondary }]
         ]}>
           {title}
         </Text>
@@ -367,39 +427,39 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
         onRequestClose={onClose}
       >
         <TouchableOpacity 
-          style={styles.backdrop} 
+          style={[styles.backdrop, { backgroundColor: colors.overlay }]} 
           activeOpacity={1}
           onPress={onClose}
         >
           <View style={styles.dialogContainer}>
-            <View style={styles.dialog}>
-              <View style={styles.header}>
-                <Text style={styles.title}>Modify Booking</Text>
+            <View style={[styles.dialog, { backgroundColor: colors.card }]}>
+              <View style={[styles.header, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.title, { color: colors.text, fontSize: fontSizes.title }]}>Modify Booking</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Text style={styles.closeIcon}>×</Text>
+                  <Text style={[styles.closeIcon, { color: colors.text }]}>×</Text>
                 </TouchableOpacity>
               </View>
 
               <ScrollView style={styles.content}>
-                {/* Booking Info Section - NEW FROM REACT CODE */}
-                <View style={styles.bookingInfoContainer}>
-                  <Text style={styles.bookingInfoText}>
+                {/* Booking Info Section */}
+                <View style={[styles.bookingInfoContainer, { backgroundColor: colors.infoLight }]}>
+                  <Text style={[styles.bookingInfoText, { color: colors.primary, fontSize: fontSizes.bookingInfoText }]}>
                     Booking #{booking.id} - {booking.service_type}
                   </Text>
-                  <Text style={styles.bookingDetailText}>
+                  <Text style={[styles.bookingDetailText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
                     Scheduled: {dayjs(booking.startDate).format("MMM D, YYYY")} at{" "}
                     {booking.timeSlot}
                   </Text>
-                  <Text style={styles.bookingDetailText}>
+                  <Text style={[styles.bookingDetailText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
                     {timeUntilBooking}
                   </Text>
 
                   {modificationCount > 0 && (
-                    <View style={styles.modificationInfo}>
-                      <Text style={styles.modificationCountText}>
+                    <View style={[styles.modificationInfo, { borderTopColor: colors.info }]}>
+                      <Text style={[styles.modificationCountText, { color: colors.warning, fontSize: fontSizes.modificationCountText }]}>
                         This booking has been modified {modificationCount} time(s)
                       </Text>
-                      <Text style={styles.lastModificationText}>
+                      <Text style={[styles.lastModificationText, { color: colors.warning, fontSize: fontSizes.lastModificationText }]}>
                         {lastModificationDetails}
                       </Text>
                     </View>
@@ -407,29 +467,20 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 </View>
 
                 {error && (
-                  <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
+                  <View style={[styles.errorContainer, { backgroundColor: colors.errorLight, borderBottomColor: colors.error }]}>
+                    <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.errorText }]}>{error}</Text>
                   </View>
                 )}
 
                 {success && (
-                  <View style={styles.successContainer}>
-                    <Text style={styles.successText}>{success}</Text>
+                  <View style={[styles.successContainer, { backgroundColor: colors.successLight, borderBottomColor: colors.success }]}>
+                    <Text style={[styles.successText, { color: colors.success, fontSize: fontSizes.successText }]}>{success}</Text>
                   </View>
                 )}
 
                 {/* Options */}
                 {selectedSection === "OPTIONS" && (
                   <View style={styles.optionsContainer}>
-                    {/* Vacation button commented out as in React code */}
-                    {/* {booking?.hasVacation && (
-                      <CustomButton 
-                        title="Manage Vacation" 
-                        onPress={() => setShowVacationDialog(true)}
-                        variant="outlined"
-                      />
-                    )} */}
-
                     <CustomButton 
                       title="Reschedule Date" 
                       onPress={() => setSelectedSection("BOOKING_DATE")} 
@@ -442,8 +493,8 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                     />
 
                     {modificationDisabled && (
-                      <View style={styles.statusMessageContainer}>
-                        <Text style={styles.statusMessage}>{statusMessage}</Text>
+                      <View style={[styles.statusMessageContainer, { backgroundColor: colors.warningLight, borderColor: colors.warning }]}>
+                        <Text style={[styles.statusMessage, { color: colors.warning, fontSize: fontSizes.statusMessage }]}>{statusMessage}</Text>
                       </View>
                     )}
                   </View>
@@ -452,16 +503,18 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 {/* Reschedule Date */}
                 {selectedSection === "BOOKING_DATE" && (
                   <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionDescription}>
+                    <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontSize: fontSizes.sectionDescription }]}>
                       Select a new date for your booking.
                     </Text>
                     <View style={styles.pickerContainer}>
-                      <Text style={styles.label}>Select New Date</Text>
+                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>Select New Date</Text>
                       <TouchableOpacity 
-                        style={styles.dateDisplay}
+                        style={[styles.dateDisplay, { borderColor: colors.border, backgroundColor: colors.card }]}
                         onPress={() => openDatePicker('date')}
                       >
-                        <Text>{startDate ? dayjs(startDate).format('MMMM D, YYYY') : 'Select date'}</Text>
+                        <Text style={[styles.dateDisplayText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
+                          {startDate ? dayjs(startDate).format('MMMM D, YYYY') : 'Select date'}
+                        </Text>
                       </TouchableOpacity>
                       
                       {showDatePicker && (
@@ -481,16 +534,18 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 {/* Reschedule Time */}
                 {selectedSection === "BOOKING_TIME" && (
                   <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionDescription}>
-                      Current Time: <Text style={styles.bold}>{booking.timeSlot}</Text>
+                    <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontSize: fontSizes.sectionDescription }]}>
+                      Current Time: <Text style={[styles.bold, { color: colors.text }]}>{booking.timeSlot}</Text>
                     </Text>
                     <View style={styles.pickerContainer}>
-                      <Text style={styles.label}>Select New Time</Text>
+                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>Select New Time</Text>
                       <TouchableOpacity 
-                        style={styles.dateDisplay}
+                        style={[styles.dateDisplay, { borderColor: colors.border, backgroundColor: colors.card }]}
                         onPress={() => openDatePicker('time')}
                       >
-                        <Text>{startDate ? dayjs(startDate).format('h:mm A') : 'Select time'}</Text>
+                        <Text style={[styles.dateDisplayText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
+                          {startDate ? dayjs(startDate).format('h:mm A') : 'Select time'}
+                        </Text>
                       </TouchableOpacity>
                       
                       {showTimePicker && (
@@ -509,7 +564,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
 
               {/* Action Buttons for Date/Time Sections */}
               {(selectedSection === "BOOKING_DATE" || selectedSection === "BOOKING_TIME") && (
-                <View style={styles.footer}>
+                <View style={[styles.footer, { borderTopColor: colors.border }]}>
                   <CustomButton 
                     title="Back" 
                     onPress={() => setSelectedSection("OPTIONS")}
@@ -525,8 +580,8 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
 
               {isLoading && (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#1976d2" />
-                  <Text style={styles.loadingText}>Saving...</Text>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={[styles.loadingText, { color: colors.primary, fontSize: fontSizes.loadingText }]}>Saving...</Text>
                 </View>
               )}
             </View>
@@ -558,7 +613,6 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -569,7 +623,6 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   dialog: {
-    backgroundColor: 'white',
     borderRadius: 8,
     overflow: 'hidden',
     maxHeight: '100%',
@@ -580,10 +633,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   title: {
-    fontSize: 18,
     fontWeight: '600',
   },
   closeButton: {
@@ -598,63 +649,42 @@ const styles = StyleSheet.create({
   },
   bookingInfoContainer: {
     padding: 16,
-    backgroundColor: '#e3f2fd',
     margin: 16,
     borderRadius: 8,
   },
   bookingInfoText: {
-    fontSize: 14,
     fontWeight: '500',
-    color: '#1976d2',
     marginBottom: 4,
   },
   bookingDetailText: {
-    fontSize: 13,
-    color: '#424242',
     marginBottom: 2,
   },
   modificationInfo: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#bbdefb',
   },
   modificationCountText: {
-    fontSize: 13,
     fontWeight: '500',
-    color: '#ff6f00',
     marginBottom: 2,
   },
-  lastModificationText: {
-    fontSize: 12,
-    color: '#ff6f00',
-  },
+  lastModificationText: {},
   errorContainer: {
     padding: 16,
-    backgroundColor: '#ffebee',
     borderBottomWidth: 1,
-    borderBottomColor: '#ffcdd2',
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 4,
   },
   successContainer: {
     padding: 16,
-    backgroundColor: '#e8f5e9',
     borderBottomWidth: 1,
-    borderBottomColor: '#c8e6c9',
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 4,
   },
-  errorText: {
-    color: '#d32f2f',
-    fontSize: 14,
-  },
-  successText: {
-    color: '#2e7d32',
-    fontSize: 14,
-  },
+  errorText: {},
+  successText: {},
   optionsContainer: {
     padding: 24,
     gap: 16,
@@ -664,8 +694,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   sectionDescription: {
-    fontSize: 14,
-    color: '#666',
     marginBottom: 8,
     paddingHorizontal: 8,
   },
@@ -674,8 +702,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   label: {
-    fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
   bold: {
@@ -683,17 +709,16 @@ const styles = StyleSheet.create({
   },
   dateDisplay: {
     borderWidth: 1,
-    borderColor: '#ccc',
     borderRadius: 4,
     padding: 12,
     marginBottom: 16,
   },
+  dateDisplayText: {},
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   button: {
     paddingVertical: 12,
@@ -702,41 +727,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 100,
   },
-  containedButton: {
-    backgroundColor: '#1976d2',
-  },
+  containedButton: {},
   outlinedButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#1976d2',
   },
   disabledButton: {
     opacity: 0.6,
   },
   buttonText: {
-    fontSize: 14,
     fontWeight: '500',
   },
-  containedButtonText: {
-    color: 'white',
-  },
-  outlinedButtonText: {
-    color: '#1976d2',
-  },
-  disabledButtonText: {
-    color: '#999',
-  },
+  containedButtonText: {},
+  outlinedButtonText: {},
+  disabledButtonText: {},
   statusMessageContainer: {
     marginTop: 8,
     padding: 12,
-    backgroundColor: '#fff3e0',
     borderWidth: 1,
-    borderColor: '#ffcc80',
     borderRadius: 4,
   },
   statusMessage: {
-    fontSize: 14,
-    color: '#e65100',
     textAlign: 'center',
   },
   loadingContainer: {
@@ -751,8 +762,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 8,
-    color: '#1976d2',
-    fontSize: 14,
   },
 });
 

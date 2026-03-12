@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import axios from 'axios';
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 export interface AddressData {
   apartment: string;
@@ -134,6 +135,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   onSameAddressToggle,
   isSameAddress: externalIsSameAddress,
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const [internalIsSameAddress, setInternalIsSameAddress] = useState(false);
   const isSameAddress = externalIsSameAddress !== undefined ? externalIsSameAddress : internalIsSameAddress;
 
@@ -155,6 +157,50 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   const [countrySearch, setCountrySearch] = useState('');
   const [permanentStateSearch, setPermanentStateSearch] = useState('');
   const [correspondenceStateSearch, setCorrespondenceStateSearch] = useState('');
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          title: 18,
+          sectionTitle: 15,
+          label: 13,
+          input: 14,
+          helper: 11,
+          checkbox: 14,
+          dropdownTitle: 16,
+          dropdownItem: 15,
+          emptyText: 14,
+        };
+      case 'large':
+        return {
+          title: 24,
+          sectionTitle: 18,
+          label: 16,
+          input: 18,
+          helper: 14,
+          checkbox: 18,
+          dropdownTitle: 20,
+          dropdownItem: 18,
+          emptyText: 16,
+        };
+      default:
+        return {
+          title: 20,
+          sectionTitle: 16,
+          label: 14,
+          input: 16,
+          helper: 12,
+          checkbox: 16,
+          dropdownTitle: 18,
+          dropdownItem: 16,
+          emptyText: 15,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   // Load countries on mount
   useEffect(() => {
@@ -333,27 +379,32 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.dropdownContainer}>
-          <View style={styles.dropdownHeader}>
-            <Text style={styles.dropdownTitle}>{title}</Text>
+      <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.dropdownContainer, { backgroundColor: colors.card }]}>
+          <View style={[styles.dropdownHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.dropdownTitle, { color: colors.text, fontSize: fontSizes.dropdownTitle }]}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Text style={[styles.closeButtonText, { color: colors.textSecondary }]}>✕</Text>
             </TouchableOpacity>
           </View>
           
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { 
+              borderColor: colors.border, 
+              backgroundColor: colors.surface,
+              color: colors.text,
+              fontSize: fontSizes.input
+            }]}
             placeholder={`Search ${title.toLowerCase()}...`}
+            placeholderTextColor={colors.placeholder}
             value={searchText}
             onChangeText={onSearchChange}
-            placeholderTextColor="#999"
             autoFocus={true}
           />
           
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#1976d2" />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
             <FlatList
@@ -363,18 +414,18 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
               keyExtractor={(item, index) => index.toString()}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.dropdownItem}
+                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                   onPress={() => {
                     console.log('Item pressed:', item); // For debugging
                     onSelect(item);
                   }}
                 >
-                  <Text style={styles.dropdownItemText}>{getItemLabel(item)}</Text>
+                  <Text style={[styles.dropdownItemText, { color: colors.text, fontSize: fontSizes.dropdownItem }]}>{getItemLabel(item)}</Text>
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No items found</Text>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary, fontSize: fontSizes.emptyText }]}>No items found</Text>
                 </View>
               }
               keyboardShouldPersistTaps="handled"
@@ -398,7 +449,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
     placeholder?: string
   ) => (
     <View style={[styles.inputContainer, isHalfWidth && styles.halfWidth]}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.label }]}>{label}</Text>
       <TouchableOpacity
         activeOpacity={isDropdown ? 0.7 : 1}
         onPress={onPress}
@@ -409,36 +460,44 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
           <TextInput
             style={[
               styles.input,
-              error && styles.inputError,
+              { 
+                borderColor: error ? colors.error : colors.border,
+                backgroundColor: isDropdown ? colors.surface : colors.card,
+                color: colors.text,
+                fontSize: fontSizes.input
+              },
               isDropdown && styles.dropdownInput,
-              !value && styles.placeholderText
+              !value && { color: colors.placeholder }
             ]}
             value={value}
             onChangeText={onChange}
             keyboardType={keyboardType}
             maxLength={maxLength}
             placeholder={placeholder || `Enter ${label.toLowerCase()}`}
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             editable={!isDropdown}
           />
           {isDropdown && (
             <View style={styles.dropdownIconContainer}>
-              <Text style={styles.dropdownIcon}>▼</Text>
+              <Text style={[styles.dropdownIcon, { color: colors.textSecondary }]}>▼</Text>
             </View>
           )}
         </View>
       </TouchableOpacity>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.helper }]}>{error}</Text>}
     </View>
   );
 
+  const { width } = Dimensions.get('window');
+  const isSmallScreen = width < 375;
+
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Address Information</Text>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text, fontSize: fontSizes.title }]}>Address Information</Text>
 
       {/* Permanent Address */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Permanent Address *</Text>
+        <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>Permanent Address *</Text>
         
         <View style={styles.row}>
           {renderInput(
@@ -515,17 +574,21 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
           style={styles.checkbox}
           onPress={handleSameAddressToggle}
         >
-          <View style={[styles.checkboxBox, isSameAddress && styles.checkboxChecked]}>
-            {isSameAddress && <Text style={styles.checkmark}>✓</Text>}
+          <View style={[
+            styles.checkboxBox, 
+            { borderColor: colors.primary },
+            isSameAddress && [styles.checkboxChecked, { backgroundColor: colors.primary }]
+          ]}>
+            {isSameAddress && <Text style={[styles.checkmark, { color: '#fff' }]}>✓</Text>}
           </View>
-          <Text style={styles.checkboxLabel}>Same as Permanent Address</Text>
+          <Text style={[styles.checkboxLabel, { color: colors.text, fontSize: fontSizes.checkbox }]}>Same as Permanent Address</Text>
         </TouchableOpacity>
       </View>
 
       {/* Correspondence Address (only show if not same) */}
       {!isSameAddress && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Correspondence Address *</Text>
+          <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>Correspondence Address *</Text>
           
           <View style={styles.row}>
             {renderInput(
@@ -655,22 +718,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
   },
   title: {
-    fontSize: 20,
     fontWeight: '600',
     marginBottom: 20,
-    color: '#333',
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
     fontWeight: '600',
     marginBottom: 16,
-    color: '#333',
   },
   row: {
     flexDirection: isSmallScreen ? 'column' : 'row',
@@ -686,10 +744,8 @@ const styles = StyleSheet.create({
     flex: 0.48,
   },
   label: {
-    fontSize: 14,
     fontWeight: '500',
     marginBottom: 6,
-    color: '#333',
   },
   inputWrapper: {
     position: 'relative',
@@ -697,11 +753,8 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 6,
     padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
     width: '100%',
   },
   dropdownInput: {
@@ -715,8 +768,6 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   errorText: {
-    fontSize: 12,
-    color: '#d32f2f',
     marginTop: 4,
   },
   checkboxContainer: {
@@ -730,7 +781,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderWidth: 2,
-    borderColor: '#1976d2',
     borderRadius: 4,
     marginRight: 12,
     alignItems: 'center',
@@ -740,13 +790,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#1976d2',
   },
   checkmark: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
   },
   checkboxLabel: {
     fontSize: 16,
-    color: '#333',
   },
   // Dropdown icon styles
   dropdownIconContainer: {
@@ -759,16 +807,13 @@ const styles = StyleSheet.create({
   },
   dropdownIcon: {
     fontSize: 12,
-    color: '#666',
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   dropdownContainer: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
@@ -781,37 +826,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   dropdownTitle: {
-    fontSize: 18,
     fontWeight: '600',
-    color: '#333',
   },
   closeButton: {
     padding: 4,
   },
   closeButtonText: {
     fontSize: 24,
-    color: '#666',
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
     marginBottom: 16,
-    backgroundColor: '#f9f9f9',
   },
   dropdownItem: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   dropdownItemText: {
     fontSize: 16,
-    color: '#333',
   },
   loadingContainer: {
     padding: 40,
@@ -823,7 +859,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
   },
 });
 

@@ -13,6 +13,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAppUser } from '../context/AppUserContext';
 import PaymentInstance from '../services/paymentInstance';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface WalletDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ interface Wallet {
 }
 
 const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('transactions');
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,77 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
     ],
     rewards: 450,
   };
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          headtitle: 18,
+          balanceLabel: 13,
+          balanceAmount: 32,
+          tabText: 13,
+          sectionTitle: 16,
+          transactionDescription: 14,
+          transactionMeta: 12,
+          transactionAmount: 15,
+          loadingTitle: 16,
+          loadingSubtitle: 13,
+          errorTitle: 18,
+          errorMessage: 14,
+          errorSubtitle: 12,
+          buttonText: 14,
+          emptyStateTitle: 15,
+          emptyStateSubtitle: 13,
+          rewardsPoints: 26,
+          rewardsDescription: 14,
+        };
+      case 'large':
+        return {
+          headtitle: 22,
+          balanceLabel: 16,
+          balanceAmount: 40,
+          tabText: 16,
+          sectionTitle: 20,
+          transactionDescription: 18,
+          transactionMeta: 15,
+          transactionAmount: 18,
+          loadingTitle: 20,
+          loadingSubtitle: 16,
+          errorTitle: 22,
+          errorMessage: 17,
+          errorSubtitle: 15,
+          buttonText: 16,
+          emptyStateTitle: 18,
+          emptyStateSubtitle: 15,
+          rewardsPoints: 32,
+          rewardsDescription: 17,
+        };
+      default:
+        return {
+          headtitle: 20,
+          balanceLabel: 14,
+          balanceAmount: 36,
+          tabText: 14,
+          sectionTitle: 18,
+          transactionDescription: 16,
+          transactionMeta: 13,
+          transactionAmount: 16,
+          loadingTitle: 18,
+          loadingSubtitle: 14,
+          errorTitle: 20,
+          errorMessage: 15,
+          errorSubtitle: 13,
+          buttonText: 15,
+          emptyStateTitle: 16,
+          emptyStateSubtitle: 14,
+          rewardsPoints: 28,
+          rewardsDescription: 15,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   useEffect(() => {
     if (open && appUser?.customerid) {
@@ -143,21 +216,21 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
   const getTransactionColor = (type: string) => {
     switch (type) {
       case 'credit':
-        return '#10b981'; // Green for credits
+        return colors.success;
       case 'debit':
-        return '#ef4444'; // Red for debits
+        return colors.error;
       default:
-        return '#6b7280';
+        return colors.textSecondary;
     }
   };
 
   const renderTransactions = () => {
     if (!wallet?.transactions || wallet.transactions.length === 0) {
       return (
-        <View style={styles.emptyState}>
-          <Icon name="receipt" size={48} color="#d1d5db" />
-          <Text style={styles.emptyStateTitle}>No Transactions Yet</Text>
-          <Text style={styles.emptyStateSubtitle}>
+        <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+          <Icon name="receipt" size={48} color={colors.border} />
+          <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Transactions Yet</Text>
+          <Text style={[styles.emptyStateSubtitle, { color: colors.textSecondary, fontSize: fontSizes.emptyStateSubtitle }]}>
             Your transaction history will appear here
           </Text>
         </View>
@@ -165,8 +238,8 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
     }
     
     return wallet.transactions.map((transaction) => (
-      <View key={transaction.transaction_id} style={styles.transactionItem}>
-        <View style={styles.transactionIcon}>
+      <View key={transaction.transaction_id} style={[styles.transactionItem, { backgroundColor: colors.card }]}>
+        <View style={[styles.transactionIcon, { backgroundColor: colors.surface }]}>
           <Icon
             name={getTransactionIcon(transaction.transaction_type)}
             size={24}
@@ -174,15 +247,15 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
           />
         </View>
         <View style={styles.transactionDetails}>
-          <Text style={styles.transactionDescription}>{transaction.description}</Text>
-          <Text style={styles.transactionMeta}>
+          <Text style={[styles.transactionDescription, { color: colors.text, fontSize: fontSizes.transactionDescription }]}>{transaction.description}</Text>
+          <Text style={[styles.transactionMeta, { color: colors.textSecondary, fontSize: fontSizes.transactionMeta }]}>
             {formatDate(transaction.created_at)} • {transaction.status}
           </Text>
         </View>
         <Text
           style={[
             styles.transactionAmount,
-            { color: getTransactionColor(transaction.transaction_type) }
+            { color: getTransactionColor(transaction.transaction_type), fontSize: fontSizes.transactionAmount }
           ]}
         >
           {transaction.transaction_type === 'credit' ? '+' : '-'}₹{transaction.amount}
@@ -193,19 +266,19 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
 
   const renderRewards = () => (
     <View style={styles.rewardsContainer}>
-      <Text style={styles.sectionTitle}>Your Rewards</Text>
-      <View style={styles.rewardsCard}>
+      <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Your Rewards</Text>
+      <View style={[styles.rewardsCard, { backgroundColor: colors.warning }]}>
         <View style={styles.rewardsHeader}>
           <Text style={styles.rewardsIcon}>⭐</Text>
-          <Text style={styles.rewardsPoints}>
+          <Text style={[styles.rewardsPoints, { color: '#fff', fontSize: fontSizes.rewardsPoints }]}>
             {wallet?.rewards ?? 0} Points
           </Text>
         </View>
-        <Text style={styles.rewardsDescription}>
+        <Text style={[styles.rewardsDescription, { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.rewardsDescription }]}>
           Earn more points by completing services and referring friends
         </Text>
-        <TouchableOpacity style={styles.rewardsButton}>
-          <Text style={styles.rewardsButtonText}>View Rewards Catalog</Text>
+        <TouchableOpacity style={[styles.rewardsButton, { backgroundColor: 'rgba(255, 255, 255, 0.25)', borderColor: 'rgba(255,255,255,0.3)' }]}>
+          <Text style={[styles.rewardsButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>View Rewards Catalog</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -215,10 +288,10 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
     if (loading) {
       return (
         <View style={styles.loadingContainer}>
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color="#3b82f6" />
-            <Text style={styles.loadingTitle}>Loading Wallet</Text>
-            <Text style={styles.loadingSubtitle}>
+          <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingTitle, { color: colors.text, fontSize: fontSizes.loadingTitle }]}>Loading Wallet</Text>
+            <Text style={[styles.loadingSubtitle, { color: colors.textSecondary, fontSize: fontSizes.loadingSubtitle }]}>
               Retrieving your account information
             </Text>
           </View>
@@ -233,40 +306,32 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
       
       return (
         <View style={styles.errorContainer}>
-          <View style={styles.errorCard}>
-            <View style={styles.errorIconContainer}>
+          <View style={[styles.errorCard, { backgroundColor: colors.card }]}>
+            <View style={[styles.errorIconContainer, { backgroundColor: colors.surface }]}>
               <Icon 
                 name={isNoWalletError ? "wallet-plus" : "wifi-off"} 
                 size={56} 
-                color={isNoWalletError ? "#9ca3af" : "#f59e0b"} 
+                color={isNoWalletError ? colors.textSecondary : colors.warning} 
               />
             </View>
             
-            
-            <Text style={styles.errorMessage}>
+            <Text style={[styles.errorMessage, { color: colors.textSecondary, fontSize: fontSizes.errorMessage }]}>
               {error || 'Wallet information currently unavailable'}
             </Text>
             
-            {/* <Text style={styles.errorSubtitle}>
-              {isNoWalletError 
-                ?
-                 'Please complete your account setup to access wallet features' 
-                : 'Please check your internet connection and try again'}
-            </Text> */}
-            
             <View style={styles.errorActions}>
               <TouchableOpacity 
-                style={styles.primaryButton}
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
                 onPress={fetchWalletData}
               >
-                <Text style={styles.primaryButtonText}>Try Again</Text>
+                <Text style={[styles.primaryButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Try Again</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={styles.secondaryButton}
+                style={[styles.secondaryButton, { backgroundColor: colors.surface }]}
                 onPress={onClose}
               >
-                <Text style={styles.secondaryButtonText}>Close</Text>
+                <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -275,74 +340,76 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
     }
 
     return (
-      <ScrollView style={styles.content}>
+      <ScrollView style={[styles.content, { backgroundColor: colors.background }]}>
         {/* Balance Card */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Available Balance</Text>
-          <Text style={styles.balanceAmount}>
+        <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.balanceLabel, { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.balanceLabel }]}>Available Balance</Text>
+          <Text style={[styles.balanceAmount, { color: '#fff', fontSize: fontSizes.balanceAmount }]}>
             ₹{wallet.balance.toLocaleString('en-IN')}
           </Text>
           <View style={styles.balanceButtons}>
-            <TouchableOpacity style={styles.addMoneyButton}>
-              <Icon name="plus-circle" size={18} color="#2563eb" />
-              <Text style={styles.addMoneyText}>Add Money</Text>
+            <TouchableOpacity style={[styles.addMoneyButton, { backgroundColor: '#fff' }]}>
+              <Icon name="plus-circle" size={18} color={colors.primary} />
+              <Text style={[styles.addMoneyText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Money</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.transferButton}>
+            <TouchableOpacity style={[styles.transferButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderColor: 'rgba(255,255,255,0.3)' }]}>
               <Icon name="swap-horizontal" size={18} color="#fff" />
-              <Text style={styles.transferText}>Transfer</Text>
+              <Text style={[styles.transferText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Transfer</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Tabs */}
-        <View style={styles.tabContainer}>
+        <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'transactions' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'transactions' && [styles.activeTab, { backgroundColor: colors.surface }]]}
             onPress={() => setActiveTab('transactions')}
           >
             <Icon 
               name="history" 
               size={18} 
-              color={activeTab === 'transactions' ? '#2563eb' : '#6b7280'} 
+              color={activeTab === 'transactions' ? colors.primary : colors.textSecondary} 
               style={styles.tabIcon}
             />
             <Text
               style={[
                 styles.tabText,
-                activeTab === 'transactions' && styles.activeTabText,
+                { color: colors.textSecondary, fontSize: fontSizes.tabText },
+                activeTab === 'transactions' && [styles.activeTabText, { color: colors.primary }],
               ]}
             >
               Transactions
             </Text>
-            {activeTab === 'transactions' && <View style={styles.tabIndicator} />}
+            {activeTab === 'transactions' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'rewards' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'rewards' && [styles.activeTab, { backgroundColor: colors.surface }]]}
             onPress={() => setActiveTab('rewards')}
           >
             <Icon 
               name="gift" 
               size={18} 
-              color={activeTab === 'rewards' ? '#2563eb' : '#6b7280'} 
+              color={activeTab === 'rewards' ? colors.primary : colors.textSecondary} 
               style={styles.tabIcon}
             />
             <Text
               style={[
                 styles.tabText,
-                activeTab === 'rewards' && styles.activeTabText,
+                { color: colors.textSecondary, fontSize: fontSizes.tabText },
+                activeTab === 'rewards' && [styles.activeTabText, { color: colors.primary }],
               ]}
             >
               Rewards
             </Text>
-            {activeTab === 'rewards' && <View style={styles.tabIndicator} />}
+            {activeTab === 'rewards' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </TouchableOpacity>
         </View>
 
         {/* Tab Content */}
         {activeTab === 'transactions' ? (
           <View style={styles.tabContent}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Recent Activity</Text>
             <ScrollView style={styles.transactionsList}>
               {renderTransactions()}
             </ScrollView>
@@ -363,7 +430,7 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
         <LinearGradient
           colors={["#0a2a66ff", "#004aadff"]}
@@ -374,9 +441,9 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
           <View style={styles.header}>
             <View style={styles.titleContainer}>
               <Icon name="wallet" size={22} color="#fff" style={styles.titleIcon} />
-              <Text style={styles.headtitle}>My Wallet</Text>
+              <Text style={[styles.headtitle, { color: '#fff', fontSize: fontSizes.headtitle }]}>My Wallet</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
               <Icon name="close-thick" size={22} color="#f2f2f2" />
             </TouchableOpacity>
           </View>
@@ -391,7 +458,6 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   linearGradient: {},
   header: {
@@ -411,14 +477,11 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   headtitle: {
-    fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
     letterSpacing: 0.5,
   },
   closeButton: {
     padding: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 8,
   },
   content: {
@@ -433,7 +496,6 @@ const styles = StyleSheet.create({
   },
   loadingCard: {
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 40,
     shadowColor: '#000',
@@ -446,14 +508,10 @@ const styles = StyleSheet.create({
   },
   loadingTitle: {
     marginTop: 20,
-    fontSize: 18,
     fontWeight: '600',
-    color: '#1e293b',
   },
   loadingSubtitle: {
     marginTop: 8,
-    fontSize: 14,
-    color: '#64748b',
     textAlign: 'center',
   },
   errorContainer: {
@@ -464,7 +522,6 @@ const styles = StyleSheet.create({
   },
   errorCard: {
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 32,
     shadowColor: '#000',
@@ -479,30 +536,13 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#f8fafc',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
   errorMessage: {
-    fontSize: 15,
-    color: '#64748b',
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 12,
-  },
-  errorSubtitle: {
-    fontSize: 13,
-    color: '#94a3b8',
-    textAlign: 'center',
-    lineHeight: 20,
     marginBottom: 28,
   },
   errorActions: {
@@ -512,7 +552,6 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: '#3b82f6',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -521,45 +560,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButtonText: {
-    color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: '#475569',
     fontWeight: '600',
-    fontSize: 15,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 50,
     paddingHorizontal: 20,
-    backgroundColor: '#fff',
     borderRadius: 12,
     marginTop: 10,
   },
   emptyStateTitle: {
     marginTop: 20,
-    fontSize: 16,
     fontWeight: '600',
-    color: '#334155',
   },
   emptyStateSubtitle: {
     marginTop: 6,
-    fontSize: 14,
-    color: '#94a3b8',
     textAlign: 'center',
   },
   balanceCard: {
-    backgroundColor: '#2563eb',
     borderRadius: 16,
     padding: 24,
     marginBottom: 24,
@@ -570,15 +598,11 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   balanceLabel: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
     fontWeight: '500',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   balanceAmount: {
-    color: '#fff',
-    fontSize: 36,
     fontWeight: '700',
     marginVertical: 8,
     letterSpacing: 0.5,
@@ -590,7 +614,6 @@ const styles = StyleSheet.create({
   },
   addMoneyButton: {
     flex: 1,
-    backgroundColor: '#fff',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -599,13 +622,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addMoneyText: {
-    color: '#2563eb',
     fontWeight: '600',
-    fontSize: 15,
   },
   transferButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -613,16 +633,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
   transferText: {
-    color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 6,
     marginBottom: 24,
@@ -647,9 +663,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   tabText: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#6b7280',
   },
   activeTabText: {
     color: '#2563eb',
@@ -660,16 +674,13 @@ const styles = StyleSheet.create({
     left: '20%',
     right: '20%',
     height: 3,
-    backgroundColor: '#2563eb',
     borderRadius: 2,
   },
   tabContent: {
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 17,
     fontWeight: '600',
-    color: '#1f2937',
     marginBottom: 16,
     letterSpacing: 0.3,
   },
@@ -679,7 +690,6 @@ const styles = StyleSheet.create({
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
@@ -691,7 +701,6 @@ const styles = StyleSheet.create({
   },
   transactionIcon: {
     marginRight: 14,
-    backgroundColor: '#f8fafc',
     padding: 10,
     borderRadius: 10,
   },
@@ -699,24 +708,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   transactionDescription: {
-    fontSize: 15,
     fontWeight: '500',
-    color: '#1f2937',
   },
   transactionMeta: {
-    fontSize: 13,
-    color: '#94a3b8',
     marginTop: 4,
   },
   transactionAmount: {
-    fontSize: 16,
     fontWeight: '600',
   },
   rewardsContainer: {
     flex: 1,
   },
   rewardsCard: {
-    backgroundColor: '#f59e0b',
     borderRadius: 16,
     padding: 24,
     shadowColor: '#f59e0b',
@@ -736,30 +739,22 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   rewardsPoints: {
-    fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
     letterSpacing: 0.5,
   },
   rewardsDescription: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 22,
   },
   rewardsButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
   rewardsButtonText: {
-    color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
     letterSpacing: 0.3,
   },
 });

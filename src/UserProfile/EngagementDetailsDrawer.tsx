@@ -17,6 +17,7 @@ import dayjs from 'dayjs';
 import PaymentInstance from '../services/paymentInstance';
 import { Button } from '../common/Button';
 import LinearGradient from 'react-native-linear-gradient';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ const Badge: React.FC<{
   variant?: 'default' | 'outline';
   style?: any;
 }> = ({ children, variant = 'default', style }) => {
+  const { colors } = useTheme();
   const badgeStyles = [
     styles.badge,
     variant === 'outline' && styles.badgeOutline,
@@ -53,7 +55,8 @@ const Badge: React.FC<{
 
 // Built-in Separator Component
 const Separator: React.FC<{ style?: any }> = ({ style }) => {
-  return <View style={[styles.separator, style]} />;
+  const { colors } = useTheme();
+  return <View style={[styles.separator, { backgroundColor: colors.border }, style]} />;
 };
 
 const formatTimeToAMPM = (timeString: string): string => {
@@ -81,19 +84,73 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   booking,
   onPaymentComplete 
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isMessageLoading, setIsMessageLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
 
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          headerTitle: 18,
+          bookingIdText: 16,
+          serviceTitle: 18,
+          sectionTitle: 15,
+          scheduleValue: 13,
+          providerName: 15,
+          paymentValue: 13,
+          paymentTotalValue: 16,
+          actionButtonText: 13,
+          badgeText: 11,
+          additionalInfoValue: 11,
+          labelText: 11,
+        };
+      case 'large':
+        return {
+          headerTitle: 24,
+          bookingIdText: 20,
+          serviceTitle: 22,
+          sectionTitle: 18,
+          scheduleValue: 16,
+          providerName: 18,
+          paymentValue: 16,
+          paymentTotalValue: 20,
+          actionButtonText: 16,
+          badgeText: 14,
+          additionalInfoValue: 14,
+          labelText: 14,
+        };
+      default:
+        return {
+          headerTitle: 20,
+          bookingIdText: 18,
+          serviceTitle: 20,
+          sectionTitle: 16,
+          scheduleValue: 14,
+          providerName: 16,
+          paymentValue: 14,
+          paymentTotalValue: 18,
+          actionButtonText: 14,
+          badgeText: 12,
+          additionalInfoValue: 12,
+          labelText: 12,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
+
   if (!isOpen || !booking) return null;
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case 'SUCCESS': return styles.paymentSuccess;
-      case 'PENDING': return styles.paymentPending;
-      case 'FAILED': return styles.paymentFailed;
-      default: return styles.paymentDefault;
+      case 'SUCCESS': return [styles.paymentSuccess, { backgroundColor: colors.successLight, color: colors.success }];
+      case 'PENDING': return [styles.paymentPending, { backgroundColor: colors.warningLight, color: colors.warning }];
+      case 'FAILED': return [styles.paymentFailed, { backgroundColor: colors.errorLight, color: colors.error }];
+      default: return [styles.paymentDefault, { backgroundColor: colors.surface, color: colors.textSecondary }];
     }
   };
 
@@ -130,7 +187,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               engagementId: engagement_id,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
+              razorpay_signature: response.azorpay_signature,
             });
             
             if (onPaymentComplete) {
@@ -145,7 +202,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           }
         },
         theme: {
-          color: "#0A7CFF",
+          color: colors.primary,
         },
       };
 
@@ -245,6 +302,382 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     return !nonCancellableStatuses.includes(booking.taskStatus);
   };
 
+  const dynamicStyles = StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'flex-end',
+    },
+    overlayTouchable: {
+      flex: 1,
+    },
+    drawerContainer: {
+      backgroundColor: colors.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      height: '90%',
+      width: '100%',
+    },
+    header: {
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+    },
+    headerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      width: '100%',
+    },
+    headerLeftPlaceholder: {
+      width: 40,
+    },
+    headerTitle: {
+      fontSize: fontSizes.headerTitle,
+      fontWeight: '600',
+      color: '#FFFFFF',
+      textAlign: 'center',
+      flex: 1,
+    },
+    closeButton: {
+      padding: 8,
+      width: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+    },
+    bookingIdContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    labelText: {
+      fontSize: fontSizes.labelText,
+      color: colors.textSecondary,
+    },
+    bookingIdText: {
+      fontSize: fontSizes.bookingIdText,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    statusContainer: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    serviceTypeContainer: {
+      backgroundColor: colors.primary + '15',
+      padding: 16,
+      borderRadius: 8,
+      marginBottom: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    serviceIconContainer: {
+      padding: 8,
+      backgroundColor: colors.card,
+      borderRadius: 8,
+      marginRight: 12,
+    },
+    serviceIcon: {
+      fontSize: 24,
+    },
+    serviceTextContainer: {
+      flex: 1,
+    },
+    serviceLabel: {
+      fontSize: fontSizes.labelText,
+      color: colors.textSecondary,
+    },
+    serviceTitle: {
+      fontSize: fontSizes.serviceTitle,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    // Action Buttons Styles
+    actionButtonsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 10,
+      marginBottom: 20,
+    },
+    actionButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      gap: 6,
+      minHeight: 44,
+    },
+    actionButtonText: {
+      color: '#FFFFFF',
+      fontSize: fontSizes.actionButtonText,
+      fontWeight: '600',
+    },
+    callButton: {
+      backgroundColor: colors.primary,
+    },
+    messageButton: {
+      backgroundColor: colors.primary,
+    },
+    cancelButton: {
+      backgroundColor: colors.error,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      gap: 8,
+    },
+    sectionTitle: {
+      fontSize: fontSizes.sectionTitle,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    scheduleGrid: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 12,
+    },
+    scheduleItem: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      padding: 12,
+      borderRadius: 8,
+    },
+    scheduleLabel: {
+      fontSize: fontSizes.labelText,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    scheduleValue: {
+      fontSize: fontSizes.scheduleValue,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    timeSlotContainer: {
+      backgroundColor: colors.surface,
+      padding: 12,
+      borderRadius: 8,
+    },
+    timeSlotValueContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    providerContainer: {
+      backgroundColor: colors.surface,
+      padding: 16,
+      borderRadius: 8,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    providerInfo: {
+      flex: 1,
+    },
+    providerName: {
+      fontSize: fontSizes.providerName,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    ratingBadge: {
+      backgroundColor: colors.warningLight,
+    },
+    tasksContainer: {
+      gap: 12,
+    },
+    tasksSubLabel: {
+      fontSize: fontSizes.labelText,
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
+    tasksList: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    mainTaskBadge: {
+      backgroundColor: colors.primary + '15',
+    },
+    addonBadge: {
+      backgroundColor: colors.successLight,
+    },
+    paymentContainer: {
+      backgroundColor: colors.surface,
+      padding: 16,
+      borderRadius: 8,
+    },
+    paymentRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    paymentLabel: {
+      fontSize: fontSizes.scheduleValue,
+      color: colors.textSecondary,
+    },
+    paymentValue: {
+      fontSize: fontSizes.paymentValue,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    separator: {
+      height: 1,
+      marginVertical: 8,
+    },
+    paymentTotalRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    paymentTotalLabel: {
+      fontSize: fontSizes.sectionTitle,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    paymentTotalValue: {
+      fontSize: fontSizes.paymentTotalValue,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    paymentStatusRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    paymentStatusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    paymentModeValue: {
+      fontSize: fontSizes.paymentValue,
+      fontWeight: '500',
+      color: colors.text,
+      textTransform: 'capitalize',
+    },
+    paymentSuccess: {
+      backgroundColor: colors.successLight,
+      color: colors.success,
+    },
+    paymentPending: {
+      backgroundColor: colors.warningLight,
+      color: colors.warning,
+    },
+    paymentFailed: {
+      backgroundColor: colors.errorLight,
+      color: colors.error,
+    },
+    paymentDefault: {
+      backgroundColor: colors.surface,
+      color: colors.textSecondary,
+    },
+    completePaymentContainer: {
+      marginTop: 16,
+    },
+    completePaymentButton: {
+      backgroundColor: colors.error,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      borderRadius: 8,
+      gap: 8,
+    },
+    completePaymentText: {
+      color: '#FFFFFF',
+      fontSize: fontSizes.sectionTitle,
+      fontWeight: '600',
+    },
+    completePaymentNote: {
+      fontSize: fontSizes.labelText,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+    modificationsContainer: {
+      gap: 8,
+    },
+    modificationItem: {
+      backgroundColor: colors.warningLight,
+      padding: 12,
+      borderRadius: 8,
+    },
+    modificationHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 4,
+    },
+    modificationBadge: {
+      backgroundColor: colors.warning,
+    },
+    modificationDate: {
+      fontSize: fontSizes.labelText,
+      color: colors.textSecondary,
+    },
+    refundText: {
+      fontSize: fontSizes.labelText,
+      color: colors.success,
+    },
+    penaltyText: {
+      fontSize: fontSizes.labelText,
+      color: colors.error,
+    },
+    additionalInfoGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    additionalInfoItem: {
+      flex: 1,
+      minWidth: '40%',
+    },
+    additionalInfoLabel: {
+      fontSize: fontSizes.labelText,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    additionalInfoValue: {
+      fontSize: fontSizes.additionalInfoValue,
+      fontWeight: '500',
+      color: colors.text,
+      textTransform: 'capitalize',
+    },
+    // Badge styles
+    badge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 4,
+      backgroundColor: colors.surface,
+      alignSelf: 'flex-start',
+    },
+    badgeOutline: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    badgeText: {
+      fontSize: fontSizes.badgeText,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    badgeOutlineText: {
+      color: colors.textSecondary,
+    },
+  });
+
   return (
     <Modal
       visible={isOpen}
@@ -252,57 +685,57 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
-        <TouchableOpacity style={styles.overlayTouchable} onPress={onClose} />
+      <View style={dynamicStyles.modalOverlay}>
+        <TouchableOpacity style={dynamicStyles.overlayTouchable} onPress={onClose} />
        
-        <View style={styles.drawerContainer}>
+        <View style={dynamicStyles.drawerContainer}>
           {/* Header */}
           <LinearGradient
             colors={["#0a2a66ff", "#004aadff"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.header}
+            style={dynamicStyles.header}
           >
-            <View style={styles.headerContent}>
-              <View style={styles.headerLeftPlaceholder} />
-              <Text style={styles.headerTitle}>Booking Details</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <View style={dynamicStyles.headerContent}>
+              <View style={dynamicStyles.headerLeftPlaceholder} />
+              <Text style={dynamicStyles.headerTitle}>Booking Details</Text>
+              <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
                 <Icon name="x" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </LinearGradient>
 
           {/* Content */}
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
             {/* Booking ID and Status */}
-            <View style={styles.bookingIdContainer}>
+            <View style={dynamicStyles.bookingIdContainer}>
               <View>
-                <Text style={styles.labelText}>Booking ID</Text>
-                <Text style={styles.bookingIdText}>#{booking.id}</Text>
+                <Text style={dynamicStyles.labelText}>Booking ID</Text>
+                <Text style={dynamicStyles.bookingIdText}>#{booking.id}</Text>
               </View>
-              <View style={styles.statusContainer}>
+              <View style={dynamicStyles.statusContainer}>
                 {getBookingTypeBadge(booking.bookingType)}
                 {getStatusBadge(booking.taskStatus)}
               </View>
             </View>
 
             {/* Service Type */}
-            <View style={styles.serviceTypeContainer}>
-              <View style={styles.serviceIconContainer}>
-                <Text style={styles.serviceIcon}>
+            <View style={dynamicStyles.serviceTypeContainer}>
+              <View style={dynamicStyles.serviceIconContainer}>
+                <Text style={dynamicStyles.serviceIcon}>
                   {getServiceIcon(booking.service_type)}
                 </Text>
               </View>
-              <View style={styles.serviceTextContainer}>
-                <Text style={styles.serviceLabel}>Service Type</Text>
-                <Text style={styles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
+              <View style={dynamicStyles.serviceTextContainer}>
+                <Text style={dynamicStyles.serviceLabel}>Service Type</Text>
+                <Text style={dynamicStyles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
               </View>
             </View>
 
             {/* Action Buttons - Call, Message, Cancel */}
-            <View style={styles.actionButtonsContainer}>
+            <View style={dynamicStyles.actionButtonsContainer}>
               <TouchableOpacity 
-                style={[styles.actionButton, styles.callButton]}
+                style={[dynamicStyles.actionButton, dynamicStyles.callButton]}
                 onPress={handleCallProvider}
                 disabled={isCallLoading}
               >
@@ -311,13 +744,13 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 ) : (
                   <>
                     <Icon name="phone" size={18} color="#FFFFFF" />
-                    {/* <Text style={styles.actionButtonText}>Call</Text> */}
+                    {/* <Text style={dynamicStyles.actionButtonText}>Call</Text> */}
                   </>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.actionButton, styles.messageButton]}
+                style={[dynamicStyles.actionButton, dynamicStyles.messageButton]}
                 onPress={handleMessageProvider}
                 disabled={isMessageLoading}
               >
@@ -326,14 +759,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 ) : (
                   <>
                     <Icon name="message-square" size={18} color="#FFFFFF" />
-                    {/* <Text style={styles.actionButtonText}>Message</Text> */}
+                    {/* <Text style={dynamicStyles.actionButtonText}>Message</Text> */}
                   </>
                 )}
               </TouchableOpacity>
 
               {isCancellable() && (
                 <TouchableOpacity 
-                  style={[styles.actionButton, styles.cancelButton]}
+                  style={[dynamicStyles.actionButton, dynamicStyles.cancelButton]}
                   onPress={handleCancelBooking}
                   disabled={isCancelLoading}
                 >
@@ -342,7 +775,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                   ) : (
                     <>
                       <Icon name="x-circle" size={18} color="#FFFFFF" />
-                      <Text style={styles.actionButtonText}>Cancel</Text>
+                      <Text style={dynamicStyles.actionButtonText}>Cancel</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -350,28 +783,28 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             </View>
 
             {/* Schedule Information */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Icon name="calendar" size={20} color="#3B82F6" />
-                <Text style={styles.sectionTitle}>Schedule</Text>
+            <View style={dynamicStyles.section}>
+              <View style={dynamicStyles.sectionHeader}>
+                <Icon name="calendar" size={20} color={colors.primary} />
+                <Text style={dynamicStyles.sectionTitle}>Schedule</Text>
               </View>
               
-              <View style={styles.scheduleGrid}>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleLabel}>Start Date</Text>
-                  <Text style={styles.scheduleValue}>{formatDate(booking.startDate)}</Text>
+              <View style={dynamicStyles.scheduleGrid}>
+                <View style={dynamicStyles.scheduleItem}>
+                  <Text style={dynamicStyles.scheduleLabel}>Start Date</Text>
+                  <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.startDate)}</Text>
                 </View>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleLabel}>End Date</Text>
-                  <Text style={styles.scheduleValue}>{formatDate(booking.endDate)}</Text>
+                <View style={dynamicStyles.scheduleItem}>
+                  <Text style={dynamicStyles.scheduleLabel}>End Date</Text>
+                  <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.endDate)}</Text>
                 </View>
               </View>
 
-              <View style={styles.timeSlotContainer}>
-                <Text style={styles.scheduleLabel}>Time Slot</Text>
-                <View style={styles.timeSlotValueContainer}>
-                  <Icon name="clock" size={16} color="#9CA3AF" />
-                  <Text style={styles.scheduleValue}>
+              <View style={dynamicStyles.timeSlotContainer}>
+                <Text style={dynamicStyles.scheduleLabel}>Time Slot</Text>
+                <View style={dynamicStyles.timeSlotValueContainer}>
+                  <Icon name="clock" size={16} color={colors.textSecondary} />
+                  <Text style={dynamicStyles.scheduleValue}>
                     {formatTimeToAMPM(booking.start_time)} - {formatTimeToAMPM(booking.end_time)}
                   </Text>
                 </View>
@@ -380,18 +813,18 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
             {/* Provider Information */}
             {booking.serviceProviderName && booking.serviceProviderName !== 'Not Assigned' && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="user" size={20} color="#10B981" />
-                  <Text style={styles.sectionTitle}>Service Provider</Text>
+              <View style={dynamicStyles.section}>
+                <View style={dynamicStyles.sectionHeader}>
+                  <Icon name="user" size={20} color={colors.success} />
+                  <Text style={dynamicStyles.sectionTitle}>Service Provider</Text>
                 </View>
                 
-                <View style={styles.providerContainer}>
-                  <View style={styles.providerInfo}>
-                    <Text style={styles.providerName}>{booking.serviceProviderName}</Text>
+                <View style={dynamicStyles.providerContainer}>
+                  <View style={dynamicStyles.providerInfo}>
+                    <Text style={dynamicStyles.providerName}>{booking.serviceProviderName}</Text>
                   </View>
                   {booking.providerRating > 0 && (
-                    <Badge style={styles.ratingBadge}>
+                    <Badge style={dynamicStyles.ratingBadge}>
                       ⭐ {booking.providerRating.toFixed(1)}
                     </Badge>
                   )}
@@ -400,18 +833,18 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             )}
 
             {/* Tasks & Responsibilities */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Icon name="file-text" size={20} color="#8B5CF6" />
-                <Text style={styles.sectionTitle}>Tasks & Responsibilities</Text>
+            <View style={dynamicStyles.section}>
+              <View style={dynamicStyles.sectionHeader}>
+                <Icon name="file-text" size={20} color={colors.info} />
+                <Text style={dynamicStyles.sectionTitle}>Tasks & Responsibilities</Text>
               </View>
               
-              <View style={styles.tasksContainer}>
+              <View style={dynamicStyles.tasksContainer}>
                 {/* Main Tasks */}
                 {booking.responsibilities?.tasks && booking.responsibilities.tasks.length > 0 && (
                   <View>
-                    <Text style={styles.tasksSubLabel}>Main Tasks</Text>
-                    <View style={styles.tasksList}>
+                    <Text style={dynamicStyles.tasksSubLabel}>Main Tasks</Text>
+                    <View style={dynamicStyles.tasksList}>
                       {booking.responsibilities.tasks.map((task: any, index: number) => {
                         const taskDetails = Object.entries(task)
                           .filter(([key]) => key !== 'taskType')
@@ -419,7 +852,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                           .join(', ');
                         
                         return (
-                          <Badge key={index} variant="outline" style={styles.mainTaskBadge}>
+                          <Badge key={index} variant="outline" style={dynamicStyles.mainTaskBadge}>
                             {task.taskType} {taskDetails && `- ${taskDetails}`}
                           </Badge>
                         );
@@ -431,10 +864,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 {/* Add-ons */}
                 {booking.responsibilities?.add_ons && booking.responsibilities.add_ons.length > 0 && (
                   <View>
-                    <Text style={styles.tasksSubLabel}>Add-ons</Text>
-                    <View style={styles.tasksList}>
+                    <Text style={dynamicStyles.tasksSubLabel}>Add-ons</Text>
+                    <View style={dynamicStyles.tasksList}>
                       {booking.responsibilities.add_ons.map((addon: any, index: number) => (
-                        <Badge key={index} variant="outline" style={styles.addonBadge}>
+                        <Badge key={index} variant="outline" style={dynamicStyles.addonBadge}>
                           {addon.taskType}
                         </Badge>
                       ))}
@@ -446,48 +879,48 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
             {/* Payment Details */}
             {booking.payment && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="credit-card" size={20} color="#F97316" />
-                  <Text style={styles.sectionTitle}>Payment Details</Text>
+              <View style={dynamicStyles.section}>
+                <View style={dynamicStyles.sectionHeader}>
+                  <Icon name="credit-card" size={20} color={colors.warning} />
+                  <Text style={dynamicStyles.sectionTitle}>Payment Details</Text>
                 </View>
                 
-                <View style={styles.paymentContainer}>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Base Amount</Text>
-                    <Text style={styles.paymentValue}>₹{booking.payment.base_amount}</Text>
+                <View style={dynamicStyles.paymentContainer}>
+                  <View style={dynamicStyles.paymentRow}>
+                    <Text style={dynamicStyles.paymentLabel}>Base Amount</Text>
+                    <Text style={dynamicStyles.paymentValue}>₹{booking.payment.base_amount}</Text>
                   </View>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Platform Fee</Text>
-                    <Text style={styles.paymentValue}>₹{booking.payment.platform_fee}</Text>
+                  <View style={dynamicStyles.paymentRow}>
+                    <Text style={dynamicStyles.paymentLabel}>Platform Fee</Text>
+                    <Text style={dynamicStyles.paymentValue}>₹{booking.payment.platform_fee}</Text>
                   </View>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>GST</Text>
-                    <Text style={styles.paymentValue}>₹{booking.payment.gst}</Text>
+                  <View style={dynamicStyles.paymentRow}>
+                    <Text style={dynamicStyles.paymentLabel}>GST</Text>
+                    <Text style={dynamicStyles.paymentValue}>₹{booking.payment.gst}</Text>
                   </View>
-                  <Separator style={styles.separator} />
-                  <View style={styles.paymentTotalRow}>
-                    <Text style={styles.paymentTotalLabel}>Total</Text>
-                    <Text style={styles.paymentTotalValue}>₹{booking.payment.total_amount}</Text>
+                  <Separator style={dynamicStyles.separator} />
+                  <View style={dynamicStyles.paymentTotalRow}>
+                    <Text style={dynamicStyles.paymentTotalLabel}>Total</Text>
+                    <Text style={dynamicStyles.paymentTotalValue}>₹{booking.payment.total_amount}</Text>
                   </View>
                   
-                  <View style={styles.paymentStatusRow}>
-                    <Text style={styles.paymentLabel}>Payment Status</Text>
-                    <Badge style={[styles.paymentStatusBadge, getPaymentStatusColor(booking.payment.status)]}>
+                  <View style={dynamicStyles.paymentStatusRow}>
+                    <Text style={dynamicStyles.paymentLabel}>Payment Status</Text>
+                    <Badge style={[dynamicStyles.paymentStatusBadge, ...getPaymentStatusColor(booking.payment.status)]}>
                       {booking.payment.status}
                     </Badge>
                   </View>
                   
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Payment Mode</Text>
-                    <Text style={styles.paymentModeValue}>{booking.payment.payment_mode}</Text>
+                  <View style={dynamicStyles.paymentRow}>
+                    <Text style={dynamicStyles.paymentLabel}>Payment Mode</Text>
+                    <Text style={dynamicStyles.paymentModeValue}>{booking.payment.payment_mode}</Text>
                   </View>
 
                   {/* Complete Payment Button - Show only for PENDING status */}
                   {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
-                    <View style={styles.completePaymentContainer}>
+                    <View style={dynamicStyles.completePaymentContainer}>
                       <TouchableOpacity
-                        style={styles.completePaymentButton}
+                        style={dynamicStyles.completePaymentButton}
                         onPress={handleCompletePayment}
                         disabled={isProcessingPayment}
                       >
@@ -496,11 +929,11 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                         ) : (
                           <>
                             <Icon name="credit-card" size={20} color="#FFFFFF" />
-                            <Text style={styles.completePaymentText}>Complete Payment Now</Text>
+                            <Text style={dynamicStyles.completePaymentText}>Complete Payment Now</Text>
                           </>
                         )}
                       </TouchableOpacity>
-                      <Text style={styles.completePaymentNote}>
+                      <Text style={dynamicStyles.completePaymentNote}>
                         Complete payment to confirm your booking
                       </Text>
                     </View>
@@ -511,28 +944,28 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
             {/* Modification History */}
             {booking.modifications && booking.modifications.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="alert-circle" size={20} color="#EAB308" />
-                  <Text style={styles.sectionTitle}>Modification History</Text>
+              <View style={dynamicStyles.section}>
+                <View style={dynamicStyles.sectionHeader}>
+                  <Icon name="alert-circle" size={20} color={colors.warning} />
+                  <Text style={dynamicStyles.sectionTitle}>Modification History</Text>
                 </View>
                 
-                <View style={styles.modificationsContainer}>
+                <View style={dynamicStyles.modificationsContainer}>
                   {booking.modifications.map((mod: any, index: number) => (
-                    <View key={index} style={styles.modificationItem}>
-                      <View style={styles.modificationHeader}>
-                        <Badge style={styles.modificationBadge}>
+                    <View key={index} style={dynamicStyles.modificationItem}>
+                      <View style={dynamicStyles.modificationHeader}>
+                        <Badge style={dynamicStyles.modificationBadge}>
                           {mod.action}
                         </Badge>
-                        <Text style={styles.modificationDate}>
+                        <Text style={dynamicStyles.modificationDate}>
                           {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
                         </Text>
                       </View>
                       {mod.refund && (
-                        <Text style={styles.refundText}>Refund: ₹{mod.refund}</Text>
+                        <Text style={dynamicStyles.refundText}>Refund: ₹{mod.refund}</Text>
                       )}
                       {mod.penalty && (
-                        <Text style={styles.penaltyText}>Penalty: ₹{mod.penalty}</Text>
+                        <Text style={dynamicStyles.penaltyText}>Penalty: ₹{mod.penalty}</Text>
                       )}
                     </View>
                   ))}
@@ -541,29 +974,29 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             )}
 
             {/* Additional Information */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Icon name="tag" size={20} color="#6B7280" />
-                <Text style={styles.sectionTitle}>Additional Information</Text>
+            <View style={dynamicStyles.section}>
+              <View style={dynamicStyles.sectionHeader}>
+                <Icon name="tag" size={20} color={colors.textSecondary} />
+                <Text style={dynamicStyles.sectionTitle}>Additional Information</Text>
               </View>
               
-              <View style={styles.additionalInfoGrid}>
-                <View style={styles.additionalInfoItem}>
-                  <Text style={styles.additionalInfoLabel}>Booking Date</Text>
-                  <Text style={styles.additionalInfoValue}>
+              <View style={dynamicStyles.additionalInfoGrid}>
+                <View style={dynamicStyles.additionalInfoItem}>
+                  <Text style={dynamicStyles.additionalInfoLabel}>Booking Date</Text>
+                  <Text style={dynamicStyles.additionalInfoValue}>
                     {dayjs(booking.bookingDate).format('MMM D, YYYY')}
                   </Text>
                 </View>
-                <View style={styles.additionalInfoItem}>
-                  <Text style={styles.additionalInfoLabel}>Assignment Status</Text>
-                  <Text style={styles.additionalInfoValue}>
+                <View style={dynamicStyles.additionalInfoItem}>
+                  <Text style={dynamicStyles.additionalInfoLabel}>Assignment Status</Text>
+                  <Text style={dynamicStyles.additionalInfoValue}>
                     {booking.assignmentStatus}
                   </Text>
                 </View>
                 {booking.leave_days > 0 && (
-                  <View style={styles.additionalInfoItem}>
-                    <Text style={styles.additionalInfoLabel}>Leave Days</Text>
-                    <Text style={styles.additionalInfoValue}>{booking.leave_days}</Text>
+                  <View style={dynamicStyles.additionalInfoItem}>
+                    <Text style={dynamicStyles.additionalInfoLabel}>Leave Days</Text>
+                    <Text style={dynamicStyles.additionalInfoValue}>{booking.leave_days}</Text>
                   </View>
                 )}
               </View>
@@ -576,380 +1009,30 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  overlayTouchable: {
-    flex: 1,
-  },
-  drawerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: '90%',
-    width: '100%',
-  },
-  header: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    width: '100%',
-  },
-  headerLeftPlaceholder: {
-    width: 40,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    flex: 1,
-  },
-  closeButton: {
-    padding: 8,
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  bookingIdContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  labelText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  bookingIdText: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  serviceTypeContainer: {
-    backgroundColor: '#EFF6FF',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  serviceIconContainer: {
-    padding: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  serviceIcon: {
-    fontSize: 24,
-  },
-  serviceTextContainer: {
-    flex: 1,
-  },
-  serviceLabel: {
-    fontSize: 12,
-    color: '#4B5563',
-  },
-  serviceTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  // Action Buttons Styles
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 20,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    gap: 6,
-    minHeight: 44,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  callButton: {
-    backgroundColor: '#163972',
-  },
-  messageButton: {
-    backgroundColor: '#163972',
-  },
-  cancelButton: {
-    backgroundColor: '#EF4444',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  scheduleGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  scheduleItem: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-  },
-  scheduleLabel: {
-    fontSize: 10,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  scheduleValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  timeSlotContainer: {
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-  },
-  timeSlotValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  providerContainer: {
-    backgroundColor: '#F9FAFB',
-    padding: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  providerInfo: {
-    flex: 1,
-  },
-  providerName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  ratingBadge: {
-    backgroundColor: '#FEF3C7',
-  },
-  tasksContainer: {
-    gap: 12,
-  },
-  tasksSubLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  tasksList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  mainTaskBadge: {
-    backgroundColor: '#EFF6FF',
-  },
-  addonBadge: {
-    backgroundColor: '#F0FDF4',
-  },
-  paymentContainer: {
-    backgroundColor: '#F9FAFB',
-    padding: 16,
-    borderRadius: 8,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  paymentLabel: {
-    fontSize: 14,
-    color: '#4B5563',
-  },
-  paymentValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 8,
-  },
-  paymentTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  paymentTotalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  paymentTotalValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  paymentStatusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  paymentStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  paymentModeValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
-    textTransform: 'capitalize',
-  },
-  paymentSuccess: {
-    backgroundColor: '#F0FDF4',
-    color: '#16A34A',
-  },
-  paymentPending: {
-    backgroundColor: '#FEFCE8',
-    color: '#CA8A04',
-  },
-  paymentFailed: {
-    backgroundColor: '#FEF2F2',
-    color: '#DC2626',
-  },
-  paymentDefault: {
-    backgroundColor: '#F9FAFB',
-    color: '#4B5563',
-  },
-  completePaymentContainer: {
-    marginTop: 16,
-  },
-  completePaymentButton: {
-    backgroundColor: '#DC2626',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  completePaymentText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  completePaymentNote: {
-    fontSize: 10,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  modificationsContainer: {
-    gap: 8,
-  },
-  modificationItem: {
-    backgroundColor: '#FEFCE8',
-    padding: 12,
-    borderRadius: 8,
-  },
-  modificationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  modificationBadge: {
-    backgroundColor: '#FEF08A',
-  },
-  modificationDate: {
-    fontSize: 10,
-    color: '#6B7280',
-  },
-  refundText: {
-    fontSize: 12,
-    color: '#16A34A',
-  },
-  penaltyText: {
-    fontSize: 12,
-    color: '#DC2626',
-  },
-  additionalInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  additionalInfoItem: {
-    flex: 1,
-    minWidth: '40%',
-  },
-  additionalInfoLabel: {
-    fontSize: 10,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  additionalInfoValue: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#111827',
-    textTransform: 'capitalize',
-  },
-  // Badge styles
+  // Base styles without theme colors (will be overridden by dynamic styles)
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    backgroundColor: '#E5E7EB',
     alignSelf: 'flex-start',
   },
   badgeOutline: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
   },
   badgeText: {
-    fontSize: 12,
     fontWeight: '500',
-    color: '#374151',
   },
   badgeOutlineText: {
-    color: '#4B5563',
+    fontWeight: '500',
   },
+  separator: {
+    height: 1,
+  },
+  paymentSuccess: {},
+  paymentPending: {},
+  paymentFailed: {},
+  paymentDefault: {},
 });
 
 export default EngagementDetailsDrawer;

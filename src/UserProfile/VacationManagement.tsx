@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import dayjs from 'dayjs';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import PaymentInstance from '../services/paymentInstance'; // Adjust path as needed
+import PaymentInstance from '../services/paymentInstance';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface VacationDetails {
   leave_start_date?: string;
@@ -40,6 +41,7 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
   customerId,
   onSuccess,
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const today = dayjs();
   const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(null);
   const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(null);
@@ -48,6 +50,62 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
   const [success, setSuccess] = useState<string | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          modalTitle: 16,
+          sectionTitle: 15,
+          dateLabel: 13,
+          dateInputText: 13,
+          totalDaysText: 13,
+          alertTitle: 13,
+          alertText: 12,
+          errorText: 12,
+          successText: 12,
+          policyTitle: 13,
+          policyText: 11,
+          buttonText: 13,
+          placeholderText: 13,
+        };
+      case 'large':
+        return {
+          modalTitle: 20,
+          sectionTitle: 18,
+          dateLabel: 16,
+          dateInputText: 16,
+          totalDaysText: 16,
+          alertTitle: 16,
+          alertText: 15,
+          errorText: 15,
+          successText: 15,
+          policyTitle: 16,
+          policyText: 14,
+          buttonText: 16,
+          placeholderText: 16,
+        };
+      default:
+        return {
+          modalTitle: 18,
+          sectionTitle: 16,
+          dateLabel: 14,
+          dateInputText: 14,
+          totalDaysText: 14,
+          alertTitle: 14,
+          alertText: 13,
+          errorText: 14,
+          successText: 14,
+          policyTitle: 14,
+          policyText: 12,
+          buttonText: 14,
+          placeholderText: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   // Calculate total days between start and end date
   const calculateTotalDays = (): number => {
@@ -184,6 +242,202 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
   const hasExistingVacation = booking?.vacationDetails?.leave_start_date && 
                              booking?.vacationDetails?.leave_end_date;
 
+  const dynamicStyles = StyleSheet.create({
+    centeredView: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.overlay,
+    },
+    modalView: {
+      width: '90%',
+      maxHeight: '80%',
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      overflow: 'hidden',
+      elevation: 5,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: fontSizes.modalTitle,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    closeButton: {
+      padding: 4,
+    },
+    closeIcon: {
+      fontSize: 24,
+      color: colors.textSecondary,
+      fontWeight: 'bold',
+    },
+    modalContent: {
+      padding: 16,
+    },
+    section: {
+      marginBottom: 20,
+    },
+    sectionTitle: {
+      fontSize: fontSizes.sectionTitle,
+      fontWeight: '600',
+      marginBottom: 16,
+      color: colors.text,
+    },
+    datePickerContainer: {
+      marginBottom: 16,
+    },
+    dateLabel: {
+      fontSize: fontSizes.dateLabel,
+      fontWeight: '500',
+      marginBottom: 8,
+      color: colors.text,
+    },
+    dateInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 6,
+      padding: 12,
+      backgroundColor: colors.card,
+    },
+    disabledInput: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    dateInputText: {
+      fontSize: fontSizes.dateInputText,
+      color: colors.text,
+    },
+    placeholderText: {
+      color: colors.placeholder,
+      fontSize: fontSizes.placeholderText,
+    },
+    disabledText: {
+      color: colors.textTertiary || colors.textSecondary,
+    },
+    totalDaysContainer: {
+      marginTop: 8,
+    },
+    totalDaysText: {
+      fontSize: fontSizes.totalDaysText,
+      color: colors.primary,
+    },
+    totalDaysBold: {
+      fontWeight: 'bold',
+    },
+    alert: {
+      padding: 12,
+      borderRadius: 6,
+      marginBottom: 16,
+    },
+    infoAlert: {
+      backgroundColor: colors.infoLight,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.info,
+    },
+    errorAlert: {
+      backgroundColor: colors.errorLight,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.error,
+    },
+    successAlert: {
+      backgroundColor: colors.successLight,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.success,
+    },
+    alertTitle: {
+      fontSize: fontSizes.alertTitle,
+      fontWeight: 'bold',
+      marginBottom: 4,
+      color: colors.info,
+    },
+    alertText: {
+      fontSize: fontSizes.alertText,
+      color: colors.info,
+      lineHeight: 18,
+    },
+    errorText: {
+      color: colors.error,
+      fontSize: fontSizes.errorText,
+    },
+    successText: {
+      color: colors.success,
+      fontSize: fontSizes.successText,
+    },
+    policyContainer: {
+      backgroundColor: colors.surface,
+      padding: 12,
+      borderRadius: 6,
+    },
+    policyTitle: {
+      fontSize: fontSizes.policyTitle,
+      fontWeight: 'bold',
+      marginBottom: 4,
+      color: colors.textSecondary,
+    },
+    policyText: {
+      fontSize: fontSizes.policyText,
+      color: colors.textSecondary,
+      lineHeight: 16,
+    },
+    policyBold: {
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    actions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      gap: 8,
+    },
+    button: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 6,
+      minWidth: 120,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelButton: {
+      borderWidth: 1,
+      borderColor: colors.error,
+      backgroundColor: 'transparent',
+    },
+    applyButton: {
+      backgroundColor: colors.primary,
+    },
+    disabledButton: {
+      backgroundColor: colors.disabled,
+    },
+    cancelButtonText: {
+      color: colors.error,
+      fontWeight: '500',
+      fontSize: fontSizes.buttonText,
+    },
+    buttonText: {
+      color: '#ffffff',
+      fontWeight: '500',
+      fontSize: fontSizes.buttonText,
+    },
+    loadingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+  });
+
   return (
     <Modal
       visible={open}
@@ -191,27 +445,27 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
+      <View style={dynamicStyles.centeredView}>
+        <View style={dynamicStyles.modalView}>
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.modalTitle}>Manage Vacation</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeIcon}>×</Text>
+          <View style={dynamicStyles.header}>
+            <Text style={dynamicStyles.modalTitle}>Manage Vacation</Text>
+            <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
+              <Text style={dynamicStyles.closeIcon}>×</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalContent}>
+          <ScrollView style={dynamicStyles.modalContent}>
             {/* Existing Vacation Info */}
             {hasExistingVacation && (
-              <View style={[styles.alert, styles.infoAlert]}>
-                <Text style={styles.alertTitle}>Current Vacation Period</Text>
-                <Text style={styles.alertText}>
+              <View style={[dynamicStyles.alert, dynamicStyles.infoAlert]}>
+                <Text style={dynamicStyles.alertTitle}>Current Vacation Period</Text>
+                <Text style={dynamicStyles.alertText}>
                   {dayjs(booking.vacationDetails?.leave_start_date).format("MMM D, YYYY")} 
                   {" to "}
                   {dayjs(booking.vacationDetails?.leave_end_date).format("MMM D, YYYY")}
                 </Text>
-                <Text style={styles.alertText}>
+                <Text style={dynamicStyles.alertText}>
                   Total days: {booking.vacationDetails?.total_days}
                 </Text>
               </View>
@@ -219,33 +473,33 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
 
             {/* Alerts */}
             {error && (
-              <View style={[styles.alert, styles.errorAlert]}>
-                <Text style={styles.errorText}>{error}</Text>
+              <View style={[dynamicStyles.alert, dynamicStyles.errorAlert]}>
+                <Text style={dynamicStyles.errorText}>{error}</Text>
               </View>
             )}
             
             {success && (
-              <View style={[styles.alert, styles.successAlert]}>
-                <Text style={styles.successText}>{success}</Text>
+              <View style={[dynamicStyles.alert, dynamicStyles.successAlert]}>
+                <Text style={dynamicStyles.successText}>{success}</Text>
               </View>
             )}
 
             {/* Vacation Date Selection */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
+            <View style={dynamicStyles.section}>
+              <Text style={dynamicStyles.sectionTitle}>
                 {hasExistingVacation ? "Modify Vacation Dates" : "Apply for Vacation"}
               </Text>
               
               {/* Start Date Picker */}
-              <View style={styles.datePickerContainer}>
-                <Text style={styles.dateLabel}>Vacation Start Date</Text>
+              <View style={dynamicStyles.datePickerContainer}>
+                <Text style={dynamicStyles.dateLabel}>Vacation Start Date</Text>
                 <TouchableOpacity 
-                  style={styles.dateInput}
+                  style={dynamicStyles.dateInput}
                   onPress={() => setShowStartPicker(true)}
                 >
                   <Text style={[
-                    styles.dateInputText,
-                    !startDate && styles.placeholderText
+                    dynamicStyles.dateInputText,
+                    !startDate && dynamicStyles.placeholderText
                   ]}>
                     {formatDateDisplay(startDate)}
                   </Text>
@@ -262,20 +516,20 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
               </View>
 
               {/* End Date Picker */}
-              <View style={styles.datePickerContainer}>
-                <Text style={styles.dateLabel}>Vacation End Date</Text>
+              <View style={dynamicStyles.datePickerContainer}>
+                <Text style={dynamicStyles.dateLabel}>Vacation End Date</Text>
                 <TouchableOpacity 
                   style={[
-                    styles.dateInput,
-                    (!startDate && styles.disabledInput)
+                    dynamicStyles.dateInput,
+                    (!startDate && dynamicStyles.disabledInput)
                   ]}
                   onPress={() => startDate && setShowEndPicker(true)}
                   disabled={!startDate}
                 >
                   <Text style={[
-                    styles.dateInputText,
-                    !endDate && styles.placeholderText,
-                    !startDate && styles.disabledText
+                    dynamicStyles.dateInputText,
+                    !endDate && dynamicStyles.placeholderText,
+                    !startDate && dynamicStyles.disabledText
                   ]}>
                     {formatDateDisplay(endDate)}
                   </Text>
@@ -292,19 +546,19 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
               </View>
 
               {totalDays > 0 && (
-                <View style={styles.totalDaysContainer}>
-                  <Text style={styles.totalDaysText}>
-                    Total vacation days: <Text style={styles.totalDaysBold}>{totalDays}</Text>
+                <View style={dynamicStyles.totalDaysContainer}>
+                  <Text style={dynamicStyles.totalDaysText}>
+                    Total vacation days: <Text style={dynamicStyles.totalDaysBold}>{totalDays}</Text>
                   </Text>
                 </View>
               )}
             </View>
 
             {/* Vacation Policy Info */}
-            <View style={styles.policyContainer}>
-              <Text style={styles.policyTitle}>Vacation Policy</Text>
-              <Text style={styles.policyText}>
-                <Text style={styles.policyBold}>Vacation Policy:</Text> During vacation period, services will be paused and 
+            <View style={dynamicStyles.policyContainer}>
+              <Text style={dynamicStyles.policyTitle}>Vacation Policy</Text>
+              <Text style={dynamicStyles.policyText}>
+                <Text style={dynamicStyles.policyBold}>Vacation Policy:</Text> During vacation period, services will be paused and 
                 applicable refunds will be processed to your wallet. A penalty may apply for modifications 
                 to existing vacation periods.
               </Text>
@@ -312,35 +566,35 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
           </ScrollView>
 
           {/* Actions */}
-          <View style={styles.actions}>
+          <View style={dynamicStyles.actions}>
             {hasExistingVacation && (
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
+                style={[dynamicStyles.button, dynamicStyles.cancelButton]}
                 onPress={handleCancelVacation}
                 disabled={isLoading}
               >
-                <Text style={styles.cancelButtonText}>Cancel Vacation</Text>
+                <Text style={dynamicStyles.cancelButtonText}>Cancel Vacation</Text>
               </TouchableOpacity>
             )}
             
             <TouchableOpacity
               style={[
-                styles.button, 
-                styles.applyButton,
-                (!startDate || !endDate || isLoading) && styles.disabledButton
+                dynamicStyles.button, 
+                dynamicStyles.applyButton,
+                (!startDate || !endDate || isLoading) && dynamicStyles.disabledButton
               ]}
               onPress={handleApplyVacation}
               disabled={!startDate || !endDate || isLoading}
             >
               {isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color="white" size="small" />
-                  <Text style={styles.buttonText}>
+                <View style={dynamicStyles.loadingContainer}>
+                  <ActivityIndicator color="#ffffff" size="small" />
+                  <Text style={dynamicStyles.buttonText}>
                     {hasExistingVacation ? "Updating..." : "Applying..."}
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.buttonText}>
+                <Text style={dynamicStyles.buttonText}>
                   {hasExistingVacation ? "Update Vacation" : "Apply Vacation"}
                 </Text>
               )}
@@ -351,199 +605,5 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalView: {
-    width: '90%',
-    maxHeight: '80%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeIcon: {
-    fontSize: 24,
-    color: '#666',
-    fontWeight: 'bold',
-  },
-  modalContent: {
-    padding: 16,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: '#333',
-  },
-  datePickerContainer: {
-    marginBottom: 16,
-  },
-  dateLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#333',
-  },
-  dateInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 12,
-    backgroundColor: 'white',
-  },
-  disabledInput: {
-    backgroundColor: '#f5f5f5',
-    borderColor: '#e0e0e0',
-  },
-  dateInputText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  placeholderText: {
-    color: '#999',
-  },
-  disabledText: {
-    color: '#bdbdbd',
-  },
-  totalDaysContainer: {
-    marginTop: 8,
-  },
-  totalDaysText: {
-    fontSize: 14,
-    color: '#1976d2',
-  },
-  totalDaysBold: {
-    fontWeight: 'bold',
-  },
-  alert: {
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 16,
-  },
-  infoAlert: {
-    backgroundColor: '#e3f2fd',
-    borderLeftWidth: 4,
-    borderLeftColor: '#1976d2',
-  },
-  errorAlert: {
-    backgroundColor: '#ffebee',
-    borderLeftWidth: 4,
-    borderLeftColor: '#d32f2f',
-  },
-  successAlert: {
-    backgroundColor: '#e8f5e9',
-    borderLeftWidth: 4,
-    borderLeftColor: '#2e7d32',
-  },
-  alertTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#1976d2',
-  },
-  alertText: {
-    fontSize: 13,
-    color: '#1976d2',
-    lineHeight: 18,
-  },
-  errorText: {
-    color: '#d32f2f',
-    fontSize: 14,
-  },
-  successText: {
-    color: '#2e7d32',
-    fontSize: 14,
-  },
-  policyContainer: {
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 6,
-  },
-  policyTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#666',
-  },
-  policyText: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 16,
-  },
-  policyBold: {
-    fontWeight: 'bold',
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: 8,
-  },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    minWidth: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    borderWidth: 1,
-    borderColor: '#d32f2f',
-    backgroundColor: 'transparent',
-  },
-  applyButton: {
-    backgroundColor: '#1976d2',
-  },
-  disabledButton: {
-    backgroundColor: '#bdbdbd',
-  },
-  cancelButtonText: {
-    color: '#d32f2f',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-});
 
 export default VacationManagementDialog;

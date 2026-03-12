@@ -26,6 +26,7 @@ import providerInstance from "../services/providerInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/userStore";
 import { setHasMobileNumber } from "../features/customerSlice";
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 const { width } = Dimensions.get("window");
 
@@ -118,6 +119,7 @@ interface ProfileScreenProps {
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
   const { appUser } = useAppUser();
+  const { colors, fontSize, isDarkMode } = useTheme();
 
   // USE REDUX STATE
   const dispatch = useDispatch();
@@ -202,6 +204,65 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     new Set(),
   );
 
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case "small":
+        return {
+          greeting: 20,
+          roleText: 13,
+          formTitle: 18,
+          sectionTitle: 13,
+          inputLabel: 13,
+          input: 13,
+          buttonText: 13,
+          addressType: 13,
+          addressText: 13,
+          footerText: 11,
+          validationText: 11,
+          statusLabel: 11,
+          statusText: 13,
+          compactLabel: 13,
+        };
+      case "large":
+        return {
+          greeting: 26,
+          roleText: 16,
+          formTitle: 22,
+          sectionTitle: 16,
+          inputLabel: 16,
+          input: 16,
+          buttonText: 16,
+          addressType: 16,
+          addressText: 16,
+          footerText: 14,
+          validationText: 14,
+          statusLabel: 14,
+          statusText: 16,
+          compactLabel: 16,
+        };
+      default:
+        return {
+          greeting: 22,
+          roleText: 14,
+          formTitle: 20,
+          sectionTitle: 14,
+          inputLabel: 14,
+          input: 14,
+          buttonText: 14,
+          addressType: 14,
+          addressText: 14,
+          footerText: 12,
+          validationText: 12,
+          statusLabel: 12,
+          statusText: 14,
+          compactLabel: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
+
   // Function to handle user preference selection
   const handleUserPreference = (preference?: string) => {
     console.log("User preference selected: ", preference);
@@ -254,7 +315,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
       return (
         <View style={[styles.avatarFallback, { backgroundColor }]}>
-          <Text style={styles.avatarText}>{initial}</Text>
+          <Text style={[styles.avatarText, { fontSize: fontSizes.greeting }]}>
+            {initial}
+          </Text>
         </View>
       );
     }
@@ -1383,65 +1446,65 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   ];
 
   // ============= BACK BUTTON AND HARDWARE BACK HANDLING =============
-  
+
   // Handle back button press
   const handleBackPress = () => {
-    console.log('⬅️ Back button pressed in ProfileScreen');
-    
+    console.log("⬅️ Back button pressed in ProfileScreen");
+
     // Close any open dialogs or modals first
     if (showMobileDialog) {
-      console.log('📱 Closing mobile dialog');
+      console.log("📱 Closing mobile dialog");
       setShowMobileDialog(false);
       return true; // Prevent default back behavior
     }
-    
+
     if (showCountryCodePicker) {
-      console.log('🌍 Closing country code picker');
+      console.log("🌍 Closing country code picker");
       setShowCountryCodePicker(false);
       return true;
     }
-    
+
     if (showAltCountryCodePicker) {
-      console.log('🌍 Closing alternate country code picker');
+      console.log("🌍 Closing alternate country code picker");
       setShowAltCountryCodePicker(false);
       return true;
     }
-    
+
     if (showAddAddress) {
-      console.log('🏠 Closing add address form');
+      console.log("🏠 Closing add address form");
       setShowAddAddress(false);
       return true;
     }
-    
+
     // If in editing mode, cancel editing first
     if (isEditing) {
-      console.log('✏️ Canceling edit mode');
+      console.log("✏️ Canceling edit mode");
       handleCancel();
       return true;
     }
-    
+
     // If no dialogs are open and not in edit mode, navigate back to home
     if (onBackToHome) {
-      console.log('🏠 Navigating back to HomePage');
+      console.log("🏠 Navigating back to HomePage");
       onBackToHome();
       return true; // Prevent default back behavior
     }
-    
+
     return false; // Let default back behavior happen
   };
 
   // Set up hardware back button listener
   useEffect(() => {
-    console.log('🎯 Setting up back button handler for ProfileScreen');
-    
+    console.log("🎯 Setting up back button handler for ProfileScreen");
+
     const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      handleBackPress
+      "hardwareBackPress",
+      handleBackPress,
     );
 
     // Clean up listener on unmount
     return () => {
-      console.log('🧹 Cleaning up back button handler for ProfileScreen');
+      console.log("🧹 Cleaning up back button handler for ProfileScreen");
       backHandler.remove();
     };
   }, [
@@ -1450,16 +1513,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     showCountryCodePicker,
     showAltCountryCodePicker,
     showAddAddress,
-    isEditing
+    isEditing,
   ]);
 
   // Loading Screen Component
   const LoadingScreen = () => (
     <View style={styles.loadingContainer}>
       <View style={styles.loadingContent}>
-        <ActivityIndicator size="large" color="#0E305C" />
-        <Text style={styles.loadingText}>Loading your profile</Text>
-        <Text style={styles.loadingSubtext}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text
+          style={[
+            styles.loadingText,
+            { color: colors.text, fontSize: fontSizes.formTitle },
+          ]}
+        >
+          Loading your profile
+        </Text>
+        <Text
+          style={[
+            styles.loadingSubtext,
+            { color: colors.textSecondary, fontSize: fontSizes.roleText },
+          ]}
+        >
           Please wait while we fetch your information
         </Text>
       </View>
@@ -1468,10 +1543,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
   // Skeleton Loading Component
   const SkeletonLoader = () => (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header Skeleton */}
       <LinearGradient
-        colors={["rgba(177, 213, 232, 0.8)", "rgba(255, 255, 255, 1)"]}
+        colors={[
+          isDarkMode ? "rgba(14, 48, 92, 0.9)" : "rgba(177, 213, 232, 0.8)",
+          isDarkMode ? colors.background : "rgba(255, 255, 255, 1)",
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.headerSkeleton}
@@ -1480,75 +1558,202 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           <View style={styles.profileSection}>
             {renderProfilePicture()}
             <View style={styles.profileTextContainer}>
-              <View style={styles.greetingSkeleton} />
-              <View style={styles.roleSkeleton} />
+              <View
+                style={[
+                  styles.greetingSkeleton,
+                  { backgroundColor: colors.surface },
+                ]}
+              />
+              <View
+                style={[
+                  styles.roleSkeleton,
+                  { backgroundColor: colors.surface },
+                ]}
+              />
             </View>
           </View>
-          <View style={styles.editButtonSkeleton} />
+          <View
+            style={[
+              styles.editButtonSkeleton,
+              { backgroundColor: colors.surface },
+            ]}
+          />
         </View>
       </LinearGradient>
 
       {/* Main Content Skeleton */}
       <View style={styles.mainContentSkeleton}>
-        <View style={styles.cardSkeleton}>
+        <View style={[styles.cardSkeleton, { backgroundColor: colors.card }]}>
           <View style={styles.formHeaderSkeleton}>
-            <View style={styles.titleSkeleton} />
+            <View
+              style={[
+                styles.titleSkeleton,
+                { backgroundColor: colors.surface },
+              ]}
+            />
           </View>
 
           <View style={styles.sectionSkeleton}>
-            <View style={styles.sectionTitleSkeleton} />
+            <View
+              style={[
+                styles.sectionTitleSkeleton,
+                { backgroundColor: colors.surface },
+              ]}
+            />
             <View style={styles.rowSkeleton}>
               <View style={styles.inputGroupSkeleton}>
-                <View style={styles.labelSkeleton} />
-                <View style={styles.inputSkeleton} />
+                <View
+                  style={[
+                    styles.labelSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.inputSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
               </View>
               <View style={styles.inputGroupSkeleton}>
-                <View style={styles.labelSkeleton} />
-                <View style={styles.inputSkeleton} />
+                <View
+                  style={[
+                    styles.labelSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.inputSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
               </View>
             </View>
 
             <View style={styles.nameRowSkeleton}>
               <View style={styles.nameInputSkeleton}>
-                <View style={styles.labelSkeleton} />
-                <View style={styles.inputSkeleton} />
+                <View
+                  style={[
+                    styles.labelSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.inputSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
               </View>
               <View style={styles.nameInputSkeleton}>
-                <View style={styles.labelSkeleton} />
-                <View style={styles.inputSkeleton} />
+                <View
+                  style={[
+                    styles.labelSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.inputSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
               </View>
             </View>
 
             <View style={styles.inputGroupSkeleton}>
-              <View style={styles.labelSkeleton} />
-              <View style={styles.inputSkeleton} />
+              <View
+                style={[
+                  styles.labelSkeleton,
+                  { backgroundColor: colors.surface },
+                ]}
+              />
+              <View
+                style={[
+                  styles.inputSkeleton,
+                  { backgroundColor: colors.surface },
+                ]}
+              />
             </View>
           </View>
 
-          <View style={styles.dividerSkeleton} />
+          <View
+            style={[styles.dividerSkeleton, { backgroundColor: colors.border }]}
+          />
 
           <View style={styles.sectionSkeleton}>
-            <View style={styles.sectionTitleSkeleton} />
+            <View
+              style={[
+                styles.sectionTitleSkeleton,
+                { backgroundColor: colors.surface },
+              ]}
+            />
             <View style={styles.rowSkeleton}>
               <View style={styles.inputGroupSkeleton}>
-                <View style={styles.labelSkeleton} />
-                <View style={styles.inputSkeleton} />
+                <View
+                  style={[
+                    styles.labelSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.inputSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
               </View>
               <View style={styles.inputGroupSkeleton}>
-                <View style={styles.labelSkeleton} />
-                <View style={styles.inputSkeleton} />
+                <View
+                  style={[
+                    styles.labelSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.inputSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
               </View>
             </View>
           </View>
 
           <View style={styles.sectionSkeleton}>
-            <View style={styles.labelSkeleton} />
-            <View style={styles.addressCardSkeleton}>
+            <View
+              style={[
+                styles.labelSkeleton,
+                { backgroundColor: colors.surface },
+              ]}
+            />
+            <View
+              style={[
+                styles.addressCardSkeleton,
+                { backgroundColor: colors.surface },
+              ]}
+            >
               <View style={styles.addressHeaderSkeleton}>
-                <View style={styles.addressTitleSkeleton} />
+                <View
+                  style={[
+                    styles.addressTitleSkeleton,
+                    { backgroundColor: colors.surface },
+                  ]}
+                />
               </View>
-              <View style={styles.addressLineSkeleton} />
-              <View style={styles.addressLineShortSkeleton} />
+              <View
+                style={[
+                  styles.addressLineSkeleton,
+                  { backgroundColor: colors.surface },
+                ]}
+              />
+              <View
+                style={[
+                  styles.addressLineShortSkeleton,
+                  { backgroundColor: colors.surface },
+                ]}
+              />
             </View>
           </View>
         </View>
@@ -1561,7 +1766,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       {/* Mobile Number Dialog */}
       <MobileNumberDialog
         visible={showMobileDialog}
@@ -1572,32 +1779,52 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
       {/* Header with Linear Gradient and Back Button */}
       <LinearGradient
-        colors={["rgba(177, 213, 232, 0.8)", "rgba(255, 255, 255, 1)"]}
+        colors={[
+          isDarkMode ? "rgba(14, 48, 92, 0.9)" : "rgba(177, 213, 232, 0.8)",
+          isDarkMode ? colors.background : "rgba(255, 255, 255, 1)",
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.header}
       >
         <View style={styles.headerContent}>
           {/* Back Button */}
-          <TouchableOpacity 
-            style={styles.backButton}
+          <TouchableOpacity
+            style={[
+              styles.backButton,
+              { backgroundColor: "rgba(255, 255, 255, 0.9)" },
+            ]}
             onPress={handleBackPress}
           >
-            <Icon name="arrow-left" size={24} color="#0a2a66" />
+            <Icon name="arrow-left" size={24} color={colors.primary} />
           </TouchableOpacity>
-          
+
           {/* Profile Section */}
           <View style={styles.profileSection}>
             {renderProfilePicture()}
             <View style={styles.profileTextContainer}>
-              <Text style={styles.greeting}>Hello, {getDisplayName()}</Text>
-              <Text style={styles.roleText}>
+              <Text
+                style={[
+                  styles.greeting,
+                  { color: colors.text, fontSize: fontSizes.greeting },
+                ]}
+              >
+                Hello, {getDisplayName()}
+              </Text>
+              <Text
+                style={[
+                  styles.roleText,
+                  { color: colors.textSecondary, fontSize: fontSizes.roleText },
+                ]}
+              >
                 {userRole === "SERVICE_PROVIDER"
                   ? "Service Provider"
                   : "Customer"}
                 , {getUserIdDisplay()}
                 {userRole === "CUSTOMER" && !hasMobileNumber && (
-                  <Text style={styles.mobileWarningSmall}>
+                  <Text
+                    style={[styles.mobileWarningSmall, { color: colors.error }]}
+                  >
                     {" "}
                     ⚠️ Mobile number required
                   </Text>
@@ -1609,11 +1836,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           {/* Edit Button - Top Right like web version */}
           {!isEditing && (
             <TouchableOpacity
-              style={styles.editButtonTop}
+              style={[
+                styles.editButtonTop,
+                { backgroundColor: colors.primary },
+              ]}
               onPress={handleEditStart}
             >
               <Icon name="edit-3" size={16} color="#fdfeffff" />
-              <Text style={styles.editButtonText}>Edit</Text>
+              <Text
+                style={[
+                  styles.editButtonText,
+                  { color: "#fff", fontSize: fontSizes.buttonText },
+                ]}
+              >
+                Edit
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1621,16 +1858,33 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
       {/* Main Content */}
       <View style={styles.mainContent}>
-        <View style={styles.formContainer}>
+        <View style={[styles.formContainer, { backgroundColor: colors.card }]}>
           {/* Form Header */}
-          <View style={styles.formHeader}>
-            <Text style={styles.formTitle}>My account</Text>
+          <View
+            style={[styles.formHeader, { borderBottomColor: colors.border }]}
+          >
+            <Text
+              style={[
+                styles.formTitle,
+                { color: colors.text, fontSize: fontSizes.formTitle },
+              ]}
+            >
+              My account
+            </Text>
             {userRole === "CUSTOMER" && !hasMobileNumber && (
               <TouchableOpacity
                 onPress={() => setShowMobileDialog(true)}
-                style={styles.addMobileButton}
+                style={[
+                  styles.addMobileButton,
+                  { backgroundColor: colors.errorLight },
+                ]}
               >
-                <Text style={styles.addMobileButtonText}>
+                <Text
+                  style={[
+                    styles.addMobileButtonText,
+                    { color: colors.error, fontSize: fontSizes.buttonText },
+                  ]}
+                >
                   Add Mobile Number
                 </Text>
               </TouchableOpacity>
@@ -1639,21 +1893,63 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
           {/* User Info Section */}
           <View>
-            <Text style={styles.sectionTitle}>User Information</Text>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: colors.textSecondary,
+                  fontSize: fontSizes.sectionTitle,
+                },
+              ]}
+            >
+              User Information
+            </Text>
 
             <View style={styles.inputRow}>
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Username</Text>
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { color: colors.text, fontSize: fontSizes.inputLabel },
+                  ]}
+                >
+                  Username
+                </Text>
                 <TextInput
-                  style={[styles.input, styles.readOnlyInput]}
+                  style={[
+                    styles.input,
+                    styles.readOnlyInput,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      color: colors.text,
+                      fontSize: fontSizes.input,
+                    },
+                  ]}
                   value={appUser?.nickname || userName || "User"}
                   editable={false}
                 />
               </View>
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Email address</Text>
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { color: colors.text, fontSize: fontSizes.inputLabel },
+                  ]}
+                >
+                  Email address
+                </Text>
                 <TextInput
-                  style={[styles.input, styles.readOnlyInput]}
+                  style={[
+                    styles.input,
+                    styles.readOnlyInput,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      color: colors.text,
+                      fontSize: fontSizes.input,
+                    },
+                  ]}
                   value={
                     appUser?.email ||
                     auth0User?.email ||
@@ -1667,10 +1963,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
             <View style={styles.ultraCompactNameRow}>
               <View style={styles.ultraCompactNameInput}>
-                <Text style={styles.compactLabel}>First name</Text>
+                <Text
+                  style={[
+                    styles.compactLabel,
+                    { color: colors.text, fontSize: fontSizes.compactLabel },
+                  ]}
+                >
+                  First name
+                </Text>
                 <TextInput
                   style={[
                     styles.ultraCompactInput,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: isEditing ? colors.card : colors.surface,
+                      color: colors.text,
+                      fontSize: fontSizes.input,
+                    },
                     !isEditing && styles.readOnlyInput,
                   ]}
                   value={userData.firstName}
@@ -1679,27 +1988,56 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   }
                   editable={isEditing}
                   placeholder="First"
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
               <View style={styles.ultraCompactNameInput}>
-                <Text style={styles.compactLabel}>Last name</Text>
+                <Text
+                  style={[
+                    styles.compactLabel,
+                    { color: colors.text, fontSize: fontSizes.compactLabel },
+                  ]}
+                >
+                  Last name
+                </Text>
                 <TextInput
                   style={[
                     styles.ultraCompactInput,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: isEditing ? colors.card : colors.surface,
+                      color: colors.text,
+                      fontSize: fontSizes.input,
+                    },
                     !isEditing && styles.readOnlyInput,
                   ]}
                   value={userData.lastName}
                   onChangeText={(value) => handleInputChange("lastName", value)}
                   editable={isEditing}
                   placeholder="Last"
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
               <View style={styles.ultraCompactNameInput}>
-                <Text style={styles.compactLabel}>
+                <Text
+                  style={[
+                    styles.compactLabel,
+                    { color: colors.text, fontSize: fontSizes.compactLabel },
+                  ]}
+                >
                   {userRole === "SERVICE_PROVIDER" ? "Provider ID" : "User ID"}
                 </Text>
                 <TextInput
-                  style={[styles.ultraCompactInput, styles.readOnlyInput]}
+                  style={[
+                    styles.ultraCompactInput,
+                    styles.readOnlyInput,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      color: colors.text,
+                      fontSize: fontSizes.input,
+                    },
+                  ]}
                   value={getUserIdDisplay()}
                   editable={false}
                 />
@@ -1707,22 +2045,36 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             </View>
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
           {/* Contact Info Section */}
-          <Text style={styles.sectionTitle}>Contact Information</Text>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: colors.textSecondary, fontSize: fontSizes.sectionTitle },
+            ]}
+          >
+            Contact Information
+          </Text>
 
           <View style={styles.inputRow}>
             {/* Contact Number */}
             <View style={styles.inputContainer}>
               <View style={styles.labelContainer}>
-                <Text style={styles.inputLabel}>Contact Number</Text>
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { color: colors.text, fontSize: fontSizes.inputLabel },
+                  ]}
+                >
+                  Contact Number
+                </Text>
                 {userRole === "CUSTOMER" && (
                   <Text
                     style={
                       !hasMobileNumber
-                        ? styles.mobileWarningSmall
-                        : styles.mobileSuccess
+                        ? [styles.mobileWarningSmall, { color: colors.error }]
+                        : [styles.mobileSuccess, { color: colors.success }]
                     }
                   >
                     {!hasMobileNumber ? " ⚠️" : " ✓"}
@@ -1732,31 +2084,69 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
               <View style={styles.phoneInputContainer}>
                 {isEditing ? (
                   <TouchableOpacity
-                    style={styles.countryCodeContainer}
+                    style={[
+                      styles.countryCodeContainer,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                      },
+                    ]}
                     onPress={() => setShowCountryCodePicker(true)}
                   >
-                    <Text style={styles.countryCodeText}>{countryCode}</Text>
-                    <Icon name="chevron-down" size={16} color="#4a5568" />
+                    <Text
+                      style={[
+                        styles.countryCodeText,
+                        { color: colors.text, fontSize: fontSizes.input },
+                      ]}
+                    >
+                      {countryCode}
+                    </Text>
+                    <Icon
+                      name="chevron-down"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
                   </TouchableOpacity>
                 ) : (
                   <View
-                    style={[styles.countryCodeContainer, styles.readOnlyInput]}
+                    style={[
+                      styles.countryCodeContainer,
+                      styles.readOnlyInput,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                      },
+                    ]}
                   >
-                    <Text style={styles.countryCodeText}>{countryCode}</Text>
+                    <Text
+                      style={[
+                        styles.countryCodeText,
+                        { color: colors.text, fontSize: fontSizes.input },
+                      ]}
+                    >
+                      {countryCode}
+                    </Text>
                   </View>
                 )}
                 <TextInput
                   style={[
                     styles.phoneInput,
+                    {
+                      borderColor:
+                        contactValidation.error ||
+                        (!hasMobileNumber && userRole === "CUSTOMER")
+                          ? colors.error
+                          : colors.border,
+                      backgroundColor: isEditing ? colors.card : colors.surface,
+                      color: colors.text,
+                      fontSize: fontSizes.input,
+                    },
                     !isEditing && styles.readOnlyInput,
-                    !hasMobileNumber &&
-                      userRole === "CUSTOMER" &&
-                      styles.invalidInput,
-                    contactValidation.error && styles.invalidInput,
                   ]}
                   value={formatMobileNumber(userData.contactNumber)}
                   onChangeText={handleContactNumberChange}
                   placeholder="Enter 10-digit number"
+                  placeholderTextColor={colors.placeholder}
                   editable={isEditing}
                   keyboardType="phone-pad"
                   maxLength={10}
@@ -1764,15 +2154,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                 {isEditing && (
                   <View style={styles.validationIcon}>
                     {contactValidation.loading && (
-                      <ActivityIndicator size="small" color="#3b82f6" />
+                      <ActivityIndicator size="small" color={colors.primary} />
                     )}
                     {contactValidation.isAvailable &&
                       !contactValidation.loading && (
-                        <Icon name="check" size={16} color="#10b981" />
+                        <Icon name="check" size={16} color={colors.success} />
                       )}
                     {contactValidation.isAvailable === false &&
                       !contactValidation.loading && (
-                        <Icon name="alert-circle" size={16} color="#ef4444" />
+                        <Icon
+                          name="alert-circle"
+                          size={16}
+                          color={colors.error}
+                        />
                       )}
                   </View>
                 )}
@@ -1780,27 +2174,61 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
               {/* Validation Messages */}
               {contactValidation.error && (
-                <Text style={styles.validationError}>
+                <Text
+                  style={[
+                    styles.validationError,
+                    { color: colors.error, fontSize: fontSizes.validationText },
+                  ]}
+                >
                   {contactValidation.error}
                 </Text>
               )}
               {contactValidation.formatError && isEditing && (
-                <Text style={styles.validationError}>
+                <Text
+                  style={[
+                    styles.validationError,
+                    { color: colors.error, fontSize: fontSizes.validationText },
+                  ]}
+                >
                   Please enter exactly 10 digits
                 </Text>
               )}
               {contactValidation.isAvailable && (
-                <Text style={styles.validationSuccess}>
+                <Text
+                  style={[
+                    styles.validationSuccess,
+                    {
+                      color: colors.success,
+                      fontSize: fontSizes.validationText,
+                    },
+                  ]}
+                >
                   Contact number is available
                 </Text>
               )}
               {userRole === "CUSTOMER" && !hasMobileNumber && !isEditing && (
                 <View style={styles.mobileWarningContainer}>
-                  <Text style={styles.mobileRequiredText}>
+                  <Text
+                    style={[
+                      styles.mobileRequiredText,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
                     Mobile number is required for bookings and notifications
                   </Text>
                   <TouchableOpacity onPress={() => setShowMobileDialog(true)}>
-                    <Text style={styles.addLink}>
+                    <Text
+                      style={[
+                        styles.addLink,
+                        {
+                          color: colors.primary,
+                          fontSize: fontSizes.validationText,
+                        },
+                      ]}
+                    >
                       Click here to add mobile number
                     </Text>
                   </TouchableOpacity>
@@ -1810,32 +2238,78 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
             {/* Alternative Contact Number */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Alternative Contact Number</Text>
+              <Text
+                style={[
+                  styles.inputLabel,
+                  { color: colors.text, fontSize: fontSizes.inputLabel },
+                ]}
+              >
+                Alternative Contact Number
+              </Text>
               <View style={styles.phoneInputContainer}>
                 {isEditing ? (
                   <TouchableOpacity
-                    style={styles.countryCodeContainer}
+                    style={[
+                      styles.countryCodeContainer,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                      },
+                    ]}
                     onPress={() => setShowAltCountryCodePicker(true)}
                   >
-                    <Text style={styles.countryCodeText}>{altCountryCode}</Text>
-                    <Icon name="chevron-down" size={16} color="#4a5568" />
+                    <Text
+                      style={[
+                        styles.countryCodeText,
+                        { color: colors.text, fontSize: fontSizes.input },
+                      ]}
+                    >
+                      {altCountryCode}
+                    </Text>
+                    <Icon
+                      name="chevron-down"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
                   </TouchableOpacity>
                 ) : (
                   <View
-                    style={[styles.countryCodeContainer, styles.readOnlyInput]}
+                    style={[
+                      styles.countryCodeContainer,
+                      styles.readOnlyInput,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                      },
+                    ]}
                   >
-                    <Text style={styles.countryCodeText}>{altCountryCode}</Text>
+                    <Text
+                      style={[
+                        styles.countryCodeText,
+                        { color: colors.text, fontSize: fontSizes.input },
+                      ]}
+                    >
+                      {altCountryCode}
+                    </Text>
                   </View>
                 )}
                 <TextInput
                   style={[
                     styles.phoneInput,
+                    {
+                      borderColor: altContactValidation.error
+                        ? colors.error
+                        : colors.border,
+                      backgroundColor: isEditing ? colors.card : colors.surface,
+                      color: colors.text,
+                      fontSize: fontSizes.input,
+                    },
                     !isEditing && styles.readOnlyInput,
-                    altContactValidation.error && styles.invalidInput,
                   ]}
                   value={formatMobileNumber(userData.altContactNumber)}
                   onChangeText={handleAltContactNumberChange}
                   placeholder="Enter 10-digit number"
+                  placeholderTextColor={colors.placeholder}
                   editable={isEditing}
                   keyboardType="phone-pad"
                   maxLength={10}
@@ -1843,15 +2317,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                 {isEditing && (
                   <View style={styles.validationIcon}>
                     {altContactValidation.loading && (
-                      <ActivityIndicator size="small" color="#3b82f6" />
+                      <ActivityIndicator size="small" color={colors.primary} />
                     )}
                     {altContactValidation.isAvailable &&
                       !altContactValidation.loading && (
-                        <Icon name="check" size={16} color="#10b981" />
+                        <Icon name="check" size={16} color={colors.success} />
                       )}
                     {altContactValidation.isAvailable === false &&
                       !altContactValidation.loading && (
-                        <Icon name="alert-circle" size={16} color="#ef4444" />
+                        <Icon
+                          name="alert-circle"
+                          size={16}
+                          color={colors.error}
+                        />
                       )}
                   </View>
                 )}
@@ -1859,17 +2337,35 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
               {/* Validation Messages */}
               {altContactValidation.error && (
-                <Text style={styles.validationError}>
+                <Text
+                  style={[
+                    styles.validationError,
+                    { color: colors.error, fontSize: fontSizes.validationText },
+                  ]}
+                >
                   {altContactValidation.error}
                 </Text>
               )}
               {altContactValidation.formatError && isEditing && (
-                <Text style={styles.validationError}>
+                <Text
+                  style={[
+                    styles.validationError,
+                    { color: colors.error, fontSize: fontSizes.validationText },
+                  ]}
+                >
                   Please enter exactly 10 digits
                 </Text>
               )}
               {altContactValidation.isAvailable && (
-                <Text style={styles.validationSuccess}>
+                <Text
+                  style={[
+                    styles.validationSuccess,
+                    {
+                      color: colors.success,
+                      fontSize: fontSizes.validationText,
+                    },
+                  ]}
+                >
                   Alternate number is available
                 </Text>
               )}
@@ -1882,29 +2378,55 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             transparent={true}
             animationType="slide"
           >
-            <View style={styles.modalContainer}>
-              <View style={styles.pickerModal}>
-                <Text style={styles.pickerTitle}>Select Country Code</Text>
+            <View
+              style={[
+                styles.modalContainer,
+                { backgroundColor: colors.overlay },
+              ]}
+            >
+              <View
+                style={[styles.pickerModal, { backgroundColor: colors.card }]}
+              >
+                <Text
+                  style={[
+                    styles.pickerTitle,
+                    { color: colors.text, fontSize: fontSizes.sectionTitle },
+                  ]}
+                >
+                  Select Country Code
+                </Text>
                 <Picker
                   selectedValue={countryCode}
                   onValueChange={(itemValue) => {
                     setCountryCode(itemValue);
                     setShowCountryCodePicker(false);
                   }}
+                  style={{ color: colors.text }}
                 >
                   {countryCodes.map((code) => (
                     <Picker.Item
                       key={code.value}
                       label={code.label}
                       value={code.value}
+                      color={colors.text}
                     />
                   ))}
                 </Picker>
                 <TouchableOpacity
-                  style={styles.pickerButton}
+                  style={[
+                    styles.pickerButton,
+                    { backgroundColor: colors.primary },
+                  ]}
                   onPress={() => setShowCountryCodePicker(false)}
                 >
-                  <Text style={styles.pickerButtonText}>Done</Text>
+                  <Text
+                    style={[
+                      styles.pickerButtonText,
+                      { color: "#fff", fontSize: fontSizes.buttonText },
+                    ]}
+                  >
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1915,29 +2437,55 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             transparent={true}
             animationType="slide"
           >
-            <View style={styles.modalContainer}>
-              <View style={styles.pickerModal}>
-                <Text style={styles.pickerTitle}>Select Country Code</Text>
+            <View
+              style={[
+                styles.modalContainer,
+                { backgroundColor: colors.overlay },
+              ]}
+            >
+              <View
+                style={[styles.pickerModal, { backgroundColor: colors.card }]}
+              >
+                <Text
+                  style={[
+                    styles.pickerTitle,
+                    { color: colors.text, fontSize: fontSizes.sectionTitle },
+                  ]}
+                >
+                  Select Country Code
+                </Text>
                 <Picker
                   selectedValue={altCountryCode}
                   onValueChange={(itemValue) => {
                     setAltCountryCode(itemValue);
                     setShowAltCountryCodePicker(false);
                   }}
+                  style={{ color: colors.text }}
                 >
                   {countryCodes.map((code) => (
                     <Picker.Item
                       key={code.value}
                       label={code.label}
                       value={code.value}
+                      color={colors.text}
                     />
                   ))}
                 </Picker>
                 <TouchableOpacity
-                  style={styles.pickerButton}
+                  style={[
+                    styles.pickerButton,
+                    { backgroundColor: colors.primary },
+                  ]}
                   onPress={() => setShowAltCountryCodePicker(false)}
                 >
-                  <Text style={styles.pickerButtonText}>Done</Text>
+                  <Text
+                    style={[
+                      styles.pickerButtonText,
+                      { color: "#fff", fontSize: fontSizes.buttonText },
+                    ]}
+                  >
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1946,52 +2494,103 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           {/* Address Section */}
           <View style={styles.addressesSection}>
             <View style={styles.addressesHeader}>
-              <Text style={styles.inputLabel}>Addresses</Text>
+              <Text
+                style={[
+                  styles.inputLabel,
+                  { color: colors.text, fontSize: fontSizes.inputLabel },
+                ]}
+              >
+                Addresses
+              </Text>
               {isEditing && userRole === "CUSTOMER" && (
                 <TouchableOpacity
                   onPress={() => setShowAddAddress(!showAddAddress)}
                   style={styles.addAddressButton}
                 >
-                  <Icon name="plus" size={16} color="#0a2a66" />
-                  <Text style={styles.addAddressText}>Add New Address</Text>
+                  <Icon name="plus" size={16} color={colors.primary} />
+                  <Text
+                    style={[
+                      styles.addAddressText,
+                      { color: colors.primary, fontSize: fontSizes.buttonText },
+                    ]}
+                  >
+                    Add New Address
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {showAddAddress && isEditing && (
-              <View style={styles.addAddressForm}>
+              <View
+                style={[
+                  styles.addAddressForm,
+                  {
+                    backgroundColor: colors.infoLight,
+                    borderColor: colors.info,
+                  },
+                ]}
+              >
                 <View style={styles.addAddressFormHeader}>
-                  <Text style={styles.addAddressFormTitle}>
+                  <Text
+                    style={[
+                      styles.addAddressFormTitle,
+                      { color: colors.primary, fontSize: fontSizes.formTitle },
+                    ]}
+                  >
                     Add New Address
                   </Text>
                   <TouchableOpacity onPress={() => setShowAddAddress(false)}>
-                    <Icon name="x" size={20} color="#666" />
+                    <Icon name="x" size={20} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.addressTypeContainer}>
-                  <Text style={styles.formLabel}>Save As</Text>
+                  <Text
+                    style={[
+                      styles.formLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
+                    Save As
+                  </Text>
                   <View style={styles.addressTypeButtons}>
                     <TouchableOpacity
                       onPress={() => handleUserPreference("Home")}
                       style={[
                         styles.addressTypeButton,
-                        newAddress.type === "Home" &&
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                        },
+                        newAddress.type === "Home" && [
                           styles.addressTypeButtonActive,
+                          {
+                            backgroundColor: colors.primary + "20",
+                            borderColor: colors.primary,
+                          },
+                        ],
                       ]}
                     >
                       <Icon
                         name="home"
                         size={14}
                         color={
-                          newAddress.type === "Home" ? "#2563eb" : "#4b5563"
+                          newAddress.type === "Home"
+                            ? colors.primary
+                            : colors.textSecondary
                         }
                       />
                       <Text
                         style={[
                           styles.addressTypeText,
-                          newAddress.type === "Home" &&
+                          {
+                            color: colors.textSecondary,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                          newAddress.type === "Home" && [
                             styles.addressTypeTextActive,
+                            { color: colors.primary },
+                          ],
                         ]}
                       >
                         Home
@@ -2001,22 +2600,39 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       onPress={() => handleUserPreference("Work")}
                       style={[
                         styles.addressTypeButton,
-                        newAddress.type === "Work" &&
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                        },
+                        newAddress.type === "Work" && [
                           styles.addressTypeButtonActive,
+                          {
+                            backgroundColor: colors.primary + "20",
+                            borderColor: colors.primary,
+                          },
+                        ],
                       ]}
                     >
                       <MaterialCommunityIcons
                         name="office-building"
                         size={14}
                         color={
-                          newAddress.type === "Work" ? "#2563eb" : "#4b5563"
+                          newAddress.type === "Work"
+                            ? colors.primary
+                            : colors.textSecondary
                         }
                       />
                       <Text
                         style={[
                           styles.addressTypeText,
-                          newAddress.type === "Work" &&
+                          {
+                            color: colors.textSecondary,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                          newAddress.type === "Work" && [
                             styles.addressTypeTextActive,
+                            { color: colors.primary },
+                          ],
                         ]}
                       >
                         Work
@@ -2026,22 +2642,39 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       onPress={() => handleUserPreference()}
                       style={[
                         styles.addressTypeButton,
-                        newAddress.type === "Other" &&
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                        },
+                        newAddress.type === "Other" && [
                           styles.addressTypeButtonActive,
+                          {
+                            backgroundColor: colors.primary + "20",
+                            borderColor: colors.primary,
+                          },
+                        ],
                       ]}
                     >
                       <Icon
                         name="map-pin"
                         size={14}
                         color={
-                          newAddress.type === "Other" ? "#2563eb" : "#4b5563"
+                          newAddress.type === "Other"
+                            ? colors.primary
+                            : colors.textSecondary
                         }
                       />
                       <Text
                         style={[
                           styles.addressTypeText,
-                          newAddress.type === "Other" &&
+                          {
+                            color: colors.textSecondary,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                          newAddress.type === "Other" && [
                             styles.addressTypeTextActive,
+                            { color: colors.primary },
+                          ],
                         ]}
                       >
                         Other
@@ -2052,10 +2685,26 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
                 {newAddress.type === "Other" && (
                   <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Location Name</Text>
+                    <Text
+                      style={[
+                        styles.formLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
+                      Location Name
+                    </Text>
                     <TextInput
-                      style={styles.formInput}
+                      style={[
+                        styles.formInput,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                          color: colors.text,
+                          fontSize: fontSizes.input,
+                        },
+                      ]}
                       placeholder="Enter location name"
+                      placeholderTextColor={colors.placeholder}
                       value={newAddress.customType}
                       onChangeText={(value) =>
                         handleAddressInputChange("customType", value)
@@ -2065,58 +2714,125 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                 )}
 
                 <View style={styles.addressFormInput}>
-                  <Text style={styles.inputLabel}>Street Address</Text>
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
+                    Street Address
+                  </Text>
                   <TextInput
-                    style={styles.input}
+                    style={[
+                      styles.input,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                    ]}
                     value={newAddress.street}
                     onChangeText={(value) =>
                       handleAddressInputChange("street", value)
                     }
                     placeholder="Enter street address"
+                    placeholderTextColor={colors.placeholder}
                   />
                 </View>
 
                 <View style={styles.addressFormRow}>
                   <View style={[styles.addressFormInput, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>City</Text>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
+                      City
+                    </Text>
                     <TextInput
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                          color: colors.text,
+                          fontSize: fontSizes.input,
+                        },
+                      ]}
                       value={newAddress.city}
                       onChangeText={(value) =>
                         handleAddressInputChange("city", value)
                       }
                       placeholder="Enter city"
+                      placeholderTextColor={colors.placeholder}
                     />
                   </View>
 
                   <View style={[styles.addressFormInput, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>Country</Text>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
+                      Country
+                    </Text>
                     <TextInput
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                          color: colors.text,
+                          fontSize: fontSizes.input,
+                        },
+                      ]}
                       value={newAddress.country}
                       onChangeText={(value) =>
                         handleAddressInputChange("country", value)
                       }
                       placeholder="Enter country"
+                      placeholderTextColor={colors.placeholder}
                     />
                   </View>
 
                   <View style={[styles.addressFormInput, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>Postal Code</Text>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
+                      Postal Code
+                    </Text>
                     <TextInput
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                          color: colors.text,
+                          fontSize: fontSizes.input,
+                        },
+                      ]}
                       value={newAddress.postalCode}
                       onChangeText={(value) =>
                         handleAddressInputChange("postalCode", value)
                       }
                       placeholder="Enter postal code"
+                      placeholderTextColor={colors.placeholder}
                     />
                   </View>
                 </View>
 
                 <TouchableOpacity
                   onPress={handleAddAddress}
-                  style={styles.addAddressSubmitButton}
+                  style={[
+                    styles.addAddressSubmitButton,
+                    { backgroundColor: colors.primary },
+                  ]}
                   disabled={
                     !newAddress.street ||
                     !newAddress.city ||
@@ -2124,13 +2840,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     !newAddress.postalCode
                   }
                 >
-                  <Text style={styles.addAddressSubmitText}>Add Address</Text>
+                  <Text
+                    style={[
+                      styles.addAddressSubmitText,
+                      { color: "#fff", fontSize: fontSizes.buttonText },
+                    ]}
+                  >
+                    Add Address
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
 
             {addresses.length === 0 ? (
-              <Text style={styles.noAddressText}>No addresses saved yet</Text>
+              <Text
+                style={[
+                  styles.noAddressText,
+                  { color: colors.textSecondary, fontSize: fontSizes.roleText },
+                ]}
+              >
+                No addresses saved yet
+              </Text>
             ) : (
               <View style={styles.addressesList}>
                 {addresses.map((address) => {
@@ -2143,13 +2873,27 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       key={address.id}
                       style={[
                         styles.addressCard,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                        },
                         isExpanded && styles.expandedAddressCard,
                       ]}
                     >
                       {/* Header */}
                       <View style={styles.addressHeader}>
                         <View style={styles.addressTitleContainer}>
-                          <Text style={styles.addressType}>{address.type}</Text>
+                          <Text
+                            style={[
+                              styles.addressType,
+                              {
+                                color: colors.text,
+                                fontSize: fontSizes.addressType,
+                              },
+                            ]}
+                          >
+                            {address.type}
+                          </Text>
                         </View>
 
                         <View style={styles.addressActions}>
@@ -2163,7 +2907,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                                   isExpanded ? "chevron-up" : "chevron-down"
                                 }
                                 size={20}
-                                color="#666"
+                                color={colors.textSecondary}
                               />
                             </TouchableOpacity>
                           )}
@@ -2174,7 +2918,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                                 onPress={() => removeAddress(address.id)}
                                 style={styles.addressActionButton}
                               >
-                                <Icon name="x" size={20} color="#dc2626" />
+                                <Icon name="x" size={20} color={colors.error} />
                               </TouchableOpacity>
                             )}
                         </View>
@@ -2183,16 +2927,40 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       {/* Body (only show when expanded) */}
                       {isExpanded && (
                         <View style={styles.addressDetails}>
-                          <Text style={styles.addressText}>
+                          <Text
+                            style={[
+                              styles.addressText,
+                              {
+                                color: colors.textSecondary,
+                                fontSize: fontSizes.addressText,
+                              },
+                            ]}
+                          >
                             {address.street}
                           </Text>
-                          <Text style={styles.addressText}>
+                          <Text
+                            style={[
+                              styles.addressText,
+                              {
+                                color: colors.textSecondary,
+                                fontSize: fontSizes.addressText,
+                              },
+                            ]}
+                          >
                             {address.city || "No city"},{" "}
                             {address.country || "No country"}{" "}
                             {address.postalCode || ""}
                           </Text>
                           {userRole === "SERVICE_PROVIDER" && (
-                            <Text style={styles.addressNote}>
+                            <Text
+                              style={[
+                                styles.addressNote,
+                                {
+                                  color: colors.textTertiary,
+                                  fontSize: fontSizes.roleText,
+                                },
+                              ]}
+                            >
                               Service provider addresses are managed separately
                             </Text>
                           )}
@@ -2200,7 +2968,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       )}
 
                       {userRole === "CUSTOMER" && !isExpanded && (
-                        <Text style={styles.addressPreview} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.addressPreview,
+                            {
+                              color: colors.textSecondary,
+                              fontSize: fontSizes.addressText,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
                           {address.street}
                         </Text>
                       )}
@@ -2214,25 +2991,79 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           {/* Service Provider Status Section */}
           {userRole === "SERVICE_PROVIDER" && (
             <View style={styles.serviceStatusSection}>
-              <View style={styles.divider} />
+              <View
+                style={[styles.divider, { backgroundColor: colors.border }]}
+              />
 
-              <Text style={styles.sectionTitle}>Service Status</Text>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    color: colors.textSecondary,
+                    fontSize: fontSizes.sectionTitle,
+                  },
+                ]}
+              >
+                Service Status
+              </Text>
 
-              <View style={styles.statusCard}>
+              <View
+                style={[
+                  styles.statusCard,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                ]}
+              >
                 <View style={styles.statusGrid}>
                   <View style={styles.statusItem}>
-                    <Text style={styles.statusLabel}>Account Status</Text>
+                    <Text
+                      style={[
+                        styles.statusLabel,
+                        {
+                          color: colors.textSecondary,
+                          fontSize: fontSizes.statusLabel,
+                        },
+                      ]}
+                    >
+                      Account Status
+                    </Text>
                     <View style={styles.statusValue}>
                       <View
-                        style={[styles.statusIndicator, styles.statusActive]}
+                        style={[
+                          styles.statusIndicator,
+                          styles.statusActive,
+                          { backgroundColor: colors.success },
+                        ]}
                       />
-                      <Text style={styles.statusText}>Verified</Text>
+                      <Text
+                        style={[
+                          styles.statusText,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.statusText,
+                          },
+                        ]}
+                      >
+                        Verified
+                      </Text>
                     </View>
                   </View>
                 </View>
 
-                <View style={styles.statusFooter}>
-                  <Text style={styles.statusUpdateText}>
+                <View
+                  style={[
+                    styles.statusFooter,
+                    { borderTopColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusUpdateText,
+                      {
+                        color: colors.textTertiary,
+                        fontSize: fontSizes.statusLabel,
+                      },
+                    ]}
+                  >
                     Active Service Provider
                   </Text>
                 </View>
@@ -2245,17 +3076,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             <View style={styles.actionButtonsContainer}>
               <View style={styles.actionButtons}>
                 <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
+                  style={[
+                    styles.button,
+                    styles.cancelButton,
+                    { backgroundColor: colors.textSecondary },
+                  ]}
                   onPress={handleCancel}
                   disabled={isSaving}
                 >
-                  <Text style={styles.buttonText}>Cancel</Text>
+                  <Text
+                    style={[
+                      styles.buttonText,
+                      { color: "#fff", fontSize: fontSizes.buttonText },
+                    ]}
+                  >
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.button,
                     styles.saveButton,
-                    (!isFormValid() || !hasChanges()) && styles.disabledButton,
+                    { backgroundColor: colors.primary },
+                    (!isFormValid() || !hasChanges()) && [
+                      styles.disabledButton,
+                      { backgroundColor: colors.disabled },
+                    ],
                   ]}
                   onPress={handleSave}
                   disabled={isSaving || !isFormValid() || !hasChanges()}
@@ -2263,7 +3109,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   {isSaving ? (
                     <ActivityIndicator size="small" color="white" />
                   ) : (
-                    <Text style={styles.buttonText}>Save Changes</Text>
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        { color: "#fff", fontSize: fontSizes.buttonText },
+                      ]}
+                    >
+                      Save Changes
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -2273,8 +3126,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       </View>
 
       {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2025 MyApp All rights reserved.</Text>
+      <View style={[styles.footer, { backgroundColor: colors.surface }]}>
+        <Text
+          style={[
+            styles.footerText,
+            { color: colors.textTertiary, fontSize: fontSizes.footerText },
+          ]}
+        >
+          © 2025 MyApp All rights reserved.
+        </Text>
       </View>
     </ScrollView>
   );
@@ -2283,7 +3143,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   loadingContainer: {
     flex: 1,
@@ -2292,7 +3151,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.95)",
   },
   loadingContent: {
-    backgroundColor: "white",
     padding: 20,
     borderRadius: 10,
     alignItems: "center",
@@ -2304,14 +3162,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 18,
     fontWeight: "600",
-    color: "#333",
   },
   loadingSubtext: {
     marginTop: 8,
-    fontSize: 14,
-    color: "#666",
   },
   header: {
     paddingTop: 60,
@@ -2332,7 +3186,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -2367,7 +3220,6 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   avatarText: {
-    fontSize: 32,
     fontWeight: "bold",
     color: "white",
   },
@@ -2375,19 +3227,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    fontSize: 22,
     fontWeight: "bold",
-    color: "#0a2a66",
   },
   roleText: {
-    fontSize: 14,
-    color: "#666",
     marginTop: 4,
   },
   editButtonTop: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#4ea6e9ff",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -2398,30 +3245,22 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   editButtonText: {
-    color: "white",
     fontWeight: "600",
-    fontSize: 14,
     marginLeft: 6,
   },
   mobileWarningSmall: {
-    color: "#dc2626",
     fontSize: 12,
   },
   mobileSuccess: {
-    color: "#16a34a",
     fontSize: 12,
   },
   mobileRequiredText: {
-    color: "#dc2626",
-    fontSize: 12,
     marginTop: 4,
   },
   mobileWarningContainer: {
     marginTop: 4,
   },
   addLink: {
-    color: "#2563eb",
-    fontSize: 12,
     marginTop: 4,
     textDecorationLine: "underline",
   },
@@ -2432,7 +3271,6 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: width - 32,
-    backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
     shadowColor: "#000",
@@ -2449,30 +3287,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
     paddingBottom: 12,
     marginBottom: 16,
   },
   formTitle: {
-    fontSize: 20,
     fontWeight: "600",
-    color: "#2d3748",
   },
   addMobileButton: {
-    backgroundColor: "#fee2e2",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
   addMobileButtonText: {
-    color: "#dc2626",
-    fontSize: 12,
     fontWeight: "600",
   },
   sectionTitle: {
-    fontSize: 14,
     fontWeight: "600",
-    color: "#718096",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 16,
@@ -2488,9 +3318,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
     fontWeight: "600",
-    color: "#4a5568",
     marginBottom: 8,
   },
   labelContainer: {
@@ -2502,9 +3330,7 @@ const styles = StyleSheet.create({
     width: "100%",
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 8,
-    fontSize: 14,
   },
   readOnlyInput: {
     backgroundColor: "#f7fafc",
@@ -2514,7 +3340,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#e2e8f0",
     marginVertical: 20,
   },
   // Address section styles
@@ -2522,7 +3347,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   noAddressText: {
-    color: "#666",
     fontStyle: "italic",
   },
   addressesList: {
@@ -2530,7 +3354,6 @@ const styles = StyleSheet.create({
   },
   addressCard: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 8,
     padding: 12,
   },
@@ -2543,37 +3366,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addressType: {
-    fontSize: 14,
     fontWeight: "600",
-    color: "#1f2937",
   },
   addressDetails: {
     marginTop: 8,
   },
   addressText: {
-    fontSize: 14,
-    color: "#4b5563",
     marginBottom: 4,
     lineHeight: 20,
   },
   addressNote: {
-    fontSize: 12,
-    color: "#6b7280",
     marginTop: 8,
   },
   addressPreview: {
-    fontSize: 14,
-    color: "#4b5563",
     marginTop: 8,
   },
   footer: {
-    backgroundColor: "#f3f4f6",
     padding: 16,
     alignItems: "center",
     marginTop: 20,
   },
   footerText: {
-    color: "#6b7280",
     fontSize: 12,
   },
   // Skeleton styles
@@ -2590,20 +3403,17 @@ const styles = StyleSheet.create({
   greetingSkeleton: {
     width: 200,
     height: 28,
-    backgroundColor: "#ddd",
     borderRadius: 4,
     marginBottom: 8,
   },
   roleSkeleton: {
     width: 120,
     height: 18,
-    backgroundColor: "#ddd",
     borderRadius: 4,
   },
   editButtonSkeleton: {
     width: 80,
     height: 36,
-    backgroundColor: "#ddd",
     borderRadius: 20,
   },
   mainContentSkeleton: {
@@ -2613,7 +3423,6 @@ const styles = StyleSheet.create({
   },
   cardSkeleton: {
     width: width - 32,
-    backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
     shadowColor: "#000",
@@ -2634,7 +3443,6 @@ const styles = StyleSheet.create({
   titleSkeleton: {
     width: 100,
     height: 24,
-    backgroundColor: "#ddd",
     borderRadius: 4,
   },
   sectionSkeleton: {
@@ -2643,7 +3451,6 @@ const styles = StyleSheet.create({
   sectionTitleSkeleton: {
     width: 160,
     height: 20,
-    backgroundColor: "#ddd",
     borderRadius: 4,
     marginBottom: 16,
   },
@@ -2670,19 +3477,16 @@ const styles = StyleSheet.create({
   labelSkeleton: {
     width: 80,
     height: 16,
-    backgroundColor: "#ddd",
     borderRadius: 4,
     marginBottom: 8,
   },
   inputSkeleton: {
     width: "100%",
     height: 40,
-    backgroundColor: "#eee",
     borderRadius: 8,
   },
   dividerSkeleton: {
     height: 1,
-    backgroundColor: "#e2e8f0",
     marginVertical: 20,
   },
   addressCardSkeleton: {
@@ -2701,20 +3505,17 @@ const styles = StyleSheet.create({
   addressTitleSkeleton: {
     width: 120,
     height: 20,
-    backgroundColor: "#ddd",
     borderRadius: 4,
   },
   addressLineSkeleton: {
     width: "100%",
     height: 16,
-    backgroundColor: "#eee",
     borderRadius: 4,
     marginBottom: 8,
   },
   addressLineShortSkeleton: {
     width: "75%",
     height: 16,
-    backgroundColor: "#eee",
     borderRadius: 4,
   },
   // Phone input styles
@@ -2726,11 +3527,9 @@ const styles = StyleSheet.create({
   countryCodeContainer: {
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRightWidth: 0,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
-    backgroundColor: "#f7fafc",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2738,16 +3537,13 @@ const styles = StyleSheet.create({
   },
   countryCodeText: {
     fontSize: 14,
-    color: "#4a5568",
   },
   phoneInput: {
     flex: 1,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderTopRightRadius: 8,
     borderBottomRightRadius: 8,
-    fontSize: 14,
   },
   validationIcon: {
     position: "absolute",
@@ -2756,13 +3552,9 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -8 }],
   },
   validationError: {
-    color: "#dc2626",
-    fontSize: 12,
     marginTop: 4,
   },
   validationSuccess: {
-    color: "#16a34a",
-    fontSize: 12,
     marginTop: 4,
   },
   addressesHeader: {
@@ -2776,17 +3568,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addAddressText: {
-    color: "#0a2a66",
     fontWeight: "600",
     marginLeft: 4,
   },
   addAddressForm: {
     borderWidth: 1,
-    borderColor: "#93c5fd",
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
-    backgroundColor: "#dbeafe",
   },
   addAddressFormHeader: {
     flexDirection: "row",
@@ -2795,9 +3584,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   addAddressFormTitle: {
-    fontSize: 16,
     fontWeight: "500",
-    color: "#1e40af",
   },
   addressFormRow: {
     flexDirection: "row",
@@ -2822,29 +3609,24 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   pickerModal: {
-    backgroundColor: "white",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 20,
   },
   pickerTitle: {
-    fontSize: 14,
     fontWeight: "600",
     marginBottom: 16,
     textAlign: "center",
   },
   pickerButton: {
-    backgroundColor: "#0a2a66",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 16,
   },
   pickerButtonText: {
-    color: "white",
     fontWeight: "600",
   },
   // Service status section styles
@@ -2852,9 +3634,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statusCard: {
-    backgroundColor: "white",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 8,
     padding: 16,
     shadowColor: "#000",
@@ -2876,9 +3656,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusLabel: {
-    fontSize: 12,
     fontWeight: "600",
-    color: "#718096",
     textTransform: "uppercase",
     marginBottom: 8,
   },
@@ -2896,9 +3674,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#10b981",
   },
   statusText: {
-    fontSize: 14,
     fontWeight: "600",
-    color: "#2d3748",
   },
   statusFooter: {
     flexDirection: "row",
@@ -2906,11 +3682,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
   },
   statusUpdateText: {
     fontSize: 12,
-    color: "#718096",
   },
   // Ultra compact styles
   ultraCompactNameRow: {
@@ -2926,15 +3700,11 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingStart: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 6,
-    fontSize: 14,
     minHeight: 40,
   },
   compactLabel: {
-    fontSize: 14,
     fontWeight: "600",
-    color: "#4a5568",
     marginBottom: 6,
   },
   // Action buttons container
@@ -2968,7 +3738,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a2a66",
   },
   disabledButton: {
-    backgroundColor: "#9ca3af",
+    opacity: 0.6,
   },
   buttonText: {
     color: "white",
@@ -2990,9 +3760,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   formLabel: {
-    fontSize: 14,
     fontWeight: "500",
-    color: "#4b5563",
     marginBottom: 8,
   },
   addressTypeButtons: {
@@ -3007,8 +3775,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#fff",
   },
   addressTypeButtonActive: {
     backgroundColor: "#dbeafe",
@@ -3016,7 +3782,6 @@ const styles = StyleSheet.create({
   },
   addressTypeText: {
     fontSize: 14,
-    color: "#4b5563",
   },
   addressTypeTextActive: {
     color: "#2563eb",
@@ -3028,20 +3793,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: "#d1d5db",
     borderRadius: 6,
     fontSize: 14,
-    backgroundColor: "#fff",
   },
   addAddressSubmitButton: {
-    backgroundColor: "#0a2a66",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 8,
   },
   addAddressSubmitText: {
-    color: "white",
     fontWeight: "600",
   },
 });

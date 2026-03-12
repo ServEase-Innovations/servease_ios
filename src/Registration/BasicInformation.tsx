@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import moment from "moment";
 import ProfileImageUpload from "./ProfileImageUpload";
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 interface BasicInformationProps {
   formData: any;
@@ -53,6 +54,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   onClearMobile,
   onClearAlternate,
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const MAX_NAME_LENGTH = 30;
   const [year, setYear] = React.useState('');
   const [month, setMonth] = React.useState('');
@@ -67,6 +69,38 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
       setDay(dayVal || '');
     }
   }, [formData.dob]);
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          label: 12,
+          input: 14,
+          helper: 11,
+          radio: 14,
+          placeholder: 13,
+        };
+      case 'large':
+        return {
+          label: 16,
+          input: 18,
+          helper: 14,
+          radio: 18,
+          placeholder: 17,
+        };
+      default:
+        return {
+          label: 14,
+          input: 16,
+          helper: 12,
+          radio: 16,
+          placeholder: 15,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   const handleTextChange = (fieldName: string, text: string) => {
     onFieldChange({ target: { name: fieldName, value: text } });
@@ -154,73 +188,195 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
     handleTextChange('gender', gender);
   };
 
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    spacing: {
+      padding: 16,
+      gap: 16,
+    },
+    section: {
+      marginBottom: 8,
+    },
+    inputContainer: {
+      width: '100%',
+      marginBottom: 12,
+    },
+    label: {
+      fontSize: fontSizes.label,
+      fontWeight: '500',
+      color: colors.text,
+      marginBottom: 6,
+    },
+    required: {
+      color: colors.error,
+    },
+    inputWrapper: {
+      position: 'relative',
+      width: '100%',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: fontSizes.input,
+      backgroundColor: colors.card,
+      width: '100%',
+      color: colors.text,
+    },
+    inputError: {
+      borderColor: colors.error,
+    },
+    inputAdornment: {
+      position: 'absolute',
+      right: 12,
+      top: 12,
+      zIndex: 1,
+    },
+    // DOB Styles - YYYY MM DD Format
+    dobRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    dobField: {
+      flex: 1,
+    },
+    dobFieldYear: {
+      flex: 1.5, // Give more space for year
+    },
+    dobInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: fontSizes.input,
+      backgroundColor: colors.card,
+      textAlign: 'center',
+      color: colors.text,
+    },
+    genderContainer: {
+      marginBottom: 12,
+    },
+    radioGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 20,
+      marginTop: 4,
+    },
+    radioOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    radioOuter: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.textSecondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 8,
+    },
+    radioSelected: {
+      borderColor: colors.primary,
+    },
+    radioInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.primary,
+    },
+    radioText: {
+      fontSize: fontSizes.radio,
+      color: colors.text,
+    },
+    helperText: {
+      fontSize: fontSizes.helper,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    helperError: {
+      color: colors.error,
+    },
+    helperSuccess: {
+      color: colors.success,
+    },
+    helperInfo: {
+      color: colors.info,
+    },
+  });
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.spacing}>
-        <View style={styles.section}>
+    <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
+      <View style={dynamicStyles.spacing}>
+        <View style={dynamicStyles.section}>
           <ProfileImageUpload onImageSelect={onImageSelect} />
         </View>
         
         {/* First Name */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>First Name <Text style={styles.required}>*</Text></Text>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>First Name <Text style={dynamicStyles.required}>*</Text></Text>
           <TextInput
-            style={[styles.input, errors.firstName && styles.inputError]}
+            style={[dynamicStyles.input, errors.firstName && dynamicStyles.inputError]}
             placeholder="Enter your first name"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             value={formData.firstName}
             onChangeText={(text) => handleTextChange('firstName', text)}
             onFocus={() => onFieldFocus('firstName')}
             maxLength={MAX_NAME_LENGTH}
           />
           {errors.firstName && (
-            <HelperText type="error" visible={!!errors.firstName}>
+            <HelperText type="error" visible={!!errors.firstName} style={{ color: colors.error, fontSize: fontSizes.helper }}>
               {errors.firstName}
             </HelperText>
           )}
         </View>
         
         {/* Middle Name */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Middle Name</Text>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Middle Name</Text>
           <TextInput
-            style={styles.input}
+            style={dynamicStyles.input}
             placeholder="Enter your middle name"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             value={formData.middleName}
             onChangeText={(text) => handleTextChange('middleName', text)}
           />
         </View>
         
         {/* Last Name */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Last Name <Text style={styles.required}>*</Text></Text>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Last Name <Text style={dynamicStyles.required}>*</Text></Text>
           <TextInput
-            style={[styles.input, errors.lastName && styles.inputError]}
+            style={[dynamicStyles.input, errors.lastName && dynamicStyles.inputError]}
             placeholder="Enter your last name"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
             value={formData.lastName}
             onChangeText={(text) => handleTextChange('lastName', text)}
             onFocus={() => onFieldFocus('lastName')}
             maxLength={MAX_NAME_LENGTH}
           />
           {errors.lastName && (
-            <HelperText type="error" visible={!!errors.lastName}>
+            <HelperText type="error" visible={!!errors.lastName} style={{ color: colors.error, fontSize: fontSizes.helper }}>
               {errors.lastName}
             </HelperText>
           )}
         </View>
         
         {/* Date of Birth - YYYY MM DD Format */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Date of Birth <Text style={styles.required}>*</Text></Text>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Date of Birth <Text style={dynamicStyles.required}>*</Text></Text>
           
-          <View style={styles.dobRow}>
-            <View style={[styles.dobField, styles.dobFieldYear]}>
+          <View style={dynamicStyles.dobRow}>
+            <View style={[dynamicStyles.dobField, dynamicStyles.dobFieldYear]}>
               <TextInput
-                style={[styles.dobInput, errors.dob && styles.inputError]}
+                style={[dynamicStyles.dobInput, errors.dob && dynamicStyles.inputError]}
                 placeholder="YYYY"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 value={year}
                 onChangeText={handleYearChange}
                 keyboardType="numeric"
@@ -229,11 +385,11 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               />
             </View>
             
-            <View style={styles.dobField}>
+            <View style={dynamicStyles.dobField}>
               <TextInput
-                style={[styles.dobInput, errors.dob && styles.inputError]}
+                style={[dynamicStyles.dobInput, errors.dob && dynamicStyles.inputError]}
                 placeholder="MM"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 value={month}
                 onChangeText={handleMonthChange}
                 keyboardType="numeric"
@@ -242,11 +398,11 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               />
             </View>
             
-            <View style={styles.dobField}>
+            <View style={dynamicStyles.dobField}>
               <TextInput
-                style={[styles.dobInput, errors.dob && styles.inputError]}
+                style={[dynamicStyles.dobInput, errors.dob && dynamicStyles.inputError]}
                 placeholder="DD"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 value={day}
                 onChangeText={handleDayChange}
                 keyboardType="numeric"
@@ -257,96 +413,96 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           </View>
 
           {formData.dob && (
-            <HelperText type="info" visible={true}>
+            <HelperText type="info" visible={true} style={{ color: colors.info, fontSize: fontSizes.helper }}>
               Age: {moment().diff(moment(formData.dob), 'years')} years
             </HelperText>
           )}
           
           {errors.dob && (
-            <HelperText type="error" visible={!!errors.dob}>
+            <HelperText type="error" visible={!!errors.dob} style={{ color: colors.error, fontSize: fontSizes.helper }}>
               {errors.dob}
             </HelperText>
           )}
           
           {!errors.dob && !formData.dob && (
-            <HelperText type="info" visible={true}>
+            <HelperText type="info" visible={true} style={{ color: colors.info, fontSize: fontSizes.helper }}>
               Enter your date of birth (YYYY/MM/DD) - You must be at least 18 years old
             </HelperText>
           )}
         </View>
         
         {/* Gender */}
-        <View style={styles.genderContainer}>
-          <Text style={styles.label}>Gender <Text style={styles.required}>*</Text></Text>
-          <View style={styles.radioGroup}>
+        <View style={dynamicStyles.genderContainer}>
+          <Text style={dynamicStyles.label}>Gender <Text style={dynamicStyles.required}>*</Text></Text>
+          <View style={dynamicStyles.radioGroup}>
             <TouchableOpacity
-              style={styles.radioOption}
+              style={dynamicStyles.radioOption}
               onPress={() => handleGenderChange('MALE')}
             >
               <View style={[
-                styles.radioOuter,
-                formData.gender === 'MALE' && styles.radioSelected
+                dynamicStyles.radioOuter,
+                formData.gender === 'MALE' && dynamicStyles.radioSelected
               ]}>
-                {formData.gender === 'MALE' && <View style={styles.radioInner} />}
+                {formData.gender === 'MALE' && <View style={dynamicStyles.radioInner} />}
               </View>
-              <Text style={styles.radioText}>Male</Text>
+              <Text style={dynamicStyles.radioText}>Male</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.radioOption}
+              style={dynamicStyles.radioOption}
               onPress={() => handleGenderChange('FEMALE')}
             >
               <View style={[
-                styles.radioOuter,
-                formData.gender === 'FEMALE' && styles.radioSelected
+                dynamicStyles.radioOuter,
+                formData.gender === 'FEMALE' && dynamicStyles.radioSelected
               ]}>
-                {formData.gender === 'FEMALE' && <View style={styles.radioInner} />}
+                {formData.gender === 'FEMALE' && <View style={dynamicStyles.radioInner} />}
               </View>
-              <Text style={styles.radioText}>Female</Text>
+              <Text style={dynamicStyles.radioText}>Female</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.radioOption}
+              style={dynamicStyles.radioOption}
               onPress={() => handleGenderChange('OTHER')}
             >
               <View style={[
-                styles.radioOuter,
-                formData.gender === 'OTHER' && styles.radioSelected
+                dynamicStyles.radioOuter,
+                formData.gender === 'OTHER' && dynamicStyles.radioSelected
               ]}>
-                {formData.gender === 'OTHER' && <View style={styles.radioInner} />}
+                {formData.gender === 'OTHER' && <View style={dynamicStyles.radioInner} />}
               </View>
-              <Text style={styles.radioText}>Other</Text>
+              <Text style={dynamicStyles.radioText}>Other</Text>
             </TouchableOpacity>
           </View>
           {errors.gender && (
-            <HelperText type="error" visible={!!errors.gender}>
+            <HelperText type="error" visible={!!errors.gender} style={{ color: colors.error, fontSize: fontSizes.helper }}>
               {errors.gender}
             </HelperText>
           )}
         </View>
         
         {/* Email */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email <Text style={styles.required}>*</Text></Text>
-          <View style={styles.inputWrapper}>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Email <Text style={dynamicStyles.required}>*</Text></Text>
+          <View style={dynamicStyles.inputWrapper}>
             <TextInput
-              style={[styles.input, (errors.emailId || validationResults.email.isAvailable === false) && styles.inputError]}
+              style={[dynamicStyles.input, (errors.emailId || validationResults.email.isAvailable === false) && dynamicStyles.inputError]}
               placeholder="Enter your email address"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.emailId}
               onChangeText={(text) => handleTextChange('emailId', text)}
               onFocus={() => onFieldFocus('emailId')}
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            <View style={styles.inputAdornment}>
+            <View style={dynamicStyles.inputAdornment}>
               {validationResults.email.loading ? (
-                <ActivityIndicator size="small" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : validationResults.email.isAvailable ? (
-                <MaterialCommunityIcon name="check-circle" size={20} color="#4caf50" />
+                <MaterialCommunityIcon name="check-circle" size={20} color={colors.success} />
               ) : validationResults.email.isAvailable === false ? (
                 <TouchableOpacity onPress={onClearEmail}>
-                  <Icon name="close" size={20} color="#d32f2f" />
+                  <Icon name="close" size={20} color={colors.error} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -355,6 +511,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <HelperText 
               type={errors.emailId || validationResults.email.isAvailable === false ? "error" : "info"} 
               visible={true}
+              style={{ 
+                color: errors.emailId || validationResults.email.isAvailable === false ? colors.error : colors.info,
+                fontSize: fontSizes.helper 
+              }}
             >
               {errors.emailId ||
                 (validationResults.email.loading ? "Checking availability..." :
@@ -365,89 +525,89 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         </View>
         
         {/* Password */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password <Text style={styles.required}>*</Text></Text>
-          <View style={styles.inputWrapper}>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Password <Text style={dynamicStyles.required}>*</Text></Text>
+          <View style={dynamicStyles.inputWrapper}>
             <TextInput
-              style={[styles.input, errors.password && styles.inputError]}
+              style={[dynamicStyles.input, errors.password && dynamicStyles.inputError]}
               placeholder="Enter your password"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               secureTextEntry={!showPassword}
               value={formData.password}
               onChangeText={(text) => handleTextChange('password', text)}
               onFocus={() => onFieldFocus('password')}
             />
             <TouchableOpacity 
-              style={styles.inputAdornment}
+              style={dynamicStyles.inputAdornment}
               onPress={onTogglePasswordVisibility}
             >
               <Icon 
                 name={showPassword ? "visibility" : "visibility-off"} 
                 size={20} 
-                color="#666" 
+                color={colors.textSecondary} 
               />
             </TouchableOpacity>
           </View>
           {errors.password && (
-            <HelperText type="error" visible={!!errors.password}>
+            <HelperText type="error" visible={!!errors.password} style={{ color: colors.error, fontSize: fontSizes.helper }}>
               {errors.password}
             </HelperText>
           )}
         </View>
         
         {/* Confirm Password */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Confirm Password <Text style={styles.required}>*</Text></Text>
-          <View style={styles.inputWrapper}>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Confirm Password <Text style={dynamicStyles.required}>*</Text></Text>
+          <View style={dynamicStyles.inputWrapper}>
             <TextInput
-              style={[styles.input, errors.confirmPassword && styles.inputError]}
+              style={[dynamicStyles.input, errors.confirmPassword && dynamicStyles.inputError]}
               placeholder="Confirm your password"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               secureTextEntry={!showConfirmPassword}
               value={formData.confirmPassword}
               onChangeText={(text) => handleTextChange('confirmPassword', text)}
               onFocus={() => onFieldFocus('confirmPassword')}
             />
             <TouchableOpacity 
-              style={styles.inputAdornment}
+              style={dynamicStyles.inputAdornment}
               onPress={onToggleConfirmPasswordVisibility}
             >
               <Icon 
                 name={showConfirmPassword ? "visibility" : "visibility-off"} 
                 size={20} 
-                color="#666" 
+                color={colors.textSecondary} 
               />
             </TouchableOpacity>
           </View>
           {errors.confirmPassword && (
-            <HelperText type="error" visible={!!errors.confirmPassword}>
+            <HelperText type="error" visible={!!errors.confirmPassword} style={{ color: colors.error, fontSize: fontSizes.helper }}>
               {errors.confirmPassword}
             </HelperText>
           )}
         </View>
         
         {/* Mobile Number */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Mobile Number <Text style={styles.required}>*</Text></Text>
-          <View style={styles.inputWrapper}>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Mobile Number <Text style={dynamicStyles.required}>*</Text></Text>
+          <View style={dynamicStyles.inputWrapper}>
             <TextInput
-              style={[styles.input, (errors.mobileNo || validationResults.mobile.isAvailable === false) && styles.inputError]}
+              style={[dynamicStyles.input, (errors.mobileNo || validationResults.mobile.isAvailable === false) && dynamicStyles.inputError]}
               placeholder="Enter your mobile number"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.mobileNo}
               onChangeText={(text) => handleTextChange('mobileNo', text)}
               onFocus={() => onFieldFocus('mobileNo')}
               keyboardType="phone-pad"
               maxLength={10}
             />
-            <View style={styles.inputAdornment}>
+            <View style={dynamicStyles.inputAdornment}>
               {validationResults.mobile.loading ? (
-                <ActivityIndicator size="small" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : validationResults.mobile.isAvailable ? (
-                <MaterialCommunityIcon name="check-circle" size={20} color="#4caf50" />
+                <MaterialCommunityIcon name="check-circle" size={20} color={colors.success} />
               ) : validationResults.mobile.isAvailable === false ? (
                 <TouchableOpacity onPress={onClearMobile}>
-                  <Icon name="close" size={20} color="#d32f2f" />
+                  <Icon name="close" size={20} color={colors.error} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -456,6 +616,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <HelperText 
               type={errors.mobileNo || validationResults.mobile.isAvailable === false ? "error" : "info"} 
               visible={true}
+              style={{ 
+                color: errors.mobileNo || validationResults.mobile.isAvailable === false ? colors.error : colors.info,
+                fontSize: fontSizes.helper 
+              }}
             >
               {errors.mobileNo ||
                 (validationResults.mobile.loading ? "Checking availability..." :
@@ -466,26 +630,26 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         </View>
 
         {/* Alternate Number */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Alternate Number</Text>
-          <View style={styles.inputWrapper}>
+        <View style={dynamicStyles.inputContainer}>
+          <Text style={dynamicStyles.label}>Alternate Number</Text>
+          <View style={dynamicStyles.inputWrapper}>
             <TextInput
-              style={[styles.input, (errors.AlternateNumber || validationResults.alternate.isAvailable === false) && styles.inputError]}
+              style={[dynamicStyles.input, (errors.AlternateNumber || validationResults.alternate.isAvailable === false) && dynamicStyles.inputError]}
               placeholder="Enter alternate number (optional)"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               value={formData.AlternateNumber}
               onChangeText={(text) => handleTextChange('AlternateNumber', text)}
               keyboardType="phone-pad"
               maxLength={10}
             />
-            <View style={styles.inputAdornment}>
+            <View style={dynamicStyles.inputAdornment}>
               {validationResults.alternate.loading ? (
-                <ActivityIndicator size="small" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : validationResults.alternate.isAvailable ? (
-                <MaterialCommunityIcon name="check-circle" size={20} color="#4caf50" />
+                <MaterialCommunityIcon name="check-circle" size={20} color={colors.success} />
               ) : validationResults.alternate.isAvailable === false ? (
                 <TouchableOpacity onPress={onClearAlternate}>
-                  <Icon name="close" size={20} color="#d32f2f" />
+                  <Icon name="close" size={20} color={colors.error} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -494,6 +658,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <HelperText 
               type={errors.AlternateNumber || validationResults.alternate.isAvailable === false ? "error" : "info"} 
               visible={true}
+              style={{ 
+                color: errors.AlternateNumber || validationResults.alternate.isAvailable === false ? colors.error : colors.info,
+                fontSize: fontSizes.helper 
+              }}
             >
               {errors.AlternateNumber ||
                 (validationResults.alternate.loading ? "Checking availability..." :
@@ -506,113 +674,5 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  spacing: {
-    padding: 16,
-    gap: 16,
-  },
-  section: {
-    marginBottom: 8,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 6,
-  },
-  required: {
-    color: '#d32f2f',
-  },
-  inputWrapper: {
-    position: 'relative',
-    width: '100%',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    width: '100%',
-    color: '#000',
-  },
-  inputError: {
-    borderColor: '#d32f2f',
-  },
-  inputAdornment: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
-    zIndex: 1,
-  },
-  // DOB Styles - YYYY MM DD Format
-  dobRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  dobField: {
-    flex: 1,
-  },
-  dobFieldYear: {
-    flex: 1.5, // Give more space for year
-  },
-  dobInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    textAlign: 'center',
-    color: '#000',
-  },
-  genderContainer: {
-    marginBottom: 12,
-  },
-  radioGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-    marginTop: 4,
-  },
-  radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#666',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  radioSelected: {
-    borderColor: '#1976d2',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#1976d2',
-  },
-  radioText: {
-    fontSize: 16,
-    color: '#000',
-  },
-});
 
 export default BasicInformation;

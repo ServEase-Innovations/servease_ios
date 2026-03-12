@@ -1,4 +1,4 @@
-// HomePage.tsx - Updated with theme support
+// HomePage.tsx - Updated with theme support and translations
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -27,7 +27,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import AgentRegistrationForm from '../AgentRegistration/AgentRegistrationForm';
 import { useAuth0 } from 'react-native-auth0';
 import BookingDialog from '../BookingDialog/BookingDialog';
-import { useTheme } from '../Settings/ThemeContext'; // Import useTheme
+import { useTheme } from '../Settings/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 // Import local images
 const cookImage = require("../../assets/images/Cooknew.png");
@@ -49,9 +50,14 @@ const popularServices = [
   {
     id: 1,
     title: "Home Cook",
-    desc: "Skilled and hygienic cooks who specialize in home-style meals with authentic flavors.",
+    titleKey: "homeCook",
+    descKey: "cookDesc",
     icon: "👩‍🍳",
-    features: ["Professional chefs", "Hygiene certified", "Custom menus"],
+    features: [
+      { key: "professional", text: "Professional chefs" },
+      { key: "hygiene", text: "Hygiene certified" },
+      { key: "customMenus", text: "Custom menus" }
+    ],
     gradient: ['#0f2027', '#203a43', '#2c5364'],
     accentColor: '#ff6b6b',
     iconBg: '#ffe5e5',
@@ -59,9 +65,14 @@ const popularServices = [
   {
     id: 2,
     title: "Cleaning Help",
-    desc: "Reliable maids for daily, deep, or special occasion cleaning with attention to detail.",
+    titleKey: "cleaningHelp",
+    descKey: "maidDesc",
     icon: "🧹",
-    features: ["Deep cleaning", "Eco-friendly", "Scheduled visits"],
+    features: [
+      { key: "deepCleaning", text: "Deep cleaning" },
+      { key: "ecoFriendly", text: "Eco-friendly" },
+      { key: "scheduled", text: "Scheduled visits" }
+    ],
     gradient: ['#0b3b5c', '#1c5985', '#2a7a9e'],
     accentColor: '#4ecdc4',
     iconBg: '#e0f7fa',
@@ -69,9 +80,14 @@ const popularServices = [
   {
     id: 3,
     title: "Caregiver",
-    desc: "Trained support for children, seniors, or patients at home with compassionate care.",
+    titleKey: "caregiver",
+    descKey: "nannyDesc",
     icon: "👶",
-    features: ["CPR certified", "Background checked", "24/7 support"],
+    features: [
+      { key: "cprCertified", text: "CPR certified" },
+      { key: "backgroundChecked", text: "Background checked" },
+      { key: "support247", text: "24/7 support" }
+    ],
     gradient: ['#42275a', '#734b6d', '#b4869f'],
     accentColor: '#f8b195',
     iconBg: '#fff0e5',
@@ -115,6 +131,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
 }) => {
   // Get theme values
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  const { t } = useTranslation();
   
   const [open, setOpen] = useState(false);
   const [selectedType, setSelectedtype] = useState("");
@@ -403,9 +420,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
     // Don't open booking dialog for service providers
     if (isServiceDisabled) {
       Alert.alert(
-        "Service Provider Account",
-        "As a service provider, you cannot book services. Please use the customer account to book services.",
-        [{ text: "OK" }]
+        t('home.serviceProvider.alert.title'),
+        t('home.serviceProvider.alert.message'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
@@ -671,18 +688,18 @@ const HomePage: React.FC<ChildComponentProps> = ({
           {/* Hero Content */}
           <View style={styles.heroContent}>
             <Text style={[styles.heroTitle, { fontSize: fontStyles.headingSize }]}>
-              Book trusted household help in minutes
+              {t('home.hero.title')}
             </Text>
             <Text style={[styles.heroSubtitle, { fontSize: fontStyles.textSize }]}>
-              ServEaso delivers instant, regular and short term access to safe, affordable, and trained maids, cooks, and caregivers.
+              {t('home.hero.subtitle')}
             </Text>
             
             {/* Service Selection Header - Show different text for service providers */}
             <Text style={[styles.selectorTitle, { fontSize: fontStyles.headingSize - 2 }]}>
-              {isServiceDisabled ? "Explore Our Services" : "What service do you need?"}
+              {isServiceDisabled ? t('home.hero.exploreServices') : t('home.hero.whatService')}
             </Text>
             <Text style={[styles.selectorSubtitle, { fontSize: fontStyles.smallText }]}>
-              {isServiceDisabled ? "Learn about our professional services" : "Tap to book instantly"}
+              {isServiceDisabled ? t('home.hero.learnAboutServices') : t('home.hero.tapToBook')}
             </Text>
             
             <View style={styles.serviceIconsContainer}>
@@ -709,9 +726,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     isServiceDisabled && styles.disabledServiceOverlay,
                     { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
                   ]}>
-                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>Home Cook</Text>
+                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.homeCook')}</Text>
                     {isServiceDisabled && (
-                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>View Only</Text>
+                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -740,9 +757,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     isServiceDisabled && styles.disabledServiceOverlay,
                     { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
                   ]}>
-                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>Cleaning Help</Text>
+                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.cleaningHelp')}</Text>
                     {isServiceDisabled && (
-                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>View Only</Text>
+                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -771,9 +788,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     isServiceDisabled && styles.disabledServiceOverlay,
                     { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
                   ]}>
-                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>Caregiver</Text>
+                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.caregiver')}</Text>
                     {isServiceDisabled && (
-                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>View Only</Text>
+                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -800,10 +817,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
         <View style={[styles.servicesSection, { backgroundColor: isDarkMode ? colors.surface : '#f8fafc' }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
-              Popular Services
+              {t('home.services.title')}
             </Text>
             <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
-              Choose from our trusted professional services
+              {t('home.services.subtitle')}
             </Text>
           </View>
           
@@ -840,22 +857,24 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     </View>
                     
                     <Text style={[styles.serviceTitle, { fontSize: fontStyles.headingSize - 2 }]}>
-                      {popularServices[currentServiceIndex].title}
+                      {t(`home.services.${popularServices[currentServiceIndex].titleKey}`)}
                     </Text>
                     <Text style={[styles.serviceDesc, { fontSize: fontStyles.smallText }]}>
-                      {popularServices[currentServiceIndex].desc}
+                      {t(`home.services.${popularServices[currentServiceIndex].descKey}`)}
                     </Text>
                     
                     <View style={styles.featuresContainer}>
                       {popularServices[currentServiceIndex].features.map((feature, idx) => (
                         <View key={idx} style={[styles.featureBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-                          <Text style={[styles.featureBadgeText, { fontSize: fontStyles.smallText - 2 }]}>✓ {feature}</Text>
+                          <Text style={[styles.featureBadgeText, { fontSize: fontStyles.smallText - 2 }]}>
+                            ✓ {t(`home.services.features.${feature.key}`)}
+                          </Text>
                         </View>
                       ))}
                     </View>
                     
                     <View style={[styles.learnMoreContainer, { backgroundColor: popularServices[currentServiceIndex].accentColor }]}>
-                      <Text style={[styles.learnMoreLink, { fontSize: fontStyles.smallText }]}>Learn More</Text>
+                      <Text style={[styles.learnMoreLink, { fontSize: fontStyles.smallText }]}>{t('home.services.learnMore')}</Text>
                       <Text style={styles.learnMoreArrow}>→</Text>
                     </View>
 
@@ -927,10 +946,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
         <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff' }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
-              How It Works
+              {t('home.howItWorks.title')}
             </Text>
             <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
-              Simple steps to premium service
+              {t('home.howItWorks.subtitle')}
             </Text>
           </View>
           
@@ -973,17 +992,19 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 </View>
                 
                 <Text style={[styles.stepTitle, { fontSize: fontStyles.headingSize }]}>
-                  {howItWorksSlides[currentSlide].title}
+                  {t(`home.howItWorks.step${currentSlide + 1}.title`)}
                 </Text>
                 <Text style={[styles.stepDesc, { fontSize: fontStyles.textSize }]}>
-                  {howItWorksSlides[currentSlide].desc}
+                  {t(`home.howItWorks.step${currentSlide + 1}.desc`)}
                 </Text>
 
                 {/* Feature Badges */}
                 <View style={styles.slideFeaturesContainer}>
                   {howItWorksSlides[currentSlide].features.map((feature, idx) => (
                     <View key={idx} style={[styles.slideFeatureBadge, { borderColor: howItWorksSlides[currentSlide].accentColor }]}>
-                      <Text style={[styles.slideFeatureBadgeText, { fontSize: fontStyles.smallText - 1 }]}>✓ {feature}</Text>
+                      <Text style={[styles.slideFeatureBadgeText, { fontSize: fontStyles.smallText - 1 }]}>
+                        ✓ {t(`home.howItWorks.step${currentSlide + 1}.features.${idx}`)}
+                      </Text>
                     </View>
                   ))}
                 </View>

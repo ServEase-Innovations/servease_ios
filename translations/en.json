@@ -3,51 +3,993 @@
     "settings": "Settings",
     "cancel": "Cancel",
     "save": "Save",
-    "delete": "Delete",
-    "edit": "Edit",
-    "loading": "Loading...",
-    "error": "Error",
-    "success": "Success",
     "confirm": "Confirm",
+    "success": "Success",
+    "error": "Error",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "close": "Close",
     "back": "Back",
     "next": "Next",
-    "done": "Done"
+    "done": "Done",
+    "edit": "Edit",
+    "delete": "Delete",
+    "share": "Share",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "refresh": "Refresh",
+    "notification": "Notification",
+    "notifications": "Notifications",
+    "openingBooking": "Opening your booking...",
+    "welcome": "Welcome",
+    "logout": "Logout",
+    "login": "Login",
+    "signup": "Sign Up",
+    "profile": "Profile",
+    "bookings": "Bookings",
+    "dashboard": "Dashboard",
+    "home": "Home",
+    "about": "About",
+    "contact": "Contact",
+    "terms": "Terms & Conditions",
+    "privacy": "Privacy Policy",
+    "submit": "Submit",
+    "continue": "Continue",
+    "skip": "Skip",
+    "ok": "OK",
+    "yes": "Yes",
+    "no": "No",
+    "agree": "Agree",
+    "disagree": "Disagree",
+    "accept": "Accept",
+    "decline": "Decline",
+    "allow": "Allow",
+    "deny": "Deny",
+    "enable": "Enable",
+    "disable": "Disable",
+    "on": "On",
+    "off": "Off",
+    "more": "More",
+    "less": "Less",
+    "showMore": "Show More",
+    "showLess": "Show Less",
+    "viewAll": "View All",
+    "viewDetails": "View Details",
+    "learnMore": "Learn More",
+    "readMore": "Read More",
+    "readLess": "Read Less",
+    "select": "Select",
+    "selected": "Selected",
+    "choose": "Choose",
+    "pick": "Pick",
+    "browse": "Browse",
+    "upload": "Upload",
+    "download": "Download",
+    "copy": "Copy",
+    "paste": "Paste",
+    "cut": "Cut",
+    "undo": "Undo",
+    "redo": "Redo",
+    "clear": "Clear",
+    "reset": "Reset",
+    "apply": "Apply",
+    "remove": "Remove",
+    "add": "Add",
+    "create": "Create",
+    "update": "Update",
+    "modify": "Modify",
+    "change": "Change",
+    "replace": "Replace",
+    "schedule": "Schedule",
+    "book": "Book",
+    "bookNow": "Book Now",
+    "reserve": "Reserve",
+    "checkout": "Checkout",
+    "pay": "Pay",
+    "payment": "Payment",
+    "amount": "Amount",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "discount": "Discount",
+    "coupon": "Coupon",
+    "applyCoupon": "Apply Coupon",
+    "removeCoupon": "Remove Coupon",
+    "price": "Price",
+    "cost": "Cost",
+    "free": "Free",
+    "currency": "₹",
+    "date": "Date",
+    "time": "Time",
+    "duration": "Duration",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "evening": "Evening",
+    "night": "Night",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday",
+    "week": "Week",
+    "month": "Month",
+    "year": "Year",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "oneTime": "One Time",
+    "recurring": "Recurring",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "confirmed": "Confirmed",
+    "rejected": "Rejected",
+    "approved": "Approved",
+    "denied": "Denied",
+    "expired": "Expired",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "limited": "Limited",
+    "booked": "Booked",
+    "occupied": "Occupied",
+    "vacant": "Vacant",
+    "open": "Open",
+    "closed": "Closed",
+    "comingSoon": "Coming Soon",
+    "new": "New",
+    "popular": "Popular",
+    "featured": "Featured",
+    "recommended": "Recommended",
+    "bestMatch": "Best Match",
+    "topRated": "Top Rated",
+    "verified": "Verified",
+    "unverified": "Unverified",
+    "online": "Online",
+    "offline": "Offline",
+    "away": "Away",
+    "busy": "Busy",
+    "availableNow": "Available Now",
+    "unavailableNow": "Unavailable Now",
+    "contactInfo": "Contact Information",
+    "personalInfo": "Personal Information",
+    "accountInfo": "Account Information",
+    "paymentInfo": "Payment Information",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "website": "Website",
+    "name": "Name",
+    "fullName": "Full Name",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "username": "Username",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "oldPassword": "Old Password",
+    "newPassword": "New Password",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password",
+    "changePassword": "Change Password",
+    "createPassword": "Create Password",
+    "rememberMe": "Remember Me",
+    "stayLoggedIn": "Stay Logged In",
+    "agreeToTerms": "I agree to the Terms & Conditions",
+    "privacyPolicyAgree": "I agree to the Privacy Policy",
+    "marketingEmails": "Receive marketing emails",
+    "newsletter": "Subscribe to newsletter",
+    "notifications": "Notifications",
+    "emailNotifications": "Email Notifications",
+    "pushNotifications": "Push Notifications",
+    "smsNotifications": "SMS Notifications",
+    "sound": "Sound",
+    "vibrate": "Vibrate",
+    "language": "Language",
+    "region": "Region",
+    "timezone": "Timezone",
+    "dateFormat": "Date Format",
+    "timeFormat": "Time Format",
+    "measurementUnit": "Measurement Unit",
+    "metric": "Metric",
+    "imperial": "Imperial",
+    "kilometers": "Kilometers",
+    "miles": "Miles",
+    "celsius": "Celsius",
+    "fahrenheit": "Fahrenheit"
   },
   "settings": {
     "title": "Settings",
     "appearance": "Appearance",
     "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
     "fontSize": "Font Size",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
     "language": "Language",
+    "selectLanguage": "Select Language",
+    "selectTheme": "Select Theme",
+    "selectFontSize": "Select Font Size",
+    "searchLanguage": "Search language...",
+    "noLanguagesFound": "No languages found",
+    "tryDifferentSearch": "Try searching with a different keyword",
     "preferences": "Preferences",
-    "notifications": "Push Notifications",
+    "notifications": "Notifications",
     "compactMode": "Compact Mode",
     "privacy": "Privacy & Security",
     "privacyPolicy": "Privacy Policy",
     "security": "Security",
     "dataSharing": "Data Sharing",
+    "disabled": "Disabled",
     "about": "About",
     "aboutApp": "About App",
     "contactUs": "Contact Us",
     "appVersion": "App Version",
     "termsConditions": "Terms & Conditions",
-    "rateApp": "Rate the App",
+    "rateApp": "Rate App",
     "support": "Support",
     "helpCenter": "Help Center",
     "sendFeedback": "Send Feedback",
-    "reportProblem": "Report a Problem",
+    "reportProblem": "Report Problem",
     "resetSettings": "Reset All Settings",
     "resetConfirm": "Reset Settings",
-    "resetMessage": "Are you sure you want to reset all settings to default?",
-    "selectTheme": "Select Theme",
-    "selectFontSize": "Select Font Size",
-    "selectLanguage": "Select Language",
-    "light": "Light",
-    "dark": "Dark",
-    "system": "System Default",
-    "small": "Small",
-    "medium": "Medium",
-    "large": "Large",
-    "disabled": "Disabled"
+    "resetMessage": "Are you sure you want to reset all preferences to default?"
+  },
+  "home": {
+    "hero": {
+      "title": "Book trusted household help in minutes",
+      "subtitle": "ServEaso delivers instant, regular and short term access to safe, affordable, and trained maids, cooks, and caregivers.",
+      "whatService": "What service do you need?",
+      "tapToBook": "Tap to book instantly",
+      "exploreServices": "Explore Our Services",
+      "learnAboutServices": "Learn about our professional services",
+      "viewOnly": "View Only"
+    },
+    "services": {
+      "title": "Popular Services",
+      "subtitle": "Choose from our trusted professional services",
+      "homeCook": "Home Cook",
+      "cleaningHelp": "Cleaning Help",
+      "caregiver": "Caregiver",
+      "cookDesc": "Skilled and hygienic cooks who specialize in home-style meals with authentic flavors.",
+      "maidDesc": "Reliable maids for daily, deep, or special occasion cleaning with attention to detail.",
+      "nannyDesc": "Trained support for children, seniors, or patients at home with compassionate care.",
+      "features": {
+        "professional": "Professional chefs",
+        "hygiene": "Hygiene certified",
+        "customMenus": "Custom menus",
+        "deepCleaning": "Deep cleaning",
+        "ecoFriendly": "Eco-friendly",
+        "scheduled": "Scheduled visits",
+        "cprCertified": "CPR certified",
+        "backgroundChecked": "Background checked",
+        "support247": "24/7 support"
+      },
+      "learnMore": "Learn More"
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "Simple steps to premium service",
+      "step1": {
+        "title": "Choose Your Service",
+        "desc": "Browse through our curated selection of professional household services tailored to your needs.",
+        "features": ["100+ Services", "Verified Pros", "Instant Booking"]
+      },
+      "step2": {
+        "title": "Book in Seconds",
+        "desc": "Schedule your service with our intuitive platform. Pick date, time, and preferences effortlessly.",
+        "features": ["Real-time Availability", "Instant Confirmation", "Flexible Scheduling"]
+      },
+      "step3": {
+        "title": "Premium Service",
+        "desc": "Sit back and relax while our verified experts deliver exceptional quality and care.",
+        "features": ["Quality Guaranteed", "Secure Payment", "24/7 Support"]
+      }
+    },
+    "serviceProvider": {
+      "alert": {
+        "title": "Service Provider Account",
+        "message": "As a service provider, you cannot book services. Please use a customer account to book services."
+      }
+    }
+  },
+  "details": {
+    "title": "Provider Details",
+    "searching": "Searching providers near you...",
+    "found": "Found {count} provider near you",
+    "found_plural": "Found {count} providers near you",
+    "noProviders": "Service Not Available in Your Area",
+    "noProvidersMsg": "Currently, we are unable to provide services in your location. We hope to be available in your area soon.",
+    "noFilters": "No Providers Match Your Filters",
+    "noFiltersMsg": "Try adjusting your filters to see more providers.",
+    "clearFilters": "Clear Filters",
+    "goBack": "Go Back",
+    "tryAgain": "Try Again",
+    "initialState": "Select booking details to find providers",
+    "filter": {
+      "title": "Filter Providers",
+      "experience": "Experience (years)",
+      "minRating": "Minimum Rating",
+      "distance": "Distance (km)",
+      "gender": "Gender",
+      "diet": "Diet Preference",
+      "languages": "Languages",
+      "selectLanguages": "Select Languages",
+      "selectedLanguages": "{count} language(s) selected",
+      "clearLanguages": "Clear languages",
+      "availability": "Availability Status",
+      "resetAll": "Reset All",
+      "applyFilters": "Apply Filters",
+      "fullyAvailable": "Fully Available",
+      "partiallyAvailable": "Partially Available",
+      "limited": "Limited",
+      "male": "Male",
+      "female": "Female",
+      "other": "Other",
+      "veg": "Vegetarian",
+      "nonveg": "Non-Vegetarian",
+      "both": "Both"
+    }
+  },
+  "provider": {
+    "age": "{age} yrs",
+    "genderAge": "{gender} • {age} yrs",
+    "kmAway": "km away",
+    "reviews": "{count} review",
+    "reviews_plural": "{count} reviews",
+    "yearsExp": "years exp",
+    "bestMatch": "Best Match",
+    "viewDetails": "Details",
+    "bookNow": "Book Now",
+    "availability": {
+      "title": "Availability",
+      "fullyAvailable": "Fully Available",
+      "fullyAvailableMsg": "Available at {time}",
+      "partiallyAvailable": "Partially Available",
+      "limited": "Limited",
+      "veryLimited": "Very Limited",
+      "exceptions": "{count} schedule exception this month",
+      "exceptions_plural": "{count} schedule exceptions this month",
+      "fullyAvailableAllMonth": "Fully available all month",
+      "usuallyAvailable": "Usually available at {time}",
+      "limitedMsg": "Limited availability this month",
+      "veryLimitedMsg": "Very limited availability",
+      "notSpecified": "Availability not specified",
+      "duration": {
+        "monthly": "Monthly",
+        "shortTerm": "Short Term"
+      }
+    },
+    "diet": {
+      "veg": "Vegetarian",
+      "nonveg": "Non-Vegetarian",
+      "both": "Both"
+    },
+    "gender": {
+      "male": "M",
+      "female": "F",
+      "other": "O"
+    }
+  },
+  "booking": {
+    "title": "Booking",
+    "confirmBooking": "Confirm Booking",
+    "bookingDetails": "Booking Details",
+    "selectDateTime": "Select Date & Time",
+    "selectService": "Select Service",
+    "selectProvider": "Select Provider",
+    "selectBookingOption": "Select your Booking Option",
+    "preferredTime": "Preferred Time",
+    "morningSlot": "Morning Slot",
+    "eveningSlot": "Evening Slot",
+    "duration": "Duration",
+    "hours": "{count} hour",
+    "hours_plural": "{count} hours",
+    "totalAmount": "Total Amount",
+    "paymentMethod": "Payment Method",
+    "cashOnDelivery": "Cash on Delivery",
+    "onlinePayment": "Online Payment",
+    "upi": "UPI",
+    "card": "Card",
+    "netBanking": "Net Banking",
+    "wallet": "Wallet",
+    "applyCoupon": "Apply Coupon",
+    "bookingSummary": "Booking Summary",
+    "serviceType": "Service Type",
+    "providerName": "Provider Name",
+    "providerContact": "Provider Contact",
+    "specialInstructions": "Special Instructions",
+    "addInstructions": "Add instructions for provider",
+    "cancellationPolicy": "Cancellation Policy",
+    "freeCancellation": "Free cancellation up to 24 hours before",
+    "lateCancellation": "Late cancellation fee applies",
+    "confirm": "Confirm Booking",
+    "success": "Booking Confirmed!",
+    "successMsg": "Your booking has been successfully confirmed",
+    "failed": "Booking Failed",
+    "failedMsg": "Unable to complete your booking. Please try again.",
+    "viewBookings": "View My Bookings",
+    "bookingId": "Booking ID: {id}",
+    "options": {
+      "date": "Date",
+      "shortTerm": "Short Term",
+      "monthly": "Monthly"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "rejected": "Rejected",
+      "inProgress": "In Progress"
+    },
+    "confirmBox": {
+      "title": "Confirm Your Booking",
+      "bookingDetails": "Booking Details",
+      "startDate": "Start Date: {date}",
+      "startTime": "Start Time: {time}",
+      "serviceStarts": "Your service will start on {date} at {time}.",
+      "serviceDuration": "Service Duration",
+      "adjustDuration": "If you need more time, adjust your service duration below.",
+      "relaxMessage": "Relax, we'll handle the rest. Our verified professionals ensure your peace of mind."
+    },
+    "cutoff": {
+      "title": "Booking Cutoff Reached",
+      "message": "Bookings for today are no longer accepted after {time}. Please select a future date."
+    },
+    "disabled": {
+      "title": "Booking Not Available",
+      "serviceProvider": "Service Provider Account",
+      "message": "As a service provider, you cannot book services. Please use a customer account to book services."
+    }
+  },
+  "profile": {
+    "title": "My Profile",
+    "personalInfo": "Personal Information",
+    "accountInfo": "Account Information",
+    "preferences": "Preferences",
+    "editProfile": "Edit Profile",
+    "saveChanges": "Save Changes",
+    "changePhoto": "Change Photo",
+    "uploadPhoto": "Upload Photo",
+    "removePhoto": "Remove Photo",
+    "fullName": "Full Name",
+    "emailAddress": "Email Address",
+    "phoneNumber": "Phone Number",
+    "dateOfBirth": "Date of Birth",
+    "gender": "Gender",
+    "city": "City",
+    "state": "State",
+    "pincode": "Pincode",
+    "country": "Country",
+    "language": "Preferred Language",
+    "currency": "Preferred Currency",
+    "privacySettings": "Privacy Settings",
+    "showProfile": "Show Profile to Others",
+    "shareData": "Share Data for Improvements",
+    "deleteAccount": "Delete Account",
+    "deleteConfirm": "Are you sure you want to delete your account?",
+    "deleteWarning": "This action cannot be undone. All your data will be permanently removed.",
+    "logout": "Logout",
+    "logoutConfirm": "Are you sure you want to logout?",
+    "memberSince": "Member since {date}",
+    "totalBookings": "Total Bookings: {count}",
+    "reviewsGiven": "Reviews Given: {count}",
+    "reviewsReceived": "Reviews Received: {count}",
+    "avgRating": "Average Rating: {rating}"
+  },
+  "dashboard": {
+    "title": "Service Provider Dashboard",
+    "welcome": "Welcome back, {name}!",
+    "overview": "Overview",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "totalEarnings": "Total Earnings",
+    "completedJobs": "Completed Jobs",
+    "pendingJobs": "Pending Jobs",
+    "cancelledJobs": "Cancelled Jobs",
+    "upcomingBookings": "Upcoming Bookings",
+    "recentActivity": "Recent Activity",
+    "viewAll": "View All",
+    "manageServices": "Manage Services",
+    "manageAvailability": "Manage Availability",
+    "updateProfile": "Update Profile",
+    "reviews": "Reviews",
+    "earnings": {
+      "title": "Earnings",
+      "daily": "Daily Earnings",
+      "weekly": "Weekly Earnings",
+      "monthly": "Monthly Earnings",
+      "yearly": "Yearly Earnings",
+      "total": "Total Earnings",
+      "pending": "Pending Payouts",
+      "completed": "Completed Payouts",
+      "withdraw": "Withdraw Earnings",
+      "withdrawHistory": "Withdrawal History"
+    },
+    "bookings": {
+      "new": "New Booking Request",
+      "accepted": "Booking Accepted",
+      "rejected": "Booking Rejected",
+      "completed": "Booking Completed",
+      "cancelled": "Booking Cancelled",
+      "rescheduled": "Booking Rescheduled"
+    },
+    "availability": {
+      "setAvailability": "Set Your Availability",
+      "available": "Available",
+      "unavailable": "Unavailable",
+      "partiallyAvailable": "Partially Available",
+      "fullyBooked": "Fully Booked",
+      "timeSlots": "Time Slots",
+      "recurring": "Recurring Availability",
+      "customSchedule": "Custom Schedule",
+      "blockDates": "Block Dates",
+      "vacation": "Vacation Mode",
+      "emergency": "Emergency Closure"
+    }
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "We're here to help! Reach out to us anytime.",
+    "customerSupport": "Customer Support",
+    "technicalSupport": "Technical Support",
+    "salesInquiry": "Sales Inquiry",
+    "partnershipInquiry": "Partnership Inquiry",
+    "generalInquiry": "General Inquiry",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "officeHours": "Office Hours",
+    "weekdays": "Monday - Friday: 9:00 AM - 6:00 PM",
+    "weekend": "Saturday: 10:00 AM - 4:00 PM",
+    "sunday": "Sunday: Closed",
+    "emergency": "24/7 Emergency Support",
+    "sendMessage": "Send us a message",
+    "name": "Your Name",
+    "emailAddress": "Your Email",
+    "phoneNumber": "Your Phone",
+    "subject": "Subject",
+    "message": "Message",
+    "send": "Send Message",
+    "success": "Message sent successfully!",
+    "successMsg": "We'll get back to you within 24 hours.",
+    "failed": "Failed to send message",
+    "failedMsg": "Please try again or contact us directly."
+  },
+  "about": {
+    "title": "About Us",
+    "subtitle": "Your trusted partner for household services",
+    "mission": "Our Mission",
+    "missionDesc": "To provide safe, reliable, and affordable household services that make life easier for families.",
+    "vision": "Our Vision",
+    "visionDesc": "To become India's most trusted platform for household services, creating thousands of jobs and serving millions of families.",
+    "values": "Our Values",
+    "valuesList": {
+      "trust": "Trust & Transparency",
+      "quality": "Quality Assurance",
+      "respect": "Respect & Dignity",
+      "innovation": "Continuous Innovation",
+      "community": "Community Impact"
+    },
+    "story": "Our Story",
+    "storyDesc": "ServEaso was founded in 2020 with a simple idea: make it easy for families to find trusted help at home. What started as a small initiative has grown into a platform connecting thousands of verified service providers with families across India.",
+    "team": "Our Team",
+    "teamDesc": "We're a passionate team of technologists, service professionals, and customer support experts dedicated to revolutionizing household services.",
+    "stats": {
+      "providers": "Verified Providers",
+      "customers": "Happy Customers",
+      "cities": "Cities Covered",
+      "bookings": "Bookings Completed"
+    },
+    "join": "Join Our Team",
+    "joinDesc": "Looking to make a difference? Explore career opportunities at ServEaso.",
+    "careers": "View Careers"
+  },
+  "tnc": {
+    "title": "Terms & Conditions",
+    "lastUpdated": "Last Updated: {date}",
+    "sections": {
+      "acceptance": {
+        "title": "1. Acceptance of Terms",
+        "content": "By accessing or using the ServEaso platform, you agree to be bound by these Terms & Conditions. If you do not agree, please do not use our services."
+      },
+      "definitions": {
+        "title": "2. Definitions",
+        "content": "'Platform' refers to the ServEaso website and mobile application. 'Services' refer to the household services offered through our platform. 'Provider' refers to service professionals. 'Customer' refers to users seeking services."
+      },
+      "eligibility": {
+        "title": "3. Eligibility",
+        "content": "You must be at least 18 years old to use our services. By using our platform, you represent that you have the legal capacity to enter into binding contracts."
+      },
+      "accounts": {
+        "title": "4. User Accounts",
+        "content": "You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorized use of your account."
+      },
+      "bookings": {
+        "title": "5. Bookings and Payments",
+        "content": "All bookings are subject to availability. Payments are processed securely through our payment partners. Prices are subject to change without notice."
+      },
+      "cancellation": {
+        "title": "6. Cancellation and Refunds",
+        "content": "Cancellations made at least 24 hours before the scheduled service are eligible for a full refund. Late cancellations may incur charges."
+      },
+      "conduct": {
+        "title": "7. User Conduct",
+        "content": "You agree to treat providers with respect and dignity. Harassment, discrimination, or inappropriate behavior will result in account termination."
+      },
+      "liability": {
+        "title": "8. Limitation of Liability",
+        "content": "ServEaso acts as an intermediary platform. We are not liable for any damages arising from services provided by third-party providers."
+      },
+      "changes": {
+        "title": "9. Changes to Terms",
+        "content": "We reserve the right to modify these terms at any time. Continued use of the platform constitutes acceptance of the modified terms."
+      },
+      "contact": {
+        "title": "10. Contact Information",
+        "content": "For questions about these Terms, please contact us at support@serveaso.com."
+      }
+    }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "Last Updated: {date}",
+    "sections": {
+      "introduction": {
+        "title": "1. Introduction",
+        "content": "ServEaso ('we', 'our', 'us') is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your personal information."
+      },
+      "collection": {
+        "title": "2. Information We Collect",
+        "content": "We collect information you provide directly, such as name, email, phone number, and address. We also automatically collect usage data and device information."
+      },
+      "usage": {
+        "title": "3. How We Use Your Information",
+        "content": "We use your information to provide and improve our services, process payments, communicate with you, and ensure platform security."
+      },
+      "sharing": {
+        "title": "4. Information Sharing",
+        "content": "We share information with service providers to fulfill bookings, with payment processors for transactions, and as required by law."
+      },
+      "security": {
+        "title": "5. Data Security",
+        "content": "We implement industry-standard security measures to protect your information. However, no method of transmission is 100% secure."
+      },
+      "rights": {
+        "title": "6. Your Rights",
+        "content": "You have the right to access, correct, or delete your personal information. You can also opt out of marketing communications."
+      },
+      "cookies": {
+        "title": "7. Cookies and Tracking",
+        "content": "We use cookies and similar technologies to enhance your experience and analyze platform usage. You can control cookies through your browser settings."
+      },
+      "children": {
+        "title": "8. Children's Privacy",
+        "content": "Our services are not intended for children under 13. We do not knowingly collect information from children."
+      },
+      "changes": {
+        "title": "9. Changes to This Policy",
+        "content": "We may update this policy periodically. We will notify you of significant changes through the platform or via email."
+      },
+      "contact": {
+        "title": "10. Contact Us",
+        "content": "For privacy-related inquiries, please contact us at privacy@serveaso.com."
+      }
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "network": "Network error. Please check your connection.",
+    "timeout": "Request timed out. Please try again.",
+    "server": "Server error. Please try again later.",
+    "unauthorized": "You are not authorized to perform this action",
+    "forbidden": "Access denied",
+    "notFound": "Resource not found",
+    "validation": "Please check your input and try again",
+    "required": "This field is required",
+    "invalidEmail": "Please enter a valid email address",
+    "invalidPhone": "Please enter a valid phone number",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "passwordWeak": "Password is too weak",
+    "invalidDate": "Please enter a valid date",
+    "invalidTime": "Please enter a valid time",
+    "bookingConflict": "This time slot is no longer available",
+    "providerUnavailable": "Provider is not available at this time",
+    "paymentFailed": "Payment failed. Please try again.",
+    "locationRequired": "Please enable location services to find providers near you",
+    "locationDenied": "Location access denied. Please enable in settings.",
+    "cameraDenied": "Camera access denied",
+    "galleryDenied": "Gallery access denied",
+    "microphoneDenied": "Microphone access denied",
+    "storageDenied": "Storage access denied",
+    "contactsDenied": "Contacts access denied",
+    "notificationDenied": "Notification access denied"
+  },
+  "validation": {
+    "required": "{field} is required",
+    "minLength": "{field} must be at least {count} characters",
+    "maxLength": "{field} must be at most {count} characters",
+    "email": "Please enter a valid email address",
+    "phone": "Please enter a valid phone number",
+    "numeric": "{field} must be a number",
+    "integer": "{field} must be an integer",
+    "positive": "{field} must be positive",
+    "min": "{field} must be at least {min}",
+    "max": "{field} must be at most {max}",
+    "between": "{field} must be between {min} and {max}",
+    "matches": "{field} format is invalid",
+    "date": "Please enter a valid date",
+    "time": "Please enter a valid time",
+    "future": "{field} must be in the future",
+    "past": "{field} must be in the past"
+  },
+  "time": {
+    "justNow": "just now",
+    "minutesAgo": "{count} minute ago",
+    "minutesAgo_plural": "{count} minutes ago",
+    "hoursAgo": "{count} hour ago",
+    "hoursAgo_plural": "{count} hours ago",
+    "yesterday": "yesterday",
+    "daysAgo": "{count} day ago",
+    "daysAgo_plural": "{count} days ago",
+    "weeksAgo": "{count} week ago",
+    "weeksAgo_plural": "{count} weeks ago",
+    "monthsAgo": "{count} month ago",
+    "monthsAgo_plural": "{count} months ago",
+    "yearsAgo": "{count} year ago",
+    "yearsAgo_plural": "{count} years ago",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday",
+    "sunday": "Sunday",
+    "january": "January",
+    "february": "February",
+    "march": "March",
+    "april": "April",
+    "may": "May",
+    "june": "June",
+    "july": "July",
+    "august": "August",
+    "september": "September",
+    "october": "October",
+    "november": "November",
+    "december": "December"
+  },
+  "navigation": {
+    "home": "Home",
+    "account": "Account",
+    "bookings": "Bookings",
+    "wallet": "Wallet",
+    "dashboard": "Dashboard",
+    "alerts": "Alerts",
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "signingOut": "Signing Out...",
+    "signUp": "Sign Up",
+    "loggedInSuccess": "Logged in successfully!",
+    "loginFailed": "Login failed. Please try again.",
+    "signingOutMsg": "Signing out...",
+    "myBookings": "My Bookings",
+    "aboutUs": "About Us",
+    "contactUs": "Contact Us"
+  },
+  "serviceDetails": {
+    "maid": {
+      "title": "ServEaso Maid Services",
+      "description": "Professional cleaning and household services",
+      "features": {
+        "cleaning": {
+          "title": "Cleaning",
+          "items": [
+            "Utensils cleaning",
+            "Dusting",
+            "Vacuuming",
+            "Mopping",
+            "Sweeping",
+            "Cleaning bathrooms and kitchens"
+          ]
+        },
+        "laundry": {
+          "title": "Laundry",
+          "items": [
+            "Washing clothes",
+            "Drying clothes",
+            "Folding clothes",
+            "Ironing clothes"
+          ]
+        },
+        "errands": {
+          "title": "Errands",
+          "items": [
+            "Running errands for customers",
+            "Picking up groceries",
+            "Dry cleaning pickup/dropoff"
+          ]
+        },
+        "qualities": {
+          "items": [
+            "Respectful of customer's property",
+            "Punctual and reliable",
+            "Professional and courteous",
+            "Discreet and respectful of privacy"
+          ]
+        }
+      }
+    },
+    "cook": {
+      "title": "ServEaso Cook Services",
+      "description": "Professional cooking services with strict standards",
+      "features": {
+        "hygiene": {
+          "title": "Hygiene",
+          "items": [
+            "Adhere to strict hygiene standards",
+            "Frequent handwashing",
+            "Wear clean uniforms and hairnets",
+            "Maintain spotless work environment"
+          ]
+        },
+        "temperature": {
+          "title": "Temperature Control",
+          "items": [
+            "Meticulously monitor food temperatures",
+            "Prevent bacterial growth",
+            "Ensure proper cooking, storage, and reheating"
+          ]
+        },
+        "allergen": {
+          "title": "Allergen Awareness",
+          "items": [
+            "Handle allergens carefully",
+            "Prevent cross-contamination",
+            "Provide accurate allergen information"
+          ]
+        },
+        "handling": {
+          "title": "Safe Food Handling",
+          "items": [
+            "Follow proper procedures for raw and cooked foods",
+            "Minimize contamination risk"
+          ]
+        },
+        "freshness": {
+          "title": "Freshness",
+          "items": [
+            "Use fresh, high-quality ingredients",
+            "Select best produce, meats, and components"
+          ]
+        },
+        "techniques": {
+          "title": "Proper Techniques",
+          "items": [
+            "Employ proper cooking techniques",
+            "Maximize flavor, texture, and nutritional value",
+            "Ensure highest preparation standards"
+          ]
+        },
+        "detail": {
+          "title": "Attention to Detail",
+          "items": [
+            "Pay close attention to every step",
+            "From chopping vegetables to final plating",
+            "Ensure consistency and visual appeal"
+          ]
+        },
+        "dietary": {
+          "title": "Dietary Restrictions",
+          "items": [
+            "Accommodate gluten-free needs",
+            "Prepare vegetarian and vegan meals",
+            "Tailor to specific allergies/intolerances"
+          ]
+        },
+        "customization": {
+          "title": "Customization",
+          "items": [
+            "Adjust spice levels",
+            "Modify ingredients",
+            "Customize portion sizes"
+          ]
+        }
+      }
+    },
+    "babycare": {
+      "title": "ServEaso Caregiver Services",
+      "description": "Professional child care services",
+      "features": {
+        "nurture": {
+          "title": "Nurture and Safe Environment",
+          "items": [
+            "Provide loving and supportive environment",
+            "Children feel safe, secure, and understood",
+            "Offer comfort and encouragement",
+            "Build strong emotional connection"
+          ]
+        },
+        "physical": {
+          "title": "Physical Safety",
+          "items": [
+            "Ensure hazard-free environment",
+            "Supervise all activities",
+            "Prepare for emergencies"
+          ]
+        },
+        "medical": {
+          "title": "Medical Safety",
+          "items": ["Trained in CPR", "First aid certified for medical emergencies"]
+        },
+        "cognitive": {
+          "title": "Cognitive Development",
+          "items": [
+            "Engage in age-appropriate activities",
+            "Reading and educational games",
+            "Explore children's interests",
+            "Help with homework",
+            "Encourage learning"
+          ]
+        },
+        "social": {
+          "title": "Social/Emotional Development",
+          "items": [
+            "Teach sharing and empathy",
+            "Conflict resolution skills",
+            "Develop self-confidence",
+            "Build emotional intelligence"
+          ]
+        },
+        "physicalDev": {
+          "title": "Physical Development",
+          "items": [
+            "Encourage physical activity",
+            "Outdoor adventures",
+            "Age-appropriate sports",
+            "Prepare healthy meals and snacks"
+          ]
+        },
+        "communication": {
+          "title": "Communication",
+          "items": [
+            "Maintain open communication with parents",
+            "Share daily updates",
+            "Discuss development progress",
+            "Listen attentively to child",
+            "Respond with empathy"
+          ]
+        },
+        "collaboration": {
+          "title": "Collaboration",
+          "items": [
+            "Work in partnership with parents",
+            "Ensure consistency in care",
+            "Respect parents' values",
+            "Follow parenting styles"
+          ]
+        }
+      }
+    }
+  },
+  "profileMenu": {
+    "user": "User",
+    "profile": "Profile",
+    "myBookings": "My Bookings",
+    "wallet": "Wallet",
+    "dashboard": "Dashboard",
+    "settings": "Settings"
   }
 }

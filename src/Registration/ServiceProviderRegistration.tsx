@@ -35,6 +35,7 @@ import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { Button } from "../common/Button";
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 // Import the new components
 import BasicInformation from "./BasicInformation";
@@ -192,6 +193,7 @@ interface RegistrationProps {
 const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   onBackToLogin, onRegistrationSuccess,
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -421,7 +423,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     };
 
     return (
-      <View style={styles.sliderContainer}>
+      <View style={[styles.sliderContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.sliderWrapper}>
           <Slider
             value={value[0]}
@@ -429,8 +431,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             maximumValue={max}
             step={0.5}
             onValueChange={(val) => handleSliderChange([val, value[1]])}
-            minimumTrackTintColor="#1976d2"
-            maximumTrackTintColor="#bfbfbf"
+            minimumTrackTintColor={colors.primary}
+            maximumTrackTintColor={colors.border}
           />
           <Slider
             value={value[1]}
@@ -438,14 +440,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             maximumValue={max}
             step={0.5}
             onValueChange={(val) => handleSliderChange([value[0], val])}
-            minimumTrackTintColor="#1976d2"
-            maximumTrackTintColor="#bfbfbf"
+            minimumTrackTintColor={colors.primary}
+            maximumTrackTintColor={colors.border}
             style={styles.sliderOverlay}
           />
         </View>
         <View style={styles.sliderLabels}>
-          <Text style={styles.sliderLabel}>{formatDisplayTime(value[0])}</Text>
-          <Text style={styles.sliderLabel}>{formatDisplayTime(value[1])}</Text>
+          <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>{formatDisplayTime(value[0])}</Text>
+          <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>{formatDisplayTime(value[1])}</Text>
         </View>
       </View>
     );
@@ -463,7 +465,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     
     return (
       <View style={styles.disabledRangesContainer}>
-        <View style={styles.disabledRangesTrack} />
+        <View style={[styles.disabledRangesTrack, { backgroundColor: colors.border }]} />
         {ranges.map((range, index) => {
           const startPercent = ((range[0] - min) / totalWidth) * 100;
           const widthPercent = ((range[1] - range[0]) / totalWidth) * 100;
@@ -476,6 +478,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 {
                   left: `${startPercent}%`,
                   width: `${widthPercent}%`,
+                  backgroundColor: colors.warning,
+                  opacity: 0.5,
                 }
               ]}
             />
@@ -2055,6 +2059,44 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setFormData(prev => ({ ...prev, documentImage: file }));
   };
 
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          title: 18,
+          subtitle: 14,
+          text: 12,
+          small: 11,
+          button: 13,
+          heading: 16,
+          label: 13,
+        };
+      case 'large':
+        return {
+          title: 24,
+          subtitle: 18,
+          text: 16,
+          small: 14,
+          button: 16,
+          heading: 20,
+          label: 15,
+        };
+      default:
+        return {
+          title: 20,
+          subtitle: 16,
+          text: 14,
+          small: 12,
+          button: 14,
+          heading: 18,
+          label: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -2107,7 +2149,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       
       case 1:
         return (
-          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+          <ScrollView style={[styles.formContainer, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
             <AddressComponent
               onAddressChange={handleAddressChange}
               permanentAddress={formData.permanentAddress}
@@ -2120,17 +2162,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               isSameAddress={isSameAddress}
             />
 
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
-                <Icon name="location-on" size={24} color="#1976d2" />
-                <Text style={styles.cardTitle}>Current Location</Text>
+                <Icon name="location-on" size={24} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>Current Location</Text>
               </View>
-              <Text style={styles.cardSubtitle}>
+              <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 Fetch your current location to automatically fill address fields
               </Text>
 
               <TouchableOpacity
-                style={[styles.locationButton, locationLoading && styles.buttonDisabled]}
+                style={[styles.locationButton, { backgroundColor: colors.primary }, locationLoading && styles.buttonDisabled]}
                 onPress={fetchLocationData}
                 disabled={locationLoading}
               >
@@ -2139,15 +2181,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 ) : (
                   <>
                     <Icon name="my-location" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Fetch Location</Text>
+                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>Fetch Location</Text>
                   </>
                 )}
               </TouchableOpacity>
 
               {(formData.latitude !== 0 || formData.longitude !== 0) && (
                 <>
-                  <View style={styles.successAlert}>
-                    <Text style={styles.alertText}>
+                  <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
+                    <Text style={[styles.alertText, { color: colors.success, fontSize: fontSizes.small }]}>
                       <Text style={{ fontWeight: 'bold' }}>Address detected:</Text> {formData.currentLocation || "No address available"}
                     </Text>
                   </View>
@@ -2201,8 +2243,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       case 4:
         return (
-          <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-            <Text style={styles.confirmationText}>
+          <ScrollView style={[styles.formContainer, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
+            <Text style={[styles.confirmationText, { color: colors.text, fontSize: fontSizes.text }]}>
               Please agree to the following before proceeding with your Registration:
             </Text>
 
@@ -2216,14 +2258,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 privacy: formData.privacy
               }}
             />
-            {errors.keyFacts && <Text style={styles.errorText}>{errors.keyFacts}</Text>}
-            {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
-            {errors.privacy && <Text style={styles.errorText}>{errors.privacy}</Text>}
+            {errors.keyFacts && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.keyFacts}</Text>}
+            {errors.terms && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.terms}</Text>}
+            {errors.privacy && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.privacy}</Text>}
           </ScrollView>
         );
 
       default:
-        return <Text>Unknown step</Text>;
+        return <Text style={{ color: colors.text, fontSize: fontSizes.text }}>Unknown step</Text>;
     }
   };
 
@@ -2237,21 +2279,22 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               <View
                 style={[
                   styles.stepCircle,
-                  index < activeStep && styles.completedStep,
-                  index === activeStep && styles.activeStep,
-                  index > activeStep && styles.inactiveStep,
+                  index < activeStep && [styles.completedStep, { backgroundColor: colors.success }],
+                  index === activeStep && [styles.activeStep, { backgroundColor: colors.primary }],
+                  index > activeStep && [styles.inactiveStep, { backgroundColor: colors.border }],
                 ]}
               >
                 {index < activeStep ? (
                   <Icon name="check" size={16} color="#fff" />
                 ) : (
-                  <Text style={styles.stepNumber}>{index + 1}</Text>
+                  <Text style={[styles.stepNumber, { color: '#fff', fontSize: fontSizes.small }]}>{index + 1}</Text>
                 )}
               </View>
               <Text
                 style={[
                   styles.stepLabel,
-                  index <= activeStep ? styles.activeLabel : styles.inactiveLabel,
+                  { fontSize: fontSizes.small },
+                  index <= activeStep ? [styles.activeLabel, { color: colors.primary }] : [styles.inactiveLabel, { color: colors.textSecondary }],
                 ]}
                 numberOfLines={2}
               >
@@ -2262,7 +2305,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               <View
                 style={[
                   styles.stepConnector,
-                  index < activeStep ? styles.activeConnector : styles.inactiveConnector,
+                  index < activeStep ? [styles.activeConnector, { backgroundColor: colors.primary }] : [styles.inactiveConnector, { backgroundColor: colors.border }],
                 ]}
               />
             )}
@@ -2278,7 +2321,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       animationType="slide"
       transparent={false}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Updated Header with Linear Gradient */}
         <LinearGradient
           colors={["#0a2a66ff", "#004aadff"]}
@@ -2286,7 +2329,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           end={{ x: 1, y: 0 }}
           style={styles.headerContainer}
         >
-          <Text style={styles.title}>Service Provider Registration</Text>
+          <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => onBackToLogin(true)}
@@ -2295,7 +2338,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           </TouchableOpacity>
         </LinearGradient>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
           {renderStepper()}
           {renderStepContent(activeStep)}
 
@@ -2305,7 +2348,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               size="medium"
               onPress={handleBack}
               disabled={activeStep === 0 || isSubmitting}
-              startIcon={<Icon name="arrow-back" size={20} color="#1d4ed8" />}
+              startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}
             >
               Back
             </Button>
@@ -2341,14 +2384,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           transparent={false}
           onRequestClose={() => setPolicyModalVisible(false)}
         >
-          <View style={styles.policyModalContainer}>
+          <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
             <LinearGradient
               colors={["#0a2a66ff", "#004aadff"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.policyModalHeader}
             >
-              <Text style={styles.policyModalTitle}>
+              <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>
                 {activePolicy === 'terms' && 'Terms and Conditions'}
                 {activePolicy === 'privacy' && 'Privacy Policy'}
                 {activePolicy === 'keyfacts' && 'Key Facts Statement'}
@@ -2360,15 +2403,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 <Icon name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </LinearGradient>
-            <ScrollView style={styles.policyModalContent}>
+            <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>
               {renderPolicyContent()}
             </ScrollView>
           </View>
         </Modal>
 
         {snackbarOpen && (
-          <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`]]}>
-            <Text style={styles.snackbarText}>{snackbarMessage}</Text>
+          <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
+            <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
             <TouchableOpacity onPress={handleCloseSnackbar}>
               <Icon name="close" size={20} color="white" />
             </TouchableOpacity>
@@ -2383,7 +2426,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   headerContainer: {
     padding: 20,
@@ -2540,12 +2582,10 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -2556,15 +2596,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
-    color: '#333',
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 16,
   },
   locationButton: {
-    backgroundColor: '#1976d2',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2582,15 +2619,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   successAlert: {
-    backgroundColor: '#d4edda',
-    borderColor: '#c3e6cb',
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     marginTop: 8,
   },
   alertText: {
-    color: '#155724',
     fontSize: 14,
   },
   dropdown: {
@@ -2648,7 +2682,6 @@ const styles = StyleSheet.create({
   confirmationText: {
     fontSize: 16,
     marginBottom: 16,
-    color: '#333',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -2711,10 +2744,8 @@ const styles = StyleSheet.create({
   sliderContainer: {
     marginBottom: 20,
     padding: 12,
-    backgroundColor: '#f8f9fa',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   sliderWrapper: {
     height: 40,
@@ -2757,7 +2788,6 @@ const styles = StyleSheet.create({
   },
   sliderLabel: {
     fontSize: 12,
-    color: '#666',
   },
   sliderValue: {
     fontSize: 14,
@@ -2806,7 +2836,6 @@ const styles = StyleSheet.create({
   // Policy Modal Styles
   policyModalContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   policyModalHeader: {
     padding: 20,
@@ -2827,7 +2856,6 @@ const styles = StyleSheet.create({
   },
   policyModalContent: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     padding: 16,
   },
   disabledRangesContainer: {
@@ -2841,13 +2869,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     height: '100%',
-    backgroundColor: '#e0e0e0',
     borderRadius: 2,
   },
   disabledRange: {
     position: 'absolute',
     height: '100%',
-    backgroundColor: '#ff9800',
     opacity: 0.5,
     borderRadius: 2,
   },

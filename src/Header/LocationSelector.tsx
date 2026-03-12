@@ -28,6 +28,7 @@ import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
 import LinearGradient from "react-native-linear-gradient";
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 Geocoder.init(keys.api_key);
 
@@ -56,6 +57,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   setUserPreference,
   onLocationChange,
 }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
   console.log("User Preference in LocationSelector:", userPreference);
   const dispatch = useDispatch();
   const locationDispatch = useDispatch();
@@ -104,6 +106,68 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   // Check if user is authenticated
   const isAuthenticated = appUser && appUser.customerid;
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          locationText: 13,
+          dropdownItemText: 13,
+          modalTitle: 16,
+          methodTitle: 15,
+          methodDescription: 11,
+          sectionTitle: 13,
+          addressText: 14,
+          coordinateText: 12,
+          instructionsText: 13,
+          buttonText: 13,
+          statusText: 14,
+          saveAsText: 15,
+          saveOptionText: 13,
+          searchResultTitle: 13,
+          searchResultSubtitle: 11,
+        };
+      case 'large':
+        return {
+          locationText: 16,
+          dropdownItemText: 16,
+          modalTitle: 20,
+          methodTitle: 18,
+          methodDescription: 14,
+          sectionTitle: 16,
+          addressText: 18,
+          coordinateText: 16,
+          instructionsText: 16,
+          buttonText: 16,
+          statusText: 18,
+          saveAsText: 18,
+          saveOptionText: 16,
+          searchResultTitle: 16,
+          searchResultSubtitle: 14,
+        };
+      default:
+        return {
+          locationText: 14,
+          dropdownItemText: 14,
+          modalTitle: 18,
+          methodTitle: 16,
+          methodDescription: 12,
+          sectionTitle: 14,
+          addressText: 16,
+          coordinateText: 14,
+          instructionsText: 14,
+          buttonText: 14,
+          statusText: 16,
+          saveAsText: 16,
+          saveOptionText: 14,
+          searchResultTitle: 14,
+          searchResultSubtitle: 12,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   // Helper function to create location data object
   const createLocationData = (lat: number, lng: number, addr: string): LocationData => {
@@ -864,7 +928,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <TouchableOpacity
           style={[
             styles.methodCard,
-            locationMethod === 'auto' && styles.methodCardActive
+            locationMethod === 'auto' && styles.methodCardActive,
+            { backgroundColor: colors.surface, borderColor: colors.border }
           ]}
           onPress={() => {
             setLocationMethod('auto');
@@ -875,21 +940,22 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <MaterialIcon 
               name="my-location" 
               size={24} 
-              color={locationMethod === 'auto' ? "#3b82f6" : "#64748b"} 
+              color={locationMethod === 'auto' ? colors.primary : colors.textSecondary} 
             />
           </View>
           <Text style={[
             styles.methodTitle,
-            locationMethod === 'auto' && styles.methodTextActive
+            { fontSize: fontSizes.methodTitle, color: colors.text },
+            locationMethod === 'auto' && { color: colors.primary }
           ]}>
             Auto Detect
           </Text>
-          <Text style={styles.methodDescription}>
+          <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
             Use your current location
           </Text>
           {locationMethod === 'auto' && (
             <View style={styles.activeIndicator}>
-              <MaterialIcon name="check-circle" size={20} color="#3b82f6" />
+              <MaterialIcon name="check-circle" size={20} color={colors.primary} />
             </View>
           )}
         </TouchableOpacity>
@@ -897,7 +963,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <TouchableOpacity
           style={[
             styles.methodCard,
-            locationMethod === 'manual' && styles.methodCardActive
+            locationMethod === 'manual' && styles.methodCardActive,
+            { backgroundColor: colors.surface, borderColor: colors.border }
           ]}
           onPress={() => setLocationMethod('manual')}
         >
@@ -905,21 +972,22 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <MaterialIcon 
               name="search" 
               size={24} 
-              color={locationMethod === 'manual' ? "#3b82f6" : "#64748b"} 
+              color={locationMethod === 'manual' ? colors.primary : colors.textSecondary} 
             />
           </View>
           <Text style={[
             styles.methodTitle,
-            locationMethod === 'manual' && styles.methodTextActive
+            { fontSize: fontSizes.methodTitle, color: colors.text },
+            locationMethod === 'manual' && { color: colors.primary }
           ]}>
             Search Manually
           </Text>
-          <Text style={styles.methodDescription}>
+          <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
             Search or tap on map
           </Text>
           {locationMethod === 'manual' && (
             <View style={styles.activeIndicator}>
-              <MaterialIcon name="check-circle" size={20} color="#3b82f6" />
+              <MaterialIcon name="check-circle" size={20} color={colors.primary} />
             </View>
           )}
         </TouchableOpacity>
@@ -932,16 +1000,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     if (isCheckingLocation) {
       return (
         <View style={styles.statusContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.statusText}>Checking location services...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>Checking location services...</Text>
         </View>
       );
     } else if (loading) {
       return (
         <View style={styles.statusContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={styles.statusText}>Getting your location...</Text>
-          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: '#64748b' }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>Getting your location...</Text>
+          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
             This may take a few seconds
           </Text>
         </View>
@@ -949,28 +1017,28 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     } else if (showGPSButton) {
       return (
         <View style={styles.statusContainer}>
-          <MaterialIcon name="location-off" size={50} color="#ef4444" />
-          <Text style={[styles.statusText, { color: '#ef4444', fontWeight: '600' }]}>
+          <MaterialIcon name="location-off" size={50} color={colors.error} />
+          <Text style={[styles.statusText, { color: colors.error, fontWeight: '600', fontSize: fontSizes.statusText }]}>
             Location services are disabled
           </Text>
-          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: '#64748b' }]}>
+          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
             Please enable device location to continue
           </Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.primaryButton, { width: '100%' }]}
+              style={[styles.button, { backgroundColor: colors.primary, width: '100%' }]}
               onPress={handleOpenSettings}
             >
-              <MaterialIcon name="settings" size={16} color="white" style={{ marginRight: 8 }} />
-              <Text style={styles.buttonText}>Enable Device Location</Text>
+              <MaterialIcon name="settings" size={16} color="#ffffff" style={{ marginRight: 8 }} />
+              <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>Enable Device Location</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.secondaryButton, { marginTop: 12, width: '100%' }]}
+              style={[styles.button, { marginTop: 12, width: '100%', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
               onPress={() => {
                 setLocationMethod('manual');
               }}
             >
-              <Text style={styles.secondaryButtonText}>Switch to Manual Search</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Switch to Manual Search</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -979,8 +1047,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       return (
         <View style={styles.autoLocationContent}>
           {/* Map View */}
-          <View style={styles.mapInstructions}>
-            <Text style={styles.instructionsText}>
+          <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
+            <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
               📍 Your current location is shown on the map
             </Text>
           </View>
@@ -1002,34 +1070,34 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                     longitude: longitude,
                   }}
                   title="Your current location"
-                  pinColor="blue"
+                  pinColor={colors.primary}
                 />
               )}
             </MapView>
             
             {/* Small Refresh Button */}
             <TouchableOpacity
-              style={styles.smallRefreshButton}
+              style={[styles.smallRefreshButton, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={fetchLocationWithChecks}
             >
-              <MaterialIcon name="refresh" size={16} color="#3b82f6" />
+              <MaterialIcon name="refresh" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
 
           {/* Location Info */}
-          <View style={styles.locationInfoContainer}>
+          <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
             <View style={styles.locationInfo}>
-              <MaterialIcon name="location-on" size={20} color="#3b82f6" />
-              <Text style={styles.addressText} numberOfLines={2}>
+              <MaterialIcon name="location-on" size={20} color={colors.primary} />
+              <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
                 {address || "Fetching your location..."}
               </Text>
             </View>
             {latitude && longitude && (
               <View style={styles.coordinatesContainer}>
-                <Text style={styles.coordinateText}>
+                <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
                   Lat: {latitude.toFixed(4)}
                 </Text>
-                <Text style={styles.coordinateText}>
+                <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
                   Lng: {longitude.toFixed(4)}
                 </Text>
               </View>
@@ -1046,12 +1114,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <View style={styles.methodContentContainer}>
         {/* Search Section */}
         <View style={styles.searchSection}>
-          <Text style={styles.sectionTitle}>Search for a location</Text>
-          <View style={styles.searchInputContainer}>
-            <Icon name="search" size={16} color="#64748b" style={styles.searchIcon} />
+          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Search for a location</Text>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Icon name="search" size={16} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.addressText }]}
               placeholder="Enter address or place name..."
+              placeholderTextColor={colors.placeholder}
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
@@ -1069,18 +1138,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 }}
                 style={styles.clearSearchButton}
               >
-                <Icon name="times" size={16} color="#64748b" />
+                <Icon name="times" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
 
           {/* Search Results */}
           {showSearchResults && (
-            <View style={styles.searchResultsContainer}>
+            <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {isSearching ? (
                 <View style={styles.searchLoadingContainer}>
-                  <ActivityIndicator size="small" color="#3b82f6" />
-                  <Text style={styles.searchLoadingText}>Searching...</Text>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.searchLoadingText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>Searching...</Text>
                 </View>
               ) : searchResults.length > 0 ? (
                 <FlatList
@@ -1088,15 +1157,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                   keyExtractor={(item, index) => `${item.place_id}-${index}`}
                   renderItem={({ item }) => (
                     <TouchableOpacity
-                      style={styles.searchResultItem}
+                      style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
                       onPress={() => handleLocationSelect(item)}
                     >
-                      <MaterialIcon name="location-on" size={16} color="#3b82f6" />
+                      <MaterialIcon name="location-on" size={16} color={colors.primary} />
                       <View style={styles.searchResultText}>
-                        <Text style={styles.searchResultTitle} numberOfLines={1}>
+                        <Text style={[styles.searchResultTitle, { color: colors.text, fontSize: fontSizes.searchResultTitle }]} numberOfLines={1}>
                           {item.display_name.split(',')[0]}
                         </Text>
-                        <Text style={styles.searchResultSubtitle} numberOfLines={2}>
+                        <Text style={[styles.searchResultSubtitle, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]} numberOfLines={2}>
                           {item.display_name}
                         </Text>
                       </View>
@@ -1106,7 +1175,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 />
               ) : searchQuery.length >= 3 ? (
                 <View style={styles.noResultsContainer}>
-                  <Text style={styles.noResultsText}>No locations found</Text>
+                  <Text style={[styles.noResultsText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>No locations found</Text>
                 </View>
               ) : null}
             </View>
@@ -1114,8 +1183,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         </View>
 
         {/* Map View */}
-        <View style={styles.mapInstructions}>
-          <Text style={styles.instructionsText}>
+        <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
+          <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
             {isPinSelected 
               ? "📍 Pin location selected. Tap 'Confirm Location' to use this address."
               : "📍 Tap on the map to select a location or search above"}
@@ -1140,7 +1209,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                   longitude: longitude,
                 }}
                 title="Your current location"
-                pinColor="blue"
+                pinColor={colors.primary}
               />
             )}
             
@@ -1148,26 +1217,26 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               <Marker
                 coordinate={selectedPinLocation}
                 title="Selected location"
-                pinColor="red"
+                pinColor={colors.error}
               />
             )}
           </MapView>
         </View>
 
         {/* Selected Location Info */}
-        <View style={styles.locationInfoContainer}>
+        <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
           <View style={styles.locationInfo}>
-            <MaterialIcon name="location-on" size={20} color="#3b82f6" />
-            <Text style={styles.addressText} numberOfLines={2}>
+            <MaterialIcon name="location-on" size={20} color={colors.primary} />
+            <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
               {isPinSelected ? selectedPinAddress : (address || "No address selected")}
             </Text>
           </View>
           {selectedPinLocation && (
             <View style={styles.coordinatesContainer}>
-              <Text style={styles.coordinateText}>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
                 Lat: {selectedPinLocation.latitude.toFixed(4)}
               </Text>
-              <Text style={styles.coordinateText}>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
                 Lng: {selectedPinLocation.longitude.toFixed(4)}
               </Text>
             </View>
@@ -1176,11 +1245,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
         <View style={styles.locationSelectionButtons}>
           <TouchableOpacity
-            style={[styles.button, styles.secondaryButton, { flex: 1 }]}
+            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
             onPress={handleUseCurrentLocation}
           >
-            <MaterialIcon name="my-location" size={16} color="#334155" style={{ marginRight: 4 }} />
-            <Text style={styles.secondaryButtonText}>Use Current</Text>
+            <MaterialIcon name="my-location" size={16} color={colors.text} style={{ marginRight: 4 }} />
+            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Use Current</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1195,7 +1264,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         {renderLocationMethodSelector()}
         
         {/* Divider */}
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
         
         {/* Conditional Content Based on Selected Method */}
         {locationMethod === 'auto' && renderAutoDetectContent()}
@@ -1204,7 +1273,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         {/* Action Buttons - Always Visible */}
         <View style={styles.buttonGroup}>
           <TouchableOpacity
-            style={[styles.button, styles.secondaryButton]}
+            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
             onPress={() => {
               setOpen(false);
               setIsPinSelected(false);
@@ -1215,28 +1284,365 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               setLocationMethod(null);
             }}
           >
-            <Text style={styles.secondaryButtonText}>Cancel</Text>
+            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.button, 
-              styles.primaryButton, 
-              (!address && !selectedPinAddress && !(locationMethod === 'auto' && address)) && styles.disabledButton
+              { backgroundColor: colors.primary },
+              (!address && !selectedPinAddress && !(locationMethod === 'auto' && address)) && { backgroundColor: colors.disabled }
             ]}
             onPress={handleLocationSave}
             disabled={!address && !selectedPinAddress}
           >
-            <Text style={styles.buttonText}>Confirm Location</Text>
+            <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>Confirm Location</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   };
 
+  const dynamicStyles = StyleSheet.create({
+    locationContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      borderColor: colors.border,
+      minWidth: 140,
+      width: "100%",
+      height: "100%",
+      justifyContent: "space-between",
+    },
+    locationText: {
+      fontSize: fontSizes.locationText,
+      color: colors.text,
+      marginHorizontal: 6,
+      fontWeight: "500",
+      flex: 1,
+    },
+    locationIcon: {
+      marginRight: 4,
+    },
+    dropdownContainer: {
+      position: "absolute",
+      top: 50,
+      left: 0,
+      backgroundColor: colors.card,
+      borderRadius: 8,
+      padding: 8,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 5,
+      zIndex: 100,
+      width: 200,
+    },
+    dropdownItem: {
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    dropdownItemText: {
+      fontSize: fontSizes.dropdownItemText,
+      color: colors.text,
+    },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: fontSizes.modalTitle,
+      fontWeight: "bold",
+      color: "#ffffff"
+    },
+    modalContent: {
+      flex: 1,
+      padding: 16,
+    },
+    methodSelectorContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 20,
+      gap: 12,
+    },
+    methodCard: {
+      flex: 1,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 2,
+      alignItems: 'center',
+      position: 'relative',
+    },
+    methodCardActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '10',
+    },
+    methodIconContainer: {
+      marginBottom: 8,
+    },
+    methodTitle: {
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    methodDescription: {
+      textAlign: 'center',
+    },
+    activeIndicator: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+    },
+    divider: {
+      height: 1,
+      marginVertical: 16,
+    },
+    methodContentContainer: {
+      flex: 1,
+    },
+    sectionTitle: {
+      fontWeight: '600',
+      marginBottom: 8,
+    },
+    autoLocationContent: {
+      flex: 1,
+    },
+    autoMapContainer: {
+      borderRadius: 12,
+      overflow: "hidden",
+      marginBottom: 16,
+      height: "45%",
+      position: "relative",
+    },
+    mapContainer: {
+      borderRadius: 12,
+      overflow: "hidden",
+      marginBottom: 16,
+      height: "45%",
+    },
+    map: {
+      width: "100%",
+      height: "100%",
+    },
+    smallRefreshButton: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      borderRadius: 20,
+      width: 36,
+      height: 36,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      borderWidth: 1,
+    },
+    searchSection: {
+      marginBottom: 16,
+      position: 'relative',
+      zIndex: 1000,
+    },
+    locationInfoContainer: {
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+    },
+    locationInfo: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    addressText: {
+      marginLeft: 8,
+      flex: 1,
+    },
+    coordinatesContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    coordinateText: {},
+    buttonGroup: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 12,
+      marginTop: 16,
+      marginBottom: 16,
+    },
+    buttonContainer: {
+      width: "100%",
+      paddingHorizontal: 24,
+    },
+    button: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
+    },
+    buttonText: {
+      fontWeight: "500",
+    },
+    secondaryButtonText: {
+      fontWeight: "500",
+    },
+    statusContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    statusText: {
+      marginTop: 15,
+      textAlign: "center",
+    },
+    saveAsText: {
+      fontSize: fontSizes.saveAsText,
+      fontWeight: "500",
+      marginBottom: 16,
+      color: colors.text,
+    },
+    saveOptionsContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 16,
+    },
+    saveOptionButton: {
+      alignItems: "center",
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      flex: 1,
+      marginHorizontal: 4,
+    },
+    saveOptionText: {
+      marginTop: 8,
+      fontSize: fontSizes.saveOptionText,
+      color: colors.text,
+    },
+    locationNameInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 16,
+      fontSize: fontSizes.addressText,
+      color: colors.text,
+      backgroundColor: colors.card,
+    },
+    searchContainer: {
+      marginBottom: 16,
+      position: "relative",
+      zIndex: 1000,
+    },
+    searchInputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: 8,
+      borderWidth: 1,
+      paddingHorizontal: 12,
+    },
+    searchIcon: {
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: 12,
+    },
+    clearSearchButton: {
+      padding: 4,
+    },
+    searchResultsContainer: {
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      right: 0,
+      borderRadius: 8,
+      borderWidth: 1,
+      marginTop: 4,
+      maxHeight: 200,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      zIndex: 1001,
+    },
+    searchResultsList: {
+      maxHeight: 200,
+    },
+    searchResultItem: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      padding: 12,
+      borderBottomWidth: 1,
+    },
+    searchResultText: {
+      flex: 1,
+      marginLeft: 8,
+    },
+    searchResultTitle: {
+      fontWeight: "500",
+      marginBottom: 2,
+    },
+    searchResultSubtitle: {},
+    searchLoadingContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    },
+    searchLoadingText: {
+      marginLeft: 8,
+    },
+    noResultsContainer: {
+      padding: 16,
+      alignItems: "center",
+    },
+    noResultsText: {},
+    mapInstructions: {
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+    },
+    instructionsText: {
+      textAlign: "center",
+    },
+    locationSelectionButtons: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 12,
+      marginBottom: 16,
+    },
+    activeButton: {
+      backgroundColor: colors.primary + '20',
+      borderColor: colors.primary,
+      borderWidth: 2,
+    },
+    disabledButton: {
+      opacity: 0.6,
+    },
+  });
+
   return (
     <View style={styles.locationSection}>
       <TouchableOpacity
-        style={styles.locationContainer}
+        style={dynamicStyles.locationContainer}
         onPress={() =>{ 
           setShowDropdown(!showDropdown);
           updateSuggestions();
@@ -1245,31 +1651,31 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <MaterialIcon
           name="location-on"
           size={16}
-          color="#3b82f6"
-          style={styles.locationIcon}
+          color={colors.primary}
+          style={dynamicStyles.locationIcon}
         />
         <Text
-          style={styles.locationText}
+          style={dynamicStyles.locationText}
           numberOfLines={1}
           ellipsizeMode="tail"
         >
           {location || "Searching ..."}
         </Text> 
-        <MaterialIcon name="arrow-drop-down" size={18} color="#3b82f6" />
+        <MaterialIcon name="arrow-drop-down" size={18} color={colors.primary} />
       </TouchableOpacity>
 
       {showDropdown && (
-        <View style={styles.dropdownContainer}>
+        <View style={dynamicStyles.dropdownContainer}>
           {loadingLocations ? (
-            <View style={styles.dropdownItem}>
-              <ActivityIndicator size="small" color="#3b82f6" />
-              <Text style={[styles.dropdownItemText, { marginLeft: 8 }]}>Loading...</Text>
+            <View style={dynamicStyles.dropdownItem}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[dynamicStyles.dropdownItemText, { marginLeft: 8 }]}>Loading...</Text>
             </View>
           ) : (
             suggestions.map((suggestion, index) => (
               <TouchableOpacity
                 key={index}
-                style={styles.dropdownItem}
+                style={dynamicStyles.dropdownItem}
                 onPress={() => {
                   console.log(`📍 ${suggestion.name} clicked`);
                   console.log("📊 Current suggestions:", suggestions);
@@ -1278,7 +1684,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                   setShowDropdown(false);
                 }}
               >
-                <Text style={styles.dropdownItemText}>{suggestion.name}</Text>
+                <Text style={dynamicStyles.dropdownItemText}>{suggestion.name}</Text>
               </TouchableOpacity>
             ))
           )}
@@ -1300,14 +1706,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           setLocationMethod(null);
         }}
       >
-        <View style={styles.modalContainer}>
+        <View style={dynamicStyles.modalContainer}>
            <LinearGradient
               colors={["#0a2a66ff", "#004aadff"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.modalHeader}
             >
-            <Text style={styles.modalTitle}>Select Your Location</Text>
+            <Text style={dynamicStyles.modalTitle}>Select Your Location</Text>
             <TouchableOpacity onPress={() => {
               setOpen(false);
               setIsPinSelected(false);
@@ -1332,74 +1738,79 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         transparent={false}
         onRequestClose={() => setOpenSaveOptionForSave(false)}
       >
-        <View style={styles.modalContainer}>
+        <View style={dynamicStyles.modalContainer}>
           <LinearGradient
             colors={["#0a2a66ff", "#004aadff"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.modalHeader}
           >
-            <Text style={styles.modalTitle}>Save As</Text>
+            <Text style={dynamicStyles.modalTitle}>Save As</Text>
             <TouchableOpacity onPress={() => setOpenSaveOptionForSave(false)}>
               <Icon name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
           </LinearGradient>
-          <View style={styles.modalContent}>
-            <Text style={styles.saveAsText}>Save As:</Text>
+          <View style={dynamicStyles.modalContent}>
+            <Text style={dynamicStyles.saveAsText}>Save As:</Text>
             <View style={styles.saveOptionsContainer}>
               <TouchableOpacity
-                style={styles.saveOptionButton}
+                style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
                 onPress={() => handleUserPreference("Home")}
                 disabled={isSaving}
               >
-                <Icon name="home" size={20} color="#3b82f6" />
-                <Text style={styles.saveOptionText}>Home</Text>
+                <Icon name="home" size={20} color={colors.primary} />
+                <Text style={dynamicStyles.saveOptionText}>Home</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.saveOptionButton}
+                style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
                 onPress={() => handleUserPreference("Office")}
                 disabled={isSaving}
               >
-                <Icon name="briefcase" size={20} color="#3b82f6" />
-                <Text style={styles.saveOptionText}>Office</Text>
+                <Icon name="briefcase" size={20} color={colors.primary} />
+                <Text style={dynamicStyles.saveOptionText}>Office</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.saveOptionButton}
+                style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
                 onPress={() => handleUserPreference()}
                 disabled={isSaving}
               >
-                <Icon name="map-marker" size={20} color="#3b82f6" />
-                <Text style={styles.saveOptionText}>Others</Text>
+                <Icon name="map-marker" size={20} color={colors.primary} />
+                <Text style={dynamicStyles.saveOptionText}>Others</Text>
               </TouchableOpacity>
             </View>
 
             {showInput && (
               <TextInput
-                style={styles.locationNameInput}
+                style={dynamicStyles.locationNameInput}
                 placeholder="Enter Location Name"
+                placeholderTextColor={colors.placeholder}
                 value={locationAs}
                 onChangeText={setLocationAs}
                 editable={!isSaving}
               />
             )}
 
-            <View style={styles.buttonGroup}>
+            <View style={dynamicStyles.buttonGroup}>
               <TouchableOpacity
-                style={[styles.button, styles.secondaryButton]}
+                style={[dynamicStyles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
                 onPress={() => setOpenSaveOptionForSave(false)}
                 disabled={isSaving}
               >
-                <Text style={styles.secondaryButtonText}>Cancel</Text>
+                <Text style={dynamicStyles.secondaryButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.primaryButton, (!locationAs || locationAs.trim() === "") && styles.disabledButton]}
+                style={[
+                  dynamicStyles.button, 
+                  { backgroundColor: colors.primary },
+                  (!locationAs || locationAs.trim() === "") && dynamicStyles.disabledButton
+                ]}
                 onPress={locationHandleSave}
                 disabled={!locationAs || locationAs.trim() === "" || isSaving}
               >
                 {isSaving ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.buttonText}>Save</Text>
+                  <Text style={dynamicStyles.buttonText}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1410,63 +1821,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   );
 };
 
-// Updated styles with new additions
+// Keep static styles for layout and structure
 const styles = StyleSheet.create({
   locationSection: {
     flex: 2,
     marginHorizontal: 12,
     position: "relative",
-  },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8fafc",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    borderColor: "#e2e8f0",
-    minWidth: 140,
-    width: "100%",
-    height: "100%",
-    justifyContent: "space-between",
-  },
-  locationText: {
-    fontSize: 14,
-    color: "#334155",
-    marginHorizontal: 6,
-    fontWeight: "500",
-    flex: 1,
-  },
-  locationIcon: {
-    marginRight: 4,
-  },
-  dropdownContainer: {
-    position: "absolute",
-    top: 50,
-    left: 0,
-    backgroundColor: "white",
-    borderRadius: 8,
-    padding: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 100,
-    width: 200,
-  },
-  dropdownItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: "#333",
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "white",
   },
   modalHeader: {
     flexDirection: "row",
@@ -1476,52 +1836,47 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#f1f5f9"
-  },
   modalContent: {
     flex: 1,
     padding: 16,
   },
-  
-  // NEW STYLES for method selector
+  saveOptionsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  button: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  methodCard: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  methodCardActive: {
+    borderWidth: 2,
+  },
   methodSelectorContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
     gap: 12,
   },
-  methodCard: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  methodCardActive: {
-    borderColor: '#3b82f6',
-    backgroundColor: '#eff6ff',
-  },
   methodIconContainer: {
     marginBottom: 8,
   },
   methodTitle: {
-    fontSize: 16,
     fontWeight: '600',
-    color: '#334155',
     marginBottom: 4,
   },
-  methodTextActive: {
-    color: '#3b82f6',
-  },
   methodDescription: {
-    fontSize: 12,
-    color: '#64748b',
     textAlign: 'center',
   },
   activeIndicator: {
@@ -1531,16 +1886,13 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#e2e8f0',
     marginVertical: 16,
   },
   methodContentContainer: {
     flex: 1,
   },
   sectionTitle: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
     marginBottom: 8,
   },
   autoLocationContent: {
@@ -1563,12 +1915,10 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  // Small refresh button style
   smallRefreshButton: {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: 'white',
     borderRadius: 20,
     width: 36,
     height: 36,
@@ -1580,7 +1930,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
   searchSection: {
     marginBottom: 16,
@@ -1588,7 +1937,6 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   locationInfoContainer: {
-    backgroundColor: "#f8fafc",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -1599,8 +1947,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addressText: {
-    fontSize: 16,
-    color: "#334155",
     marginLeft: 8,
     flex: 1,
   },
@@ -1608,10 +1954,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  coordinateText: {
-    fontSize: 14,
-    color: "#64748b",
-  },
+  coordinateText: {},
   buttonGroup: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1623,28 +1966,10 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 24,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  primaryButton: {
-    backgroundColor: "#3b82f6",
-  },
-  secondaryButton: {
-    backgroundColor: "#f1f5f9",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
   buttonText: {
-    color: "#fff",
     fontWeight: "500",
   },
   secondaryButtonText: {
-    color: "#334155",
     fontWeight: "500",
   },
   statusContainer: {
@@ -1655,53 +1980,29 @@ const styles = StyleSheet.create({
   },
   statusText: {
     marginTop: 15,
-    fontSize: 16,
     textAlign: "center",
-    color: "#333",
-  },
-  saveAsText: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 16,
-  },
-  saveOptionsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
   },
   saveOptionButton: {
     alignItems: "center",
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
     flex: 1,
     marginHorizontal: 4,
   },
   saveOptionText: {
     marginTop: 8,
-    fontSize: 14,
-    color: "#334155",
   },
   locationNameInput: {
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
-    fontSize: 16,
-  },
-  searchContainer: {
-    marginBottom: 16,
-    position: "relative",
-    zIndex: 1000,
   },
   searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8fafc",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     paddingHorizontal: 12,
   },
   searchIcon: {
@@ -1710,8 +2011,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: 12,
-    fontSize: 16,
-    color: "#334155",
   },
   clearSearchButton: {
     padding: 4,
@@ -1721,10 +2020,8 @@ const styles = StyleSheet.create({
     top: "100%",
     left: 0,
     right: 0,
-    backgroundColor: "white",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
     marginTop: 4,
     maxHeight: 200,
     shadowColor: "#000",
@@ -1742,22 +2039,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
   },
   searchResultText: {
     flex: 1,
     marginLeft: 8,
   },
   searchResultTitle: {
-    fontSize: 14,
     fontWeight: "500",
-    color: "#334155",
     marginBottom: 2,
   },
-  searchResultSubtitle: {
-    fontSize: 12,
-    color: "#64748b",
-  },
+  searchResultSubtitle: {},
   searchLoadingContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -1766,28 +2057,19 @@ const styles = StyleSheet.create({
   },
   searchLoadingText: {
     marginLeft: 8,
-    fontSize: 14,
-    color: "#64748b",
   },
   noResultsContainer: {
     padding: 16,
     alignItems: "center",
   },
-  noResultsText: {
-    fontSize: 14,
-    color: "#64748b",
-  },
+  noResultsText: {},
   mapInstructions: {
-    backgroundColor: "#f0f9ff",
     padding: 12,
     borderRadius: 8,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: "#3b82f6",
   },
   instructionsText: {
-    fontSize: 14,
-    color: "#0369a1",
     textAlign: "center",
   },
   locationSelectionButtons: {
@@ -1797,12 +2079,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   activeButton: {
-    backgroundColor: "#dbeafe",
-    borderColor: "#3b82f6",
     borderWidth: 2,
   },
   disabledButton: {
-    backgroundColor: "#9ca3af",
     opacity: 0.6,
   },
 });

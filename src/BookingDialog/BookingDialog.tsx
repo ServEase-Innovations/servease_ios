@@ -18,6 +18,8 @@ import LinearGradient from "react-native-linear-gradient";
 import DribbbleDateTimePicker from "../common/DribbbleDateTimePicker";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAppUser } from '../context/AppUserContext';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
@@ -54,6 +56,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   setEndTime,
 }) => {
   const { appUser } = useAppUser();
+  const { t } = useTranslation();
+  const { colors, isDarkMode, fontSize } = useTheme();
   const [role, setRole] = useState<string | null>(null);
   const [isServiceDisabled, setIsServiceDisabled] = useState(false);
 
@@ -539,12 +543,47 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     return new Date(maxDate21Days.toISOString());
   };
 
+  // Get font size based on theme settings
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          title: 16,
+          subtitle: 13,
+          text: 12,
+          small: 11,
+          button: 13,
+          sectionTitle: 15,
+        };
+      case 'large':
+        return {
+          title: 20,
+          subtitle: 16,
+          text: 15,
+          small: 13,
+          button: 16,
+          sectionTitle: 18,
+        };
+      default:
+        return {
+          title: 18,
+          subtitle: 14,
+          text: 14,
+          small: 12,
+          button: 14,
+          sectionTitle: 16,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
+
   // If user is service provider, show disabled message
   if (isServiceDisabled) {
     return (
       <Modal visible={open} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.container}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.container, { backgroundColor: colors.card }]}>
             <LinearGradient
               colors={["#0a2a66ff", "#004aadff"]}
               start={{ x: 0, y: 0 }}
@@ -553,7 +592,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             >
               <View style={styles.headerContent}>
                 <View style={styles.headerLeft} />
-                <Text style={styles.title}>Booking Not Available</Text>
+                <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>{t('booking.disabled.title')}</Text>
                 <View style={styles.headerRight}>
                   <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
                     <Icon name="close" size={24} color="#fff" />
@@ -562,17 +601,17 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </View>
             </LinearGradient>
 
-            <View style={styles.disabledContainer}>
+            <View style={[styles.disabledContainer, { backgroundColor: colors.card }]}>
               <Icon name="info-outline" size={60} color="#FFA500" />
-              <Text style={styles.disabledTitle}>Service Provider Account</Text>
-              <Text style={styles.disabledMessage}>
-                As a service provider, you cannot book services. Please use a customer account to book services.
+              <Text style={[styles.disabledTitle, { color: colors.text, fontSize: fontSizes.title }]}>{t('booking.disabled.serviceProvider')}</Text>
+              <Text style={[styles.disabledMessage, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+                {t('booking.disabled.message')}
               </Text>
               <TouchableOpacity
-                style={styles.disabledCloseButton}
+                style={[styles.disabledCloseButton, { backgroundColor: colors.primary }]}
                 onPress={onClose}
               >
-                <Text style={styles.disabledCloseButtonText}>Close</Text>
+                <Text style={[styles.disabledCloseButtonText, { color: '#fff', fontSize: fontSizes.button }]}>{t('common.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -592,26 +631,25 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     // If today is disabled, show message instead of time picker
     if (isToday && isDateDisabled(now)) {
       return (
-        <View style={styles.customTimePickerContainer}>
-          <Text style={styles.customTimePickerTitle}>
-            Select {showCustomTimePicker === "start" ? "Start" : "End"} Time
+        <View style={[styles.customTimePickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.customTimePickerTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+            {t('booking.selectDateTime')} {showCustomTimePicker === "start" ? t('booking.startTime') : t('booking.endTime')}
           </Text>
-          <View style={styles.cutoffMessageContainer}>
-            <Icon name="access-time" size={40} color="#FF3B30" />
-            <Text style={styles.cutoffMessageTitle}>
-              Booking Cutoff Reached
+          <View style={[styles.cutoffMessageContainer, { backgroundColor: colors.card }]}>
+            <Icon name="access-time" size={40} color={colors.error} />
+            <Text style={[styles.cutoffMessageTitle, { color: colors.error, fontSize: fontSizes.title }]}>
+              {t('booking.cutoff.title')}
             </Text>
-            <Text style={styles.cutoffMessageText}>
-              Bookings for today are no longer accepted after {BUSINESS_HOURS.cutoffHour}:00 PM.
-              Please select a future date.
+            <Text style={[styles.cutoffMessageText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+              {t('booking.cutoff.message', { time: `${BUSINESS_HOURS.cutoffHour}:00` })}
             </Text>
           </View>
           <View style={styles.customTimePickerActions}>
             <TouchableOpacity
-              style={styles.customTimePickerButton}
+              style={[styles.customTimePickerButton, { borderColor: colors.primary }]}
               onPress={handleCustomTimeCancel}
             >
-              <Text style={styles.customTimePickerButtonText}>Cancel</Text>
+              <Text style={[styles.customTimePickerButtonText, { color: colors.primary, fontSize: fontSizes.button }]}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -661,23 +699,24 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     };
 
     return (
-      <View style={styles.customTimePickerContainer}>
-        <Text style={styles.customTimePickerTitle}>
-          Select {showCustomTimePicker === "start" ? "Start" : "End"} Time
+      <View style={[styles.customTimePickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.customTimePickerTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+          {t('booking.selectDateTime')} {showCustomTimePicker === "start" ? t('booking.startTime') : t('booking.endTime')}
         </Text>
 
-        <View style={styles.formatToggle}>
+        <View style={[styles.formatToggle, { backgroundColor: colors.surface2 }]}>
           <TouchableOpacity
             style={[
               styles.formatButton,
-              !use24HourFormat && styles.formatButtonActive,
+              !use24HourFormat && [styles.formatButtonActive, { backgroundColor: colors.primary }],
             ]}
             onPress={() => setUse24HourFormat(false)}
           >
             <Text
               style={[
                 styles.formatButtonText,
-                !use24HourFormat && styles.formatButtonTextActive,
+                { color: colors.textSecondary, fontSize: fontSizes.small },
+                !use24HourFormat && { color: '#fff' },
               ]}
             >
               12H
@@ -686,14 +725,15 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           <TouchableOpacity
             style={[
               styles.formatButton,
-              use24HourFormat && styles.formatButtonActive,
+              use24HourFormat && [styles.formatButtonActive, { backgroundColor: colors.primary }],
             ]}
             onPress={() => setUse24HourFormat(true)}
           >
             <Text
               style={[
                 styles.formatButtonText,
-                use24HourFormat && styles.formatButtonTextActive,
+                { color: colors.textSecondary, fontSize: fontSizes.small },
+                use24HourFormat && { color: '#fff' },
               ]}
             >
               24H
@@ -701,10 +741,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.timeRangeInfo}>
-          Available: {BUSINESS_HOURS.openingHour}:00 AM - {BUSINESS_HOURS.cutoffHour-1}:55 PM ({BUSINESS_HOURS.openingHour.toString().padStart(2, '0')}:00 - {BUSINESS_HOURS.cutoffHour-1}:55 GMT)
+        <Text style={[styles.timeRangeInfo, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+          {t('booking.available')}: {BUSINESS_HOURS.openingHour}:00 AM - {BUSINESS_HOURS.cutoffHour-1}:55 PM ({BUSINESS_HOURS.openingHour.toString().padStart(2, '0')}:00 - {BUSINESS_HOURS.cutoffHour-1}:55 GMT)
           {showCustomTimePicker === "start" && isToday && !isDateDisabled(now)
-            ? " • Min. 30 mins from now"
+            ? ` • ${t('booking.min30')}`
             : ""}
         </Text>
 
@@ -748,7 +788,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   key={hour}
                   style={[
                     styles.timeOption,
-                    isSelected && styles.timeOptionSelected,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                    isSelected && [styles.timeOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }],
                   ]}
                   onPress={() => {
                     if (use24HourFormat) {
@@ -762,7 +803,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   <Text
                     style={[
                       styles.timeOptionText,
-                      isSelected && styles.timeOptionTextSelected,
+                      { color: colors.text, fontSize: fontSizes.text },
+                      isSelected && { color: '#fff' },
                     ]}
                   >
                     {displayText}
@@ -771,7 +813,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     <Text
                       style={[
                         styles.timePeriodText,
-                        isSelected && styles.timePeriodTextSelected,
+                        { color: colors.textSecondary, fontSize: fontSizes.small },
+                        isSelected && { color: '#fff' },
                       ]}
                     >
                       {hour < 12 ? "AM" : "PM"}
@@ -792,14 +835,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 key={minute}
                 style={[
                   styles.timeOption,
-                  customMinutes === minute && styles.timeOptionSelected,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  customMinutes === minute && [styles.timeOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }],
                 ]}
                 onPress={() => setCustomMinutes(minute)}
               >
                 <Text
                   style={[
                     styles.timeOptionText,
-                    customMinutes === minute && styles.timeOptionTextSelected,
+                    { color: colors.text, fontSize: fontSizes.text },
+                    customMinutes === minute && { color: '#fff' },
                   ]}
                 >
                   {minute.toString().padStart(2, "0")}
@@ -814,14 +859,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               <TouchableOpacity
                 style={[
                   styles.timeOption,
-                  customAmPm === "AM" && styles.timeOptionSelected,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  customAmPm === "AM" && [styles.timeOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }],
                 ]}
                 onPress={() => setCustomAmPm("AM")}
               >
                 <Text
                   style={[
                     styles.timeOptionText,
-                    customAmPm === "AM" && styles.timeOptionTextSelected,
+                    { color: colors.text, fontSize: fontSizes.text },
+                    customAmPm === "AM" && { color: '#fff' },
                   ]}
                 >
                   AM
@@ -830,14 +877,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               <TouchableOpacity
                 style={[
                   styles.timeOption,
-                  customAmPm === "PM" && styles.timeOptionSelected,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  customAmPm === "PM" && [styles.timeOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }],
                 ]}
                 onPress={() => setCustomAmPm("PM")}
               >
                 <Text
                   style={[
                     styles.timeOptionText,
-                    customAmPm === "PM" && styles.timeOptionTextSelected,
+                    { color: colors.text, fontSize: fontSizes.text },
+                    customAmPm === "PM" && { color: '#fff' },
                   ]}
                 >
                   PM
@@ -850,32 +899,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         <View
           style={[
             styles.selectedTimeDisplay,
-            !isCurrentTimeValid && styles.selectedTimeDisplayInvalid,
+            { borderColor: colors.primary, backgroundColor: colors.card },
+            !isCurrentTimeValid && { borderColor: colors.error, backgroundColor: colors.errorLight },
           ]}
         >
           <Text
             style={[
               styles.selectedTimeText,
-              !isCurrentTimeValid && styles.selectedTimeTextInvalid,
+              { color: colors.primary, fontSize: fontSizes.text },
+              !isCurrentTimeValid && { color: colors.error },
             ]}
           >
-            Selected: {getDisplayTime()}
+            {t('booking.selected')}: {getDisplayTime()}
           </Text>
-          <Text style={styles.gmtTimeText}>GMT: {get24HourDisplay()}</Text>
+          <Text style={[styles.gmtTimeText, { color: colors.textSecondary, fontSize: fontSizes.small }]}>GMT: {get24HourDisplay()}</Text>
         </View>
 
         <View style={styles.customTimePickerActions}>
           <TouchableOpacity
-            style={styles.customTimePickerButton}
+            style={[styles.customTimePickerButton, { borderColor: colors.primary }]}
             onPress={handleCustomTimeCancel}
           >
-            <Text style={styles.customTimePickerButtonText}>Cancel</Text>
+            <Text style={[styles.customTimePickerButtonText, { color: colors.primary, fontSize: fontSizes.button }]}>{t('common.cancel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
               styles.customTimePickerButton,
               styles.customTimePickerButtonConfirm,
-              !isCurrentTimeValid && styles.disabledButton,
+              { backgroundColor: colors.primary },
+              !isCurrentTimeValid && [styles.disabledButton, { backgroundColor: colors.disabled }],
             ]}
             onPress={handleCustomTimeConfirm}
             disabled={!isCurrentTimeValid}
@@ -884,9 +936,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               style={[
                 styles.customTimePickerButtonText,
                 styles.customTimePickerButtonTextConfirm,
+                { color: '#fff', fontSize: fontSizes.button },
               ]}
             >
-              Confirm
+              {t('common.confirm')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -901,39 +954,43 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     const currentDuration = startTime && endTime ? endTime.diff(startTime, 'hour') : 1;
 
     return (
-      <View style={styles.confirmationContainer}>
+      <View style={[styles.confirmationContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {/* Header */}
         <View style={styles.confirmationHeader}>
-          <Text style={styles.confirmationTitle}>Confirm Your Booking</Text>
+          <Text style={[styles.confirmationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.confirmBox.title')}</Text>
         </View>
 
         {/* Booking Details */}
         <View style={styles.confirmationSection}>
-          <Text style={styles.confirmationSubtitle}>Booking Details</Text>
-          <Text style={styles.confirmationText}>
-            Start Date: {startDate ? dayjs(startDate).format('MMMM D, YYYY') : 'Not selected'}
+          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.bookingDetails')}</Text>
+          <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+            {t('booking.startDate')}: {startDate ? dayjs(startDate).format('MMMM D, YYYY') : t('common.notSelected')}
           </Text>
-          <Text style={styles.confirmationText}>
-            Start Time: {startTime ? startTime.format('h:mm A') : 'Not selected'}
+          <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+            {t('booking.startTime')}: {startTime ? startTime.format('h:mm A') : t('common.notSelected')}
           </Text>
-          <Text style={[styles.confirmationText, styles.confirmationItalic]}>
-            Your service is set to start on {startDate ? dayjs(startDate).format('MMMM D, YYYY') : '___'} at {startTime ? startTime.format('h:mm A') : '___'}.
+          <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
+            {t('booking.confirmBox.serviceStarts', { 
+              date: startDate ? dayjs(startDate).format('MMMM D, YYYY') : '___', 
+              time: startTime ? startTime.format('h:mm A') : '___' 
+            })}
           </Text>
         </View>
 
         {/* Service Duration */}
         <View style={styles.confirmationSection}>
-          <Text style={styles.confirmationSubtitle}>Service Duration</Text>
-          <Text style={[styles.confirmationText, styles.confirmationSecondary]}>
-            If you need more time, adjust your service duration below.
+          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.confirmBox.serviceDuration')}</Text>
+          <Text style={[styles.confirmationText, styles.confirmationSecondary, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+            {t('booking.confirmBox.adjustDuration')}
           </Text>
 
           {/* Duration Selector */}
-          <View style={styles.durationSelector}>
+          <View style={[styles.durationSelector, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TouchableOpacity
               style={[
                 styles.durationButton,
-                currentDuration <= 1 && styles.durationButtonDisabled
+                { borderColor: colors.primary, backgroundColor: colors.card },
+                currentDuration <= 1 && [styles.durationButtonDisabled, { borderColor: colors.disabled, backgroundColor: colors.surface }]
               ]}
               onPress={() => {
                 if (startTime && endTime) {
@@ -949,20 +1006,22 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             >
               <Text style={[
                 styles.durationButtonText,
-                currentDuration <= 1 && styles.durationButtonTextDisabled
+                { color: colors.primary, fontSize: fontSizes.title },
+                currentDuration <= 1 && { color: colors.disabled }
               ]}>-</Text>
             </TouchableOpacity>
 
             <View style={styles.durationDisplay}>
-              <Text style={styles.durationDisplayText}>
-                {currentDuration} hour{currentDuration > 1 ? 's' : ''}
+              <Text style={[styles.durationDisplayText, { color: colors.text, fontSize: fontSizes.title }]}>
+                {currentDuration} {t('booking.hours', { count: currentDuration })}
               </Text>
             </View>
 
             <TouchableOpacity
               style={[
                 styles.durationButton,
-                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && styles.durationButtonDisabled
+                { borderColor: colors.primary, backgroundColor: colors.card },
+                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && [styles.durationButtonDisabled, { borderColor: colors.disabled, backgroundColor: colors.surface }]
               ]}
               onPress={() => {
                 if (startTime && endTime) {
@@ -978,16 +1037,17 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             >
               <Text style={[
                 styles.durationButtonText,
-                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && styles.durationButtonTextDisabled
+                { color: colors.primary, fontSize: fontSizes.title },
+                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && { color: colors.disabled }
               ]}>+</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Relax Message */}
-        <View style={styles.relaxMessageContainer}>
-          <Text style={styles.relaxMessageText}>
-            Relax, we'll handle the rest. Our verified professionals ensure your peace of mind.
+        <View style={[styles.relaxMessageContainer, { backgroundColor: colors.infoLight }]}>
+          <Text style={[styles.relaxMessageText, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+            {t('booking.confirmBox.relaxMessage')}
           </Text>
         </View>
       </View>
@@ -996,8 +1056,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   return (
     <Modal visible={open} transparent animationType="fade">
-      <View style={styles.overlay}>
-        <View style={styles.container}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.container, { backgroundColor: colors.card }]}>
           <ScrollView
             contentContainerStyle={{ paddingBottom: 20 }}
             showsVerticalScrollIndicator={false}
@@ -1014,7 +1074,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   {/* Empty view for balance */}
                 </View>
                 
-                <Text style={styles.title}>Select your Booking Option</Text>
+                <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>{t('booking.selectBookingOption')}</Text>
                 
                 <View style={styles.headerRight}>
                   <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
@@ -1026,19 +1086,21 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
             {/* Radio options */}
             <View style={styles.radioRow}>
-              {["Date", "Short term", "Monthly"].map((opt) => (
+              {[t('booking.options.date'), t('booking.options.shortTerm'), t('booking.options.monthly')].map((opt, index) => (
                 <TouchableOpacity
-                  key={opt}
+                  key={index}
                   style={[
                     styles.radioOption,
-                    selectedOption === opt && styles.radioOptionSelected,
+                    { borderColor: colors.border },
+                    selectedOption === opt && [styles.radioOptionSelected, { backgroundColor: colors.primary + '20', borderColor: colors.primary }],
                   ]}
                   onPress={() => onOptionChange(opt)}
                 >
                   <Text
                     style={[
                       styles.radioText,
-                      selectedOption === opt && styles.radioTextSelected,
+                      { color: colors.text, fontSize: fontSizes.text },
+                      selectedOption === opt && [styles.radioTextSelected, { color: colors.primary }],
                     ]}
                   >
                     {opt}
@@ -1048,7 +1110,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
 
             {/* DATE Option */}
-            {selectedOption === "Date" && (
+            {selectedOption === t('booking.options.date') && (
               <>
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
@@ -1088,9 +1150,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             )}
 
             {/* SHORT TERM Option */}
-            {selectedOption === "Short term" && (
+            {selectedOption === t('booking.options.shortTerm') && (
               <>
-                <Text style={styles.subtitle}>Select Date Range & Time</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: fontSizes.subtitle }]}>{t('booking.selectDateTime')}</Text>
 
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
@@ -1125,13 +1187,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 </View>
 
                 {startTime && endTime && (
-                  <View style={styles.confirmBox}>
-                    <Text style={styles.sectionTitle}>Booking Details</Text>
-                    <Text style={styles.sectionText}>
-                      From: {startTime.format("MMM D, YYYY HH:mm")} GMT
+                  <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.bookingDetails')}</Text>
+                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+                      {t('booking.from')}: {startTime.format("MMM D, YYYY HH:mm")} GMT
                     </Text>
-                    <Text style={styles.sectionText}>
-                      To: {endTime.format("MMM D, YYYY HH:mm")} GMT
+                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+                      {t('booking.to')}: {endTime.format("MMM D, YYYY HH:mm")} GMT
                     </Text>
                   </View>
                 )}
@@ -1139,7 +1201,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             )}
 
             {/* MONTHLY Option */}
-            {selectedOption === "Monthly" && (
+            {selectedOption === t('booking.options.monthly') && (
               <>
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
@@ -1168,13 +1230,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 </View>
 
                 {startTime && (
-                  <View style={styles.confirmBox}>
-                    <Text style={styles.sectionTitle}>Monthly Booking</Text>
-                    <Text style={styles.sectionText}>
-                      Start: {startTime.format("MMMM D, YYYY HH:mm")} GMT
+                  <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.monthly')}</Text>
+                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+                      {t('booking.start')}: {startTime.format("MMMM D, YYYY HH:mm")} GMT
                     </Text>
-                    <Text style={styles.sectionText}>
-                      End:{" "}
+                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+                      {t('booking.end')}:{" "}
                       {startTime.add(1, "month").format("MMMM D, YYYY HH:mm")}{" "}
                       GMT
                     </Text>
@@ -1185,19 +1247,20 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
             {/* Buttons */}
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.cancelText}>Cancel</Text>
+              <TouchableOpacity style={[styles.cancelButton, { borderColor: colors.primary }]} onPress={onClose}>
+                <Text style={[styles.cancelText, { color: colors.primary, fontSize: fontSizes.button }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
-                  isConfirmDisabled() && styles.disabledButton,
+                  { backgroundColor: colors.primary },
+                  isConfirmDisabled() && [styles.disabledButton, { backgroundColor: colors.disabled }],
                 ]}
                 onPress={handleAccept}
                 disabled={isConfirmDisabled()}
               >
-                <Text style={styles.confirmText}>Confirm</Text>
+                <Text style={[styles.confirmText, { color: '#fff', fontSize: fontSizes.button }]}>{t('common.confirm')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -1212,12 +1275,10 @@ export default BookingDialog;
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   container: {
-    backgroundColor: "#fff",
     width: Dimensions.get("window").width * 0.9,
     maxHeight: Dimensions.get("window").height * 0.85,
     borderRadius: 12,
@@ -1245,18 +1306,14 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   title: {
-    fontSize: 18,
     fontWeight: "700",
-    color: "#fff",
     textAlign: "center",
     flex: 1,
   },
   subtitle: {
-    fontSize: 14,
     fontWeight: "600",
     marginTop: 10,
     marginBottom: 5,
-    color: "#333",
     paddingHorizontal: 20,
   },
   radioRow: {
@@ -1270,18 +1327,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#ccc",
   },
   radioOptionSelected: {
     backgroundColor: "#007AFF20",
-    borderColor: "#007AFF",
   },
   radioText: {
     fontSize: 14,
-    color: "#333",
   },
   radioTextSelected: {
-    color: "#007AFF",
     fontWeight: "600",
   },
   dateTimeContainer: {
@@ -1293,31 +1346,27 @@ const styles = StyleSheet.create({
   dateButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#ccc",
     borderRadius: 8,
     padding: 12,
     marginVertical: 6,
   },
   dateButtonText: {
     fontSize: 14,
-    color: "#333",
     textAlign: "center",
   },
   confirmBox: {
-    backgroundColor: "#f9f9f9",
     borderRadius: 8,
     padding: 12,
     marginTop: 10,
     marginHorizontal: 20,
+    borderWidth: 1,
   },
   sectionTitle: {
-    fontSize: 16,
     fontWeight: "700",
     marginBottom: 4,
   },
   sectionText: {
     fontSize: 14,
-    color: "#444",
     marginBottom: 3,
   },
   durationRow: {
@@ -1327,7 +1376,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   adjustButton: {
-    backgroundColor: "#007AFF20",
     padding: 10,
     borderRadius: 6,
     minWidth: 40,
@@ -1336,7 +1384,6 @@ const styles = StyleSheet.create({
   adjustText: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#007AFF",
   },
   durationText: {
     fontSize: 16,
@@ -1354,51 +1401,41 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#007AFF",
   },
   confirmButton: {
     flex: 1,
     marginLeft: 8,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#007AFF",
   },
   confirmText: {
-    color: "#fff",
     textAlign: "center",
     fontWeight: "600",
   },
   cancelText: {
-    color: "#007AFF",
     textAlign: "center",
     fontWeight: "600",
   },
   disabledButton: {
-    backgroundColor: "#ccc",
     opacity: 0.6,
   },
   // Custom Time Picker Styles
   customTimePickerContainer: {
-    backgroundColor: "#f8f8f8",
     borderRadius: 12,
     padding: 16,
     marginTop: 10,
     marginHorizontal: 20,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
   },
   customTimePickerTitle: {
-    fontSize: 16,
     fontWeight: "600",
     textAlign: "center",
     marginBottom: 8,
-    color: "#333",
   },
   formatToggle: {
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 8,
-    backgroundColor: "#f0f0f0",
     borderRadius: 8,
     padding: 4,
   },
@@ -1413,17 +1450,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#007AFF",
   },
   formatButtonText: {
-    fontSize: 12,
     fontWeight: "600",
-    color: "#666",
-  },
-  formatButtonTextActive: {
-    color: "#fff",
   },
   timeRangeInfo: {
-    fontSize: 12,
     textAlign: "center",
-    color: "#666",
     marginBottom: 16,
     fontStyle: "italic",
   },
@@ -1442,62 +1472,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 2,
     alignItems: "center",
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
   },
   timeOptionSelected: {
     backgroundColor: "#007AFF",
     borderColor: "#007AFF",
   },
   timeOptionText: {
-    fontSize: 14,
-    color: "#333",
     fontWeight: "500",
   },
-  timeOptionTextSelected: {
-    color: "#fff",
-    fontWeight: "600",
-  },
   timePeriodText: {
-    fontSize: 10,
-    color: "#666",
     marginTop: 2,
-  },
-  timePeriodTextSelected: {
-    color: "#fff",
   },
   selectedTimeDisplay: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: "#fff",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#007AFF",
     alignItems: "center",
   },
-  selectedTimeDisplayInvalid: {
-    borderColor: "#FF3B30",
-    backgroundColor: "#FF3B3010",
-  },
   selectedTimeText: {
-    fontSize: 16,
     fontWeight: "600",
-    color: "#007AFF",
-  },
-  selectedTimeTextInvalid: {
-    color: "#FF3B30",
   },
   gmtTimeText: {
-    fontSize: 12,
-    color: "#666",
     marginTop: 4,
-  },
-  validationText: {
-    fontSize: 12,
-    color: "#FF3B30",
-    marginTop: 4,
-    textAlign: "center",
   },
   customTimePickerActions: {
     flexDirection: "row",
@@ -1509,7 +1507,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#007AFF",
     marginHorizontal: 4,
     alignItems: "center",
   },
@@ -1517,9 +1514,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#007AFF",
   },
   customTimePickerButtonText: {
-    fontSize: 14,
     fontWeight: "600",
-    color: "#007AFF",
   },
   customTimePickerButtonTextConfirm: {
     color: "#fff",
@@ -1527,13 +1522,11 @@ const styles = StyleSheet.create({
   // Styles for confirmation box
   confirmationContainer: {
     borderWidth: 1,
-    borderColor: "#e0e0e0",
     borderRadius: 8,
     padding: 16,
     marginHorizontal: 20,
     marginTop: 10,
     marginBottom: 10,
-    backgroundColor: "#fafafa",
   },
   confirmationHeader: {
     flexDirection: "row",
@@ -1542,50 +1535,40 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   confirmationTitle: {
-    fontSize: 16,
     fontWeight: "600",
   },
   confirmationSection: {
     marginBottom: 16,
   },
   confirmationSubtitle: {
-    fontSize: 14,
     fontWeight: "600",
     marginBottom: 8,
   },
   confirmationText: {
-    fontSize: 12,
-    color: "#666",
     marginBottom: 4,
   },
   confirmationItalic: {
     fontStyle: "italic",
-    color: "#007AFF",
     marginTop: 4,
   },
   confirmationSecondary: {
-    color: "#666",
     marginBottom: 8,
   },
   durationSelector: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "white",
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
   },
   durationButton: {
     borderWidth: 1,
-    borderColor: "#007AFF",
     borderRadius: 6,
     minWidth: 40,
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
   },
   durationButtonDisabled: {
     borderColor: "#ccc",
@@ -1594,10 +1577,6 @@ const styles = StyleSheet.create({
   durationButtonText: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#007AFF",
-  },
-  durationButtonTextDisabled: {
-    color: "#999",
   },
   durationDisplay: {
     flex: 1,
@@ -1605,41 +1584,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   durationDisplayText: {
-    fontSize: 18,
     fontWeight: "600",
   },
   // Relax Message Styles
   relaxMessageContainer: {
     alignItems: "center",
     padding: 12,
-    backgroundColor: "#f0f8ff",
     borderRadius: 8,
     marginTop: 8,
   },
   relaxMessageText: {
-    fontSize: 12,
     fontStyle: "italic",
-    color: "#666",
     textAlign: "center",
   },
   // Cutoff message styles
   cutoffMessageContainer: {
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#fff",
     borderRadius: 8,
     marginVertical: 10,
   },
   cutoffMessageTitle: {
-    fontSize: 18,
     fontWeight: "600",
-    color: "#FF3B30",
     marginTop: 10,
     marginBottom: 5,
   },
   cutoffMessageText: {
-    fontSize: 14,
-    color: "#666",
     textAlign: "center",
     lineHeight: 20,
   },
@@ -1648,32 +1618,24 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
   },
   disabledTitle: {
-    fontSize: 20,
     fontWeight: "700",
-    color: "#FFA500",
     marginTop: 20,
     marginBottom: 10,
     textAlign: "center",
   },
   disabledMessage: {
-    fontSize: 16,
-    color: "#666",
     textAlign: "center",
     marginBottom: 30,
     lineHeight: 24,
   },
   disabledCloseButton: {
-    backgroundColor: "#007AFF",
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 8,
   },
   disabledCloseButtonText: {
-    color: "#fff",
-    fontSize: 16,
     fontWeight: "600",
   },
 });
