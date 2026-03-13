@@ -36,6 +36,7 @@ import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { Button } from "../common/Button";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 // Import the new components
 import BasicInformation from "./BasicInformation";
@@ -194,6 +195,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   onBackToLogin, onRegistrationSuccess,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [activeStep, setActiveStep] = useState(0);
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -416,7 +418,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!hasOverlap) {
         onChange(newValues);
       } else {
-        setSnackbarMessage("This time range overlaps with another selected slot");
+        setSnackbarMessage(t('service.timeRangeOverlap'));
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
       }
@@ -492,7 +494,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   // Update selected time slots summary
   const updateSelectedTimeSlots = useCallback(() => {
     if (isFullTime) {
-      setSelectedTimeSlots("06:00 - 20:00 (Full Day)");
+      setSelectedTimeSlots(t('service.fullDay'));
       setFormData((prev) => ({ ...prev, timeslot: "06:00-20:00" }));
       return;
     }
@@ -525,10 +527,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       setSelectedTimeSlots(displaySlots.join(', '));
       setFormData((prev) => ({ ...prev, timeslot: storageSlots.join(', ') }));
     } else {
-      setSelectedTimeSlots('No slots selected');
+      setSelectedTimeSlots(t('service.noSlotsSelected'));
       setFormData((prev) => ({ ...prev, timeslot: '' }));
     }
-  }, [isFullTime, morningSlots, eveningSlots]);
+  }, [isFullTime, morningSlots, eveningSlots, t]);
 
   // Update slots when they change
   useEffect(() => {
@@ -579,7 +581,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       // If still no slot found
       if (!foundAvailableSlot) {
-        setSnackbarMessage("No available time slots remaining in morning");
+        setSnackbarMessage(t('service.noMorningSlotsAvailable'));
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
         return prevSlots;
@@ -638,7 +640,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       // If still no slot found
       if (!foundAvailableSlot) {
-        setSnackbarMessage("No available time slots remaining in evening");
+        setSnackbarMessage(t('service.noEveningSlotsAvailable'));
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
         return prevSlots;
@@ -757,9 +759,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     const labels: Record<string, string> = {
       "AADHAR": "Aadhaar",
       "PAN": "PAN",
-      "DRIVING_LICENSE": "Driving License",
-      "VOTER_ID": "Voter ID",
-      "PASSPORT": "Passport"
+      "DRIVING_LICENSE": t('registration.kyc.documentType.drivingLicense'),
+      "VOTER_ID": t('registration.kyc.documentType.voterId'),
+      "PASSPORT": t('registration.kyc.documentType.passport')
     };
     return labels[kycType] || "KYC";
   };
@@ -863,7 +865,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       } catch (error) {
         console.error("Error geocoding address:", error);
-        setSnackbarMessage("Could not get coordinates for this address. Please check the address details.");
+        setSnackbarMessage(t('address.geocodingError'));
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
       }
@@ -969,17 +971,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: "First Name is required.",
+          firstName: t('validation.required', { field: t('registration.basicInformation.firstName') }),
         }));
       } else if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: "First Name should contain only alphabets.",
+          firstName: t('validation.alphabetsOnly', { field: t('registration.basicInformation.firstName') }),
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: `First Name should not exceed ${MAX_NAME_LENGTH} characters.`,
+          firstName: t('validation.maxLength', { field: t('registration.basicInformation.firstName'), count: MAX_NAME_LENGTH }),
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -994,17 +996,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: "Last Name is required.",
+          lastName: t('validation.required', { field: t('registration.basicInformation.lastName') }),
         }));
       } else if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: "Last Name should contain only alphabets.",
+          lastName: t('validation.alphabetsOnly', { field: t('registration.basicInformation.lastName') }),
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: `Last Name should not exceed ${MAX_NAME_LENGTH} characters.`,
+          lastName: t('validation.maxLength', { field: t('registration.basicInformation.lastName'), count: MAX_NAME_LENGTH }),
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1018,32 +1020,32 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!value) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: "Password is required.",
+          password: t('validation.required', { field: t('registration.basicInformation.password') }),
         }));
       } else if (value.length < 8) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: "Password must be at least 8 characters long.",
+          password: t('validation.minLength', { field: t('registration.basicInformation.password'), count: 8 }),
         }));
       } else if (!/[A-Z]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: "Password must contain at least one uppercase letter.",
+          password: t('validation.passwordUppercase'),
         }));
       } else if (!/[a-z]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: "Password must contain at least one lowercase letter.",
+          password: t('validation.passwordLowercase'),
         }));
       } else if (!/[0-9]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: "Password must contain at least one digit.",
+          password: t('validation.passwordNumber'),
         }));
       } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: "Password must contain at least one special character.",
+          password: t('validation.passwordSpecial'),
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1057,12 +1059,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!value) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          confirmPassword: "Please confirm your password.",
+          confirmPassword: t('validation.required', { field: t('registration.basicInformation.confirmPassword') }),
         }));
       } else if (value !== formData.password) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          confirmPassword: "Passwords do not match",
+          confirmPassword: t('validation.passwordMismatch'),
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1079,13 +1081,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          emailId: "Email is required.",
+          emailId: t('validation.required', { field: t('registration.basicInformation.email') }),
         }));
         resetValidation('email');
       } else if (!emailPattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          emailId: "Please enter a valid email address.",
+          emailId: t('validation.email'),
         }));
         resetValidation('email');
       } else {
@@ -1104,13 +1106,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          mobileNo: "Mobile number is required.",
+          mobileNo: t('validation.required', { field: t('registration.basicInformation.mobileNumber') }),
         }));
         resetValidation('mobile');
       } else if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          mobileNo: "Please enter a valid 10-digit mobile number.",
+          mobileNo: t('validation.phone'),
         }));
         resetValidation('mobile');
       } else {
@@ -1130,13 +1132,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (trimmedValue === formData.mobileNo) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          AlternateNumber: "Alternate number cannot be the same as mobile number.",
+          AlternateNumber: t('validation.alternateSameAsMobile'),
         }));
         resetValidation('alternate');
       } else if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          AlternateNumber: "Please enter a valid 10-digit mobile number.",
+          AlternateNumber: t('validation.phone'),
         }));
         resetValidation('alternate');
       } else {
@@ -1160,23 +1162,23 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         switch(formData.kycType) {
           case "AADHAR":
             isValid = /^[0-9]{12}$/.test(trimmedValue);
-            errorMessage = "Aadhaar number must be exactly 12 digits.";
+            errorMessage = t('validation.aadhaarFormat');
             break;
           case "PAN":
             isValid = panRegex.test(trimmedValue);
-            errorMessage = "Please enter a valid PAN (e.g., ABCDE1234F).";
+            errorMessage = t('validation.panFormat');
             break;
           case "DRIVING_LICENSE":
             isValid = trimmedValue.length >= 8;
-            errorMessage = "Please enter a valid driving license number.";
+            errorMessage = t('validation.drivingLicenseFormat');
             break;
           case "VOTER_ID":
             isValid = voterIdRegex.test(trimmedValue);
-            errorMessage = "Please enter a valid 10-digit Voter ID.";
+            errorMessage = t('validation.voterIdFormat');
             break;
           case "PASSPORT":
             isValid = passportRegex.test(trimmedValue);
-            errorMessage = "Please enter a valid 8-character passport number.";
+            errorMessage = t('validation.passportFormat');
             break;
         }
         
@@ -1186,7 +1188,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           setErrors(prev => ({ ...prev, kycNumber: "" }));
         }
       } else {
-        setErrors(prev => ({ ...prev, kycNumber: `${getKycLabel(formData.kycType)} number is required.` }));
+        setErrors(prev => ({ ...prev, kycNumber: t('validation.required', { field: getKycLabel(formData.kycType) }) }));
       }
     }
 
@@ -1200,7 +1202,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (numericValue.length !== 6) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          pincode: "Pincode must be exactly 6 digits.",
+          pincode: t('validation.pincodeFormat'),
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1272,21 +1274,21 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
         Alert.alert(
-          "Permission Required",
-          "Location access is required to fetch your current location. Please enable it in settings.",
+          t('common.permissionRequired'),
+          t('permissions.locationRequired'),
           [
             {
-              text: "Open Settings",
+              text: t('common.openSettings'),
               onPress: () => Linking.openSettings(),
             },
-            { text: "Cancel", style: "cancel" },
+            { text: t('common.cancel'), style: "cancel" },
           ]
         );
         return;
       }
 
       setLocationLoading(true);
-      setSnackbarMessage("Fetching your current location...");
+      setSnackbarMessage(t('location.fetching'));
       setSnackbarSeverity("info");
       setSnackbarOpen(true);
 
@@ -1335,19 +1337,19 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
             // Ensure we have default values
             if (!parsedAddress.country) {
-              parsedAddress.country = 'India';
+              parsedAddress.country = t('country.india');
             }
             if (!parsedAddress.state) {
-              parsedAddress.state = 'Unknown';
+              parsedAddress.state = t('common.unknown');
             }
             if (!parsedAddress.city) {
-              parsedAddress.city = 'Unknown';
+              parsedAddress.city = t('common.unknown');
             }
 
             // Create address data object
             const addressData = {
-              apartment: parsedAddress.apartment || "Current Location",
-              street: parsedAddress.street || "Current Location",
+              apartment: parsedAddress.apartment || t('location.currentLocation'),
+              street: parsedAddress.street || t('location.currentLocation'),
               city: parsedAddress.city,
               state: parsedAddress.state,
               country: parsedAddress.country,
@@ -1385,12 +1387,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               address: address
             });
 
-            setSnackbarMessage("Location fetched and address fields populated!");
+            setSnackbarMessage(t('location.success'));
             setSnackbarSeverity("success");
             setSnackbarOpen(true);
           } catch (error) {
             console.error("Geocoding error:", error);
-            setSnackbarMessage("Could not determine address details. Please fill manually.");
+            setSnackbarMessage(t('location.geocodingError'));
             setSnackbarSeverity("warning");
             setSnackbarOpen(true);
           } finally {
@@ -1399,7 +1401,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         },
         (error) => {
           console.error("Location error:", error);
-          setSnackbarMessage("Failed to get location. Please try again.");
+          setSnackbarMessage(t('location.fetchError'));
           setSnackbarSeverity("error");
           setSnackbarOpen(true);
           setLocationLoading(false);
@@ -1408,7 +1410,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       );
     } catch (error) {
       console.error("Location fetch error:", error);
-      setSnackbarMessage("Failed to fetch location. Please try again.");
+      setSnackbarMessage(t('location.fetchError'));
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
       setLocationLoading(false);
@@ -1437,93 +1439,93 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     if (step === 0) {
       if (!formData.firstName.trim()) {
-        tempErrors.firstName = "First Name is required.";
+        tempErrors.firstName = t('validation.required', { field: t('registration.basicInformation.firstName') });
         isValid = false;
       } else if (!nameRegex.test(formData.firstName)) {
-        tempErrors.firstName = "First Name should contain only alphabets.";
+        tempErrors.firstName = t('validation.alphabetsOnly', { field: t('registration.basicInformation.firstName') });
         isValid = false;
       } else if (formData.firstName.length > MAX_NAME_LENGTH) {
-        tempErrors.firstName = `First Name should be under ${MAX_NAME_LENGTH} characters.`;
+        tempErrors.firstName = t('validation.maxLength', { field: t('registration.basicInformation.firstName'), count: MAX_NAME_LENGTH });
         isValid = false;
       }
 
       if (!formData.lastName.trim()) {
-        tempErrors.lastName = "Last Name is required.";
+        tempErrors.lastName = t('validation.required', { field: t('registration.basicInformation.lastName') });
         isValid = false;
       } else if (!nameRegex.test(formData.lastName)) {
-        tempErrors.lastName = "Last Name should contain only alphabets.";
+        tempErrors.lastName = t('validation.alphabetsOnly', { field: t('registration.basicInformation.lastName') });
         isValid = false;
       } else if (formData.lastName.length > MAX_NAME_LENGTH) {
-        tempErrors.lastName = `Last Name should be under ${MAX_NAME_LENGTH} characters.`;
+        tempErrors.lastName = t('validation.maxLength', { field: t('registration.basicInformation.lastName'), count: MAX_NAME_LENGTH });
         isValid = false;
       }
 
       if (!formData.gender) {
-        tempErrors.gender = "Please select a gender.";
+        tempErrors.gender = t('validation.required', { field: t('registration.basicInformation.gender') });
         isValid = false;
       }
       
       if (!formData.emailId.trim()) {
-        tempErrors.emailId = "Email is required.";
+        tempErrors.emailId = t('validation.required', { field: t('registration.basicInformation.email') });
         isValid = false;
       } else if (!emailIdRegex.test(formData.emailId)) {
-        tempErrors.emailId = "Please enter a valid email address.";
+        tempErrors.emailId = t('validation.email');
         isValid = false;
       } else if (validationResults.email.error) {
         tempErrors.emailId = validationResults.email.error;
         isValid = false;
       } else if (!validationResults.email.isAvailable) {
-        tempErrors.emailId = "Email is not available.";
+        tempErrors.emailId = t('validation.emailNotAvailable');
         isValid = false;
       }
       
       if (!formData.password.trim()) {
-        tempErrors.password = "Password is required.";
+        tempErrors.password = t('validation.required', { field: t('registration.basicInformation.password') });
         isValid = false;
       } else if (!strongPasswordRegex.test(formData.password)) {
-        tempErrors.password = "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.";
+        tempErrors.password = t('validation.passwordStrength');
         isValid = false;
       }
       
       if (!formData.confirmPassword.trim()) {
-        tempErrors.confirmPassword = "Confirm Password is required.";
+        tempErrors.confirmPassword = t('validation.required', { field: t('registration.basicInformation.confirmPassword') });
         isValid = false;
       } else if (formData.password !== formData.confirmPassword) {
-        tempErrors.confirmPassword = "Passwords do not match.";
+        tempErrors.confirmPassword = t('validation.passwordMismatch');
         isValid = false;
       }
       
       if (!formData.mobileNo.trim()) {
-        tempErrors.mobileNo = "Mobile number is required.";
+        tempErrors.mobileNo = t('validation.required', { field: t('registration.basicInformation.mobileNumber') });
         isValid = false;
       } else if (!phoneRegex.test(formData.mobileNo)) {
-        tempErrors.mobileNo = "Please enter a valid 10-digit mobile number.";
+        tempErrors.mobileNo = t('validation.phone');
         isValid = false;
       } else if (validationResults.mobile.error) {
         tempErrors.mobileNo = validationResults.mobile.error;
         isValid = false;
       } else if (!validationResults.mobile.isAvailable) {
-        tempErrors.mobileNo = "Mobile number is not available.";
+        tempErrors.mobileNo = t('validation.mobileNotAvailable');
         isValid = false;
       }
       
       // Validate alternate number if provided
       if (formData.AlternateNumber.trim()) {
         if (!phoneRegex.test(formData.AlternateNumber)) {
-          tempErrors.AlternateNumber = "Please enter a valid 10-digit mobile number.";
+          tempErrors.AlternateNumber = t('validation.phone');
           isValid = false;
         } else if (formData.AlternateNumber === formData.mobileNo) {
-          tempErrors.AlternateNumber = "Alternate number must be different from primary mobile number.";
+          tempErrors.AlternateNumber = t('validation.alternateSameAsMobile');
           isValid = false;
         } else if (!validationResults.alternate.isAvailable) {
-          tempErrors.AlternateNumber = "Alternate number is not available.";
+          tempErrors.AlternateNumber = t('validation.alternateNotAvailable');
           isValid = false;
         }
       }
 
       // Validate DOB
       if (!formData.dob.trim()) {
-        tempErrors.dob = "Date of Birth is required.";
+        tempErrors.dob = t('validation.required', { field: t('registration.basicInformation.dateOfBirth') });
         isValid = false;
       } else {
         const { isValid: isAgeValid, message } = validateAge(formData.dob);
@@ -1537,30 +1539,30 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     else if (step === 1) {
       const permanentErrors: any = {};
       if (!formData.permanentAddress.apartment?.trim()) {
-        permanentErrors.apartment = "Apartment is required.";
+        permanentErrors.apartment = t('validation.required', { field: t('registration.address.apartment') });
         isValid = false;
       }
       if (!formData.permanentAddress.street?.trim()) {
-        permanentErrors.street = "Street is required.";
+        permanentErrors.street = t('validation.required', { field: t('registration.address.street') });
         isValid = false;
       }
       if (!formData.permanentAddress.city?.trim()) {
-        permanentErrors.city = "City is required.";
+        permanentErrors.city = t('validation.required', { field: t('registration.address.city') });
         isValid = false;
       }
       if (!formData.permanentAddress.state?.trim()) {
-        permanentErrors.state = "State is required.";
+        permanentErrors.state = t('validation.required', { field: t('registration.address.state') });
         isValid = false;
       }
       if (!formData.permanentAddress.country?.trim()) {
-        permanentErrors.country = "Country is required.";
+        permanentErrors.country = t('validation.required', { field: t('registration.address.country') });
         isValid = false;
       }
       if (!formData.permanentAddress.pincode?.trim()) {
-        permanentErrors.pincode = "Pincode is required.";
+        permanentErrors.pincode = t('validation.required', { field: t('registration.address.pincode') });
         isValid = false;
       } else if (formData.permanentAddress.pincode.length !== 6) {
-        permanentErrors.pincode = "Pincode must be exactly 6 digits.";
+        permanentErrors.pincode = t('validation.pincodeFormat');
         isValid = false;
       }
 
@@ -1572,30 +1574,30 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!isSameAddress) {
         const correspondenceErrors: any = {};
         if (!formData.correspondenceAddress.apartment?.trim()) {
-          correspondenceErrors.apartment = "Apartment is required.";
+          correspondenceErrors.apartment = t('validation.required', { field: t('registration.address.apartment') });
           isValid = false;
         }
         if (!formData.correspondenceAddress.street?.trim()) {
-          correspondenceErrors.street = "Street is required.";
+          correspondenceErrors.street = t('validation.required', { field: t('registration.address.street') });
           isValid = false;
         }
         if (!formData.correspondenceAddress.city?.trim()) {
-          correspondenceErrors.city = "City is required.";
+          correspondenceErrors.city = t('validation.required', { field: t('registration.address.city') });
           isValid = false;
         }
         if (!formData.correspondenceAddress.state?.trim()) {
-          correspondenceErrors.state = "State is required.";
+          correspondenceErrors.state = t('validation.required', { field: t('registration.address.state') });
           isValid = false;
         }
         if (!formData.correspondenceAddress.country?.trim()) {
-          correspondenceErrors.country = "Country is required.";
+          correspondenceErrors.country = t('validation.required', { field: t('registration.address.country') });
           isValid = false;
         }
         if (!formData.correspondenceAddress.pincode?.trim()) {
-          correspondenceErrors.pincode = "Pincode is required.";
+          correspondenceErrors.pincode = t('validation.required', { field: t('registration.address.pincode') });
           isValid = false;
         } else if (formData.correspondenceAddress.pincode.length !== 6) {
-          correspondenceErrors.pincode = "Pincode must be exactly 6 digits.";
+          correspondenceErrors.pincode = t('validation.pincodeFormat');
           isValid = false;
         }
 
@@ -1607,90 +1609,90 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     else if (step === 2) {
       if (formData.housekeepingRole.length === 0) {
-        tempErrors.housekeepingRole = "Please select at least one service type.";
+        tempErrors.housekeepingRole = t('validation.required', { field: t('registration.service.selectServiceType') });
         isValid = false;
       }
       if (formData.housekeepingRole.includes("COOK") && !formData.cookingSpeciality) {
-        tempErrors.cookingSpeciality = "Please select a speciality for the cook service.";
+        tempErrors.cookingSpeciality = t('validation.required', { field: t('registration.service.cookingSpeciality') });
         isValid = false;
       }
       if (formData.housekeepingRole.includes("NANNY") && !formData.nannyCareType) {
-        tempErrors.nannyCareType = "Please select a care type for the nanny service.";
+        tempErrors.nannyCareType = t('validation.required', { field: t('registration.service.careType') });
         isValid = false;
       }
       if (!formData.diet) {
-        tempErrors.diet = "Please select diet.";
+        tempErrors.diet = t('validation.required', { field: t('registration.service.dietPreference') });
         isValid = false;
       }
       if (!formData.experience) {
-        tempErrors.experience = "Please enter years of experience.";
+        tempErrors.experience = t('validation.required', { field: t('registration.service.experience') });
         isValid = false;
       } else if (isNaN(Number(formData.experience)) || Number(formData.experience) < 0) {
-        tempErrors.experience = "Please enter a valid experience in years.";
+        tempErrors.experience = t('validation.numeric', { field: t('registration.service.experience') });
         isValid = false;
       }
     }
 
     else if (step === 3) {
       if (!formData.kycType) {
-        tempErrors.kycType = "Please select a KYC document type.";
+        tempErrors.kycType = t('validation.required', { field: t('registration.kyc.selectDocument') });
         isValid = false;
       }
       if (!formData.kycNumber) {
-        tempErrors.kycNumber = `${getKycLabel(formData.kycType)} number is required.`;
+        tempErrors.kycNumber = t('validation.required', { field: getKycLabel(formData.kycType) });
         isValid = false;
       } else {
         // Add specific validation based on KYC type
         switch(formData.kycType) {
           case "AADHAR":
             if (!aadhaarRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Aadhaar number must be exactly 12 digits.";
+              tempErrors.kycNumber = t('validation.aadhaarFormat');
               isValid = false;
             }
             break;
           case "PAN":
             if (!panRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Please enter a valid PAN (e.g., ABCDE1234F).";
+              tempErrors.kycNumber = t('validation.panFormat');
               isValid = false;
             }
             break;
           case "DRIVING_LICENSE":
             if (formData.kycNumber.length < 8) {
-              tempErrors.kycNumber = "Please enter a valid driving license number.";
+              tempErrors.kycNumber = t('validation.drivingLicenseFormat');
               isValid = false;
             }
             break;
           case "VOTER_ID":
             if (!voterIdRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Please enter a valid 10-digit Voter ID.";
+              tempErrors.kycNumber = t('validation.voterIdFormat');
               isValid = false;
             }
             break;
           case "PASSPORT":
             if (!passportRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Please enter a valid 8-character passport number.";
+              tempErrors.kycNumber = t('validation.passportFormat');
               isValid = false;
             }
             break;
         }
       }
       if (!formData.documentImage) {
-        tempErrors.documentImage = "Please upload your KYC document.";
+        tempErrors.documentImage = t('validation.required', { field: t('registration.kyc.uploadDocument') });
         isValid = false;
       }
     }
 
     else if (step === 4) {
       if (!formData.keyFacts) {
-        tempErrors.keyFacts = "You must agree to the Key Facts Document";
+        tempErrors.keyFacts = t('validation.required', { field: t('registration.confirmation.agreeKeyFacts') });
         isValid = false;
       }
       if (!formData.terms) {
-        tempErrors.terms = "You must agree to the Terms and Conditions";
+        tempErrors.terms = t('validation.required', { field: t('registration.confirmation.agreeTerms') });
         isValid = false;
       }
       if (!formData.privacy) {
-        tempErrors.privacy = "You must agree to the Privacy Policy";
+        tempErrors.privacy = t('validation.required', { field: t('registration.confirmation.agreePrivacy') });
         isValid = false;
       }
     }
@@ -1704,7 +1706,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     // For step 0, check if validations are complete before proceeding
     if (activeStep === 0) {
       if (validationResults.email.loading || validationResults.mobile.loading) {
-        setSnackbarMessage("Please wait for email/mobile validation to complete.");
+        setSnackbarMessage(t('validation.waitForValidation'));
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
         return;
@@ -1717,7 +1719,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       
       // Additional check for validation results
       if (!isStep0ReadyForNext()) {
-        setSnackbarMessage("Please fix all validation errors before proceeding.");
+        setSnackbarMessage(t('validation.fixErrors'));
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         return;
@@ -1731,7 +1733,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
     if (activeStep === steps.length - 1) {
-      setSnackbarMessage("Registration Successful!");
+      setSnackbarMessage(t('registration.success'));
       setSnackbarOpen(true);
     }
   };
@@ -1777,7 +1779,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             }
           } catch (error) {
             console.error("Error uploading profile image:", error);
-            setSnackbarMessage("Failed to upload profile image. Proceeding without it.");
+            setSnackbarMessage(t('upload.profileImageError'));
             setSnackbarSeverity("warning");
             setSnackbarOpen(true);
           }
@@ -1810,7 +1812,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             }
           } catch (error) {
             console.error("Error uploading document image:", error);
-            setSnackbarMessage("Failed to upload KYC document. Proceeding without it.");
+            setSnackbarMessage(t('upload.documentError'));
             setSnackbarSeverity("warning");
             setSnackbarOpen(true);
           }
@@ -1857,7 +1859,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             ctArea: formData.permanentAddress.city || "",
             pinNo: formData.permanentAddress.pincode || "",
             state: formData.permanentAddress.state || "",
-            country: formData.permanentAddress.country || "India"
+            country: formData.permanentAddress.country || t('country.india')
           },
           correspondenceAddress: {
             field1: formData.correspondenceAddress.apartment || "",
@@ -1865,7 +1867,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             ctArea: formData.correspondenceAddress.city || "",
             pinNo: formData.correspondenceAddress.pincode || "",
             state: formData.correspondenceAddress.state || "",
-            country: formData.correspondenceAddress.country || "India"
+            country: formData.correspondenceAddress.country || t('country.india')
           },
           active: true,
           kycType: formData.kycType,
@@ -1891,7 +1893,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
         setSnackbarOpen(true);
         setSnackbarSeverity("success");
-        setSnackbarMessage("Service provider added successfully!");
+        setSnackbarMessage(t('registration.success'));
 
         const authPayload = {
           email: formData.emailId,
@@ -1918,7 +1920,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         console.error("Error submitting form:", error);
         
         // Enhanced error handling to capture response data
-        let errorMessage = "Failed to add service provider. Please try again.";
+        let errorMessage = t('errors.generic');
         
         if (error.response) {
           console.error("Error response status:", error.response.status);
@@ -1943,7 +1945,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             }
           }
         } else if (error.request) {
-          errorMessage = "No response from server. Please check your network connection.";
+          errorMessage = t('errors.network');
         } else {
           errorMessage = error.message;
         }
@@ -1964,7 +1966,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const validateAge = (dob: string): { isValid: boolean; message: string } => {
     if (!dob) {
-      return { isValid: false, message: "Date of Birth is required." };
+      return { isValid: false, message: t('validation.required', { field: t('registration.basicInformation.dateOfBirth') }) };
     }
 
     const birthDate = moment(dob, "YYYY-MM-DD");
@@ -1972,7 +1974,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     const age = today.diff(birthDate, "years");
 
     if (age < 18) {
-      return { isValid: false, message: "You must be at least 18 years old to register." };
+      return { isValid: false, message: t('errors.mustBe18') };
     }
 
     return { isValid: true, message: "" };
@@ -2165,10 +2167,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
                 <Icon name="location-on" size={24} color={colors.primary} />
-                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>Current Location</Text>
+                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>{t('address.currentLocation')}</Text>
               </View>
               <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                Fetch your current location to automatically fill address fields
+                {t('address.fetchLocationHelper')}
               </Text>
 
               <TouchableOpacity
@@ -2181,7 +2183,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 ) : (
                   <>
                     <Icon name="my-location" size={20} color="#fff" />
-                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>Fetch Location</Text>
+                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>{t('address.fetchLocation')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -2190,7 +2192,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 <>
                   <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
                     <Text style={[styles.alertText, { color: colors.success, fontSize: fontSizes.small }]}>
-                      <Text style={{ fontWeight: 'bold' }}>Address detected:</Text> {formData.currentLocation || "No address available"}
+                      <Text style={{ fontWeight: 'bold' }}>{t('address.detected')}:</Text> {formData.currentLocation || t('address.noAddress')}
                     </Text>
                   </View>
                 </>
@@ -2245,7 +2247,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         return (
           <ScrollView style={[styles.formContainer, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
             <Text style={[styles.confirmationText, { color: colors.text, fontSize: fontSizes.text }]}>
-              Please agree to the following before proceeding with your Registration:
+              {t('registration.confirmation.message')}
             </Text>
 
             <TermsCheckboxes 
@@ -2265,7 +2267,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         );
 
       default:
-        return <Text style={{ color: colors.text, fontSize: fontSizes.text }}>Unknown step</Text>;
+        return <Text style={{ color: colors.text, fontSize: fontSizes.text }}>{t('common.unknown')}</Text>;
     }
   };
 
@@ -2298,7 +2300,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 ]}
                 numberOfLines={2}
               >
-                {step}
+                {t(`registration.steps.${step.toLowerCase().replace(' ', '')}`)}
               </Text>
             </View>
             {index < steps.length - 1 && (
@@ -2329,7 +2331,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           end={{ x: 1, y: 0 }}
           style={styles.headerContainer}
         >
-          <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
+          <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>{t('registration.title')}</Text>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => onBackToLogin(true)}
@@ -2350,7 +2352,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               disabled={activeStep === 0 || isSubmitting}
               startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}
             >
-              Back
+              {t('registration.buttons.back')}
             </Button>
 
             {activeStep === steps.length - 1 ? (
@@ -2361,7 +2363,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 disabled={!(formData.terms && formData.privacy && formData.keyFacts) || isSubmitting}
                 loading={isSubmitting}
               >
-                Submit
+                {t('registration.buttons.submit')}
               </Button>
             ) : (
               <Button
@@ -2371,7 +2373,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 disabled={isSubmitting}
                 endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
               >
-                Next
+                {t('registration.buttons.next')}
               </Button>
             )}
           </View>
@@ -2392,9 +2394,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               style={styles.policyModalHeader}
             >
               <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>
-                {activePolicy === 'terms' && 'Terms and Conditions'}
-                {activePolicy === 'privacy' && 'Privacy Policy'}
-                {activePolicy === 'keyfacts' && 'Key Facts Statement'}
+                {activePolicy === 'terms' && t('tnc.title')}
+                {activePolicy === 'privacy' && t('privacy.title')}
+                {activePolicy === 'keyfacts' && t('tnc.keyFacts')}
               </Text>
               <TouchableOpacity
                 style={styles.policyModalClose}

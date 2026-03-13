@@ -11,6 +11,7 @@ import {
   Easing
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import { useTranslation } from 'react-i18next';
 
 const { height } = Dimensions.get("window");
 
@@ -29,6 +30,7 @@ const SignupDrawer: React.FC<SignupDrawerProps> = ({
   onProvider,
   onAgent,
 }) => {
+  const { t } = useTranslation();
   const slideAnim = useRef(new Animated.Value(height)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
@@ -97,7 +99,7 @@ const SignupDrawer: React.FC<SignupDrawerProps> = ({
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Register As</Text>
+            <Text style={styles.title}>{t('signupDrawer.title')}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={10}>
               <MaterialIcon name="close" size={22} color="#333" />
             </TouchableOpacity>
@@ -106,17 +108,17 @@ const SignupDrawer: React.FC<SignupDrawerProps> = ({
           {/* Options */}
           <TouchableOpacity style={styles.item} onPress={onUser}>
             <MaterialIcon name="person" size={20} />
-            <Text>User</Text>
+            <Text>{t('signupDrawer.user')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.item} onPress={onProvider}>
             <MaterialIcon name="build" size={20} />
-            <Text>Service Provider</Text>
+            <Text>{t('signupDrawer.serviceProvider')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.item} onPress={onAgent}>
             <MaterialIcon name="support-agent" size={20} />
-            <Text>Agent</Text>
+            <Text>{t('signupDrawer.agent')}</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>

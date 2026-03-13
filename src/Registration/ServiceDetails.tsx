@@ -23,6 +23,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Slider from '@react-native-community/slider';
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 interface ServiceDetailsProps {
   formData: any;
@@ -68,6 +69,7 @@ const TimeSlider: React.FC<TimeSliderProps> = ({
   disabledRanges 
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [isDraggingStart, setIsDraggingStart] = useState(false);
   const [isDraggingEnd, setIsDraggingEnd] = useState(false);
 
@@ -220,11 +222,11 @@ const TimeSlider: React.FC<TimeSliderProps> = ({
       {/* Time Labels */}
       <View style={dynamicStyles.timeLabelsRow}>
         <View style={dynamicStyles.timeLabelBox}>
-          <Text style={dynamicStyles.timeLabelSmall}>Start</Text>
+          <Text style={dynamicStyles.timeLabelSmall}>{t('registration.service.start')}</Text>
           <Text style={dynamicStyles.timeLabelValue}>{formatTime(value[0])}</Text>
         </View>
         <View style={dynamicStyles.timeLabelBox}>
-          <Text style={dynamicStyles.timeLabelSmall}>End</Text>
+          <Text style={dynamicStyles.timeLabelSmall}>{t('registration.service.end')}</Text>
           <Text style={dynamicStyles.timeLabelValue}>{formatTime(value[1])}</Text>
         </View>
       </View>
@@ -252,7 +254,7 @@ const TimeSlider: React.FC<TimeSliderProps> = ({
 
       {/* Start Slider */}
       <View style={dynamicStyles.sliderWrapper}>
-        <Text style={dynamicStyles.sliderLabel}>Start Time</Text>
+        <Text style={dynamicStyles.sliderLabel}>{t('registration.service.startTime')}</Text>
         <Slider
           style={dynamicStyles.slider}
           value={value[0]}
@@ -270,7 +272,7 @@ const TimeSlider: React.FC<TimeSliderProps> = ({
 
       {/* End Slider */}
       <View style={dynamicStyles.sliderWrapper}>
-        <Text style={dynamicStyles.sliderLabel}>End Time</Text>
+        <Text style={dynamicStyles.sliderLabel}>{t('registration.service.endTime')}</Text>
         <Slider
           style={dynamicStyles.slider}
           value={value[1]}
@@ -296,6 +298,7 @@ interface DisabledRangesLegendProps {
 
 const DisabledRangesLegend: React.FC<DisabledRangesLegendProps> = ({ ranges }) => {
   const { colors, fontSize } = useTheme();
+  const { t } = useTranslation();
   
   if (ranges.length === 0) return null;
 
@@ -371,7 +374,7 @@ const DisabledRangesLegend: React.FC<DisabledRangesLegendProps> = ({ ranges }) =
 
   return (
     <View style={dynamicStyles.legendContainer}>
-      <Text style={dynamicStyles.legendTitle}>Time slots already taken:</Text>
+      <Text style={dynamicStyles.legendTitle}>{t('registration.service.timeSlotsTaken')}</Text>
       {ranges.map((range, index) => (
         <View key={index} style={dynamicStyles.legendItem}>
           <View style={dynamicStyles.legendColorBox} />
@@ -409,29 +412,30 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onEveningSlotChange,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
 
   const serviceTypes = [
-    { value: "COOK", label: "Cook", icon: "restaurant", description: "Prepare meals for the household" },
-    { value: "NANNY", label: "Nanny", icon: "child-care", description: "Care for children or elderly" },
-    { value: "MAID", label: "Maid", icon: "cleaning-services", description: "Household cleaning and maintenance" },
+    { value: "COOK", label: t('registration.service.cook'), icon: "restaurant", description: t('registration.service.cookDesc') },
+    { value: "NANNY", label: t('registration.service.nanny'), icon: "child-care", description: t('registration.service.nannyDesc') },
+    { value: "MAID", label: t('registration.service.maid'), icon: "cleaning-services", description: t('registration.service.maidDesc') },
   ];
 
   const dietOptions = [
-    { value: "VEG", label: "Veg", icon: "leaf", description: "Only vegetarian cooking" },
-    { value: "NONVEG", label: "Non-Veg", icon: "restaurant-menu", description: "Can cook non-vegetarian food" },
-    { value: "BOTH", label: "Both", icon: "restaurant", description: "Can cook both veg and non-veg" },
+    { value: "VEG", label: t('registration.service.veg'), icon: "leaf", description: t('registration.service.vegDesc') },
+    { value: "NONVEG", label: t('registration.service.nonVeg'), icon: "restaurant-menu", description: t('registration.service.nonVegDesc') },
+    { value: "BOTH", label: t('registration.service.both'), icon: "restaurant", description: t('registration.service.bothDesc') },
   ];
 
   const cookingSpecialityOptions = [
-    { value: "VEG", label: "Veg", icon: "leaf", description: "Specialize in vegetarian cuisine" },
-    { value: "NONVEG", label: "Non-Veg", icon: "restaurant-menu", description: "Specialize in non-vegetarian cuisine" },
-    { value: "BOTH", label: "Both", icon: "restaurant", description: "Can cook all types of cuisine" },
+    { value: "VEG", label: t('registration.service.veg'), icon: "leaf", description: t('registration.service.vegDesc') },
+    { value: "NONVEG", label: t('registration.service.nonVeg'), icon: "restaurant-menu", description: t('registration.service.nonVegDesc') },
+    { value: "BOTH", label: t('registration.service.both'), icon: "restaurant", description: t('registration.service.bothDesc') },
   ];
 
   const nannyCareOptions = [
-    { value: "BABY_CARE", label: "Baby Care", icon: "child-care", description: "Care for infants and toddlers" },
-    { value: "ELDERLY_CARE", label: "Elderly Care", icon: "elderly", description: "Care for senior citizens" },
-    { value: "BOTH", label: "Both", icon: "favorite", description: "Can care for both babies and elderly" },
+    { value: "BABY_CARE", label: t('registration.service.babyCare'), icon: "child-care", description: t('registration.service.babyCareDesc') },
+    { value: "ELDERLY_CARE", label: t('registration.service.elderlyCare'), icon: "elderly", description: t('registration.service.elderlyCareDesc') },
+    { value: "BOTH", label: t('registration.service.bothCare'), icon: "favorite", description: t('registration.service.bothCareDesc') },
   ];
 
   const getFontSizes = () => {
@@ -840,7 +844,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           <Card.Content>
             <View style={dynamicStyles.headerContainer}>
               <Icon name="home" size={24} color={colors.primary} />
-              <Text style={dynamicStyles.headerTitle}>Service Details</Text>
+              <Text style={dynamicStyles.headerTitle}>{t('registration.service.title')}</Text>
             </View>
             
             <View style={dynamicStyles.sectionSpacing}>
@@ -849,11 +853,11 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                 <View style={dynamicStyles.labelContainer}>
                   <Icon name="work" size={20} color={colors.primary} />
                   <Text style={dynamicStyles.label}>
-                    Select Service Type(s) <Text style={dynamicStyles.asterisk}>*</Text>
+                    {t('registration.service.selectServiceType')} <Text style={dynamicStyles.asterisk}>*</Text>
                   </Text>
                 </View>
                 <Text style={dynamicStyles.labelHelper}>
-                  Choose the type of services you want to offer
+                  {t('registration.service.serviceTypeHelper')}
                 </Text>
                 
                 <View style={dynamicStyles.optionsContainer}>
@@ -905,11 +909,11 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                 <View style={dynamicStyles.labelContainer}>
                   <Icon name="restaurant" size={20} color={colors.primary} />
                   <Text style={dynamicStyles.label}>
-                    Diet Preference <Text style={dynamicStyles.asterisk}>*</Text>
+                    {t('registration.service.dietPreference')} <Text style={dynamicStyles.asterisk}>*</Text>
                   </Text>
                 </View>
                 <Text style={dynamicStyles.labelHelper}>
-                  What type of food can you cook?
+                  {t('registration.service.dietHelper')}
                 </Text>
                 
                 <View style={dynamicStyles.optionsContainer}>
@@ -959,11 +963,11 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                   <View style={dynamicStyles.labelContainer}>
                     <Icon name="restaurant" size={20} color={colors.primary} />
                     <Text style={dynamicStyles.label}>
-                      Cooking Speciality <Text style={dynamicStyles.asterisk}>*</Text>
+                      {t('registration.service.cookingSpeciality')} <Text style={dynamicStyles.asterisk}>*</Text>
                     </Text>
                   </View>
                   <Text style={dynamicStyles.labelHelper}>
-                    Select your area of expertise in cooking
+                    {t('registration.service.cookingSpecialityHelper')}
                   </Text>
                   
                   <View style={dynamicStyles.optionsContainer}>
@@ -1014,11 +1018,11 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                   <View style={dynamicStyles.labelContainer}>
                     <Icon name="child-care" size={20} color={colors.primary} />
                     <Text style={dynamicStyles.label}>
-                      Care Type <Text style={dynamicStyles.asterisk}>*</Text>
+                      {t('registration.service.careType')} <Text style={dynamicStyles.asterisk}>*</Text>
                     </Text>
                   </View>
                   <Text style={dynamicStyles.labelHelper}>
-                    What type of care services do you provide?
+                    {t('registration.service.careTypeHelper')}
                   </Text>
                   
                   <View style={dynamicStyles.optionsContainer}>
@@ -1071,14 +1075,14 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           <Card.Content>
             <View style={dynamicStyles.labelContainer}>
               <Icon name="description" size={20} color={colors.primary} />
-              <Text style={dynamicStyles.label}>Description</Text>
+              <Text style={dynamicStyles.label}>{t('registration.service.description')}</Text>
             </View>
             <Text style={dynamicStyles.labelHelper}>
-              Describe your experience, skills, and why you'd be a great service provider
+              {t('registration.service.descriptionHelper')}
             </Text>
             <TextInput
               style={dynamicStyles.textArea}
-              placeholder="e.g., 5 years of experience in household management, specialized in..."
+              placeholder={t('registration.service.descriptionPlaceholder')}
               placeholderTextColor={colors.placeholder}
               value={formData.description}
               onChangeText={(text) => onDescriptionChange({ target: { value: text } })}
@@ -1097,13 +1101,13 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                 <View style={dynamicStyles.labelContainer}>
                   <Icon name="work" size={18} color={colors.primary} />
                   <Text style={dynamicStyles.label}>
-                    Experience <Text style={dynamicStyles.asterisk}>*</Text>
+                    {t('registration.service.experience')} <Text style={dynamicStyles.asterisk}>*</Text>
                   </Text>
                 </View>
-                <Text style={dynamicStyles.labelHelper}>Years of experience</Text>
+                <Text style={dynamicStyles.labelHelper}>{t('registration.service.experienceHelper')}</Text>
                 <TextInput
                   style={[dynamicStyles.input, errors.experience && dynamicStyles.inputError]}
-                  placeholder="e.g., 3"
+                  placeholder={t('registration.service.experiencePlaceholder')}
                   placeholderTextColor={colors.placeholder}
                   value={formData.experience}
                   onChangeText={(text) => onExperienceChange({ target: { value: text } })}
@@ -1119,12 +1123,12 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
               <View style={dynamicStyles.halfWidth}>
                 <View style={dynamicStyles.labelContainer}>
                   <Icon name="card-giftcard" size={18} color={colors.primary} />
-                  <Text style={dynamicStyles.label}>Referral Code (Optional)</Text>
+                  <Text style={dynamicStyles.label}>{t('registration.service.referralCode')}</Text>
                 </View>
-                <Text style={dynamicStyles.labelHelper}>If someone referred you</Text>
+                <Text style={dynamicStyles.labelHelper}>{t('registration.service.referralHelper')}</Text>
                 <TextInput
                   style={dynamicStyles.input}
-                  placeholder="e.g., REF123"
+                  placeholder={t('registration.service.referralPlaceholder')}
                   placeholderTextColor={colors.placeholder}
                   value={formData.referralCode || ""}
                   onChangeText={(text) => onReferralCodeChange({ target: { value: text } })}
@@ -1139,10 +1143,10 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           <Card.Content>
             <View style={dynamicStyles.headerContainer}>
               <Icon name="access-time" size={24} color={colors.primary} />
-              <Text style={dynamicStyles.headerTitle}>Select Your Available Time Slots</Text>
+              <Text style={dynamicStyles.headerTitle}>{t('registration.service.availability')}</Text>
             </View>
             <Text style={dynamicStyles.labelHelper}>
-              Choose when you are available to work (6:00 AM to 8:00 PM)
+              {t('registration.service.availabilityHelper')}
             </Text>
             
             <View>
@@ -1157,8 +1161,8 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     color={colors.primary}
                   />
                   <View style={dynamicStyles.fullTimeTextContainer}>
-                    <Text style={dynamicStyles.fullTimeTitle}>Full Time Availability</Text>
-                    <Text style={dynamicStyles.fullTimeSubtitle}>6:00 AM - 8:00 PM (All slots covered)</Text>
+                    <Text style={dynamicStyles.fullTimeTitle}>{t('registration.service.fullTime')}</Text>
+                    <Text style={dynamicStyles.fullTimeSubtitle}>{t('registration.service.fullTimeDesc')}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -1170,7 +1174,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     <View style={dynamicStyles.slotHeader}>
                       <View style={dynamicStyles.slotTitleContainer}>
                         <Icon name="wb-sunny" size={20} color={colors.primary} />
-                        <Text style={dynamicStyles.slotTitle}>Morning Availability (6 AM - 12 PM)</Text>
+                        <Text style={dynamicStyles.slotTitle}>{t('registration.service.morning')}</Text>
                       </View>
                       <View style={dynamicStyles.slotActions}>
                         {morningSlots.length === 0 ? (
@@ -1181,7 +1185,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                             labelStyle={dynamicStyles.slotButtonLabel}
                             icon="plus"
                           >
-                            Add Morning Slots
+                            {t('registration.service.addMorning')}
                           </Button>
                         ) : (
                           <View style={dynamicStyles.slotActionsInner}>
@@ -1189,7 +1193,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                               style={dynamicStyles.slotChip}
                               textStyle={dynamicStyles.slotChipText}
                             >
-                              {morningSlots.length} slot(s)
+                              {morningSlots.length} {t('registration.service.slot')}
                             </Chip>
                             {morningSlots.length < 12 && (
                               <IconButton
@@ -1214,10 +1218,10 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                       <View style={dynamicStyles.emptySlotCard}>
                         <Icon name="wb-sunny" size={40} color={colors.border} />
                         <Text style={dynamicStyles.emptySlotTitle}>
-                          No morning slots selected
+                          {t('registration.service.noMorningSlots')}
                         </Text>
                         <Text style={dynamicStyles.emptySlotSubtitle}>
-                          Click "Add Morning Slots" to set your morning availability
+                          {t('registration.service.noMorningSlotsDesc')}
                         </Text>
                       </View>
                     ) : (
@@ -1233,7 +1237,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                               <View style={dynamicStyles.slotItemTitleContainer}>
                                 <Icon name="access-time" size={18} color={colors.primary} />
                                 <Text style={dynamicStyles.slotItemTitle}>
-                                  Morning Slot {index + 1}
+                                  {t('registration.service.morningSlot', { number: index + 1 })}
                                 </Text>
                               </View>
                               {morningSlots.length > 1 && (
@@ -1268,7 +1272,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     <View style={dynamicStyles.slotHeader}>
                       <View style={dynamicStyles.slotTitleContainer}>
                         <Icon name="nights-stay" size={20} color={colors.primary} />
-                        <Text style={dynamicStyles.slotTitle}>Evening Availability (12 PM - 8 PM)</Text>
+                        <Text style={dynamicStyles.slotTitle}>{t('registration.service.evening')}</Text>
                       </View>
                       <View style={dynamicStyles.slotActions}>
                         {eveningSlots.length === 0 ? (
@@ -1279,7 +1283,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                             labelStyle={dynamicStyles.slotButtonLabel}
                             icon="plus"
                           >
-                            Add Evening Slots
+                            {t('registration.service.addEvening')}
                           </Button>
                         ) : (
                           <View style={dynamicStyles.slotActionsInner}>
@@ -1287,7 +1291,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                               style={dynamicStyles.slotChip}
                               textStyle={dynamicStyles.slotChipText}
                             >
-                              {eveningSlots.length} slot(s)
+                              {eveningSlots.length} {t('registration.service.slot')}
                             </Chip>
                             {eveningSlots.length < 16 && (
                               <IconButton
@@ -1312,10 +1316,10 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                       <View style={dynamicStyles.emptySlotCard}>
                         <Icon name="nights-stay" size={40} color={colors.border} />
                         <Text style={dynamicStyles.emptySlotTitle}>
-                          No evening slots selected
+                          {t('registration.service.noEveningSlots')}
                         </Text>
                         <Text style={dynamicStyles.emptySlotSubtitle}>
-                          Click "Add Evening Slots" to set your evening availability
+                          {t('registration.service.noEveningSlotsDesc')}
                         </Text>
                       </View>
                     ) : (
@@ -1331,7 +1335,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                               <View style={dynamicStyles.slotItemTitleContainer}>
                                 <Icon name="access-time" size={18} color={colors.primary} />
                                 <Text style={dynamicStyles.slotItemTitle}>
-                                  Evening Slot {index + 1}
+                                  {t('registration.service.eveningSlot', { number: index + 1 })}
                                 </Text>
                               </View>
                               {eveningSlots.length > 1 && (
@@ -1368,7 +1372,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                         <View style={dynamicStyles.summaryHeader}>
                           <Icon name="schedule" size={20} color={colors.primary} />
                           <Text style={dynamicStyles.summaryTitle}>
-                            Your Selected Time Slots:
+                            {t('registration.service.yourSelectedSlots')}
                           </Text>
                         </View>
                         <Text style={dynamicStyles.summaryText}>

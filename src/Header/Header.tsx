@@ -475,21 +475,19 @@ const Head: React.FC<ChildComponentProps> = ({
       paddingHorizontal: 12,
     },
     alertsButton: {
-      flex: 0.5,
-      justifyContent: "center",
-      alignItems: "center",
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderRadius: 20,
-      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-      marginLeft: 4,
-      height: 50,
-    },
-    alertsButtonText: {
-      color: "#fff",
-      fontSize: fontSizes.alertsButtonText,
-      fontWeight: "500",
-    },
+  flex: 0.5,
+  justifyContent: "center",
+  alignItems: "center",
+  width: 90,
+  height: 90,
+  borderRadius: 45,
+  marginLeft: 4,
+},
+    // alertsButtonText: {
+    //   color: "#fff",
+    //   fontSize: fontSizes.alertsButtonText,
+    //   fontWeight: "500",
+    // },
     modalContainer: {
       flex: 1,
       backgroundColor: colors.background,
@@ -544,7 +542,7 @@ const Head: React.FC<ChildComponentProps> = ({
         >
           <View style={styles.alertsButtonInner}>
             <MaterialIcon name="notifications" size={22} color="#fff" />
-            <Text style={dynamicStyles.alertsButtonText}>Alerts</Text>
+            {/* <Text style={dynamicStyles.alertsButtonText}>Alerts</Text> */}
           </View>
         </TouchableOpacity>
 
@@ -636,11 +634,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     paddingBottom: 10,
   },
-  alertsButtonInner: {
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 3,
-  },
+ alertsButtonInner: {
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 70,
+  height: 70,
+},
 });
 
 export default Head;

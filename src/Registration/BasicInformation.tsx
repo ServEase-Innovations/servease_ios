@@ -18,6 +18,7 @@ import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIc
 import moment from "moment";
 import ProfileImageUpload from "./ProfileImageUpload";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 interface BasicInformationProps {
   formData: any;
@@ -55,6 +56,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   onClearAlternate,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const MAX_NAME_LENGTH = 30;
   const [year, setYear] = React.useState('');
   const [month, setMonth] = React.useState('');
@@ -145,17 +147,26 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
 
       // Basic validation
       if (yearNum < minYear || yearNum > maxYear) {
-        Alert.alert('Invalid Year', `Year must be between ${minYear} and ${maxYear}`);
+        Alert.alert(
+          t('errors.invalidYear'), 
+          t('errors.yearBetween', { min: minYear, max: maxYear })
+        );
         return;
       }
 
       if (monthNum < 1 || monthNum > 12) {
-        Alert.alert('Invalid Month', 'Month must be between 01 and 12');
+        Alert.alert(
+          t('errors.invalidMonth'), 
+          t('errors.monthBetween')
+        );
         return;
       }
 
       if (dayNum < 1 || dayNum > 31) {
-        Alert.alert('Invalid Day', 'Day must be between 01 and 31');
+        Alert.alert(
+          t('errors.invalidDay'), 
+          t('errors.dayBetween')
+        );
         return;
       }
 
@@ -165,7 +176,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
       // Check if date is valid
       const date = moment(formattedDate, 'YYYY-MM-DD');
       if (!date.isValid()) {
-        Alert.alert('Invalid Date', 'Please enter a valid date');
+        Alert.alert(
+          t('errors.invalidDate'), 
+          t('errors.invalidDate')
+        );
         return;
       }
 
@@ -175,7 +189,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
       const age = today.diff(birthDate, 'years');
 
       if (age < 18) {
-        Alert.alert('Age Restriction', 'You must be at least 18 years old');
+        Alert.alert(
+          t('errors.ageRestriction'), 
+          t('errors.mustBe18')
+        );
         return;
       }
 
@@ -319,10 +336,12 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         
         {/* First Name */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>First Name <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.firstName')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           <TextInput
             style={[dynamicStyles.input, errors.firstName && dynamicStyles.inputError]}
-            placeholder="Enter your first name"
+            placeholder={t('registration.basicInformation.enterFirstName')}
             placeholderTextColor={colors.placeholder}
             value={formData.firstName}
             onChangeText={(text) => handleTextChange('firstName', text)}
@@ -338,10 +357,12 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         
         {/* Middle Name */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Middle Name</Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.middleName')}
+          </Text>
           <TextInput
             style={dynamicStyles.input}
-            placeholder="Enter your middle name"
+            placeholder={t('registration.basicInformation.enterMiddleName')}
             placeholderTextColor={colors.placeholder}
             value={formData.middleName}
             onChangeText={(text) => handleTextChange('middleName', text)}
@@ -350,10 +371,12 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         
         {/* Last Name */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Last Name <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.lastName')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           <TextInput
             style={[dynamicStyles.input, errors.lastName && dynamicStyles.inputError]}
-            placeholder="Enter your last name"
+            placeholder={t('registration.basicInformation.enterLastName')}
             placeholderTextColor={colors.placeholder}
             value={formData.lastName}
             onChangeText={(text) => handleTextChange('lastName', text)}
@@ -369,13 +392,15 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         
         {/* Date of Birth - YYYY MM DD Format */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Date of Birth <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.dateOfBirth')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           
           <View style={dynamicStyles.dobRow}>
             <View style={[dynamicStyles.dobField, dynamicStyles.dobFieldYear]}>
               <TextInput
                 style={[dynamicStyles.dobInput, errors.dob && dynamicStyles.inputError]}
-                placeholder="YYYY"
+                placeholder={t('time.format.YYYY')}
                 placeholderTextColor={colors.placeholder}
                 value={year}
                 onChangeText={handleYearChange}
@@ -388,7 +413,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <View style={dynamicStyles.dobField}>
               <TextInput
                 style={[dynamicStyles.dobInput, errors.dob && dynamicStyles.inputError]}
-                placeholder="MM"
+                placeholder={t('time.format.MM')}
                 placeholderTextColor={colors.placeholder}
                 value={month}
                 onChangeText={handleMonthChange}
@@ -401,7 +426,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             <View style={dynamicStyles.dobField}>
               <TextInput
                 style={[dynamicStyles.dobInput, errors.dob && dynamicStyles.inputError]}
-                placeholder="DD"
+                placeholder={t('time.format.DD')}
                 placeholderTextColor={colors.placeholder}
                 value={day}
                 onChangeText={handleDayChange}
@@ -414,7 +439,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
 
           {formData.dob && (
             <HelperText type="info" visible={true} style={{ color: colors.info, fontSize: fontSizes.helper }}>
-              Age: {moment().diff(moment(formData.dob), 'years')} years
+              {t('registration.basicInformation.age', { age: moment().diff(moment(formData.dob), 'years') })}
             </HelperText>
           )}
           
@@ -426,14 +451,16 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           
           {!errors.dob && !formData.dob && (
             <HelperText type="info" visible={true} style={{ color: colors.info, fontSize: fontSizes.helper }}>
-              Enter your date of birth (YYYY/MM/DD) - You must be at least 18 years old
+              {t('registration.basicInformation.dobHelper')}
             </HelperText>
           )}
         </View>
         
         {/* Gender */}
         <View style={dynamicStyles.genderContainer}>
-          <Text style={dynamicStyles.label}>Gender <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.gender')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           <View style={dynamicStyles.radioGroup}>
             <TouchableOpacity
               style={dynamicStyles.radioOption}
@@ -445,7 +472,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               ]}>
                 {formData.gender === 'MALE' && <View style={dynamicStyles.radioInner} />}
               </View>
-              <Text style={dynamicStyles.radioText}>Male</Text>
+              <Text style={dynamicStyles.radioText}>{t('common.gender.male')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -458,7 +485,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               ]}>
                 {formData.gender === 'FEMALE' && <View style={dynamicStyles.radioInner} />}
               </View>
-              <Text style={dynamicStyles.radioText}>Female</Text>
+              <Text style={dynamicStyles.radioText}>{t('common.gender.female')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -471,7 +498,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               ]}>
                 {formData.gender === 'OTHER' && <View style={dynamicStyles.radioInner} />}
               </View>
-              <Text style={dynamicStyles.radioText}>Other</Text>
+              <Text style={dynamicStyles.radioText}>{t('common.gender.other')}</Text>
             </TouchableOpacity>
           </View>
           {errors.gender && (
@@ -483,11 +510,13 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         
         {/* Email */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Email <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.email')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
               style={[dynamicStyles.input, (errors.emailId || validationResults.email.isAvailable === false) && dynamicStyles.inputError]}
-              placeholder="Enter your email address"
+              placeholder={t('registration.basicInformation.enterEmail')}
               placeholderTextColor={colors.placeholder}
               value={formData.emailId}
               onChangeText={(text) => handleTextChange('emailId', text)}
@@ -517,20 +546,22 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               }}
             >
               {errors.emailId ||
-                (validationResults.email.loading ? "Checking availability..." :
+                (validationResults.email.loading ? t('registration.basicInformation.checkingAvailability') :
                   validationResults.email.error ||
-                  (validationResults.email.isAvailable ? "Email is available" : "Email is already taken"))}
+                  (validationResults.email.isAvailable ? t('registration.basicInformation.emailAvailable') : t('registration.basicInformation.emailTaken')))}
             </HelperText>
           )}
         </View>
         
         {/* Password */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Password <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.password')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
               style={[dynamicStyles.input, errors.password && dynamicStyles.inputError]}
-              placeholder="Enter your password"
+              placeholder={t('registration.basicInformation.enterPassword')}
               placeholderTextColor={colors.placeholder}
               secureTextEntry={!showPassword}
               value={formData.password}
@@ -557,11 +588,13 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         
         {/* Confirm Password */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Confirm Password <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.confirmPassword')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
               style={[dynamicStyles.input, errors.confirmPassword && dynamicStyles.inputError]}
-              placeholder="Confirm your password"
+              placeholder={t('registration.basicInformation.confirmYourPassword')}
               placeholderTextColor={colors.placeholder}
               secureTextEntry={!showConfirmPassword}
               value={formData.confirmPassword}
@@ -588,11 +621,13 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         
         {/* Mobile Number */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Mobile Number <Text style={dynamicStyles.required}>*</Text></Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.mobileNumber')} <Text style={dynamicStyles.required}>*</Text>
+          </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
               style={[dynamicStyles.input, (errors.mobileNo || validationResults.mobile.isAvailable === false) && dynamicStyles.inputError]}
-              placeholder="Enter your mobile number"
+              placeholder={t('registration.basicInformation.enterMobileNumber')}
               placeholderTextColor={colors.placeholder}
               value={formData.mobileNo}
               onChangeText={(text) => handleTextChange('mobileNo', text)}
@@ -622,20 +657,22 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               }}
             >
               {errors.mobileNo ||
-                (validationResults.mobile.loading ? "Checking availability..." :
+                (validationResults.mobile.loading ? t('registration.basicInformation.checkingAvailability') :
                   validationResults.mobile.error ||
-                  (validationResults.mobile.isAvailable ? "Mobile number is available" : "Mobile number is already taken"))}
+                  (validationResults.mobile.isAvailable ? t('registration.basicInformation.mobileAvailable') : t('registration.basicInformation.mobileTaken')))}
             </HelperText>
           )}
         </View>
 
         {/* Alternate Number */}
         <View style={dynamicStyles.inputContainer}>
-          <Text style={dynamicStyles.label}>Alternate Number</Text>
+          <Text style={dynamicStyles.label}>
+            {t('registration.basicInformation.alternateNumber')}
+          </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
               style={[dynamicStyles.input, (errors.AlternateNumber || validationResults.alternate.isAvailable === false) && dynamicStyles.inputError]}
-              placeholder="Enter alternate number (optional)"
+              placeholder={t('registration.basicInformation.enterAlternateNumber')}
               placeholderTextColor={colors.placeholder}
               value={formData.AlternateNumber}
               onChangeText={(text) => handleTextChange('AlternateNumber', text)}
@@ -664,9 +701,9 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               }}
             >
               {errors.AlternateNumber ||
-                (validationResults.alternate.loading ? "Checking availability..." :
+                (validationResults.alternate.loading ? t('registration.basicInformation.checkingAvailability') :
                   validationResults.alternate.error ||
-                  (validationResults.alternate.isAvailable ? "Alternate number is available" : "Alternate number is already taken"))}
+                  (validationResults.alternate.isAvailable ? t('registration.basicInformation.alternateAvailable') : t('registration.basicInformation.alternateTaken')))}
             </HelperText>
           )}
         </View>

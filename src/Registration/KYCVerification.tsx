@@ -14,6 +14,7 @@ import {
 } from "react-native-paper";
 import CustomFileInput from "./CustomFileInput";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 interface KYCVerificationProps {
   formData: any;
@@ -33,45 +34,46 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
   onKycTypeChange,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
 
   const kycOptions = [
     { 
       value: "AADHAR", 
-      label: "Aadhaar Card", 
-      description: "Government ID proof", 
-      placeholder: "Enter 12-digit Aadhaar number", 
+      label: t('registration.kyc.documentType.aadhar'), 
+      description: t('registration.kyc.documentDescription.aadhar'), 
+      placeholder: t('registration.kyc.documentNumber.aadhar'), 
       pattern: "[0-9]{12}", 
       maxLength: 12, 
     },
     { 
       value: "PAN", 
-      label: "PAN Card", 
-      description: "Permanent Account Number (PAN)", 
-      placeholder: "Enter 10-digit PAN number", 
+      label: t('registration.kyc.documentType.pan'), 
+      description: t('registration.kyc.documentDescription.pan'), 
+      placeholder: t('registration.kyc.documentNumber.pan'), 
       pattern: "[A-Z]{5}[0-9]{4}[A-Z]{1}", 
       maxLength: 10, 
     },
     { 
       value: "DRIVING_LICENSE", 
-      label: "Driving License", 
-      description: "Driving License", 
-      placeholder: "Enter driving license number", 
+      label: t('registration.kyc.documentType.drivingLicense'), 
+      description: t('registration.kyc.documentDescription.drivingLicense'), 
+      placeholder: t('registration.kyc.documentNumber.drivingLicense'), 
       pattern: "^[A-Z]{2}[0-9]{2}[0-9]{4,11}*$", 
       maxLength: 16, 
     },
     { 
       value: "VOTER_ID", 
-      label: "Voter ID", 
-      description: "Voter Identification Card", 
-      placeholder: "Enter 10-digit Voter ID", 
+      label: t('registration.kyc.documentType.voterId'), 
+      description: t('registration.kyc.documentDescription.voterId'), 
+      placeholder: t('registration.kyc.documentNumber.voterId'), 
       pattern: "[A-Z]{3}[0-9]{7}", 
       maxLength: 10, 
     },
     { 
       value: "PASSPORT", 
-      label: "Passport", 
-      description: "Passport", 
-      placeholder: "Enter passport number", 
+      label: t('registration.kyc.documentType.passport'), 
+      description: t('registration.kyc.documentDescription.passport'), 
+      placeholder: t('registration.kyc.documentNumber.passport'), 
       pattern: "[A-Z]{1}[0-9]{7}", 
       maxLength: 8, 
     },
@@ -324,7 +326,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
         {/* KYC Type Selection */}
         <View style={dynamicStyles.section}>
           <Text style={dynamicStyles.sectionTitle}>
-            Select KYC Document Type <Text style={dynamicStyles.asterisk}>*</Text>
+            {t('registration.kyc.selectDocument')} <Text style={dynamicStyles.asterisk}>*</Text>
           </Text>
           
           <View style={dynamicStyles.optionsContainer}>
@@ -398,7 +400,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
             {/* Helper text based on KYC type */}
             {currentOption.value === "AADHAR" && !errors.kycNumber && (
               <HelperText type="info" visible={true} style={{ color: colors.info, fontSize: fontSizes.helper }}>
-                Enter 12-digit Aadhaar number
+                {t('registration.kyc.documentNumber.aadhar')}
               </HelperText>
             )}
             
@@ -412,7 +414,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
           {/* Document Upload */}
           <View style={dynamicStyles.uploadSection}>
             <Text style={dynamicStyles.uploadLabel}>
-              Upload {currentOption.label} <Text style={dynamicStyles.asterisk}>*</Text>
+              {t('registration.kyc.uploadDocument', { document: currentOption.label })} <Text style={dynamicStyles.asterisk}>*</Text>
             </Text>
             <CustomFileInput
               name="documentImage"
@@ -420,7 +422,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
               required
               value={formData.documentImage}
               onChange={handleFileChange}
-              buttonText="Choose File"
+              buttonText={t('registration.kyc.chooseFile')}
             />
             {errors.documentImage && (
               <HelperText type="error" visible={!!errors.documentImage} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
@@ -432,9 +434,8 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
           {/* Upload Note */}
           <View style={dynamicStyles.noteContainer}>
             <Text style={dynamicStyles.noteText}>
-              <Text style={dynamicStyles.noteBold}>Note: </Text>
-              Please upload a clear image of your {currentOption.label}. 
-              Accepted formats: JPG, PNG, PDF. Max size: 5MB.
+              <Text style={dynamicStyles.noteBold}>{t('registration.kyc.note')}: </Text>
+              {t('registration.kyc.noteText', { document: currentOption.label })}
             </Text>
           </View>
         </View>

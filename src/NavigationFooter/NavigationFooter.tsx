@@ -1,4 +1,4 @@
-// NavigationFooter.tsx - UPDATED VERSION WITH PROPER HOME NAVIGATION
+// NavigationFooter.tsx - UPDATED VERSION WITH SETTINGS OPTION
 import React, { useState } from "react";
 import {
   View,
@@ -19,6 +19,7 @@ import Snackbar from "react-native-snackbar";
 import { PROFILE, BOOKINGS, DASHBOARD, HOME } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet"; // Import the new component
 import { useTranslation } from 'react-i18next';
+import Settings from "../Settings/Settings"; // Import Settings component
 
 
 interface NavigationFooterProps {
@@ -59,6 +60,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
+  const [isSettingsVisible, setIsSettingsVisible] = useState(false); // New state for Settings
   const { t } = useTranslation();
   
   const { authorize, clearSession, getCredentials } = useAuth0();
@@ -187,6 +189,10 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     setIsProfileMenuVisible(false);
   };
 
+  const handleSettingsOpen = () => {
+    setIsSettingsVisible(true);
+  };
+
   const renderUserAvatar = (isMobileView: boolean = false) => {
     if (!auth0User) {
       return (
@@ -293,7 +299,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onPress: handleSignOut,
       });
     } else {
-      // For unauthenticated users, add Sign In/Up options
+      // For unauthenticated users, add Sign In/Up options AND Settings
       tabs.push({
         key: "ACCOUNT",
         label: t('navigation.signIn'),
@@ -306,6 +312,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         label: t('navigation.signUp'),
         icon: <MaterialIcon name="person-add" size={22} color="#fff" />,
         onPress: onOpenSignup,
+      });
+
+      // ADD SETTINGS OPTION FOR UNAUTHENTICATED USERS
+      tabs.push({
+        key: "SETTINGS",
+        label: t('navigation.settings') || "Settings",
+        icon: <MaterialIcon name="settings" size={22} color="#fff" />,
+        onPress: handleSettingsOpen,
       });
     }
 
@@ -364,6 +378,12 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onDashboard={() => handleDashboardButtonClick()}
           onWallet={handleWalletOpen}
           onContact={onContactClick}
+        />
+
+        {/* Settings Modal */}
+        <Settings
+          visible={isSettingsVisible}
+          onClose={() => setIsSettingsVisible(false)}
         />
       </>
     );
@@ -424,6 +444,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 >
                   <MaterialIcon name="contact-support" size={20} color="#fff" style={styles.navIcon} />
                   <Text style={styles.desktopNavText}>{t('navigation.contactUs')}</Text>
+                </TouchableOpacity>
+
+                {/* ADD SETTINGS FOR DESKTOP UNAUTHENTICATED USERS */}
+                <TouchableOpacity
+                  onPress={handleSettingsOpen}
+                  style={styles.desktopNavItem}
+                >
+                  <MaterialIcon name="settings" size={20} color="#fff" style={styles.navIcon} />
+                  <Text style={styles.desktopNavText}>{t('navigation.settings') || "Settings"}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -503,6 +532,12 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onDashboard={() => handleDashboardButtonClick()}
         onWallet={handleWalletOpen}
         onContact={onContactClick}
+      />
+
+      {/* Settings Modal */}
+      <Settings
+        visible={isSettingsVisible}
+        onClose={() => setIsSettingsVisible(false)}
       />
     </>
   );

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Button } from '../common/Button';
+import { useTranslation } from 'react-i18next';
 // import Button from '../common/Button';
 
 // Define proper TypeScript interfaces for React Native file objects
@@ -41,6 +42,8 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
   value,
   onChange,
 }) => {
+  const { t } = useTranslation();
+
   const handleFilePick = async () => {
     try {
       // Use react-native-image-picker for both images and documents
@@ -63,7 +66,10 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
         if (response.didCancel) {
           return;
         } else if (response.errorCode) {
-          Alert.alert('Error', response.errorMessage || 'Failed to pick file');
+          Alert.alert(
+            t('common.error'), 
+            response.errorMessage || t('errors.fileUploadFailed')
+          );
         } else if (response.assets && response.assets[0]) {
           const asset = response.assets[0];
           const file: RNFile = {
@@ -77,7 +83,10 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
       });
     } catch (error) {
       console.error('Error picking file:', error);
-      Alert.alert('Error', 'Failed to pick file');
+      Alert.alert(
+        t('common.error'), 
+        t('errors.fileUploadFailed')
+      );
     }
   };
 
@@ -112,19 +121,19 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
           style={styles.button}
           disabled={disabled}
         >
-          {buttonText}
+          {buttonText || t('registration.fileUpload.chooseFile')}
         </Button>
       ) : (
         <View style={styles.fileContainer}>
           <View style={styles.fileInfoContainer}>
             <View style={styles.fileHeader}>
               <Text style={styles.fileName} numberOfLines={1}>
-                Selected File: {value.name}
+                {t('registration.fileUpload.selectedFile', { filename: value.name })}
               </Text>
               <TouchableOpacity
                 onPress={handleRemoveFile}
                 style={styles.removeButton}
-                accessibilityLabel="Remove file"
+                accessibilityLabel={t('registration.fileUpload.removeFile')}
               >
                 <Icon name="close" size={20} color="#666" />
               </TouchableOpacity>
@@ -132,7 +141,9 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
             
             {isImageFile && (
               <View style={styles.previewContainer}>
-                <Text style={styles.previewLabel}>Preview:</Text>
+                <Text style={styles.previewLabel}>
+                  {t('registration.fileUpload.preview')}
+                </Text>
                 <Image
                   source={{ uri: value.uri }}
                   style={[
@@ -150,7 +161,7 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
             size="small"
             style={styles.changeButton}
           >
-            Change File
+            {t('registration.fileUpload.changeFile')}
           </Button>
         </View>
       )}

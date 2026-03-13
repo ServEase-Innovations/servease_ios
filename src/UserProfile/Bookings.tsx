@@ -30,6 +30,7 @@ import dayjs from 'dayjs';
 import axios from 'axios';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 // Import existing components
 import UserHoliday from './UserHoliday';
@@ -344,41 +345,41 @@ const getServiceIcon = (type: string) => {
 };
 
 // FIXED: These functions now accept colors and fontSizes as parameters instead of using hooks
-const getStatusBadge = (status: string, colors: any, fontSizes: any) => {
+const getStatusBadge = (status: string, colors: any, fontSizes: any, t: any) => {
   switch (status) {
     case 'ACTIVE':
       return (
         <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
           <Icon name="alert-circle" size={14} color={colors.primary} />
-          <Text style={[styles.activeBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>Active</Text>
+          <Text style={[styles.activeBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{t('booking.status.active')}</Text>
         </Badge>
       );
     case 'COMPLETED':
       return (
         <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
           <Icon name="check-circle" size={14} color={colors.success} />
-          <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
+          <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.completed')}</Text>
         </Badge>
       );
     case 'CANCELLED':
       return (
         <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
           <Icon name="close-circle" size={14} color={colors.error} />
-          <Text style={[styles.cancelledBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Cancelled</Text>
+          <Text style={[styles.cancelledBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>{t('booking.status.cancelled')}</Text>
         </Badge>
       );
     case 'IN_PROGRESS':
       return (
         <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
           <Icon name="clock" size={14} color={colors.warning} />
-          <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
+          <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>{t('booking.status.inProgress')}</Text>
         </Badge>
       );
     case 'NOT_STARTED':
       return (
         <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
           <Icon name="clock" size={14} color={colors.textSecondary} />
-          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>Not Started</Text>
+          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{t('booking.status.notStarted')}</Text>
         </Badge>
       );
     default:
@@ -386,24 +387,24 @@ const getStatusBadge = (status: string, colors: any, fontSizes: any) => {
   }
 };
 
-const getBookingTypeBadge = (type: string, colors: any, fontSizes: any) => {
+const getBookingTypeBadge = (type: string, colors: any, fontSizes: any, t: any) => {
   switch (type) {
     case 'ON_DEMAND':
       return (
         <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-          <Text style={[styles.onDemandBadgeText, { color: colors.info, fontSize: fontSizes.badgeText }]}>On Demand</Text>
+          <Text style={[styles.onDemandBadgeText, { color: colors.info, fontSize: fontSizes.badgeText }]}>{t('booking.options.onDemand')}</Text>
         </Badge>
       );
     case 'MONTHLY':
       return (
         <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-          <Text style={[styles.monthlyBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>Monthly</Text>
+          <Text style={[styles.monthlyBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{t('booking.options.monthly')}</Text>
         </Badge>
       );
     case 'SHORT_TERM':
       return (
         <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-          <Text style={[styles.shortTermBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Short Term</Text>
+          <Text style={[styles.shortTermBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.options.shortTerm')}</Text>
         </Badge>
       );
     default:
@@ -415,19 +416,19 @@ const getBookingTypeBadge = (type: string, colors: any, fontSizes: any) => {
   }
 };
 
-const getServiceTitle = (type: string) => {
+const getServiceTitle = (type: string, t: any) => {
   const serviceType = type || 'other';
   switch (serviceType) {
     case 'cook':
-      return 'Home Cook';
+      return t('booking.cards.homeCook');
     case 'maid':
-      return 'Maid Service';
+      return t('booking.cards.maidService');
     case 'nanny':
-      return 'Caregiver Service';
+      return t('booking.cards.caregiver');
     case 'cleaning':
-      return 'Cleaning Service';
+      return t('booking.cards.cleaningService');
     default:
-      return 'Home Service';
+      return t('booking.cards.homeService');
   }
 };
 
@@ -474,20 +475,20 @@ const isModificationDisabled = (booking: Booking | null): boolean => {
          isBookingAlreadyModified(booking);
 };
 
-const getModificationTooltip = (booking: Booking | null): string => {
+const getModificationTooltip = (booking: Booking | null, t: any): string => {
   if (!booking) return "";
   
   if (isBookingAlreadyModified(booking)) {
-    return "This booking has already been modified and cannot be modified again.";
+    return t('booking.modification.alreadyModified');
   }
   if (!isModificationTimeAllowed(booking.start_epoch)) {
-    return "Modification is only allowed at least 30 minutes before the scheduled time.";
+    return t('booking.modification.notAllowed');
   }
-  return "Modify this booking";
+  return t('booking.modification.modifyBooking');
 };
 
 // NEW: Get detailed modification information for display
-const getModificationDetails = (booking: Booking): string => {
+const getModificationDetails = (booking: Booking, t: any): string => {
   if (!booking.modifications || booking.modifications.length === 0) return "";
   
   const lastMod = booking.modifications[booking.modifications.length - 1];
@@ -506,7 +507,7 @@ const getModificationDetails = (booking: Booking): string => {
     }
   }
   
-  return `Last modified: ${lastMod.action}`;
+  return t('booking.modification.lastModified', { action: lastMod.action });
 };
 
 // NEW: Time formatting utilities from React code
@@ -547,6 +548,7 @@ const formatDateForDisplay = (dateString: string) => {
 
 const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   
   // STATE VARIABLES
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
@@ -801,7 +803,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
           } else if (attempts >= maxAttempts) {
             clearInterval(checkInterval);
             console.log('❌ Could not find booking after multiple attempts');
-            Alert.alert('Error', `Booking #${deepLinkBookingId} not found`);
+            Alert.alert(t('common.error'), t('errors.notFound', { id: deepLinkBookingId }));
           }
         }, 1000);
       }
@@ -916,7 +918,7 @@ const mapBookingData = (data: any[]) => {
         const hasModifications = modifications.length > 0;
 
         // Get provider information from the provider object - MATCHING REACT CODE
-        let serviceProviderName = "Not Assigned";
+        let serviceProviderName = t('booking.cards.notAssigned');
         let providerRating = 0;
         
         console.log(`🔍 Looking for provider name...`);
@@ -951,7 +953,7 @@ const mapBookingData = (data: any[]) => {
         }
         // Check if assignment status is UNASSIGNED
         else if (item.assignment_status === "UNASSIGNED") {
-          serviceProviderName = "Awaiting Assignment";
+          serviceProviderName = t('booking.cards.awaitingAssignment');
           console.log(`✅ Using "Awaiting Assignment" (UNASSIGNED status)`);
         } 
         // Check other possible fields (fallbacks)
@@ -992,7 +994,7 @@ const mapBookingData = (data: any[]) => {
           bookingType: item.booking_type,
           monthlyAmount: amount,
           paymentMode: item.paymentMode,
-          address: item.address || 'No address specified',
+          address: item.address || t('common.address'),
           customerName: item.customerName,
           serviceProviderName: serviceProviderName,
           providerRating: providerRating,
@@ -1045,7 +1047,7 @@ const mapBookingData = (data: any[]) => {
   const handleGenerateOTP = async (booking: Booking) => {
     if (!booking.today_service?.service_day_id) {
       console.error('Service day ID not found for OTP generation');
-      Alert.alert('Error', 'Service day ID not found for OTP generation');
+      Alert.alert(t('common.error'), t('booking.otp.failed'));
       return;
     }
 
@@ -1087,12 +1089,12 @@ const mapBookingData = (data: any[]) => {
           } : b
         ));
 
-        Alert.alert('Success', 'OTP generated successfully!');
+        Alert.alert(t('common.success'), t('booking.otp.generated'));
       }
     } catch (error: any) {
       console.error('Error generating OTP:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to generate OTP. Please try again.';
-      Alert.alert('Error', errorMessage);
+      const errorMessage = error.response?.data?.message || t('booking.otp.failed');
+      Alert.alert(t('common.error'), errorMessage);
     } finally {
       setOtpLoading(null);
     }
@@ -1101,7 +1103,7 @@ const mapBookingData = (data: any[]) => {
   // PAYMENT COMPLETION FUNCTION
   const handleCompletePayment = async (booking: Booking) => {
     if (!booking.payment?.engagement_id) {
-      Alert.alert('Error', 'Payment information not found for this booking');
+      Alert.alert(t('common.error'), t('booking.payment.resumeFailed'));
       return;
     }
 
@@ -1128,7 +1130,7 @@ const mapBookingData = (data: any[]) => {
         currency,
         order_id: razorpay_order_id,
         name: "Serveaso",
-        description: `Payment for ${getServiceTitle(booking.service_type)} service`,
+        description: `${t('booking.payment.description')} ${getServiceTitle(booking.service_type, t)}`,
         prefill: {
           name: customer?.firstname || booking.customerName,
           contact: customer?.contact || '9999999999',
@@ -1149,25 +1151,25 @@ const mapBookingData = (data: any[]) => {
             razorpay_signature: data.razorpay_signature,
           });
           
-          Alert.alert("Success", "Payment completed successfully!");
+          Alert.alert(t('common.success'), t('booking.payment.completed'));
           // Refresh bookings to update status
           if (customerId) {
             await refreshBookings();
           }
         } catch (verifyError: any) {
           console.error("Payment verification error:", verifyError);
-          Alert.alert("Error", "Payment verification failed. Please contact support.");
+          Alert.alert(t('common.error'), t('booking.payment.verificationFailed'));
         }
       }).catch((error: any) => {
         console.error("Payment error:", error);
         if (error.code !== 2) { // Code 2 is user cancellation
-          Alert.alert("Error", "Payment was cancelled or failed.");
+          Alert.alert(t('common.error'), t('booking.payment.failed'));
         }
       });
 
     } catch (err: any) {
       console.error("Complete payment error:", err);
-      Alert.alert("Error", "Unable to resume payment. Please try again.");
+      Alert.alert(t('common.error'), t('booking.payment.resumeFailed'));
     } finally {
       setPaymentLoading(null);
     }
@@ -1178,8 +1180,11 @@ const mapBookingData = (data: any[]) => {
     showConfirmation(
       'payment',
       booking,
-      'Complete Payment',
-      `Complete payment of ₹${booking.monthlyAmount} for your ${getServiceTitle(booking.service_type)} booking?`,
+      t('booking.confirmation.paymentTitle'),
+      t('booking.confirmation.paymentMessage', { 
+        amount: booking.monthlyAmount, 
+        service: getServiceTitle(booking.service_type, t) 
+      }),
       'info'
     );
   };
@@ -1189,7 +1194,7 @@ const mapBookingData = (data: any[]) => {
     if (!term) return bookings;
     
     return bookings.filter(booking => 
-      getServiceTitle(booking?.service_type).toLowerCase().includes(term?.toLowerCase()) ||
+      getServiceTitle(booking?.service_type, t).toLowerCase().includes(term?.toLowerCase()) ||
       booking.serviceProviderName?.toLowerCase().includes(term?.toLowerCase()) ||
       booking.address?.toLowerCase().includes(term?.toLowerCase()) ||
       booking.bookingType?.toLowerCase().includes(term?.toLowerCase())
@@ -1297,8 +1302,8 @@ const mapBookingData = (data: any[]) => {
     showConfirmation(
       'cancel',
       booking,
-      'Cancel Booking',
-      `Are you sure you want to cancel your ${getServiceTitle(booking.service_type)} booking? This action cannot be undone.`,
+      t('booking.confirmation.cancelTitle'),
+      t('booking.confirmation.cancelMessage', { service: getServiceTitle(booking.service_type, t) }),
       'warning'
     );
   };
@@ -1402,7 +1407,7 @@ const mapBookingData = (data: any[]) => {
   const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
     if (!selectedBookingForLeave || !customerId) {
       console.error('❌ Missing required information for leave application');
-      throw new Error("Missing required information for leave application");
+      throw new Error(t('errors.generic'));
     }
 
     console.log(`📅 Applying leave for booking ${selectedBookingForLeave.id}: ${startDate} to ${endDate}`);
@@ -1453,15 +1458,15 @@ const mapBookingData = (data: any[]) => {
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
                   <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    Confirmed: Scheduled for today.
+                    {t('booking.messages.scheduled')}
                   </Text>
                   <Badge style={[styles.scheduledBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.scheduledBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Scheduled</Text>
+                    <Text style={[styles.scheduledBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.scheduled')}</Text>
                   </Badge>
                 </View>
               </View>
               <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                We are waiting for the provider to initiate start process at {formatTimeToAMPM(booking.start_time)}.
+                {t('booking.messages.scheduledDesc', { time: formatTimeToAMPM(booking.start_time) })}
               </Text>
             </View>
           </View>
@@ -1475,15 +1480,15 @@ const mapBookingData = (data: any[]) => {
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
                   <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    Your service is in progress!
+                    {t('booking.messages.inProgress')}
                   </Text>
                   <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
-                    <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
+                    <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>{t('booking.status.inProgress')}</Text>
                   </Badge>
                 </View>
               </View>
               <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                The provider has started session. Please generate OTP below so they can complete task.
+                {t('booking.messages.inProgressDesc')}
               </Text>
               
               {/* OTP Generation Button */}
@@ -1496,13 +1501,13 @@ const mapBookingData = (data: any[]) => {
                   {otpLoading === booking.id ? (
                     <>
                       <ActivityIndicator size="small" color="#fff" />
-                      <Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Generating...</Text>
+                      <Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('common.loading')}</Text>
                     </>
                   ) : (
                     <>
                       <Icon name="check-circle" size={16} color="#fff" />
                       <Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                        {booking.today_service.otp_active ? "OTP Generated" : "Generate & Share OTP"}
+                        {booking.today_service.otp_active ? t('booking.cards.otpGenerated') : t('booking.cards.generateOTP')}
                       </Text>
                     </>
                   )}
@@ -1510,7 +1515,7 @@ const mapBookingData = (data: any[]) => {
                 
                 {booking.today_service.otp_active && (
                   <Badge style={[styles.otpActiveBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.otpActiveBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>OTP Active</Text>
+                    <Text style={[styles.otpActiveBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.cards.otpActive')}</Text>
                   </Badge>
                 )}
               </View>
@@ -1518,19 +1523,19 @@ const mapBookingData = (data: any[]) => {
               {/* OTP Display Section (if OTP is generated) */}
               {booking.today_service.otp_active && generatedOTPs[booking.id] && (
                 <View style={[styles.otpDisplayContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Text style={[styles.otpDisplayLabel, { color: colors.text, fontSize: fontSizes.infoText }]}>Share this OTP with your provider:</Text>
+                  <Text style={[styles.otpDisplayLabel, { color: colors.text, fontSize: fontSizes.infoText }]}>{t('booking.cards.shareOTP')}</Text>
                   <View style={styles.otpDisplay}>
                     <Text style={[styles.otpCode, { color: colors.text, fontSize: fontSizes.headerTitle }]}>{generatedOTPs[booking.id]}</Text>
                     <Button
                       style={[styles.copyOtpButton, { borderColor: colors.border }]}
                       onPress={() => {
-                        Alert.alert("Success", "OTP copied to clipboard!");
+                        Alert.alert(t('common.success'), t('booking.otp.copied'));
                       }}
                     >
-                      <Text style={[styles.copyOtpButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Copy</Text>
+                      <Text style={[styles.copyOtpButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.copy')}</Text>
                     </Button>
                   </View>
-                  <Text style={[styles.otpExpiryText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Valid for 10 minutes</Text>
+                  <Text style={[styles.otpExpiryText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.cards.validFor')}</Text>
                 </View>
               )}
             </View>
@@ -1545,26 +1550,28 @@ const mapBookingData = (data: any[]) => {
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
                   <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    Service Completed Successfully!
+                    {t('booking.messages.completed')}
                   </Text>
                   <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
+                    <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.completed')}</Text>
                   </Badge>
                 </View>
               </View>
               <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                Your {getServiceTitle(booking.service_type)} service has been completed at {formatTimeToAMPM(booking.end_time)}. 
-                We hope you enjoyed the service!
+                {t('booking.messages.completedDesc', { 
+                  service: getServiceTitle(booking.service_type, t), 
+                  time: formatTimeToAMPM(booking.end_time) 
+                })}
               </Text>
               
               {/* Review Prompt Section */}
               <View style={[styles.reviewPromptContainer, { borderTopColor: colors.success }]}>
                 <View style={styles.reviewPromptContent}>
                   <Text style={[styles.reviewPromptTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    How was your experience?
+                    {t('booking.cards.howWasExperience')}
                   </Text>
                   <Text style={[styles.reviewPromptSubtitle, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                    Help us improve by leaving a review for your provider
+                    {t('booking.cards.helpUsImprove')}
                   </Text>
                 </View>
                 <Button
@@ -1572,7 +1579,7 @@ const mapBookingData = (data: any[]) => {
                   onPress={() => handleLeaveReviewClick(booking)}
                 >
                   <Icon name="message-text" size={16} color={colors.text} />
-                  <Text style={[styles.leaveReviewButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Leave Review</Text>
+                  <Text style={[styles.leaveReviewButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>{t('booking.cards.leaveReview')}</Text>
                 </Button>
               </View>
             </View>
@@ -1613,12 +1620,12 @@ const mapBookingData = (data: any[]) => {
             {paymentLoading === booking.id ? (
               <>
                 <ActivityIndicator size="small" color="#fff" />
-                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Processing...</Text>
+                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.processing')}</Text>
               </>
             ) : (
               <>
                 <Icon name="credit-card" size={16} color="#fff" />
-                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Complete Payment</Text>
+                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.completePayment')}</Text>
               </>
             )}
           </Button>
@@ -1629,7 +1636,7 @@ const mapBookingData = (data: any[]) => {
             onPress={() => handleCancelClick(booking)}
           >
             <Icon name="close-circle" size={16} color="#fff" />
-            <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel Booking</Text>
+            <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.cancel')}</Text>
           </Button>
         </View>
       );
@@ -1657,7 +1664,7 @@ const mapBookingData = (data: any[]) => {
             { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.buttonText },
             modificationDisabled && { color: colors.textSecondary }
           ]}>
-            Modify
+            {t('booking.cards.modify')}
           </Text>
         </Button>
       )}
@@ -1671,7 +1678,7 @@ const mapBookingData = (data: any[]) => {
               disabled={isRefreshing}
             >
               <Icon name="pencil" size={16} color={colors.primary} />
-              <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
+              <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modifyVacation')}</Text>
             </Button>
           ) : (
             <Button
@@ -1680,7 +1687,7 @@ const mapBookingData = (data: any[]) => {
               disabled={isRefreshing}
             >
               <Icon name="calendar" size={16} color={colors.primary} />
-              <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
+              <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.addVacation')}</Text>
             </Button>
           )}
         </>
@@ -1694,22 +1701,22 @@ const mapBookingData = (data: any[]) => {
               style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
               onPress={() => {
                 console.log(`📞 Call provider for booking ${booking.id}`);
-                Alert.alert('Call', `Call provider for ongoing ${getServiceTitle(booking.service_type)} service`);
+                Alert.alert(t('booking.cards.call'), `${t('booking.cards.call')} ${getServiceTitle(booking.service_type, t)}`);
               }}
             >
               <Icon name="phone" size={16} color="#fff" />
-              <Text style={[styles.callButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Call</Text>
+              <Text style={[styles.callButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.call')}</Text>
             </Button>
 
             <Button 
               style={[styles.actionButton, styles.messageButton, { backgroundColor: colors.success, borderColor: colors.success }]}
               onPress={() => {
                 console.log(`💬 Message provider for booking ${booking.id}`);
-                Alert.alert('Message', `Message provider for ongoing ${getServiceTitle(booking.service_type)} service`);
+                Alert.alert(t('booking.cards.message'), `${t('booking.cards.message')} ${getServiceTitle(booking.service_type, t)}`);
               }}
             >
               <Icon name="message-text" size={16} color="#fff" />
-              <Text style={[styles.messageButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Message</Text>
+              <Text style={[styles.messageButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.message')}</Text>
             </Button>
 
             <Button 
@@ -1717,7 +1724,7 @@ const mapBookingData = (data: any[]) => {
               onPress={() => handleCancelClick(booking)}
             >
               <Icon name="close-circle" size={16} color="#fff" />
-              <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel</Text>
+              <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.cancel')}</Text>
             </Button>
 
             {booking.bookingType === "MONTHLY" && (
@@ -1729,7 +1736,7 @@ const mapBookingData = (data: any[]) => {
                     disabled={isRefreshing}
                   >
                     <Icon name="pencil" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
+                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modifyVacation')}</Text>
                   </Button>
                 ) : (
                   <Button
@@ -1738,7 +1745,7 @@ const mapBookingData = (data: any[]) => {
                     disabled={isRefreshing}
                   >
                     <Icon name="calendar" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
+                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.addVacation')}</Text>
                   </Button>
                 )}
               </>
@@ -1755,7 +1762,7 @@ const mapBookingData = (data: any[]) => {
                 disabled={true}
               >
                 <Icon name="check-circle" size={16} color={colors.success} />
-                <Text style={[styles.reviewSubmittedText, { color: colors.success, fontSize: fontSizes.buttonText }]}>Reviewed</Text>
+                <Text style={[styles.reviewSubmittedText, { color: colors.success, fontSize: fontSizes.buttonText }]}>{t('booking.cards.reviewed')}</Text>
               </Button>
             ) : (
               <Button
@@ -1763,7 +1770,7 @@ const mapBookingData = (data: any[]) => {
                 onPress={() => handleLeaveReviewClick(booking)}
               >
                 <Icon name="message-text" size={16} color={colors.primary} />
-                <Text style={[styles.reviewButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Review</Text>
+                <Text style={[styles.reviewButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.review')}</Text>
               </Button>
             )}
 
@@ -1775,7 +1782,7 @@ const mapBookingData = (data: any[]) => {
               }}
             >
               <Icon name="calendar-plus" size={16} color={colors.primary} />
-              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Book Again</Text>
+              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.bookAgain')}</Text>
             </Button>
           </View>
         );
@@ -1791,7 +1798,7 @@ const mapBookingData = (data: any[]) => {
               }}
             >
               <Icon name="calendar-plus" size={16} color={colors.primary} />
-              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Book Again</Text>
+              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.bookAgain')}</Text>
             </Button>
           </View>
         );
@@ -1841,11 +1848,11 @@ const mapBookingData = (data: any[]) => {
 
   // Define status options for tabs - UPDATED to match React version
   const statusTabs = [
-    { value: 'ALL', label: 'All', count: upcomingBookings.length },
-    { value: 'NOT_STARTED', label: 'Not Started', count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
-    { value: 'IN_PROGRESS', label: 'In Progress', count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
-    { value: 'COMPLETED', label: 'Completed', count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
-    { value: 'CANCELLED', label: 'Cancelled', count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
+    { value: 'ALL', label: t('common.all'), count: upcomingBookings.length },
+    { value: 'NOT_STARTED', label: t('booking.status.notStarted'), count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
+    { value: 'IN_PROGRESS', label: t('booking.status.inProgress'), count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
+    { value: 'COMPLETED', label: t('booking.status.completed'), count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
+    { value: 'CANCELLED', label: t('booking.status.cancelled'), count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
   ];
 
   // UPDATED: REDESIGNED renderBookingItem with clean, minimal design matching the image
@@ -1873,12 +1880,12 @@ const mapBookingData = (data: any[]) => {
                 color={colors.primary}
               />
             </View>
-            <Text style={[styles.serviceTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{getServiceTitle(serviceType)}</Text>
+            <Text style={[styles.serviceTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{getServiceTitle(serviceType, t)}</Text>
           </View>
           
           <View style={styles.statusContainer}>
             {/* Pass colors and fontSizes to the badge functions */}
-            {getBookingTypeBadge(item.bookingType, colors, fontSizes)}
+            {getBookingTypeBadge(item.bookingType, colors, fontSizes, t)}
           </View>
         </View>
 
@@ -1887,7 +1894,7 @@ const mapBookingData = (data: any[]) => {
           <View style={styles.paymentPendingRow}>
             <Badge style={[styles.paymentPendingBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
               <Icon name="alert-circle" size={14} color={colors.error} />
-              <Text style={[styles.paymentPendingBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Payment Required</Text>
+              <Text style={[styles.paymentPendingBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>{t('booking.cards.paymentRequired')}</Text>
             </Badge>
           </View>
         )}
@@ -1897,7 +1904,7 @@ const mapBookingData = (data: any[]) => {
           <View style={styles.awaitingRow}>
             <Badge style={[styles.awaitingBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
               <Icon name="clock" size={14} color={colors.warning} />
-              <Text style={[styles.awaitingBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>Awaiting Assignment</Text>
+              <Text style={[styles.awaitingBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>{t('booking.cards.awaitingAssignment')}</Text>
             </Badge>
           </View>
         )}
@@ -1928,7 +1935,7 @@ const mapBookingData = (data: any[]) => {
 
         {/* View Details Indicator - Subtle arrow at bottom right like Flipkart */}
         <View style={styles.viewDetailsIndicator}>
-          <Text style={[styles.viewDetailsText, { color: colors.textSecondary, fontSize: fontSizes.viewDetailsText }]}>Tap to view details</Text>
+          <Text style={[styles.viewDetailsText, { color: colors.textSecondary, fontSize: fontSizes.viewDetailsText }]}>{t('booking.page.tapToViewDetails')}</Text>
           <Icon name="chevron-right" size={16} color={colors.textSecondary} />
         </View>
       </Card>
@@ -2031,7 +2038,7 @@ const mapBookingData = (data: any[]) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Loading your bookings...</Text>
+        <Text style={[styles.loadingText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.page.loading')}</Text>
       </View>
     );
   }
@@ -2057,8 +2064,8 @@ const mapBookingData = (data: any[]) => {
             <Icon name="arrow-left" size={24} color={colors.primary} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>Manage your household service appointments</Text>
+            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>{t('booking.page.title')}</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>{t('booking.page.subtitle')}</Text>
           </View>
         </View>
         
@@ -2071,7 +2078,7 @@ const mapBookingData = (data: any[]) => {
                 color: colors.text,
                 fontSize: fontSizes.searchInput
               }]}
-              placeholder="Search bookings..."
+              placeholder={t('booking.page.searchPlaceholder')}
               placeholderTextColor={colors.placeholder}
               value={searchTerm}
               onChangeText={(text) => {
@@ -2099,7 +2106,7 @@ const mapBookingData = (data: any[]) => {
             }}
           >
             <Icon name="wallet" size={24} color="#fff" />
-            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>Wallet</Text>
+            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>{t('navigation.wallet')}</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -2118,9 +2125,9 @@ const mapBookingData = (data: any[]) => {
           <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
             <Icon name="alert-circle" size={24} color={colors.primary} />
             <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Upcoming Bookings</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.page.upcoming')}</Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? 'booking' : 'bookings'} scheduled
+                {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? t('booking.page.upcomingCount', { count: filteredUpcomingBookings.length }) : t('booking.page.upcomingCount_plural', { count: filteredUpcomingBookings.length })}
               </Text>
             </View>
             <Badge style={[styles.sectionBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
@@ -2169,8 +2176,8 @@ const mapBookingData = (data: any[]) => {
           ) : (
             <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Icon name="calendar" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Upcoming Bookings</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>Ready to book your next service?</Text>
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>{t('booking.page.noUpcoming')}</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>{t('booking.page.noUpcomingDesc')}</Text>
               {/* Update the empty state button in the upcoming bookings section */}
               <Button 
                 style={[styles.emptyStateButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
@@ -2179,7 +2186,7 @@ const mapBookingData = (data: any[]) => {
                   setServicesDialogOpen(true);
                 }}
               >
-                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>Book a Service</Text>
+                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>{t('booking.page.bookService')}</Text>
               </Button>
             </Card>
           )}
@@ -2190,9 +2197,9 @@ const mapBookingData = (data: any[]) => {
           <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
             <Icon name="history" size={24} color={colors.textSecondary} />
             <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Past Bookings</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.page.past')}</Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredPastBookings.length} {filteredPastBookings.length === 1 ? 'booking' : 'bookings'} in history
+                {filteredPastBookings.length} {filteredPastBookings.length === 1 ? t('booking.page.pastCount', { count: filteredPastBookings.length }) : t('booking.page.pastCount_plural', { count: filteredPastBookings.length })}
               </Text>
             </View>
             <Badge style={[styles.sectionBadge, styles.pastBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
@@ -2210,8 +2217,8 @@ const mapBookingData = (data: any[]) => {
           ) : (
             <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Icon name="clock" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Past Bookings</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>Your completed and cancelled bookings will appear here.</Text>
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>{t('booking.page.noPast')}</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>{t('booking.page.noPastDesc')}</Text>
             </Card>
           )}
         </View>
@@ -2263,7 +2270,7 @@ const mapBookingData = (data: any[]) => {
         onConfirm={handleConfirmAction}
         title={confirmationDialog.title}
         message={confirmationDialog.message}
-        confirmText={confirmationDialog.type === 'cancel' ? 'Yes, Cancel' : 'Confirm'}
+        confirmText={confirmationDialog.type === 'cancel' ? t('booking.confirmation.confirm') : t('booking.confirmation.confirmPayment')}
         loading={actionLoading}
         severity={confirmationDialog.severity}
       />
@@ -2311,7 +2318,7 @@ const mapBookingData = (data: any[]) => {
       {/* Snackbar for notifications */}
       {openSnackbar && (
         <View style={[styles.snackbar, { backgroundColor: colors.success }]}>
-          <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.infoText }]}>Operation completed successfully!</Text>
+          <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.infoText }]}>{t('booking.page.operationSuccess')}</Text>
           <TouchableOpacity onPress={() => {
             console.log('❌ Closing snackbar');
             setOpenSnackbar(false);

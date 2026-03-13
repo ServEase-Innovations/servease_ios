@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { useState, useCallback } from 'react';
 import providerInstance from '../services/providerInstance';
+import { useTranslation } from 'react-i18next';
 
 interface ValidationState {
   loading: boolean;
@@ -15,6 +16,7 @@ interface ValidationResults {
 }
 
 export const useFieldValidation = () => {
+  const { t } = useTranslation();
   const [validationResults, setValidationResults] = useState<ValidationResults>({
     email: { loading: false, error: '', isAvailable: null },
     mobile: { loading: false, error: '', isAvailable: null },
@@ -63,17 +65,23 @@ export const useFieldValidation = () => {
       if (response.data.exists !== undefined) {
         isAvailable = !response.data.exists; // If exists is true, then NOT available
         errorMessage = response.data.exists 
-          ? `${fieldType === 'email' ? 'Email' : 'Mobile number'} is already registered` 
+          ? fieldType === 'email' 
+            ? t('registration.basicInformation.emailTaken')
+            : t('registration.basicInformation.mobileTaken')
           : '';
       } else if (response.data.available !== undefined) {
         isAvailable = response.data.available;
         errorMessage = !response.data.available 
-          ? `${fieldType === 'email' ? 'Email' : 'Mobile number'} is already registered` 
+          ? fieldType === 'email' 
+            ? t('registration.basicInformation.emailTaken')
+            : t('registration.basicInformation.mobileTaken')
           : '';
       } else if (response.data.isAvailable !== undefined) {
         isAvailable = response.data.isAvailable;
         errorMessage = !response.data.isAvailable 
-          ? `${fieldType === 'email' ? 'Email' : 'Mobile number'} is already registered` 
+          ? fieldType === 'email' 
+            ? t('registration.basicInformation.emailTaken')
+            : t('registration.basicInformation.mobileTaken')
           : '';
       } else {
         // Default assumption if API returns success without specific availability flag
@@ -94,7 +102,9 @@ export const useFieldValidation = () => {
     } catch (error: any) {
       console.error(`Error validating ${fieldType}:`, error);
       
-      let errorMessage = `Error checking ${fieldType === 'email' ? 'email' : 'mobile number'}`;
+      let errorMessage = fieldType === 'email' 
+        ? t('errors.invalidEmail')
+        : t('errors.invalidPhone');
       
       if (error.response?.data) {
         // Try to extract error message from API response
@@ -107,11 +117,15 @@ export const useFieldValidation = () => {
           errorMessage = apiError.error;
         }
       } else if (error.response?.status === 400) {
-        errorMessage = `Invalid ${fieldType === 'email' ? 'email' : 'mobile number'} format`;
+        errorMessage = fieldType === 'email' 
+          ? t('errors.invalidEmail')
+          : t('errors.invalidPhone');
       } else if (error.response?.status === 409) {
-        errorMessage = `${fieldType === 'email' ? 'Email' : 'Mobile number'} is already registered`;
+        errorMessage = fieldType === 'email' 
+          ? t('registration.basicInformation.emailTaken')
+          : t('registration.basicInformation.mobileTaken');
       } else if (error.response?.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
+        errorMessage = t('errors.server');
       }
 
       setValidationResults(prev => ({
@@ -125,7 +139,7 @@ export const useFieldValidation = () => {
 
       return false;
     }
-  }, []);
+  }, [t]);
 
   const resetValidation = useCallback((fieldType?: 'email' | 'mobile' | 'alternate') => {
     if (fieldType) {
