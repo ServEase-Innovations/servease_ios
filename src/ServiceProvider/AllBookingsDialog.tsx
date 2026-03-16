@@ -22,6 +22,7 @@ import axios from "axios";
 import { OtpVerificationDialog } from "./OtpVerificationDialog";
 import TrackAddress from "./TrackAddress";
 import LinearGradient from "react-native-linear-gradient";
+import { useTranslation } from 'react-i18next';
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
@@ -56,15 +57,15 @@ const formatTimeToAMPM = (timeString: string): string => {
 };
 
 // Function to handle calling customer
-const handleCallCustomer = (phoneNumber: string, clientName: string) => {
+const handleCallCustomer = (phoneNumber: string, clientName: string, t: any) => {
   if (!phoneNumber || phoneNumber === "Contact info not available") {
-    Alert.alert("No Contact Info", "Customer contact information is not available.");
+    Alert.alert(t('bookingCard.noContactInfo'), t('bookingCard.noContactInfo'));
     return;
   }
   
   const telLink = `tel:${phoneNumber}`;
   Linking.openURL(telLink).catch(() => {
-    Alert.alert("Error", "Could not open phone dialer");
+    Alert.alert(t('common.error'), t('bookingCard.callError'));
   });
 };
 
@@ -76,6 +77,7 @@ export function AllBookingsDialog({
   onClose, 
   onContactClient 
 }: AllBookingsDialogProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<"ongoing" | "future" | "past">("ongoing");
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
   const [data, setData] = useState<Booking[]>([]);
@@ -145,7 +147,7 @@ export function AllBookingsDialog({
       ? `${apiBooking.firstname} ${apiBooking.lastname}`.trim()
       : apiBooking.firstname 
         ? apiBooking.firstname
-        : apiBooking.email || "Client";
+        : apiBooking.email || t('bookingCard.clientName');
 
     const bookingId = apiBooking.engagement_id || apiBooking.id;
 
@@ -190,13 +192,13 @@ export function AllBookingsDialog({
       service: apiBooking.service_type || apiBooking.serviceType || "",
       date: date,
       time: timeRange,
-      location: apiBooking.address || "Address not provided",
+      location: apiBooking.address || t('allBookings.bookingCard.address'),
       status: apiBooking.task_status || apiBooking.taskStatus || "",
       amount: amount,
       bookingData: {
         ...apiBooking,
         mobileno: apiBooking.mobileno || "",
-        contact: apiBooking.mobileno || "Contact info not available",
+        contact: apiBooking.mobileno || t('bookingCard.noContactInfo'),
         today_service: apiBooking.today_service || null
       }
     };
@@ -220,7 +222,7 @@ export function AllBookingsDialog({
       return res.data;
     } catch (err) {
       console.error("Error fetching bookings:", err);
-      Alert.alert("Error", "Failed to load bookings");
+      Alert.alert(t('common.error'), t('errors.failedToLoadBookings'));
       return { current: [], upcoming: [], past: [] };
     } finally {
       setLoading(false);
@@ -263,7 +265,7 @@ export function AllBookingsDialog({
 
     const serviceDayId = bookingData.today_service?.service_day_id;
     if (!serviceDayId) {
-      Alert.alert("Error", "Service day ID not found. Cannot start service.");
+      Alert.alert(t('common.error'), t('errors.serviceDayIdNotFound'));
       return;
     }
 
@@ -284,18 +286,18 @@ export function AllBookingsDialog({
         }
       );
 
-      Alert.alert("Service Started", "You have successfully started the service. Task is now IN_PROGRESS");
+      Alert.alert(t('common.success'), t('allBookings.bookingCard.taskStarted'));
 
       await fetchDataForTab(tab, selectedMonth);
     } catch (err) {
       setTaskStatus(prev => ({ ...prev, [bookingId]: previousStatus }));
       
-      let errorMessage = "Failed to start service";
+      let errorMessage = t('errors.failedToStartService');
       if (axios.isAxiosError(err)) {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
       
-      Alert.alert("Error", errorMessage);
+      Alert.alert(t('common.error'), errorMessage);
     } finally {
       setTaskStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
     }
@@ -311,7 +313,7 @@ export function AllBookingsDialog({
 
     const serviceDayId = currentBooking.bookingData.today_service?.service_day_id;
     if (!serviceDayId) {
-      Alert.alert("Error", "Service day ID not found");
+      Alert.alert(t('common.error'), t('errors.serviceDayIdNotFound'));
       return;
     }
 
@@ -328,7 +330,7 @@ export function AllBookingsDialog({
         }
       );
 
-      Alert.alert("Success", "Service completed successfully! Earnings credited to your account.");
+      Alert.alert(t('common.success'), t('otpVerification.success'));
 
       setTaskStatus(prev => ({ ...prev, [currentBooking.bookingId]: "COMPLETED" }));
       
@@ -336,12 +338,12 @@ export function AllBookingsDialog({
       
       return Promise.resolve();
     } catch (err) {
-      let errorMessage = "Failed to complete service";
+      let errorMessage = t('errors.failedToCompleteService');
       if (axios.isAxiosError(err)) {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
       
-      Alert.alert("Error", errorMessage);
+      Alert.alert(t('common.error'), errorMessage);
       return Promise.reject(err);
     } finally {
       setVerifyingOtp(false);
@@ -619,11 +621,11 @@ export function AllBookingsDialog({
 
     return (
       <View style={styles.responsibilitiesSection}>
-        <Text style={styles.responsibilitiesTitle}>Responsibilities</Text>
+        <Text style={styles.responsibilitiesTitle}>{t('allBookings.bookingCard.responsibilities')}</Text>
         <View style={styles.responsibilitiesList}>
           {/* Render tasks */}
           {hasTasks && responsibilities.tasks?.map((task: any, index: number) => {
-            const taskLabel = task.persons ? `${task.persons} persons` : "";
+            const taskLabel = task.persons ? `${task.persons} ${t('allBookings.bookingCard.persons')}` : "";
             const taskType = task.taskType || task.type || '';
             
             return (
@@ -651,7 +653,7 @@ export function AllBookingsDialog({
               <View key={`addon-${index}`} style={styles.responsibilityItem}>
                 <View style={[styles.responsibilityBadge, styles.addonBadge]}>
                   <Text style={styles.responsibilityBadgeText}>
-                    Add-on: {addonText}
+                    {t('allBookings.bookingCard.addOn')}: {addonText}
                   </Text>
                 </View>
               </View>
@@ -663,22 +665,35 @@ export function AllBookingsDialog({
   };
 
   const getTabLabel = (tabType: "ongoing" | "future" | "past") => {
-    const baseLabels = {
-      ongoing: `Current (${tab === 'ongoing' ? totalBookings : '0'})`,
-      future: `Upcoming (${tab === 'future' ? totalBookings : '0'})`,
-      past: `Past (${tab === 'past' ? totalBookings : '0'})`
-    };
-    
-    return baseLabels[tabType];
+    const count = tab === tabType ? totalBookings : 0;
+    if (tabType === "ongoing") {
+      return t('allBookings.tabs.ongoing', { count });
+    } else if (tabType === "future") {
+      return t('allBookings.tabs.future', { count });
+    } else {
+      return t('allBookings.tabs.past', { count });
+    }
   };
 
   const getEmptyStateMessage = () => {
+    const monthName = getMonthName(selectedMonth);
     if (tab === "ongoing") {
-      return "No current bookings found in this month. All your current bookings for this month will appear here.";
+      return t('allBookings.noCurrentBookingsDesc');
     } else if (tab === "future") {
-      return "No upcoming bookings found in this month. All your upcoming bookings for this month will appear here.";
+      return t('allBookings.noUpcomingBookingsDesc');
     } else {
-      return "No past bookings found in this month. All your past bookings for this month will appear here.";
+      return t('allBookings.noPastBookingsDesc');
+    }
+  };
+
+  const getEmptyTitle = () => {
+    const monthName = getMonthName(selectedMonth);
+    if (tab === "ongoing") {
+      return t('allBookings.noCurrentBookings', { month: monthName });
+    } else if (tab === "future") {
+      return t('allBookings.noUpcomingBookings', { month: monthName });
+    } else {
+      return t('allBookings.noPastBookings', { month: monthName });
     }
   };
 
@@ -709,7 +724,7 @@ export function AllBookingsDialog({
               style={styles.modalHeader}
             >
               <Text style={styles.modalTitle}>
-                View all Bookings
+                {t('allBookings.title')}
               </Text>
               <TouchableOpacity 
                 onPress={handleClose}
@@ -745,7 +760,10 @@ export function AllBookingsDialog({
                   {loading ? (
                     <SkeletonLoader width={120} height={16} />
                   ) : (
-                    `${totalBookings} booking${totalBookings !== 1 ? 's' : ''} in ${getMonthName(selectedMonth)}`
+                    t('allBookings.bookingCount', { 
+                      count: totalBookings, 
+                      month: getMonthName(selectedMonth) 
+                    })
                   )}
                 </Text>
               </View>
@@ -790,12 +808,7 @@ export function AllBookingsDialog({
                     <Calendar size={48} color="#d1d5db" />
                   </View>
                   <Text style={styles.emptyTitle}>
-                    {tab === "ongoing" 
-                      ? "No current bookings found" 
-                      : tab === "future"
-                        ? "No upcoming bookings found"
-                        : "No past bookings found"
-                    } in {getMonthName(selectedMonth)}
+                    {getEmptyTitle()}
                   </Text>
                   <Text style={styles.emptyDescription}>
                     {getEmptyStateMessage()}
@@ -831,7 +844,7 @@ export function AllBookingsDialog({
                         <View style={styles.cardHeader}>
                           <View style={styles.cardHeaderTop}>
                             <Text style={styles.bookingId}>
-                              Booking ID: {booking.id}
+                              {t('allBookings.bookingCard.bookingId', { id: booking.id })}
                             </Text>
                             <View style={styles.headerBadges}>
                               {getBookingTypeBadge(booking.booking_type || "")}
@@ -856,17 +869,17 @@ export function AllBookingsDialog({
                           {/* Date, Time and Amount with Phone Icon */}
                           <View style={styles.infoGrid}>
                             <View style={styles.dateTimeSection}>
-                              <Text style={styles.infoLabel}>Date & Time</Text>
+                              <Text style={styles.infoLabel}>{t('allBookings.bookingCard.dateTime')}</Text>
                               <View style={styles.infoRow}>
                                 <Calendar size={14} color="#6b7280" />
                                 <Text style={styles.infoText}>
-                                  {booking.date} at {booking.time}
+                                  {booking.date} {t('allBookings.bookingCard.at')} {booking.time}
                                 </Text>
                               </View>
                             </View>
                             <View style={styles.amountSection}>
                               <View style={styles.amountInfo}>
-                                <Text style={styles.amountLabel}>Amount</Text>
+                                <Text style={styles.amountLabel}>{t('allBookings.bookingCard.amount')}</Text>
                                 <Text style={styles.amountText}>
                                   {booking.amount}
                                 </Text>
@@ -874,7 +887,7 @@ export function AllBookingsDialog({
                               {booking.bookingData?.mobileno && (
                                 <TouchableOpacity
                                   style={styles.phoneButton}
-                                  onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName)}
+                                  onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName, t)}
                                 >
                                   <Phone size={16} color="#374151" />
                                 </TouchableOpacity>
@@ -888,24 +901,24 @@ export function AllBookingsDialog({
                           {/* Location with Track Address Button */}
                           <View style={styles.locationSection}>
                             <View style={styles.locationHeader}>
-                              <Text style={styles.locationLabel}>Address</Text>
+                              <Text style={styles.locationLabel}>{t('allBookings.bookingCard.address')}</Text>
                               <TouchableOpacity
                                 style={styles.trackButton}
                                 onPress={() => handleTrackAddress(booking)}
                               >
                                 <MapPin size={14} color="#374151" />
-                                <Text style={styles.trackButtonText}>Track Address</Text>
+                                <Text style={styles.trackButtonText}>{t('allBookings.bookingCard.trackAddress')}</Text>
                               </TouchableOpacity>
                             </View>
                             <Text style={styles.locationText} numberOfLines={2}>
-                              {booking.location || "Address not provided"}
+                              {booking.location || t('allBookings.bookingCard.address')}
                             </Text>
                           </View>
 
                           {/* Today's Service Status Badge */}
                           {todayServiceStatus && (
                             <View style={styles.todayServiceSection}>
-                              <Text style={styles.todayServiceLabel}>Today's Service:</Text>
+                              <Text style={styles.todayServiceLabel}>{t('allBookings.bookingCard.todaysService')}</Text>
                               <View style={[
                                 styles.todayServiceBadge,
                                 todayServiceStatus === 'SCHEDULED' && styles.scheduledBadge,
@@ -928,12 +941,12 @@ export function AllBookingsDialog({
                           <View style={styles.taskActionsSection}>
                             <Text style={styles.taskStatusLabel}>
                               {isInProgress 
-                                ? "Task In Progress" 
+                                ? t('allBookings.bookingCard.taskInProgress')
                                 : isCompleted 
-                                  ? 'Task Completed' 
+                                  ? t('allBookings.bookingCard.taskCompleted')
                                   : isNotStarted
-                                    ? 'Not Started' 
-                                    : 'Upcoming'
+                                    ? t('allBookings.bookingCard.notStarted')
+                                    : t('allBookings.bookingCard.upcoming')
                               }
                             </Text>
                             <View style={styles.taskButtons}>
@@ -947,7 +960,7 @@ export function AllBookingsDialog({
                                   size="sm"
                                   onPress={() => handleStopTask(booking.id.toString(), booking.bookingData)}
                                 >
-                                  Complete Task
+                                  {t('allBookings.bookingCard.completeTask')}
                                 </Button>
                               ) : showCompletedButton ? (
                                 <Button 
@@ -956,7 +969,7 @@ export function AllBookingsDialog({
                                   disabled
                                   icon={<CheckCircle size={14} color="#10b981" />}
                                 >
-                                  Completed
+                                  {t('allBookings.bookingCard.completed')}
                                 </Button>
                               ) : showStartButton ? (
                                 <Button 
@@ -964,7 +977,7 @@ export function AllBookingsDialog({
                                   size="sm"
                                   onPress={() => handleStartTask(booking.id.toString(), booking.bookingData)}
                                 >
-                                  Start Task
+                                  {t('allBookings.bookingCard.startTask')}
                                 </Button>
                               ) : (
                                 <Button 
@@ -972,7 +985,7 @@ export function AllBookingsDialog({
                                   size="sm"
                                   disabled
                                 >
-                                  Cannot Start Yet
+                                  {t('allBookings.bookingCard.cannotStartYet')}
                                 </Button>
                               )}
                             </View>
@@ -1592,3 +1605,5 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
 });
+
+export default AllBookingsDialog;

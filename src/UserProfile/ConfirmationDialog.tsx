@@ -8,6 +8,7 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -27,11 +28,13 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   onConfirm,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   loading = false,
   severity = 'info'
 }) => {
+  const { t } = useTranslation();
+
   const getSeverityColor = () => {
     switch (severity) {
       case 'warning':
@@ -159,13 +162,13 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                 onPress={onClose}
                 disabled={loading}
               >
-                {cancelText}
+                {cancelText || t('common.cancel')}
               </Button>
               <Button
                 onPress={onConfirm}
                 disabled={loading}
               >
-                {confirmText}
+                {confirmText || t('common.confirm')}
               </Button>
             </View>
           </View>

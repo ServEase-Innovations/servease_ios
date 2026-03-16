@@ -215,7 +215,20 @@
     "checking": "ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...",
     "available": "ಲಭ್ಯವಿದೆ",
     "taken": "ಈಗಾಗಲೇ ತೆಗೆದುಕೊಳ್ಳಲಾಗಿದೆ",
-    "clear": "ತೆರವುಗೊಳಿಸಿ"
+    "clear": "ತೆರವುಗೊಳಿಸಿ",
+    "unknown": "ಅಜ್ಞಾತ",
+    "all": "ಎಲ್ಲಾ",
+    "openSettings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ",
+    "permissionRequired": "ಅನುಮತಿ ಅಗತ್ಯವಿದೆ",
+    "emailAddress": "ಇಮೇಲ್ ವಿಳಾಸ",
+    "na": "ಎನ್/ಎ",
+    "country": {
+      "india": "ಭಾರತ"
+    },
+    "hour": "ಗಂ",
+    "minute": "ನಿ",
+    "hours": "ಗಂ",
+    "minutes": "ನಿ"
   },
   "settings": {
     "title": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
@@ -435,7 +448,8 @@
     "options": {
       "date": "ದಿನಾಂಕ",
       "shortTerm": "ಅಲ್ಪಾವಧಿ",
-      "monthly": "ಮಾಸಿಕ"
+      "monthly": "ಮಾಸಿಕ",
+      "onDemand": "ಆನ್ ಡಿಮ್ಯಾಂಡ್"
     },
     "status": {
       "pending": "ಬಾಕಿ",
@@ -443,7 +457,13 @@
       "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ",
       "cancelled": "ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ",
       "rejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
-      "inProgress": "ಪ್ರಗತಿಯಲ್ಲಿದೆ"
+      "inProgress": "ಪ್ರಗತಿಯಲ್ಲಿದೆ",
+      "active": "ಸಕ್ರಿಯ",
+      "notStarted": "ಪ್ರಾರಂಭವಾಗಿಲ್ಲ",
+      "scheduled": "ನಿಗದಿಯಾಗಿದೆ",
+      "upcoming": "ಮುಂಬರುವ",
+      "current": "ಪ್ರಸ್ತುತ",
+      "past": "ಹಿಂದಿನ"
     },
     "confirmBox": {
       "title": "ನಿಮ್ಮ ಬುಕಿಂಗ್ ದೃಢಪಡಿಸಿ",
@@ -544,7 +564,8 @@
       "completed": "ಪಾವತಿ ಯಶಸ್ವಿಯಾಗಿ ಪೂರ್ಣಗೊಂಡಿದೆ!",
       "failed": "ಪಾವತಿ ರದ್ದುಗೊಂಡಿದೆ ಅಥವಾ ವಿಫಲವಾಗಿದೆ.",
       "verificationFailed": "ಪಾವತಿ ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಬೆಂಬಲವನ್ನು ಸಂಪರ್ಕಿಸಿ.",
-      "resumeFailed": "ಪಾವತಿಯನ್ನು ಪುನರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+      "resumeFailed": "ಪಾವತಿಯನ್ನು ಪುನರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "description": "ಗೆ ಪಾವತಿ"
     }
   },
   "profile": {
@@ -580,7 +601,75 @@
     "totalBookings": "ಒಟ್ಟು ಬುಕಿಂಗ್‌ಗಳು: {count}",
     "reviewsGiven": "ನೀಡಿದ ವಿಮರ್ಶೆಗಳು: {count}",
     "reviewsReceived": "ಸ್ವೀಕರಿಸಿದ ವಿಮರ್ಶೆಗಳು: {count}",
-    "avgRating": "ಸರಾಸರಿ ರೇಟಿಂಗ್: {rating}"
+    "avgRating": "ಸರಾಸರಿ ರೇಟಿಂಗ್: {rating}",
+    "page": {
+      "greeting": "ನಮಸ್ಕಾರ, {name}",
+      "customer": "ಗ್ರಾಹಕ",
+      "serviceProvider": "ಸೇವಾ ಒದಗಿಸುವವರು",
+      "id": "ಐಡಿ: {id}",
+      "mobileRequired": "⚠️ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಅಗತ್ಯವಿದೆ",
+      "edit": "ಸಂಪಾದಿಸಿ",
+      "myAccount": "ನನ್ನ ಖಾತೆ",
+      "addMobileNumber": "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಸೇರಿಸಿ",
+      "userInformation": "ಬಳಕೆದಾರರ ಮಾಹಿತಿ",
+      "contactInformation": "ಸಂಪರ್ಕ ಮಾಹಿತಿ",
+      "username": "ಬಳಕೆದಾರ ಹೆಸರು",
+      "emailAddress": "ಇಮೇಲ್ ವಿಳಾಸ",
+      "firstName": "ಮೊದಲ ಹೆಸರು",
+      "lastName": "ಕೊನೆಯ ಹೆಸರು",
+      "userId": "ಬಳಕೆದಾರ ಐಡಿ",
+      "providerId": "ಒದಗಿಸುವವರ ಐಡಿ",
+      "contactNumber": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆ",
+      "alternativeContact": "ಪರ್ಯಾಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆ",
+      "enter10Digit": "10-ಅಂಕಿಯ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ",
+      "contactNumberAvailable": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆ ಲಭ್ಯವಿದೆ",
+      "alternateNumberAvailable": "ಪರ್ಯಾಯ ಸಂಖ್ಯೆ ಲಭ್ಯವಿದೆ",
+      "exactly10Digits": "ದಯವಿಟ್ಟು ನಿಖರವಾಗಿ 10 ಅಂಕೆಗಳನ್ನು ನಮೂದಿಸಿ",
+      "mobileRequiredDesc": "ಬುಕಿಂಗ್ ಮತ್ತು ಅಧಿಸೂಚನೆಗಳಿಗಾಗಿ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಅಗತ್ಯವಿದೆ",
+      "clickToAddMobile": "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಸೇರಿಸಲು ಇಲ್ಲಿ ಕ್ಲಿಕ್ ಮಾಡಿ",
+      "addresses": "ವಿಳಾಸಗಳು",
+      "addNewAddress": "ಹೊಸ ವಿಳಾಸ ಸೇರಿಸಿ",
+      "noAddresses": "ಇನ್ನೂ ಯಾವುದೇ ವಿಳಾಸಗಳನ್ನು ಉಳಿಸಲಾಗಿಲ್ಲ",
+      "saveAs": "ಹೀಗೆ ಉಳಿಸಿ",
+      "home": "ಮನೆ",
+      "work": "ಕೆಲಸ",
+      "other": "ಇತರೆ",
+      "locationName": "ಸ್ಥಳದ ಹೆಸರು",
+      "enterLocationName": "ಸ್ಥಳದ ಹೆಸರನ್ನು ನಮೂದಿಸಿ",
+      "streetAddress": "ರಸ್ತೆ ವಿಳಾಸ",
+      "enterStreetAddress": "ರಸ್ತೆ ವಿಳಾಸವನ್ನು ನಮೂದಿಸಿ",
+      "city": "ನಗರ",
+      "enterCity": "ನಗರವನ್ನು ನಮೂದಿಸಿ",
+      "country": "ದೇಶ",
+      "enterCountry": "ದೇಶವನ್ನು ನಮೂದಿಸಿ",
+      "postalCode": "ಪೋಸ್ಟಲ್ ಕೋಡ್",
+      "enterPostalCode": "ಪೋಸ್ಟಲ್ ಕೋಡ್ ನಮೂದಿಸಿ",
+      "addAddress": "ವಿಳಾಸ ಸೇರಿಸಿ",
+      "serviceStatus": "ಸೇವೆಯ ಸ್ಥಿತಿ",
+      "accountStatus": "ಖಾತೆಯ ಸ್ಥಿತಿ",
+      "verified": "ಪರಿಶೀಲಿಸಲಾಗಿದೆ",
+      "activeServiceProvider": "ಸಕ್ರಿಯ ಸೇವಾ ಒದಗಿಸುವವರು",
+      "footer": "© 2025 ಮೈಆ್ಯಪ್ ಎಲ್ಲಾ ಹಕ್ಕುಗಳನ್ನು ಕಾಯ್ದಿರಿಸಲಾಗಿದೆ.",
+      "loadingProfile": "ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ",
+      "pleaseWait": "ನಿಮ್ಮ ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಲು ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ",
+      "selectCountryCode": "ದೇಶದ ಕೋಡ್ ಆಯ್ಕೆಮಾಡಿ",
+      "done": "ಮುಗಿದಿದೆ",
+      "validationError": "ಮೌಲ್ಯೀಕರಣ ದೋಷ",
+      "enterValidContact": "ದಯವಿಟ್ಟು ಮಾನ್ಯ 10-ಅಂಕಿಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ",
+      "enterValidAlternate": "ದಯವಿಟ್ಟು ಮಾನ್ಯ 10-ಅಂಕಿಯ ಪರ್ಯಾಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ",
+      "numbersMustBeDifferent": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆ ಮತ್ತು ಪರ್ಯಾಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆ ವಿಭಿನ್ನವಾಗಿರಬೇಕು",
+      "updateSuccess": "ಪ್ರೊಫೈಲ್ ಯಶಸ್ವಿಯಾಗಿ ನವೀಕರಿಸಲಾಗಿದೆ!",
+      "updateFailed": "ಬದಲಾವಣೆಗಳನ್ನು ಉಳಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "couldNotSaveAddress": "ವಿಳಾಸ ಉಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "fillAllAddressFields": "ದಯವಿಟ್ಟು ಎಲ್ಲಾ ವಿಳಾಸ ಕ್ಷೇತ್ರಗಳನ್ನು ಭರ್ತಿ ಮಾಡಿ",
+      "couldNotRemoveAddress": "ವಿಳಾಸ ತೆಗೆದುಹಾಕಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "noEmail": "ಇಮೇಲ್ ಲಭ್ಯವಿಲ್ಲ",
+      "firstNamePlaceholder": "ಮೊದಲು",
+      "lastNamePlaceholder": "ಕೊನೆಯ",
+      "noCity": "ನಗರವಿಲ್ಲ",
+      "noCountry": "ದೇಶವಿಲ್ಲ",
+      "providerAddressNote": "ಸೇವಾ ಒದಗಿಸುವವರ ವಿಳಾಸಗಳನ್ನು ಪ್ರತ್ಯೇಕವಾಗಿ ನಿರ್ವಹಿಸಲಾಗುತ್ತದೆ"
+    }
   },
   "dashboard": {
     "title": "ಸೇವಾ ಒದಗಿಸುವವರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
@@ -632,7 +721,65 @@
       "blockDates": "ದಿನಾಂಕಗಳನ್ನು ನಿರ್ಬಂಧಿಸಿ",
       "vacation": "ರಜಾ ಮೋಡ್",
       "emergency": "ತುರ್ತು ಮುಚ್ಚುವಿಕೆ"
-    }
+    },
+    "metrics": {
+      "totalEarnings": "ಒಟ್ಟು ಗಳಿಕೆ",
+      "securityDeposit": "ಸೆಕ್ಯೂರಿಟಿ ಠೇವಣಿ",
+      "withdrawn": "ಹಿಂಪಡೆಯಲಾಗಿದೆ",
+      "withdrawal": "ಹಿಂಪಡೆಯುವಿಕೆ",
+      "actualPayoutBalance": "ನಿಜವಾದ ಪಾವತಿ ಬಾಕಿ",
+      "thisMonth": "ಈ ತಿಂಗಳು",
+      "forActiveBookings": "ಸಕ್ರಿಯ ಬುಕಿಂಗ್‌ಗಳಿಗಾಗಿ",
+      "serviceCharges": "ಸೇವಾ ಶುಲ್ಕಗಳು",
+      "readyToWithdraw": "ಹಿಂಪಡೆಯಲು ಸಿದ್ಧವಾಗಿದೆ",
+      "paid": "ಪಾವತಿಸಲಾಗಿದೆ",
+      "notPaid": "ಪಾವತಿಸಲಾಗಿಲ್ಲ",
+      "change": "+12.5%",
+      "changeNegative": "-10%"
+    },
+    "quickActions": {
+      "title": "ತ್ವರಿತ ಕ್ರಿಯೆಗಳು",
+      "viewAllBookings": "ಎಲ್ಲಾ ಬುಕಿಂಗ್‌ಗಳನ್ನು ನೋಡಿ",
+      "requestWithdrawal": "ಹಿಂಪಡೆಯಲು ವಿನಂತಿಸಿ",
+      "withdrawalHistory": "ಹಿಂಪಡೆಯುವ ಇತಿಹಾಸ",
+      "applyLeave": "ರಜೆಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ",
+      "updateAvailability": "ಲಭ್ಯತೆ ನವೀಕರಿಸಿ",
+      "viewReviews": "ವಿಮರ್ಶೆಗಳನ್ನು ನೋಡಿ"
+    },
+    "serviceStatus": {
+      "title": "ಸೇವೆಯ ಸ್ಥಿತಿ",
+      "profileStatus": "ಪ್ರೊಫೈಲ್ ಸ್ಥಿತಿ",
+      "verification": "ಪರಿಶೀಲನೆ",
+      "availability": "ಲಭ್ಯತೆ",
+      "active": "ಸಕ್ರಿಯ",
+      "verified": "ಪರಿಶೀಲಿಸಲಾಗಿದೆ",
+      "available": "ಲಭ್ಯ"
+    },
+    "recentBooking": {
+      "title": "ಇತ್ತೀಚಿನ ಬುಕಿಂಗ್",
+      "latest": "ಇತ್ತೀಚಿನದು",
+      "bookingId": "ಬುಕಿಂಗ್ ಐಡಿ: {id}",
+      "clientName": "ಕ್ಲೈಂಟ್",
+      "dateTime": "ದಿನಾಂಕ ಮತ್ತು ಸಮಯ",
+      "amount": "ಮೊತ್ತ",
+      "address": "ವಿಳಾಸ",
+      "trackAddress": "ವಿಳಾಸವನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+      "todaysService": "ಇಂದಿನ ಸೇವೆ",
+      "taskInProgress": "ಕಾರ್ಯ ಪ್ರಗತಿಯಲ್ಲಿದೆ",
+      "taskCompleted": "ಕಾರ್ಯ ಪೂರ್ಣಗೊಂಡಿದೆ",
+      "notStarted": "ಪ್ರಾರಂಭವಾಗಿಲ್ಲ",
+      "upcoming": "ಮುಂಬರುವ",
+      "cannotStartYet": "ಇನ್ನೂ ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ",
+      "startTask": "ಕಾರ್ಯ ಪ್ರಾರಂಭಿಸಿ",
+      "completeTask": "ಕಾರ್ಯ ಪೂರ್ಣಗೊಳಿಸಿ",
+      "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ"
+    },
+    "empty": {
+      "noBookings": "ಯಾವುದೇ ಮುಂಬರುವ ಬುಕಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ.",
+      "failedToLoad": "ಬುಕಿಂಗ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "retry": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ"
+    },
+    "signOut": "ಸೈನ್ ಔಟ್"
   },
   "contact": {
     "title": "ನಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸಿ",
@@ -822,7 +969,23 @@
     "dayBetween": "ದಿನ 01 ರಿಂದ 31 ರ ನಡುವೆ ಇರಬೇಕು",
     "invalidDate": "ಅಮಾನ್ಯ ದಿನಾಂಕ",
     "ageRestriction": "ವಯಸ್ಸಿನ ನಿರ್ಬಂಧ",
-    "mustBe18": "ನಿಮ್ಮ ವಯಸ್ಸು ಕನಿಷ್ಠ 18 ವರ್ಷ ಇರಬೇಕು"
+    "mustBe18": "ನಿಮ್ಮ ವಯಸ್ಸು ಕನಿಷ್ಠ 18 ವರ್ಷ ಇರಬೇಕು",
+    "contactNumberUnavailable": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ",
+    "alternateNumberUnavailable": "ಪರ್ಯಾಯ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ",
+    "customerIdNotFound": "ಗ್ರಾಹಕ ಐಡಿ ಕಂಡುಬಂದಿಲ್ಲ!",
+    "updateFailed": "ಅಪ್‌ಡೇಟ್ ಮಾಡುವಾಗ ಏನೋ ತಪ್ಪಾಗಿದೆ!",
+    "notFound": "{id} ಕಂಡುಬಂದಿಲ್ಲ",
+    "serviceDayIdNotFound": "ಸೇವಾ ದಿನದ ಐಡಿ ಕಂಡುಬಂದಿಲ್ಲ. ಸೇವೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.",
+    "failedToStartService": "ಸೇವೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲು ವಿಫಲವಾಗಿದೆ",
+    "failedToCompleteService": "ಸೇವೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ವಿಫಲವಾಗಿದೆ",
+    "failedToLoadBookings": "ಬುಕಿಂಗ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ",
+    "failedToLoadReviews": "ವಿಮರ್ಶೆಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ",
+    "failedToLoadHistory": "ಹಿಂಪಡೆಯುವ ಇತಿಹಾಸವನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ",
+    "withdrawalFailed": "ಹಿಂಪಡೆಯುವ ವಿನಂತಿಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ವಿಫಲವಾಗಿದೆ",
+    "invalidAmount": "ಅಮಾನ್ಯ ಮೊತ್ತ",
+    "amountRange": "ದಯವಿಟ್ಟು ₹1 ಮತ್ತು ₹{balance} ನಡುವೆ ಮಾನ್ಯ ಮೊತ್ತವನ್ನು ನಮೂದಿಸಿ",
+    "insufficientBalance": "ಹಿಂಪಡೆಯಲು ಸಾಕಷ್ಟು ಬಾಕಿ ಇಲ್ಲ",
+    "validationError": "ಮೌಲ್ಯೀಕರಣ ದೋಷ. ದಯವಿಟ್ಟು ನಮೂದಿಸಿದ ಮೊತ್ತವನ್ನು ಪರಿಶೀಲಿಸಿ."
   },
   "validation": {
     "required": "{field} ಅಗತ್ಯವಿದೆ",
@@ -840,7 +1003,24 @@
     "date": "ದಯವಿಟ್ಟು ಮಾನ್ಯ ದಿನಾಂಕವನ್ನು ನಮೂದಿಸಿ",
     "time": "ದಯವಿಟ್ಟು ಮಾನ್ಯ ಸಮಯವನ್ನು ನಮೂದಿಸಿ",
     "future": "{field} ಭವಿಷ್ಯದಲ್ಲಿರಬೇಕು",
-    "past": "{field} ಹಿಂದಿನದಾಗಿರಬೇಕು"
+    "past": "{field} ಹಿಂದಿನದಾಗಿರಬೇಕು",
+    "alphabetsOnly": "{field} ಅಕ್ಷರಗಳನ್ನು ಮಾತ್ರ ಒಳಗೊಂಡಿರಬೇಕು",
+    "passwordUppercase": "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ ಒಂದು ದೊಡ್ಡಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು",
+    "passwordLowercase": "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ ಒಂದು ಸಣ್ಣಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು",
+    "passwordNumber": "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ ಒಂದು ಅಂಕೆಯನ್ನು ಹೊಂದಿರಬೇಕು",
+    "passwordSpecial": "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ ಒಂದು ವಿಶೇಷ ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು",
+    "passwordStrength": "ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ 8 ಅಕ್ಷರಗಳನ್ನು, ಒಂದು ದೊಡ್ಡಕ್ಷರ, ಒಂದು ಸಣ್ಣಕ್ಷರ, ಒಂದು ಅಂಕೆ ಮತ್ತು ಒಂದು ವಿಶೇಷ ಅಕ್ಷರವನ್ನು ಹೊಂದಿರಬೇಕು",
+    "passwordMismatch": "ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುತ್ತಿಲ್ಲ",
+    "emailNotAvailable": "ಇಮೇಲ್ ಲಭ್ಯವಿಲ್ಲ",
+    "mobileNotAvailable": "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ",
+    "alternateNotAvailable": "ಪರ್ಯಾಯ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ",
+    "alternateSameAsMobile": "ಪರ್ಯಾಯ ಸಂಖ್ಯೆಯು ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಂತೆಯೇ ಇರಬಾರದು",
+    "aadhaarFormat": "ಆಧಾರ್ ಸಂಖ್ಯೆ ನಿಖರವಾಗಿ 12 ಅಂಕೆಗಳಾಗಿರಬೇಕು",
+    "panFormat": "ದಯವಿಟ್ಟು ಮಾನ್ಯ PAN ಅನ್ನು ನಮೂದಿಸಿ (ಉದಾ, ABCDE1234F)",
+    "drivingLicenseFormat": "ದಯವಿಟ್ಟು ಮಾನ್ಯ ಚಾಲನಾ ಪರವಾನಗಿ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ",
+    "voterIdFormat": "ದಯವಿಟ್ಟು ಮಾನ್ಯ 10-ಅಂಕಿಯ ಮತದಾರರ ಐಡಿ ನಮೂದಿಸಿ",
+    "passportFormat": "ದಯವಿಟ್ಟು ಮಾನ್ಯ 8-ಅಕ್ಷರದ ಪಾಸ್‌ಪೋರ್ಟ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ",
+    "pincodeFormat": "ಪಿನ್‌ಕೋಡ್ ನಿಖರವಾಗಿ 6 ಅಂಕೆಗಳಾಗಿರಬೇಕು"
   },
   "time": {
     "justNow": "ಈಗಷ್ಟೇ",
@@ -883,7 +1063,10 @@
       "MM": "ತಿಂಗಳು",
       "DD": "ದಿನ",
       "ddd": "ddd",
-      "MMM": "MMM"
+      "MMM": "MMM",
+      "MMMM D": "MMMM D",
+      "MMM D, YYYY": "MMM D, YYYY",
+      "h:mm A": "h:mm A"
     }
   },
   "navigation": {
@@ -1290,36 +1473,399 @@
     "serviceProvider": "ಸೇವಾ ಒದಗಿಸುವವರು",
     "agent": "ಏಜೆಂಟ್"
   },
+  "mobileDialog": {
+    "title": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆಗಳನ್ನು ನವೀಕರಿಸಿ",
+    "description": "ಮುಂದುವರಿಯಲು ನಿಮ್ಮ ಮೊಬೈಲ್ ಮತ್ತು ಪರ್ಯಾಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆಗಳನ್ನು ನಮೂದಿಸಿ.",
+    "contactNumber": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆ",
+    "contactNumberRequired": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆ *",
+    "alternativeContact": "ಪರ್ಯಾಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆ",
+    "alternativeContactOptional": "ಪರ್ಯಾಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆ (ಐಚ್ಛಿಕ)",
+    "enter10Digit": "10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
+    "contactNumberAvailable": "ಸಂಪರ್ಕ ಸಂಖ್ಯೆ ಲಭ್ಯವಿದೆ",
+    "alternateNumberAvailable": "ಪರ್ಯಾಯ ಸಂಖ್ಯೆ ಲಭ್ಯವಿದೆ",
+    "enterExactly10Digits": "ದಯವಿಟ್ಟು ನಿಖರವಾಗಿ 10 ಅಂಕೆಗಳನ್ನು ನಮೂದಿಸಿ",
+    "numbersMustBeDifferent": "⚠️ ಸಂಪರ್ಕ ಸಂಖ್ಯೆ ಮತ್ತು ಪರ್ಯಾಯ ಸಂಪರ್ಕ ಸಂಖ್ಯೆ ವಿಭಿನ್ನವಾಗಿರಬೇಕು",
+    "cancel": "ರದ್ದುಮಾಡಿ",
+    "submit": "ಸಲ್ಲಿಸಿ",
+    "updating": "ನವೀಕರಿಸಲಾಗುತ್ತಿದೆ...",
+    "updateSuccess": "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ(ಗಳು) ಯಶಸ್ವಿಯಾಗಿ ನವೀಕರಿಸಲಾಗಿದೆ!",
+    "updateFailed": "ನವೀಕರಿಸುವಾಗ ಏನೋ ತಪ್ಪಾಗಿದೆ!"
+  },
+  "modifyBooking": {
+    "title": "ಬುಕಿಂಗ್ ಮಾರ್ಪಡಿಸಿ",
+    "bookingInfo": "ಬುಕಿಂಗ್ #{id} - {service}",
+    "scheduled": "ನಿಗದಿಯಾಗಿದೆ: {date} ರಂದು {time} ಕ್ಕೆ",
+    "timeUntil": "{timeUntil}",
+    "modifiedCount": "ಈ ಬುಕಿಂಗ್ ಅನ್ನು {count} ಬಾರಿ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ",
+    "lastModification": "{details}",
+    "options": {
+      "rescheduleDate": "ದಿನಾಂಕ ಮರುನಿಗದಿಪಡಿಸಿ",
+      "rescheduleTime": "ಸಮಯ ಮರುನಿಗದಿಪಡಿಸಿ"
+    },
+    "dateSelection": {
+      "title": "ನಿಮ್ಮ ಬುಕಿಂಗ್‌ಗೆ ಹೊಸ ದಿನಾಂಕವನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
+      "selectNewDate": "ಹೊಸ ದಿನಾಂಕ ಆಯ್ಕೆಮಾಡಿ",
+      "saveDate": "ದಿನಾಂಕ ಉಳಿಸಿ"
+    },
+    "timeSelection": {
+      "title": "ಪ್ರಸ್ತುತ ಸಮಯ: {time}",
+      "selectNewTime": "ಹೊಸ ಸಮಯ ಆಯ್ಕೆಮಾಡಿ",
+      "saveTime": "ಸಮಯ ಉಳಿಸಿ"
+    },
+    "status": {
+      "alreadyModified": "ಈ ಬುಕಿಂಗ್ ಅನ್ನು ಈಗಾಗಲೇ ಮಾರ್ಪಡಿಸಲಾಗಿದೆ ಮತ್ತು ಮತ್ತೆ ಮಾರ್ಪಡಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.",
+      "modificationNotAllowed": "ನಿಗದಿತ ಸಮಯಕ್ಕೆ ಕನಿಷ್ಠ 30 ನಿಮಿಷಗಳ ಮೊದಲು ಮಾರ್ಪಾಡು ಮಾಡಲು ಮಾತ್ರ ಅನುಮತಿ ಇದೆ.",
+      "bookingStarted": "ಬುಕಿಂಗ್ ಈಗಾಗಲೇ ಪ್ರಾರಂಭವಾಗಿದೆ ಅಥವಾ ಮುಗಿದಿದೆ",
+      "hoursMinutes": "ಬುಕಿಂಗ್ ಪ್ರಾರಂಭವಾಗಲು {h}ಗ {m}ನಿ ಬಾಕಿ",
+      "minutesOnly": "ಬುಕಿಂಗ್ ಪ್ರಾರಂಭವಾಗಲು {m}ನಿ ಬಾಕಿ"
+    },
+    "actions": {
+      "back": "ಹಿಂದೆ",
+      "saving": "ಉಳಿಸಲಾಗುತ್ತಿದೆ...",
+      "saveDate": "ದಿನಾಂಕ ಉಳಿಸಿ",
+      "saveTime": "ಸಮಯ ಉಳಿಸಿ"
+    },
+    "messages": {
+      "dateSuccess": "ಬುಕಿಂಗ್ ದಿನಾಂಕ ಯಶಸ್ವಿಯಾಗಿ ಮರುನಿಗದಿಪಡಿಸಲಾಗಿದೆ!",
+      "timeSuccess": "ಬುಕಿಂಗ್ ಸಮಯ ಯಶಸ್ವಿಯಾಗಿ ಮರುನಿಗದಿಪಡಿಸಲಾಗಿದೆ!",
+      "error": "ಬುಕಿಂಗ್ ಮಾರ್ಪಡಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+    }
+  },
+  "vacationManagement": {
+    "title": "ರಜೆಯನ್ನು ನಿರ್ವಹಿಸಿ",
+    "currentVacation": "ಪ್ರಸ್ತುತ ರಜೆಯ ಅವಧಿ",
+    "vacationPeriod": "{startDate} ರಿಂದ {endDate}",
+    "totalDays": "ಒಟ್ಟು ದಿನಗಳು: {days}",
+    "modifyDates": "ರಜೆಯ ದಿನಾಂಕಗಳನ್ನು ಮಾರ್ಪಡಿಸಿ",
+    "applyVacation": "ರಜೆಗಾಗಿ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ",
+    "vacationStartDate": "ರಜೆ ಪ್ರಾರಂಭ ದಿನಾಂಕ",
+    "vacationEndDate": "ರಜೆ ಅಂತ್ಯ ದಿನಾಂಕ",
+    "selectDate": "ದಿನಾಂಕ ಆಯ್ಕೆಮಾಡಿ",
+    "totalVacationDays": "ಒಟ್ಟು ರಜೆಯ ದಿನಗಳು: {days}",
+    "vacationPolicy": "ರಜೆಯ ನೀತಿ",
+    "policyText": "ರಜೆಯ ಅವಧಿಯಲ್ಲಿ, ಸೇವೆಗಳನ್ನು ವಿರಾಮಗೊಳಿಸಲಾಗುತ್ತದೆ ಮತ್ತು ಅನ್ವಯವಾಗುವ ಮರುಪಾವತಿಯನ್ನು ನಿಮ್ಮ ವಾಲೆಟ್‌ಗೆ ಸಂಸ್ಕರಿಸಲಾಗುತ್ತದೆ. ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ರಜೆಯ ಅವಧಿಗಳಿಗೆ ಮಾರ್ಪಾಡುಗಳಿಗೆ ದಂಡ ಅನ್ವಯವಾಗಬಹುದು.",
+    "cancelVacation": "ರಜೆ ರದ್ದುಮಾಡಿ",
+    "applyVacation": "ರಜೆ ಅನ್ವಯಿಸಿ",
+    "updateVacation": "ರಜೆ ನವೀಕರಿಸಿ",
+    "applying": "ಅರ್ಜಿ ಸಲ್ಲಿಸಲಾಗುತ್ತಿದೆ...",
+    "updating": "ನವೀಕರಿಸಲಾಗುತ್ತಿದೆ...",
+    "success": "ರಜೆ ಯಶಸ್ವಿಯಾಗಿ ಅನ್ವಯಿಸಲಾಗಿದೆ!",
+    "cancelSuccess": "ರಜೆ ಯಶಸ್ವಿಯಾಗಿ ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ!",
+    "error": "ರಜೆ ಅನ್ವಯಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "cancelError": "ರಜೆ ರದ್ದುಗೊಳಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "validation": {
+      "selectBothDates": "ದಯವಿಟ್ಟು ಪ್ರಾರಂಭ ಮತ್ತು ಅಂತ್ಯ ಎರಡೂ ದಿನಾಂಕಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+      "startDatePast": "ರಜೆ ಪ್ರಾರಂಭ ದಿನಾಂಕ ಹಿಂದಿನದಾಗಿರಬಾರದು",
+      "endDateBeforeStart": "ರಜೆ ಅಂತ್ಯ ದಿನಾಂಕವು ಪ್ರಾರಂಭ ದಿನಾಂಕದ ನಂತರ ಇರಬೇಕು"
+    }
+  },
   "wallet": {
-    "title": "ವಾಲೆಟ್",
-    "balance": "ಬಾಕಿ",
+    "title": "ನನ್ನ ವಾಲೆಟ್",
+    "availableBalance": "ಲಭ್ಯವಿರುವ ಬಾಕಿ",
     "addMoney": "ಹಣ ಸೇರಿಸಿ",
-    "withdraw": "ಹಿಂಪಡೆಯಿರಿ",
+    "transfer": "ವರ್ಗಾಯಿಸಿ",
     "transactions": "ವಹಿವಾಟುಗಳು",
+    "rewards": "ಬಹುಮಾನಗಳು",
+    "recentActivity": "ಇತ್ತೀಚಿನ ಚಟುವಟಿಕೆ",
     "noTransactions": "ಇನ್ನೂ ಯಾವುದೇ ವಹಿವಾಟುಗಳಿಲ್ಲ",
-    "amount": "ಮೊತ್ತ",
+    "noTransactionsDesc": "ನಿಮ್ಮ ವಹಿವಾಟಿನ ಇತಿಹಾಸವು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ",
+    "yourRewards": "ನಿಮ್ಮ ಬಹುಮಾನಗಳು",
+    "rewardsPoints": "{points} ಪಾಯಿಂಟ್‌ಗಳು",
+    "rewardsDescription": "ಸೇವೆಗಳನ್ನು ಪೂರ್ಣಗೊಳಿಸಿ ಮತ್ತು ಸ್ನೇಹಿತರನ್ನು ಉಲ್ಲೇಖಿಸಿ ಹೆಚ್ಚಿನ ಪಾಯಿಂಟ್‌ಗಳನ್ನು ಗಳಿಸಿ",
+    "viewRewardsCatalog": "ಬಹುಮಾನಗಳ ಕ್ಯಾಟಲಾಗ್ ವೀಕ್ಷಿಸಿ",
+    "loading": "ವಾಲೆಟ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ",
+    "loadingDesc": "ನಿಮ್ಮ ಖಾತೆ ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ",
+    "error": {
+      "unavailable": "ವಾಲೆಟ್ ಮಾಹಿತಿ ಪ್ರಸ್ತುತ ಲಭ್ಯವಿಲ್ಲ",
+      "noAccount": "ಯಾವುದೇ ವಾಲೆಟ್ ಖಾತೆ ಕಂಡುಬಂದಿಲ್ಲ",
+      "signInRequired": "ವಾಲೆಟ್ ವೈಶಿಷ್ಟ್ಯಗಳನ್ನು ಪ್ರವೇಶಿಸಲು ದಯವಿಟ್ಟು ಸೈನ್ ಇನ್ ಮಾಡಿ",
+      "connectionTimeout": "ಸಂಪರ್ಕ ಸಮಯ ಮೀರಿದೆ. ನಿಮ್ಮ ನೆಟ್‌ವರ್ಕ್ ಪರಿಶೀಲಿಸಿ",
+      "networkUnavailable": "ನೆಟ್‌ವರ್ಕ್ ಲಭ್ಯವಿಲ್ಲ. ನಿಮ್ಮ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ",
+      "generic": "ತಾತ್ಕಾಲಿಕವಾಗಿ ವಾಲೆಟ್ ಡೇಟಾವನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ"
+    },
+    "actions": {
+      "tryAgain": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
+      "close": "ಮುಚ್ಚಿ"
+    }
+  },
+  "userHoliday": {
+    "title": "ರಜೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಿ",
+    "startDate": "ಪ್ರಾರಂಭ ದಿನಾಂಕ",
+    "endDate": "ಅಂತ್ಯ ದಿನಾಂಕ",
+    "selectStartDate": "ಪ್ರಾರಂಭ ದಿನಾಂಕ ಆಯ್ಕೆಮಾಡಿ",
+    "selectEndDate": "ಅಂತ್ಯ ದಿನಾಂಕ ಆಯ್ಕೆಮಾಡಿ",
+    "helperText": "📌 ಟಿಪ್ಪಣಿ: ರಜೆಯ ಅರ್ಜಿಗಳು ಕನಿಷ್ಠ 10 ದಿನಗಳವರೆಗೆ ಇರಬೇಕು. ನಿಮ್ಮ ಪ್ರಾರಂಭ ದಿನಾಂಕದ ಕನಿಷ್ಠ 9 ದಿನಗಳ ನಂತರ ಮಾತ್ರ ನೀವು ಅಂತ್ಯ ದಿನಾಂಕವನ್ನು ಆಯ್ಕೆ ಮಾಡಬಹುದು.",
+    "bookedPeriod": "ನಿಮ್ಮ ಬುಕ್ ಮಾಡಿದ ಅವಧಿ: {startDate} ರಿಂದ {endDate}",
+    "serviceType": "ಸೇವೆಯ ಪ್ರಕಾರ",
+    "bookingType": "ಬುಕಿಂಗ್ ಪ್ರಕಾರ",
+    "cancel": "ರದ್ದುಮಾಡಿ",
+    "submit": "ಸಲ್ಲಿಸಿ",
+    "success": "ರಜೆಯ ಅರ್ಜಿ ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!",
+    "confirmation": {
+      "title": "ರಜೆಯ ಅರ್ಜಿ ದೃಢೀಕರಣ",
+      "message": "ನಿಮ್ಮ {service} ಸೇವೆಗಾಗಿ {startDate} ರಿಂದ {endDate} ರವರೆಗೆ ರಜೆ ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ನೀವು ಖಚಿತವಾಗಿ ಬಯಸುವಿರಾ?",
+      "confirm": "ಹೌದು, ಅರ್ಜಿ ಸಲ್ಲಿಸಿ",
+      "cancel": "ರದ್ದುಮಾಡಿ"
+    },
+    "error": {
+      "withinBookingPeriod": "ರಜೆಯ ದಿನಾಂಕಗಳು ನಿಮ್ಮ ಬುಕ್ ಮಾಡಿದ ಅವಧಿಯೊಳಗೆ ಇರಬೇಕು",
+      "minimumDays": "ರಜೆಯ ಅವಧಿ ಕನಿಷ್ಠ 10 ದಿನಗಳಾಗಿರಬೇಕು",
+      "submitFailed": "ರಜೆಯ ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+    }
+  },
+  "engagementDetails": {
+    "title": "ಬುಕಿಂಗ್ ವಿವರಗಳು",
+    "bookingId": "ಬುಕಿಂಗ್ ಐಡಿ",
+    "serviceType": "ಸೇವೆಯ ಪ್ರಕಾರ",
+    "schedule": "ವೇಳಾಪಟ್ಟಿ",
+    "startDate": "ಪ್ರಾರಂಭ ದಿನಾಂಕ",
+    "endDate": "ಅಂತಿಮ ದಿನಾಂಕ",
+    "timeSlot": "ಸಮಯ ಸ್ಲಾಟ್",
+    "serviceProvider": "ಸೇವಾ ಒದಗಿಸುವವರು",
+    "notAssigned": "ನಿಯೋಜಿಸಲಾಗಿಲ್ಲ",
+    "tasksResponsibilities": "ಕಾರ್ಯಗಳು ಮತ್ತು ಜವಾಬ್ದಾರಿಗಳು",
+    "mainTasks": "ಮುಖ್ಯ ಕಾರ್ಯಗಳು",
+    "addOns": "ಆಡ್-ಆನ್‌ಗಳು",
+    "paymentDetails": "ಪಾವತಿ ವಿವರಗಳು",
+    "baseAmount": "ಮೂಲ ಮೊತ್ತ",
+    "platformFee": "ಪ್ಲಾಟ್‌ಫಾರ್ಮ್ ಶುಲ್ಕ",
+    "gst": "ಜಿಎಸ್ಟಿ",
+    "total": "ಒಟ್ಟು",
+    "paymentStatus": "ಪಾವತಿ ಸ್ಥಿತಿ",
+    "paymentMode": "ಪಾವತಿ ವಿಧಾನ",
+    "completePaymentNow": "ಈಗ ಪಾವತಿ ಪೂರ್ಣಗೊಳಿಸಿ",
+    "completePaymentNote": "ನಿಮ್ಮ ಬುಕಿಂಗ್ ದೃಢೀಕರಿಸಲು ಪಾವತಿ ಪೂರ್ಣಗೊಳಿಸಿ",
+    "modificationHistory": "ಮಾರ್ಪಾಡು ಇತಿಹಾಸ",
+    "additionalInformation": "ಹೆಚ್ಚುವರಿ ಮಾಹಿತಿ",
+    "bookingDate": "ಬುಕಿಂಗ್ ದಿನಾಂಕ",
+    "assignmentStatus": "ನಿಯೋಜನೆ ಸ್ಥಿತಿ",
+    "leaveDays": "ರಜೆ ದಿನಗಳು",
+    "call": "ಕರೆ",
+    "message": "ಸಂದೇಶ",
+    "callProvider": "ಒದಗಿಸುವವರಿಗೆ ಕರೆ ಮಾಡಿ",
+    "messageProvider": "ಒದಗಿಸುವವರಿಗೆ ಸಂದೇಶ ಕಳುಹಿಸಿ",
+    "cancelBooking": "ಬುಕಿಂಗ್ ರದ್ದುಮಾಡಿ",
+    "cancelConfirmation": "ಬುಕಿಂಗ್ ರದ್ದುಮಾಡಿ",
+    "cancelConfirmationMessage": "ನಿಮ್ಮ {service} ಬುಕಿಂಗ್ ಅನ್ನು ರದ್ದುಮಾಡಲು ನೀವು ಖಚಿತವಾಗಿ ಬಯಸುವಿರಾ? ಈ ಕ್ರಿಯೆಯನ್ನು ಹಿಂತಿರುಗಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ.",
+    "yes": "ಹೌದು",
+    "no": "ಇಲ್ಲ",
+    "yesCancel": "ಹೌದು, ರದ್ದುಮಾಡಿ",
+    "processing": "ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ...",
+    "success": "ಯಶಸ್ಸು",
+    "error": "ದೋಷ",
+    "paymentSuccess": "ಪಾವತಿ ಯಶಸ್ವಿಯಾಗಿ ಪೂರ್ಣಗೊಂಡಿದೆ!",
+    "paymentFailed": "ಪಾವತಿ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "paymentVerificationFailed": "ಪಾವತಿ ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಬೆಂಬಲವನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+    "paymentResumeFailed": "ಪಾವತಿಯನ್ನು ಪುನರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "bookingCancelled": "ಬುಕಿಂಗ್ ಯಶಸ್ವಿಯಾಗಿ ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ",
+    "bookingCancelFailed": "ಬುಕಿಂಗ್ ರದ್ದುಗೊಳಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    "razorpayIntegration": "ರೇಜರ್‌ಪೇ ಸಂಯೋಜನೆಗೆ react-native-razorpay ಪ್ಯಾಕೇಜ್ ಅಗತ್ಯವಿದೆ"
+  },
+  "allBookings": {
+    "title": "ಎಲ್ಲಾ ಬುಕಿಂಗ್‌ಗಳನ್ನು ನೋಡಿ",
+    "tabs": {
+      "ongoing": "ಪ್ರಸ್ತುತ ({count})",
+      "future": "ಮುಂಬರುವ ({count})",
+      "past": "ಹಿಂದಿನ ({count})"
+    },
+    "bookingCount": "{month} ನಲ್ಲಿ {count} ಬುಕಿಂಗ್",
+    "bookingCount_plural": "{month} ನಲ್ಲಿ {count} ಬುಕಿಂಗ್‌ಗಳು",
+    "noCurrentBookings": "{month} ನಲ್ಲಿ ಪ್ರಸ್ತುತ ಬುಕಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+    "noCurrentBookingsDesc": "ಈ ತಿಂಗಳ ನಿಮ್ಮ ಎಲ್ಲಾ ಪ್ರಸ್ತುತ ಬುಕಿಂಗ್‌ಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.",
+    "noUpcomingBookings": "{month} ನಲ್ಲಿ ಮುಂಬರುವ ಬುಕಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+    "noUpcomingBookingsDesc": "ಈ ತಿಂಗಳ ನಿಮ್ಮ ಎಲ್ಲಾ ಮುಂಬರುವ ಬುಕಿಂಗ್‌ಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.",
+    "noPastBookings": "{month} ನಲ್ಲಿ ಹಿಂದಿನ ಬುಕಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+    "noPastBookingsDesc": "ಈ ತಿಂಗಳ ನಿಮ್ಮ ಎಲ್ಲಾ ಹಿಂದಿನ ಬುಕಿಂಗ್‌ಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.",
+    "empty": {
+      "title": "ಯಾವುದೇ ಬುಕಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+      "description": "ಈ ತಿಂಗಳಲ್ಲಿ ಯಾವುದೇ ಬುಕಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ಬೇರೆ ತಿಂಗಳು ಆಯ್ಕೆಮಾಡಿ."
+    },
+    "bookingCard": {
+      "bookingId": "ಬುಕಿಂಗ್ ಐಡಿ: {id}",
+      "clientName": "ಕ್ಲೈಂಟ್",
+      "dateTime": "ದಿನಾಂಕ ಮತ್ತು ಸಮಯ",
+      "amount": "ಮೊತ್ತ",
+      "address": "ವಿಳಾಸ",
+      "trackAddress": "ವಿಳಾಸವನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+      "todaysService": "ಇಂದಿನ ಸೇವೆ",
+      "responsibilities": "ಜವಾಬ್ದಾರಿಗಳು",
+      "addOns": "ಆಡ್-ಆನ್‌ಗಳು",
+      "taskInProgress": "ಕಾರ್ಯ ಪ್ರಗತಿಯಲ್ಲಿದೆ",
+      "taskCompleted": "ಕಾರ್ಯ ಪೂರ್ಣಗೊಂಡಿದೆ",
+      "notStarted": "ಪ್ರಾರಂಭವಾಗಿಲ್ಲ",
+      "upcoming": "ಮುಂಬರುವ",
+      "cannotStartYet": "ಇನ್ನೂ ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ",
+      "startTask": "ಕಾರ್ಯ ಪ್ರಾರಂಭಿಸಿ",
+      "completeTask": "ಕಾರ್ಯ ಪೂರ್ಣಗೊಳಿಸಿ",
+      "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ"
+    },
+    "monthSelector": {
+      "previous": "ಹಿಂದಿನ ತಿಂಗಳು",
+      "next": "ಮುಂದಿನ ತಿಂಗಳು"
+    }
+  },
+  "bookingCard": {
+    "bookingId": "ಬುಕಿಂಗ್ ಐಡಿ: {id}",
+    "clientName": "ಕ್ಲೈಂಟ್",
+    "service": "ಸೇವೆ",
+    "status": {
+      "upcoming": "ಮುಂಬರುವ",
+      "inProgress": "ಪ್ರಗತಿಯಲ್ಲಿದೆ",
+      "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ",
+      "cancelled": "ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ"
+    },
     "date": "ದಿನಾಂಕ",
-    "type": "ಪ್ರಕಾರ",
-    "status": "ಸ್ಥಿತಿ",
-    "credit": "ಕ್ರೆಡಿಟ್",
+    "time": "ಸಮಯ",
+    "location": "ಸ್ಥಳ",
+    "amount": "ಮೊತ್ತ",
+    "contact": "ಸಂಪರ್ಕ",
+    "contactClient": "ಕ್ಲೈಂಟ್ ಅನ್ನು ಸಂಪರ್ಕಿಸಿ",
+    "noContactInfo": "ಸಂಪರ್ಕ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ",
+    "callError": "ಫೋನ್ ಡಯಲರ್ ತೆರೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"
+  },
+  "reviewsDialog": {
+    "title": "ಗ್ರಾಹಕರ ವಿಮರ್ಶೆಗಳು",
+    "subtitle": "ನಿಮ್ಮ ಗ್ರಾಹಕರಿಂದ ಪ್ರತಿಕ್ರಿಯೆ ನಿಮಗೆ ಸುಧಾರಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತದೆ",
+    "providerGrade": "ಒದಗಿಸುವವರ ಗ್ರೇಡ್",
+    "averageRating": "5 ರಲ್ಲಿ {rating}",
+    "totalReviews": "ಒಟ್ಟು {count} ವಿಮರ್ಶೆ",
+    "totalReviews_plural": "ಒಟ್ಟು {count} ವಿಮರ್ಶೆಗಳು",
+    "ratingDistribution": "ರೇಟಿಂಗ್ ವಿತರಣೆ",
+    "filterByService": "ಸೇವೆಯ ಪ್ರಕಾರದಿಂದ ಫಿಲ್ಟರ್ ಮಾಡಿ:",
+    "allServices": "ಎಲ್ಲಾ ಸೇವೆಗಳು",
+    "showingReviews": "{count} ವಿಮರ್ಶೆಯನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+    "showingReviews_plural": "{count} ವಿಮರ್ಶೆಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+    "showingFor": "{service} ಗಾಗಿ {count} ವಿಮರ್ಶೆಯನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+    "showingFor_plural": "{service} ಗಾಗಿ {count} ವಿಮರ್ಶೆಗಳನ್ನು ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+    "empty": {
+      "title": "ಇನ್ನೂ ವಿಮರ್ಶೆಗಳಿಲ್ಲ",
+      "description": "ಗ್ರಾಹಕರು ನಿಮ್ಮ ಸೇವೆಗಳನ್ನು ರೇಟ್ ಮಾಡಿದ ನಂತರ ವಿಮರ್ಶೆಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ",
+      "noReviewsForService": "{service} ಸೇವೆಗಳಿಗೆ ಯಾವುದೇ ವಿಮರ್ಶೆಗಳಿಲ್ಲ"
+    },
+    "review": {
+      "anonymous": "ಅನಾಮಧೇಯ ಗ್ರಾಹಕ",
+      "noComment": "ಯಾವುದೇ ಕಾಮೆಂಟ್ ಇಲ್ಲ",
+      "yesterday": "ನಿನ್ನೆ",
+      "daysAgo": "{count} ದಿನಗಳ ಹಿಂದೆ"
+    },
+    "grade": {
+      "A": "ಎ",
+      "B": "ಬಿ",
+      "C": "ಸಿ",
+      "D": "ಡಿ",
+      "F": "ಎಫ್"
+    },
+    "loading": "ವಿಮರ್ಶೆಗಳನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ..."
+  },
+  "trackAddress": {
+    "title": "ಬಾರಾಸತ್‌ಗೆ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+    "from": "ಇಂದ: {location}",
+    "to": "ಗೆ: ಬಾರಾಸತ್, ಪಶ್ಚಿಮ ಬಂಗಾಳ",
+    "distance": "ದೂರ",
+    "estimatedTime": "ಅಂದಾಜು ಸಮಯ",
+    "startNavigation": "ನ್ಯಾವಿಗೇಷನ್ ಪ್ರಾರಂಭಿಸಿ",
+    "refreshLocation": "ಸ್ಥಳ ರಿಫ್ರೆಶ್ ಮಾಡಿ",
+    "gettingLocation": "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...",
+    "calculatingRoute": "ಮಾರ್ಗವನ್ನು ಲೆಕ್ಕಾಚಾರ ಮಾಡಲಾಗುತ್ತಿದೆ...",
+    "error": {
+      "locationError": "ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ಥಳ ಸೇವೆಗಳನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ.",
+      "openSettings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ತೆರೆಯಿರಿ",
+      "mapsError": "ಮ್ಯಾಪ್ಸ್ ಅಪ್ಲಿಕೇಶನ್ ತೆರೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ"
+    },
+    "permission": {
+      "title": "ಸ್ಥಳ ಅನುಮತಿ",
+      "message": "ಬಾರಾಸತ್‌ಗೆ ನಿಮ್ಮ ಮಾರ್ಗವನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಲು ಈ ಅಪ್ಲಿಕೇಶನ್ ನಿಮ್ಮ ಸ್ಥಳಕ್ಕೆ ಪ್ರವೇಶದ ಅಗತ್ಯವಿದೆ.",
+      "allow": "ಅನುಮತಿಸಿ",
+      "deny": "ನಿರಾಕರಿಸಿ"
+    }
+  },
+  "otpVerification": {
+    "title": "ಸೇವೆ ಪೂರ್ಣಗೊಳಿಸಲು OTP ಪರಿಶೀಲಿಸಿ",
+    "serviceFor": "{clientName} ಗಾಗಿ ಸೇವೆ",
+    "bookingInfo": "ಬುಕಿಂಗ್ ಐಡಿ: {id} • {service}",
+    "instructions": "ಸೇವೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ಕ್ಲೈಂಟ್‌ನಿಂದ ನೀವು ಸ್ವೀಕರಿಸಿದ OTP ಅನ್ನು ನಮೂದಿಸಿ.",
+    "enterOtp": "6-ಅಂಕಿಯ OTP ನಮೂದಿಸಿ",
+    "verificationNote": "ಪರಿಶೀಲಿಸಿದ ನಂತರ, ಸೇವೆಯನ್ನು ಪೂರ್ಣಗೊಂಡಂತೆ ಗುರುತಿಸಲಾಗುತ್ತದೆ ಮತ್ತು ನಿಮ್ಮ ಗಳಿಕೆಯನ್ನು ಜಮಾ ಮಾಡಲಾಗುತ್ತದೆ.",
+    "cancel": "ರದ್ದುಮಾಡಿ",
+    "verify": "ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಪೂರ್ಣಗೊಳಿಸಿ",
+    "verifying": "ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...",
+    "error": {
+      "serviceDayIdNotFound": "ಸೇವಾ ದಿನದ ಐಡಿ ಕಂಡುಬಂದಿಲ್ಲ",
+      "verificationFailed": "ಸೇವೆಯನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ವಿಫಲವಾಗಿದೆ"
+    },
+    "success": "ಸೇವೆ ಯಶಸ್ವಿಯಾಗಿ ಪೂರ್ಣಗೊಂಡಿದೆ! ಗಳಿಕೆಯನ್ನು ನಿಮ್ಮ ಖಾತೆಗೆ ಜಮಾ ಮಾಡಲಾಗಿದೆ."
+  },
+  "withdrawal": {
+    "title": "ಹಿಂಪಡೆಯುವಿಕೆಯನ್ನು ವಿನಂತಿಸಿ",
+    "subtitle": "ನಿಮ್ಮ ಲಭ್ಯವಿರುವ ಬಾಕಿಯನ್ನು ನಿಮ್ಮ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಹಿಂಪಡೆಯಿರಿ",
+    "availableBalance": "ಲಭ್ಯವಿರುವ ಬಾಕಿ",
+    "minWithdrawal": "ಕನಿಷ್ಠ ಹಿಂಪಡೆಯುವಿಕೆ",
+    "enterAmount": "ಮೊತ್ತವನ್ನು ನಮೂದಿಸಿ (₹)",
+    "max": "ಗರಿಷ್ಠ",
+    "summary": "ಸಾರಾಂಶ",
+    "withdrawalAmount": "ಹಿಂಪಡೆಯುವ ಮೊತ್ತ",
+    "remainingBalance": "ಉಳಿದ ಬಾಕಿ",
+    "processingTime": "ಸಂಸ್ಕರಣಾ ಸಮಯ",
+    "processingTimeValue": "2-3 ಕೆಲಸದ ದಿನಗಳು",
+    "payoutMethod": "ಬ್ಯಾಂಕ್ ವರ್ಗಾವಣೆ",
+    "payoutDescription": "ಮೊತ್ತವನ್ನು 2-3 ಕೆಲಸದ ದಿನಗಳೊಳಗೆ ನಿಮ್ಮ ನೋಂದಾಯಿತ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ವರ್ಗಾಯಿಸಲಾಗುತ್ತದೆ",
+    "cancel": "ರದ್ದುಮಾಡಿ",
+    "withdraw": "ಹಿಂಪಡೆಯಿರಿ",
+    "amountExceeds": "ಮೊತ್ತವು ಲಭ್ಯವಿರುವ ಬಾಕಿಯನ್ನು ಮೀರಿದೆ (₹{balance})",
+    "amountMustBeGreater": "ಮೊತ್ತವು 0 ಕ್ಕಿಂತ ಹೆಚ್ಚಿರಬೇಕು",
+    "invalidAmount": "ಅಮಾನ್ಯ ಮೊತ್ತ",
+    "amountRange": "ದಯವಿಟ್ಟು ₹1 ಮತ್ತು ₹{balance} ನಡುವೆ ಮಾನ್ಯ ಮೊತ್ತವನ್ನು ನಮೂದಿಸಿ",
+    "success": "₹{amount} ಹಿಂಪಡೆಯುವ ವಿನಂತಿಯನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಪ್ರಾರಂಭಿಸಲಾಗಿದೆ.",
+    "error": {
+      "missingId": "ಸೇವಾ ಒದಗಿಸುವವರ ಐಡಿ ಕಾಣೆಯಾಗಿದೆ",
+      "invalidRequest": "ಅಮಾನ್ಯ ಹಿಂಪಡೆಯುವ ವಿನಂತಿ",
+      "insufficientBalance": "ಹಿಂಪಡೆಯಲು ಸಾಕಷ್ಟು ಬಾಕಿ ಇಲ್ಲ",
+      "validationError": "ಮೌಲ್ಯೀಕರಣ ದೋಷ. ದಯವಿಟ್ಟು ನಮೂದಿಸಿದ ಮೊತ್ತವನ್ನು ಪರಿಶೀಲಿಸಿ.",
+      "serverError": "ಸರ್ವರ್ ದೋಷ. ದಯವಿಟ್ಟು ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      "generic": "ಹಿಂಪಡೆಯುವ ವಿನಂತಿಯನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ವಿಫಲವಾಗಿದೆ"
+    }
+  },
+  "withdrawalHistory": {
+    "title": "ಹಿಂಪಡೆಯುವ ಇತಿಹಾಸ",
+    "subtitle": "ನಿಮ್ಮ ಗಳಿಕೆಗಳು, ಹಿಂಪಡೆಯುವಿಕೆಗಳು ಮತ್ತು ವಹಿವಾಟು ಇತಿಹಾಸವನ್ನು ವೀಕ್ಷಿಸಿ",
+    "summary": {
+      "totalEarned": "ಒಟ್ಟು ಗಳಿಕೆ",
+      "availableBalance": "ಲಭ್ಯವಿರುವ ಬಾಕಿ",
+      "totalWithdrawn": "ಒಟ್ಟು ಹಿಂಪಡೆದ ಮೊತ್ತ"
+    },
+    "filters": {
+      "all": "ಎಲ್ಲಾ ವಹಿವಾಟುಗಳು",
+      "earnings": "ಗಳಿಕೆಗಳು",
+      "withdrawals": "ಹಿಂಪಡೆಯುವಿಕೆಗಳು"
+    },
+    "transactionTypes": {
+      "DAILY_EARNED": "ಸೇವಾ ಪಾವತಿ",
+      "WITHDRAWAL": "ಹಿಂಪಡೆಯುವಿಕೆ",
+      "SERVICE_FEE": "ಸೇವಾ ಶುಲ್ಕ",
+      "SECURITY_DEPOSIT": "ಸೆಕ್ಯೂರಿಟಿ ಠೇವಣಿ",
+      "REFUND": "ಮರುಪಾವತಿ",
+      "OTHER": "ವಹಿವಾಟು"
+    },
+    "credit": "ಜಮಾ",
     "debit": "ಡೆಬಿಟ್",
-    "pending": "ಬಾಕಿ",
-    "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ",
-    "failed": "ವಿಫಲವಾಗಿದೆ"
-  },
-  "notifications": {
-    "title": "ಅಧಿಸೂಚನೆಗಳು",
-    "noNotifications": "ಯಾವುದೇ ಅಧಿಸೂಚನೆಗಳಿಲ್ಲ",
-    "markAllRead": "ಎಲ್ಲವನ್ನೂ ಓದಿದಂತೆ ಗುರುತಿಸಿ",
-    "clearAll": "ಎಲ್ಲವನ್ನೂ ತೆರವುಗೊಳಿಸಿ"
-  },
-  "reviews": {
-    "title": "ವಿಮರ್ಶೆಯನ್ನು ಬಿಡಿ",
-    "rating": "ರೇಟಿಂಗ್",
-    "comment": "ಕಾಮೆಂಟ್",
-    "submit": "ವಿಮರ್ಶೆ ಸಲ್ಲಿಸಿ",
-    "placeholder": "ಈ ಸೇವಾ ಒದಗಿಸುವವರೊಂದಿಗಿನ ನಿಮ್ಮ ಅನುಭವವನ್ನು ಹಂಚಿಕೊಳ್ಳಿ...",
-    "success": "ವಿಮರ್ಶೆ ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!",
-    "error": "ವಿಮರ್ಶೆ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+    "engagement": "ಎಂಗೇಜ್ಮೆಂಟ್ #{id}",
+    "ref": "ಉಲ್ಲೇಖ: {type} #{id}",
+    "empty": {
+      "title": "ಯಾವುದೇ ವಹಿವಾಟುಗಳು ಕಂಡುಬಂದಿಲ್ಲ",
+      "description": "ವಹಿವಾಟುಗಳನ್ನು ನೋಡಲು ಸೇವೆಗಳನ್ನು ಒದಗಿಸಲು ಪ್ರಾರಂಭಿಸಿ",
+      "noCredit": "ಯಾವುದೇ ಜಮಾ ವಹಿವಾಟುಗಳಿಲ್ಲ",
+      "noDebit": "ಯಾವುದೇ ಡೆಬಿಟ್ ವಹಿವಾಟುಗಳಿಲ್ಲ"
+    },
+    "payoutSection": "ಪಾವತಿ ವಿನಂತಿಗಳು",
+    "payoutId": "ಪಾವತಿ #{id}",
+    "engagementId": "ಎಂಗೇಜ್ಮೆಂಟ್ #{id}",
+    "status": {
+      "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ",
+      "pending": "ಬಾಕಿ",
+      "failed": "ವಿಫಲವಾಗಿದೆ"
+    },
+    "loading": "ಇತಿಹಾಸವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ...",
+    "retry": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
+    "noData": "ಯಾವುದೇ ಇತಿಹಾಸ ಡೇಟಾ ಲಭ್ಯವಿಲ್ಲ"
   }
 }

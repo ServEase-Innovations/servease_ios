@@ -9,6 +9,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { useTranslation } from 'react-i18next';
 
 interface OtpVerificationDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ export function OtpVerificationDialog({
   verifying,
   bookingInfo,
 }: OtpVerificationDialogProps) {
+  const { t } = useTranslation();
   const [otpValue, setOtpValue] = useState("");
   const verificationCompletedRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
@@ -87,7 +89,7 @@ export function OtpVerificationDialog({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>Verify OTP to Complete Service</Text>
+              <Text style={styles.headerTitle}>{t('otpVerification.title')}</Text>
               <TouchableOpacity 
                 onPress={handleClose}
                 style={styles.closeButton}
@@ -102,23 +104,26 @@ export function OtpVerificationDialog({
             {bookingInfo && (
               <View style={styles.bookingInfoCard}>
                 <Text style={styles.bookingInfoTitle}>
-                  Service for {bookingInfo.clientName || "Client"}
+                  {t('otpVerification.serviceFor', { clientName: bookingInfo.clientName || t('common.client') })}
                 </Text>
                 <Text style={styles.bookingInfoSubtitle}>
-                  Booking ID: {bookingInfo.bookingId || "N/A"} • {bookingInfo.service || "Service"}
+                  {t('otpVerification.bookingInfo', { 
+                    id: bookingInfo.bookingId || t('common.na'), 
+                    service: bookingInfo.service || t('common.service') 
+                  })}
                 </Text>
               </View>
             )}
             
             <View style={styles.otpSection}>
               <Text style={styles.instructions}>
-                Please enter the OTP you received from the client to complete the service.
+                {t('otpVerification.instructions')}
               </Text>
               
               <View style={styles.otpInputContainer}>
                 <TextInput
                   ref={inputRef}
-                  placeholder="Enter 6-digit OTP"
+                  placeholder={t('otpVerification.enterOtp')}
                   placeholderTextColor="#9CA3AF"
                   value={otpValue}
                   onChangeText={handleOtpChange}
@@ -131,7 +136,7 @@ export function OtpVerificationDialog({
               </View>
               
               <Text style={styles.verificationNote}>
-                Once verified, the service will be marked as completed and your earnings will be credited.
+                {t('otpVerification.verificationNote')}
               </Text>
             </View>
             
@@ -141,7 +146,7 @@ export function OtpVerificationDialog({
                 onPress={handleClose}
                 disabled={verifying}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{t('otpVerification.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -156,10 +161,10 @@ export function OtpVerificationDialog({
                 {verifying ? (
                   <View style={styles.verifyingContainer}>
                     <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.verifyingText}>Verifying...</Text>
+                    <Text style={styles.verifyingText}>{t('otpVerification.verifying')}</Text>
                   </View>
                 ) : (
-                  <Text style={styles.verifyButtonText}>Verify & Complete</Text>
+                  <Text style={styles.verifyButtonText}>{t('otpVerification.verify')}</Text>
                 )}
               </TouchableOpacity>
             </View>

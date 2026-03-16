@@ -13,6 +13,7 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useTranslation } from 'react-i18next';
 
 // Barasat, West Bengal coordinates (fixed destination)
 const BARASAT_LOCATION = {
@@ -32,6 +33,7 @@ interface TrackAddressProps {
 }
 
 const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }) => {
+  const { t } = useTranslation();
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -59,15 +61,15 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
       },
       (error) => {
         console.log('Error getting location:', error);
-        setLocationError('Could not get your location. Please enable location services.');
+        setLocationError(t('trackAddress.error.locationError'));
         setIsLoading(false);
         
         Alert.alert(
-          'Location Error',
-          'Could not get your location. Please enable location services.',
+          t('trackAddress.error.locationError'),
+          t('trackAddress.error.locationError'),
           [
             {
-              text: 'Open Settings',
+              text: t('trackAddress.error.openSettings'),
               onPress: () => {
                 if (Platform.OS === 'ios') {
                   Linking.openURL('app-settings:');
@@ -76,7 +78,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
                 }
               },
             },
-            { text: 'Close', onPress: onClose },
+            { text: t('common.close'), onPress: onClose },
           ]
         );
       },
@@ -167,17 +169,19 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
     const minutes = Math.round(timeInHours * 60);
     
     if (minutes < 60) {
-      return `${minutes} min`;
+      return t('time.minutes', { count: minutes });
     } else {
       const hours = Math.floor(minutes / 60);
       const remainingMinutes = minutes % 60;
-      return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
+      return remainingMinutes > 0 
+        ? `${hours}${t('common.hour')} ${remainingMinutes}${t('common.minute')}`
+        : `${hours}${t('common.hour')}`;
     }
   };
 
   // Format distance
   const formatDistance = (distance: number): string => {
-    return `${distance.toFixed(1)} km`;
+    return t('provider.kmAway', { distance: distance.toFixed(1) });
   };
 
   // Open in external maps app for navigation
@@ -191,7 +195,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
     
     if (url) {
       Linking.openURL(url).catch(() => {
-        Alert.alert('Error', 'Could not open maps application');
+        Alert.alert(t('common.error'), t('trackAddress.error.mapsError'));
       });
     }
   };
@@ -205,7 +209,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Getting your location...</Text>
+        <Text style={styles.loadingText}>{t('trackAddress.gettingLocation')}</Text>
       </View>
     );
   }
@@ -219,7 +223,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Icon name="location-on" size={24} color="#2196F3" />
-          <Text style={styles.headerTitle}>Track to Barasat</Text>
+          <Text style={styles.headerTitle}>{t('trackAddress.title')}</Text>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Icon name="close" size={24} color="#666" />
@@ -231,13 +235,17 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
         <View style={styles.locationRow}>
           <Icon name="my-location" size={16} color="#4CAF50" />
           <Text style={styles.locationText} numberOfLines={1}>
-            From: {currentLocation ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` : 'Unknown'}
+            {t('trackAddress.from', { 
+              location: currentLocation 
+                ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` 
+                : t('common.unknown')
+            })}
           </Text>
         </View>
         <View style={styles.locationRow}>
           <Icon name="flag" size={16} color="#FF5252" />
           <Text style={styles.locationText} numberOfLines={1}>
-            To: Barasat, West Bengal
+            {t('trackAddress.to')}
           </Text>
         </View>
       </View>
@@ -264,8 +272,8 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
           {currentLocation && (
             <Marker
               coordinate={currentLocation}
-              title="Your Location"
-              description="Current position"
+              title={t('common.currentLocation')}
+              description={t('common.currentPosition')}
             >
               <View style={styles.currentLocationMarker}>
                 <Icon name="person-pin-circle" size={40} color="#2196F3" />
@@ -276,8 +284,8 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
           {/* Barasat Destination Marker */}
           <Marker
             coordinate={BARASAT_LOCATION}
-            title="Barasat, West Bengal"
-            description="Destination"
+            title={t('trackAddress.destination')}
+            description={t('trackAddress.destinationDesc')}
           >
             <View style={styles.destinationMarker}>
               <Icon name="location-on" size={30} color="#FF5252" />
@@ -316,7 +324,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
         {isCalculatingRoute && (
           <View style={styles.calculatingOverlay}>
             <ActivityIndicator size="small" color="#2196F3" />
-            <Text style={styles.calculatingText}>Calculating route...</Text>
+            <Text style={styles.calculatingText}>{t('trackAddress.calculatingRoute')}</Text>
           </View>
         )}
       </View>
@@ -326,13 +334,13 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
         <View style={styles.statItem}>
           <Icon name="straighten" size={20} color="#666" />
           <Text style={styles.statValue}>{formatDistance(distance)}</Text>
-          <Text style={styles.statLabel}>Distance</Text>
+          <Text style={styles.statLabel}>{t('trackAddress.distance')}</Text>
         </View>
         
         <View style={styles.statItem}>
           <Icon name="schedule" size={20} color="#666" />
           <Text style={styles.statValue}>{travelTime}</Text>
-          <Text style={styles.statLabel}>Est. Time</Text>
+          <Text style={styles.statLabel}>{t('trackAddress.estimatedTime')}</Text>
         </View>
       </View>
 
@@ -343,7 +351,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
           onPress={openInMaps}
         >
           <Icon name="directions" size={20} color="#fff" />
-          <Text style={styles.navigateButtonText}>Start Navigation</Text>
+          <Text style={styles.navigateButtonText}>{t('trackAddress.startNavigation')}</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -351,7 +359,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
           onPress={refreshRoute}
         >
           <Icon name="gps-fixed" size={20} color="#2196F3" />
-          <Text style={styles.refreshButtonText}>Refresh Location</Text>
+          <Text style={styles.refreshButtonText}>{t('trackAddress.refreshLocation')}</Text>
         </TouchableOpacity>
       </View>
 

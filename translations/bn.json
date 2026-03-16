@@ -215,7 +215,21 @@
     "checking": "পরীক্ষা করা হচ্ছে...",
     "available": "উপলব্ধ",
     "taken": "ইতিমধ্যে নেওয়া হয়েছে",
-    "clear": "পরিষ্কার"
+    "clear": "পরিষ্কার",
+    "unknown": "অজানা",
+    "all": "সব",
+    "openSettings": "সেটিংস খুলুন",
+    "permissionRequired": "অনুমতি প্রয়োজন",
+    "username": "ব্যবহারকারীর নাম",
+    "emailAddress": "ইমেইল ঠিকানা",
+    "na": "N/A",
+    "country": {
+      "india": "ভারত"
+    },
+    "hour": "ঘ",
+    "minute": "মি",
+    "hours": "ঘ",
+    "minutes": "মি"
   },
   "settings": {
     "title": "সেটিংস",
@@ -435,7 +449,8 @@
     "options": {
       "date": "তারিখ",
       "shortTerm": "স্বল্পমেয়াদী",
-      "monthly": "মাসিক"
+      "monthly": "মাসিক",
+      "onDemand": "অন ডিমান্ড"
     },
     "status": {
       "pending": "বিচারাধীন",
@@ -443,7 +458,13 @@
       "completed": "সম্পন্ন",
       "cancelled": "বাতিল",
       "rejected": "প্রত্যাখ্যাত",
-      "inProgress": "প্রক্রিয়াধীন"
+      "inProgress": "প্রক্রিয়াধীন",
+      "active": "সক্রিয়",
+      "notStarted": "শুরু হয়নি",
+      "scheduled": "নির্ধারিত",
+      "upcoming": "আসন্ন",
+      "current": "চলমান",
+      "past": "পূর্ববর্তী"
     },
     "confirmBox": {
       "title": "আপনার বুকিং নিশ্চিত করুন",
@@ -544,7 +565,8 @@
       "completed": "পেমেন্ট সফলভাবে সম্পন্ন হয়েছে!",
       "failed": "পেমেন্ট বাতিল বা ব্যর্থ হয়েছে।",
       "verificationFailed": "পেমেন্ট যাচাইকরণ ব্যর্থ হয়েছে। অনুগ্রহ করে সহায়তার সাথে যোগাযোগ করুন।",
-      "resumeFailed": "পেমেন্ট পুনরায় শুরু করতে অক্ষম। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"
+      "resumeFailed": "পেমেন্ট পুনরায় শুরু করতে অক্ষম। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+      "description": "এর জন্য পেমেন্ট"
     }
   },
   "profile": {
@@ -580,7 +602,75 @@
     "totalBookings": "মোট বুকিং: {count}",
     "reviewsGiven": "দেওয়া পর্যালোচনা: {count}",
     "reviewsReceived": "প্রাপ্ত পর্যালোচনা: {count}",
-    "avgRating": "গড় রেটিং: {rating}"
+    "avgRating": "গড় রেটিং: {rating}",
+    "page": {
+      "greeting": "নমস্কার, {name}",
+      "customer": "গ্রাহক",
+      "serviceProvider": "সেবা প্রদানকারী",
+      "id": "আইডি: {id}",
+      "mobileRequired": "⚠️ মোবাইল নম্বর প্রয়োজন",
+      "edit": "সম্পাদনা",
+      "myAccount": "আমার অ্যাকাউন্ট",
+      "addMobileNumber": "মোবাইল নম্বর যোগ করুন",
+      "userInformation": "ব্যবহারকারীর তথ্য",
+      "contactInformation": "যোগাযোগের তথ্য",
+      "username": "ব্যবহারকারীর নাম",
+      "emailAddress": "ইমেইল ঠিকানা",
+      "firstName": "প্রথম নাম",
+      "lastName": "শেষ নাম",
+      "userId": "ব্যবহারকারী আইডি",
+      "providerId": "প্রদানকারী আইডি",
+      "contactNumber": "যোগাযোগ নম্বর",
+      "alternativeContact": "বিকল্প যোগাযোগ নম্বর",
+      "enter10Digit": "১০-অঙ্কের নম্বর লিখুন",
+      "contactNumberAvailable": "যোগাযোগ নম্বরটি উপলব্ধ",
+      "alternateNumberAvailable": "বিকল্প নম্বরটি উপলব্ধ",
+      "exactly10Digits": "অনুগ্রহ করে ঠিক ১০টি অঙ্ক লিখুন",
+      "mobileRequiredDesc": "বুকিং এবং বিজ্ঞপ্তির জন্য মোবাইল নম্বর প্রয়োজন",
+      "clickToAddMobile": "মোবাইল নম্বর যোগ করতে এখানে ক্লিক করুন",
+      "addresses": "ঠিকানাসমূহ",
+      "addNewAddress": "নতুন ঠিকানা যোগ করুন",
+      "noAddresses": "এখনও কোন ঠিকানা সংরক্ষিত নেই",
+      "saveAs": "হিসেবে সংরক্ষণ করুন",
+      "home": "বাড়ি",
+      "work": "কর্মস্থল",
+      "other": "অন্যান্য",
+      "locationName": "অবস্থানের নাম",
+      "enterLocationName": "অবস্থানের নাম লিখুন",
+      "streetAddress": "রাস্তার ঠিকানা",
+      "enterStreetAddress": "রাস্তার ঠিকানা লিখুন",
+      "city": "শহর",
+      "enterCity": "শহরের নাম লিখুন",
+      "country": "দেশ",
+      "enterCountry": "দেশের নাম লিখুন",
+      "postalCode": "পোস্টাল কোড",
+      "enterPostalCode": "পোস্টাল কোড লিখুন",
+      "addAddress": "ঠিকানা যোগ করুন",
+      "serviceStatus": "সেবার অবস্থা",
+      "accountStatus": "অ্যাকাউন্টের অবস্থা",
+      "verified": "যাচাইকৃত",
+      "activeServiceProvider": "সক্রিয় সেবা প্রদানকারী",
+      "footer": "© ২০২৫ মাইঅ্যাপ সর্বস্বত্ব সংরক্ষিত।",
+      "loadingProfile": "আপনার প্রোফাইল লোড হচ্ছে",
+      "pleaseWait": "আপনার তথ্য আনার জন্য অনুগ্রহ করে অপেক্ষা করুন",
+      "selectCountryCode": "দেশের কোড নির্বাচন করুন",
+      "done": "সম্পন্ন",
+      "validationError": "যাচাইকরণ ত্রুটি",
+      "enterValidContact": "অনুগ্রহ করে একটি বৈধ ১০-অঙ্কের যোগাযোগ নম্বর দিন",
+      "enterValidAlternate": "অনুগ্রহ করে একটি বৈধ ১০-অঙ্কের বিকল্প যোগাযোগ নম্বর দিন",
+      "numbersMustBeDifferent": "যোগাযোগ নম্বর এবং বিকল্প যোগাযোগ নম্বর অবশ্যই আলাদা হতে হবে",
+      "updateSuccess": "প্রোফাইল সফলভাবে আপডেট হয়েছে!",
+      "updateFailed": "পরিবর্তন সংরক্ষণ করতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+      "couldNotSaveAddress": "ঠিকানা সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।",
+      "fillAllAddressFields": "অনুগ্রহ করে সব ঠিকানা ক্ষেত্র পূরণ করুন",
+      "couldNotRemoveAddress": "ঠিকানা সরানো যায়নি। আবার চেষ্টা করুন।",
+      "noEmail": "কোন ইমেইল উপলব্ধ নেই",
+      "firstNamePlaceholder": "প্রথম",
+      "lastNamePlaceholder": "শেষ",
+      "noCity": "কোন শহর নেই",
+      "noCountry": "কোন দেশ নেই",
+      "providerAddressNote": "সেবা প্রদানকারীর ঠিকানা পৃথকভাবে পরিচালিত হয়"
+    }
   },
   "dashboard": {
     "title": "সেবা প্রদানকারী ড্যাশবোর্ড",
@@ -632,7 +722,65 @@
       "blockDates": "তারিখ ব্লক করুন",
       "vacation": "ছুটির মোড",
       "emergency": "জরুরি বন্ধ"
-    }
+    },
+    "metrics": {
+      "totalEarnings": "মোট আয়",
+      "securityDeposit": "সিকিউরিটি ডিপোজিট",
+      "withdrawn": "উত্তোলিত",
+      "withdrawal": "উত্তোলন",
+      "actualPayoutBalance": "প্রকৃত পেআউট ব্যালেন্স",
+      "thisMonth": "এই মাসে",
+      "forActiveBookings": "সক্রিয় বুকিংয়ের জন্য",
+      "serviceCharges": "সার্ভিস চার্জ",
+      "readyToWithdraw": "উত্তোলনের জন্য প্রস্তুত",
+      "paid": "পরিশোধিত",
+      "notPaid": "অপরিশোধিত",
+      "change": "+১২.৫%",
+      "changeNegative": "-১০%"
+    },
+    "quickActions": {
+      "title": "দ্রুত কর্ম",
+      "viewAllBookings": "সকল বুকিং দেখুন",
+      "requestWithdrawal": "উত্তোলনের অনুরোধ করুন",
+      "withdrawalHistory": "উত্তোলনের ইতিহাস",
+      "applyLeave": "ছুটি আবেদন",
+      "updateAvailability": "উপলভ্যতা আপডেট করুন",
+      "viewReviews": "পর্যালোচনা দেখুন"
+    },
+    "serviceStatus": {
+      "title": "সেবার অবস্থা",
+      "profileStatus": "প্রোফাইলের অবস্থা",
+      "verification": "যাচাইকরণ",
+      "availability": "উপলভ্যতা",
+      "active": "সক্রিয়",
+      "verified": "যাচাইকৃত",
+      "available": "উপলব্ধ"
+    },
+    "recentBooking": {
+      "title": "সাম্প্রতিক বুকিং",
+      "latest": "সর্বশেষ",
+      "bookingId": "বুকিং আইডি: {id}",
+      "clientName": "ক্লায়েন্ট",
+      "dateTime": "তারিখ ও সময়",
+      "amount": "পরিমাণ",
+      "address": "ঠিকানা",
+      "trackAddress": "ঠিকানা ট্র্যাক করুন",
+      "todaysService": "আজকের সেবা",
+      "taskInProgress": "কাজ চলছে",
+      "taskCompleted": "কাজ সম্পন্ন",
+      "notStarted": "শুরু হয়নি",
+      "upcoming": "আসন্ন",
+      "cannotStartYet": "এখনও শুরু করা যাবে না",
+      "startTask": "কাজ শুরু করুন",
+      "completeTask": "কাজ সম্পন্ন করুন",
+      "completed": "সম্পন্ন"
+    },
+    "empty": {
+      "noBookings": "কোন আসন্ন বুকিং পাওয়া যায়নি।",
+      "failedToLoad": "বুকিং লোড করতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+      "retry": "পুনরায় চেষ্টা করুন"
+    },
+    "signOut": "সাইন আউট"
   },
   "contact": {
     "title": "যোগাযোগ করুন",
@@ -822,7 +970,23 @@
     "dayBetween": "দিন ০১ থেকে ৩১ এর মধ্যে হতে হবে",
     "invalidDate": "অবৈধ তারিখ",
     "ageRestriction": "বয়স সীমাবদ্ধতা",
-    "mustBe18": "আপনার বয়স কমপক্ষে ১৮ বছর হতে হবে"
+    "mustBe18": "আপনার বয়স কমপক্ষে ১৮ বছর হতে হবে",
+    "contactNumberUnavailable": "যোগাযোগ নম্বরটি উপলব্ধ নয়",
+    "alternateNumberUnavailable": "বিকল্প নম্বরটি উপলব্ধ নয়",
+    "customerIdNotFound": "গ্রাহক আইডি পাওয়া যায়নি!",
+    "updateFailed": "আপডেট করার সময় কিছু ভুল হয়েছে!",
+    "notFound": "{id} পাওয়া যায়নি",
+    "serviceDayIdNotFound": "সার্ভিস ডে আইডি পাওয়া যায়নি। পরিষেবা শুরু করা যাবে না।",
+    "failedToStartService": "পরিষেবা শুরু করতে ব্যর্থ",
+    "failedToCompleteService": "পরিষেবা সম্পূর্ণ করতে ব্যর্থ",
+    "failedToLoadBookings": "বুকিং লোড করতে ব্যর্থ",
+    "failedToLoadReviews": "পর্যালোচনা লোড করতে ব্যর্থ",
+    "failedToLoadHistory": "উত্তোলনের ইতিহাস লোড করতে ব্যর্থ",
+    "withdrawalFailed": "উত্তোলনের অনুরোধ প্রক্রিয়া করতে ব্যর্থ",
+    "invalidAmount": "অবৈধ পরিমাণ",
+    "amountRange": "অনুগ্রহ করে ₹১ এবং ₹{balance} এর মধ্যে একটি বৈধ পরিমাণ লিখুন",
+    "insufficientBalance": "উত্তোলনের জন্য পর্যাপ্ত ব্যালেন্স নেই",
+    "validationError": "যাচাইকরণ ত্রুটি। অনুগ্রহ করে লিখিত পরিমাণ পরীক্ষা করুন।"
   },
   "validation": {
     "required": "{field} আবশ্যক",
@@ -840,7 +1004,24 @@
     "date": "অনুগ্রহ করে একটি বৈধ তারিখ দিন",
     "time": "অনুগ্রহ করে একটি বৈধ সময় দিন",
     "future": "{field} ভবিষ্যতে হতে হবে",
-    "past": "{field} অতীতে হতে হবে"
+    "past": "{field} অতীতে হতে হবে",
+    "alphabetsOnly": "{field} শুধুমাত্র বর্ণমালা থাকতে হবে",
+    "passwordUppercase": "পাসওয়ার্ডে কমপক্ষে একটি বড় হাতের অক্ষর থাকতে হবে",
+    "passwordLowercase": "পাসওয়ার্ডে কমপক্ষে একটি ছোট হাতের অক্ষর থাকতে হবে",
+    "passwordNumber": "পাসওয়ার্ডে কমপক্ষে একটি সংখ্যা থাকতে হবে",
+    "passwordSpecial": "পাসওয়ার্ডে কমপক্ষে একটি বিশেষ অক্ষর থাকতে হবে",
+    "passwordStrength": "পাসওয়ার্ডে কমপক্ষে ৮ অক্ষর, একটি বড় হাতের অক্ষর, একটি ছোট হাতের অক্ষর, একটি সংখ্যা এবং একটি বিশেষ অক্ষর থাকতে হবে",
+    "passwordMismatch": "পাসওয়ার্ড মিলছে না",
+    "emailNotAvailable": "ইমেইলটি উপলব্ধ নয়",
+    "mobileNotAvailable": "মোবাইল নম্বরটি উপলব্ধ নয়",
+    "alternateNotAvailable": "বিকল্প নম্বরটি উপলব্ধ নয়",
+    "alternateSameAsMobile": "বিকল্প নম্বর মোবাইল নম্বরের মতো হতে পারে না",
+    "aadhaarFormat": "আধার নম্বর ঠিক ১২টি সংখ্যার হতে হবে",
+    "panFormat": "অনুগ্রহ করে একটি বৈধ PAN দিন (যেমন, ABCDE1234F)",
+    "drivingLicenseFormat": "অনুগ্রহ করে একটি বৈধ ড্রাইভিং লাইসেন্স নম্বর দিন",
+    "voterIdFormat": "অনুগ্রহ করে একটি বৈধ ১০-অঙ্কের ভোটার আইডি দিন",
+    "passportFormat": "অনুগ্রহ করে একটি বৈধ ৮-অক্ষরের পাসপোর্ট নম্বর দিন",
+    "pincodeFormat": "পিনকোড ঠিক ৬টি সংখ্যার হতে হবে"
   },
   "time": {
     "justNow": "এইমাত্র",
@@ -883,7 +1064,10 @@
       "MM": "মাস",
       "DD": "দিন",
       "ddd": "ddd",
-      "MMM": "MMM"
+      "MMM": "MMM",
+      "MMMM D": "MMMM D",
+      "MMM D, YYYY": "MMM D, YYYY",
+      "h:mm A": "h:mm A"
     }
   },
   "navigation": {
@@ -1290,36 +1474,400 @@
     "serviceProvider": "সেবা প্রদানকারী",
     "agent": "এজেন্ট"
   },
+  "mobileDialog": {
+    "title": "যোগাযোগ নম্বর আপডেট করুন",
+    "description": "চালিয়ে যেতে আপনার মোবাইল এবং বিকল্প যোগাযোগ নম্বর লিখুন।",
+    "contactNumber": "যোগাযোগ নম্বর",
+    "contactNumberRequired": "যোগাযোগ নম্বর *",
+    "alternativeContact": "বিকল্প যোগাযোগ নম্বর",
+    "alternativeContactOptional": "বিকল্প যোগাযোগ নম্বর (ঐচ্ছিক)",
+    "enter10Digit": "১০-অঙ্কের মোবাইল নম্বর",
+    "contactNumberAvailable": "যোগাযোগ নম্বরটি উপলব্ধ",
+    "alternateNumberAvailable": "বিকল্প নম্বরটি উপলব্ধ",
+    "enterExactly10Digits": "অনুগ্রহ করে ঠিক ১০টি অঙ্ক লিখুন",
+    "numbersMustBeDifferent": "⚠️ যোগাযোগ নম্বর এবং বিকল্প যোগাযোগ নম্বর অবশ্যই আলাদা হতে হবে",
+    "cancel": "বাতিল",
+    "submit": "জমা দিন",
+    "updating": "আপডেট করা হচ্ছে...",
+    "updateSuccess": "মোবাইল নম্বর(গুলি) সফলভাবে আপডেট হয়েছে!",
+    "updateFailed": "আপডেট করার সময় কিছু ভুল হয়েছে!"
+  },
+  "modifyBooking": {
+    "title": "বুকিং পরিবর্তন করুন",
+    "bookingInfo": "বুকিং #{id} - {service}",
+    "scheduled": "নির্ধারিত: {date} তারিখে {time} সময়ে",
+    "timeUntil": "{timeUntil}",
+    "modifiedCount": "এই বুকিং {count} বার পরিবর্তন করা হয়েছে",
+    "lastModification": "{details}",
+    "options": {
+      "rescheduleDate": "তারিখ পুনর্নির্ধারণ করুন",
+      "rescheduleTime": "সময় পুনর্নির্ধারণ করুন"
+    },
+    "dateSelection": {
+      "title": "আপনার বুকিংয়ের জন্য একটি নতুন তারিখ নির্বাচন করুন।",
+      "selectNewDate": "নতুন তারিখ নির্বাচন করুন",
+      "saveDate": "তারিখ সংরক্ষণ করুন"
+    },
+    "timeSelection": {
+      "title": "বর্তমান সময়: {time}",
+      "selectNewTime": "নতুন সময় নির্বাচন করুন",
+      "saveTime": "সময় সংরক্ষণ করুন"
+    },
+    "status": {
+      "alreadyModified": "এই বুকিং ইতিমধ্যে পরিবর্তন করা হয়েছে এবং আবার পরিবর্তন করা যাবে না।",
+      "modificationNotAllowed": "নির্ধারিত সময়ের কমপক্ষে ৩০ মিনিট আগে পরিবর্তন করার অনুমতি দেওয়া হয়।",
+      "bookingStarted": "বুকিং ইতিমধ্যে শুরু হয়েছে বা শেষ হয়ে গেছে",
+      "hoursMinutes": "বুকিং শুরু হতে {h}ঘ {m}মি বাকি",
+      "minutesOnly": "বুকিং শুরু হতে {m}মি বাকি"
+    },
+    "actions": {
+      "back": "পেছনে",
+      "saving": "সংরক্ষণ করা হচ্ছে...",
+      "saveDate": "তারিখ সংরক্ষণ করুন",
+      "saveTime": "সময় সংরক্ষণ করুন"
+    },
+    "messages": {
+      "dateSuccess": "বুকিংয়ের তারিখ সফলভাবে পুনর্নির্ধারণ করা হয়েছে!",
+      "timeSuccess": "বুকিংয়ের সময় সফলভাবে পুনর্নির্ধারণ করা হয়েছে!",
+      "error": "বুকিং পরিবর্তন করতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"
+    }
+  },
+  "vacationManagement": {
+    "title": "ছুটি পরিচালনা করুন",
+    "currentVacation": "বর্তমান ছুটির সময়কাল",
+    "vacationPeriod": "{startDate} থেকে {endDate}",
+    "totalDays": "মোট দিন: {days}",
+    "modifyDates": "ছুটির তারিখ পরিবর্তন করুন",
+    "applyVacation": "ছুটির জন্য আবেদন করুন",
+    "vacationStartDate": "ছুটি শুরুর তারিখ",
+    "vacationEndDate": "ছুটি শেষের তারিখ",
+    "selectDate": "তারিখ নির্বাচন করুন",
+    "totalVacationDays": "মোট ছুটির দিন: {days}",
+    "vacationPolicy": "ছুটির নীতি",
+    "policyText": "ছুটির সময়কালে, সেবা বন্ধ থাকবে এবং প্রযোজ্য ফেরত আপনার ওয়ালেটে প্রক্রিয়া করা হবে। বিদ্যমান ছুটির সময়কাল পরিবর্তনের জন্য জরিমানা প্রযোজ্য হতে পারে।",
+    "cancelVacation": "ছুটি বাতিল করুন",
+    "applyVacation": "ছুটি প্রয়োগ করুন",
+    "updateVacation": "ছুটি আপডেট করুন",
+    "applying": "আবেদন করা হচ্ছে...",
+    "updating": "আপডেট করা হচ্ছে...",
+    "success": "ছুটি সফলভাবে প্রয়োগ করা হয়েছে!",
+    "cancelSuccess": "ছুটি সফলভাবে বাতিল করা হয়েছে!",
+    "error": "ছুটি প্রয়োগ করতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+    "cancelError": "ছুটি বাতিল করতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+    "validation": {
+      "selectBothDates": "অনুগ্রহ করে শুরু এবং শেষ উভয় তারিখ নির্বাচন করুন",
+      "startDatePast": "ছুটি শুরুর তারিখ অতীত হতে পারে না",
+      "endDateBeforeStart": "ছুটি শেষের তারিখ শুরু তারিখের পরে হতে হবে"
+    }
+  },
   "wallet": {
-    "title": "ওয়ালেট",
-    "balance": "ব্যালেন্স",
+    "title": "আমার ওয়ালেট",
+    "availableBalance": "উপলব্ধ ব্যালেন্স",
     "addMoney": "টাকা যোগ করুন",
-    "withdraw": "উত্তোলন",
+    "transfer": "স্থানান্তর",
     "transactions": "লেনদেন",
+    "rewards": "পুরস্কার",
+    "recentActivity": "সাম্প্রতিক কার্যকলাপ",
     "noTransactions": "এখনও কোন লেনদেন নেই",
-    "amount": "পরিমাণ",
+    "noTransactionsDesc": "আপনার লেনদেনের ইতিহাস এখানে প্রদর্শিত হবে",
+    "yourRewards": "আপনার পুরস্কার",
+    "rewardsPoints": "{points} পয়েন্ট",
+    "rewardsDescription": "সেবা সম্পন্ন করে এবং বন্ধুদের রেফার করে আরও পয়েন্ট অর্জন করুন",
+    "viewRewardsCatalog": "পুরস্কার ক্যাটালগ দেখুন",
+    "loading": "ওয়ালেট লোড হচ্ছে",
+    "loadingDesc": "আপনার অ্যাকাউন্ট তথ্য সংগ্রহ করা হচ্ছে",
+    "error": {
+      "unavailable": "ওয়ালেট তথ্য বর্তমানে অনুপলব্ধ",
+      "noAccount": "কোন ওয়ালেট অ্যাকাউন্ট পাওয়া যায়নি",
+      "signInRequired": "ওয়ালেট বৈশিষ্ট্যগুলি অ্যাক্সেস করতে অনুগ্রহ করে সাইন ইন করুন",
+      "connectionTimeout": "সংযোগ সময় শেষ হয়েছে। আপনার নেটওয়ার্ক পরীক্ষা করুন",
+      "networkUnavailable": "নেটওয়ার্ক অনুপলব্ধ। আপনার সংযোগ পরীক্ষা করুন",
+      "generic": "অস্থায়ীভাবে ওয়ালেট ডেটা লোড করতে অক্ষম"
+    },
+    "actions": {
+      "tryAgain": "আবার চেষ্টা করুন",
+      "close": "বন্ধ"
+    }
+  },
+  "userHoliday": {
+    "title": "ছুটির আবেদন করুন",
+    "startDate": "শুরুর তারিখ",
+    "endDate": "শেষের তারিখ",
+    "selectStartDate": "শুরুর তারিখ নির্বাচন করুন",
+    "selectEndDate": "শেষের তারিখ নির্বাচন করুন",
+    "helperText": "📌 নোট: ছুটির আবেদন কমপক্ষে ১০ দিনের হতে হবে। আপনি শুধুমাত্র আপনার শুরুর তারিখের কমপক্ষে ৯ দিন পরে একটি শেষ তারিখ নির্বাচন করতে পারেন।",
+    "bookedPeriod": "আপনার বুক করা সময়কাল: {startDate} থেকে {endDate}",
+    "serviceType": "সেবার ধরন",
+    "bookingType": "বুকিংয়ের ধরন",
+    "cancel": "বাতিল",
+    "submit": "জমা দিন",
+    "success": "ছুটির আবেদন সফলভাবে জমা দেওয়া হয়েছে!",
+    "confirmation": {
+      "title": "ছুটির আবেদন নিশ্চিত করুন",
+      "message": "আপনি কি {startDate} থেকে {endDate} পর্যন্ত আপনার {service} সেবার জন্য ছুটির আবেদন করতে নিশ্চিত?",
+      "confirm": "হ্যাঁ, আবেদন করুন",
+      "cancel": "বাতিল"
+    },
+    "error": {
+      "withinBookingPeriod": "ছুটির তারিখগুলি আপনার বুক করা সময়ের মধ্যে হতে হবে",
+      "minimumDays": "ছুটির সময়কাল কমপক্ষে ১০ দিন হতে হবে",
+      "submitFailed": "ছুটির আবেদন জমা দিতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"
+    }
+  },
+  "engagementDetails": {
+    "title": "বুকিং বিবরণ",
+    "bookingId": "বুকিং আইডি",
+    "serviceType": "সেবার ধরন",
+    "schedule": "সময়সূচি",
+    "startDate": "শুরুর তারিখ",
+    "endDate": "শেষ তারিখ",
+    "timeSlot": "সময় স্লট",
+    "serviceProvider": "সেবা প্রদানকারী",
+    "notAssigned": "নির্ধারিত হয়নি",
+    "tasksResponsibilities": "কাজ ও দায়িত্ব",
+    "mainTasks": "প্রধান কাজ",
+    "addOns": "অ্যাড-অন",
+    "paymentDetails": "পেমেন্ট বিবরণ",
+    "baseAmount": "মূল পরিমাণ",
+    "platformFee": "প্ল্যাটফর্ম ফি",
+    "gst": "জিএসটি",
+    "total": "মোট",
+    "paymentStatus": "পেমেন্ট অবস্থা",
+    "paymentMode": "পেমেন্ট মোড",
+    "completePaymentNow": "এখনই পেমেন্ট সম্পন্ন করুন",
+    "completePaymentNote": "আপনার বুকিং নিশ্চিত করতে পেমেন্ট সম্পন্ন করুন",
+    "modificationHistory": "পরিবর্তনের ইতিহাস",
+    "additionalInformation": "অতিরিক্ত তথ্য",
+    "bookingDate": "বুকিং তারিখ",
+    "assignmentStatus": "নিয়োগের অবস্থা",
+    "leaveDays": "ছুটির দিন",
+    "call": "কল",
+    "message": "বার্তা",
+    "cancel": "বাতিল",
+    "callProvider": "প্রদানকারীকে কল করুন",
+    "messageProvider": "প্রদানকারীকে বার্তা দিন",
+    "cancelBooking": "বুকিং বাতিল করুন",
+    "cancelConfirmation": "বুকিং বাতিল করুন",
+    "cancelConfirmationMessage": "আপনি কি নিশ্চিত আপনার {service} বুকিং বাতিল করতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।",
+    "yes": "হ্যাঁ",
+    "no": "না",
+    "yesCancel": "হ্যাঁ, বাতিল করুন",
+    "processing": "প্রক্রিয়াকরণ...",
+    "success": "সফল",
+    "error": "ত্রুটি",
+    "paymentSuccess": "পেমেন্ট সফলভাবে সম্পন্ন হয়েছে!",
+    "paymentFailed": "পেমেন্ট ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+    "paymentVerificationFailed": "পেমেন্ট যাচাইকরণ ব্যর্থ। অনুগ্রহ করে সহায়তার সাথে যোগাযোগ করুন।",
+    "paymentResumeFailed": "পেমেন্ট পুনরায় শুরু করতে অক্ষম। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+    "bookingCancelled": "বুকিং সফলভাবে বাতিল করা হয়েছে",
+    "bookingCancelFailed": "বুকিং বাতিল করতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।",
+    "razorpayIntegration": "রেজারপে ইন্টিগ্রেশনের জন্য react-native-razorpay প্যাকেজ প্রয়োজন"
+  },
+  "allBookings": {
+    "title": "সকল বুকিং দেখুন",
+    "tabs": {
+      "ongoing": "চলমান ({count})",
+      "future": "আসন্ন ({count})",
+      "past": "পূর্ববর্তী ({count})"
+    },
+    "bookingCount": "{month} এ {count}টি বুকিং",
+    "bookingCount_plural": "{month} এ {count}টি বুকিং",
+    "noCurrentBookings": "{month} এ কোন চলমান বুকিং পাওয়া যায়নি",
+    "noCurrentBookingsDesc": "এই মাসের আপনার সকল চলমান বুকিং এখানে প্রদর্শিত হবে।",
+    "noUpcomingBookings": "{month} এ কোন আসন্ন বুকিং পাওয়া যায়নি",
+    "noUpcomingBookingsDesc": "এই মাসের আপনার সকল আসন্ন বুকিং এখানে প্রদর্শিত হবে।",
+    "noPastBookings": "{month} এ কোন পূর্ববর্তী বুকিং পাওয়া যায়নি",
+    "noPastBookingsDesc": "এই মাসের আপনার সকল পূর্ববর্তী বুকিং এখানে প্রদর্শিত হবে।",
+    "empty": {
+      "title": "কোন বুকিং পাওয়া যায়নি",
+      "description": "এই মাসে কোন বুকিং পাওয়া যায়নি। ভিন্ন মাস নির্বাচন করার চেষ্টা করুন।"
+    },
+    "bookingCard": {
+      "bookingId": "বুকিং আইডি: {id}",
+      "clientName": "ক্লায়েন্ট",
+      "dateTime": "তারিখ ও সময়",
+      "amount": "পরিমাণ",
+      "address": "ঠিকানা",
+      "trackAddress": "ঠিকানা ট্র্যাক করুন",
+      "todaysService": "আজকের সেবা",
+      "responsibilities": "দায়িত্ব",
+      "addOns": "অ্যাড-অন",
+      "taskInProgress": "কাজ চলছে",
+      "taskCompleted": "কাজ সম্পন্ন",
+      "notStarted": "শুরু হয়নি",
+      "upcoming": "আসন্ন",
+      "cannotStartYet": "এখনও শুরু করা যাবে না",
+      "startTask": "কাজ শুরু করুন",
+      "completeTask": "কাজ সম্পন্ন করুন",
+      "completed": "সম্পন্ন"
+    },
+    "monthSelector": {
+      "previous": "পূর্ববর্তী মাস",
+      "next": "পরবর্তী মাস"
+    }
+  },
+  "bookingCard": {
+    "bookingId": "বুকিং আইডি: {id}",
+    "clientName": "ক্লায়েন্ট",
+    "service": "সেবা",
+    "status": {
+      "upcoming": "আসন্ন",
+      "inProgress": "চলমান",
+      "completed": "সম্পন্ন",
+      "cancelled": "বাতিল"
+    },
     "date": "তারিখ",
-    "type": "ধরন",
-    "status": "অবস্থা",
+    "time": "সময়",
+    "location": "অবস্থান",
+    "amount": "পরিমাণ",
+    "contact": "যোগাযোগ",
+    "contactClient": "ক্লায়েন্টের সাথে যোগাযোগ করুন",
+    "noContactInfo": "যোগাযোগের তথ্য উপলব্ধ নেই",
+    "callError": "ফোন ডায়ালার খোলা যায়নি"
+  },
+  "reviewsDialog": {
+    "title": "গ্রাহক পর্যালোচনা",
+    "subtitle": "আপনার ক্লায়েন্টদের মতামত আপনাকে উন্নতি করতে সাহায্য করে",
+    "providerGrade": "প্রদানকারীর গ্রেড",
+    "averageRating": "{rating} এর মধ্যে {rating}",
+    "totalReviews": "{count}টি মোট পর্যালোচনা",
+    "totalReviews_plural": "{count}টি মোট পর্যালোচনা",
+    "ratingDistribution": "রেটিং বিতরণ",
+    "filterByService": "সেবার ধরন অনুসারে ফিল্টার করুন:",
+    "allServices": "সকল সেবা",
+    "showingReviews": "{count}টি পর্যালোচনা দেখানো হচ্ছে",
+    "showingReviews_plural": "{count}টি পর্যালোচনা দেখানো হচ্ছে",
+    "showingFor": "{service} এর জন্য {count}টি পর্যালোচনা দেখানো হচ্ছে",
+    "showingFor_plural": "{service} এর জন্য {count}টি পর্যালোচনা দেখানো হচ্ছে",
+    "empty": {
+      "title": "এখনও কোন পর্যালোচনা নেই",
+      "description": "ক্লায়েন্টরা আপনার সেবা রেট দিলে পর্যালোচনা এখানে প্রদর্শিত হবে",
+      "noReviewsForService": "{service} সেবার জন্য কোন পর্যালোচনা নেই"
+    },
+    "review": {
+      "anonymous": "বেনামী গ্রাহক",
+      "noComment": "কোন মন্তব্য দেওয়া হয়নি",
+      "yesterday": "গতকাল",
+      "daysAgo": "{count} দিন আগে"
+    },
+    "grade": {
+      "A": "এ",
+      "B": "বি",
+      "C": "সি",
+      "D": "ডি",
+      "F": "এফ"
+    },
+    "loading": "পর্যালোচনা লোড হচ্ছে..."
+  },
+  "trackAddress": {
+    "title": "বারাসত পর্যন্ত ট্র্যাক করুন",
+    "from": "থেকে: {location}",
+    "to": "গন্তব্য: বারাসত, পশ্চিমবঙ্গ",
+    "distance": "দূরত্ব",
+    "estimatedTime": "আনুমানিক সময়",
+    "startNavigation": "ন্যাভিগেশন শুরু করুন",
+    "refreshLocation": "অবস্থান রিফ্রেশ করুন",
+    "gettingLocation": "আপনার অবস্থান পাওয়া যাচ্ছে...",
+    "calculatingRoute": "রুট গণনা করা হচ্ছে...",
+    "error": {
+      "locationError": "আপনার অবস্থান পাওয়া যায়নি। অনুগ্রহ করে অবস্থান পরিষেবা সক্রিয় করুন।",
+      "openSettings": "সেটিংস খুলুন",
+      "mapsError": "ম্যাপ অ্যাপ্লিকেশন খোলা যায়নি"
+    },
+    "permission": {
+      "title": "অবস্থান অনুমতি",
+      "message": "বারাসত পর্যন্ত আপনার রুট ট্র্যাক করতে এই অ্যাপটির আপনার অবস্থানে অ্যাক্সেস প্রয়োজন।",
+      "allow": "অনুমতি দিন",
+      "deny": "অস্বীকার করুন"
+    }
+  },
+  "otpVerification": {
+    "title": "পরিষেবা সম্পূর্ণ করতে OTP যাচাই করুন",
+    "serviceFor": "{clientName} এর জন্য পরিষেবা",
+    "bookingInfo": "বুকিং আইডি: {id} • {service}",
+    "instructions": "পরিষেবা সম্পূর্ণ করতে ক্লায়েন্টের কাছ থেকে প্রাপ্ত OTP লিখুন।",
+    "enterOtp": "৬-অঙ্কের OTP লিখুন",
+    "verificationNote": "একবার যাচাই করা হলে, পরিষেবাটি সম্পন্ন হিসাবে চিহ্নিত হবে এবং আপনার উপার্জন জমা হবে।",
+    "cancel": "বাতিল",
+    "verify": "যাচাই ও সম্পন্ন করুন",
+    "verifying": "যাচাই করা হচ্ছে...",
+    "error": {
+      "serviceDayIdNotFound": "পরিষেবা দিবস আইডি পাওয়া যায়নি",
+      "verificationFailed": "পরিষেবা সম্পূর্ণ করতে ব্যর্থ"
+    },
+    "success": "পরিষেবা সফলভাবে সম্পন্ন হয়েছে! আপনার অ্যাকাউন্টে উপার্জন জমা হয়েছে।"
+  },
+  "withdrawal": {
+    "title": "উত্তোলনের অনুরোধ করুন",
+    "subtitle": "আপনার ব্যাঙ্ক অ্যাকাউন্টে উপলব্ধ ব্যালেন্স উত্তোলন করুন",
+    "availableBalance": "উপলব্ধ ব্যালেন্স",
+    "minWithdrawal": "সর্বনিম্ন উত্তোলন",
+    "enterAmount": "পরিমাণ লিখুন (₹)",
+    "max": "সর্বোচ্চ",
+    "summary": "সারাংশ",
+    "withdrawalAmount": "উত্তোলনের পরিমাণ",
+    "remainingBalance": "অবশিষ্ট ব্যালেন্স",
+    "processingTime": "প্রক্রিয়াকরণ সময়",
+    "processingTimeValue": "২-৩ কার্যদিবস",
+    "payoutMethod": "ব্যাঙ্ক ট্রান্সফার",
+    "payoutDescription": "পরিমাণ ২-৩ কার্যদিবসের মধ্যে আপনার নিবন্ধিত ব্যাঙ্ক অ্যাকাউন্টে স্থানান্তর করা হবে",
+    "cancel": "বাতিল",
+    "withdraw": "উত্তোলন",
+    "amountExceeds": "পরিমাণ উপলব্ধ ব্যালেন্সের চেয়ে বেশি (₹{balance})",
+    "amountMustBeGreater": "পরিমাণ ০ এর বেশি হতে হবে",
+    "invalidAmount": "অবৈধ পরিমাণ",
+    "amountRange": "অনুগ্রহ করে ₹১ এবং ₹{balance} এর মধ্যে একটি বৈধ পরিমাণ লিখুন",
+    "success": "₹{amount} এর উত্তোলনের অনুরোধ সফলভাবে শুরু হয়েছে।",
+    "error": {
+      "missingId": "পরিষেবা প্রদানকারী আইডি পাওয়া যায়নি",
+      "invalidRequest": "অবৈধ উত্তোলনের অনুরোধ",
+      "insufficientBalance": "উত্তোলনের জন্য পর্যাপ্ত ব্যালেন্স নেই",
+      "validationError": "যাচাইকরণ ত্রুটি। অনুগ্রহ করে লিখিত পরিমাণ পরীক্ষা করুন।",
+      "serverError": "সার্ভার ত্রুটি। অনুগ্রহ করে পরে আবার চেষ্টা করুন।",
+      "generic": "উত্তোলনের অনুরোধ প্রক্রিয়া করতে ব্যর্থ"
+    }
+  },
+  "withdrawalHistory": {
+    "title": "উত্তোলনের ইতিহাস",
+    "subtitle": "আপনার উপার্জন, উত্তোলন এবং লেনদেনের ইতিহাস দেখুন",
+    "summary": {
+      "totalEarned": "মোট উপার্জন",
+      "availableBalance": "উপলব্ধ ব্যালেন্স",
+      "totalWithdrawn": "মোট উত্তোলন"
+    },
+    "filters": {
+      "all": "সকল লেনদেন",
+      "earnings": "উপার্জন",
+      "withdrawals": "উত্তোলন"
+    },
+    "transactionTypes": {
+      "DAILY_EARNED": "পরিষেবা প্রদানের অর্থ",
+      "WITHDRAWAL": "উত্তোলন",
+      "SERVICE_FEE": "পরিষেবা ফি",
+      "SECURITY_DEPOSIT": "সিকিউরিটি ডিপোজিট",
+      "REFUND": "ফেরত",
+      "OTHER": "লেনদেন"
+    },
     "credit": "ক্রেডিট",
     "debit": "ডেবিট",
-    "pending": "বিচারাধীন",
-    "completed": "সম্পন্ন",
-    "failed": "ব্যর্থ"
-  },
-  "notifications": {
-    "title": "বিজ্ঞপ্তি",
-    "noNotifications": "কোন বিজ্ঞপ্তি নেই",
-    "markAllRead": "সব পঠিত হিসেবে চিহ্নিত করুন",
-    "clearAll": "সব মুছুন"
-  },
-  "reviews": {
-    "title": "একটি পর্যালোচনা দিন",
-    "rating": "রেটিং",
-    "comment": "মন্তব্য",
-    "submit": "পর্যালোচনা জমা দিন",
-    "placeholder": "এই প্রদানকারীর সাথে আপনার অভিজ্ঞতা শেয়ার করুন...",
-    "success": "পর্যালোচনা সফলভাবে জমা দেওয়া হয়েছে!",
-    "error": "পর্যালোচনা জমা দিতে ব্যর্থ। অনুগ্রহ করে পুনরায় চেষ্টা করুন।"
+    "engagement": "এনগেজমেন্ট #{id}",
+    "ref": "রেফ: {type} #{id}",
+    "empty": {
+      "title": "কোন লেনদেন পাওয়া যায়নি",
+      "description": "লেনদেন দেখতে পরিষেবা প্রদান শুরু করুন",
+      "noCredit": "কোন ক্রেডিট লেনদেন নেই",
+      "noDebit": "কোন ডেবিট লেনদেন নেই"
+    },
+    "payoutSection": "পেআউট অনুরোধ",
+    "payoutId": "পেআউট #{id}",
+    "engagementId": "এনগেজমেন্ট #{id}",
+    "status": {
+      "completed": "সম্পন্ন",
+      "pending": "বিচারাধীন",
+      "failed": "ব্যর্থ"
+    },
+    "loading": "ইতিহাস লোড হচ্ছে...",
+    "retry": "পুনরায় চেষ্টা করুন",
+    "noData": "কোন ইতিহাস তথ্য উপলব্ধ নেই"
   }
 }

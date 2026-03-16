@@ -215,7 +215,21 @@
     "checking": "Checking...",
     "available": "Available",
     "taken": "Already taken",
-    "clear": "Clear"
+    "clear": "Clear",
+    "unknown": "Unknown",
+    "all": "All",
+    "openSettings": "Open Settings",
+    "permissionRequired": "Permission Required",
+    "username": "Username",
+    "emailAddress": "Email Address",
+    "na": "N/A",
+    "country": {
+      "india": "India"
+    },
+    "hour": "h",
+    "minute": "m",
+    "hours": "h",
+    "minutes": "m"
   },
   "settings": {
     "title": "Settings",
@@ -435,7 +449,8 @@
     "options": {
       "date": "Date",
       "shortTerm": "Short Term",
-      "monthly": "Monthly"
+      "monthly": "Monthly",
+      "onDemand": "On Demand"
     },
     "status": {
       "pending": "Pending",
@@ -443,7 +458,13 @@
       "completed": "Completed",
       "cancelled": "Cancelled",
       "rejected": "Rejected",
-      "inProgress": "In Progress"
+      "inProgress": "In Progress",
+      "active": "Active",
+      "notStarted": "Not Started",
+      "scheduled": "Scheduled",
+      "upcoming": "Upcoming",
+      "current": "Current",
+      "past": "Past"
     },
     "confirmBox": {
       "title": "Confirm Your Booking",
@@ -544,7 +565,8 @@
       "completed": "Payment completed successfully!",
       "failed": "Payment was cancelled or failed.",
       "verificationFailed": "Payment verification failed. Please contact support.",
-      "resumeFailed": "Unable to resume payment. Please try again."
+      "resumeFailed": "Unable to resume payment. Please try again.",
+      "description": "Payment for"
     }
   },
   "profile": {
@@ -580,7 +602,75 @@
     "totalBookings": "Total Bookings: {count}",
     "reviewsGiven": "Reviews Given: {count}",
     "reviewsReceived": "Reviews Received: {count}",
-    "avgRating": "Average Rating: {rating}"
+    "avgRating": "Average Rating: {rating}",
+    "page": {
+      "greeting": "Hello, {name}",
+      "customer": "Customer",
+      "serviceProvider": "Service Provider",
+      "id": "ID: {id}",
+      "mobileRequired": "⚠️ Mobile number required",
+      "edit": "Edit",
+      "myAccount": "My account",
+      "addMobileNumber": "Add Mobile Number",
+      "userInformation": "User Information",
+      "contactInformation": "Contact Information",
+      "username": "Username",
+      "emailAddress": "Email address",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "userId": "User ID",
+      "providerId": "Provider ID",
+      "contactNumber": "Contact Number",
+      "alternativeContact": "Alternative Contact Number",
+      "enter10Digit": "Enter 10-digit number",
+      "contactNumberAvailable": "Contact number is available",
+      "alternateNumberAvailable": "Alternate number is available",
+      "exactly10Digits": "Please enter exactly 10 digits",
+      "mobileRequiredDesc": "Mobile number is required for bookings and notifications",
+      "clickToAddMobile": "Click here to add mobile number",
+      "addresses": "Addresses",
+      "addNewAddress": "Add New Address",
+      "noAddresses": "No addresses saved yet",
+      "saveAs": "Save As",
+      "home": "Home",
+      "work": "Work",
+      "other": "Other",
+      "locationName": "Location Name",
+      "enterLocationName": "Enter location name",
+      "streetAddress": "Street Address",
+      "enterStreetAddress": "Enter street address",
+      "city": "City",
+      "enterCity": "Enter city",
+      "country": "Country",
+      "enterCountry": "Enter country",
+      "postalCode": "Postal Code",
+      "enterPostalCode": "Enter postal code",
+      "addAddress": "Add Address",
+      "serviceStatus": "Service Status",
+      "accountStatus": "Account Status",
+      "verified": "Verified",
+      "activeServiceProvider": "Active Service Provider",
+      "footer": "© 2025 MyApp All rights reserved.",
+      "loadingProfile": "Loading your profile",
+      "pleaseWait": "Please wait while we fetch your information",
+      "selectCountryCode": "Select Country Code",
+      "done": "Done",
+      "validationError": "Validation Error",
+      "enterValidContact": "Please enter a valid 10-digit contact number",
+      "enterValidAlternate": "Please enter a valid 10-digit alternate contact number",
+      "numbersMustBeDifferent": "Contact number and alternate contact number must be different",
+      "updateSuccess": "Profile updated successfully",
+      "updateFailed": "Failed to save changes. Please try again.",
+      "couldNotSaveAddress": "Could not save address. Try again.",
+      "fillAllAddressFields": "Please fill in all address fields",
+      "couldNotRemoveAddress": "Could not remove address. Try again.",
+      "noEmail": "No email available",
+      "firstNamePlaceholder": "First",
+      "lastNamePlaceholder": "Last",
+      "noCity": "No city",
+      "noCountry": "No country",
+      "providerAddressNote": "Service provider addresses are managed separately"
+    }
   },
   "dashboard": {
     "title": "Service Provider Dashboard",
@@ -632,7 +722,65 @@
       "blockDates": "Block Dates",
       "vacation": "Vacation Mode",
       "emergency": "Emergency Closure"
-    }
+    },
+    "metrics": {
+      "totalEarnings": "Total Earnings",
+      "securityDeposit": "Security Deposit",
+      "withdrawn": "Withdrawn",
+      "withdrawal": "Withdrawal",
+      "actualPayoutBalance": "Actual Payout Balance",
+      "thisMonth": "This month",
+      "forActiveBookings": "For active bookings",
+      "serviceCharges": "Service charges",
+      "readyToWithdraw": "Ready to withdraw",
+      "paid": "Paid",
+      "notPaid": "Not Paid",
+      "change": "+12.5%",
+      "changeNegative": "-10%"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "viewAllBookings": "View All Bookings",
+      "requestWithdrawal": "Request Withdrawal",
+      "withdrawalHistory": "Withdrawal History",
+      "applyLeave": "Apply Leave",
+      "updateAvailability": "Update Availability",
+      "viewReviews": "View Reviews"
+    },
+    "serviceStatus": {
+      "title": "Service Status",
+      "profileStatus": "Profile Status",
+      "verification": "Verification",
+      "availability": "Availability",
+      "active": "Active",
+      "verified": "Verified",
+      "available": "Available"
+    },
+    "recentBooking": {
+      "title": "Recent Booking",
+      "latest": "Latest",
+      "bookingId": "Booking ID: {id}",
+      "clientName": "Client",
+      "dateTime": "Date & Time",
+      "amount": "Amount",
+      "address": "Address",
+      "trackAddress": "Track Address",
+      "todaysService": "Today's Service",
+      "taskInProgress": "Task In Progress",
+      "taskCompleted": "Task Completed",
+      "notStarted": "Not Started",
+      "upcoming": "Upcoming",
+      "cannotStartYet": "Cannot Start Yet",
+      "startTask": "Start Task",
+      "completeTask": "Complete Task",
+      "completed": "Completed"
+    },
+    "empty": {
+      "noBookings": "No upcoming bookings found.",
+      "failedToLoad": "Failed to load bookings. Please try again.",
+      "retry": "Retry"
+    },
+    "signOut": "Sign Out"
   },
   "contact": {
     "title": "Contact Us",
@@ -822,7 +970,23 @@
     "dayBetween": "Day must be between 01 and 31",
     "invalidDate": "Invalid Date",
     "ageRestriction": "Age Restriction",
-    "mustBe18": "You must be at least 18 years old"
+    "mustBe18": "You must be at least 18 years old",
+    "contactNumberUnavailable": "Contact number is not available",
+    "alternateNumberUnavailable": "Alternate number is not available",
+    "customerIdNotFound": "Customer ID not found!",
+    "updateFailed": "Something went wrong while updating!",
+    "notFound": "{id} not found",
+    "serviceDayIdNotFound": "Service day ID not found. Cannot start service.",
+    "failedToStartService": "Failed to start service",
+    "failedToCompleteService": "Failed to complete service",
+    "failedToLoadBookings": "Failed to load bookings",
+    "failedToLoadReviews": "Failed to load reviews",
+    "failedToLoadHistory": "Failed to load withdrawal history",
+    "withdrawalFailed": "Failed to process withdrawal request",
+    "invalidAmount": "Invalid Amount",
+    "amountRange": "Please enter a valid amount between ₹1 and ₹{balance}",
+    "insufficientBalance": "Insufficient balance for withdrawal",
+    "validationError": "Validation error. Please check the entered amount."
   },
   "validation": {
     "required": "{field} is required",
@@ -840,7 +1004,24 @@
     "date": "Please enter a valid date",
     "time": "Please enter a valid time",
     "future": "{field} must be in the future",
-    "past": "{field} must be in the past"
+    "past": "{field} must be in the past",
+    "alphabetsOnly": "{field} should contain only alphabets",
+    "passwordUppercase": "Password must contain at least one uppercase letter",
+    "passwordLowercase": "Password must contain at least one lowercase letter",
+    "passwordNumber": "Password must contain at least one digit",
+    "passwordSpecial": "Password must contain at least one special character",
+    "passwordStrength": "Password must contain at least 8 characters, including uppercase, lowercase, number, and special character",
+    "passwordMismatch": "Passwords do not match",
+    "emailNotAvailable": "Email is not available",
+    "mobileNotAvailable": "Mobile number is not available",
+    "alternateNotAvailable": "Alternate number is not available",
+    "alternateSameAsMobile": "Alternate number cannot be the same as mobile number",
+    "aadhaarFormat": "Aadhaar number must be exactly 12 digits",
+    "panFormat": "Please enter a valid PAN (e.g., ABCDE1234F)",
+    "drivingLicenseFormat": "Please enter a valid driving license number",
+    "voterIdFormat": "Please enter a valid 10-digit Voter ID",
+    "passportFormat": "Please enter a valid 8-character passport number",
+    "pincodeFormat": "Pincode must be exactly 6 digits"
   },
   "time": {
     "justNow": "just now",
@@ -883,7 +1064,10 @@
       "MM": "MM",
       "DD": "DD",
       "ddd": "ddd",
-      "MMM": "MMM"
+      "MMM": "MMM",
+      "MMMM D": "MMMM D",
+      "MMM D, YYYY": "MMM D, YYYY",
+      "h:mm A": "h:mm A"
     }
   },
   "navigation": {
@@ -1290,36 +1474,400 @@
     "serviceProvider": "Service Provider",
     "agent": "Agent"
   },
+  "mobileDialog": {
+    "title": "Update Contact Numbers",
+    "description": "Please enter your mobile and alternative contact numbers to continue.",
+    "contactNumber": "Contact Number",
+    "contactNumberRequired": "Contact Number *",
+    "alternativeContact": "Alternative Contact Number",
+    "alternativeContactOptional": "Alternative Contact Number (Optional)",
+    "enter10Digit": "10-digit mobile number",
+    "contactNumberAvailable": "Contact number is available",
+    "alternateNumberAvailable": "Alternate number is available",
+    "enterExactly10Digits": "Please enter exactly 10 digits",
+    "numbersMustBeDifferent": "⚠️ Contact number and alternate contact number must be different",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "updating": "Updating...",
+    "updateSuccess": "Mobile number(s) updated successfully!",
+    "updateFailed": "Something went wrong while updating!"
+  },
+  "modifyBooking": {
+    "title": "Modify Booking",
+    "bookingInfo": "Booking #{id} - {service}",
+    "scheduled": "Scheduled: {date} at {time}",
+    "timeUntil": "{timeUntil}",
+    "modifiedCount": "This booking has been modified {count} time(s)",
+    "lastModification": "{details}",
+    "options": {
+      "rescheduleDate": "Reschedule Date",
+      "rescheduleTime": "Reschedule Time"
+    },
+    "dateSelection": {
+      "title": "Select a new date for your booking.",
+      "selectNewDate": "Select New Date",
+      "saveDate": "Save Date"
+    },
+    "timeSelection": {
+      "title": "Current Time: {time}",
+      "selectNewTime": "Select New Time",
+      "saveTime": "Save Time"
+    },
+    "status": {
+      "alreadyModified": "This booking has already been modified and cannot be modified again.",
+      "modificationNotAllowed": "Modification is only allowed at least 30 minutes before the scheduled time.",
+      "bookingStarted": "Booking has already started or passed",
+      "hoursMinutes": "{h}h {m}m until booking starts",
+      "minutesOnly": "{m}m until booking starts"
+    },
+    "actions": {
+      "back": "Back",
+      "saving": "Saving...",
+      "saveDate": "Save Date",
+      "saveTime": "Save Time"
+    },
+    "messages": {
+      "dateSuccess": "Booking date rescheduled successfully!",
+      "timeSuccess": "Booking time rescheduled successfully!",
+      "error": "Failed to modify booking. Please try again."
+    }
+  },
+  "vacationManagement": {
+    "title": "Manage Vacation",
+    "currentVacation": "Current Vacation Period",
+    "vacationPeriod": "{startDate} to {endDate}",
+    "totalDays": "Total days: {days}",
+    "modifyDates": "Modify Vacation Dates",
+    "applyVacation": "Apply for Vacation",
+    "vacationStartDate": "Vacation Start Date",
+    "vacationEndDate": "Vacation End Date",
+    "selectDate": "Select date",
+    "totalVacationDays": "Total vacation days: {days}",
+    "vacationPolicy": "Vacation Policy",
+    "policyText": "During vacation period, services will be paused and applicable refunds will be processed to your wallet. A penalty may apply for modifications to existing vacation periods.",
+    "cancelVacation": "Cancel Vacation",
+    "applyVacation": "Apply Vacation",
+    "updateVacation": "Update Vacation",
+    "applying": "Applying...",
+    "updating": "Updating...",
+    "success": "Vacation applied successfully!",
+    "cancelSuccess": "Vacation cancelled successfully!",
+    "error": "Failed to apply vacation. Please try again.",
+    "cancelError": "Failed to cancel vacation. Please try again.",
+    "validation": {
+      "selectBothDates": "Please select both start and end dates",
+      "startDatePast": "Vacation start date cannot be in the past",
+      "endDateBeforeStart": "Vacation end date must be after start date"
+    }
+  },
   "wallet": {
-    "title": "Wallet",
-    "balance": "Balance",
+    "title": "My Wallet",
+    "availableBalance": "Available Balance",
     "addMoney": "Add Money",
-    "withdraw": "Withdraw",
+    "transfer": "Transfer",
     "transactions": "Transactions",
-    "noTransactions": "No transactions yet",
-    "amount": "Amount",
+    "rewards": "Rewards",
+    "recentActivity": "Recent Activity",
+    "noTransactions": "No Transactions Yet",
+    "noTransactionsDesc": "Your transaction history will appear here",
+    "yourRewards": "Your Rewards",
+    "rewardsPoints": "{points} Points",
+    "rewardsDescription": "Earn more points by completing services and referring friends",
+    "viewRewardsCatalog": "View Rewards Catalog",
+    "loading": "Loading Wallet",
+    "loadingDesc": "Retrieving your account information",
+    "error": {
+      "unavailable": "Wallet information currently unavailable",
+      "noAccount": "No wallet account found",
+      "signInRequired": "Please sign in to access wallet features",
+      "connectionTimeout": "Connection timeout. Please check your network",
+      "networkUnavailable": "Network unavailable. Please check your connection",
+      "generic": "Temporarily unable to load wallet data"
+    },
+    "actions": {
+      "tryAgain": "Try Again",
+      "close": "Close"
+    }
+  },
+  "userHoliday": {
+    "title": "Apply Holiday",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "selectStartDate": "Select start date",
+    "selectEndDate": "Select end date",
+    "helperText": "📌 Note: Holiday applications must be for a minimum of 10 days. You can only select an end date that is at least 9 days after your start date.",
+    "bookedPeriod": "Your booked period: {startDate} to {endDate}",
+    "serviceType": "Service Type",
+    "bookingType": "Booking Type",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "success": "Vacation application submitted successfully!",
+    "confirmation": {
+      "title": "Confirm Vacation Application",
+      "message": "Are you sure you want to apply for vacation from {startDate} to {endDate} for your {service} service?",
+      "confirm": "Yes, Apply",
+      "cancel": "Cancel"
+    },
+    "error": {
+      "withinBookingPeriod": "Holiday dates must be within your booked period",
+      "minimumDays": "Leave duration must be at least 10 days",
+      "submitFailed": "Failed to submit leave application. Please try again."
+    }
+  },
+  "engagementDetails": {
+    "title": "Booking Details",
+    "bookingId": "Booking ID",
+    "serviceType": "Service Type",
+    "schedule": "Schedule",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "timeSlot": "Time Slot",
+    "serviceProvider": "Service Provider",
+    "notAssigned": "Not Assigned",
+    "tasksResponsibilities": "Tasks & Responsibilities",
+    "mainTasks": "Main Tasks",
+    "addOns": "Add-ons",
+    "paymentDetails": "Payment Details",
+    "baseAmount": "Base Amount",
+    "platformFee": "Platform Fee",
+    "gst": "GST",
+    "total": "Total",
+    "paymentStatus": "Payment Status",
+    "paymentMode": "Payment Mode",
+    "completePaymentNow": "Complete Payment Now",
+    "completePaymentNote": "Complete payment to confirm your booking",
+    "modificationHistory": "Modification History",
+    "additionalInformation": "Additional Information",
+    "bookingDate": "Booking Date",
+    "assignmentStatus": "Assignment Status",
+    "leaveDays": "Leave Days",
+    "call": "Call",
+    "message": "Message",
+    "cancel": "Cancel",
+    "callProvider": "Call provider",
+    "messageProvider": "Message provider",
+    "cancelBooking": "Cancel Booking",
+    "cancelConfirmation": "Cancel Booking",
+    "cancelConfirmationMessage": "Are you sure you want to cancel your {service} booking? This action cannot be undone.",
+    "yes": "Yes",
+    "no": "No",
+    "yesCancel": "Yes, Cancel",
+    "processing": "Processing...",
+    "success": "Success",
+    "error": "Error",
+    "paymentSuccess": "Payment completed successfully!",
+    "paymentFailed": "Payment failed. Please try again.",
+    "paymentVerificationFailed": "Payment verification failed. Please contact support.",
+    "paymentResumeFailed": "Unable to resume payment. Please try again.",
+    "bookingCancelled": "Booking cancelled successfully",
+    "bookingCancelFailed": "Failed to cancel booking. Please try again.",
+    "razorpayIntegration": "Razorpay integration requires react-native-razorpay package"
+  },
+  "allBookings": {
+    "title": "View all Bookings",
+    "tabs": {
+      "ongoing": "Current ({count})",
+      "future": "Upcoming ({count})",
+      "past": "Past ({count})"
+    },
+    "bookingCount": "{count} booking in {month}",
+    "bookingCount_plural": "{count} bookings in {month}",
+    "noCurrentBookings": "No current bookings found in {month}",
+    "noCurrentBookingsDesc": "All your current bookings for this month will appear here.",
+    "noUpcomingBookings": "No upcoming bookings found in {month}",
+    "noUpcomingBookingsDesc": "All your upcoming bookings for this month will appear here.",
+    "noPastBookings": "No past bookings found in {month}",
+    "noPastBookingsDesc": "All your past bookings for this month will appear here.",
+    "empty": {
+      "title": "No bookings found",
+      "description": "No bookings found in this month. Try selecting a different month."
+    },
+    "bookingCard": {
+      "bookingId": "Booking ID: {id}",
+      "clientName": "Client",
+      "dateTime": "Date & Time",
+      "amount": "Amount",
+      "address": "Address",
+      "trackAddress": "Track Address",
+      "todaysService": "Today's Service",
+      "responsibilities": "Responsibilities",
+      "addOns": "Add-ons",
+      "taskInProgress": "Task In Progress",
+      "taskCompleted": "Task Completed",
+      "notStarted": "Not Started",
+      "upcoming": "Upcoming",
+      "cannotStartYet": "Cannot Start Yet",
+      "startTask": "Start Task",
+      "completeTask": "Complete Task",
+      "completed": "Completed"
+    },
+    "monthSelector": {
+      "previous": "Previous month",
+      "next": "Next month"
+    }
+  },
+  "bookingCard": {
+    "bookingId": "Booking ID: {id}",
+    "clientName": "Client",
+    "service": "Service",
+    "status": {
+      "upcoming": "Upcoming",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
     "date": "Date",
-    "type": "Type",
-    "status": "Status",
+    "time": "Time",
+    "location": "Location",
+    "amount": "Amount",
+    "contact": "Contact",
+    "contactClient": "Contact Client",
+    "noContactInfo": "Contact information not available",
+    "callError": "Could not open phone dialer"
+  },
+  "reviewsDialog": {
+    "title": "Customer Reviews",
+    "subtitle": "Feedback from your clients helps you improve",
+    "providerGrade": "Provider Grade",
+    "averageRating": "{rating} out of 5",
+    "totalReviews": "{count} total review",
+    "totalReviews_plural": "{count} total reviews",
+    "ratingDistribution": "Rating Distribution",
+    "filterByService": "Filter by service type:",
+    "allServices": "All Services",
+    "showingReviews": "Showing {count} review",
+    "showingReviews_plural": "Showing {count} reviews",
+    "showingFor": "Showing {count} review for {service}",
+    "showingFor_plural": "Showing {count} reviews for {service}",
+    "empty": {
+      "title": "No reviews yet",
+      "description": "Reviews will appear here once clients rate your services",
+      "noReviewsForService": "No reviews for {service} services"
+    },
+    "review": {
+      "anonymous": "Anonymous Customer",
+      "noComment": "No comment provided",
+      "yesterday": "Yesterday",
+      "daysAgo": "{count} days ago"
+    },
+    "grade": {
+      "A": "A",
+      "B": "B",
+      "C": "C",
+      "D": "D",
+      "F": "F"
+    },
+    "loading": "Loading reviews..."
+  },
+  "trackAddress": {
+    "title": "Track to Barasat",
+    "from": "From: {location}",
+    "to": "To: Barasat, West Bengal",
+    "distance": "Distance",
+    "estimatedTime": "Est. Time",
+    "startNavigation": "Start Navigation",
+    "refreshLocation": "Refresh Location",
+    "gettingLocation": "Getting your location...",
+    "calculatingRoute": "Calculating route...",
+    "error": {
+      "locationError": "Could not get your location. Please enable location services.",
+      "openSettings": "Open Settings",
+      "mapsError": "Could not open maps application"
+    },
+    "permission": {
+      "title": "Location Permission",
+      "message": "This app needs access to your location to track your route to Barasat.",
+      "allow": "Allow",
+      "deny": "Deny"
+    }
+  },
+  "otpVerification": {
+    "title": "Verify OTP to Complete Service",
+    "serviceFor": "Service for {clientName}",
+    "bookingInfo": "Booking ID: {id} • {service}",
+    "instructions": "Please enter the OTP you received from the client to complete the service.",
+    "enterOtp": "Enter 6-digit OTP",
+    "verificationNote": "Once verified, the service will be marked as completed and your earnings will be credited.",
+    "cancel": "Cancel",
+    "verify": "Verify & Complete",
+    "verifying": "Verifying...",
+    "error": {
+      "serviceDayIdNotFound": "Service day ID not found",
+      "verificationFailed": "Failed to complete service"
+    },
+    "success": "Service completed successfully! Earnings credited to your account."
+  },
+  "withdrawal": {
+    "title": "Request Withdrawal",
+    "subtitle": "Withdraw your available balance to your bank account",
+    "availableBalance": "Available Balance",
+    "minWithdrawal": "Min. Withdrawal",
+    "enterAmount": "Enter Amount (₹)",
+    "max": "Max",
+    "summary": "Summary",
+    "withdrawalAmount": "Withdrawal Amount",
+    "remainingBalance": "Remaining Balance",
+    "processingTime": "Processing Time",
+    "processingTimeValue": "2-3 business days",
+    "payoutMethod": "Bank Transfer",
+    "payoutDescription": "Amount will be transferred to your registered bank account within 2-3 business days",
+    "cancel": "Cancel",
+    "withdraw": "Withdraw",
+    "amountExceeds": "Amount exceeds available balance (₹{balance})",
+    "amountMustBeGreater": "Amount must be greater than 0",
+    "invalidAmount": "Invalid Amount",
+    "amountRange": "Please enter a valid amount between ₹1 and ₹{balance}",
+    "success": "Withdrawal request of ₹{amount} has been initiated successfully.",
+    "error": {
+      "missingId": "Service provider ID is missing",
+      "invalidRequest": "Invalid withdrawal request",
+      "insufficientBalance": "Insufficient balance for withdrawal",
+      "validationError": "Validation error. Please check the entered amount.",
+      "serverError": "Server error. Please try again later.",
+      "generic": "Failed to process withdrawal request"
+    }
+  },
+  "withdrawalHistory": {
+    "title": "Withdrawal History",
+    "subtitle": "View your earnings, withdrawals, and transaction history",
+    "summary": {
+      "totalEarned": "Total Earned",
+      "availableBalance": "Available Balance",
+      "totalWithdrawn": "Total Withdrawn"
+    },
+    "filters": {
+      "all": "All Transactions",
+      "earnings": "Earnings",
+      "withdrawals": "Withdrawals"
+    },
+    "transactionTypes": {
+      "DAILY_EARNED": "Service Payment",
+      "WITHDRAWAL": "Withdrawal",
+      "SERVICE_FEE": "Service Fee",
+      "SECURITY_DEPOSIT": "Security Deposit",
+      "REFUND": "Refund",
+      "OTHER": "Transaction"
+    },
     "credit": "Credit",
     "debit": "Debit",
-    "pending": "Pending",
-    "completed": "Completed",
-    "failed": "Failed"
-  },
-  "notifications": {
-    "title": "Notifications",
-    "noNotifications": "No notifications",
-    "markAllRead": "Mark all as read",
-    "clearAll": "Clear all"
-  },
-  "reviews": {
-    "title": "Leave a Review",
-    "rating": "Rating",
-    "comment": "Comment",
-    "submit": "Submit Review",
-    "placeholder": "Share your experience with this provider...",
-    "success": "Review submitted successfully!",
-    "error": "Failed to submit review. Please try again."
+    "engagement": "Engagement #{id}",
+    "ref": "Ref: {type} #{id}",
+    "empty": {
+      "title": "No transactions found",
+      "description": "Start providing services to see transactions",
+      "noCredit": "No credit transactions",
+      "noDebit": "No debit transactions"
+    },
+    "payoutSection": "Payout Requests",
+    "payoutId": "Payout #{id}",
+    "engagementId": "Engagement #{id}",
+    "status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "failed": "Failed"
+    },
+    "loading": "Loading history...",
+    "retry": "Retry",
+    "noData": "No history data available"
   }
 }

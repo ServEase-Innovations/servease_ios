@@ -18,6 +18,7 @@ import PaymentInstance from '../services/paymentInstance';
 import { Button } from '../common/Button';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
@@ -85,6 +86,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   onPaymentComplete 
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isMessageLoading, setIsMessageLoading] = React.useState(false);
@@ -176,7 +178,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
         currency,
         order_id: razorpay_order_id,
         name: "Serveaso",
-        description: "Complete your payment",
+        description: t('engagementDetails.completePaymentNote'),
         prefill: {
           name: customer?.firstname || booking.customerName,
           contact: customer?.contact || '9999999999',
@@ -194,11 +196,11 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               onPaymentComplete();
             }
             
-            Alert.alert("Success", "Payment completed successfully!");
+            Alert.alert(t('engagementDetails.success'), t('engagementDetails.paymentSuccess'));
             
           } catch (verifyError) {
             console.error("Payment verification error:", verifyError);
-            Alert.alert("Error", "Payment verification failed. Please contact support.");
+            Alert.alert(t('engagementDetails.error'), t('engagementDetails.paymentVerificationFailed'));
           }
         },
         theme: {
@@ -208,11 +210,11 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
       // Note: You'll need to integrate Razorpay SDK for React Native
       // This is a placeholder - actual implementation will depend on the Razorpay React Native package
-      Alert.alert("Info", "Razorpay integration requires react-native-razorpay package");
+      Alert.alert("Info", t('engagementDetails.razorpayIntegration'));
       
     } catch (err: any) {
       console.error("Complete payment error:", err);
-      Alert.alert("Error", "Unable to resume payment. Please try again.");
+      Alert.alert(t('engagementDetails.error'), t('engagementDetails.paymentResumeFailed'));
     } finally {
       setIsProcessingPayment(false);
     }
@@ -225,7 +227,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     // Simulate loading state for better UX
     setTimeout(() => {
       setIsCallLoading(false);
-      Alert.alert('Call', `Call provider for ${getServiceTitle(booking.service_type)} service`);
+      Alert.alert(t('engagementDetails.call'), t('engagementDetails.callProvider'));
     }, 500);
   };
 
@@ -236,18 +238,18 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     // Simulate loading state for better UX
     setTimeout(() => {
       setIsMessageLoading(false);
-      Alert.alert('Message', `Message provider for ${getServiceTitle(booking.service_type)} service`);
+      Alert.alert(t('engagementDetails.message'), t('engagementDetails.messageProvider'));
     }, 500);
   };
 
   const handleCancelBooking = async () => {
     Alert.alert(
-      "Cancel Booking",
-      `Are you sure you want to cancel your ${getServiceTitle(booking.service_type)} booking? This action cannot be undone.`,
+      t('engagementDetails.cancelConfirmation'),
+      t('engagementDetails.cancelConfirmationMessage', { service: getServiceTitle(booking.service_type) }),
       [
-        { text: "No", style: "cancel" },
+        { text: t('engagementDetails.no'), style: "cancel" },
         {
-          text: "Yes, Cancel",
+          text: t('engagementDetails.yesCancel'),
           style: "destructive",
           onPress: async () => {
             setIsCancelLoading(true);
@@ -267,7 +269,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               );
 
               console.log(`✅ Booking ${booking.id} cancelled successfully`);
-              Alert.alert("Success", "Booking cancelled successfully");
+              Alert.alert(t('engagementDetails.success'), t('engagementDetails.bookingCancelled'));
               
               if (onPaymentComplete) {
                 onPaymentComplete(); // Refresh bookings
@@ -277,7 +279,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               
             } catch (error: any) {
               console.error("❌ Error cancelling engagement:", error);
-              Alert.alert("Error", "Failed to cancel booking. Please try again.");
+              Alert.alert(t('engagementDetails.error'), t('engagementDetails.bookingCancelFailed'));
             } finally {
               setIsCancelLoading(false);
             }
@@ -698,7 +700,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           >
             <View style={dynamicStyles.headerContent}>
               <View style={dynamicStyles.headerLeftPlaceholder} />
-              <Text style={dynamicStyles.headerTitle}>Booking Details</Text>
+              <Text style={dynamicStyles.headerTitle}>{t('engagementDetails.title')}</Text>
               <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
                 <Icon name="x" size={24} color="#FFFFFF" />
               </TouchableOpacity>
@@ -710,7 +712,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             {/* Booking ID and Status */}
             <View style={dynamicStyles.bookingIdContainer}>
               <View>
-                <Text style={dynamicStyles.labelText}>Booking ID</Text>
+                <Text style={dynamicStyles.labelText}>{t('engagementDetails.bookingId')}</Text>
                 <Text style={dynamicStyles.bookingIdText}>#{booking.id}</Text>
               </View>
               <View style={dynamicStyles.statusContainer}>
@@ -727,7 +729,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 </Text>
               </View>
               <View style={dynamicStyles.serviceTextContainer}>
-                <Text style={dynamicStyles.serviceLabel}>Service Type</Text>
+                <Text style={dynamicStyles.serviceLabel}>{t('engagementDetails.serviceType')}</Text>
                 <Text style={dynamicStyles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
               </View>
             </View>
@@ -744,7 +746,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 ) : (
                   <>
                     <Icon name="phone" size={18} color="#FFFFFF" />
-                    {/* <Text style={dynamicStyles.actionButtonText}>Call</Text> */}
+                    {/* <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.call')}</Text> */}
                   </>
                 )}
               </TouchableOpacity>
@@ -759,7 +761,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 ) : (
                   <>
                     <Icon name="message-square" size={18} color="#FFFFFF" />
-                    {/* <Text style={dynamicStyles.actionButtonText}>Message</Text> */}
+                    {/* <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.message')}</Text> */}
                   </>
                 )}
               </TouchableOpacity>
@@ -775,7 +777,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                   ) : (
                     <>
                       <Icon name="x-circle" size={18} color="#FFFFFF" />
-                      <Text style={dynamicStyles.actionButtonText}>Cancel</Text>
+                      <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.cancel')}</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -786,22 +788,22 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             <View style={dynamicStyles.section}>
               <View style={dynamicStyles.sectionHeader}>
                 <Icon name="calendar" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.sectionTitle}>Schedule</Text>
+                <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.schedule')}</Text>
               </View>
               
               <View style={dynamicStyles.scheduleGrid}>
                 <View style={dynamicStyles.scheduleItem}>
-                  <Text style={dynamicStyles.scheduleLabel}>Start Date</Text>
+                  <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.startDate')}</Text>
                   <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.startDate)}</Text>
                 </View>
                 <View style={dynamicStyles.scheduleItem}>
-                  <Text style={dynamicStyles.scheduleLabel}>End Date</Text>
+                  <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.endDate')}</Text>
                   <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.endDate)}</Text>
                 </View>
               </View>
 
               <View style={dynamicStyles.timeSlotContainer}>
-                <Text style={dynamicStyles.scheduleLabel}>Time Slot</Text>
+                <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.timeSlot')}</Text>
                 <View style={dynamicStyles.timeSlotValueContainer}>
                   <Icon name="clock" size={16} color={colors.textSecondary} />
                   <Text style={dynamicStyles.scheduleValue}>
@@ -816,7 +818,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               <View style={dynamicStyles.section}>
                 <View style={dynamicStyles.sectionHeader}>
                   <Icon name="user" size={20} color={colors.success} />
-                  <Text style={dynamicStyles.sectionTitle}>Service Provider</Text>
+                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.serviceProvider')}</Text>
                 </View>
                 
                 <View style={dynamicStyles.providerContainer}>
@@ -836,14 +838,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             <View style={dynamicStyles.section}>
               <View style={dynamicStyles.sectionHeader}>
                 <Icon name="file-text" size={20} color={colors.info} />
-                <Text style={dynamicStyles.sectionTitle}>Tasks & Responsibilities</Text>
+                <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.tasksResponsibilities')}</Text>
               </View>
               
               <View style={dynamicStyles.tasksContainer}>
                 {/* Main Tasks */}
                 {booking.responsibilities?.tasks && booking.responsibilities.tasks.length > 0 && (
                   <View>
-                    <Text style={dynamicStyles.tasksSubLabel}>Main Tasks</Text>
+                    <Text style={dynamicStyles.tasksSubLabel}>{t('engagementDetails.mainTasks')}</Text>
                     <View style={dynamicStyles.tasksList}>
                       {booking.responsibilities.tasks.map((task: any, index: number) => {
                         const taskDetails = Object.entries(task)
@@ -864,7 +866,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 {/* Add-ons */}
                 {booking.responsibilities?.add_ons && booking.responsibilities.add_ons.length > 0 && (
                   <View>
-                    <Text style={dynamicStyles.tasksSubLabel}>Add-ons</Text>
+                    <Text style={dynamicStyles.tasksSubLabel}>{t('engagementDetails.addOns')}</Text>
                     <View style={dynamicStyles.tasksList}>
                       {booking.responsibilities.add_ons.map((addon: any, index: number) => (
                         <Badge key={index} variant="outline" style={dynamicStyles.addonBadge}>
@@ -882,37 +884,37 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               <View style={dynamicStyles.section}>
                 <View style={dynamicStyles.sectionHeader}>
                   <Icon name="credit-card" size={20} color={colors.warning} />
-                  <Text style={dynamicStyles.sectionTitle}>Payment Details</Text>
+                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.paymentDetails')}</Text>
                 </View>
                 
                 <View style={dynamicStyles.paymentContainer}>
                   <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>Base Amount</Text>
+                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.baseAmount')}</Text>
                     <Text style={dynamicStyles.paymentValue}>₹{booking.payment.base_amount}</Text>
                   </View>
                   <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>Platform Fee</Text>
+                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.platformFee')}</Text>
                     <Text style={dynamicStyles.paymentValue}>₹{booking.payment.platform_fee}</Text>
                   </View>
                   <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>GST</Text>
+                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.gst')}</Text>
                     <Text style={dynamicStyles.paymentValue}>₹{booking.payment.gst}</Text>
                   </View>
                   <Separator style={dynamicStyles.separator} />
                   <View style={dynamicStyles.paymentTotalRow}>
-                    <Text style={dynamicStyles.paymentTotalLabel}>Total</Text>
+                    <Text style={dynamicStyles.paymentTotalLabel}>{t('engagementDetails.total')}</Text>
                     <Text style={dynamicStyles.paymentTotalValue}>₹{booking.payment.total_amount}</Text>
                   </View>
                   
                   <View style={dynamicStyles.paymentStatusRow}>
-                    <Text style={dynamicStyles.paymentLabel}>Payment Status</Text>
+                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.paymentStatus')}</Text>
                     <Badge style={[dynamicStyles.paymentStatusBadge, ...getPaymentStatusColor(booking.payment.status)]}>
                       {booking.payment.status}
                     </Badge>
                   </View>
                   
                   <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>Payment Mode</Text>
+                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.paymentMode')}</Text>
                     <Text style={dynamicStyles.paymentModeValue}>{booking.payment.payment_mode}</Text>
                   </View>
 
@@ -929,12 +931,12 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                         ) : (
                           <>
                             <Icon name="credit-card" size={20} color="#FFFFFF" />
-                            <Text style={dynamicStyles.completePaymentText}>Complete Payment Now</Text>
+                            <Text style={dynamicStyles.completePaymentText}>{t('engagementDetails.completePaymentNow')}</Text>
                           </>
                         )}
                       </TouchableOpacity>
                       <Text style={dynamicStyles.completePaymentNote}>
-                        Complete payment to confirm your booking
+                        {t('engagementDetails.completePaymentNote')}
                       </Text>
                     </View>
                   )}
@@ -947,7 +949,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               <View style={dynamicStyles.section}>
                 <View style={dynamicStyles.sectionHeader}>
                   <Icon name="alert-circle" size={20} color={colors.warning} />
-                  <Text style={dynamicStyles.sectionTitle}>Modification History</Text>
+                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.modificationHistory')}</Text>
                 </View>
                 
                 <View style={dynamicStyles.modificationsContainer}>
@@ -977,25 +979,25 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             <View style={dynamicStyles.section}>
               <View style={dynamicStyles.sectionHeader}>
                 <Icon name="tag" size={20} color={colors.textSecondary} />
-                <Text style={dynamicStyles.sectionTitle}>Additional Information</Text>
+                <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.additionalInformation')}</Text>
               </View>
               
               <View style={dynamicStyles.additionalInfoGrid}>
                 <View style={dynamicStyles.additionalInfoItem}>
-                  <Text style={dynamicStyles.additionalInfoLabel}>Booking Date</Text>
+                  <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.bookingDate')}</Text>
                   <Text style={dynamicStyles.additionalInfoValue}>
                     {dayjs(booking.bookingDate).format('MMM D, YYYY')}
                   </Text>
                 </View>
                 <View style={dynamicStyles.additionalInfoItem}>
-                  <Text style={dynamicStyles.additionalInfoLabel}>Assignment Status</Text>
+                  <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.assignmentStatus')}</Text>
                   <Text style={dynamicStyles.additionalInfoValue}>
                     {booking.assignmentStatus}
                   </Text>
                 </View>
                 {booking.leave_days > 0 && (
                   <View style={dynamicStyles.additionalInfoItem}>
-                    <Text style={dynamicStyles.additionalInfoLabel}>Leave Days</Text>
+                    <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.leaveDays')}</Text>
                     <Text style={dynamicStyles.additionalInfoValue}>{booking.leave_days}</Text>
                   </View>
                 )}

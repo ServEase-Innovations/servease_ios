@@ -15,6 +15,7 @@ import axiosInstance from '../services/axiosInstance';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import VacationManagementDialog from './VacationManagement';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface Booking {
   bookingType: string;
@@ -74,6 +75,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
   setOpenSnackbar,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const today = dayjs();
   const maxDate90Days = dayjs().add(90, 'day');
 
@@ -204,9 +206,9 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
   const getModificationStatusMessage = (booking: Booking | null): string => {
     if (!booking) return "";
     if (isBookingAlreadyModified(booking))
-      return "This booking has already been modified and cannot be modified again.";
+      return t('modifyBooking.status.alreadyModified');
     if (!isModificationTimeAllowed(booking.startDate, booking.timeSlot))
-      return "Modification is only allowed at least 30 minutes before the scheduled time.";
+      return t('modifyBooking.status.modificationNotAllowed');
     return "";
   };
 
@@ -223,12 +225,12 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     const bookedTime = getBookedTime();
     const now = dayjs();
     const diffMinutes = dayjs(bookedTime).diff(now, 'minute');
-    if (diffMinutes <= 0) return "Booking has already started or passed";
+    if (diffMinutes <= 0) return t('modifyBooking.status.bookingStarted');
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     return hours > 0
-      ? `${hours}h ${minutes}m until booking starts`
-      : `${minutes}m until booking starts`;
+      ? t('modifyBooking.status.hoursMinutes', { h: hours, m: minutes })
+      : t('modifyBooking.status.minutesOnly', { m: minutes });
   };
 
   const getLastModificationDetails = (booking: Booking | null): string => {
@@ -236,10 +238,14 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     if (modifications.length === 0) return "";
     const lastMod = modifications[modifications.length - 1];
     if (lastMod.changes?.start_date)
-      return `Last rescheduled from ${lastMod.changes.start_date.from} to ${lastMod.changes.start_date.to}`;
+      return t('modifyBooking.lastModification', { 
+        details: `Last rescheduled from ${lastMod.changes.start_date.from} to ${lastMod.changes.start_date.to}` 
+      });
     if (lastMod.changes?.start_time)
-      return `Last time changed from ${lastMod.changes.start_time.from} to ${lastMod.changes.start_time.to}`;
-    return `Last modified: ${lastMod.action}`;
+      return t('modifyBooking.lastModification', { 
+        details: `Last time changed from ${lastMod.changes.start_time.from} to ${lastMod.changes.start_time.to}` 
+      });
+    return t('modifyBooking.lastModification', { details: `Last modified: ${lastMod.action}` });
   };
 
   // --- UPDATED handleSubmit METHOD ---
@@ -306,21 +312,21 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
 
       setSuccess(
         isDateModification
-          ? "Booking date rescheduled successfully!"
-          : "Booking time rescheduled successfully!"
+          ? t('modifyBooking.messages.dateSuccess')
+          : t('modifyBooking.messages.timeSuccess')
       );
       setOpenSnackbar(true);
       setTimeout(() => onClose(), 1500);
     } catch (error) {
       console.error("❌ Error modifying booking:", error);
-      setError("Failed to modify booking. Please try again.");
+      setError(t('modifyBooking.messages.error'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleVacationSuccess = async () => {
-    setSuccess("Vacation operation completed successfully!");
+    setSuccess(t('modifyBooking.messages.dateSuccess'));
     setShowVacationDialog(false);
     setOpenSnackbar(true);
     if (customerId !== null) {
@@ -434,7 +440,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
           <View style={styles.dialogContainer}>
             <View style={[styles.dialog, { backgroundColor: colors.card }]}>
               <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.title, { color: colors.text, fontSize: fontSizes.title }]}>Modify Booking</Text>
+                <Text style={[styles.title, { color: colors.text, fontSize: fontSizes.title }]}>{t('modifyBooking.title')}</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                   <Text style={[styles.closeIcon, { color: colors.text }]}>×</Text>
                 </TouchableOpacity>
@@ -444,11 +450,13 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 {/* Booking Info Section */}
                 <View style={[styles.bookingInfoContainer, { backgroundColor: colors.infoLight }]}>
                   <Text style={[styles.bookingInfoText, { color: colors.primary, fontSize: fontSizes.bookingInfoText }]}>
-                    Booking #{booking.id} - {booking.service_type}
+                    {t('modifyBooking.bookingInfo', { id: booking.id, service: booking.service_type })}
                   </Text>
                   <Text style={[styles.bookingDetailText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
-                    Scheduled: {dayjs(booking.startDate).format("MMM D, YYYY")} at{" "}
-                    {booking.timeSlot}
+                    {t('modifyBooking.scheduled', { 
+                      date: dayjs(booking.startDate).format("MMM D, YYYY"), 
+                      time: booking.timeSlot 
+                    })}
                   </Text>
                   <Text style={[styles.bookingDetailText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
                     {timeUntilBooking}
@@ -457,7 +465,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                   {modificationCount > 0 && (
                     <View style={[styles.modificationInfo, { borderTopColor: colors.info }]}>
                       <Text style={[styles.modificationCountText, { color: colors.warning, fontSize: fontSizes.modificationCountText }]}>
-                        This booking has been modified {modificationCount} time(s)
+                        {t('modifyBooking.modifiedCount', { count: modificationCount })}
                       </Text>
                       <Text style={[styles.lastModificationText, { color: colors.warning, fontSize: fontSizes.lastModificationText }]}>
                         {lastModificationDetails}
@@ -482,12 +490,12 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 {selectedSection === "OPTIONS" && (
                   <View style={styles.optionsContainer}>
                     <CustomButton 
-                      title="Reschedule Date" 
+                      title={t('modifyBooking.options.rescheduleDate')} 
                       onPress={() => setSelectedSection("BOOKING_DATE")} 
                       disabled={modificationDisabled || isLoading}
                     />
                     <CustomButton 
-                      title="Reschedule Time" 
+                      title={t('modifyBooking.options.rescheduleTime')} 
                       onPress={() => setSelectedSection("BOOKING_TIME")} 
                       disabled={modificationDisabled || isLoading}
                     />
@@ -504,16 +512,16 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 {selectedSection === "BOOKING_DATE" && (
                   <View style={styles.sectionContainer}>
                     <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontSize: fontSizes.sectionDescription }]}>
-                      Select a new date for your booking.
+                      {t('modifyBooking.dateSelection.title')}
                     </Text>
                     <View style={styles.pickerContainer}>
-                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>Select New Date</Text>
+                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>{t('modifyBooking.dateSelection.selectNewDate')}</Text>
                       <TouchableOpacity 
                         style={[styles.dateDisplay, { borderColor: colors.border, backgroundColor: colors.card }]}
                         onPress={() => openDatePicker('date')}
                       >
                         <Text style={[styles.dateDisplayText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
-                          {startDate ? dayjs(startDate).format('MMMM D, YYYY') : 'Select date'}
+                          {startDate ? dayjs(startDate).format('MMMM D, YYYY') : t('modifyBooking.dateSelection.selectNewDate')}
                         </Text>
                       </TouchableOpacity>
                       
@@ -535,16 +543,16 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 {selectedSection === "BOOKING_TIME" && (
                   <View style={styles.sectionContainer}>
                     <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontSize: fontSizes.sectionDescription }]}>
-                      Current Time: <Text style={[styles.bold, { color: colors.text }]}>{booking.timeSlot}</Text>
+                      {t('modifyBooking.timeSelection.title', { time: booking.timeSlot })}
                     </Text>
                     <View style={styles.pickerContainer}>
-                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>Select New Time</Text>
+                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>{t('modifyBooking.timeSelection.selectNewTime')}</Text>
                       <TouchableOpacity 
                         style={[styles.dateDisplay, { borderColor: colors.border, backgroundColor: colors.card }]}
                         onPress={() => openDatePicker('time')}
                       >
                         <Text style={[styles.dateDisplayText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
-                          {startDate ? dayjs(startDate).format('h:mm A') : 'Select time'}
+                          {startDate ? dayjs(startDate).format('h:mm A') : t('modifyBooking.timeSelection.selectNewTime')}
                         </Text>
                       </TouchableOpacity>
                       
@@ -566,12 +574,12 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
               {(selectedSection === "BOOKING_DATE" || selectedSection === "BOOKING_TIME") && (
                 <View style={[styles.footer, { borderTopColor: colors.border }]}>
                   <CustomButton 
-                    title="Back" 
+                    title={t('modifyBooking.actions.back')} 
                     onPress={() => setSelectedSection("OPTIONS")}
                     variant="outlined"
                   />
                   <CustomButton 
-                    title={isLoading ? "Saving..." : selectedSection === "BOOKING_DATE" ? "Save Date" : "Save Time"}
+                    title={isLoading ? t('modifyBooking.actions.saving') : selectedSection === "BOOKING_DATE" ? t('modifyBooking.actions.saveDate') : t('modifyBooking.actions.saveTime')}
                     onPress={handleSubmit}
                     disabled={isLoading || modificationDisabled}
                   />
@@ -581,7 +589,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
               {isLoading && (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.loadingText, { color: colors.primary, fontSize: fontSizes.loadingText }]}>Saving...</Text>
+                  <Text style={[styles.loadingText, { color: colors.primary, fontSize: fontSizes.loadingText }]}>{t('modifyBooking.actions.saving')}</Text>
                 </View>
               )}
             </View>

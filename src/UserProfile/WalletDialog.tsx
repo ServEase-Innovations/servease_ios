@@ -14,6 +14,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useAppUser } from '../context/AppUserContext';
 import PaymentInstance from '../services/paymentInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface WalletDialogProps {
   open: boolean;
@@ -37,6 +38,7 @@ interface Wallet {
 
 const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('transactions');
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,10 +145,10 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
       fetchWalletData();
     } else if (open) {
       // If no customerid, show error immediately
-      setError('Unable to retrieve wallet information');
+      setError(t('wallet.error.unavailable'));
       setLoading(false);
     }
-  }, [open, appUser]);
+  }, [open, appUser, t]);
 
   const fetchWalletData = async () => {
     try {
@@ -166,19 +168,19 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
       
       // Check different error conditions
       if (!appUser?.customerid) {
-        setError('Wallet information unavailable');
+        setError(t('wallet.error.unavailable'));
       } else if (error.response?.status === 404) {
-        setError('No wallet account found');
+        setError(t('wallet.error.noAccount'));
       } else if (error.response?.status === 401) {
-        setError('Please sign in to access wallet features');
+        setError(t('wallet.error.signInRequired'));
       } else if (error.code === 'ECONNABORTED') {
-        setError('Connection timeout. Please check your network');
+        setError(t('wallet.error.connectionTimeout'));
       } else if (error.message?.includes('Network Error')) {
-        setError('Network unavailable. Please check your connection');
+        setError(t('wallet.error.networkUnavailable'));
       } else if (error.response?.data?.message) {
         setError(error.response.data.message);
       } else {
-        setError('Temporarily unable to load wallet data');
+        setError(t('wallet.error.generic'));
       }
       
     } finally {
@@ -229,9 +231,9 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
       return (
         <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
           <Icon name="receipt" size={48} color={colors.border} />
-          <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Transactions Yet</Text>
+          <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>{t('wallet.noTransactions')}</Text>
           <Text style={[styles.emptyStateSubtitle, { color: colors.textSecondary, fontSize: fontSizes.emptyStateSubtitle }]}>
-            Your transaction history will appear here
+            {t('wallet.noTransactionsDesc')}
           </Text>
         </View>
       );
@@ -266,19 +268,19 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
 
   const renderRewards = () => (
     <View style={styles.rewardsContainer}>
-      <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Your Rewards</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('wallet.yourRewards')}</Text>
       <View style={[styles.rewardsCard, { backgroundColor: colors.warning }]}>
         <View style={styles.rewardsHeader}>
           <Text style={styles.rewardsIcon}>⭐</Text>
           <Text style={[styles.rewardsPoints, { color: '#fff', fontSize: fontSizes.rewardsPoints }]}>
-            {wallet?.rewards ?? 0} Points
+            {t('wallet.rewardsPoints', { points: wallet?.rewards ?? 0 })}
           </Text>
         </View>
         <Text style={[styles.rewardsDescription, { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.rewardsDescription }]}>
-          Earn more points by completing services and referring friends
+          {t('wallet.rewardsDescription')}
         </Text>
         <TouchableOpacity style={[styles.rewardsButton, { backgroundColor: 'rgba(255, 255, 255, 0.25)', borderColor: 'rgba(255,255,255,0.3)' }]}>
-          <Text style={[styles.rewardsButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>View Rewards Catalog</Text>
+          <Text style={[styles.rewardsButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('wallet.viewRewardsCatalog')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -290,9 +292,9 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
         <View style={styles.loadingContainer}>
           <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingTitle, { color: colors.text, fontSize: fontSizes.loadingTitle }]}>Loading Wallet</Text>
+            <Text style={[styles.loadingTitle, { color: colors.text, fontSize: fontSizes.loadingTitle }]}>{t('wallet.loading')}</Text>
             <Text style={[styles.loadingSubtitle, { color: colors.textSecondary, fontSize: fontSizes.loadingSubtitle }]}>
-              Retrieving your account information
+              {t('wallet.loadingDesc')}
             </Text>
           </View>
         </View>
@@ -300,8 +302,8 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
     }
 
     if (error || !wallet) {
-      const isNoWalletError = error === 'No wallet account found' || 
-                            error === 'Wallet information unavailable' ||
+      const isNoWalletError = error === t('wallet.error.noAccount') || 
+                            error === t('wallet.error.unavailable') ||
                             !appUser?.customerid;
       
       return (
@@ -316,7 +318,7 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
             </View>
             
             <Text style={[styles.errorMessage, { color: colors.textSecondary, fontSize: fontSizes.errorMessage }]}>
-              {error || 'Wallet information currently unavailable'}
+              {error || t('wallet.error.generic')}
             </Text>
             
             <View style={styles.errorActions}>
@@ -324,14 +326,14 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
                 style={[styles.primaryButton, { backgroundColor: colors.primary }]}
                 onPress={fetchWalletData}
               >
-                <Text style={[styles.primaryButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Try Again</Text>
+                <Text style={[styles.primaryButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('wallet.actions.tryAgain')}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
                 style={[styles.secondaryButton, { backgroundColor: colors.surface }]}
                 onPress={onClose}
               >
-                <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Close</Text>
+                <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>{t('wallet.actions.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -343,18 +345,18 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
       <ScrollView style={[styles.content, { backgroundColor: colors.background }]}>
         {/* Balance Card */}
         <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.balanceLabel, { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.balanceLabel }]}>Available Balance</Text>
+          <Text style={[styles.balanceLabel, { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.balanceLabel }]}>{t('wallet.availableBalance')}</Text>
           <Text style={[styles.balanceAmount, { color: '#fff', fontSize: fontSizes.balanceAmount }]}>
-            ₹{wallet.balance.toLocaleString('en-IN')}
+            {formatCurrency(wallet.balance)}
           </Text>
           <View style={styles.balanceButtons}>
             <TouchableOpacity style={[styles.addMoneyButton, { backgroundColor: '#fff' }]}>
               <Icon name="plus-circle" size={18} color={colors.primary} />
-              <Text style={[styles.addMoneyText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Money</Text>
+              <Text style={[styles.addMoneyText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('wallet.addMoney')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.transferButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderColor: 'rgba(255,255,255,0.3)' }]}>
               <Icon name="swap-horizontal" size={18} color="#fff" />
-              <Text style={[styles.transferText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Transfer</Text>
+              <Text style={[styles.transferText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('wallet.transfer')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -378,7 +380,7 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
                 activeTab === 'transactions' && [styles.activeTabText, { color: colors.primary }],
               ]}
             >
-              Transactions
+              {t('wallet.transactions')}
             </Text>
             {activeTab === 'transactions' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </TouchableOpacity>
@@ -400,7 +402,7 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
                 activeTab === 'rewards' && [styles.activeTabText, { color: colors.primary }],
               ]}
             >
-              Rewards
+              {t('wallet.rewards')}
             </Text>
             {activeTab === 'rewards' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
           </TouchableOpacity>
@@ -409,7 +411,7 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
         {/* Tab Content */}
         {activeTab === 'transactions' ? (
           <View style={styles.tabContent}>
-            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Recent Activity</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('wallet.recentActivity')}</Text>
             <ScrollView style={styles.transactionsList}>
               {renderTransactions()}
             </ScrollView>
@@ -441,7 +443,7 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
           <View style={styles.header}>
             <View style={styles.titleContainer}>
               <Icon name="wallet" size={22} color="#fff" style={styles.titleIcon} />
-              <Text style={[styles.headtitle, { color: '#fff', fontSize: fontSizes.headtitle }]}>My Wallet</Text>
+              <Text style={[styles.headtitle, { color: '#fff', fontSize: fontSizes.headtitle }]}>{t('wallet.title')}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
               <Icon name="close-thick" size={22} color="#f2f2f2" />

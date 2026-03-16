@@ -16,6 +16,7 @@ import dayjs from 'dayjs';
 import ConfirmationDialog from './ConfirmationDialog';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface Booking {
   id: number;
@@ -34,6 +35,7 @@ interface UserHolidayProps {
 
 const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLeaveSubmit }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [leaveStartDate, setLeaveStartDate] = useState<Date | null>(null);
   const [leaveEndDate, setLeaveEndDate] = useState<Date | null>(null);
   const [minDate, setMinDate] = useState<Date | undefined>();
@@ -84,10 +86,10 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
 
   const getServiceTitle = (serviceType: string) => {
     const serviceMap: { [key: string]: string } = {
-      'homeCook': 'Home Cook',
-      'maid': 'Maid',
-      'careGiver': 'Care Giver',
-      'nanny': 'Nanny'
+      'homeCook': t('booking.cards.homeCook'),
+      'maid': t('booking.cards.maidService'),
+      'careGiver': t('booking.cards.caregiver'),
+      'nanny': t('booking.cards.caregiver')
     };
     return serviceMap[serviceType] || serviceType;
   };
@@ -128,13 +130,13 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
     if (!leaveStartDate || !leaveEndDate || !booking?.serviceType) return;
 
     if (leaveStartDate < minDate! || leaveEndDate > maxDate!) {
-      Alert.alert('Error', 'Holiday dates must be within your booked period');
+      Alert.alert(t('common.error'), t('userHoliday.error.withinBookingPeriod'));
       return;
     }
 
     const diffInDays = Math.floor((leaveEndDate.getTime() - leaveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     if (diffInDays < 10) {
-      Alert.alert('Error', 'Leave duration must be at least 10 days');
+      Alert.alert(t('common.error'), t('userHoliday.error.minimumDays'));
       return;
     }
 
@@ -157,7 +159,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
       onClose();
     } catch (error) {
       console.error("Error submitting leave:", error);
-      Alert.alert('Error', 'Failed to submit leave application. Please try again.');
+      Alert.alert(t('common.error'), t('userHoliday.error.submitFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -356,7 +358,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                 end={{ x: 1, y: 0 }}
                 style={dynamicStyles.header}
               >
-                <Text style={dynamicStyles.dialogTitle}>Apply Holiday</Text>
+                <Text style={dynamicStyles.dialogTitle}>{t('userHoliday.title')}</Text>
                 <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
                   <Text style={dynamicStyles.closeIcon}>×</Text>
                 </TouchableOpacity>
@@ -370,9 +372,9 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                     style={dynamicStyles.dateInput}
                     onPress={() => setShowStartPicker(true)}
                   >
-                    <Text style={dynamicStyles.dateLabel}>Start Date</Text>
+                    <Text style={dynamicStyles.dateLabel}>{t('userHoliday.startDate')}</Text>
                     <Text style={dynamicStyles.dateValue}>
-                      {leaveStartDate ? dayjs(leaveStartDate).format('MMMM DD, YYYY') : 'Select start date'}
+                      {leaveStartDate ? dayjs(leaveStartDate).format('MMMM DD, YYYY') : t('userHoliday.selectStartDate')}
                     </Text>
                   </TouchableOpacity>
 
@@ -382,12 +384,12 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                     onPress={() => setShowEndPicker(true)}
                     disabled={!leaveStartDate}
                   >
-                    <Text style={dynamicStyles.dateLabel}>End Date</Text>
+                    <Text style={dynamicStyles.dateLabel}>{t('userHoliday.endDate')}</Text>
                     <Text style={[
                       dynamicStyles.dateValue,
                       !leaveStartDate && { color: colors.textTertiary || colors.textSecondary }
                     ]}>
-                      {leaveEndDate ? dayjs(leaveEndDate).format('MMMM DD, YYYY') : 'Select end date'}
+                      {leaveEndDate ? dayjs(leaveEndDate).format('MMMM DD, YYYY') : t('userHoliday.selectEndDate')}
                     </Text>
                   </TouchableOpacity>
 
@@ -415,20 +417,22 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
 
                   {/* Helper message */}
                   <Text style={dynamicStyles.helperText}>
-                    📌 Note: Holiday applications must be for a minimum of 10 days.  
-                    You can only select an end date that is at least 9 days after your start date.
+                    {t('userHoliday.helperText')}
                   </Text>
 
                   {booking && (
                     <View style={dynamicStyles.bookingInfo}>
                       <Text style={dynamicStyles.bookingText}>
-                        Your booked period: {dayjs(booking.startDate).format('DD/MM/YYYY')} to {dayjs(booking.endDate).format('DD/MM/YYYY')}
+                        {t('userHoliday.bookedPeriod', { 
+                          startDate: dayjs(booking.startDate).format('DD/MM/YYYY'), 
+                          endDate: dayjs(booking.endDate).format('DD/MM/YYYY') 
+                        })}
                       </Text>
                       <Text style={dynamicStyles.bookingText}>
-                        Service Type: {booking.serviceType}
+                        {t('userHoliday.serviceType')}: {getServiceTitle(booking.serviceType)}
                       </Text>
                       <Text style={dynamicStyles.bookingText}>
-                        Booking Type: {booking.bookingType}
+                        {t('userHoliday.bookingType')}: {booking.bookingType}
                       </Text>
                     </View>
                   )}
@@ -442,13 +446,13 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                   onPress={onClose}
                   disabled={isSubmitting}
                 >
-                  Cancel
+                  {t('userHoliday.cancel')}
                 </Button>
                 <Button
                   onPress={handleSubmit}
                   disabled={isSubmitting || !leaveStartDate || !leaveEndDate}
                 >
-                  Submit
+                  {t('userHoliday.submit')}
                 </Button>
               </View>
             </View>
@@ -460,10 +464,14 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
         open={showConfirmation}
         onClose={() => setShowConfirmation(false)}
         onConfirm={handleConfirmSubmit}
-        title="Confirm Vacation Application"
-        message={`Are you sure you want to apply for vacation from ${leaveStartDate ? dayjs(leaveStartDate).format('MMMM DD, YYYY') : ''} to ${leaveEndDate ? dayjs(leaveEndDate).format('MMMM DD, YYYY') : ''} for your ${getServiceTitle(booking?.serviceType || '')} service?`}
-        confirmText="Yes, Apply"
-        cancelText="Cancel"
+        title={t('userHoliday.confirmation.title')}
+        message={t('userHoliday.confirmation.message', { 
+          startDate: leaveStartDate ? dayjs(leaveStartDate).format('MMMM DD, YYYY') : '',
+          endDate: leaveEndDate ? dayjs(leaveEndDate).format('MMMM DD, YYYY') : '',
+          service: getServiceTitle(booking?.serviceType || '')
+        })}
+        confirmText={t('userHoliday.confirmation.confirm')}
+        cancelText={t('userHoliday.confirmation.cancel')}
         loading={isSubmitting}
         severity="info"
       />
@@ -471,7 +479,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
       {/* Snackbar equivalent */}
       {snackbarOpen && (
         <View style={dynamicStyles.snackbar}>
-          <Text style={dynamicStyles.snackbarText}>Vacation application submitted successfully!</Text>
+          <Text style={dynamicStyles.snackbarText}>{t('userHoliday.success')}</Text>
           <TouchableOpacity onPress={() => setSnackbarOpen(false)}>
             <Text style={dynamicStyles.snackbarClose}>×</Text>
           </TouchableOpacity>

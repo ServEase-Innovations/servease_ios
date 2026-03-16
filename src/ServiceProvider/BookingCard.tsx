@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
+import { useTranslation } from 'react-i18next';
 
 interface Booking {
   id: string;
@@ -23,6 +24,8 @@ interface BookingCardProps {
 }
 
 export function BookingCard({ booking, onContactClient }: BookingCardProps) {
+  const { t } = useTranslation();
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "upcoming":
@@ -38,7 +41,23 @@ export function BookingCard({ booking, onContactClient }: BookingCardProps) {
     }
   };
 
+  const getStatusTranslation = (status: string) => {
+    switch (status) {
+      case "upcoming":
+        return t('booking.status.upcoming');
+      case "in-progress":
+        return t('booking.status.inProgress');
+      case "completed":
+        return t('booking.status.completed');
+      case "cancelled":
+        return t('booking.status.cancelled');
+      default:
+        return status;
+    }
+  };
+
   const statusColors = getStatusColor(booking.status);
+  const statusText = getStatusTranslation(booking.status);
 
   return (
     <View style={styles.card}>
@@ -51,7 +70,7 @@ export function BookingCard({ booking, onContactClient }: BookingCardProps) {
           <View style={styles.headerRight}>
             <View style={[styles.badge, { backgroundColor: statusColors.backgroundColor }]}>
               <Text style={[styles.badgeText, { color: statusColors.color }]}>
-                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                {statusText}
               </Text>
             </View>
             <Text style={styles.amount}>{booking.amount}</Text>
@@ -79,7 +98,7 @@ export function BookingCard({ booking, onContactClient }: BookingCardProps) {
               onPress={() => onContactClient(booking)}
             >
               <MaterialIcon name="phone" size={16} color="#000000" style={styles.buttonIcon} />
-              <Text style={styles.contactButtonText}>Contact Client</Text>
+              <Text style={styles.contactButtonText}>{t('booking.cards.contactClient')}</Text>
             </TouchableOpacity>
           </View>
         )}

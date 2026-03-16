@@ -1,4 +1,4 @@
-// Dashboard.tsx (updated with back button logic)
+// Dashboard.tsx (updated with back button logic and translations)
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -38,6 +38,7 @@ import WithdrawalDialog from './WithdrawalDialog';
 import { WithdrawalHistoryDialog } from './WithdrawalHistoryDialog';
 import TrackAddress from './TrackAddress';
 import { Calendar, MapPin, X, Phone, Clock, Loader2, CheckCircle } from "lucide-react-native";
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
@@ -226,20 +227,20 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
 };
 
 // Function to handle calling customer (keep this for phone calls)
-const handleCallCustomer = (phoneNumber: string, clientName: string) => {
+const handleCallCustomer = (phoneNumber: string, clientName: string, t: any) => {
   if (!phoneNumber || phoneNumber === "Contact info not available") {
-    Alert.alert("No Contact Info", "Customer contact information is not available.");
+    Alert.alert(t('errors.contactNumberUnavailable'), t('booking.cards.noContactInfo'));
     return;
   }
   
   const telLink = `tel:${phoneNumber}`;
   Linking.openURL(telLink).catch(() => {
-    Alert.alert("Error", "Could not open phone dialer");
+    Alert.alert(t('common.error'), t('booking.cards.callError'));
   });
 };
 
 // Function to format API booking data for the BookingCard component
-const formatBookingForCard = (booking: any) => {
+const formatBookingForCard = (booking: any, t: any) => {
   let date, timeRange;
   
   if (booking.start_epoch && booking.end_epoch) {
@@ -290,7 +291,7 @@ const formatBookingForCard = (booking: any) => {
     ? `${booking.firstname} ${booking.lastname}`.trim()
     : booking.firstname 
       ? booking.firstname
-      : booking.email || "Client";
+      : booking.email || t('booking.cards.clientName');
 
   const bookingId = booking.engagement_id || booking.id;
 
@@ -306,7 +307,7 @@ const formatBookingForCard = (booking: any) => {
     service: getServiceTitle(booking.service_type || booking.serviceType),
     date: date,
     time: timeRange,
-    location: booking.address || booking.location || "Address not provided",
+    location: booking.address || booking.location || t('booking.cards.addressNotFound'),
     status: booking.task_status === "COMPLETED" ? "completed" : 
             booking.task_status === "IN_PROGRESS" || booking.task_status === "STARTED" ? "in-progress" : 
             booking.task_status === "NOT_STARTED" ? "upcoming" : "upcoming",
@@ -314,11 +315,11 @@ const formatBookingForCard = (booking: any) => {
     bookingData: {
       ...booking,
       mobileno: booking.mobileno || "",
-      contact: booking.mobileno || "Contact info not available",
+      contact: booking.mobileno || t('booking.cards.contactInfoUnavailable'),
       today_service: booking.today_service || null
     },
     responsibilities: booking.responsibilities || {},
-    contact: booking.mobileno || "Contact info not available",
+    contact: booking.mobileno || t('booking.cards.contactInfoUnavailable'),
     task_status: booking.task_status
   };
 };
@@ -573,6 +574,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onProfilePress, onBackToHome }: DashboardProps) {
+  const { t, i18n } = useTranslation();
   const { clearSession, user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
   const [bookings, setBookings] = useState<BookingHistoryResponse | null>(null);
@@ -702,44 +704,44 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
   const metrics = [
     {
-      title: "Total Earnings",
+      title: t('dashboard.metrics.totalEarnings'),
       value: `₹${payout?.summary?.total_earned?.toLocaleString("en-IN") || 0}`,
-      change: "+12.5%",
+      change: payout?.summary?.total_earned ? t('dashboard.metrics.change') : "0%",
       changeType: "positive" as const,
       icon: "rupee" as const,
-      description: "This month",
+      description: t('dashboard.metrics.thisMonth'),
       bgColor: "#E8F0FE",
       iconBg: "#3B82F6"
     },
     {
-      title: "Security Deposit",
+      title: t('dashboard.metrics.securityDeposit'),
       value: `₹${payout?.summary?.security_deposit_amount?.toLocaleString("en-IN") || 0}`,
-      change: payout?.summary?.security_deposit_paid ? "Paid" : "Not Paid",
+      change: payout?.summary?.security_deposit_paid ? t('dashboard.metrics.paid') : t('dashboard.metrics.notPaid'),
       changeType: payout?.summary?.security_deposit_paid ? ("positive" as const) : ("negative" as const),
       icon: "home" as const,
-      description: "For active bookings",
+      description: t('dashboard.metrics.forActiveBookings'),
       bgColor: "#FEF3C7",
       iconBg: "#F59E0B"
     },
     {
-      title: "Withdrawl",
+      title: t('dashboard.metrics.withdrawal'),
       value: `₹${(
         (payout?.summary?.total_earned || 0) - (payout?.summary?.available_to_withdraw || 0)
       ).toLocaleString("en-IN")}`,
-      change: "-10%",
+      change: t('dashboard.metrics.withdrawn'),
       changeType: "negative" as const,
       icon: "clock" as const,
-      description: "Service charges",
+      description: t('dashboard.metrics.serviceCharges'),
       bgColor: "#FEE2E2",
       iconBg: "#EF4444"
     },
     {
-      title: "Actual Payout Balance",
+      title: t('dashboard.metrics.actualPayoutBalance'),
       value: `₹${payout?.summary?.available_to_withdraw?.toLocaleString("en-IN") || 0}`,
-      change: "+10.2%",
+      change: t('dashboard.metrics.readyToWithdraw'),
       changeType: "positive" as const,
       icon: "trending-up" as const,
-      description: "Ready to withdraw",
+      description: t('dashboard.quickActions.requestWithdrawal'),
       bgColor: "#D1FAE5",
       iconBg: "#10B981"
     }
@@ -778,8 +780,8 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
       setError(null); // clear any previous errors
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch data");
-      Alert.alert("Error", "Failed to load data");
+      setError(err instanceof Error ? err.message : t('errors.generic'));
+      Alert.alert(t('common.error'), t('errors.failedToLoadBookings'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -833,10 +835,10 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
         );
         setPayout(payoutResponse.data);
         
-        Alert.alert("Balance Updated", "Your wallet balance has been updated.");
+        Alert.alert(t('wallet.title'), t('wallet.availableBalance'));
       } catch (error) {
         console.error("Failed to refresh balance:", error);
-        Alert.alert("Error", "Failed to refresh balance data");
+        Alert.alert(t('common.error'), t('wallet.error.generic'));
       }
     }
   };
@@ -851,7 +853,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
     const serviceDayId = bookingData.today_service?.service_day_id;
     if (!serviceDayId) {
-      Alert.alert("Error", "Service day ID not found. Cannot start service.");
+      Alert.alert(t('common.error'), t('errors.serviceDayIdNotFound'));
       return;
     }
 
@@ -872,18 +874,18 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
         }
       );
 
-      Alert.alert("Service Started", "You have successfully started the service. Task is now IN_PROGRESS");
+      Alert.alert(t('common.success'), t('dashboard.recentBooking.taskInProgress'));
 
       await fetchData();
     } catch (err) {
       setTaskStatus(prev => ({ ...prev, [bookingId]: previousStatus }));
       
-      let errorMessage = "Failed to start service";
+      let errorMessage = t('errors.failedToStartService');
       if (axios.isAxiosError(err)) {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
       
-      Alert.alert("Error", errorMessage);
+      Alert.alert(t('common.error'), errorMessage);
     } finally {
       setTaskStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
     }
@@ -899,7 +901,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
     const serviceDayId = currentBooking.bookingData.today_service?.service_day_id;
     if (!serviceDayId) {
-      Alert.alert("Error", "Service day ID not found");
+      Alert.alert(t('common.error'), t('errors.serviceDayIdNotFound'));
       return Promise.reject(new Error("Service day ID not found"));
     }
 
@@ -918,18 +920,18 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
         }
       );
 
-      Alert.alert("Success", "Service completed successfully! Earnings credited to your account.");
+      Alert.alert(t('common.success'), t('otpVerification.success'));
 
       setTaskStatus(prev => ({ ...prev, [currentBooking.bookingId]: "COMPLETED" }));
       await fetchData();
       return Promise.resolve();
     } catch (err) {
-      let errorMessage = "Failed to complete service";
+      let errorMessage = t('errors.failedToCompleteService');
       if (axios.isAxiosError(err)) {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
       
-      Alert.alert("Error", errorMessage);
+      Alert.alert(t('common.error'), errorMessage);
       verificationCompletedRef.current = false;
       return Promise.reject(err);
     } finally {
@@ -944,7 +946,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
   // Combine current and future bookings for display
   const upcomingBookings = bookings
-    ? [...(bookings.current || []), ...(bookings.upcoming || [])].map(formatBookingForCard)
+    ? [...(bookings.current || []), ...(bookings.upcoming || [])].map(b => formatBookingForCard(b, t))
     : [];
 
   // Get the most recent booking for display
@@ -971,11 +973,11 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
     return (
       <View style={styles.responsibilitiesSection}>
-        <Text style={styles.responsibilitiesTitle}>Responsibilities</Text>
+        <Text style={styles.responsibilitiesTitle}>{t('allBookings.bookingCard.responsibilities')}</Text>
         <View style={styles.responsibilitiesList}>
           {/* Render tasks */}
           {hasTasks && responsibilities.tasks?.map((task: any, index: number) => {
-            const taskLabel = task.persons ? `${task.persons} persons` : "";
+            const taskLabel = task.persons ? `${task.persons} ${t('common.people')}` : "";
             const taskType = task.taskType || task.type || '';
             
             return (
@@ -1002,7 +1004,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
               <View key={`addon-${index}`} style={styles.responsibilityItem}>
                 <View style={[styles.responsibilityBadge, styles.addonBadge]}>
                   <Text style={styles.responsibilityBadgeText}>
-                    Add-on: {addonText}
+                    {t('engagementDetails.addOns')}: {addonText}
                   </Text>
                 </View>
               </View>
@@ -1046,8 +1048,8 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                 </TouchableOpacity>
                 <MaterialIcon name="home" size={20} color="#0e305c" />
                 <View>
-                  <Text style={styles.welcomeBackText}>Welcome back,</Text>
-                  <Text style={styles.userNameText}>{userName || "Guest"}</Text>
+                  <Text style={styles.welcomeBackText}>{t('dashboard.welcome', { name: '' })}</Text>
+                  <Text style={styles.userNameText}>{userName || t('common.guest')}</Text>
                 </View>
               </View>
             </View>
@@ -1056,7 +1058,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
         <View style={styles.mainContent}>
           <Text style={styles.welcomeSubtitle}>
-            Here's what's happening with your services today.
+            {t('dashboard.overview')}
           </Text>
           
           {/* Enhanced Metrics Grid */}
@@ -1119,10 +1121,10 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
             <View style={styles.recentBookings}>
               <Card style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Recent Booking</Text>
+                  <Text style={styles.cardTitle}>{t('dashboard.recentBooking.title')}</Text>
                   {!loading && latestBooking.length > 0 && (
                     <Badge variant="secondary" style={styles.latestBadge}>
-                      <Text style={styles.latestBadgeText}>Latest</Text>
+                      <Text style={styles.latestBadgeText}>{t('dashboard.recentBooking.latest')}</Text>
                     </Badge>
                   )}
                 </View>
@@ -1133,18 +1135,18 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                     </View>
                   ) : error ? (
                     <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>Failed to load bookings. Please try again.</Text>
+                      <Text style={styles.errorText}>{t('dashboard.empty.failedToLoad')}</Text>
                       <Button
                         variant="outline"
                         style={styles.retryButton}
                         onPress={() => onRefresh()}
                       >
-                        Retry
+                        {t('dashboard.empty.retry')}
                       </Button>
                     </View>
                   ) : latestBooking.length === 0 ? (
                     <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>No upcoming bookings found.</Text>
+                      <Text style={styles.emptyText}>{t('dashboard.empty.noBookings')}</Text>
                     </View>
                   ) : (
                     latestBooking.map((booking) => {
@@ -1174,7 +1176,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                           <View style={styles.bookingCardHeader}>
                             <View style={styles.bookingCardHeaderTop}>
                               <Text style={styles.bookingId}>
-                                Booking ID: {booking.bookingId || "N/A"}
+                                {t('booking.bookingId', { id: booking.bookingId || "N/A" })}
                               </Text>
                               <View style={styles.headerBadges}>
                                 {getBookingTypeBadge(booking.bookingData.booking_type || booking.bookingData.bookingType)}
@@ -1199,17 +1201,17 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                             {/* Date, Time and Amount with Phone Icon */}
                             <View style={styles.infoGrid}>
                               <View style={styles.dateTimeSection}>
-                                <Text style={styles.infoLabel}>Date & Time</Text>
+                                <Text style={styles.infoLabel}>{t('booking.cards.dateTime')}</Text>
                                 <View style={styles.infoRow}>
                                   <Calendar size={14} color="#6b7280" />
                                   <Text style={styles.infoText}>
-                                    {booking.date} at {booking.time}
+                                    {booking.date} {t('common.at')} {booking.time}
                                   </Text>
                                 </View>
                               </View>
                               <View style={styles.amountSection}>
                                 <View style={styles.amountInfo}>
-                                  <Text style={styles.amountLabel}>Amount</Text>
+                                  <Text style={styles.amountLabel}>{t('booking.cards.amount')}</Text>
                                   <Text style={styles.amountText}>
                                     {booking.amount}
                                   </Text>
@@ -1217,7 +1219,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                                 {booking.bookingData?.mobileno && (
                                   <TouchableOpacity
                                     style={styles.phoneButton}
-                                    onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName)}
+                                    onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName, t)}
                                   >
                                     <Phone size={16} color="#374151" />
                                   </TouchableOpacity>
@@ -1231,24 +1233,24 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                             {/* Location with Track Address Button */}
                             <View style={styles.locationSection}>
                               <View style={styles.locationHeader}>
-                                <Text style={styles.locationLabel}>Address</Text>
+                                <Text style={styles.locationLabel}>{t('booking.cards.address')}</Text>
                                 <TouchableOpacity
                                   style={styles.trackButton}
                                   onPress={handleTrackAddress}
                                 >
                                   <MapPin size={14} color="#374151" />
-                                  <Text style={styles.trackButtonText}>Track Address</Text>
+                                  <Text style={styles.trackButtonText}>{t('allBookings.bookingCard.trackAddress')}</Text>
                                 </TouchableOpacity>
                               </View>
                               <Text style={styles.locationText} numberOfLines={2}>
-                                {booking.location || "Address not provided"}
+                                {booking.location || t('booking.cards.addressNotFound')}
                               </Text>
                             </View>
 
                             {/* Today's Service Status Badge */}
                             {todayServiceStatus && (
                               <View style={styles.todayServiceSection}>
-                                <Text style={styles.todayServiceLabel}>Today's Service:</Text>
+                                <Text style={styles.todayServiceLabel}>{t('allBookings.bookingCard.todaysService')}:</Text>
                                 <View style={[
                                   styles.todayServiceBadge,
                                   todayServiceStatus === 'SCHEDULED' && styles.scheduledBadge,
@@ -1271,12 +1273,12 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                             <View style={styles.taskActionsSection}>
                               <Text style={styles.taskStatusLabel}>
                                 {isInProgress 
-                                  ? "Task In Progress" 
+                                  ? t('dashboard.recentBooking.taskInProgress')
                                   : isCompleted 
-                                    ? 'Task Completed' 
+                                    ? t('dashboard.recentBooking.taskCompleted')
                                     : isNotStarted
-                                      ? 'Not Started' 
-                                      : 'Upcoming'
+                                      ? t('dashboard.recentBooking.notStarted')
+                                      : t('dashboard.recentBooking.upcoming')
                                 }
                               </Text>
                               <View style={styles.taskButtons}>
@@ -1290,7 +1292,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                                     size="sm"
                                     onPress={() => handleStopTask(booking.id, booking.bookingData)}
                                   >
-                                    Complete Task
+                                    {t('dashboard.recentBooking.completeTask')}
                                   </Button>
                                 ) : showCompletedButton ? (
                                   <Button 
@@ -1299,7 +1301,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                                     disabled
                                     icon={<CheckCircle size={14} color="#10b981" />}
                                   >
-                                    Completed
+                                    {t('dashboard.recentBooking.completed')}
                                   </Button>
                                 ) : showStartButton ? (
                                   <Button 
@@ -1307,7 +1309,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                                     size="sm"
                                     onPress={() => handleStartTask(booking.id, booking.bookingData)}
                                   >
-                                    Start Task
+                                    {t('dashboard.recentBooking.startTask')}
                                   </Button>
                                 ) : (
                                   <Button 
@@ -1315,7 +1317,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                                     size="sm"
                                     disabled
                                   >
-                                    Cannot Start Yet
+                                    {t('dashboard.recentBooking.cannotStartYet')}
                                   </Button>
                                 )}
                               </View>
@@ -1333,7 +1335,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
             <View style={styles.quickActions}>
               <Card style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Quick Actions</Text>
+                  <Text style={styles.cardTitle}>{t('dashboard.quickActions.title')}</Text>
                 </View>
                 <View style={styles.cardContent}>
                   <Button
@@ -1342,7 +1344,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                     onPress={() => setShowAllBookings(true)}
                   >
                     <MaterialIcon name="people" size={16} style={styles.buttonIcon} />
-                    View All Bookings
+                    {t('dashboard.quickActions.viewAllBookings')}
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1350,7 +1352,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                     onPress={() => setWithdrawalDialogOpen(true)}
                   >
                     <MaterialIcon name="account-balance-wallet" size={16} style={styles.buttonIcon} />
-                    Request Withdrawal
+                    {t('dashboard.quickActions.requestWithdrawal')}
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1358,7 +1360,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                     onPress={() => setWithdrawalHistoryDialogOpen(true)}
                   >
                     <MaterialIcon name="receipt" size={16} style={styles.buttonIcon} />
-                    Withdrawal History
+                    {t('dashboard.quickActions.withdrawalHistory')}
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1366,7 +1368,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                     onPress={() => {}}
                   >
                     <MaterialIcon name="calendar-today" size={16} style={styles.buttonIcon} />
-                    Apply Leave
+                    {t('dashboard.quickActions.applyLeave')}
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1374,7 +1376,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                     onPress={() => {}}
                   >
                     <MaterialIcon name="access-time" size={16} style={styles.buttonIcon} />
-                    Update Availability
+                    {t('dashboard.quickActions.updateAvailability')}
                   </Button>
                   <Button
                     style={styles.actionButton}
@@ -1382,7 +1384,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                     onPress={() => setReviewsDialogOpen(true)}
                   >
                     <MaterialIcon name="star" size={16} style={styles.buttonIcon} />
-                    View Reviews
+                    {t('dashboard.quickActions.viewReviews')}
                   </Button>
                 </View>
               </Card>
@@ -1390,25 +1392,25 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
               {/* Service Status */}
               <Card style={[styles.card, { marginTop: 16 }]}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Service Status</Text>
+                  <Text style={styles.cardTitle}>{t('dashboard.serviceStatus.title')}</Text>
                 </View>
                 <View style={styles.cardContent}>
                   <View style={styles.statusItem}>
-                    <Text style={styles.statusLabel}>Profile Status</Text>
+                    <Text style={styles.statusLabel}>{t('dashboard.serviceStatus.profileStatus')}</Text>
                     <Badge variant="success">
-                      Active
+                      {t('dashboard.serviceStatus.active')}
                     </Badge>
                   </View>
                   <View style={styles.statusItem}>
-                    <Text style={styles.statusLabel}>Verification</Text>
+                    <Text style={styles.statusLabel}>{t('dashboard.serviceStatus.verification')}</Text>
                     <Badge variant="success">
-                      Verified
+                      {t('dashboard.serviceStatus.verified')}
                     </Badge>
                   </View>
                   <View style={styles.statusItem}>
-                    <Text style={styles.statusLabel}>Availability</Text>
+                    <Text style={styles.statusLabel}>{t('dashboard.serviceStatus.availability')}</Text>
                     <Badge variant="primary">
-                      Available
+                      {t('dashboard.serviceStatus.available')}
                     </Badge>
                   </View>
                 </View>
@@ -1430,7 +1432,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
           {/* Sign Out Button */}
           <TouchableOpacity style={styles.signOutButton} onPress={onLogout}>
-            <Text style={styles.signOutButtonText}>Sign Out</Text>
+            <Text style={styles.signOutButtonText}>{t('dashboard.signOut')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -9,11 +9,12 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 // import { useToast } from "../hooks/use-toast"; // You'll need to adapt this hook for React Native
 import PaymentInstance from "../services/paymentInstance";
 import { useToast } from "../hooks/useToast";
-import { Alert } from "react-native";
+import { useTranslation } from 'react-i18next';
 
 interface WithdrawalDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
   availableBalance,
   onWithdrawalSuccess,
 }) => {
+  const { t } = useTranslation();
   const { toast } = useToast(); // Replace with React Native toast/showAlert
   const [amount, setAmount] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -60,16 +62,14 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
   const handleConfirmWithdrawal = async () => {
     if (!serviceProviderId) {
       // Use Alert.alert or your toast implementation
-      Alert.alert("Error", "Service provider ID is missing");
+      Alert.alert(t('common.error'), t('withdrawal.error.missingId'));
       return;
     }
 
     if (!isValidAmount) {
       Alert.alert(
-        "Invalid Amount",
-        `Please enter a valid amount between ₹1 and ₹${availableBalance.toLocaleString(
-          "en-IN"
-        )}`
+        t('withdrawal.invalidAmount'),
+        t('withdrawal.amountRange', { balance: availableBalance.toLocaleString("en-IN") })
       );
       return;
     }
@@ -86,10 +86,8 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
 
       if (response.status === 200 || response.status === 201) {
         Alert.alert(
-          "Success!",
-          `Withdrawal request of ₹${numericAmount.toLocaleString(
-            "en-IN"
-          )} has been initiated successfully.`
+          t('common.success'),
+          t('withdrawal.success', { amount: numericAmount.toLocaleString("en-IN") })
         );
 
         // Call success callback if provided
@@ -100,26 +98,26 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
         // Close modal
         handleClose();
       } else {
-        throw new Error("Failed to process withdrawal");
+        throw new Error(t('withdrawal.error.generic'));
       }
     } catch (error: any) {
-      let errorMessage = "Failed to process withdrawal request";
+      let errorMessage = t('withdrawal.error.generic');
 
       if (error.response) {
         if (error.response.status === 400) {
-          errorMessage = error.response.data?.message || "Invalid withdrawal request";
+          errorMessage = error.response.data?.message || t('withdrawal.error.invalidRequest');
         } else if (error.response.status === 402) {
-          errorMessage = "Insufficient balance for withdrawal";
+          errorMessage = t('withdrawal.error.insufficientBalance');
         } else if (error.response.status === 422) {
-          errorMessage = "Validation error. Please check the entered amount.";
+          errorMessage = t('withdrawal.error.validationError');
         } else if (error.response.status === 500) {
-          errorMessage = "Server error. Please try again later.";
+          errorMessage = t('withdrawal.error.serverError');
         }
       } else if (error.message) {
         errorMessage = error.message;
       }
 
-      Alert.alert("Withdrawal Failed", errorMessage);
+      Alert.alert(t('withdrawal.title'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -143,7 +141,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={styles.headerIcon}>💰</Text>
-              <Text style={styles.headerTitle}>Request Withdrawal</Text>
+              <Text style={styles.headerTitle}>{t('withdrawal.title')}</Text>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <Text style={styles.closeIcon}>✕</Text>
@@ -152,25 +150,25 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
 
           <ScrollView style={styles.content}>
             <Text style={styles.subtitle}>
-              Withdraw your available balance to your bank account
+              {t('withdrawal.subtitle')}
             </Text>
 
             {/* Available Balance Card */}
             <View style={styles.balanceCard}>
               <View style={styles.balanceRow}>
                 <View>
-                  <Text style={styles.balanceLabel}>Available Balance</Text>
+                  <Text style={styles.balanceLabel}>{t('withdrawal.availableBalance')}</Text>
                   <View style={styles.balanceAmountContainer}>
-                    <Text style={styles.rupeeIcon}>₹</Text>
+                    <Text style={styles.rupeeIcon}>{t('common.currency')}</Text>
                     <Text style={styles.balanceAmount}>
                       {availableBalance.toLocaleString("en-IN")}
                     </Text>
                   </View>
                 </View>
                 <View style={styles.minWithdrawalContainer}>
-                  <Text style={styles.balanceLabel}>Min. Withdrawal</Text>
+                  <Text style={styles.balanceLabel}>{t('withdrawal.minWithdrawal')}</Text>
                   <View style={styles.balanceAmountContainer}>
-                    <Text style={styles.smallRupeeIcon}>₹</Text>
+                    <Text style={styles.smallRupeeIcon}>{t('common.currency')}</Text>
                     <Text style={styles.minWithdrawalAmount}>{minWithdrawal}</Text>
                   </View>
                 </View>
@@ -179,10 +177,10 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
 
             {/* Amount Input Section */}
             <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>Enter Amount (₹)</Text>
+              <Text style={styles.inputLabel}>{t('withdrawal.enterAmount')}</Text>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.currencySymbol}>₹</Text>
+                <Text style={styles.currencySymbol}>{t('common.currency')}</Text>
                 <TextInput
                   style={styles.amountInput}
                   value={amount}
@@ -195,7 +193,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
                   style={styles.maxButton}
                   onPress={handleMaxAmount}
                 >
-                  <Text style={styles.maxButtonText}>Max</Text>
+                  <Text style={styles.maxButtonText}>{t('withdrawal.max')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -205,10 +203,8 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
                   <Text style={styles.errorIcon}>⚠️</Text>
                   <Text style={styles.errorText}>
                     {numericAmount > availableBalance
-                      ? `Amount exceeds available balance (₹${availableBalance.toLocaleString(
-                          "en-IN"
-                        )})`
-                      : `Amount must be greater than 0`}
+                      ? t('withdrawal.amountExceeds', { balance: availableBalance.toLocaleString("en-IN") })
+                      : t('withdrawal.amountMustBeGreater')}
                   </Text>
                 </View>
               )}
@@ -216,24 +212,24 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
               {/* Summary Card */}
               {isValidAmount && (
                 <View style={styles.summaryCard}>
-                  <Text style={styles.summaryTitle}>Summary</Text>
+                  <Text style={styles.summaryTitle}>{t('withdrawal.summary')}</Text>
                   <View style={styles.summaryContent}>
                     <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Withdrawal Amount</Text>
+                      <Text style={styles.summaryLabel}>{t('withdrawal.withdrawalAmount')}</Text>
                       <Text style={styles.summaryValue}>
-                        ₹{numericAmount.toLocaleString("en-IN")}
+                        {t('common.currency')}{numericAmount.toLocaleString("en-IN")}
                       </Text>
                     </View>
                     <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Remaining Balance</Text>
+                      <Text style={styles.summaryLabel}>{t('withdrawal.remainingBalance')}</Text>
                       <Text style={styles.remainingBalance}>
-                        ₹{(availableBalance - numericAmount).toLocaleString("en-IN")}
+                        {t('common.currency')}{(availableBalance - numericAmount).toLocaleString("en-IN")}
                       </Text>
                     </View>
                     <View style={styles.divider} />
                     <View style={styles.summaryRow}>
-                      <Text style={styles.processingLabel}>Processing Time</Text>
-                      <Text style={styles.processingValue}>2-3 business days</Text>
+                      <Text style={styles.processingLabel}>{t('withdrawal.processingTime')}</Text>
+                      <Text style={styles.processingValue}>{t('withdrawal.processingTimeValue')}</Text>
                     </View>
                   </View>
                 </View>
@@ -247,9 +243,9 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
                   <Text style={styles.payoutIcon}>🏦</Text>
                 </View>
                 <View style={styles.payoutInfo}>
-                  <Text style={styles.payoutTitle}>Bank Transfer</Text>
+                  <Text style={styles.payoutTitle}>{t('withdrawal.payoutMethod')}</Text>
                   <Text style={styles.payoutDescription}>
-                    Amount will be transferred to your registered bank account within 2-3 business days
+                    {t('withdrawal.payoutDescription')}
                   </Text>
                 </View>
               </View>
@@ -263,7 +259,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
               onPress={handleClose}
               disabled={loading}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('withdrawal.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -277,7 +273,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.withdrawButtonText}>Withdraw</Text>
+                <Text style={styles.withdrawButtonText}>{t('withdrawal.withdraw')}</Text>
               )}
             </TouchableOpacity>
           </View>

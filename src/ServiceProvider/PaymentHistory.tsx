@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import { useTranslation } from 'react-i18next';
 
 interface Payment {
   id: string;
@@ -17,6 +18,8 @@ interface PaymentHistoryProps {
 }
 
 export function PaymentHistory({ payments }: PaymentHistoryProps) {
+  const { t } = useTranslation();
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -30,60 +33,81 @@ export function PaymentHistory({ payments }: PaymentHistoryProps) {
     }
   };
 
+  const getStatusTranslation = (status: string) => {
+    switch (status) {
+      case "completed":
+        return t('wallet.transactionTypes.COMPLETED') || t('common.completed');
+      case "pending":
+        return t('wallet.transactionTypes.PENDING') || t('common.pending');
+      case "failed":
+        return t('wallet.transactionTypes.FAILED') || t('common.failed');
+      default:
+        return status;
+    }
+  };
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Payment History</Text>
+        <Text style={styles.cardTitle}>{t('wallet.recentActivity')}</Text>
       </View>
       <View style={styles.cardContent}>
         <View style={styles.paymentsContainer}>
-          {payments.map((payment) => {
-            const statusColors = getStatusColor(payment.status);
-            const isEarning = payment.type === "earning";
-            
-            return (
-              <View 
-                key={payment.id} 
-                style={styles.paymentItem}
-              >
-                <View style={styles.paymentLeft}>
-                  <View style={[
-                    styles.paymentIconContainer,
-                    isEarning ? styles.earningIcon : styles.withdrawalIcon
-                  ]}>
-                    {isEarning ? (
-                      <MaterialIcon name="trending-up" size={16} color="#10b981" />
-                    ) : (
-                      <MaterialIcon name="trending-down" size={16} color="#3b82f6" />
-                    )}
-                  </View>
-                  <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentDescription}>{payment.description}</Text>
-                    <Text style={styles.paymentDate}>{payment.date}</Text>
-                  </View>
-                </View>
-                <View style={styles.paymentRight}>
-                  <Text style={[
-                    styles.paymentAmount,
-                    isEarning ? styles.earningAmount : styles.withdrawalAmount
-                  ]}>
-                    {isEarning ? '+' : '-'}{payment.amount}
-                  </Text>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: statusColors.backgroundColor }
-                  ]}>
-                    <Text style={[
-                      styles.statusText,
-                      { color: statusColors.color }
+          {payments.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>{t('wallet.noTransactions')}</Text>
+              <Text style={styles.emptyStateDescription}>{t('wallet.noTransactionsDesc')}</Text>
+            </View>
+          ) : (
+            payments.map((payment) => {
+              const statusColors = getStatusColor(payment.status);
+              const statusText = getStatusTranslation(payment.status);
+              const isEarning = payment.type === "earning";
+              
+              return (
+                <View 
+                  key={payment.id} 
+                  style={styles.paymentItem}
+                >
+                  <View style={styles.paymentLeft}>
+                    <View style={[
+                      styles.paymentIconContainer,
+                      isEarning ? styles.earningIcon : styles.withdrawalIcon
                     ]}>
-                      {payment.status}
+                      {isEarning ? (
+                        <MaterialIcon name="trending-up" size={16} color="#10b981" />
+                      ) : (
+                        <MaterialIcon name="trending-down" size={16} color="#3b82f6" />
+                      )}
+                    </View>
+                    <View style={styles.paymentInfo}>
+                      <Text style={styles.paymentDescription}>{payment.description}</Text>
+                      <Text style={styles.paymentDate}>{payment.date}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.paymentRight}>
+                    <Text style={[
+                      styles.paymentAmount,
+                      isEarning ? styles.earningAmount : styles.withdrawalAmount
+                    ]}>
+                      {isEarning ? '+' : '-'}{payment.amount}
                     </Text>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: statusColors.backgroundColor }
+                    ]}>
+                      <Text style={[
+                        styles.statusText,
+                        { color: statusColors.color }
+                      ]}>
+                        {statusText}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })
+          )}
         </View>
       </View>
     </View>
@@ -118,6 +142,22 @@ const styles = StyleSheet.create({
   },
   paymentsContainer: {
     gap: 16,
+  },
+  emptyState: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  emptyStateDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
   },
   paymentItem: {
     flexDirection: 'row',

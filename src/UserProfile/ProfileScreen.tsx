@@ -27,6 +27,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/userStore";
 import { setHasMobileNumber } from "../features/customerSlice";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get("window");
 
@@ -120,6 +121,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
   const { appUser } = useAppUser();
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
 
   // USE REDUX STATE
   const dispatch = useDispatch();
@@ -330,7 +332,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         appUser?.serviceProviderId?.toString() ||
         userId?.toString() ||
         serviceProviderData?.serviceproviderId?.toString() ||
-        "N/A"
+        t('common.na')
       );
     } else {
       // Try multiple sources for customer ID
@@ -339,14 +341,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         userId?.toString() ||
         customerId?.toString() ||
         customerData?.customerid?.toString() ||
-        "N/A"
+        t('common.na')
       );
     }
   };
 
   // Function to get display name for greeting
   const getDisplayName = () => {
-    return userName || appUser?.nickname || "User";
+    return userName || appUser?.nickname || t('profile.page.user');
   };
 
   // Format mobile number for display
@@ -393,23 +395,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       if (response.data.exists !== undefined) {
         isAvailable = !response.data.exists;
         errorMessage = response.data.exists
-          ? `${
-              isAlternate ? "Alternate" : "Mobile"
-            } number is already registered`
+          ? isAlternate 
+            ? t('errors.alternateNumberUnavailable')
+            : t('errors.contactNumberUnavailable')
           : "";
       } else if (response.data.available !== undefined) {
         isAvailable = response.data.available;
         errorMessage = !response.data.available
-          ? `${
-              isAlternate ? "Alternate" : "Mobile"
-            } number is already registered`
+          ? isAlternate 
+            ? t('errors.alternateNumberUnavailable')
+            : t('errors.contactNumberUnavailable')
           : "";
       } else if (response.data.isAvailable !== undefined) {
         isAvailable = response.data.isAvailable;
         errorMessage = !response.data.isAvailable
-          ? `${
-              isAlternate ? "Alternate" : "Mobile"
-            } number is already registered`
+          ? isAlternate 
+            ? t('errors.alternateNumberUnavailable')
+            : t('errors.contactNumberUnavailable')
           : "";
       } else {
         isAvailable = true;
@@ -434,9 +436,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     } catch (error: any) {
       console.error("Error validating mobile number:", error);
 
-      let errorMessage = `Error checking ${
-        isAlternate ? "alternate" : "mobile"
-      } number`;
+      let errorMessage = t('errors.generic');
 
       if (error.response?.data) {
         const apiError = error.response.data;
@@ -448,15 +448,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           errorMessage = apiError.error;
         }
       } else if (error.response?.status === 400) {
-        errorMessage = `Invalid ${
-          isAlternate ? "alternate" : "mobile"
-        } number format`;
+        errorMessage = t('validation.phone');
       } else if (error.response?.status === 409) {
-        errorMessage = `${
-          isAlternate ? "Alternate" : "Mobile"
-        } number is already registered`;
+        errorMessage = isAlternate 
+          ? t('errors.alternateNumberUnavailable')
+          : t('errors.contactNumberUnavailable');
       } else if (error.response?.status === 500) {
-        errorMessage = "Server error. Please try again later.";
+        errorMessage = t('errors.server');
       }
 
       setValidation({
@@ -509,7 +507,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         ...prev,
         formatError: false,
         error:
-          prev.error === "Please enter a valid 10-digit mobile number"
+          prev.error === t('profile.page.exactly10Digits')
             ? ""
             : prev.error,
       }));
@@ -519,7 +517,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       if (userData.altContactNumber === cleanedValue) {
         setAltContactValidation((prev) => ({
           ...prev,
-          error: "Alternate number cannot be same as contact number",
+          error: t('profile.page.numbersMustBeDifferent'),
           isAvailable: false,
           formatError: false,
         }));
@@ -528,8 +526,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         userData.altContactNumber.length === 10
       ) {
         if (
-          altContactValidation.error ===
-          "Alternate number cannot be same as contact number"
+          altContactValidation.error === t('profile.page.numbersMustBeDifferent')
         ) {
           setAltContactValidation((prev) => ({
             ...prev,
@@ -543,7 +540,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     } else if (cleanedValue) {
       setContactValidation({
         loading: false,
-        error: "Please enter a valid 10-digit mobile number",
+        error: t('profile.page.exactly10Digits'),
         isAvailable: null,
         formatError: true,
       });
@@ -575,7 +572,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           ...prev,
           formatError: false,
           error:
-            prev.error === "Please enter a valid 10-digit mobile number"
+            prev.error === t('profile.page.exactly10Digits')
               ? ""
               : prev.error,
         }));
@@ -583,7 +580,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         if (cleanedValue === userData.contactNumber) {
           setAltContactValidation({
             loading: false,
-            error: "Alternate number cannot be same as contact number",
+            error: t('profile.page.numbersMustBeDifferent'),
             isAvailable: false,
             formatError: false,
           });
@@ -593,7 +590,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       } else {
         setAltContactValidation({
           loading: false,
-          error: "Please enter a valid 10-digit mobile number",
+          error: t('profile.page.exactly10Digits'),
           isAvailable: null,
           formatError: true,
         });
@@ -650,8 +647,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     if (contactNumberChanged) {
       if (!validateMobileFormat(userData.contactNumber)) {
         Alert.alert(
-          "Validation Error",
-          "Please enter a valid 10-digit contact number",
+          t('profile.page.validationError'),
+          t('profile.page.enterValidContact'),
         );
         return false;
       }
@@ -669,16 +666,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     if (altContactNumberChanged && userData.altContactNumber) {
       if (!validateMobileFormat(userData.altContactNumber)) {
         Alert.alert(
-          "Validation Error",
-          "Please enter a valid 10-digit alternate contact number",
+          t('profile.page.validationError'),
+          t('profile.page.enterValidAlternate'),
         );
         return false;
       }
 
       if (!areNumbersUnique()) {
         Alert.alert(
-          "Validation Error",
-          "Contact number and alternate contact number must be different",
+          t('profile.page.validationError'),
+          t('profile.page.numbersMustBeDifferent'),
         );
         return false;
       }
@@ -699,7 +696,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     }
 
     if (contactNumberChanged && contactValidation.isAvailable === false) {
-      Alert.alert("Validation Error", "Contact number is not available");
+      Alert.alert(t('profile.page.validationError'), t('errors.contactNumberUnavailable'));
       allValid = false;
     }
 
@@ -708,10 +705,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       userData.altContactNumber &&
       altContactValidation.isAvailable === false
     ) {
-      Alert.alert(
-        "Validation Error",
-        "Alternate contact number is not available",
-      );
+      Alert.alert(t('profile.page.validationError'), t('errors.alternateNumberUnavailable'));
       allValid = false;
     }
 
@@ -915,7 +909,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             if (!uniqueAddresses.has(locationKey)) {
               uniqueAddresses.set(locationKey, {
                 id: loc._id || `addr_${idx}`,
-                type: loc.name || "Other",
+                type: loc.name || t('profile.page.other'),
                 street: primaryAddress.formatted_address,
                 city:
                   getComponent("locality") ||
@@ -996,9 +990,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         addresses.push({
           id: "permanent",
           type: "Permanent",
-          street: streetAddress || "Address not specified",
+          street: streetAddress || t('profile.page.addressNotSpecified'),
           city: permAddr.ctArea || data.locality || data.currentLocation || "",
-          country: permAddr.country || "India",
+          country: permAddr.country || t('country.india'),
           postalCode:
             permAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
         });
@@ -1015,9 +1009,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         addresses.push({
           id: "correspondence",
           type: "Correspondence",
-          street: streetAddress || "Address not specified",
+          street: streetAddress || t('profile.page.addressNotSpecified'),
           city: corrAddr.ctArea || data.locality || data.currentLocation || "",
-          country: corrAddr.country || "India",
+          country: corrAddr.country || t('country.india'),
           postalCode:
             corrAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
         });
@@ -1026,12 +1020,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       if (addresses.length === 0) {
         const serviceProviderAddress: Address = {
           id: "1",
-          type: "Home",
+          type: t('profile.page.home'),
           street: `${data.buildingName || ""} ${data.street || ""} ${
             data.locality || ""
           }`.trim(),
           city: data.nearbyLocation || data.currentLocation || "",
-          country: "India",
+          country: t('country.india'),
           postalCode: data.pincode ? data.pincode.toString() : "",
         };
         addresses.push(serviceProviderAddress);
@@ -1093,14 +1087,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           console.log("✅ Address saved successfully");
         } catch (err) {
           console.error("❌ Failed to save new address:", err);
-          Alert.alert("Error", "Could not save address. Try again.");
+          Alert.alert(t('common.error'), t('profile.page.couldNotSaveAddress'));
           setAddresses(addresses);
           return;
         }
       }
 
       setNewAddress({
-        type: "Home",
+        type: t('profile.page.home'),
         customType: "",
         street: "",
         city: "",
@@ -1109,7 +1103,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       });
       setShowAddAddress(false);
     } else {
-      Alert.alert("Validation Error", "Please fill in all address fields");
+      Alert.alert(t('profile.page.validationError'), t('profile.page.fillAllAddressFields'));
     }
   };
 
@@ -1128,7 +1122,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       } catch (error) {
         console.error("❌ Failed to remove address from user settings:", error);
         setAddresses(addresses);
-        Alert.alert("Error", "Could not remove address. Try again.");
+        Alert.alert(t('common.error'), t('profile.page.couldNotRemoveAddress'));
       }
     }
   };
@@ -1275,7 +1269,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             ctArea: permanentAddress.city || "",
             pinNo: permanentAddress.postalCode || "",
             state: "West Bengal",
-            country: permanentAddress.country || "India",
+            country: permanentAddress.country || t('country.india'),
           };
         }
 
@@ -1286,7 +1280,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             ctArea: correspondenceAddress.city || "",
             pinNo: correspondenceAddress.postalCode || "",
             state: "West Bengal",
-            country: correspondenceAddress.country || "India",
+            country: correspondenceAddress.country || t('country.india'),
           };
         }
 
@@ -1295,7 +1289,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           payload,
         );
         await fetchServiceProviderData(userId);
-        Alert.alert("Success", "Profile updated successfully");
+        Alert.alert(t('common.success'), t('profile.page.updateSuccess'));
       } else if (userRole === "CUSTOMER" && userId) {
         const payload: any = {
           customerid: userId,
@@ -1332,7 +1326,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           await updateAddressesInUserSettings(addresses);
         }
 
-        Alert.alert("Success", "Profile updated successfully");
+        Alert.alert(t('common.success'), t('profile.page.updateSuccess'));
       }
 
       setValidatedFields(new Set());
@@ -1352,7 +1346,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to save data:", error);
-      Alert.alert("Error", "Failed to save changes. Please try again.");
+      Alert.alert(t('common.error'), t('profile.page.updateFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -1527,7 +1521,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             { color: colors.text, fontSize: fontSizes.formTitle },
           ]}
         >
-          Loading your profile
+          {t('profile.page.loadingProfile')}
         </Text>
         <Text
           style={[
@@ -1535,7 +1529,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             { color: colors.textSecondary, fontSize: fontSizes.roleText },
           ]}
         >
-          Please wait while we fetch your information
+          {t('profile.page.pleaseWait')}
         </Text>
       </View>
     </View>
@@ -1809,7 +1803,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   { color: colors.text, fontSize: fontSizes.greeting },
                 ]}
               >
-                Hello, {getDisplayName()}
+                {t('profile.page.greeting', { name: getDisplayName() })}
               </Text>
               <Text
                 style={[
@@ -1818,15 +1812,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                 ]}
               >
                 {userRole === "SERVICE_PROVIDER"
-                  ? "Service Provider"
-                  : "Customer"}
-                , {getUserIdDisplay()}
+                  ? t('profile.page.serviceProvider')
+                  : t('profile.page.customer')}
+                , {t('profile.page.id', { id: getUserIdDisplay() })}
                 {userRole === "CUSTOMER" && !hasMobileNumber && (
                   <Text
                     style={[styles.mobileWarningSmall, { color: colors.error }]}
                   >
                     {" "}
-                    ⚠️ Mobile number required
+                    ⚠️ {t('profile.page.mobileRequired')}
                   </Text>
                 )}
               </Text>
@@ -1849,7 +1843,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   { color: "#fff", fontSize: fontSizes.buttonText },
                 ]}
               >
-                Edit
+                {t('profile.page.edit')}
               </Text>
             </TouchableOpacity>
           )}
@@ -1869,7 +1863,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                 { color: colors.text, fontSize: fontSizes.formTitle },
               ]}
             >
-              My account
+              {t('profile.page.myAccount')}
             </Text>
             {userRole === "CUSTOMER" && !hasMobileNumber && (
               <TouchableOpacity
@@ -1885,7 +1879,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.error, fontSize: fontSizes.buttonText },
                   ]}
                 >
-                  Add Mobile Number
+                  {t('profile.page.addMobileNumber')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1902,7 +1896,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                 },
               ]}
             >
-              User Information
+              {t('profile.page.userInformation')}
             </Text>
 
             <View style={styles.inputRow}>
@@ -1913,7 +1907,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.inputLabel },
                   ]}
                 >
-                  Username
+                  {t('profile.page.username')}
                 </Text>
                 <TextInput
                   style={[
@@ -1926,7 +1920,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       fontSize: fontSizes.input,
                     },
                   ]}
-                  value={appUser?.nickname || userName || "User"}
+                  value={appUser?.nickname || userName || t('profile.page.user')}
                   editable={false}
                 />
               </View>
@@ -1937,7 +1931,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.inputLabel },
                   ]}
                 >
-                  Email address
+                  {t('profile.page.emailAddress')}
                 </Text>
                 <TextInput
                   style={[
@@ -1954,7 +1948,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     appUser?.email ||
                     auth0User?.email ||
                     emailId ||
-                    "No email available"
+                    t('profile.page.noEmail')
                   }
                   editable={false}
                 />
@@ -1969,7 +1963,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.compactLabel },
                   ]}
                 >
-                  First name
+                  {t('profile.page.firstName')}
                 </Text>
                 <TextInput
                   style={[
@@ -1987,7 +1981,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     handleInputChange("firstName", value)
                   }
                   editable={isEditing}
-                  placeholder="First"
+                  placeholder={t('profile.page.firstNamePlaceholder')}
                   placeholderTextColor={colors.placeholder}
                 />
               </View>
@@ -1998,7 +1992,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.compactLabel },
                   ]}
                 >
-                  Last name
+                  {t('profile.page.lastName')}
                 </Text>
                 <TextInput
                   style={[
@@ -2014,7 +2008,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   value={userData.lastName}
                   onChangeText={(value) => handleInputChange("lastName", value)}
                   editable={isEditing}
-                  placeholder="Last"
+                  placeholder={t('profile.page.lastNamePlaceholder')}
                   placeholderTextColor={colors.placeholder}
                 />
               </View>
@@ -2025,7 +2019,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.compactLabel },
                   ]}
                 >
-                  {userRole === "SERVICE_PROVIDER" ? "Provider ID" : "User ID"}
+                  {userRole === "SERVICE_PROVIDER"
+                    ? t('profile.page.providerId')
+                    : t('profile.page.userId')}
                 </Text>
                 <TextInput
                   style={[
@@ -2054,7 +2050,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
               { color: colors.textSecondary, fontSize: fontSizes.sectionTitle },
             ]}
           >
-            Contact Information
+            {t('profile.page.contactInformation')}
           </Text>
 
           <View style={styles.inputRow}>
@@ -2067,7 +2063,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.inputLabel },
                   ]}
                 >
-                  Contact Number
+                  {t('profile.page.contactNumber')}
                 </Text>
                 {userRole === "CUSTOMER" && (
                   <Text
@@ -2145,7 +2141,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   ]}
                   value={formatMobileNumber(userData.contactNumber)}
                   onChangeText={handleContactNumberChange}
-                  placeholder="Enter 10-digit number"
+                  placeholder={t('profile.page.enter10Digit')}
                   placeholderTextColor={colors.placeholder}
                   editable={isEditing}
                   keyboardType="phone-pad"
@@ -2190,7 +2186,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.error, fontSize: fontSizes.validationText },
                   ]}
                 >
-                  Please enter exactly 10 digits
+                  {t('profile.page.exactly10Digits')}
                 </Text>
               )}
               {contactValidation.isAvailable && (
@@ -2203,7 +2199,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     },
                   ]}
                 >
-                  Contact number is available
+                  {t('profile.page.contactNumberAvailable')}
                 </Text>
               )}
               {userRole === "CUSTOMER" && !hasMobileNumber && !isEditing && (
@@ -2217,7 +2213,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       },
                     ]}
                   >
-                    Mobile number is required for bookings and notifications
+                    {t('profile.page.mobileRequiredDesc')}
                   </Text>
                   <TouchableOpacity onPress={() => setShowMobileDialog(true)}>
                     <Text
@@ -2229,7 +2225,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                         },
                       ]}
                     >
-                      Click here to add mobile number
+                      {t('profile.page.clickToAddMobile')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2244,7 +2240,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   { color: colors.text, fontSize: fontSizes.inputLabel },
                 ]}
               >
-                Alternative Contact Number
+                {t('profile.page.alternativeContact')}
               </Text>
               <View style={styles.phoneInputContainer}>
                 {isEditing ? (
@@ -2308,7 +2304,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   ]}
                   value={formatMobileNumber(userData.altContactNumber)}
                   onChangeText={handleAltContactNumberChange}
-                  placeholder="Enter 10-digit number"
+                  placeholder={t('profile.page.enter10Digit')}
                   placeholderTextColor={colors.placeholder}
                   editable={isEditing}
                   keyboardType="phone-pad"
@@ -2353,7 +2349,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.error, fontSize: fontSizes.validationText },
                   ]}
                 >
-                  Please enter exactly 10 digits
+                  {t('profile.page.exactly10Digits')}
                 </Text>
               )}
               {altContactValidation.isAvailable && (
@@ -2366,7 +2362,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     },
                   ]}
                 >
-                  Alternate number is available
+                  {t('profile.page.alternateNumberAvailable')}
                 </Text>
               )}
             </View>
@@ -2393,7 +2389,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.sectionTitle },
                   ]}
                 >
-                  Select Country Code
+                  {t('profile.page.selectCountryCode')}
                 </Text>
                 <Picker
                   selectedValue={countryCode}
@@ -2425,7 +2421,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: "#fff", fontSize: fontSizes.buttonText },
                     ]}
                   >
-                    Done
+                    {t('profile.page.done')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2452,7 +2448,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     { color: colors.text, fontSize: fontSizes.sectionTitle },
                   ]}
                 >
-                  Select Country Code
+                  {t('profile.page.selectCountryCode')}
                 </Text>
                 <Picker
                   selectedValue={altCountryCode}
@@ -2484,7 +2480,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: "#fff", fontSize: fontSizes.buttonText },
                     ]}
                   >
-                    Done
+                    {t('profile.page.done')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2500,7 +2496,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   { color: colors.text, fontSize: fontSizes.inputLabel },
                 ]}
               >
-                Addresses
+                {t('profile.page.addresses')}
               </Text>
               {isEditing && userRole === "CUSTOMER" && (
                 <TouchableOpacity
@@ -2514,7 +2510,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: colors.primary, fontSize: fontSizes.buttonText },
                     ]}
                   >
-                    Add New Address
+                    {t('profile.page.addNewAddress')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -2537,7 +2533,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: colors.primary, fontSize: fontSizes.formTitle },
                     ]}
                   >
-                    Add New Address
+                    {t('profile.page.addNewAddress')}
                   </Text>
                   <TouchableOpacity onPress={() => setShowAddAddress(false)}>
                     <Icon name="x" size={20} color={colors.textSecondary} />
@@ -2551,7 +2547,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: colors.text, fontSize: fontSizes.inputLabel },
                     ]}
                   >
-                    Save As
+                    {t('profile.page.saveAs')}
                   </Text>
                   <View style={styles.addressTypeButtons}>
                     <TouchableOpacity
@@ -2593,7 +2589,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                           ],
                         ]}
                       >
-                        Home
+                        {t('profile.page.home')}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -2635,7 +2631,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                           ],
                         ]}
                       >
-                        Work
+                        {t('profile.page.work')}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -2677,7 +2673,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                           ],
                         ]}
                       >
-                        Other
+                        {t('profile.page.other')}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -2691,7 +2687,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                         { color: colors.text, fontSize: fontSizes.inputLabel },
                       ]}
                     >
-                      Location Name
+                      {t('profile.page.locationName')}
                     </Text>
                     <TextInput
                       style={[
@@ -2703,7 +2699,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                           fontSize: fontSizes.input,
                         },
                       ]}
-                      placeholder="Enter location name"
+                      placeholder={t('profile.page.enterLocationName')}
                       placeholderTextColor={colors.placeholder}
                       value={newAddress.customType}
                       onChangeText={(value) =>
@@ -2720,7 +2716,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: colors.text, fontSize: fontSizes.inputLabel },
                     ]}
                   >
-                    Street Address
+                    {t('profile.page.streetAddress')}
                   </Text>
                   <TextInput
                     style={[
@@ -2736,7 +2732,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                     onChangeText={(value) =>
                       handleAddressInputChange("street", value)
                     }
-                    placeholder="Enter street address"
+                    placeholder={t('profile.page.enterStreetAddress')}
                     placeholderTextColor={colors.placeholder}
                   />
                 </View>
@@ -2749,7 +2745,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                         { color: colors.text, fontSize: fontSizes.inputLabel },
                       ]}
                     >
-                      City
+                      {t('profile.page.city')}
                     </Text>
                     <TextInput
                       style={[
@@ -2765,7 +2761,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       onChangeText={(value) =>
                         handleAddressInputChange("city", value)
                       }
-                      placeholder="Enter city"
+                      placeholder={t('profile.page.enterCity')}
                       placeholderTextColor={colors.placeholder}
                     />
                   </View>
@@ -2777,7 +2773,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                         { color: colors.text, fontSize: fontSizes.inputLabel },
                       ]}
                     >
-                      Country
+                      {t('profile.page.country')}
                     </Text>
                     <TextInput
                       style={[
@@ -2793,7 +2789,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       onChangeText={(value) =>
                         handleAddressInputChange("country", value)
                       }
-                      placeholder="Enter country"
+                      placeholder={t('profile.page.enterCountry')}
                       placeholderTextColor={colors.placeholder}
                     />
                   </View>
@@ -2805,7 +2801,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                         { color: colors.text, fontSize: fontSizes.inputLabel },
                       ]}
                     >
-                      Postal Code
+                      {t('profile.page.postalCode')}
                     </Text>
                     <TextInput
                       style={[
@@ -2821,7 +2817,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       onChangeText={(value) =>
                         handleAddressInputChange("postalCode", value)
                       }
-                      placeholder="Enter postal code"
+                      placeholder={t('profile.page.enterPostalCode')}
                       placeholderTextColor={colors.placeholder}
                     />
                   </View>
@@ -2846,7 +2842,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: "#fff", fontSize: fontSizes.buttonText },
                     ]}
                   >
-                    Add Address
+                    {t('profile.page.addAddress')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2859,7 +2855,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   { color: colors.textSecondary, fontSize: fontSizes.roleText },
                 ]}
               >
-                No addresses saved yet
+                {t('profile.page.noAddresses')}
               </Text>
             ) : (
               <View style={styles.addressesList}>
@@ -2947,8 +2943,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                               },
                             ]}
                           >
-                            {address.city || "No city"},{" "}
-                            {address.country || "No country"}{" "}
+                            {address.city || t('profile.page.noCity')},{" "}
+                            {address.country || t('profile.page.noCountry')}{" "}
                             {address.postalCode || ""}
                           </Text>
                           {userRole === "SERVICE_PROVIDER" && (
@@ -2961,7 +2957,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                                 },
                               ]}
                             >
-                              Service provider addresses are managed separately
+                              {t('profile.page.providerAddressNote')}
                             </Text>
                           )}
                         </View>
@@ -3004,7 +3000,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   },
                 ]}
               >
-                Service Status
+                {t('profile.page.serviceStatus')}
               </Text>
 
               <View
@@ -3024,7 +3020,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                         },
                       ]}
                     >
-                      Account Status
+                      {t('profile.page.accountStatus')}
                     </Text>
                     <View style={styles.statusValue}>
                       <View
@@ -3043,7 +3039,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                           },
                         ]}
                       >
-                        Verified
+                        {t('profile.page.verified')}
                       </Text>
                     </View>
                   </View>
@@ -3064,7 +3060,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       },
                     ]}
                   >
-                    Active Service Provider
+                    {t('profile.page.activeServiceProvider')}
                   </Text>
                 </View>
               </View>
@@ -3090,7 +3086,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: "#fff", fontSize: fontSizes.buttonText },
                     ]}
                   >
-                    Cancel
+                    {t('profile.page.cancel')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -3115,7 +3111,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                         { color: "#fff", fontSize: fontSizes.buttonText },
                       ]}
                     >
-                      Save Changes
+                      {t('profile.page.saveChanges')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -3133,7 +3129,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             { color: colors.textTertiary, fontSize: fontSizes.footerText },
           ]}
         >
-          © 2025 MyApp All rights reserved.
+          {t('profile.page.footer')}
         </Text>
       </View>
     </ScrollView>

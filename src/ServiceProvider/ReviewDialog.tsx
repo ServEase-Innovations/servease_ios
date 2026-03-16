@@ -19,6 +19,10 @@ import { Picker } from '@react-native-picker/picker';
 import { Chip } from 'react-native-paper';
 import { useToast } from "../hooks/useToast";
 import reviewsInstance from "../services/reviewsInstance";
+import { useTranslation } from 'react-i18next';
+import i18n from "../../i18n";
+import LinearGradient from "react-native-linear-gradient";
+// import i18n from '../i18n'; // Import i18n instance
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,12 +63,12 @@ interface ReviewsDialogProps {
   serviceProviderId: number | null;
 }
 
-// Service type options
-const SERVICE_TYPES = [
-  { value: "ALL", label: "All Services" },
-  { value: "ON_DEMAND", label: "On Demand" },
-  { value: "MONTHLY", label: "Monthly" },
-  { value: "SHORT_TERM", label: "Short Term" }
+// Service type options with translations
+const getServiceTypeOptions = (t: any) => [
+  { value: "ALL", label: t('reviewsDialog.allServices') },
+  { value: "ON_DEMAND", label: t('booking.options.onDemand') },
+  { value: "MONTHLY", label: t('booking.options.monthly') },
+  { value: "SHORT_TERM", label: t('booking.options.shortTerm') }
 ];
 
 // Get emoji based on rating
@@ -99,24 +103,29 @@ const getGradeColor = (grade: string): string => {
   }
 };
 
-const SkeletonLoader = () => (
-  <View style={styles.skeletonContainer}>
-    {[1, 2, 3].map((item) => (
-      <View key={item} style={styles.skeletonItem}>
-        <View style={styles.skeletonHeader}>
-          <View style={styles.skeletonAvatar} />
-          <View style={styles.skeletonContent}>
-            <View style={styles.skeletonLine} />
-            <View style={styles.skeletonStars} />
+const SkeletonLoader = () => {
+  const { t } = useTranslation();
+  
+  return (
+    <View style={styles.skeletonContainer}>
+      {[1, 2, 3].map((item) => (
+        <View key={item} style={styles.skeletonItem}>
+          <View style={styles.skeletonHeader}>
+            <View style={styles.skeletonAvatar} />
+            <View style={styles.skeletonContent}>
+              <View style={styles.skeletonLine} />
+              <View style={styles.skeletonStars} />
+            </View>
           </View>
+          <View style={styles.skeletonText} />
         </View>
-        <View style={styles.skeletonText} />
-      </View>
-    ))}
-  </View>
-);
+      ))}
+    </View>
+  );
+};
 
 export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDialogProps) {
+  const { t } = useTranslation();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +134,8 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
   const [averageRating, setAverageRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
   const { toast } = useToast();
+
+  const SERVICE_TYPES = getServiceTypeOptions(t);
 
   useEffect(() => {
     if (visible && serviceProviderId) {
@@ -172,7 +183,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
         
         const processedReviews = reviewsData.map(review => ({
           ...review,
-          customerName: `Customer ${review.review_id}`
+          customerName: `${t('reviewsDialog.review.anonymous')} ${review.review_id}`
         }));
 
         const sortedReviews = processedReviews.sort((a, b) => b.created_at - a.created_at);
@@ -183,8 +194,8 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
     } catch (error) {
       console.error("Failed to fetch reviews:", error);
       toast({
-        title: "Error",
-        description: "Failed to load reviews. Please try again.",
+        title: t('common.error'),
+        description: t('errors.failedToLoadReviews'),
         variant: "destructive",
       });
     } finally {
@@ -212,15 +223,20 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
     );
   };
 
+  // FIXED: Use i18n.language for locale, not translation key
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString('en-US', { 
+    if (diffDays === 1) return t('time.yesterday');
+    if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+    
+    // Use the current language from i18n for locale
+    const currentLanguage = i18n.language || 'en';
+    
+    return date.toLocaleDateString(currentLanguage, { 
       month: 'short', 
       day: 'numeric',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
@@ -229,9 +245,9 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
 
   const getServiceTypeLabel = (type: string): string => {
     switch (type) {
-      case 'ON_DEMAND': return 'On Demand';
-      case 'MONTHLY': return 'Monthly';
-      case 'SHORT_TERM': return 'Short Term';
+      case 'ON_DEMAND': return t('booking.options.onDemand');
+      case 'MONTHLY': return t('booking.options.monthly');
+      case 'SHORT_TERM': return t('booking.options.shortTerm');
       default: return type;
     }
   };
@@ -262,23 +278,30 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           {/* Header - Fixed at top */}
-          <View style={styles.header}>
+          <LinearGradient
+                    colors={["#0a2a66ff", "#004aadff"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.header}
+                  >
+          {/* <View style={styles.header}> */}
             <View style={styles.headerContent}>
               <View style={styles.titleSection}>
                 <StarIcon name="star" size={24} color="#ffffff" />
-                <Text style={styles.title}>Customer Reviews</Text>
+                <Text style={styles.title}>{t('reviewsDialog.title')}</Text>
                 {providerRating && (
                   <View style={[styles.gradeBadge, { backgroundColor: getGradeColor(providerRating.grade) }]}>
                     <Text style={styles.gradeText}>{providerRating.grade}</Text>
                   </View>
                 )}
               </View>
-              <Text style={styles.subtitle}>Feedback from your clients helps you improve</Text>
+              <Text style={styles.subtitle}>{t('reviewsDialog.subtitle')}</Text>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <Icon name="x" size={24} color="#ffffff" />
             </TouchableOpacity>
-          </View>
+          {/* </View> */}
+</LinearGradient>
 
           {/* Scrollable Content */}
           <ScrollView 
@@ -289,7 +312,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
             {loading && reviews.length === 0 ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#2563eb" />
-                <Text style={styles.loadingText}>Loading reviews...</Text>
+                <Text style={styles.loadingText}>{t('reviewsDialog.loading')}</Text>
               </View>
             ) : (
               <>
@@ -300,11 +323,13 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                       <View style={styles.ratingMain}>
                         <Text style={styles.averageRating}>{averageRating.toFixed(1)}</Text>
                         {renderStars(Math.round(averageRating), 16)}
-                        <Text style={styles.ratingCount}>{totalReviews} total reviews</Text>
+                        <Text style={styles.ratingCount}>
+                          {t('reviewsDialog.totalReviews', { count: totalReviews })}
+                        </Text>
                       </View>
                       
                       <View style={styles.gradeContainer}>
-                        <Text style={styles.gradeLabel}>Provider Grade</Text>
+                        <Text style={styles.gradeLabel}>{t('reviewsDialog.providerGrade')}</Text>
                         <View style={[styles.gradeCircle, { backgroundColor: getGradeColor(providerRating?.grade || 'B') }]}>
                           <Text style={styles.gradeCircleText}>{providerRating?.grade}</Text>
                         </View>
@@ -313,7 +338,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
 
                     {/* Distribution */}
                     <View style={styles.distributionContainer}>
-                      <Text style={styles.distributionTitle}>Rating Distribution</Text>
+                      <Text style={styles.distributionTitle}>{t('reviewsDialog.ratingDistribution')}</Text>
                       {[5, 4, 3, 2, 1].map((stars) => {
                         const count = providerRating.distribution[stars.toString() as keyof typeof providerRating.distribution] || 0;
                         const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
@@ -336,7 +361,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                 <View style={styles.filterSection}>
                   <View style={styles.filterLabelContainer}>
                     <Icon name="filter" size={16} color="#6b7280" />
-                    <Text style={styles.filterTitle}>Filter by service type:</Text>
+                    <Text style={styles.filterTitle}>{t('reviewsDialog.filterByService')}</Text>
                   </View>
                   <ScrollView 
                     horizontal 
@@ -366,8 +391,13 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                 {/* Results Count */}
                 <View style={styles.resultsContainer}>
                   <Text style={styles.resultsText}>
-                    Showing {filteredReviews.length} {filteredReviews.length === 1 ? 'review' : 'reviews'}
-                    {selectedServiceType !== 'ALL' && ` for ${getServiceTypeLabel(selectedServiceType)}`}
+                    {selectedServiceType === 'ALL' 
+                      ? t('reviewsDialog.showingReviews', { count: filteredReviews.length })
+                      : t('reviewsDialog.showingFor', { 
+                          count: filteredReviews.length, 
+                          service: getServiceTypeLabel(selectedServiceType) 
+                        })
+                    }
                   </Text>
                 </View>
 
@@ -376,11 +406,15 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                   {filteredReviews.length === 0 ? (
                     <View style={styles.emptyState}>
                       <Icon name="message-circle" size={64} color="#d1d5db" />
-                      <Text style={styles.emptyStateTitle}>No reviews yet</Text>
+                      <Text style={styles.emptyStateTitle}>
+                        {selectedServiceType !== 'ALL' 
+                          ? t('reviewsDialog.empty.noReviewsForService', { service: getServiceTypeLabel(selectedServiceType) })
+                          : t('reviewsDialog.empty.title')}
+                      </Text>
                       <Text style={styles.emptyStateText}>
                         {selectedServiceType !== 'ALL' 
-                          ? `No reviews for ${getServiceTypeLabel(selectedServiceType)} services`
-                          : 'Reviews will appear here once clients rate your services'}
+                          ? t('reviewsDialog.empty.noReviewsForService', { service: getServiceTypeLabel(selectedServiceType) })
+                          : t('reviewsDialog.empty.description')}
                       </Text>
                     </View>
                   ) : (
@@ -395,7 +429,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                               </View>
                               <View style={styles.reviewerDetails}>
                                 <Text style={styles.reviewerName}>
-                                  {review.customerName || 'Anonymous Customer'}
+                                  {review.customerName || t('reviewsDialog.review.anonymous')}
                                 </Text>
                                 <View style={styles.reviewMeta}>
                                   {renderStars(review.rating, 12)}
@@ -411,7 +445,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                           </View>
                           
                           <Text style={styles.reviewContent}>
-                            {review.review || "No comment provided"}
+                            {review.review || t('reviewsDialog.review.noComment')}
                           </Text>
                         </View>
                       );
@@ -437,7 +471,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: width * 0.95,
     maxWidth: 600,
-    height: height * 0.85, // Fixed height instead of maxHeight
+    height: height * 0.85,
     backgroundColor: '#ffffff',
     borderRadius: 20,
     overflow: 'hidden',
@@ -753,7 +787,6 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
   },
-  // Skeleton styles
   skeletonContainer: {
     padding: 20,
     gap: 16,

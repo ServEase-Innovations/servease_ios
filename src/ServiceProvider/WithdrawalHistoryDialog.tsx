@@ -14,6 +14,7 @@ import {
 // import { useToast } from "../hooks/use-toast"; // You'll need to adapt this for React Native
 import PaymentInstance from "../services/paymentInstance";
 import { useToast } from "../hooks/useToast";
+import { useTranslation } from 'react-i18next';
 
 interface LedgerEntry {
   ledger_id: string;
@@ -62,6 +63,7 @@ export function WithdrawalHistoryDialog({
   onOpenChange,
   serviceProviderId,
 }: WithdrawalHistoryDialogProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [historyData, setHistoryData] = useState<PayoutHistoryResponse | null>(null);
   const { toast } = useToast(); // Replace with React Native alert/toast
@@ -90,7 +92,7 @@ export function WithdrawalHistoryDialog({
     } catch (error) {
       console.error("Error fetching withdrawal history:", error);
       // Use Alert.alert or your toast implementation
-      Alert.alert("Error", "Failed to load withdrawal history. Please try again.");
+      Alert.alert(t('common.error'), t('errors.failedToLoadHistory'));
     } finally {
       setLoading(false);
     }
@@ -105,21 +107,21 @@ export function WithdrawalHistoryDialog({
         backgroundColor = "#DCFCE7";
         textColor = "#166534";
         borderColor = "#86EFAC";
-        label = "Completed";
+        label = t('withdrawalHistory.status.completed');
         break;
       case "pending":
       case "PENDING":
         backgroundColor = "#FEF9C3";
         textColor = "#854D0E";
         borderColor = "#FDE047";
-        label = "Pending";
+        label = t('withdrawalHistory.status.pending');
         break;
       case "failed":
       case "FAILED":
         backgroundColor = "#FEE2E2";
         textColor = "#991B1B";
         borderColor = "#FCA5A5";
-        label = "Failed";
+        label = t('withdrawalHistory.status.failed');
         break;
       default:
         backgroundColor = "#F3F4F6";
@@ -138,17 +140,17 @@ export function WithdrawalHistoryDialog({
   const getReasonText = (reason: LedgerEntry["reason"]) => {
     switch (reason) {
       case "DAILY_EARNED":
-        return "Service Payment";
+        return t('withdrawalHistory.transactionTypes.DAILY_EARNED');
       case "WITHDRAWAL":
-        return "Withdrawal";
+        return t('withdrawalHistory.transactionTypes.WITHDRAWAL');
       case "SERVICE_FEE":
-        return "Service Fee";
+        return t('withdrawalHistory.transactionTypes.SERVICE_FEE');
       case "SECURITY_DEPOSIT":
-        return "Security Deposit";
+        return t('withdrawalHistory.transactionTypes.SECURITY_DEPOSIT');
       case "REFUND":
-        return "Refund";
+        return t('withdrawalHistory.transactionTypes.REFUND');
       default:
-        return "Transaction";
+        return t('withdrawalHistory.transactionTypes.OTHER');
     }
   };
 
@@ -164,7 +166,7 @@ export function WithdrawalHistoryDialog({
   };
 
   const formatAmount = (amount: number) => {
-    return `₹${amount.toLocaleString("en-IN", {
+    return `${t('common.currency')}${amount.toLocaleString("en-IN", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -203,7 +205,7 @@ export function WithdrawalHistoryDialog({
               {formatDate(item.created_at)}
               {item.engagement_id && (
                 <Text style={styles.engagementId}>
-                  • Engagement #{item.engagement_id}
+                  • {t('withdrawalHistory.engagement', { id: item.engagement_id })}
                 </Text>
               )}
             </Text>
@@ -220,13 +222,18 @@ export function WithdrawalHistoryDialog({
             {formatAmount(item.amount)}
           </Text>
           <Text style={styles.transactionDirection}>
-            {item.direction === "CREDIT" ? "Credit" : "Debit"}
+            {item.direction === "CREDIT" 
+              ? t('withdrawalHistory.credit') 
+              : t('withdrawalHistory.debit')}
           </Text>
         </View>
       </View>
       {item.reference_type && (
         <Text style={styles.referenceText}>
-          Ref: {item.reference_type} #{item.reference_id}
+          {t('withdrawalHistory.ref', { 
+            type: item.reference_type, 
+            id: item.reference_id 
+          })}
         </Text>
       )}
     </View>
@@ -236,7 +243,9 @@ export function WithdrawalHistoryDialog({
     <View style={styles.payoutItem}>
       <View style={styles.payoutContent}>
         <View>
-          <Text style={styles.payoutTitle}>Payout #{item.payout_id}</Text>
+          <Text style={styles.payoutTitle}>
+            {t('withdrawalHistory.payoutId', { id: item.payout_id })}
+          </Text>
           <Text style={styles.payoutDate}>{formatDate(item.created_at)}</Text>
         </View>
         <View style={styles.payoutRight}>
@@ -246,7 +255,7 @@ export function WithdrawalHistoryDialog({
       </View>
       {item.engagement_id && (
         <Text style={styles.engagementText}>
-          Engagement #{item.engagement_id}
+          {t('withdrawalHistory.engagementId', { id: item.engagement_id })}
         </Text>
       )}
     </View>
@@ -264,7 +273,7 @@ export function WithdrawalHistoryDialog({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>Withdrawal History</Text>
+              <Text style={styles.headerTitle}>{t('withdrawalHistory.title')}</Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Text style={styles.closeIcon}>✕</Text>
               </TouchableOpacity>
@@ -273,7 +282,7 @@ export function WithdrawalHistoryDialog({
 
           <View style={styles.contentContainer}>
             <Text style={styles.subtitle}>
-              View your earnings, withdrawals, and transaction history
+              {t('withdrawalHistory.subtitle')}
             </Text>
 
             {loading ? (
@@ -282,12 +291,12 @@ export function WithdrawalHistoryDialog({
               </View>
             ) : !historyData ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No history data available</Text>
+                <Text style={styles.emptyText}>{t('withdrawalHistory.noData')}</Text>
                 <TouchableOpacity
                   style={styles.retryButton}
                   onPress={fetchWithdrawalHistory}
                 >
-                  <Text style={styles.retryButtonText}>Retry</Text>
+                  <Text style={styles.retryButtonText}>{t('withdrawalHistory.retry')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -295,19 +304,19 @@ export function WithdrawalHistoryDialog({
                 {/* Summary Cards */}
                 <View style={styles.summaryGrid}>
                   <View style={styles.summaryCard}>
-                    <Text style={styles.summaryLabel}>Total Earned</Text>
+                    <Text style={styles.summaryLabel}>{t('withdrawalHistory.summary.totalEarned')}</Text>
                     <Text style={styles.summaryValue}>
                       {formatAmount(historyData.summary.total_earned)}
                     </Text>
                   </View>
                   <View style={[styles.summaryCard, styles.summaryCardGreen]}>
-                    <Text style={styles.summaryLabelGreen}>Available Balance</Text>
+                    <Text style={styles.summaryLabelGreen}>{t('withdrawalHistory.summary.availableBalance')}</Text>
                     <Text style={styles.summaryValueGreen}>
                       {formatAmount(historyData.summary.available_to_withdraw)}
                     </Text>
                   </View>
                   <View style={[styles.summaryCard, styles.summaryCardOrange]}>
-                    <Text style={styles.summaryLabelOrange}>Total Withdrawn</Text>
+                    <Text style={styles.summaryLabelOrange}>{t('withdrawalHistory.summary.totalWithdrawn')}</Text>
                     <Text style={styles.summaryValueOrange}>
                       {formatAmount(historyData.summary.total_withdrawn)}
                     </Text>
@@ -327,7 +336,7 @@ export function WithdrawalHistoryDialog({
                       styles.filterButtonText,
                       selectedFilter === "all" && styles.filterButtonTextActive,
                     ]}>
-                      All Transactions
+                      {t('withdrawalHistory.filters.all')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -342,7 +351,7 @@ export function WithdrawalHistoryDialog({
                       styles.filterButtonText,
                       selectedFilter === "credit" && styles.filterButtonTextActive,
                     ]}>
-                      Earnings
+                      {t('withdrawalHistory.filters.earnings')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -357,7 +366,7 @@ export function WithdrawalHistoryDialog({
                       styles.filterButtonText,
                       selectedFilter === "debit" && styles.filterButtonTextActive,
                     ]}>
-                      Withdrawals
+                      {t('withdrawalHistory.filters.withdrawals')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -376,12 +385,14 @@ export function WithdrawalHistoryDialog({
                     <View style={styles.emptyTransactionContainer}>
                       <Text style={styles.emptyTransactionIcon}>🧾</Text>
                       <Text style={styles.emptyTransactionTitle}>
-                        No transactions found
+                        {t('withdrawalHistory.empty.title')}
                       </Text>
                       <Text style={styles.emptyTransactionSubtitle}>
                         {selectedFilter !== "all"
-                          ? `No ${selectedFilter} transactions`
-                          : "Start providing services to see transactions"}
+                          ? (selectedFilter === "credit" 
+                              ? t('withdrawalHistory.empty.noCredit')
+                              : t('withdrawalHistory.empty.noDebit'))
+                          : t('withdrawalHistory.empty.description')}
                       </Text>
                     </View>
                   )}
@@ -390,7 +401,7 @@ export function WithdrawalHistoryDialog({
                 {/* Payout History Section */}
                 {historyData.payouts && historyData.payouts.length > 0 && (
                   <View style={styles.payoutSection}>
-                    <Text style={styles.payoutSectionTitle}>Payout Requests</Text>
+                    <Text style={styles.payoutSectionTitle}>{t('withdrawalHistory.payoutSection')}</Text>
                     <View style={styles.payoutListContainer}>
                       <FlatList
                         data={historyData.payouts}

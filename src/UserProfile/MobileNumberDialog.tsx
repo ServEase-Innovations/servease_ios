@@ -21,6 +21,7 @@ import { useDispatch } from "react-redux";
 import { setHasMobileNumber } from "../features/customerSlice";
 import LinearGradient from "react-native-linear-gradient";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 interface MobileNumberDialogProps {
   visible: boolean;
@@ -51,6 +52,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
   onSuccess,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [contactNumber, setContactNumber] = useState("");
   const [altContactNumber, setAltContactNumber] = useState("");
   const [loading, setLoading] = useState(false);
@@ -185,17 +187,23 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
       if (response.data.exists !== undefined) {
         isAvailable = !response.data.exists;
         errorMessage = response.data.exists 
-          ? `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered` 
+          ? isAlternate 
+            ? t('errors.alternateNumberUnavailable') 
+            : t('errors.contactNumberUnavailable')
           : '';
       } else if (response.data.available !== undefined) {
         isAvailable = response.data.available;
         errorMessage = !response.data.available 
-          ? `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered` 
+          ? isAlternate 
+            ? t('errors.alternateNumberUnavailable') 
+            : t('errors.contactNumberUnavailable')
           : '';
       } else if (response.data.isAvailable !== undefined) {
         isAvailable = response.data.isAvailable;
         errorMessage = !response.data.isAvailable 
-          ? `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered` 
+          ? isAlternate 
+            ? t('errors.alternateNumberUnavailable') 
+            : t('errors.contactNumberUnavailable')
           : '';
       } else {
         isAvailable = true;
@@ -220,7 +228,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
     } catch (error: any) {
       console.error('Error validating mobile number:', error);
       
-      let errorMessage = `Error checking ${isAlternate ? 'alternate' : 'mobile'} number`;
+      let errorMessage = t('errors.generic');
       
       if (error.response?.data) {
         const apiError = error.response.data;
@@ -232,11 +240,13 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
           errorMessage = apiError.error;
         }
       } else if (error.response?.status === 400) {
-        errorMessage = `Invalid ${isAlternate ? 'alternate' : 'mobile'} number format`;
+        errorMessage = t('validation.phone');
       } else if (error.response?.status === 409) {
-        errorMessage = `${isAlternate ? 'Alternate' : 'Mobile'} number is already registered`;
+        errorMessage = isAlternate 
+          ? t('errors.alternateNumberUnavailable') 
+          : t('errors.contactNumberUnavailable');
       } else if (error.response?.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
+        errorMessage = t('errors.server');
       }
 
       setValidation({
@@ -278,7 +288,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
       setContactValidation(prev => ({
         ...prev,
         formatError: false,
-        error: prev.error === 'Please enter a valid 10-digit mobile number' ? '' : prev.error
+        error: prev.error === t('mobileDialog.enterExactly10Digits') ? '' : prev.error
       }));
       
       debouncedValidation(cleanedValue, false);
@@ -286,12 +296,12 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
       if (altContactNumber === cleanedValue) {
         setAltContactValidation(prev => ({
           ...prev,
-          error: 'Alternate number cannot be same as contact number',
+          error: t('mobileDialog.numbersMustBeDifferent'),
           isAvailable: false,
           formatError: false
         }));
       } else if (altContactNumber && altContactNumber.length === 10) {
-        if (altContactValidation.error === 'Alternate number cannot be same as contact number') {
+        if (altContactValidation.error === t('mobileDialog.numbersMustBeDifferent')) {
           setAltContactValidation(prev => ({
             ...prev,
             error: '',
@@ -304,7 +314,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
     } else if (cleanedValue) {
       setContactValidation({
         loading: false,
-        error: 'Please enter a valid 10-digit mobile number',
+        error: t('mobileDialog.enterExactly10Digits'),
         isAvailable: null,
         formatError: true
       });
@@ -335,13 +345,13 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
         setAltContactValidation(prev => ({
           ...prev,
           formatError: false,
-          error: prev.error === 'Please enter a valid 10-digit mobile number' ? '' : prev.error
+          error: prev.error === t('mobileDialog.enterExactly10Digits') ? '' : prev.error
         }));
 
         if (cleanedValue === contactNumber) {
           setAltContactValidation({
             loading: false,
-            error: 'Alternate number cannot be same as contact number',
+            error: t('mobileDialog.numbersMustBeDifferent'),
             isAvailable: false,
             formatError: false
           });
@@ -351,7 +361,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
       } else {
         setAltContactValidation({
           loading: false,
-          error: 'Please enter a valid 10-digit mobile number',
+          error: t('mobileDialog.enterExactly10Digits'),
           isAvailable: null,
           formatError: true
         });
@@ -373,40 +383,40 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
 
   const validateAllFields = async (): Promise<boolean> => {
     if (!validateMobileFormat(contactNumber)) {
-      showSnackbar("Please enter a valid 10-digit contact number", "error");
+      showSnackbar(t('mobileDialog.enterExactly10Digits'), "error");
       return false;
     }
 
     if (!validatedFields.has('contactNumber') || contactValidation.isAvailable === null) {
       const isContactAvailable = await checkMobileAvailability(contactNumber, false);
       if (!isContactAvailable) {
-        showSnackbar("Contact number is not available", "error");
+        showSnackbar(t('errors.contactNumberUnavailable'), "error");
         return false;
       }
     } else if (contactValidation.isAvailable === false) {
-      showSnackbar("Contact number is not available", "error");
+      showSnackbar(t('errors.contactNumberUnavailable'), "error");
       return false;
     }
 
     if (altContactNumber) {
       if (!validateMobileFormat(altContactNumber)) {
-        showSnackbar("Please enter a valid 10-digit alternate contact number", "error");
+        showSnackbar(t('mobileDialog.enterExactly10Digits'), "error");
         return false;
       }
 
       if (!areNumbersUnique()) {
-        showSnackbar("Contact number and alternate contact number must be different", "error");
+        showSnackbar(t('mobileDialog.numbersMustBeDifferent'), "error");
         return false;
       }
 
       if (!validatedFields.has('altContactNumber') || altContactValidation.isAvailable === null) {
         const isAltContactAvailable = await checkMobileAvailability(altContactNumber, true);
         if (!isAltContactAvailable) {
-          showSnackbar("Alternate contact number is not available", "error");
+          showSnackbar(t('errors.alternateNumberUnavailable'), "error");
           return false;
         }
       } else if (altContactValidation.isAvailable === false) {
-        showSnackbar("Alternate contact number is not available", "error");
+        showSnackbar(t('errors.alternateNumberUnavailable'), "error");
         return false;
       }
     }
@@ -425,7 +435,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
     try {
       if (!appUser?.customerid) {
         console.error("❌ Customer ID not found in appUser");
-        showSnackbar("Customer ID not found!", "error");
+        showSnackbar(t('errors.customerIdNotFound'), "error");
         setLoading(false);
         return;
       }
@@ -458,7 +468,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
       console.log("✅ Updated appUser with mobile numbers:", updatedUser);
       console.log("✅ Updated Redux state: hasMobileNumber = true");
 
-      showSnackbar("Mobile number(s) updated successfully!", "success");
+      showSnackbar(t('mobileDialog.updateSuccess'), "success");
       
       setValidatedFields(new Set());
       setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
@@ -470,7 +480,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
       }, 1500);
     } catch (error: any) {
       console.error("❌ Error updating mobile numbers:", error);
-      const errorMessage = error.response?.data?.message || "Something went wrong while updating!";
+      const errorMessage = error.response?.data?.message || t('mobileDialog.updateFailed');
       showSnackbar(errorMessage, "error");
     } finally {
       setLoading(false);
@@ -697,7 +707,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.header}
           >
-            <Text style={dynamicStyles.headerTitle}>Update Contact Numbers</Text>
+            <Text style={dynamicStyles.headerTitle}>{t('mobileDialog.title')}</Text>
             <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
               <Icon name="close" size={24} color="#fff" />
             </TouchableOpacity>
@@ -705,18 +715,18 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
 
           <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
             <Text style={dynamicStyles.description}>
-              Please enter your mobile and alternative contact numbers to continue.
+              {t('mobileDialog.description')}
             </Text>
 
             <View style={dynamicStyles.inputContainer}>
-              <Text style={dynamicStyles.label}>Contact Number *</Text>
+              <Text style={dynamicStyles.label}>{t('mobileDialog.contactNumberRequired')}</Text>
               <View style={dynamicStyles.inputWrapper}>
                 <TextInput
                   style={[
                     dynamicStyles.input,
                     (!!contactValidation.error || contactValidation.formatError) && dynamicStyles.inputError
                   ]}
-                  placeholder="10-digit mobile number"
+                  placeholder={t('mobileDialog.enter10Digit')}
                   placeholderTextColor={colors.placeholder}
                   value={contactNumber}
                   onChangeText={handleContactNumberChange}
@@ -738,21 +748,21 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
               {contactValidation.error ? (
                 <Text style={dynamicStyles.errorText}>{contactValidation.error}</Text>
               ) : contactValidation.formatError ? (
-                <Text style={dynamicStyles.errorText}>Please enter exactly 10 digits</Text>
+                <Text style={dynamicStyles.errorText}>{t('mobileDialog.enterExactly10Digits')}</Text>
               ) : contactValidation.isAvailable ? (
-                <Text style={dynamicStyles.successText}>Contact number is available</Text>
+                <Text style={dynamicStyles.successText}>{t('mobileDialog.contactNumberAvailable')}</Text>
               ) : null}
             </View>
 
             <View style={dynamicStyles.inputContainer}>
-              <Text style={dynamicStyles.label}>Alternative Contact Number (Optional)</Text>
+              <Text style={dynamicStyles.label}>{t('mobileDialog.alternativeContactOptional')}</Text>
               <View style={dynamicStyles.inputWrapper}>
                 <TextInput
                   style={[
                     dynamicStyles.input,
                     (!!altContactValidation.error || altContactValidation.formatError) && dynamicStyles.inputError
                   ]}
-                  placeholder="10-digit mobile number"
+                  placeholder={t('mobileDialog.enter10Digit')}
                   placeholderTextColor={colors.placeholder}
                   value={altContactNumber}
                   onChangeText={handleAltContactNumberChange}
@@ -774,16 +784,16 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
               {altContactValidation.error ? (
                 <Text style={dynamicStyles.errorText}>{altContactValidation.error}</Text>
               ) : altContactValidation.formatError ? (
-                <Text style={dynamicStyles.errorText}>Please enter exactly 10 digits</Text>
+                <Text style={dynamicStyles.errorText}>{t('mobileDialog.enterExactly10Digits')}</Text>
               ) : altContactValidation.isAvailable ? (
-                <Text style={dynamicStyles.successText}>Alternate number is available</Text>
+                <Text style={dynamicStyles.successText}>{t('mobileDialog.alternateNumberAvailable')}</Text>
               ) : null}
             </View>
 
             {!areNumbersUnique() && contactNumber && altContactNumber && (
               <View style={dynamicStyles.warningContainer}>
                 <Text style={dynamicStyles.warningText}>
-                  ⚠️ Contact number and alternate contact number must be different
+                  ⚠️ {t('mobileDialog.numbersMustBeDifferent')}
                 </Text>
               </View>
             )}
@@ -794,7 +804,7 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
               style={[dynamicStyles.button, dynamicStyles.cancelButton]}
               onPress={onClose}
             >
-              <Text style={dynamicStyles.cancelButtonText}>Cancel</Text>
+              <Text style={dynamicStyles.cancelButtonText}>{t('mobileDialog.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -808,10 +818,10 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
               {loading ? (
                 <View style={dynamicStyles.loadingContainer}>
                   <ActivityIndicator size="small" color="#fff" />
-                  <Text style={dynamicStyles.submitButtonText}> Updating...</Text>
+                  <Text style={dynamicStyles.submitButtonText}> {t('mobileDialog.updating')}</Text>
                 </View>
               ) : (
-                <Text style={dynamicStyles.submitButtonText}>Submit</Text>
+                <Text style={dynamicStyles.submitButtonText}>{t('mobileDialog.submit')}</Text>
               )}
             </TouchableOpacity>
           </View>
