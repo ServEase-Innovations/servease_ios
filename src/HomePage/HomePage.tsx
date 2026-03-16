@@ -443,6 +443,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const handleSave = (bookingDetails: any) => {
+    console.log("Booking details received from dialog:", bookingDetails);
+    bookingDetails.startTime = bookingDetails.startTime.format("HH:mm");
+    bookingDetails.endTime = bookingDetails.endTime.format("HH:mm");
+    console.log("Booking details received from dialog: 2", bookingDetails);
     const formatDate = (value: any) => {
       if (!value) return "";
       const date = new Date(value);
@@ -487,7 +491,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
       start_date: formatDate(bookingDetails.startDate),
       start_time: formatTime(bookingDetails.startTime),
       end_date: formatDate(bookingDetails.endDate || bookingDetails.startDate),
-      end_time: formatTime(bookingDetails.endTime),
+      end_time: bookingDetails.endTime,
       timeRange:
         bookingDetails.startTime && bookingDetails.endTime
           ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
@@ -495,6 +499,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
       bookingPreference: selectedRadioButtonValue,
       housekeepingRole: selectedType,
     };
+
+
+    console.log("Formatted booking details to send to parent:", booking);
 
     if (selectedRadioButtonValue === "Date") {
       switch (selectedType) {
@@ -1100,15 +1107,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
               <DemoCook
                 onClose={() => setShowCookDialog(false)}
                 sendDataToParent={sendDataToParent}
-                bookingType={{
-                  startDate: startDate,
-                  endDate: endDate || startDate,
-                  timeRange: startTime
-                    ? `${startTime.format("HH:mm")} - ${endTime.format("HH:mm")}`
-                    : startTime?.format("HH:mm") || "",
-                  bookingPreference: selectedRadioButtonValue,
-                  housekeepingRole: selectedType,
-                }}
               />
             </View>
           </View>

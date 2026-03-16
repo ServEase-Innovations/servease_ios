@@ -3,6 +3,7 @@
 import PaymentInstance from "./paymentInstance";
 import store from "../store/userStore";
 import RazorpayCheckout from "react-native-razorpay";
+import dayjs from "dayjs";
 
 export interface BookingPayload {
   customerid: number;
@@ -51,6 +52,7 @@ export const BookingService = {
   createEngagement: async (payload: BookingPayload) => {
     console.log("Creating engagement with payload:", payload);
     try {
+      console.log("Create Engagement payload ",PaymentInstance.getUri()+'/api/v2/createEngagement')
       const res = await PaymentInstance.post(`/api/v2/createEngagements`, payload, {
         headers: { "Content-Type": "application/json" },
       });
@@ -121,6 +123,7 @@ export const BookingService = {
    * Verify payment with backend
    */
   verifyPayment: async (paymentData: RazorpayPaymentResponse) => {
+    console.log("Verifying payment with data:", JSON.stringify(paymentData));
     try {
       const res = await PaymentInstance.post(`/api/v2/createEngagements/verify`, paymentData, {
         headers: { "Content-Type": "application/json" },
@@ -183,6 +186,7 @@ export const BookingService = {
    * Complete booking and payment flow with location data
    */
   bookAndPay: async (payload: BookingPayload, locationData?: { latitude: number; longitude: number } | LocationData) => {
+    console.log("Starting bookAndPay with payload:", payload);
     try {
       let latitude = 0;
       let longitude = 0;
@@ -219,6 +223,12 @@ export const BookingService = {
       payload.latitude = latitude;
       payload.longitude = longitude;
 
+      if(payload.start_time && payload.end_time){
+      const start = dayjs(`${payload.start_date} ${payload.start_time}`);
+      const end = dayjs(`${payload.end_date} ${payload.end_time}`);
+      payload.duration_minutes = Math.round(end.diff(start, 'minute'));
+    }
+
       console.log("Final payload with coordinates:", {
         ...payload,
         latitude,
@@ -227,10 +237,11 @@ export const BookingService = {
 
       // Create engagement
       const engagementData = await BookingService.createEngagement(payload);
+      // const engagementData = []
       console.log("Engagement data received:", JSON.stringify(engagementData, null, 2));
 
       // Extract order id using helper function
-      const orderId = BookingService.extractOrderId(engagementData);
+      const orderId = engagementData?.razorpay_order_id;
 
       if (!orderId) {
         console.error("Could not extract order ID from response:", engagementData);
@@ -262,11 +273,11 @@ export const BookingService = {
       );
 
       // Set engagement ID for verification - try to extract from response
-      paymentResponse.engagementId = engagementData?.engagement?.engagement_id || 
-                                     engagementData?.engagementId || 
-                                     engagementData?.id || 0;
+      paymentResponse.engagementId = engagementData?.engagement_id;
 
       // Verify payment on backend
+
+      console.log("Payment response from Razorpay:", paymentResponse);
       const verifyResult = await BookingService.verifyPayment(paymentResponse);
 
       return { 
