@@ -161,18 +161,15 @@
     "personalInfo": "व्यक्तिगत जानकारी",
     "accountInfo": "खाता जानकारी",
     "paymentInfo": "भुगतान जानकारी",
-    "shippingInfo": "शिपिंग जानकारी",
-    "billingInfo": "बिलिंग जानकारी",
-    "deliveryInfo": "डिलीवरी जानकारी",
     "address": "पता",
     "phone": "फोन",
     "email": "ईमेल",
     "website": "वेबसाइट",
-    "socialMedia": "सोशल मीडिया",
     "name": "नाम",
     "fullName": "पूरा नाम",
     "firstName": "पहला नाम",
     "lastName": "अंतिम नाम",
+    "middleName": "मध्य नाम",
     "username": "उपयोगकर्ता नाम",
     "password": "पासवर्ड",
     "confirmPassword": "पासवर्ड की पुष्टि करें",
@@ -205,7 +202,33 @@
     "kilometers": "किलोमीटर",
     "miles": "मील",
     "celsius": "सेल्सियस",
-    "fahrenheit": "फारेनहाइट"
+    "fahrenheit": "फारेनहाइट",
+    "gender": {
+      "male": "पुरुष",
+      "female": "महिला",
+      "other": "अन्य"
+    },
+    "required": "आवश्यक",
+    "optional": "वैकल्पिक",
+    "age": "आयु",
+    "years": "वर्ष",
+    "checking": "जांच हो रही है...",
+    "available": "उपलब्ध",
+    "taken": "पहले से लिया गया",
+    "clear": "साफ़ करें",
+    "unknown": "अज्ञात",
+    "all": "सभी",
+    "openSettings": "सेटिंग्स खोलें",
+    "permissionRequired": "अनुमति आवश्यक",
+    "emailAddress": "ईमेल पता",
+    "na": "N/A",
+    "country": {
+      "india": "भारत"
+    },
+    "hour": "घं",
+    "minute": "मि",
+    "hours": "घं",
+    "minutes": "मि"
   },
   "settings": {
     "title": "सेटिंग्स",
@@ -390,6 +413,7 @@
     "selectDateTime": "तिथि और समय चुनें",
     "selectService": "सेवा चुनें",
     "selectProvider": "प्रदाता चुनें",
+    "selectBookingOption": "अपना बुकिंग विकल्प चुनें",
     "preferredTime": "पसंदीदा समय",
     "morningSlot": "सुबह का स्लॉट",
     "eveningSlot": "शाम का स्लॉट",
@@ -409,7 +433,6 @@
     "serviceType": "सेवा प्रकार",
     "providerName": "प्रदाता का नाम",
     "providerContact": "प्रदाता संपर्क",
-    "address": "पता",
     "specialInstructions": "विशेष निर्देश",
     "addInstructions": "प्रदाता के लिए निर्देश जोड़ें",
     "cancellationPolicy": "रद्दीकरण नीति",
@@ -422,13 +445,135 @@
     "failedMsg": "आपकी बुकिंग पूरी नहीं हो सकी। कृपया पुनः प्रयास करें।",
     "viewBookings": "मेरी बुकिंग देखें",
     "bookingId": "बुकिंग आईडी: {id}",
+    "options": {
+      "date": "तारीख",
+      "shortTerm": "अल्पकालिक",
+      "monthly": "मासिक",
+      "onDemand": "ऑन डिमांड"
+    },
     "status": {
       "pending": "लंबित",
       "confirmed": "पुष्टि की गई",
       "completed": "पूर्ण",
       "cancelled": "रद्द",
       "rejected": "अस्वीकृत",
-      "inProgress": "प्रगति में"
+      "inProgress": "प्रगति में",
+      "active": "सक्रिय",
+      "notStarted": "शुरू नहीं हुआ",
+      "scheduled": "निर्धारित",
+      "upcoming": "आगामी",
+      "current": "वर्तमान",
+      "past": "पिछला"
+    },
+    "confirmBox": {
+      "title": "अपनी बुकिंग की पुष्टि करें",
+      "bookingDetails": "बुकिंग विवरण",
+      "startDate": "आरंभ तिथि: {date}",
+      "startTime": "आरंभ समय: {time}",
+      "serviceStarts": "आपकी सेवा {date} को {time} पर शुरू होगी।",
+      "serviceDuration": "सेवा अवधि",
+      "adjustDuration": "यदि आपको अधिक समय चाहिए, तो नीचे अपनी सेवा अवधि समायोजित करें।",
+      "relaxMessage": "आराम करें, बाकी हम संभाल लेंगे। हमारे सत्यापित पेशेवर आपकी मानसिक शांति सुनिश्चित करते हैं।"
+    },
+    "cutoff": {
+      "title": "बुकिंग कटऑफ पहुंच गया",
+      "message": "आज के लिए बुकिंग {time} के बाद स्वीकार नहीं की जाती हैं। कृपया भविष्य की तारीख चुनें।"
+    },
+    "disabled": {
+      "title": "बुकिंग उपलब्ध नहीं",
+      "serviceProvider": "सेवा प्रदाता खाता",
+      "message": "सेवा प्रदाता के रूप में, आप सेवाएं बुक नहीं कर सकते। कृपया सेवाएं बुक करने के लिए ग्राहक खाते का उपयोग करें।"
+    },
+    "page": {
+      "title": "मेरी बुकिंग",
+      "subtitle": "अपनी घरेलू सेवा नियुक्तियों का प्रबंधन करें",
+      "upcoming": "आगामी बुकिंग",
+      "past": "पिछली बुकिंग",
+      "upcomingCount": "{count} बुकिंग निर्धारित",
+      "upcomingCount_plural": "{count} बुकिंग निर्धारित",
+      "pastCount": "इतिहास में {count} बुकिंग",
+      "pastCount_plural": "इतिहास में {count} बुकिंग",
+      "noUpcoming": "कोई आगामी बुकिंग नहीं",
+      "noUpcomingDesc": "अपनी अगली सेवा बुक करने के लिए तैयार हैं?",
+      "noPast": "कोई पिछली बुकिंग नहीं",
+      "noPastDesc": "आपकी पूर्ण और रद्द की गई बुकिंग यहां दिखाई देंगी।",
+      "bookService": "सेवा बुक करें",
+      "searchPlaceholder": "बुकिंग खोजें...",
+      "loading": "आपकी बुकिंग लोड हो रही है...",
+      "operationSuccess": "ऑपरेशन सफलतापूर्वक पूरा हुआ!",
+      "tapToViewDetails": "विवरण देखने के लिए टैप करें"
+    },
+    "cards": {
+      "homeCook": "होम कुक",
+      "maidService": "नौकरानी सेवा",
+      "caregiver": "केयरगिवर सेवा",
+      "cleaningService": "सफाई सेवा",
+      "homeService": "घरेलू सेवा",
+      "notAssigned": "नियुक्त नहीं",
+      "awaitingAssignment": "नियुक्ति की प्रतीक्षा",
+      "paymentRequired": "भुगतान आवश्यक",
+      "addVacation": "अवकाश जोड़ें",
+      "modifyVacation": "अवकाश संशोधित करें",
+      "call": "कॉल",
+      "message": "संदेश",
+      "cancel": "रद्द करें",
+      "modify": "संशोधित करें",
+      "review": "समीक्षा",
+      "reviewed": "समीक्षित",
+      "bookAgain": "फिर से बुक करें",
+      "completePayment": "भुगतान पूरा करें",
+      "processing": "प्रक्रियाधीन...",
+      "generateOTP": "ओटीपी जनरेट करें और साझा करें",
+      "otpGenerated": "ओटीपी जनरेट हुआ",
+      "otpActive": "ओटीपी सक्रिय",
+      "shareOTP": "यह ओटीपी अपने प्रदाता के साथ साझा करें:",
+      "copy": "कॉपी करें",
+      "validFor": "10 मिनट के लिए वैध",
+      "leaveReview": "समीक्षा दें",
+      "howWasExperience": "आपका अनुभव कैसा रहा?",
+      "helpUsImprove": "हमें सुधारने में मदद के लिए अपने प्रदाता के लिए समीक्षा छोड़ें",
+      "dateTime": "तिथि और समय",
+      "amount": "राशि",
+      "address": "पता",
+      "clientName": "ग्राहक",
+      "addressNotFound": "पता उपलब्ध नहीं",
+      "contactInfoUnavailable": "संपर्क जानकारी उपलब्ध नहीं",
+      "noContactInfo": "ग्राहक संपर्क जानकारी उपलब्ध नहीं है",
+      "callError": "फोन डायलर नहीं खोल सका"
+    },
+    "messages": {
+      "scheduled": "पुष्टि: आज के लिए निर्धारित।",
+      "scheduledDesc": "हम प्रदाता के {time} पर प्रक्रिया शुरू करने की प्रतीक्षा कर रहे हैं।",
+      "inProgress": "आपकी सेवा प्रगति पर है!",
+      "inProgressDesc": "प्रदाता ने सत्र शुरू कर दिया है। कृपया नीचे ओटीपी जनरेट करें ताकि वे कार्य पूरा कर सकें।",
+      "completed": "सेवा सफलतापूर्वक पूर्ण हुई!",
+      "completedDesc": "आपकी {service} सेवा {time} पर पूर्ण हुई। हमें उम्मीद है कि आपने सेवा का आनंद लिया!"
+    },
+    "confirmation": {
+      "cancelTitle": "बुकिंग रद्द करें",
+      "cancelMessage": "क्या आप वाकई अपनी {service} बुकिंग रद्द करना चाहते हैं? यह क्रिया पूर्ववत नहीं की जा सकती।",
+      "paymentTitle": "भुगतान पूरा करें",
+      "paymentMessage": "अपनी {service} बुकिंग के लिए ₹{amount} का भुगतान पूरा करें?",
+      "confirm": "हाँ, रद्द करें",
+      "confirmPayment": "पुष्टि करें"
+    },
+    "modification": {
+      "alreadyModified": "यह बुकिंग पहले ही संशोधित की जा चुकी है और इसे फिर से संशोधित नहीं किया जा सकता।",
+      "notAllowed": "संशोधन केवल निर्धारित समय से कम से कम 30 मिनट पहले की अनुमति है।",
+      "modifyBooking": "इस बुकिंग को संशोधित करें",
+      "lastModified": "अंतिम संशोधित: {action}"
+    },
+    "otp": {
+      "generated": "ओटीपी सफलतापूर्वक जनरेट हुआ!",
+      "failed": "ओटीपी जनरेट करने में विफल। कृपया पुनः प्रयास करें।",
+      "copied": "ओटीपी क्लिपबोर्ड पर कॉपी किया गया!"
+    },
+    "payment": {
+      "completed": "भुगतान सफलतापूर्वक पूरा हुआ!",
+      "failed": "भुगतान रद्द या विफल रहा।",
+      "verificationFailed": "भुगतान सत्यापन विफल। कृपया सहायता से संपर्क करें।",
+      "resumeFailed": "भुगतान पुनः शुरू करने में असमर्थ। कृपया पुनः प्रयास करें।",
+      "description": "के लिए भुगतान"
     }
   },
   "profile": {
@@ -446,18 +591,12 @@
     "phoneNumber": "फोन नंबर",
     "dateOfBirth": "जन्म तिथि",
     "gender": "लिंग",
-    "address": "पता",
     "city": "शहर",
     "state": "राज्य",
     "pincode": "पिनकोड",
     "country": "देश",
     "language": "पसंदीदा भाषा",
     "currency": "पसंदीदा मुद्रा",
-    "notifications": "सूचना प्राथमिकताएं",
-    "emailNotifications": "ईमेल सूचनाएं",
-    "pushNotifications": "पुश सूचनाएं",
-    "smsNotifications": "एसएमएस सूचनाएं",
-    "marketingEmails": "मार्केटिंग ईमेल",
     "privacySettings": "गोपनीयता सेटिंग्स",
     "showProfile": "प्रोफाइल दूसरों को दिखाएं",
     "shareData": "सुधार के लिए डेटा साझा करें",
@@ -466,11 +605,76 @@
     "deleteWarning": "यह क्रिया पूर्ववत नहीं की जा सकती। आपका सारा डेटा स्थायी रूप से हटा दिया जाएगा।",
     "logout": "लॉग आउट",
     "logoutConfirm": "क्या आप वाकई लॉग आउट करना चाहते हैं?",
-    "memberSince": "सदस्यता तिथि: {date}",
+    "memberSince": "{date} से सदस्य",
     "totalBookings": "कुल बुकिंग: {count}",
     "reviewsGiven": "दी गई समीक्षाएं: {count}",
     "reviewsReceived": "प्राप्त समीक्षाएं: {count}",
-    "avgRating": "औसत रेटिंग: {rating}"
+    "avgRating": "औसत रेटिंग: {rating}",
+    "page": {
+      "greeting": "नमस्ते, {name}",
+      "customer": "ग्राहक",
+      "serviceProvider": "सेवा प्रदाता",
+      "id": "आईडी: {id}",
+      "mobileRequired": "⚠️ मोबाइल नंबर आवश्यक",
+      "edit": "संपादित करें",
+      "myAccount": "मेरा खाता",
+      "addMobileNumber": "मोबाइल नंबर जोड़ें",
+      "userInformation": "उपयोगकर्ता जानकारी",
+      "contactInformation": "संपर्क जानकारी",
+      "username": "उपयोगकर्ता नाम",
+      "firstName": "पहला नाम",
+      "lastName": "अंतिम नाम",
+      "userId": "उपयोगकर्ता आईडी",
+      "providerId": "प्रदाता आईडी",
+      "contactNumber": "संपर्क नंबर",
+      "alternativeContact": "वैकल्पिक संपर्क नंबर",
+      "enter10Digit": "10-अंकीय नंबर दर्ज करें",
+      "contactNumberAvailable": "संपर्क नंबर उपलब्ध है",
+      "alternateNumberAvailable": "वैकल्पिक नंबर उपलब्ध है",
+      "exactly10Digits": "कृपया ठीक 10 अंक दर्ज करें",
+      "mobileRequiredDesc": "बुकिंग और सूचनाओं के लिए मोबाइल नंबर आवश्यक है",
+      "clickToAddMobile": "मोबाइल नंबर जोड़ने के लिए यहां क्लिक करें",
+      "addresses": "पते",
+      "addNewAddress": "नया पता जोड़ें",
+      "noAddresses": "अभी तक कोई पता सहेजा नहीं गया",
+      "saveAs": "इस रूप में सहेजें",
+      "home": "घर",
+      "work": "कार्यालय",
+      "other": "अन्य",
+      "locationName": "स्थान का नाम",
+      "enterLocationName": "स्थान का नाम दर्ज करें",
+      "streetAddress": "गली का पता",
+      "enterStreetAddress": "गली का पता दर्ज करें",
+      "enterCity": "शहर दर्ज करें",
+      "enterCountry": "देश दर्ज करें",
+      "postalCode": "पोस्टल कोड",
+      "enterPostalCode": "पोस्टल कोड दर्ज करें",
+      "addAddress": "पता जोड़ें",
+      "serviceStatus": "सेवा स्थिति",
+      "accountStatus": "खाता स्थिति",
+      "verified": "सत्यापित",
+      "activeServiceProvider": "सक्रिय सेवा प्रदाता",
+      "footer": "© 2025 माईऐप सर्वाधिकार सुरक्षित।",
+      "loadingProfile": "आपकी प्रोफाइल लोड हो रही है",
+      "pleaseWait": "कृपया आपकी जानकारी प्राप्त करने के लिए प्रतीक्षा करें",
+      "selectCountryCode": "देश कोड चुनें",
+      "done": "पूर्ण",
+      "validationError": "मान्यता त्रुटि",
+      "enterValidContact": "कृपया एक मान्य 10-अंकीय संपर्क नंबर दर्ज करें",
+      "enterValidAlternate": "कृपया एक मान्य 10-अंकीय वैकल्पिक संपर्क नंबर दर्ज करें",
+      "numbersMustBeDifferent": "संपर्क नंबर और वैकल्पिक संपर्क नंबर अलग होने चाहिए",
+      "updateSuccess": "प्रोफाइल सफलतापूर्वक अपडेट हुई!",
+      "updateFailed": "परिवर्तन सहेजने में विफल। कृपया पुनः प्रयास करें।",
+      "couldNotSaveAddress": "पता सहेजा नहीं जा सका। पुनः प्रयास करें।",
+      "fillAllAddressFields": "कृपया सभी पता फ़ील्ड भरें",
+      "couldNotRemoveAddress": "पता हटाया नहीं जा सका। पुनः प्रयास करें।",
+      "noEmail": "कोई ईमेल उपलब्ध नहीं",
+      "firstNamePlaceholder": "पहला",
+      "lastNamePlaceholder": "अंतिम",
+      "noCity": "कोई शहर नहीं",
+      "noCountry": "कोई देश नहीं",
+      "providerAddressNote": "सेवा प्रदाता के पते अलग से प्रबंधित किए जाते हैं"
+    }
   },
   "dashboard": {
     "title": "सेवा प्रदाता डैशबोर्ड",
@@ -522,7 +726,65 @@
       "blockDates": "तिथियां ब्लॉक करें",
       "vacation": "अवकाश मोड",
       "emergency": "आपातकालीन बंद"
-    }
+    },
+    "metrics": {
+      "totalEarnings": "कुल कमाई",
+      "securityDeposit": "सुरक्षा जमा",
+      "withdrawn": "निकाली गई",
+      "withdrawal": "निकासी",
+      "actualPayoutBalance": "वास्तविक भुगतान शेष",
+      "thisMonth": "इस महीने",
+      "forActiveBookings": "सक्रिय बुकिंग के लिए",
+      "serviceCharges": "सेवा शुल्क",
+      "readyToWithdraw": "निकासी के लिए तैयार",
+      "paid": "भुगतान किया गया",
+      "notPaid": "भुगतान नहीं किया गया",
+      "change": "+12.5%",
+      "changeNegative": "-10%"
+    },
+    "quickActions": {
+      "title": "त्वरित कार्रवाई",
+      "viewAllBookings": "सभी बुकिंग देखें",
+      "requestWithdrawal": "निकासी का अनुरोध करें",
+      "withdrawalHistory": "निकासी इतिहास",
+      "applyLeave": "अवकाश लागू करें",
+      "updateAvailability": "उपलब्धता अपडेट करें",
+      "viewReviews": "समीक्षाएं देखें"
+    },
+    "serviceStatus": {
+      "title": "सेवा स्थिति",
+      "profileStatus": "प्रोफाइल स्थिति",
+      "verification": "सत्यापन",
+      "availability": "उपलब्धता",
+      "active": "सक्रिय",
+      "verified": "सत्यापित",
+      "available": "उपलब्ध"
+    },
+    "recentBooking": {
+      "title": "हाल की बुकिंग",
+      "latest": "नवीनतम",
+      "bookingId": "बुकिंग आईडी: {id}",
+      "clientName": "ग्राहक",
+      "dateTime": "तिथि और समय",
+      "amount": "राशि",
+      "address": "पता",
+      "trackAddress": "पता ट्रैक करें",
+      "todaysService": "आज की सेवा",
+      "taskInProgress": "कार्य प्रगति पर",
+      "taskCompleted": "कार्य पूर्ण",
+      "notStarted": "शुरू नहीं हुआ",
+      "upcoming": "आगामी",
+      "cannotStartYet": "अभी शुरू नहीं किया जा सकता",
+      "startTask": "कार्य शुरू करें",
+      "completeTask": "कार्य पूर्ण करें",
+      "completed": "पूर्ण"
+    },
+    "empty": {
+      "noBookings": "कोई आगामी बुकिंग नहीं मिली।",
+      "failedToLoad": "बुकिंग लोड करने में विफल। कृपया पुनः प्रयास करें।",
+      "retry": "पुनः प्रयास करें"
+    },
+    "signOut": "साइन आउट"
   },
   "contact": {
     "title": "संपर्क करें",
@@ -700,7 +962,34 @@
     "microphoneDenied": "माइक्रोफोन पहुंच अस्वीकृत",
     "storageDenied": "स्टोरेज पहुंच अस्वीकृत",
     "contactsDenied": "संपर्क पहुंच अस्वीकृत",
-    "notificationDenied": "सूचना पहुंच अस्वीकृत"
+    "notificationDenied": "सूचना पहुंच अस्वीकृत",
+    "fileUploadFailed": "फ़ाइल अपलोड विफल",
+    "fileTooLarge": "फ़ाइल का आकार अधिकतम सीमा से अधिक है",
+    "invalidFileType": "अमान्य फ़ाइल प्रकार। कृपया एक मान्य फ़ाइल अपलोड करें।",
+    "invalidYear": "अमान्य वर्ष",
+    "yearBetween": "वर्ष {min} और {max} के बीच होना चाहिए",
+    "invalidMonth": "अमान्य महीना",
+    "monthBetween": "महीना 01 से 12 के बीच होना चाहिए",
+    "invalidDay": "अमान्य दिन",
+    "dayBetween": "दिन 01 से 31 के बीच होना चाहिए",
+    "ageRestriction": "आयु प्रतिबंध",
+    "mustBe18": "आपकी आयु कम से कम 18 वर्ष होनी चाहिए",
+    "contactNumberUnavailable": "संपर्क नंबर उपलब्ध नहीं है",
+    "alternateNumberUnavailable": "वैकल्पिक नंबर उपलब्ध नहीं है",
+    "customerIdNotFound": "ग्राहक आईडी नहीं मिली!",
+    "updateFailed": "अपडेट करते समय कुछ गलत हो गया!",
+    "notFound": "{id} नहीं मिला",
+    "serviceDayIdNotFound": "सेवा दिवस आईडी नहीं मिली। सेवा शुरू नहीं की जा सकती।",
+    "failedToStartService": "सेवा शुरू करने में विफल",
+    "failedToCompleteService": "सेवा पूरी करने में विफल",
+    "failedToLoadBookings": "बुकिंग लोड करने में विफल",
+    "failedToLoadReviews": "समीक्षाएं लोड करने में विफल",
+    "failedToLoadHistory": "निकासी इतिहास लोड करने में विफल",
+    "withdrawalFailed": "निकासी अनुरोध प्रक्रिया करने में विफल",
+    "invalidAmount": "अमान्य राशि",
+    "amountRange": "कृपया ₹1 और ₹{balance} के बीच एक मान्य राशि दर्ज करें",
+    "insufficientBalance": "निकासी के लिए पर्याप्त शेष नहीं",
+    "validationError": "मान्यता त्रुटि। कृपया दर्ज की गई राशि जांचें।"
   },
   "validation": {
     "required": "{field} आवश्यक है",
@@ -718,7 +1007,24 @@
     "date": "कृपया एक मान्य तिथि दर्ज करें",
     "time": "कृपया एक मान्य समय दर्ज करें",
     "future": "{field} भविष्य में होना चाहिए",
-    "past": "{field} अतीत में होना चाहिए"
+    "past": "{field} अतीत में होना चाहिए",
+    "alphabetsOnly": "{field} में केवल अक्षर होने चाहिए",
+    "passwordUppercase": "पासवर्ड में कम से कम एक बड़ा अक्षर होना चाहिए",
+    "passwordLowercase": "पासवर्ड में कम से कम एक छोटा अक्षर होना चाहिए",
+    "passwordNumber": "पासवर्ड में कम से कम एक अंक होना चाहिए",
+    "passwordSpecial": "पासवर्ड में कम से कम एक विशेष वर्ण होना चाहिए",
+    "passwordStrength": "पासवर्ड में कम से कम 8 अक्षर, एक बड़ा अक्षर, एक छोटा अक्षर, एक अंक और एक विशेष वर्ण होना चाहिए",
+    "passwordMismatch": "पासवर्ड मेल नहीं खाते",
+    "emailNotAvailable": "ईमेल उपलब्ध नहीं है",
+    "mobileNotAvailable": "मोबाइल नंबर उपलब्ध नहीं है",
+    "alternateNotAvailable": "वैकल्पिक नंबर उपलब्ध नहीं है",
+    "alternateSameAsMobile": "वैकल्पिक नंबर मोबाइल नंबर के समान नहीं हो सकता",
+    "aadhaarFormat": "आधार नंबर ठीक 12 अंकों का होना चाहिए",
+    "panFormat": "कृपया एक मान्य PAN दर्ज करें (जैसे, ABCDE1234F)",
+    "drivingLicenseFormat": "कृपया एक मान्य ड्राइविंग लाइसेंस नंबर दर्ज करें",
+    "voterIdFormat": "कृपया एक मान्य 10-अंकीय मतदाता आईडी दर्ज करें",
+    "passportFormat": "कृपया एक मान्य 8-अक्षर का पासपोर्ट नंबर दर्ज करें",
+    "pincodeFormat": "पिनकोड ठीक 6 अंकों का होना चाहिए"
   },
   "time": {
     "justNow": "अभी",
@@ -755,6 +1061,815 @@
     "september": "सितंबर",
     "october": "अक्टूबर",
     "november": "नवंबर",
-    "december": "दिसंबर"
+    "december": "दिसंबर",
+    "format": {
+      "YYYY": "YYYY",
+      "MM": "MM",
+      "DD": "DD",
+      "ddd": "ddd",
+      "MMM": "MMM",
+      "MMMM D": "MMMM D",
+      "MMM D, YYYY": "MMM D, YYYY",
+      "h:mm A": "h:mm A"
+    }
+  },
+  "navigation": {
+    "home": "होम",
+    "account": "खाता",
+    "bookings": "बुकिंग",
+    "wallet": "वॉलेट",
+    "dashboard": "डैशबोर्ड",
+    "alerts": "अलर्ट",
+    "signIn": "साइन इन",
+    "signOut": "साइन आउट",
+    "signingOut": "साइन आउट हो रहा है...",
+    "signUp": "साइन अप",
+    "loggedInSuccess": "सफलतापूर्वक लॉग इन किया गया!",
+    "loginFailed": "लॉग इन विफल। कृपया पुनः प्रयास करें।",
+    "signingOutMsg": "साइन आउट हो रहा है...",
+    "myBookings": "मेरी बुकिंग",
+    "aboutUs": "हमारे बारे में",
+    "contactUs": "संपर्क करें",
+    "settings": "सेटिंग्स"
+  },
+  "serviceDetails": {
+    "maid": {
+      "title": "सर्वएसो नौकरानी सेवाएं",
+      "description": "पेशेवर सफाई और घरेलू सेवाएं",
+      "features": {
+        "cleaning": {
+          "title": "सफाई",
+          "items": [
+            "बर्तन साफ करना",
+            "धूल झाड़ना",
+            "वैक्यूमिंग",
+            "पोछा लगाना",
+            "झाड़ू लगाना",
+            "बाथरूम और रसोई की सफाई"
+          ]
+        },
+        "laundry": {
+          "title": "कपड़े धोना",
+          "items": [
+            "कपड़े धोना",
+            "कपड़े सुखाना",
+            "कपड़े मोड़ना",
+            "कपड़े इस्त्री करना"
+          ]
+        },
+        "errands": {
+          "title": "काम",
+          "items": [
+            "ग्राहकों के लिए काम करना",
+            "किराने का सामान लाना",
+            "ड्राई क्लीनिंग पिकअप/ड्रॉपऑफ"
+          ]
+        },
+        "qualities": {
+          "items": [
+            "ग्राहक की संपत्ति का सम्मान",
+            "समयनिष्ठ और विश्वसनीय",
+            "पेशेवर और विनम्र",
+            "गोपनीयता का सम्मान"
+          ]
+        }
+      }
+    },
+    "cook": {
+      "title": "सर्वएसो रसोइया सेवाएं",
+      "description": "सख्त मानकों के साथ पेशेवर खाना पकाने की सेवाएं",
+      "features": {
+        "hygiene": {
+          "title": "स्वच्छता",
+          "items": [
+            "सख्त स्वच्छता मानकों का पालन करें",
+            "बार-बार हाथ धोना",
+            "साफ वर्दी और हेयरनेट पहनना",
+            "स्वच्छ कार्य स्थल बनाए रखना"
+          ]
+        },
+        "temperature": {
+          "title": "तापमान नियंत्रण",
+          "items": [
+            "सावधानीपूर्वक भोजन के तापमान की निगरानी करें",
+            "जीवाणु वृद्धि रोकें",
+            "उचित पकाना, भंडारण और दोबारा गर्म करना सुनिश्चित करें"
+          ]
+        },
+        "allergen": {
+          "title": "एलर्जेन जागरूकता",
+          "items": [
+            "एलर्जेन को सावधानीपूर्वक संभालें",
+            "क्रॉस-संदूषण रोकें",
+            "सटीक एलर्जेन जानकारी प्रदान करें"
+          ]
+        },
+        "handling": {
+          "title": "सुरक्षित भोजन प्रबंधन",
+          "items": [
+            "कच्चे और पके भोजन के लिए उचित प्रक्रियाओं का पालन करें",
+            "संदूषण जोखिम कम करें"
+          ]
+        },
+        "freshness": {
+          "title": "ताजगी",
+          "items": [
+            "ताजा, उच्च गुणवत्ता वाली सामग्री का उपयोग करें",
+            "सर्वोत्तम उत्पाद, मांस और घटक चुनें"
+          ]
+        },
+        "techniques": {
+          "title": "उचित तकनीक",
+          "items": [
+            "उचित खाना पकाने की तकनीक का उपयोग करें",
+            "स्वाद, बनावट और पोषण मूल्य को अधिकतम करें",
+            "उच्चतम तैयारी मानक सुनिश्चित करें"
+          ]
+        },
+        "detail": {
+          "title": "विवरण पर ध्यान",
+          "items": [
+            "हर कदम पर बारीकी से ध्यान दें",
+            "सब्जियां काटने से लेकर अंतिम प्लेटिंग तक",
+            "स्थिरता और दृश्य अपील सुनिश्चित करें"
+          ]
+        },
+        "dietary": {
+          "title": "आहार प्रतिबंध",
+          "items": [
+            "ग्लूटेन-मुक्त आवश्यकताओं को पूरा करें",
+            "शाकाहारी और वीगन भोजन तैयार करें",
+            "विशिष्ट एलर्जी/असहिष्णुता के अनुरूप बनाएं"
+          ]
+        },
+        "customization": {
+          "title": "अनुकूलन",
+          "items": [
+            "मसाला स्तर समायोजित करें",
+            "सामग्री संशोधित करें",
+            "भाग के आकार कस्टमाइज़ करें"
+          ]
+        }
+      }
+    },
+    "babycare": {
+      "title": "सर्वएसो केयरगिवर सेवाएं",
+      "description": "पेशेवर बच्चों की देखभाल सेवाएं",
+      "features": {
+        "nurture": {
+          "title": "पोषण और सुरक्षित वातावरण",
+          "items": [
+            "प्यार भरा और सहायक वातावरण प्रदान करें",
+            "बच्चे सुरक्षित और समझा हुआ महसूस करें",
+            "आराम और प्रोत्साहन दें",
+            "मजबूत भावनात्मक संबंध बनाएं"
+          ]
+        },
+        "physical": {
+          "title": "शारीरिक सुरक्षा",
+          "items": [
+            "जोखिम-मुक्त वातावरण सुनिश्चित करें",
+            "सभी गतिविधियों की निगरानी करें",
+            "आपात स्थितियों के लिए तैयार रहें"
+          ]
+        },
+        "medical": {
+          "title": "चिकित्सा सुरक्षा",
+          "items": ["सीपीआर में प्रशिक्षित", "चिकित्सा आपात स्थितियों के लिए प्राथमिक चिकित्सा प्रमाणित"]
+        },
+        "cognitive": {
+          "title": "संज्ञानात्मक विकास",
+          "items": [
+            "आयु-उपयुक्त गतिविधियों में शामिल करें",
+            "पढ़ना और शैक्षिक खेल",
+            "बच्चों की रुचियों का अन्वेषण करें",
+            "होमवर्क में मदद",
+            "सीखने को प्रोत्साहित करें"
+          ]
+        },
+        "social": {
+          "title": "सामाजिक/भावनात्मक विकास",
+          "items": [
+            "साझा करना और सहानुभूति सिखाएं",
+            "संघर्ष समाधान कौशल",
+            "आत्मविश्वास विकसित करें",
+            "भावनात्मक बुद्धिमत्ता का निर्माण करें"
+          ]
+        },
+        "physicalDev": {
+          "title": "शारीरिक विकास",
+          "items": [
+            "शारीरिक गतिविधि को प्रोत्साहित करें",
+            "बाहरी रोमांच",
+            "आयु-उपयुक्त खेल",
+            "स्वस्थ भोजन और नाश्ता तैयार करें"
+          ]
+        },
+        "communication": {
+          "title": "संचार",
+          "items": [
+            "माता-पिता के साथ खुला संचार बनाए रखें",
+            "दैनिक अपडेट साझा करें",
+            "विकास प्रगति पर चर्चा करें",
+            "बच्चे की बात ध्यान से सुनें",
+            "सहानुभूति के साथ प्रतिक्रिया दें"
+          ]
+        },
+        "collaboration": {
+          "title": "सहयोग",
+          "items": [
+            "माता-पिता के साथ साझेदारी में काम करें",
+            "देखभाल में स्थिरता सुनिश्चित करें",
+            "माता-पिता के मूल्यों का सम्मान करें",
+            "पालन-पोषण शैलियों का पालन करें"
+          ]
+        }
+      }
+    }
+  },
+  "profileMenu": {
+    "user": "उपयोगकर्ता",
+    "profile": "प्रोफाइल",
+    "myBookings": "मेरी बुकिंग",
+    "wallet": "वॉलेट",
+    "dashboard": "डैशबोर्ड",
+    "settings": "सेटिंग्स"
+  },
+  "registration": {
+    "title": "सेवा प्रदाता पंजीकरण",
+    "steps": {
+      "basic": "मूल जानकारी",
+      "address": "पता विवरण",
+      "kyc": "केवाईसी सत्यापन",
+      "service": "सेवा विवरण",
+      "confirmation": "पुष्टिकरण"
+    },
+    "basicInformation": {
+      "title": "मूल जानकारी",
+      "firstName": "पहला नाम",
+      "middleName": "मध्य नाम",
+      "lastName": "अंतिम नाम",
+      "dateOfBirth": "जन्म तिथि",
+      "gender": "लिंग",
+      "email": "ईमेल",
+      "password": "पासवर्ड",
+      "confirmPassword": "पासवर्ड की पुष्टि करें",
+      "mobileNumber": "मोबाइल नंबर",
+      "alternateNumber": "वैकल्पिक नंबर",
+      "enterFirstName": "अपना पहला नाम दर्ज करें",
+      "enterMiddleName": "अपना मध्य नाम दर्ज करें",
+      "enterLastName": "अपना अंतिम नाम दर्ज करें",
+      "enterEmail": "अपना ईमेल पता दर्ज करें",
+      "enterPassword": "अपना पासवर्ड दर्ज करें",
+      "confirmYourPassword": "अपना पासवर्ड पुष्टि करें",
+      "enterMobileNumber": "अपना मोबाइल नंबर दर्ज करें",
+      "enterAlternateNumber": "वैकल्पिक नंबर दर्ज करें (वैकल्पिक)",
+      "dateFormat": "वर्ष महीना दिन",
+      "age": "आयु: {age} वर्ष",
+      "dobHelper": "अपनी जन्म तिथि दर्ज करें (वर्ष/महीना/दिन) - आपकी आयु कम से कम 18 वर्ष होनी चाहिए",
+      "checkingAvailability": "उपलब्धता जांची जा रही है...",
+      "emailAvailable": "ईमेल उपलब्ध है",
+      "emailTaken": "ईमेल पहले से लिया गया है",
+      "mobileAvailable": "मोबाइल नंबर उपलब्ध है",
+      "mobileTaken": "मोबाइल नंबर पहले से लिया गया है",
+      "alternateAvailable": "वैकल्पिक नंबर उपलब्ध है",
+      "alternateTaken": "वैकल्पिक नंबर पहले से लिया गया है"
+    },
+    "address": {
+      "title": "पता जानकारी",
+      "permanent": "स्थायी पता",
+      "correspondence": "पत्राचार पता",
+      "apartment": "अपार्टमेंट नाम/फ्लैट नाम या नंबर",
+      "street": "गली का नाम/इलाके का नाम",
+      "city": "शहर",
+      "state": "राज्य",
+      "country": "देश",
+      "pincode": "पिनकोड",
+      "selectCountry": "देश चुनें",
+      "selectState": "राज्य चुनें",
+      "selectCountryFirst": "पहले देश चुनें",
+      "sameAsPermanent": "स्थायी पते के समान",
+      "searchCountry": "देश खोजें...",
+      "searchState": "राज्य खोजें...",
+      "noItemsFound": "कोई आइटम नहीं मिला",
+      "enterApartment": "अपार्टमेंट/फ्लैट का नाम या नंबर दर्ज करें",
+      "enterStreet": "गली/इलाके का नाम दर्ज करें",
+      "enterCity": "शहर दर्ज करें",
+      "enterPincode": "पिनकोड दर्ज करें"
+    },
+    "kyc": {
+      "title": "केवाईसी सत्यापन",
+      "selectDocument": "केवाईसी दस्तावेज़ प्रकार चुनें",
+      "documentType": {
+        "aadhar": "आधार कार्ड",
+        "pan": "पैन कार्ड",
+        "drivingLicense": "ड्राइविंग लाइसेंस",
+        "voterId": "मतदाता आईडी",
+        "passport": "पासपोर्ट"
+      },
+      "documentDescription": {
+        "aadhar": "सरकारी आईडी प्रमाण",
+        "pan": "स्थायी खाता संख्या (पैन)",
+        "drivingLicense": "ड्राइविंग लाइसेंस",
+        "voterId": "मतदाता पहचान पत्र",
+        "passport": "पासपोर्ट"
+      },
+      "documentNumber": {
+        "aadhar": "12-अंकीय आधार नंबर दर्ज करें",
+        "pan": "10-अंकीय पैन नंबर दर्ज करें",
+        "drivingLicense": "ड्राइविंग लाइसेंस नंबर दर्ज करें",
+        "voterId": "10-अंकीय मतदाता आईडी दर्ज करें",
+        "passport": "पासपोर्ट नंबर दर्ज करें"
+      },
+      "uploadDocument": "{document} अपलोड करें",
+      "chooseFile": "फ़ाइल चुनें",
+      "selectedFile": "चयनित फ़ाइल: {filename}",
+      "changeFile": "फ़ाइल बदलें",
+      "removeFile": "फ़ाइल हटाएं",
+      "preview": "पूर्वावलोकन:",
+      "note": "नोट",
+      "noteText": "अपने {document} की एक स्पष्ट छवि अपलोड करें। स्वीकृत प्रारूप: JPG, PNG, PDF। अधिकतम आकार: 5MB।"
+    },
+    "service": {
+      "title": "सेवा विवरण",
+      "selectServiceType": "सेवा प्रकार चुनें",
+      "serviceTypeHelper": "आप जिस प्रकार की सेवाएं देना चाहते हैं उसे चुनें",
+      "cook": "रसोइया",
+      "cookDesc": "परिवार के लिए भोजन तैयार करें",
+      "nanny": "आया",
+      "nannyDesc": "बच्चों या बुजुर्गों की देखभाल करें",
+      "maid": "नौकरानी",
+      "maidDesc": "घर की सफाई और रखरखाव",
+      "dietPreference": "आहार प्राथमिकता",
+      "dietHelper": "आप किस प्रकार का भोजन पका सकते हैं?",
+      "veg": "शाकाहारी",
+      "vegDesc": "केवल शाकाहारी खाना",
+      "nonVeg": "मांसाहारी",
+      "nonVegDesc": "मांसाहारी भोजन पका सकते हैं",
+      "both": "दोनों",
+      "bothDesc": "शाकाहारी और मांसाहारी दोनों पका सकते हैं",
+      "cookingSpeciality": "खाना पकाने की विशेषता",
+      "cookingSpecialityHelper": "खाना पकाने में अपनी विशेषज्ञता का क्षेत्र चुनें",
+      "careType": "देखभाल का प्रकार",
+      "careTypeHelper": "आप किस प्रकार की देखभाल सेवाएं प्रदान करते हैं?",
+      "babyCare": "शिशु देखभाल",
+      "babyCareDesc": "शिशुओं और छोटे बच्चों की देखभाल",
+      "elderlyCare": "बुजुर्ग देखभाल",
+      "elderlyCareDesc": "वरिष्ठ नागरिकों की देखभाल",
+      "bothCare": "दोनों",
+      "bothCareDesc": "शिशुओं और बुजुर्गों दोनों की देखभाल कर सकते हैं",
+      "description": "विवरण",
+      "descriptionHelper": "अपने अनुभव, कौशल और आप एक अच्छे सेवा प्रदाता क्यों होंगे, इसका वर्णन करें",
+      "descriptionPlaceholder": "जैसे, गृह प्रबंधन में 5 वर्ष का अनुभव, इसमें विशेषज्ञता...",
+      "experience": "अनुभव",
+      "experienceHelper": "अनुभव के वर्ष",
+      "experiencePlaceholder": "जैसे, 3",
+      "referralCode": "रेफरल कोड (वैकल्पिक)",
+      "referralHelper": "यदि किसी ने आपको रेफर किया है",
+      "referralPlaceholder": "जैसे, REF123",
+      "availability": "अपने उपलब्ध समय स्लॉट चुनें",
+      "availabilityHelper": "आप कब काम करने के लिए उपलब्ध हैं, चुनें (सुबह 6:00 - रात 8:00)",
+      "fullTime": "पूर्णकालिक उपलब्धता",
+      "fullTimeDesc": "सुबह 6:00 - रात 8:00 (सभी स्लॉट शामिल)",
+      "morning": "सुबह की उपलब्धता (सुबह 6 - दोपहर 12)",
+      "evening": "शाम की उपलब्धता (दोपहर 12 - रात 8)",
+      "addMorning": "सुबह के स्लॉट जोड़ें",
+      "addEvening": "शाम के स्लॉट जोड़ें",
+      "slot": "स्लॉट(स्लॉट्स)",
+      "morningSlot": "सुबह का स्लॉट {number}",
+      "eveningSlot": "शाम का स्लॉट {number}",
+      "noMorningSlots": "कोई सुबह का स्लॉट चयनित नहीं",
+      "noMorningSlotsDesc": "अपनी सुबह की उपलब्धता सेट करने के लिए \"सुबह के स्लॉट जोड़ें\" पर क्लिक करें",
+      "noEveningSlots": "कोई शाम का स्लॉट चयनित नहीं",
+      "noEveningSlotsDesc": "अपनी शाम की उपलब्धता सेट करने के लिए \"शाम के स्लॉट जोड़ें\" पर क्लिक करें",
+      "yourSelectedSlots": "आपके चयनित समय स्लॉट:",
+      "timeSlotsTaken": "पहले से लिए गए समय स्लॉट:",
+      "start": "शुरू",
+      "end": "समाप्त",
+      "startTime": "शुरू का समय",
+      "endTime": "समाप्ति का समय"
+    },
+    "fileUpload": {
+      "chooseFile": "फ़ाइल चुनें",
+      "selectedFile": "चयनित फ़ाइल: {filename}",
+      "changeFile": "फ़ाइल बदलें",
+      "removeFile": "फ़ाइल हटाएं",
+      "preview": "पूर्वावलोकन:"
+    },
+    "buttons": {
+      "back": "वापस",
+      "next": "अगला",
+      "submit": "जमा करें",
+      "save": "सहेजें",
+      "cancel": "रद्द करें"
+    },
+    "confirmation": {
+      "title": "पुष्टिकरण",
+      "message": "अपने पंजीकरण के साथ आगे बढ़ने से पहले निम्नलिखित से सहमत हों:",
+      "agreeTerms": "मैं नियम एवं शर्तों से सहमत हूँ",
+      "agreePrivacy": "मैं गोपनीयता नीति से सहमत हूँ",
+      "agreeKeyFacts": "मैं मुख्य तथ्य दस्तावेज़ से सहमत हूँ"
+    }
+  },
+  "signupDrawer": {
+    "title": "इस रूप में पंजीकरण करें",
+    "user": "उपयोगकर्ता",
+    "serviceProvider": "सेवा प्रदाता",
+    "agent": "एजेंट"
+  },
+  "mobileDialog": {
+    "title": "संपर्क नंबर अपडेट करें",
+    "description": "जारी रखने के लिए अपना मोबाइल और वैकल्पिक संपर्क नंबर दर्ज करें।",
+    "contactNumber": "संपर्क नंबर",
+    "contactNumberRequired": "संपर्क नंबर *",
+    "alternativeContact": "वैकल्पिक संपर्क नंबर",
+    "alternativeContactOptional": "वैकल्पिक संपर्क नंबर (वैकल्पिक)",
+    "enter10Digit": "10-अंकीय मोबाइल नंबर",
+    "contactNumberAvailable": "संपर्क नंबर उपलब्ध है",
+    "alternateNumberAvailable": "वैकल्पिक नंबर उपलब्ध है",
+    "enterExactly10Digits": "कृपया ठीक 10 अंक दर्ज करें",
+    "numbersMustBeDifferent": "⚠️ संपर्क नंबर और वैकल्पिक संपर्क नंबर अलग होने चाहिए",
+    "cancel": "रद्द करें",
+    "submit": "जमा करें",
+    "updating": "अपडेट हो रहा है...",
+    "updateSuccess": "मोबाइल नंबर सफलतापूर्वक अपडेट हुए!",
+    "updateFailed": "अपडेट करते समय कुछ गलत हो गया!"
+  },
+  "modifyBooking": {
+    "title": "बुकिंग संशोधित करें",
+    "bookingInfo": "बुकिंग #{id} - {service}",
+    "scheduled": "निर्धारित: {date} को {time} पर",
+    "timeUntil": "{timeUntil}",
+    "modifiedCount": "यह बुकिंग {count} बार संशोधित की गई है",
+    "lastModification": "{details}",
+    "options": {
+      "rescheduleDate": "तारीख पुनर्निर्धारित करें",
+      "rescheduleTime": "समय पुनर्निर्धारित करें"
+    },
+    "dateSelection": {
+      "title": "अपनी बुकिंग के लिए एक नई तारीख चुनें।",
+      "selectNewDate": "नई तारीख चुनें",
+      "saveDate": "तारीख सहेजें"
+    },
+    "timeSelection": {
+      "title": "वर्तमान समय: {time}",
+      "selectNewTime": "नया समय चुनें",
+      "saveTime": "समय सहेजें"
+    },
+    "status": {
+      "alreadyModified": "यह बुकिंग पहले ही संशोधित की जा चुकी है और इसे फिर से संशोधित नहीं किया जा सकता।",
+      "modificationNotAllowed": "संशोधन केवल निर्धारित समय से कम से कम 30 मिनट पहले की अनुमति है।",
+      "bookingStarted": "बुकिंग पहले ही शुरू हो चुकी है या समाप्त हो गई है",
+      "hoursMinutes": "बुकिंग शुरू होने में {h}घं {m}मि शेष",
+      "minutesOnly": "बुकिंग शुरू होने में {m}मि शेष"
+    },
+    "actions": {
+      "back": "वापस",
+      "saving": "सहेजा जा रहा है...",
+      "saveDate": "तारीख सहेजें",
+      "saveTime": "समय सहेजें"
+    },
+    "messages": {
+      "dateSuccess": "बुकिंग तारीख सफलतापूर्वक पुनर्निर्धारित की गई!",
+      "timeSuccess": "बुकिंग समय सफलतापूर्वक पुनर्निर्धारित किया गया!",
+      "error": "बुकिंग संशोधित करने में विफल। कृपया पुनः प्रयास करें।"
+    }
+  },
+  "vacationManagement": {
+    "title": "अवकाश प्रबंधित करें",
+    "currentVacation": "वर्तमान अवकाश अवधि",
+    "vacationPeriod": "{startDate} से {endDate} तक",
+    "totalDays": "कुल दिन: {days}",
+    "modifyDates": "अवकाश तिथियां संशोधित करें",
+    "applyVacation": "अवकाश के लिए आवेदन करें",
+    "vacationStartDate": "अवकाश प्रारंभ तिथि",
+    "vacationEndDate": "अवकाश समाप्ति तिथि",
+    "selectDate": "तारीख चुनें",
+    "totalVacationDays": "कुल अवकाश दिन: {days}",
+    "vacationPolicy": "अवकाश नीति",
+    "policyText": "अवकाश अवधि के दौरान, सेवाएं रोक दी जाएंगी और लागू धनवापसी आपके वॉलेट में संसाधित की जाएगी। मौजूदा अवकाश अवधियों में संशोधन के लिए जुर्माना लागू हो सकता है।",
+    "cancelVacation": "अवकाश रद्द करें",
+    "applyVacation": "अवकाश लागू करें",
+    "updateVacation": "अवकाश अपडेट करें",
+    "applying": "आवेदन किया जा रहा है...",
+    "updating": "अपडेट किया जा रहा है...",
+    "success": "अवकाश सफलतापूर्वक लागू किया गया!",
+    "cancelSuccess": "अवकाश सफलतापूर्वक रद्द किया गया!",
+    "error": "अवकाश लागू करने में विफल। कृपया पुनः प्रयास करें।",
+    "cancelError": "अवकाश रद्द करने में विफल। कृपया पुनः प्रयास करें।",
+    "validation": {
+      "selectBothDates": "कृपया प्रारंभ और समाप्ति दोनों तिथियां चुनें",
+      "startDatePast": "अवकाश प्रारंभ तिथि अतीत में नहीं हो सकती",
+      "endDateBeforeStart": "अवकाश समाप्ति तिथि प्रारंभ तिथि के बाद होनी चाहिए"
+    }
+  },
+  "wallet": {
+    "title": "मेरा वॉलेट",
+    "availableBalance": "उपलब्ध शेष",
+    "addMoney": "पैसे जोड़ें",
+    "transfer": "स्थानांतरण",
+    "transactions": "लेनदेन",
+    "rewards": "पुरस्कार",
+    "recentActivity": "हाल की गतिविधि",
+    "noTransactions": "अभी तक कोई लेनदेन नहीं",
+    "noTransactionsDesc": "आपका लेनदेन इतिहास यहां दिखाई देगा",
+    "yourRewards": "आपके पुरस्कार",
+    "rewardsPoints": "{points} पॉइंट",
+    "rewardsDescription": "सेवाएं पूरी करके और मित्रों को रेफर करके अधिक पॉइंट अर्जित करें",
+    "viewRewardsCatalog": "पुरस्कार सूची देखें",
+    "loading": "वॉलेट लोड हो रहा है",
+    "loadingDesc": "आपके खाते की जानकारी प्राप्त की जा रही है",
+    "error": {
+      "unavailable": "वॉलेट जानकारी वर्तमान में अनुपलब्ध",
+      "noAccount": "कोई वॉलेट खाता नहीं मिला",
+      "signInRequired": "वॉलेट सुविधाओं का उपयोग करने के लिए कृपया साइन इन करें",
+      "connectionTimeout": "कनेक्शन समय समाप्त। कृपया अपना नेटवर्क जांचें",
+      "networkUnavailable": "नेटवर्क अनुपलब्ध। कृपया अपना कनेक्शन जांचें",
+      "generic": "अस्थायी रूप से वॉलेट डेटा लोड करने में असमर्थ"
+    },
+    "actions": {
+      "tryAgain": "पुनः प्रयास करें",
+      "close": "बंद करें"
+    }
+  },
+  "userHoliday": {
+    "title": "अवकाश आवेदन करें",
+    "startDate": "प्रारंभ तिथि",
+    "endDate": "समाप्ति तिथि",
+    "selectStartDate": "प्रारंभ तिथि चुनें",
+    "selectEndDate": "समाप्ति तिथि चुनें",
+    "helperText": "📌 नोट: अवकाश आवेदन कम से कम 10 दिनों के लिए होना चाहिए। आप केवल अपनी प्रारंभ तिथि के कम से कम 9 दिन बाद की समाप्ति तिथि चुन सकते हैं।",
+    "bookedPeriod": "आपकी बुक की गई अवधि: {startDate} से {endDate} तक",
+    "serviceType": "सेवा प्रकार",
+    "bookingType": "बुकिंग प्रकार",
+    "cancel": "रद्द करें",
+    "submit": "जमा करें",
+    "success": "अवकाश आवेदन सफलतापूर्वक जमा किया गया!",
+    "confirmation": {
+      "title": "अवकाश आवेदन की पुष्टि करें",
+      "message": "क्या आप अपनी {service} सेवा के लिए {startDate} से {endDate} तक अवकाश के लिए आवेदन करना चाहते हैं?",
+      "confirm": "हाँ, आवेदन करें",
+      "cancel": "रद्द करें"
+    },
+    "error": {
+      "withinBookingPeriod": "अवकाश तिथियां आपकी बुक की गई अवधि के भीतर होनी चाहिए",
+      "minimumDays": "अवकाश अवधि कम से कम 10 दिन होनी चाहिए",
+      "submitFailed": "अवकाश आवेदन जमा करने में विफल। कृपया पुनः प्रयास करें।"
+    }
+  },
+  "engagementDetails": {
+    "title": "बुकिंग विवरण",
+    "bookingId": "बुकिंग आईडी",
+    "serviceType": "सेवा प्रकार",
+    "schedule": "अनुसूची",
+    "startDate": "प्रारंभ तिथि",
+    "endDate": "समाप्ति तिथि",
+    "timeSlot": "समय स्लॉट",
+    "serviceProvider": "सेवा प्रदाता",
+    "notAssigned": "नियुक्त नहीं",
+    "tasksResponsibilities": "कार्य और जिम्मेदारियां",
+    "mainTasks": "मुख्य कार्य",
+    "addOns": "ऐड-ऑन",
+    "paymentDetails": "भुगतान विवरण",
+    "baseAmount": "मूल राशि",
+    "platformFee": "प्लेटफॉर्म शुल्क",
+    "gst": "जीएसटी",
+    "total": "कुल",
+    "paymentStatus": "भुगतान स्थिति",
+    "paymentMode": "भुगतान मोड",
+    "completePaymentNow": "अभी भुगतान पूरा करें",
+    "completePaymentNote": "अपनी बुकिंग पुष्टि करने के लिए भुगतान पूरा करें",
+    "modificationHistory": "संशोधन इतिहास",
+    "additionalInformation": "अतिरिक्त जानकारी",
+    "bookingDate": "बुकिंग तिथि",
+    "assignmentStatus": "नियुक्ति स्थिति",
+    "leaveDays": "अवकाश दिन",
+    "call": "कॉल",
+    "message": "संदेश",
+    "callProvider": "प्रदाता को कॉल करें",
+    "messageProvider": "प्रदाता को संदेश भेजें",
+    "cancelBooking": "बुकिंग रद्द करें",
+    "cancelConfirmation": "बुकिंग रद्द करें",
+    "cancelConfirmationMessage": "क्या आप वाकई अपनी {service} बुकिंग रद्द करना चाहते हैं? यह क्रिया पूर्ववत नहीं की जा सकती।",
+    "yes": "हाँ",
+    "no": "नहीं",
+    "yesCancel": "हाँ, रद्द करें",
+    "processing": "प्रक्रियाधीन...",
+    "success": "सफलता",
+    "error": "त्रुटि",
+    "paymentSuccess": "भुगतान सफलतापूर्वक पूरा हुआ!",
+    "paymentFailed": "भुगतान विफल। कृपया पुनः प्रयास करें।",
+    "paymentVerificationFailed": "भुगतान सत्यापन विफल। कृपया सहायता से संपर्क करें।",
+    "paymentResumeFailed": "भुगतान पुनः शुरू करने में असमर्थ। कृपया पुनः प्रयास करें।",
+    "bookingCancelled": "बुकिंग सफलतापूर्वक रद्द की गई",
+    "bookingCancelFailed": "बुकिंग रद्द करने में विफल। कृपया पुनः प्रयास करें।",
+    "razorpayIntegration": "रेजरपे एकीकरण के लिए react-native-razorpay पैकेज आवश्यक है"
+  },
+  "allBookings": {
+    "title": "सभी बुकिंग देखें",
+    "tabs": {
+      "ongoing": "चालू ({count})",
+      "future": "आगामी ({count})",
+      "past": "पिछला ({count})"
+    },
+    "bookingCount": "{month} में {count} बुकिंग",
+    "bookingCount_plural": "{month} में {count} बुकिंग",
+    "noCurrentBookings": "{month} में कोई चालू बुकिंग नहीं मिली",
+    "noCurrentBookingsDesc": "इस महीने की आपकी सभी चालू बुकिंग यहां दिखाई देंगी।",
+    "noUpcomingBookings": "{month} में कोई आगामी बुकिंग नहीं मिली",
+    "noUpcomingBookingsDesc": "इस महीने की आपकी सभी आगामी बुकिंग यहां दिखाई देंगी।",
+    "noPastBookings": "{month} में कोई पिछली बुकिंग नहीं मिली",
+    "noPastBookingsDesc": "इस महीने की आपकी सभी पिछली बुकिंग यहां दिखाई देंगी।",
+    "empty": {
+      "title": "कोई बुकिंग नहीं मिली",
+      "description": "इस महीने में कोई बुकिंग नहीं मिली। कोई भिन्न महीना चुनने का प्रयास करें।"
+    },
+    "bookingCard": {
+      "bookingId": "बुकिंग आईडी: {id}",
+      "clientName": "ग्राहक",
+      "dateTime": "तिथि और समय",
+      "amount": "राशि",
+      "address": "पता",
+      "trackAddress": "पता ट्रैक करें",
+      "todaysService": "आज की सेवा",
+      "responsibilities": "जिम्मेदारियां",
+      "addOns": "ऐड-ऑन",
+      "taskInProgress": "कार्य प्रगति पर",
+      "taskCompleted": "कार्य पूर्ण",
+      "notStarted": "शुरू नहीं हुआ",
+      "upcoming": "आगामी",
+      "cannotStartYet": "अभी शुरू नहीं किया जा सकता",
+      "startTask": "कार्य शुरू करें",
+      "completeTask": "कार्य पूर्ण करें",
+      "completed": "पूर्ण"
+    },
+    "monthSelector": {
+      "previous": "पिछला महीना",
+      "next": "अगला महीना"
+    }
+  },
+  "bookingCard": {
+    "bookingId": "बुकिंग आईडी: {id}",
+    "clientName": "ग्राहक",
+    "service": "सेवा",
+    "status": {
+      "upcoming": "आगामी",
+      "inProgress": "प्रगति में",
+      "completed": "पूर्ण",
+      "cancelled": "रद्द"
+    },
+    "date": "तारीख",
+    "time": "समय",
+    "location": "स्थान",
+    "amount": "राशि",
+    "contact": "संपर्क",
+    "contactClient": "ग्राहक से संपर्क करें",
+    "noContactInfo": "संपर्क जानकारी उपलब्ध नहीं",
+    "callError": "फोन डायलर नहीं खोल सका"
+  },
+  "reviewsDialog": {
+    "title": "ग्राहक समीक्षाएं",
+    "subtitle": "आपके ग्राहकों से प्रतिक्रिया आपको सुधारने में मदद करती है",
+    "providerGrade": "प्रदाता ग्रेड",
+    "averageRating": "{rating} में से {rating}",
+    "totalReviews": "कुल {count} समीक्षा",
+    "totalReviews_plural": "कुल {count} समीक्षाएं",
+    "ratingDistribution": "रेटिंग वितरण",
+    "filterByService": "सेवा प्रकार के अनुसार फ़िल्टर करें:",
+    "allServices": "सभी सेवाएं",
+    "showingReviews": "{count} समीक्षा दिखाई जा रही है",
+    "showingReviews_plural": "{count} समीक्षाएं दिखाई जा रही हैं",
+    "showingFor": "{service} के लिए {count} समीक्षा दिखाई जा रही है",
+    "showingFor_plural": "{service} के लिए {count} समीक्षाएं दिखाई जा रही हैं",
+    "empty": {
+      "title": "अभी तक कोई समीक्षा नहीं",
+      "description": "ग्राहकों द्वारा आपकी सेवाओं को रेट करने पर समीक्षाएं यहां दिखाई देंगी",
+      "noReviewsForService": "{service} सेवाओं के लिए कोई समीक्षा नहीं"
+    },
+    "review": {
+      "anonymous": "गुमनाम ग्राहक",
+      "noComment": "कोई टिप्पणी नहीं दी गई",
+      "yesterday": "कल",
+      "daysAgo": "{count} दिन पहले"
+    },
+    "grade": {
+      "A": "ए",
+      "B": "बी",
+      "C": "सी",
+      "D": "डी",
+      "F": "एफ"
+    },
+    "loading": "समीक्षाएं लोड हो रही हैं..."
+  },
+  "trackAddress": {
+    "title": "बारासात तक ट्रैक करें",
+    "from": "से: {location}",
+    "to": "को: बारासात, पश्चिम बंगाल",
+    "distance": "दूरी",
+    "estimatedTime": "अनुमानित समय",
+    "startNavigation": "नेविगेशन शुरू करें",
+    "refreshLocation": "स्थान रीफ्रेश करें",
+    "gettingLocation": "आपका स्थान प्राप्त किया जा रहा है...",
+    "calculatingRoute": "मार्ग की गणना की जा रही है...",
+    "error": {
+      "locationError": "आपका स्थान प्राप्त नहीं किया जा सका। कृपया स्थान सेवाएं सक्षम करें।",
+      "openSettings": "सेटिंग्स खोलें",
+      "mapsError": "मैप्स एप्लिकेशन नहीं खोल सका"
+    },
+    "permission": {
+      "title": "स्थान अनुमति",
+      "message": "बारासात तक आपके मार्ग को ट्रैक करने के लिए इस ऐप को आपके स्थान तक पहुंच की आवश्यकता है।",
+      "allow": "अनुमति दें",
+      "deny": "अस्वीकार करें"
+    }
+  },
+  "otpVerification": {
+    "title": "सेवा पूरी करने के लिए ओटीपी सत्यापित करें",
+    "serviceFor": "{clientName} के लिए सेवा",
+    "bookingInfo": "बुकिंग आईडी: {id} • {service}",
+    "instructions": "सेवा पूरी करने के लिए ग्राहक से प्राप्त ओटीपी दर्ज करें।",
+    "enterOtp": "6-अंकीय ओटीपी दर्ज करें",
+    "verificationNote": "एक बार सत्यापित होने पर, सेवा पूर्ण के रूप में चिह्नित हो जाएगी और आपकी कमाई जमा कर दी जाएगी।",
+    "cancel": "रद्द करें",
+    "verify": "सत्यापित करें और पूरा करें",
+    "verifying": "सत्यापन हो रहा है...",
+    "error": {
+      "serviceDayIdNotFound": "सेवा दिवस आईडी नहीं मिली",
+      "verificationFailed": "सेवा पूरी करने में विफल"
+    },
+    "success": "सेवा सफलतापूर्वक पूरी हुई! आपके खाते में कमाई जमा कर दी गई है।"
+  },
+  "withdrawal": {
+    "title": "निकासी का अनुरोध करें",
+    "subtitle": "अपना उपलब्ध शेष अपने बैंक खाते में निकालें",
+    "availableBalance": "उपलब्ध शेष",
+    "minWithdrawal": "न्यूनतम निकासी",
+    "enterAmount": "राशि दर्ज करें (₹)",
+    "max": "अधिकतम",
+    "summary": "सारांश",
+    "withdrawalAmount": "निकासी राशि",
+    "remainingBalance": "शेष बची राशि",
+    "processingTime": "प्रसंस्करण समय",
+    "processingTimeValue": "2-3 कार्यदिवस",
+    "payoutMethod": "बैंक हस्तांतरण",
+    "payoutDescription": "राशि 2-3 कार्यदिवसों के भीतर आपके पंजीकृत बैंक खाते में स्थानांतरित कर दी जाएगी",
+    "cancel": "रद्द करें",
+    "withdraw": "निकालें",
+    "amountExceeds": "राशि उपलब्ध शेष से अधिक है (₹{balance})",
+    "amountMustBeGreater": "राशि 0 से अधिक होनी चाहिए",
+    "invalidAmount": "अमान्य राशि",
+    "amountRange": "कृपया ₹1 और ₹{balance} के बीच एक मान्य राशि दर्ज करें",
+    "success": "₹{amount} की निकासी का अनुरोध सफलतापूर्वक शुरू किया गया है।",
+    "error": {
+      "missingId": "सेवा प्रदाता आईडी नहीं मिली",
+      "invalidRequest": "अमान्य निकासी अनुरोध",
+      "insufficientBalance": "निकासी के लिए अपर्याप्त शेष",
+      "validationError": "मान्यता त्रुटि। कृपया दर्ज की गई राशि जांचें।",
+      "serverError": "सर्वर त्रुटि। कृपया बाद में पुनः प्रयास करें।",
+      "generic": "निकासी अनुरोध प्रक्रिया करने में विफल"
+    }
+  },
+  "withdrawalHistory": {
+    "title": "निकासी इतिहास",
+    "subtitle": "अपनी कमाई, निकासी और लेनदेन इतिहास देखें",
+    "summary": {
+      "totalEarned": "कुल कमाई",
+      "availableBalance": "उपलब्ध शेष",
+      "totalWithdrawn": "कुल निकाली गई राशि"
+    },
+    "filters": {
+      "all": "सभी लेनदेन",
+      "earnings": "कमाई",
+      "withdrawals": "निकासी"
+    },
+    "transactionTypes": {
+      "DAILY_EARNED": "सेवा भुगतान",
+      "WITHDRAWAL": "निकासी",
+      "SERVICE_FEE": "सेवा शुल्क",
+      "SECURITY_DEPOSIT": "सुरक्षा जमा",
+      "REFUND": "धनवापसी",
+      "OTHER": "लेनदेन"
+    },
+    "credit": "क्रेडिट",
+    "debit": "डेबिट",
+    "engagement": "एंगेजमेंट #{id}",
+    "ref": "संदर्भ: {type} #{id}",
+    "empty": {
+      "title": "कोई लेनदेन नहीं मिला",
+      "description": "लेनदेन देखने के लिए सेवाएं प्रदान करना शुरू करें",
+      "noCredit": "कोई क्रेडिट लेनदेन नहीं",
+      "noDebit": "कोई डेबिट लेनदेन नहीं"
+    },
+    "payoutSection": "भुगतान अनुरोध",
+    "payoutId": "भुगतान #{id}",
+    "engagementId": "एंगेजमेंट #{id}",
+    "status": {
+      "completed": "पूर्ण",
+      "pending": "लंबित",
+      "failed": "विफल"
+    },
+    "loading": "इतिहास लोड हो रहा है...",
+    "retry": "पुनः प्रयास करें",
+    "noData": "कोई इतिहास डेटा उपलब्ध नहीं"
   }
 }
