@@ -77,13 +77,16 @@ const DemoCook = ({
   sendDataToParent,
   user,
   providerDetails,
-  bookingType,
 }: any) => {
-  
+
   const dispatch = useDispatch();
   const cart = useSelector((state: any) => state.addToCart?.items || []);
   const { getFilteredPricing, getBookingType } = usePricingFilterService();
   const { setAppUser, appUser } = useAppUser();
+
+  const bookingType = getBookingType();
+
+  console.log("Booker details in CookServiceDialog:", bookingType);
   
   const cookPricing = getFilteredPricing('cook');
   const [showCartDialog, setShowCartDialog] = useState(false);
@@ -417,6 +420,8 @@ const DemoCook = ({
       // Format start_time properly
       const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
       const startTime = formatTimeForBackend(bookingType?.timeRange);
+      console.log("Booking type :1234",bookingType)
+      console.log("Formatted start time for backend:", startTime);
 
       // Conditional serviceproviderid logic - FIXED
       const isOnDemand = currentBookingType === "ON_DEMAND";
@@ -430,23 +435,27 @@ const DemoCook = ({
       console.log("Determined serviceproviderid:", bookingType);
 
       const demoForStartTime = bookingType?.timeRange.split("-");
-      console.log("Demo for start time :", demoForStartTime + ":00")
+      console.log("Demo for start time :", demoForStartTime)
+      // console.log("Demo for start time :", demoForStartTime + ":00")
       // Prepare payload matching BookingPayload interface
       const payload: BookingPayload = {
         customerid: customerId,
         serviceproviderid: serviceproviderid, // Now properly typed as number | null
-        start_date: bookingType?.demoForStartTime || new Date().toISOString().split("T")[0],
-        end_date: bookingType?.end_Date || new Date().toISOString().split("T")[0],
+        start_date: bookingType?.start_date,
+        end_date: bookingType?.end_date,
         responsibilities: responsibilities,
         booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
         service_type: "COOK",
         base_amount: baseTotal,
         payment_mode: "razorpay",
-        start_time: demoForStartTime[0].trim()
+         start_time: bookingType?.start_time || "",
+        ...(getBookingTypeFromPreference(bookingType?.bookingPreference) === "ON_DEMAND" && {
+          end_time: bookingType?.end_time || "",
+        }),
       };
 
-      console.log("Prepared booking payload:", payload);
+      console.log("Prepared booking payload:", JSON.stringify(payload));
 
       console.log("📦 Booking payload:", JSON.stringify(payload, null, 2));
       console.log(`🔍 Booking Type: ${currentBookingType}, Service Provider ID: ${serviceproviderid}`);
