@@ -984,19 +984,13 @@ const MainApp = () => {
             />
           )}
 
-          {/* Agent Registration */}
-          {showAgentRegistration && (
-            <Modal
-              visible={showAgentRegistration}
-              animationType="slide"
-              onRequestClose={() => setShowAgentRegistration(false)}
-            >
-              <AgentRegistrationForm
-                onBackToLogin={() => setShowAgentRegistration(false)}
-                onRegistrationSuccess={() => setShowAgentRegistration(false)}
-              />
-            </Modal>
-          )}
+         {/* Agent Registration - Direct rendering, no extra Modal */}
+{showAgentRegistration && (
+  <AgentRegistrationForm
+    onBackToLogin={() => setShowAgentRegistration(false)}
+    onClose={() => setShowAgentRegistration(false)}
+  />
+)}
 
           {/* Notification Client Modal */}
           <Modal

@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  BackHandler, // Add this import
+  BackHandler,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useAuth0 } from "react-native-auth0";
@@ -25,7 +25,7 @@ import utilsInstance from "../services/utilsInstance";
 import providerInstance from "../services/providerInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/userStore";
-import { setHasMobileNumber } from "../features/customerSlice";
+import { setHasMobileNumber } from "../features/customerSlice"; // Fixed import path
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
 
@@ -92,15 +92,6 @@ interface ServiceProvider {
   correspondenceAddress: CorrespondenceAddress;
 }
 
-interface CustomerDetails {
-  customerid: number;
-  firstName: string;
-  lastName: string;
-  mobileNo: string | null;
-  altMobileNo: string | null;
-  email: string;
-}
-
 interface ValidationState {
   loading: boolean;
   error: string;
@@ -114,7 +105,7 @@ interface OriginalData {
 }
 
 interface ProfileScreenProps {
-  onBackToHome?: () => void; // Add this prop for back navigation
+  onBackToHome?: () => void;
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
@@ -137,6 +128,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   } = useSelector((state: RootState) => state.customer);
 
   console.log("App User from Context:", appUser);
+  console.log("Redux Customer State:", {
+    customerId,
+    mobileNo,
+    alternateNo,
+    firstName,
+    lastName,
+    emailId,
+    hasMobileNumber,
+  });
 
   const [userName, setUserName] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
@@ -145,9 +145,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const [userRole, setUserRole] = useState<string>("CUSTOMER");
   const [serviceProviderData, setServiceProviderData] =
     useState<ServiceProvider | null>(null);
-  const [customerData, setCustomerData] = useState<CustomerDetails | null>(
-    null,
-  );
+  const [customerData, setCustomerData] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedAddressIds, setExpandedAddressIds] = useState<string[]>([]);
   const [showMobileDialog, setShowMobileDialog] = useState(false);
@@ -327,7 +325,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
   const getUserIdDisplay = () => {
     if (userRole === "SERVICE_PROVIDER") {
-      // Try multiple sources for service provider ID
       return (
         appUser?.serviceProviderId?.toString() ||
         userId?.toString() ||
@@ -335,7 +332,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         t('common.na')
       );
     } else {
-      // Try multiple sources for customer ID
       return (
         appUser?.customerid?.toString() ||
         userId?.toString() ||
@@ -384,9 +380,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     });
 
     try {
-      const endpoint = "/api/service-providers/check-mobile";
+      // Using providerInstance for mobile check as per React version
+      const endpoint = '/api/service-providers/check-mobile';
       const payload = { mobile: number };
-
+      
       const response = await providerInstance.post(endpoint, payload);
 
       let isAvailable = true;
@@ -825,7 +822,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     }
   };
 
-  // Fetch customer details
+  // Fetch customer details using axiosInstance (from React version)
   const fetchCustomerDetails = async (customerId: number) => {
     try {
       console.log("Fetching customer details for ID:", customerId);
@@ -835,8 +832,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       console.log("API Response:", response.data);
 
       const customer = response.data;
+      setCustomerData(customer);
 
-      const mobileNo =
+      const mobileNoFromApi =
         customer?.mobileNo ??
         customer?.mobileNumber ??
         customer?.phoneNumber ??
@@ -844,22 +842,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         customer?.phone ??
         "";
 
-      const altMobileNo =
+      const altMobileNoFromApi =
         customer?.altMobileNo ??
         customer?.alternateMobileNo ??
         customer?.altPhoneNumber ??
         customer?.alternateContactNumber ??
         "";
 
-      console.log("Mapped mobile numbers:", { mobileNo, altMobileNo });
-
-      setCustomerData(customer);
+      console.log("Mapped mobile numbers:", { mobileNo: mobileNoFromApi, altMobileNo: altMobileNoFromApi });
 
       const updatedUserData = {
         firstName: customer.firstName || "",
         lastName: customer.lastName || "",
-        contactNumber: mobileNo ? mobileNo.toString() : "",
-        altContactNumber: altMobileNo ? altMobileNo.toString() : "",
+        contactNumber: mobileNoFromApi ? mobileNoFromApi.toString() : "",
+        altContactNumber: altMobileNoFromApi ? altMobileNoFromApi.toString() : "",
       };
 
       setUserData(updatedUserData);
@@ -875,7 +871,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     }
   };
 
-  // Fetch customer addresses
+  // Fetch customer addresses using utilsInstance
   const fetchCustomerAddresses = async (customerId: number) => {
     try {
       const response = await utilsInstance.get(`/user-settings/${customerId}`);
@@ -954,7 +950,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     }
   };
 
-  // Fetch service provider data
+  // Fetch service provider data using axiosInstance
   const fetchServiceProviderData = async (serviceProviderId: number) => {
     try {
       const response = await axiosInstance.get(
@@ -1127,6 +1123,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     }
   };
 
+  // Initialize profile - MATCHING REACT VERSION EXACTLY
   useEffect(() => {
     const initializeProfile = async () => {
       setIsLoading(true);
@@ -1149,11 +1146,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             await fetchServiceProviderData(id);
             dispatch(setHasMobileNumber(true));
           } else if (role === "CUSTOMER" && id) {
+            // Wait for Redux data to load (if still loading) - MATCHING REACT VERSION
             if (customerLoading) {
               console.log("⏳ Waiting for Redux customer data to load...");
               await new Promise((resolve) => setTimeout(resolve, 500));
             }
 
+            // Initialize userData from Redux state - MATCHING REACT VERSION
             const updatedUserData = {
               firstName: firstName || name?.split(" ")[0] || "",
               lastName: lastName || name?.split(" ").slice(1).join(" ") || "",
@@ -1174,6 +1173,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
               hasMobileNumber,
             });
 
+            // Check if mobile number is missing and dialog hasn't been shown - MATCHING REACT VERSION
             if (!hasMobileNumber && !dialogShownInSession) {
               setTimeout(() => {
                 setShowMobileDialog(true);
@@ -1194,9 +1194,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     };
 
     initializeProfile();
-  }, [auth0User, appUser, dialogShownInSession, dispatch]);
+  }, [auth0User, appUser, dialogShownInSession, dispatch, customerLoading, firstName, lastName, mobileNo, alternateNo, hasMobileNumber]);
 
-  // Update userData when Redux state changes
+  // Update userData when Redux state changes - MATCHING REACT VERSION
   useEffect(() => {
     if (userRole === "CUSTOMER" && (firstName || lastName)) {
       const updatedUserData = {
@@ -1225,6 +1225,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     }));
   };
 
+  // Handle Save - MATCHING REACT VERSION EXACTLY WITH CORRECT API ENDPOINTS
   const handleSave = async () => {
     const isValid = await validateAllFields();
     if (!isValid) {
@@ -1235,6 +1236,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
     try {
       if (userRole === "SERVICE_PROVIDER" && userId) {
+        // Only include changed fields in the payload - MATCHING REACT VERSION
         const payload: any = {
           serviceproviderId: userId,
         };
@@ -1284,6 +1286,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           };
         }
 
+        // Using axiosInstance for service provider update
         await axiosInstance.put(
           `/api/serviceproviders/update/serviceprovider/${userId}`,
           payload,
@@ -1291,28 +1294,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         await fetchServiceProviderData(userId);
         Alert.alert(t('common.success'), t('profile.page.updateSuccess'));
       } else if (userRole === "CUSTOMER" && userId) {
+        // Only include changed fields in the payload - USE LOWERCASE FIELD NAMES - MATCHING REACT VERSION
         const payload: any = {
           customerid: userId,
         };
 
         if (userData.firstName !== originalData.userData.firstName) {
-          payload.firstName = userData.firstName;
+          payload.firstname = userData.firstName;  // lowercase
         }
         if (userData.lastName !== originalData.userData.lastName) {
-          payload.lastName = userData.lastName;
+          payload.lastname = userData.lastName;    // lowercase
         }
         if (userData.contactNumber !== originalData.userData.contactNumber) {
-          payload.mobileNo = userData.contactNumber?.replace("+", "") || null;
+          payload.mobileno = userData.contactNumber?.replace("+", "") || null;  // lowercase
         }
         if (
           userData.altContactNumber !== originalData.userData.altContactNumber
         ) {
-          payload.alternateNo =
-            userData.altContactNumber?.replace("+", "") || null;
+          payload.alternateno =
+            userData.altContactNumber?.replace("+", "") || null;  // lowercase
         }
 
-        await axiosInstance.put(
-          `/api/customer/update-customer/${userId}`,
+        // Using providerInstance for customer update - MATCHING REACT VERSION
+        await providerInstance.put(
+          `/api/customer/${userId}`,
           payload,
         );
 
@@ -1445,11 +1450,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const handleBackPress = () => {
     console.log("⬅️ Back button pressed in ProfileScreen");
 
-    // Close any open dialogs or modals first
     if (showMobileDialog) {
       console.log("📱 Closing mobile dialog");
       setShowMobileDialog(false);
-      return true; // Prevent default back behavior
+      return true;
     }
 
     if (showCountryCodePicker) {
@@ -1470,21 +1474,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       return true;
     }
 
-    // If in editing mode, cancel editing first
     if (isEditing) {
       console.log("✏️ Canceling edit mode");
       handleCancel();
       return true;
     }
 
-    // If no dialogs are open and not in edit mode, navigate back to home
     if (onBackToHome) {
       console.log("🏠 Navigating back to HomePage");
       onBackToHome();
-      return true; // Prevent default back behavior
+      return true;
     }
 
-    return false; // Let default back behavior happen
+    return false;
   };
 
   // Set up hardware back button listener
@@ -1496,7 +1498,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       handleBackPress,
     );
 
-    // Clean up listener on unmount
     return () => {
       console.log("🧹 Cleaning up back button handler for ProfileScreen");
       backHandler.remove();
@@ -1535,7 +1536,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     </View>
   );
 
-  // Skeleton Loading Component
+  // Skeleton Loading Component (keep as is from original)
   const SkeletonLoader = () => (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header Skeleton */}
@@ -3195,7 +3196,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    marginLeft: 40, // Add margin to account for back button
+    marginLeft: 40,
   },
   profileImage: {
     width: 80,
@@ -3338,7 +3339,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: 20,
   },
-  // Address section styles
   addressesSection: {
     marginBottom: 20,
   },

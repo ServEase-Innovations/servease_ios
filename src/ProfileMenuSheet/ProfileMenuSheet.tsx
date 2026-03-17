@@ -9,9 +9,10 @@ import {
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { useAppUser } from "../context/AppUserContext";
-import Settings from "../Settings/Settings"; // Import the Settings component
-import { useTheme } from "../Settings/ThemeContext"; // Import useTheme
+import Settings from "../Settings/Settings";
+import { useTheme } from "../Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
+import AgentRegistrationForm from "../AgentRegistration/AgentRegistrationForm";
 
 interface Props {
   visible: boolean;
@@ -33,14 +34,18 @@ const ProfileMenuSheet: React.FC<Props> = ({
   onContact,
 }) => {
   const { appUser } = useAppUser();
-  const { colors } = useTheme(); // Get theme colors
+  const { colors } = useTheme();
   const { t } = useTranslation();
 
   // State for settings modal
   const [showSettings, setShowSettings] = useState(false);
+  
+  // State for agent registration modal
+  const [showAgentRegistration, setShowAgentRegistration] = useState(false);
 
   const isCustomer = appUser?.role === "CUSTOMER";
   const isServiceProvider = appUser?.role === "SERVICE_PROVIDER";
+  const isAdmin = appUser?.role === "ADMIN";
 
   const handleSettingsPress = () => {
     onClose();
@@ -51,7 +56,20 @@ const ProfileMenuSheet: React.FC<Props> = ({
     setShowSettings(false);
   };
 
-  // Handle contact press - now opens settings instead of direct contact
+  const handleAgentRegistrationPress = () => {
+    onClose();
+    setShowAgentRegistration(true);
+  };
+
+  const handleCloseAgentRegistration = () => {
+    setShowAgentRegistration(false);
+  };
+
+  const handleBackToLogin = (data: boolean) => {
+    console.log("Back to login:", data);
+    setShowAgentRegistration(false);
+  };
+
   const handleContactPress = () => {
     onClose();
     setShowSettings(true);
@@ -107,7 +125,17 @@ const ProfileMenuSheet: React.FC<Props> = ({
             </>
           )}
 
-          {/* Settings button - now contains all settings including About and Contact */}
+          {/* Admin specific menu items - Add Agent Registration for Admin */}
+          {isAdmin && (
+            <MenuItem 
+              label="Agent Registration" 
+              icon="person-add" 
+              onPress={handleAgentRegistrationPress} 
+              colors={colors}
+            />
+          )}
+
+          {/* Settings button */}
           <MenuItem 
             label={t('profileMenu.settings')} 
             icon="settings" 
@@ -117,13 +145,20 @@ const ProfileMenuSheet: React.FC<Props> = ({
         </View>
       </Modal>
 
-      {/* Settings Modal - contains all settings including About, Contact, and Terms */}
+      {/* Settings Modal */}
       <Settings visible={showSettings} onClose={handleCloseSettings} />
+
+      {/* Agent Registration Modal */}
+      {showAgentRegistration && (
+        <AgentRegistrationForm
+          onBackToLogin={handleBackToLogin}
+          onClose={handleCloseAgentRegistration}
+        />
+      )}
     </>
   );
 };
 
-// Updated MenuItem to use theme colors
 const MenuItem = ({ label, icon, onPress, danger = false, colors }: any) => (
   <TouchableOpacity style={styles.item} onPress={onPress}>
     <MaterialIcon 

@@ -1,363 +1,889 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
-  TextInput,
   Text,
-  TouchableOpacity,
+  TextInput,
   StyleSheet,
-  Alert,
-  Platform,
   ScrollView,
+  TouchableOpacity,
+  Modal,
+  ActivityIndicator,
   KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import Clipboard from '@react-native-clipboard/clipboard';
-import axios from 'axios';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import axiosInstance from '../services/axiosInstance';
+import {
+  SafeAreaView,
+  SafeAreaProvider,
+} from 'react-native-safe-area-context';
 
-interface AgentRegistrationFormProps {
-  onBackToLogin: () => void;
-  onRegistrationSuccess: () => void;
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import providerInstance from '../services/providerInstance';
+import axios from 'axios';
+import { useTranslation } from 'react-i18next';
+import { useFieldValidation } from '../Registration/useFieldValidation';
+import LinearGradient from 'react-native-linear-gradient';
+
+interface RegistrationProps {
+  onBackToLogin: (data: boolean) => void;
+  onClose?: () => void;
+  visible?: boolean;
 }
 
-const AgentRegistrationForm: React.FC<AgentRegistrationFormProps> = ({
+interface FormData {
+  companyName: string;
+  phoneNo: string;
+  emailId: string;
+  address: string;
+  registrationId: string;
+  password: string;
+  confirmPassword: string;
+}
+
+interface ValidationErrors {
+  phoneNo: string;
+  emailId: string;
+  registrationId: string;
+  password: string;
+  confirmPassword: string;
+}
+
+interface ApiResponse {
+  registrationId?: string;
+  message?: string;
+  error?: string;
+}
+
+interface ApiRequestPayload {
+  companyName: string;
+  address: string;
+  emailid: string;
+  phoneNo: string;
+  registrationId: string;
+}
+
+const CustomSnackbar: React.FC<{
+  visible: boolean;
+  message: string;
+  type: 'success' | 'error';
+  onDismiss: () => void;
+}> = ({ visible, message, type, onDismiss }) => {
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => {
+        onDismiss();
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, onDismiss]);
+
+  if (!visible) return null;
+
+  return (
+    <View
+      style={[
+        styles.snackbar,
+        type === 'success' ? styles.snackbarSuccess : styles.snackbarError,
+      ]}
+    >
+      <Text style={styles.snackbarText}>{message}</Text>
+      <TouchableOpacity onPress={onDismiss}>
+        <Icon name="close" size={20} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const RegistrationIdDisplay: React.FC<{
+  registrationId: string;
+  onCopy: () => void;
+  disabled?: boolean;
+}> = ({ registrationId, onCopy, disabled }) => (
+  <View style={styles.registrationIdContainer}>
+    <View style={styles.registrationIdContent}>
+      <Text style={styles.registrationIdLabel}>Registration ID</Text>
+      <Text style={styles.registrationIdValue}>{registrationId}</Text>
+    </View>
+    <TouchableOpacity
+      onPress={onCopy}
+      disabled={disabled}
+      style={styles.copyButton}
+    >
+      <Icon name="content-copy" size={20} color="#1976d2" />
+    </TouchableOpacity>
+  </View>
+);
+
+const AgentRegistrationForm: React.FC<RegistrationProps> = ({
   onBackToLogin,
-  onRegistrationSuccess,
+  onClose,
+  visible = true,
 }) => {
-  const [formData, setFormData] = useState({
+  const { t } = useTranslation();
+
+  const [formData, setFormData] = useState<FormData>({
     companyName: '',
-    mobileNumber: '',
-    email: '',
+    phoneNo: '',
+    emailId: '',
+    address: '',
+    registrationId: '',
     password: '',
     confirmPassword: '',
-    address: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [referralCode, setReferralCode] = useState('');
 
-  const [validationErrors, setValidationErrors] = useState({
-    mobileNumber: '',
-    email: '',
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({
+    phoneNo: '',
+    emailId: '',
+    registrationId: '',
     password: '',
     confirmPassword: '',
   });
 
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [message, setMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>(
+    'success'
+  );
+
+  const [returnedRegistrationId, setReturnedRegistrationId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { validationResults, validateField, resetValidation } =
+    useFieldValidation();
+
+  const [emailTimer, setEmailTimer] = useState<NodeJS.Timeout | null>(null);
+  const [mobileTimer, setMobileTimer] = useState<NodeJS.Timeout | null>(null);
+
   const mobileRegex = /^[0-9]{10}$/;
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  const passwordRegex =
+    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  const registrationIdRegex = /^[A-Z0-9]{10,20}$/;
 
-  const handleChange = (name: string, value: string) => {
-    setFormData({ ...formData, [name]: value });
-    validateForm(name, value);
+  const handleChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    setValidationErrors((prev) => ({
+      ...prev,
+      [field]: '',
+    }));
+
+    if (field === 'emailId') {
+      if (emailTimer) clearTimeout(emailTimer);
+      const timer = setTimeout(() => {
+        if (value && emailRegex.test(value)) {
+          validateField('email', value);
+        }
+      }, 500);
+      setEmailTimer(timer);
+    }
+
+    if (field === 'phoneNo') {
+      if (mobileTimer) clearTimeout(mobileTimer);
+      const timer = setTimeout(() => {
+        if (value && mobileRegex.test(value)) {
+          validateField('mobile', value);
+        }
+      }, 500);
+      setMobileTimer(timer);
+    }
+
+    validateForm(field, value);
   };
 
   const validateForm = (field: string, value: string) => {
-    let errors = { ...validationErrors };
-
     switch (field) {
-      case 'mobileNumber':
-        errors.mobileNumber = mobileRegex.test(value) ? '' : 'Enter a valid 10-digit mobile number';
+      case 'phoneNo':
+        setValidationErrors((prev) => ({
+          ...prev,
+          phoneNo: !mobileRegex.test(value)
+            ? t('phoneValidationError')
+            : '',
+        }));
         break;
-      case 'email':
-        errors.email = emailRegex.test(value) ? '' : 'Enter a valid email address';
+      case 'emailId':
+        setValidationErrors((prev) => ({
+          ...prev,
+          emailId: !emailRegex.test(value) ? t('emailValidationError') : '',
+        }));
+        break;
+      case 'registrationId':
+        setValidationErrors((prev) => ({
+          ...prev,
+          registrationId: !value.trim()
+            ? t('registrationIdRequired')
+            : !registrationIdRegex.test(value)
+            ? t('registrationIdValidationError')
+            : '',
+        }));
         break;
       case 'password':
-        errors.password = passwordRegex.test(value)
-          ? ''
-          : 'Password must be at least 8 characters with 1 letter, 1 number, and 1 special character';
+        setValidationErrors((prev) => ({
+          ...prev,
+          password: !passwordRegex.test(value)
+            ? t('passwordValidationError')
+            : '',
+        }));
         break;
       case 'confirmPassword':
-        errors.confirmPassword =
-          value === formData.password ? '' : 'Passwords do not match';
+        setValidationErrors((prev) => ({
+          ...prev,
+          confirmPassword:
+            value !== formData.password ? t('passwordMismatch') : '',
+        }));
+        break;
+      default:
         break;
     }
-
-    setValidationErrors(errors);
   };
 
   const isFormValid = () => {
-    const requiredFields = ['companyName', 'mobileNumber', 'email', 'password', 'confirmPassword', 'address'];
-    for (const field of requiredFields) {
-      if (!formData[field as keyof typeof formData]) {
-        Alert.alert('Validation Error', 'Please fill all required fields.');
-        return false;
-      }
-    }
+    const basicValidations =
+      !validationErrors.phoneNo &&
+      !validationErrors.emailId &&
+      !validationErrors.registrationId &&
+      !validationErrors.password &&
+      !validationErrors.confirmPassword &&
+      formData.companyName &&
+      formData.phoneNo &&
+      formData.emailId &&
+      formData.address &&
+      formData.registrationId &&
+      formData.password &&
+      formData.confirmPassword;
 
-    for (const error in validationErrors) {
-      if (validationErrors[error as keyof typeof validationErrors]) {
-        Alert.alert('Validation Error', 'Please fix the form errors before submitting.');
-        return false;
-      }
-    }
+    const availabilityValidations =
+      validationResults.email.isAvailable === true &&
+      validationResults.mobile.isAvailable === true;
 
-    return true;
+    return basicValidations && availabilityValidations;
   };
 
   const handleSubmit = async () => {
-    if (!isFormValid()) return;
+    if (!formData.companyName || !formData.address) {
+      setMessage(t('fillRequiredFields'));
+      setSnackbarSeverity('error');
+      setSnackbarVisible(true);
+      return;
+    }
 
-    const requestData = {
+    if (!isFormValid()) {
+      setMessage(t('ensureValidFields'));
+      setSnackbarSeverity('error');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const requestData: ApiRequestPayload = {
       companyName: formData.companyName,
-      emailId: formData.email,
-      phoneNo: Number(formData.mobileNumber),
       address: formData.address,
-      password: formData.password,
+      emailid: formData.emailId,
+      phoneNo: formData.phoneNo,
+      registrationId: formData.registrationId,
     };
 
     try {
-      const response = await axiosInstance.post("vendors/add",
+      const response = await providerInstance.post<ApiResponse>(
+        '/api/vendor/add',
         requestData,
-        { headers: { 'Content-Type': 'application/json' } }
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
       );
 
-      if (response.status === 200) {
-        const generatedCode = response.data.referralCode || 'REF1234567';
-        setReferralCode(generatedCode);
-        Clipboard.setString(generatedCode);
-        Alert.alert('Success', 'Vendor added successfully!\nReferral code copied to clipboard!');
-        onRegistrationSuccess();
+      if (response.status === 200 || response.status === 201) {
+        const authPayload = {
+          email: formData.emailId,
+          password: formData.password,
+          name: `${formData.companyName}`,
+        };
+
+        axios
+          .post(
+            'https://utils-ndt3.onrender.com/authO/create-autho-user',
+            authPayload
+          )
+          .then((authResponse) => {
+            console.log('AuthO user created successfully:', authResponse.data);
+          })
+          .catch((authError) => {
+            console.error('Error creating AuthO user:', authError);
+          });
+
+        const apiReturnedId =
+          response.data.registrationId || formData.registrationId;
+        setReturnedRegistrationId(apiReturnedId);
+        setMessage(t('vendorAdded'));
+        setSnackbarSeverity('success');
+        setSnackbarVisible(true);
+
+        setFormData({
+          companyName: '',
+          phoneNo: '',
+          emailId: '',
+          address: '',
+          registrationId: '',
+          password: '',
+          confirmPassword: '',
+        });
+
+        resetValidation();
+
+        setTimeout(() => {
+          setIsSubmitting(false);
+          if (onClose) {
+            onClose();
+          } else {
+            onBackToLogin(true);
+          }
+        }, 2000);
       } else {
-        Alert.alert('Error', response.data.error || 'Failed to add vendor');
+        setMessage(response.data.error || t('vendorAddFailed'));
+        setSnackbarSeverity('error');
+        setSnackbarVisible(true);
+        setIsSubmitting(false);
       }
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'An error occurred while connecting to the API.');
+    } catch (error: any) {
+      console.error('API Error:', error);
+
+      if (error.response) {
+        setMessage(error.response.data.error || t('serverError'));
+      } else if (error.request) {
+        setMessage(t('noServerResponse'));
+      } else {
+        setMessage(t('apiConnectionError'));
+      }
+
+      setSnackbarSeverity('error');
+      setSnackbarVisible(true);
+      setIsSubmitting(false);
     }
   };
 
-  const handleCopyReferralCode = () => {
-    if (referralCode) {
-      Clipboard.setString(referralCode);
-      Alert.alert('Copied', 'Referral code copied to clipboard!');
+  const handleCopyRegistrationId = async () => {
+    try {
+      setMessage(t('registrationIdCopied'));
+      setSnackbarSeverity('success');
+      setSnackbarVisible(true);
+    } catch (err) {
+      console.error('Failed to copy registration ID: ', err);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (emailTimer) clearTimeout(emailTimer);
+      if (mobileTimer) clearTimeout(mobileTimer);
+    };
+  }, [emailTimer, mobileTimer]);
+
+  const renderValidationIcon = (fieldType: 'email' | 'mobile') => {
+    const result = validationResults[fieldType];
+
+    if (result.loading) {
+      return <ActivityIndicator size="small" color="#0000ff" />;
+    }
+
+    if (result.isAvailable === true) {
+      return <Icon name="check-circle" size={20} color="#4caf50" />;
+    }
+
+    if (result.isAvailable === false) {
+      return <Icon name="error" size={20} color="#f44336" />;
+    }
+
+    return null;
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      onBackToLogin(true);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={handleClose}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={onBackToLogin}>
-          <MaterialIcons name="arrow-back" size={24} color="#4f8ad5" />
-          <Text style={styles.backButtonText}>Return to Home Page</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Agent Registration</Text>
-
-        <Text style={styles.label}>Company Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter company name"
-          value={formData.companyName}
-          onChangeText={(text) => handleChange('companyName', text)}
-        />
-
-        <Text style={styles.label}>Mobile Number *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter 10-digit mobile number"
-          keyboardType="numeric"
-          value={formData.mobileNumber}
-          onChangeText={(text) => handleChange('mobileNumber', text)}
-        />
-        {validationErrors.mobileNumber && <Text style={styles.error}>{validationErrors.mobileNumber}</Text>}
-
-        <Text style={styles.label}>Email ID *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter email address"
-          keyboardType="email-address"
-          value={formData.email}
-          onChangeText={(text) => handleChange('email', text)}
-        />
-        {validationErrors.email && <Text style={styles.error}>{validationErrors.email}</Text>}
-
-        <Text style={styles.label}>Password *</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="Create password"
-            secureTextEntry={!showPassword}
-            value={formData.password}
-            onChangeText={(text) => handleChange('password', text)}
-          />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
+      <TouchableWithoutFeedback onPress={handleClose}>
+        <View style={styles.modalOverlay} />
+      </TouchableWithoutFeedback>
+      
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.dialogContainer}
           >
-            <MaterialIcons 
-              name={showPassword ? "visibility" : "visibility-off"} 
-              size={24} 
-              color="#666" 
-            />
-          </TouchableOpacity>
-        </View>
-        {validationErrors.password && <Text style={styles.error}>{validationErrors.password}</Text>}
+            <View style={styles.dialogContent}>
+              {/* Dialog Header */}
+               <LinearGradient
+                        colors={["#0a2a66ff", "#004aadff"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.dialogHeader}
+                      >
+              {/* <View style={styles.dialogHeader}> */}
+               
+                <Text style={styles.dialogTitle}>{t('Agent Registration')}</Text>
+                <View style={{ width: 40 }} />
+                 <TouchableOpacity onPress={handleClose} style={styles.closeButton} disabled={isSubmitting}>
+                  <Icon name="close" size={24} color="#f8f5f5" />
+                </TouchableOpacity>
+              {/* </View> */}
+</LinearGradient>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+              >
+                <View style={styles.form}>
+                  {/* Company Name */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>{t('companyName')} *</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={formData.companyName}
+                      onChangeText={(value) => handleChange('companyName', value)}
+                      editable={!isSubmitting}
+                      placeholder={t('companyName')}
+                      placeholderTextColor="#999"
+                    />
+                  </View>
 
-        <Text style={styles.label}>Confirm Password *</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="Re-enter password"
-            secureTextEntry={!showConfirmPassword}
-            value={formData.confirmPassword}
-            onChangeText={(text) => handleChange('confirmPassword', text)}
-          />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-          >
-            <MaterialIcons 
-              name={showConfirmPassword ? "visibility" : "visibility-off"} 
-              size={24} 
-              color="#666" 
-            />
-          </TouchableOpacity>
-        </View>
-        {validationErrors.confirmPassword && <Text style={styles.error}>{validationErrors.confirmPassword}</Text>}
+                  {/* Mobile Number */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>{t('mobileNumber')} *</Text>
+                    <View style={styles.inputWithIcon}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          styles.inputWithIconField,
+                          (!!validationErrors.phoneNo ||
+                            validationResults.mobile.isAvailable === false) &&
+                            styles.inputError,
+                        ]}
+                        value={formData.phoneNo}
+                        onChangeText={(value) => handleChange('phoneNo', value)}
+                        editable={!isSubmitting}
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                        placeholder={t('mobileNumber')}
+                        placeholderTextColor="#999"
+                      />
+                      <View style={styles.iconContainer}>
+                        {renderValidationIcon('mobile')}
+                      </View>
+                    </View>
+                    {(validationErrors.phoneNo ||
+                      validationResults.mobile.error ||
+                      validationResults.mobile.isAvailable === false) && (
+                      <Text style={styles.errorText}>
+                        {validationErrors.phoneNo ||
+                          validationResults.mobile.error ||
+                          (validationResults.mobile.isAvailable === false
+                            ? t('mobileAlreadyRegistered')
+                            : '')}
+                      </Text>
+                    )}
+                  </View>
 
-        <Text style={styles.label}>Company Address *</Text>
-        <TextInput
-          style={[styles.input, styles.addressInput]}
-          placeholder="Enter full address"
-          value={formData.address}
-          onChangeText={(text) => handleChange('address', text)}
-          multiline
-        />
+                  {/* Email */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>{t('emailId')} *</Text>
+                    <View style={styles.inputWithIcon}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          styles.inputWithIconField,
+                          (!!validationErrors.emailId ||
+                            validationResults.email.isAvailable === false) &&
+                            styles.inputError,
+                        ]}
+                        value={formData.emailId}
+                        onChangeText={(value) => handleChange('emailId', value)}
+                        editable={!isSubmitting}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        placeholder={t('emailId')}
+                        placeholderTextColor="#999"
+                      />
+                      <View style={styles.iconContainer}>
+                        {renderValidationIcon('email')}
+                      </View>
+                    </View>
+                    {(validationErrors.emailId ||
+                      validationResults.email.error ||
+                      validationResults.email.isAvailable === false) && (
+                      <Text style={styles.errorText}>
+                        {validationErrors.emailId ||
+                          validationResults.email.error ||
+                          (validationResults.email.isAvailable === false
+                            ? t('emailAlreadyRegistered')
+                            : '')}
+                      </Text>
+                    )}
+                  </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit Registration</Text>
-        </TouchableOpacity>
+                  {/* Registration ID */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>{t('registrationId')} *</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        !!validationErrors.registrationId && styles.inputError,
+                      ]}
+                      value={formData.registrationId}
+                      onChangeText={(value) =>
+                        handleChange('registrationId', value.toUpperCase())
+                      }
+                      editable={!isSubmitting}
+                      maxLength={20}
+                      placeholder={t('registrationId')}
+                      placeholderTextColor="#999"
+                      autoCapitalize="characters"
+                    />
+                    {validationErrors.registrationId && (
+                      <Text style={styles.errorText}>
+                        {validationErrors.registrationId}
+                      </Text>
+                    )}
+                  </View>
 
-        {referralCode !== '' && (
-          <View style={styles.referralBox}>
-            <Text style={styles.referralText}>Your Referral Code: {referralCode}</Text>
-            <TouchableOpacity style={styles.copyButton} onPress={handleCopyReferralCode}>
-              <MaterialIcons name="content-copy" size={18} color="#4f8ad5" />
-              <Text style={styles.copyLink}>Copy to Clipboard</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+                  {/* Password */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>{t('password')} *</Text>
+                    <View style={styles.inputWithIcon}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          styles.inputWithIconField,
+                          !!validationErrors.password && styles.inputError,
+                        ]}
+                        value={formData.password}
+                        onChangeText={(value) => handleChange('password', value)}
+                        editable={!isSubmitting}
+                        secureTextEntry={!showPassword}
+                        placeholder={t('password')}
+                        placeholderTextColor="#999"
+                      />
+                      <TouchableOpacity
+                        onPress={() => setShowPassword(!showPassword)}
+                        style={styles.iconContainer}
+                        disabled={isSubmitting}
+                      >
+                        <Icon
+                          name={showPassword ? 'visibility-off' : 'visibility'}
+                          size={20}
+                          color="#757575"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    {validationErrors.password && (
+                      <Text style={styles.errorText}>
+                        {validationErrors.password}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Confirm Password */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>{t('confirmPassword')} *</Text>
+                    <View style={styles.inputWithIcon}>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          styles.inputWithIconField,
+                          !!validationErrors.confirmPassword && styles.inputError,
+                        ]}
+                        value={formData.confirmPassword}
+                        onChangeText={(value) =>
+                          handleChange('confirmPassword', value)
+                        }
+                        editable={!isSubmitting}
+                        secureTextEntry={!showConfirmPassword}
+                        placeholder={t('confirmPassword')}
+                        placeholderTextColor="#999"
+                      />
+                      <TouchableOpacity
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={styles.iconContainer}
+                        disabled={isSubmitting}
+                      >
+                        <Icon
+                          name={showConfirmPassword ? 'visibility-off' : 'visibility'}
+                          size={20}
+                          color="#757575"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    {validationErrors.confirmPassword && (
+                      <Text style={styles.errorText}>
+                        {validationErrors.confirmPassword}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Address */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>{t('companyAddress')} *</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={formData.address}
+                      onChangeText={(value) => handleChange('address', value)}
+                      editable={!isSubmitting}
+                      multiline
+                      numberOfLines={3}
+                      textAlignVertical="top"
+                      placeholder={t('companyAddress')}
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+
+                  {/* Submit Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.submitButton,
+                      (!isFormValid() || isSubmitting) &&
+                        styles.submitButtonDisabled,
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={!isFormValid() || isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <View style={styles.submitButtonContent}>
+                        <ActivityIndicator size="small" color="#fff" />
+                        <Text style={styles.submitButtonText}>
+                          {t('submitting')}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.submitButtonText}>{t('submit')}</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Registration ID Display */}
+                  {returnedRegistrationId && (
+                    <RegistrationIdDisplay
+                      registrationId={returnedRegistrationId}
+                      onCopy={handleCopyRegistrationId}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </View>
+              </ScrollView>
+
+              {/* Snackbar/Toast */}
+              <CustomSnackbar
+                visible={snackbarVisible}
+                message={message}
+                type={snackbarSeverity}
+                onDismiss={() => setSnackbarVisible(false)}
+              />
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </Modal>
   );
 };
 
-export default AgentRegistrationForm;
-
 const styles = StyleSheet.create({
-  container: {
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
   },
-  scrollContainer: {
+  dialogContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
-    paddingTop: 60,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 25,
-    textAlign: 'center',
-    color: '#333',
+  dialogContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  dialogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#1976d2',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  dialogTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  closeButton: {
+    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  form: {
+    padding: 20,
+  },
+  inputContainer: {
+    marginBottom: 16,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
+    color: '#333',
     marginBottom: 8,
-    color: '#444',
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
+    color: '#333',
   },
-  addressInput: {
-    height: 80,
-    textAlignVertical: 'top',
+  inputError: {
+    borderColor: '#f44336',
   },
-  passwordContainer: {
+  errorText: {
+    color: '#f44336',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  inputWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 10,
-    backgroundColor: '#f9f9f9',
+    position: 'relative',
   },
-  passwordInput: {
+  inputWithIconField: {
     flex: 1,
-    padding: 12,
-    fontSize: 16,
+    paddingRight: 40,
   },
-  eyeIcon: {
-    padding: 12,
+  iconContainer: {
+    position: 'absolute',
+    right: 12,
+    height: '100%',
+    justifyContent: 'center',
   },
-  toggleButton: {
-    alignSelf: 'flex-end',
-    marginBottom: 10,
-  },
-  toggleText: {
-    color: '#4f8ad5',
-    fontSize: 14,
-  },
-  error: {
-    color: 'red',
-    marginBottom: 10,
-    fontSize: 14,
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   submitButton: {
-    backgroundColor: '#4f8ad5',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#1976d2',
+    paddingVertical: 14,
+    borderRadius: 4,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#b0bec5',
+  },
+  submitButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  referralBox: {
-    marginTop: 30,
-    padding: 15,
-    backgroundColor: '#f2f2f2',
+  registrationIdContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#e8f5e9',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#4caf50',
+    marginTop: 16,
   },
-  referralText: {
-    fontSize: 16,
-    marginBottom: 10,
+  registrationIdContent: {
+    flex: 1,
+  },
+  registrationIdLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  registrationIdValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1976d2',
   },
   copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
+    padding: 8,
   },
-  copyLink: {
-    color: '#4f8ad5',
+  snackbar: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 4,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 9999,
+  },
+  snackbarSuccess: {
+    backgroundColor: '#4caf50',
+  },
+  snackbarError: {
+    backgroundColor: '#f44336',
+  },
+  snackbarText: {
+    color: '#fff',
     fontSize: 14,
-    marginLeft: 5,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingVertical: 5,
-  },
-  backButtonText: {
-    color: '#4f8ad5',
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
+    flex: 1,
   },
 });
+
+export default AgentRegistrationForm;
