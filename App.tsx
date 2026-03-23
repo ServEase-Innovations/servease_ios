@@ -22,7 +22,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
 import { I18nextProvider } from 'react-i18next';
-import i18n, { initI18n } from "./i18n"; // Fixed import path
+import i18n, { initI18n } from "./i18n";
 
 // Import Theme Provider
 import { ThemeProvider, useTheme } from "./src/Settings/ThemeContext";
@@ -48,9 +48,9 @@ import Chatbot from "./src/Chatbot/Chatbot";
 import Booking from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/ProfileScreen";
-import { BOOKINGS, DASHBOARD, PROFILE, HOME } from "./src/Constants/pagesConstants";
+import AgentDashboard from "./src/Agent/AgentDashboard"; // ADD THIS IMPORT
+import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD } from "./src/Constants/pagesConstants"; // ADD AGENT_DASHBOARD
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
-// import NotificationButton from "./src/Notifications/NotificationButton";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
 import io, { Socket } from "socket.io-client";
@@ -65,7 +65,7 @@ import NotificationsDialog from "./src/Notifications/NotificationsPage";
 import { PaperProvider } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
-import AgentRegistrationForm from "./src/AgentRegistration/AgentRegistrationForm";
+import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
 import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
 
@@ -754,6 +754,11 @@ const MainApp = () => {
     setShowProfileFromDashboard(false);
   };
 
+  const handleAgentDashboardClick = () => {
+    setCurrentView(AGENT_DASHBOARD);
+    setShowProfileFromDashboard(false);
+  };
+
   const handleAboutClick = () => {
     Alert.alert(i18n.t('about.title'), i18n.t('about.description'));
   };
@@ -769,6 +774,7 @@ const MainApp = () => {
     // - If currentView is DASHBOARD → Show Dashboard
     // - If currentView is PROFILE → Show ProfileScreen
     // - If currentView is BOOKINGS → Show Bookings
+    // - If currentView is AGENT_DASHBOARD → Show AgentDashboard
     
     switch (currentView) {
       case HOME:
@@ -789,9 +795,13 @@ const MainApp = () => {
         ) : (
           <Dashboard 
             onProfilePress={handleDashboardProfilePress} 
-            onBackToHome={() => setCurrentView(HOME)} // ← Add this prop
+            onBackToHome={() => setCurrentView(HOME)}
           />
         );
+        
+      case AGENT_DASHBOARD: // ADD AGENT DASHBOARD CASE
+        // Show AgentDashboard for vendor/agent users
+        return <AgentDashboard />;
         
       case PROFILE:
         return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />;
@@ -855,13 +865,6 @@ const MainApp = () => {
             />
           </View>
 
-          {/* Notification Button for Service Providers */}
-          {/* {appUser && appUser.role?.toUpperCase() === "SERVICE_PROVIDER" && (
-            <View style={styles.notificationButtonContainer}>
-              <NotificationButton onPress={handleNotificationButtonPress} />
-            </View>
-          )} */}
-
           {/* Scrollable Content Area */}
           <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
             {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) ? (
@@ -873,7 +876,7 @@ const MainApp = () => {
                 style={styles.mainScrollView}
                 contentContainerStyle={[
                   styles.scrollContent,
-                  (currentView === BOOKINGS || currentView === DASHBOARD) &&
+                  (currentView === BOOKINGS || currentView === DASHBOARD || currentView === AGENT_DASHBOARD) &&
                     styles.fullScreenScrollContent,
                 ]}
                 contentInsetAdjustmentBehavior="automatic"
@@ -908,6 +911,9 @@ const MainApp = () => {
                     setCurrentView(BOOKINGS);
                   } else if (page === DASHBOARD) {
                     setCurrentView(DASHBOARD);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === AGENT_DASHBOARD) {
+                    setCurrentView(AGENT_DASHBOARD);
                     setShowProfileFromDashboard(false);
                   } else if (page === HOME) {
                     setCurrentView(HOME);
@@ -984,13 +990,13 @@ const MainApp = () => {
             />
           )}
 
-         {/* Agent Registration - Direct rendering, no extra Modal */}
-{showAgentRegistration && (
-  <AgentRegistrationForm
-    onBackToLogin={() => setShowAgentRegistration(false)}
-    onClose={() => setShowAgentRegistration(false)}
-  />
-)}
+          {/* Agent Registration - Direct rendering, no extra Modal */}
+          {showAgentRegistration && (
+            <AgentRegistrationForm
+              onBackToLogin={() => setShowAgentRegistration(false)}
+              onClose={() => setShowAgentRegistration(false)}
+            />
+          )}
 
           {/* Notification Client Modal */}
           <Modal

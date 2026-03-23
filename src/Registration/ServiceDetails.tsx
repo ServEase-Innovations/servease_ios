@@ -41,6 +41,7 @@ interface ServiceDetailsProps {
   onExperienceChange: (e: any) => void;
   onDescriptionChange: (e: any) => void;
   onReferralCodeChange: (e: any) => void;
+  onAgentReferralIdChange: (e: any) => void; // Add this new prop
   onFullTimeToggle: (checked: boolean) => void;
   onAddMorningSlot: () => void;
   onRemoveMorningSlot: (index: number) => void;
@@ -50,6 +51,13 @@ interface ServiceDetailsProps {
   onClearEveningSlots: () => void;
   onMorningSlotChange: (index: number, newValue: number[]) => void;
   onEveningSlotChange: (index: number, newValue: number[]) => void;
+  TimeSliderWithDisabledRanges?: React.FC<any>; // Optional
+  DisabledRangesIndicator?: React.FC<any>; // Optional
+  getDisabledRangesForSlot?: (slots: number[][], currentIndex: number) => number[][];
+  formatDisplayTime?: (value: number) => string;
+  // Add language props
+  selectedLanguages?: string[];
+  onLanguagesChange?: (languages: string[]) => void;
 }
 
 // Custom Time Slider Component
@@ -294,9 +302,11 @@ const TimeSlider: React.FC<TimeSliderProps> = ({
 // Disabled Ranges Legend Component
 interface DisabledRangesLegendProps {
   ranges: number[][];
+  min?: number;
+  max?: number;
 }
 
-const DisabledRangesLegend: React.FC<DisabledRangesLegendProps> = ({ ranges }) => {
+const DisabledRangesIndicator: React.FC<DisabledRangesLegendProps> = ({ ranges, min = 0, max = 24 }) => {
   const { colors, fontSize } = useTheme();
   const { t } = useTranslation();
   
@@ -385,6 +395,21 @@ const DisabledRangesLegend: React.FC<DisabledRangesLegendProps> = ({ ranges }) =
   );
 };
 
+// Helper function to get disabled ranges for a slot
+const getDisabledRangesForSlot = (slots: number[][], currentIndex: number): number[][] => {
+  return slots.filter((_, index) => index !== currentIndex);
+};
+
+// Helper function to format display time
+const formatDisplayTime = (value: number): string => {
+  const hour = Math.floor(value);
+  const minute = value % 1 === 0.5 ? "30" : "00";
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour > 12 ? hour - 12 : hour;
+  const displayHourFormatted = displayHour === 0 ? 12 : displayHour;
+  return `${displayHourFormatted}:${minute} ${period}`;
+};
+
 const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   formData,
   errors,
@@ -401,6 +426,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onExperienceChange,
   onDescriptionChange,
   onReferralCodeChange,
+  onAgentReferralIdChange, // Add this new prop
   onFullTimeToggle,
   onAddMorningSlot,
   onRemoveMorningSlot,
@@ -410,9 +436,38 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onClearEveningSlots,
   onMorningSlotChange,
   onEveningSlotChange,
+  TimeSliderWithDisabledRanges = TimeSlider,
+  DisabledRangesIndicator: DisabledRangesIndicatorComponent = DisabledRangesIndicator,
+  getDisabledRangesForSlot: getDisabledRangesForSlotFn = getDisabledRangesForSlot,
+  formatDisplayTime: formatDisplayTimeFn = formatDisplayTime,
+  // Add language props with default values
+  selectedLanguages = [],
+  onLanguagesChange,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
+
+  // Language selection state (only available languages, selected comes from props)
+  const [availableLanguages] = useState<string[]>([
+    "Assamese", "Bengali", "Gujarati", "Hindi", "Kannada", 
+    "Kashmiri", "Marathi", "Malayalam", "Oriya", "Punjabi", 
+    "Sanskrit", "Tamil", "Telugu", "Urdu", "Sindhi", 
+    "Konkani", "Nepali", "Manipuri", "Bodo", "Dogri", 
+    "Maithili", "Santhali", "English"
+  ]);
+
+  // Handler for language changes
+  const handleLanguageChange = (language: string) => {
+    if (onLanguagesChange) {
+      if (selectedLanguages.includes(language)) {
+        // Remove language if already selected
+        onLanguagesChange(selectedLanguages.filter(l => l !== language));
+      } else {
+        // Add language if not selected
+        onLanguagesChange([...selectedLanguages, language]);
+      }
+    }
+  };
 
   const serviceTypes = [
     { value: "COOK", label: t('registration.service.cook'), icon: "restaurant", description: t('registration.service.cookDesc') },
@@ -437,6 +492,15 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     { value: "ELDERLY_CARE", label: t('registration.service.elderlyCare'), icon: "elderly", description: t('registration.service.elderlyCareDesc') },
     { value: "BOTH", label: t('registration.service.bothCare'), icon: "favorite", description: t('registration.service.bothCareDesc') },
   ];
+
+  const getDietLabel = (option: string) => {
+    switch(option) {
+      case "VEG": return t('registration.service.veg');
+      case "NONVEG": return t('registration.service.nonVeg');
+      case "BOTH": return t('registration.service.both');
+      default: return option;
+    }
+  };
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -802,11 +866,23 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       color: colors.primary,
       lineHeight: 20,
     },
+    languageChip: {
+      margin: 4,
+      backgroundColor: colors.card,
+    },
+    selectedLanguageChip: {
+      backgroundColor: colors.primary + '20',
+    },
+    languageChipText: {
+      fontSize: fontSizes.optionText,
+    },
+    selectedLanguageChipText: {
+      color: colors.primary,
+    },
+    languageSection: {
+      marginTop: 16,
+    },
   });
-
-  const getDisabledRangesForSlot = (slots: number[][], currentIndex: number): number[][] => {
-    return slots.filter((_, index) => index !== currentIndex);
-  };
 
   const handleServiceTypePress = (serviceValue: string) => {
     const event = {
@@ -834,6 +910,17 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       target: { value: option, name: 'diet' }
     };
     onDietChange(event);
+  };
+
+  const handleAddLanguage = () => {
+    // This would typically open a modal or picker
+    // For now, we'll just cycle through languages as a demo
+    if (availableLanguages.length > 0 && onLanguagesChange) {
+      const nextLanguage = availableLanguages.find(lang => !selectedLanguages.includes(lang));
+      if (nextLanguage) {
+        handleLanguageChange(nextLanguage);
+      }
+    }
   };
 
   return (
@@ -901,59 +988,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     <Icon name="error" size={16} color={colors.error} />
                     <Text style={dynamicStyles.errorText}>{errors.housekeepingRole}</Text>
                   </View>
-                )}
-              </View>
-
-              {/* Diet Section - Always visible */}
-              <View style={dynamicStyles.subSection}>
-                <View style={dynamicStyles.labelContainer}>
-                  <Icon name="restaurant" size={20} color={colors.primary} />
-                  <Text style={dynamicStyles.label}>
-                    {t('registration.service.dietPreference')} <Text style={dynamicStyles.asterisk}>*</Text>
-                  </Text>
-                </View>
-                <Text style={dynamicStyles.labelHelper}>
-                  {t('registration.service.dietHelper')}
-                </Text>
-                
-                <View style={dynamicStyles.optionsContainer}>
-                  {dietOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        dynamicStyles.optionCard,
-                        formData.diet === option.value && dynamicStyles.selectedOption,
-                      ]}
-                      onPress={() => handleDietPress(option.value)}
-                    >
-                      <View style={dynamicStyles.optionIconContainer}>
-                        <Icon 
-                          name={option.icon} 
-                          size={24} 
-                          color={formData.diet === option.value ? colors.primary : colors.textSecondary} 
-                        />
-                      </View>
-                      <View style={dynamicStyles.optionTextContainer}>
-                        <Text
-                          style={[
-                            dynamicStyles.optionText,
-                            formData.diet === option.value && dynamicStyles.selectedOptionText,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                        <Text style={dynamicStyles.optionDescription}>
-                          {option.description}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                
-                {errors.diet && (
-                  <HelperText type="error" visible={!!errors.diet} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
-                    {errors.diet}
-                  </HelperText>
                 )}
               </View>
 
@@ -1066,6 +1100,59 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                   )}
                 </View>
               )}
+
+              {/* Diet Section */}
+              <View style={dynamicStyles.subSection}>
+                <View style={dynamicStyles.labelContainer}>
+                  <Icon name="restaurant" size={20} color={colors.primary} />
+                  <Text style={dynamicStyles.label}>
+                    {t('registration.service.dietPreference')} <Text style={dynamicStyles.asterisk}>*</Text>
+                  </Text>
+                </View>
+                <Text style={dynamicStyles.labelHelper}>
+                  {t('registration.service.dietHelper')}
+                </Text>
+                
+                <View style={dynamicStyles.optionsContainer}>
+                  {dietOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        dynamicStyles.optionCard,
+                        formData.diet === option.value && dynamicStyles.selectedOption,
+                      ]}
+                      onPress={() => handleDietPress(option.value)}
+                    >
+                      <View style={dynamicStyles.optionIconContainer}>
+                        <Icon 
+                          name={option.icon} 
+                          size={24} 
+                          color={formData.diet === option.value ? colors.primary : colors.textSecondary} 
+                        />
+                      </View>
+                      <View style={dynamicStyles.optionTextContainer}>
+                        <Text
+                          style={[
+                            dynamicStyles.optionText,
+                            formData.diet === option.value && dynamicStyles.selectedOptionText,
+                          ]}
+                        >
+                          {getDietLabel(option.value)}
+                        </Text>
+                        <Text style={dynamicStyles.optionDescription}>
+                          {option.description}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                {errors.diet && (
+                  <HelperText type="error" visible={!!errors.diet} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
+                    {errors.diet}
+                  </HelperText>
+                )}
+              </View>
             </View>
           </Card.Content>
         </Card>
@@ -1090,6 +1177,79 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
               numberOfLines={4}
               textAlignVertical="top"
             />
+          </Card.Content>
+        </Card>
+
+        {/* Languages Section - New */}
+        <Card style={dynamicStyles.card}>
+          <Card.Content>
+            <View style={dynamicStyles.labelContainer}>
+              <Icon name="language" size={20} color={colors.primary} />
+              <Text style={dynamicStyles.label}>Languages Spoken</Text>
+            </View>
+            <Text style={dynamicStyles.labelHelper}>
+              Select languages you speak (you can select multiple)
+            </Text>
+            
+            <View style={dynamicStyles.languageSection}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
+                {availableLanguages.slice(0, 8).map((language) => (
+                  <Chip
+                    key={language}
+                    mode="outlined"
+                    selected={selectedLanguages.includes(language)}
+                    onPress={() => handleLanguageChange(language)}
+                    style={[
+                      dynamicStyles.languageChip,
+                      selectedLanguages.includes(language) && dynamicStyles.selectedLanguageChip
+                    ]}
+                    textStyle={[
+                      dynamicStyles.languageChipText,
+                      selectedLanguages.includes(language) && dynamicStyles.selectedLanguageChipText
+                    ]}
+                  >
+                    {language}
+                  </Chip>
+                ))}
+              </View>
+              
+              <Button
+                mode="outlined"
+                onPress={handleAddLanguage}
+                icon="plus"
+                style={{ marginTop: 8 }}
+              >
+                Add More Languages
+              </Button>
+              
+              {/* Selected Languages Summary */}
+              {selectedLanguages.length > 0 && (
+                <View style={[dynamicStyles.summaryCard, { marginTop: 16, padding: 12 }]}>
+                  <View style={dynamicStyles.summaryHeader}>
+                    <Icon name="check-circle" size={18} color={colors.primary} />
+                    <Text style={dynamicStyles.summaryTitle}>
+                      Selected Languages ({selectedLanguages.length}):
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {selectedLanguages.map((language, index) => (
+                      <Chip
+                        key={index}
+                        mode="flat"
+                        onClose={() => {
+                          if (onLanguagesChange) {
+                            onLanguagesChange(selectedLanguages.filter((_, i) => i !== index));
+                          }
+                        }}
+                        style={{ backgroundColor: colors.surface }}
+                      >
+                        {language}
+                      </Chip>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
           </Card.Content>
         </Card>
       
@@ -1135,6 +1295,26 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                 />
               </View>
             </View>
+          </Card.Content>
+        </Card>
+
+        {/* Agent Referral ID - New */}
+        <Card style={dynamicStyles.card}>
+          <Card.Content>
+            <View style={dynamicStyles.labelContainer}>
+              <Icon name="person" size={18} color={colors.primary} />
+              <Text style={dynamicStyles.label}>Agent Referral ID (Optional)</Text>
+            </View>
+            <Text style={dynamicStyles.labelHelper}>
+              If you were referred by an agent, please enter their referral ID
+            </Text>
+            <TextInput
+              style={dynamicStyles.input}
+              placeholder="Enter Agent Referral ID"
+              placeholderTextColor={colors.placeholder}
+              value={formData.agentReferralId || ""}
+              onChangeText={(text) => onAgentReferralIdChange({ target: { value: text } })}
+            />
           </Card.Content>
         </Card>
       
@@ -1226,7 +1406,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                       </View>
                     ) : (
                       morningSlots.map((slot, index) => {
-                        const disabledRanges = getDisabledRangesForSlot(morningSlots, index);
+                        const disabledRanges = getDisabledRangesForSlotFn(morningSlots, index);
                         
                         return (
                           <Card
@@ -1250,11 +1430,24 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                               )}
                             </View>
                             
+                            <Text style={[dynamicStyles.labelHelper, { marginBottom: 8 }]}>
+                              Selected {formatDisplayTimeFn(slot[0])} - {formatDisplayTimeFn(slot[1])}
+                            </Text>
+                            
                             {disabledRanges.length > 0 && (
-                              <DisabledRangesLegend ranges={disabledRanges} />
+                              <>
+                                <Text style={[dynamicStyles.labelHelper, { color: colors.warning }]}>
+                                  Warning: Gray areas are already taken
+                                </Text>
+                                <DisabledRangesIndicatorComponent 
+                                  ranges={disabledRanges}
+                                  min={6}
+                                  max={12}
+                                />
+                              </>
                             )}
                             
-                            <TimeSlider
+                            <TimeSliderWithDisabledRanges
                               value={slot}
                               onChange={(newValue) => onMorningSlotChange(index, newValue)}
                               min={6}
@@ -1324,7 +1517,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                       </View>
                     ) : (
                       eveningSlots.map((slot, index) => {
-                        const disabledRanges = getDisabledRangesForSlot(eveningSlots, index);
+                        const disabledRanges = getDisabledRangesForSlotFn(eveningSlots, index);
                         
                         return (
                           <Card
@@ -1348,11 +1541,24 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                               )}
                             </View>
                             
+                            <Text style={[dynamicStyles.labelHelper, { marginBottom: 8 }]}>
+                              Selected {formatDisplayTimeFn(slot[0])} - {formatDisplayTimeFn(slot[1])}
+                            </Text>
+                            
                             {disabledRanges.length > 0 && (
-                              <DisabledRangesLegend ranges={disabledRanges} />
+                              <>
+                                <Text style={[dynamicStyles.labelHelper, { color: colors.warning }]}>
+                                  Warning: Gray areas are already taken
+                                </Text>
+                                <DisabledRangesIndicatorComponent 
+                                  ranges={disabledRanges}
+                                  min={12}
+                                  max={20}
+                                />
+                              </>
                             )}
                             
-                            <TimeSlider
+                            <TimeSliderWithDisabledRanges
                               value={slot}
                               onChange={(newValue) => onEveningSlotChange(index, newValue)}
                               min={12}

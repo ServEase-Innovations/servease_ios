@@ -25,7 +25,7 @@ import utilsInstance from "../services/utilsInstance";
 import providerInstance from "../services/providerInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/userStore";
-import { setHasMobileNumber } from "../features/customerSlice"; // Fixed import path
+import { setHasMobileNumber } from "../features/customerSlice";
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
 
@@ -276,7 +276,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
   // Function to get user's first letter for profile picture
   const getUserInitial = () => {
-    const name = userName || appUser?.nickname || "User";
+    const name = userName || appUser?.nickname || t('profile.page.user');
     return name.charAt(0).toUpperCase();
   };
 
@@ -986,7 +986,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         addresses.push({
           id: "permanent",
           type: "Permanent",
-          street: streetAddress || t('profile.page.addressNotSpecified'),
+          street: streetAddress || t('profile.page.addressNotSpecified') || "",
           city: permAddr.ctArea || data.locality || data.currentLocation || "",
           country: permAddr.country || t('country.india'),
           postalCode:
@@ -1005,7 +1005,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         addresses.push({
           id: "correspondence",
           type: "Correspondence",
-          street: streetAddress || t('profile.page.addressNotSpecified'),
+          street: streetAddress || t('profile.page.addressNotSpecified') || "",
           city: corrAddr.ctArea || data.locality || data.currentLocation || "",
           country: corrAddr.country || t('country.india'),
           postalCode:
@@ -1773,83 +1773,83 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       />
 
       {/* Header with Linear Gradient and Back Button */}
-      <LinearGradient
-        colors={[
-          isDarkMode ? "rgba(14, 48, 92, 0.9)" : "rgba(177, 213, 232, 0.8)",
-          isDarkMode ? colors.background : "rgba(255, 255, 255, 1)",
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          {/* Back Button */}
-          <TouchableOpacity
-            style={[
-              styles.backButton,
-              { backgroundColor: "rgba(255, 255, 255, 0.9)" },
-            ]}
-            onPress={handleBackPress}
-          >
-            <Icon name="arrow-left" size={24} color={colors.primary} />
-          </TouchableOpacity>
+      // Header portion of ProfileScreen.tsx (lines 930-1000)
 
-          {/* Profile Section */}
-          <View style={styles.profileSection}>
-            {renderProfilePicture()}
-            <View style={styles.profileTextContainer}>
-              <Text
-                style={[
-                  styles.greeting,
-                  { color: colors.text, fontSize: fontSizes.greeting },
-                ]}
-              >
-                {t('profile.page.greeting', { name: getDisplayName() })}
-              </Text>
-              <Text
-                style={[
-                  styles.roleText,
-                  { color: colors.textSecondary, fontSize: fontSizes.roleText },
-                ]}
-              >
-                {userRole === "SERVICE_PROVIDER"
-                  ? t('profile.page.serviceProvider')
-                  : t('profile.page.customer')}
-                , {t('profile.page.id', { id: getUserIdDisplay() })}
-                {userRole === "CUSTOMER" && !hasMobileNumber && (
-                  <Text
-                    style={[styles.mobileWarningSmall, { color: colors.error }]}
-                  >
-                    {" "}
-                    ⚠️ {t('profile.page.mobileRequired')}
-                  </Text>
-                )}
-              </Text>
-            </View>
-          </View>
+{/* Header with Linear Gradient and Back Button */}
+<LinearGradient
+  colors={[
+    isDarkMode ? "rgba(14, 48, 92, 0.9)" : "rgba(177, 213, 232, 0.8)",
+    isDarkMode ? colors.background : "rgba(255, 255, 255, 1)",
+  ]}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 0, y: 1 }}
+  style={styles.header}
+>
+  <View style={styles.headerContent}>
+    {/* Back Button */}
+    <TouchableOpacity
+      style={[
+        styles.backButton,
+        { backgroundColor: "rgba(255, 255, 255, 0.9)" },
+      ]}
+      onPress={handleBackPress}
+    >
+      <Icon name="arrow-left" size={24} color={colors.primary} />
+    </TouchableOpacity>
 
-          {/* Edit Button - Top Right like web version */}
-          {!isEditing && (
-            <TouchableOpacity
-              style={[
-                styles.editButtonTop,
-                { backgroundColor: colors.primary },
-              ]}
-              onPress={handleEditStart}
+    {/* Profile Section */}
+    <View style={styles.profileSection}>
+      {renderProfilePicture()}
+      <View style={styles.profileTextContainer}>
+        <Text
+          style={[
+            styles.greeting,
+            { color: colors.text, fontSize: fontSizes.greeting },
+          ]}
+        >
+          Hello, {getDisplayName()}
+        </Text>
+        <Text
+          style={[
+            styles.roleText,
+            { color: colors.textSecondary, fontSize: fontSizes.roleText },
+          ]}
+        >
+          {userRole === "SERVICE_PROVIDER" ? "Service Provider" : "Customer"}
+          , ID: {getUserIdDisplay()}
+          {userRole === "CUSTOMER" && !hasMobileNumber && (
+            <Text
+              style={[styles.mobileWarningSmall, { color: colors.error }]}
             >
-              <Icon name="edit-3" size={16} color="#fdfeffff" />
-              <Text
-                style={[
-                  styles.editButtonText,
-                  { color: "#fff", fontSize: fontSizes.buttonText },
-                ]}
-              >
-                {t('profile.page.edit')}
-              </Text>
-            </TouchableOpacity>
+              {" "}⚠️ Mobile number required
+            </Text>
           )}
-        </View>
-      </LinearGradient>
+        </Text>
+      </View>
+    </View>
+
+    {/* Edit Button - Top Right like web version */}
+    {!isEditing && (
+      <TouchableOpacity
+        style={[
+          styles.editButtonTop,
+          { backgroundColor: colors.primary },
+        ]}
+        onPress={handleEditStart}
+      >
+        <Icon name="edit-3" size={16} color="#fdfeffff" />
+        <Text
+          style={[
+            styles.editButtonText,
+            { color: "#fff", fontSize: fontSizes.buttonText },
+          ]}
+        >
+          Edit
+        </Text>
+      </TouchableOpacity>
+    )}
+  </View>
+</LinearGradient>
 
       {/* Main Content */}
       <View style={styles.mainContent}>
@@ -3087,7 +3087,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                       { color: "#fff", fontSize: fontSizes.buttonText },
                     ]}
                   >
-                    {t('profile.page.cancel')}
+                    {t('common.cancel')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity

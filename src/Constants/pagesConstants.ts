@@ -8,3 +8,4 @@ export const ADMIN = "admin";
 export const DASHBOARD = "dashboard"
 export const WALLET = 'wallet';
 export const HOME = "HOME";
+export const AGENT_DASHBOARD = "AGENT_DASHBOARD";

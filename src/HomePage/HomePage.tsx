@@ -24,7 +24,7 @@ import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
 import DemoCook from "../ServiceDialogs/CookServiceDialog";
 import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import LinearGradient from 'react-native-linear-gradient';
-import AgentRegistrationForm from '../AgentRegistration/AgentRegistrationForm';
+import AgentRegistrationForm from '../Agent/AgentRegistrationForm';
 import { useAuth0 } from 'react-native-auth0';
 import BookingDialog from '../BookingDialog/BookingDialog';
 import { useTheme } from '../Settings/ThemeContext';

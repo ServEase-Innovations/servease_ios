@@ -25,6 +25,7 @@ import {
   DETAILS,
   LOGIN,
   PROFILE,
+  AGENT_DASHBOARD,
 } from "../Constants/pagesConstants";
 import { useAuth0 } from "react-native-auth0";
 import LinearGradient from "react-native-linear-gradient";
@@ -256,6 +257,12 @@ const Head: React.FC<ChildComponentProps> = ({
             role: "SERVICE_PROVIDER",
             serviceProviderId: response.data.id,
           });
+        } else if (response.data.user_role === "VENDOR") {
+          setAppUser({
+            ...auth0User,
+            role: "VENDOR",
+            vendorId: response.data.id,
+          });
         } else {
           setAppUser({
             ...auth0User,
@@ -438,6 +445,11 @@ const Head: React.FC<ChildComponentProps> = ({
     handleClick(DASHBOARD);
   };
 
+  const handleAgentDashboardClick = () => {
+    setMenuVisible(false);
+    handleClick(AGENT_DASHBOARD);
+  };
+
   const handleWalletClick = () => {
     setMenuVisible(false);
     setIsWalletOpen(true);
@@ -453,8 +465,6 @@ const Head: React.FC<ChildComponentProps> = ({
 
   // Export function to get location data
   const getLocationData = () => currentLocation;
-
-  // REMOVED: All menu rendering functions since menu is completely removed
 
   const dynamicStyles = StyleSheet.create({
     headerContainer: {
@@ -475,19 +485,14 @@ const Head: React.FC<ChildComponentProps> = ({
       paddingHorizontal: 12,
     },
     alertsButton: {
-  flex: 0.5,
-  justifyContent: "center",
-  alignItems: "center",
-  width: 90,
-  height: 90,
-  borderRadius: 45,
-  marginLeft: 4,
-},
-    // alertsButtonText: {
-    //   color: "#fff",
-    //   fontSize: fontSizes.alertsButtonText,
-    //   fontWeight: "500",
-    // },
+      flex: 0.5,
+      justifyContent: "center",
+      alignItems: "center",
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      marginLeft: 4,
+    },
     modalContainer: {
       flex: 1,
       backgroundColor: colors.background,
@@ -542,16 +547,10 @@ const Head: React.FC<ChildComponentProps> = ({
         >
           <View style={styles.alertsButtonInner}>
             <MaterialIcon name="notifications" size={22} color="#fff" />
-            {/* <Text style={dynamicStyles.alertsButtonText}>Alerts</Text> */}
           </View>
         </TouchableOpacity>
-
-        {/* REMOVED: Entire right actions container including user menu */}
       </LinearGradient>
 
-      {/* REMOVED: All menu dropdown and related modals since menu is completely removed */}
-      {/* Only keep essential non-menu related modals if needed */}
-      
       {/* Wallet Dialog - kept as it might be triggered from other parts */}
       <WalletDialog
         open={isWalletOpen}
@@ -563,6 +562,28 @@ const Head: React.FC<ChildComponentProps> = ({
         visible={showNotifications}
         onClose={handleCloseNotifications}
       />
+
+      {/* Bookings Dialog */}
+      <Modal
+        visible={showBookings}
+        animationType="slide"
+        onRequestClose={handleCloseBookings}
+      >
+        <View style={dynamicStyles.modalContainer}>
+          <LinearGradient
+            colors={["#0a2a66", "#004aad"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={dynamicStyles.modalHeader}
+          >
+            <Text style={dynamicStyles.modalTitle}>My Bookings</Text>
+            <TouchableOpacity onPress={handleCloseBookings}>
+              <Icon name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+          </LinearGradient>
+          <Booking />
+        </View>
+      </Modal>
 
       {/* Terms and Conditions Modal */}
       <Modal
@@ -634,13 +655,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     paddingBottom: 10,
   },
- alertsButtonInner: {
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 70,
-  height: 70,
-},
+  alertsButtonInner: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 70,
+    height: 70,
+  },
 });
 
 export default Head;

@@ -1,4 +1,4 @@
-// NavigationFooter.tsx - UPDATED VERSION WITH SETTINGS OPTION
+// NavigationFooter.tsx - CORRECTED VERSION (removed About/Contact from mobile footer)
 import React, { useState } from "react";
 import {
   View,
@@ -16,11 +16,10 @@ import { useAuth0 } from "react-native-auth0";
 import { useDispatch } from "react-redux";
 import { remove } from "../features/userSlice";
 import Snackbar from "react-native-snackbar";
-import { PROFILE, BOOKINGS, DASHBOARD, HOME } from "../Constants/pagesConstants";
-import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet"; // Import the new component
+import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD } from "../Constants/pagesConstants";
+import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
-import Settings from "../Settings/Settings"; // Import Settings component
-
+import Settings from "../Settings/Settings";
 
 interface NavigationFooterProps {
   onHomeClick: () => void;
@@ -60,7 +59,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
-  const [isSettingsVisible, setIsSettingsVisible] = useState(false); // New state for Settings
+  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const { t } = useTranslation();
   
   const { authorize, clearSession, getCredentials } = useAuth0();
@@ -68,19 +67,18 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
   const isCustomer = auth0User && appUser?.role === "CUSTOMER";
   const isServiceProvider = auth0User && appUser?.role === "SERVICE_PROVIDER";
+  const isVendor = auth0User && appUser?.role === "VENDOR";
   const isAuthenticated = auth0User;
 
   const handleProfileButtonClick = () => {
     if (isAuthenticated) {
-      setIsProfileMenuVisible(true); // Open profile menu sheet instead of navigating
+      setIsProfileMenuVisible(true);
     } else {
       handleLoginClick();
     }
   };
 
   const handleHomeButtonClick = () => {
-    // For ALL users, use onHomeClick which in App.tsx sets currentView to "HOME"
-    // This will render the HomePage component for everyone
     onHomeClick();
     setIsProfileMenuVisible(false);
   };
@@ -106,6 +104,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     } else {
       onDashboardClick();
       setIsProfileMenuVisible(false);
+    }
+  };
+
+  const handleAgentDashboardButtonClick = () => {
+    if (isAuthenticated && isVendor) {
+      onNavigateToPage(AGENT_DASHBOARD);
+      setIsProfileMenuVisible(false);
+    } else if (!isAuthenticated) {
+      handleLoginClick();
     }
   };
 
@@ -233,12 +240,12 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     // Define tabs based on user role
     let tabs = [];
     
-    // ALWAYS include HOME tab for everyone - using onHomeClick
+    // ALWAYS include HOME tab for everyone
     tabs.push({
       key: HOME,
       label: t('navigation.home'),
       icon: <MaterialIcon name="home" size={22} />,
-      onPress: handleHomeButtonClick, // This will always call onHomeClick
+      onPress: handleHomeButtonClick,
     });
     
     // Add other tabs based on authentication and role
@@ -282,6 +289,16 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           label: t('navigation.alerts'),
           icon: <MaterialIcon name="notifications" size={22} />,
           onPress: () => setShowNotifications(true),
+        });
+      }
+
+      // For vendors, add Agent Dashboard
+      if (isVendor) {
+        tabs.push({
+          key: AGENT_DASHBOARD,
+          label: "Agent Dashboard",
+          icon: <MaterialIcon name="business" size={22} />,
+          onPress: handleAgentDashboardButtonClick,
         });
       }
       
@@ -396,7 +413,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         <View style={styles.desktopNavInner}>
           <View style={styles.desktopNavLinks}>
             <TouchableOpacity
-              onPress={handleHomeButtonClick} // Use the same handler for desktop
+              onPress={handleHomeButtonClick}
               style={styles.desktopNavItem}
             >
               <MaterialIcon 
@@ -428,6 +445,16 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
               </TouchableOpacity>
             )}
 
+            {isVendor && (
+              <TouchableOpacity
+                onPress={handleAgentDashboardButtonClick}
+                style={styles.desktopNavItem}
+              >
+                <MaterialIcon name="business" size={20} color="#fff" style={styles.navIcon} />
+                <Text style={styles.desktopNavText}>Agent Dashboard</Text>
+              </TouchableOpacity>
+            )}
+
             {!isAuthenticated && (
               <>
                 <TouchableOpacity
@@ -446,7 +473,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   <Text style={styles.desktopNavText}>{t('navigation.contactUs')}</Text>
                 </TouchableOpacity>
 
-                {/* ADD SETTINGS FOR DESKTOP UNAUTHENTICATED USERS */}
                 <TouchableOpacity
                   onPress={handleSettingsOpen}
                   style={styles.desktopNavItem}
@@ -534,7 +560,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onContact={onContactClick}
       />
 
-      {/* Settings Modal */}
       <Settings
         visible={isSettingsVisible}
         onClose={() => setIsSettingsVisible(false)}
@@ -543,6 +568,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   );
 };
 
+// Styles remain the same
 const styles = StyleSheet.create({
   // Mobile Styles
   mobileNavContainer: {

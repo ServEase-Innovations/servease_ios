@@ -12,7 +12,7 @@ import { useAppUser } from "../context/AppUserContext";
 import Settings from "../Settings/Settings";
 import { useTheme } from "../Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
-import AgentRegistrationForm from "../AgentRegistration/AgentRegistrationForm";
+import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 
 interface Props {
   visible: boolean;

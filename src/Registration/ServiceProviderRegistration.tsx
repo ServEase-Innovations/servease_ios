@@ -87,6 +87,7 @@ interface FormData {
   keyFacts: boolean;
   kycType: string;
   kycNumber: string;
+  agentReferralId: string; // Add this new field
   permanentAddress: {
     apartment: string;
     street: string;
@@ -217,6 +218,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [isSameAddress, setIsSameAddress] = useState(false);
   const [isDobValid, setIsDobValid] = useState(true);
   
+  // Add selectedLanguages state
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  
   // New state variables for multi-slot time selection
   const [morningSlots, setMorningSlots] = useState<number[][]>([[6, 12]]);
   const [eveningSlots, setEveningSlots] = useState<number[][]>([[12, 20]]);
@@ -273,6 +277,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     keyFacts: false,
     kycType: "AADHAR",
     kycNumber: "",
+    agentReferralId: "", // Initialize the new field
     permanentAddress: {
       apartment: "",
       street: "",
@@ -751,6 +756,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       ...prev, 
       kycType: "",
       kycNumber: "" 
+    }));
+  };
+
+  // Handler for agent referral ID change - NEW FUNCTION
+  const handleAgentReferralIdChange = (e: any) => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      agentReferralId: value
     }));
   };
 
@@ -1840,6 +1854,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           housekeepingRole: primaryRole,
           serviceTypes: formData.housekeepingRole,
           diet: formData.diet,
+          languages: selectedLanguages,
           ...(formData.housekeepingRole.includes("COOK") && {
             cookingSpeciality: formData.cookingSpeciality
           }),
@@ -1851,6 +1866,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           experience: formData.experience ? parseInt(formData.experience) : 0,
           username: formData.emailId,
           password: formData.password,
+          agentReferralId: formData.agentReferralId, // ADD AGENT REFERRAL ID HERE
           privacy: formData.privacy,
           keyFacts: formData.keyFacts,
           permanentAddress: {
@@ -2219,6 +2235,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             onExperienceChange={handleExperienceChange}
             onDescriptionChange={handleDescriptionChange}
             onReferralCodeChange={handleReferralCodeChange}
+            onAgentReferralIdChange={handleAgentReferralIdChange} // PASS THE NEW HANDLER HERE
             onFullTimeToggle={handleFullTimeToggle}
             onAddMorningSlot={handleAddMorningSlot}
             onRemoveMorningSlot={handleRemoveMorningSlot}
@@ -2228,6 +2245,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             onClearEveningSlots={handleClearEveningSlots}
             onMorningSlotChange={handleMorningSlotChange}
             onEveningSlotChange={handleEveningSlotChange}
+            TimeSliderWithDisabledRanges={TimeSliderWithDisabledRanges}
+            DisabledRangesIndicator={DisabledRangesIndicator}
+            getDisabledRangesForSlot={getDisabledRangesForSlot}
+            formatDisplayTime={formatDisplayTime}
+            selectedLanguages={selectedLanguages}
+            onLanguagesChange={setSelectedLanguages}
           />
         );
 
