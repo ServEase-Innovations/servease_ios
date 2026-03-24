@@ -25,6 +25,7 @@ import { usePricingFilterService } from '../utils/PricingFilter';
 import { ServiceProviderDTO } from "../types/ProviderDetailsType";
 import ProviderFilter, { FilterCriteria } from "./ProviderFilter";
 import { useTheme } from '../Settings/ThemeContext'; // Import useTheme
+import { SkeletonLoader } from '../common/SkeletonLoader'; // Import SkeletonLoader
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;
@@ -422,16 +423,44 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     isInitialLoad
   });
 
+  const renderSkeletonLoader = () => {
+    return (
+      <View style={styles.skeletonContainer}>
+        {/* Header skeleton */}
+        <View style={[styles.skeletonHeader, { marginBottom: 16 * spacingMultiplier }]}>
+          <SkeletonLoader width={80} height={40} variant="rectangular" />
+          <SkeletonLoader width={100} height={40} variant="rectangular" />
+        </View>
+        
+        {/* Results count skeleton */}
+        <SkeletonLoader width="100%" height={40} style={{ marginBottom: 12 * spacingMultiplier }} />
+        
+        {/* Provider cards skeletons */}
+        {[1, 2, 3].map((item) => (
+          <View key={item} style={[styles.skeletonCard, { marginBottom: 16 * spacingMultiplier }]}>
+            <View style={styles.skeletonCardHeader}>
+              <SkeletonLoader width={60} height={60} variant="circular" />
+              <View style={styles.skeletonCardHeaderText}>
+                <SkeletonLoader width={120} height={20} style={{ marginBottom: 8 }} />
+                <SkeletonLoader width={80} height={16} />
+              </View>
+            </View>
+            <SkeletonLoader width="100%" height={16} style={{ marginBottom: 8 }} />
+            <SkeletonLoader width="90%" height={16} style={{ marginBottom: 8 }} />
+            <SkeletonLoader width="95%" height={16} style={{ marginBottom: 12 }} />
+            <View style={styles.skeletonCardFooter}>
+              <SkeletonLoader width={100} height={36} />
+              <SkeletonLoader width={100} height={36} />
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderContent = () => {
     if (loading && isInitialLoad) {
-      return (
-        <View style={[styles.centerContainer, { minHeight: 400 }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
-            Searching providers near you...
-          </Text>
-        </View>
-      );
+      return renderSkeletonLoader();
     } else if (Array.isArray(filteredProviders) && filteredProviders.length > 0) {
       return (
         <>
@@ -553,12 +582,12 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={[
           styles.contentContainer,
-          filteredProviders.length === 0 && { justifyContent: 'center', flexGrow: 1 }
+          filteredProviders.length === 0 && !loading && { justifyContent: 'center', flexGrow: 1 }
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={loading && !isInitialLoad}
             onRefresh={performSearch}
             colors={[colors.primary]}
             tintColor={colors.primary}
@@ -684,6 +713,35 @@ const styles = StyleSheet.create({
   initialStateText: {
     textAlign: 'center',
     marginTop: 20,
+  },
+  // Skeleton loader styles
+  skeletonContainer: {
+    flex: 1,
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  skeletonCard: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#f9fafb',
+  },
+  skeletonCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  skeletonCardHeaderText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  skeletonCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
 });
 

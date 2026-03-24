@@ -60,6 +60,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const { colors, isDarkMode, fontSize } = useTheme();
   const [role, setRole] = useState<string | null>(null);
   const [isServiceDisabled, setIsServiceDisabled] = useState(false);
+  const [lastSelectedDate, setLastSelectedDate] = useState<Dayjs | null>(null);
 
   useEffect(() => {
     if (appUser) {
@@ -136,6 +137,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setEndDate(null);
       setStartTime(null);
       setEndTime(null);
+      setLastSelectedDate(null);
       
       // Reset custom time picker values to defaults
       setCustomHours(12);
@@ -348,38 +350,53 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const updateStartDateTime = (newDateTime: Dayjs) => {
     const now = dayjs();
     let adjustedDateTime = newDateTime;
+    
+    // Check if only the date changed (not the time)
+    const isDateChanged = lastSelectedDate && 
+      !newDateTime.isSame(lastSelectedDate, 'day') && 
+      newDateTime.isSame(lastSelectedDate, 'hour') && 
+      newDateTime.isSame(lastSelectedDate, 'minute');
 
     // Check if date is disabled by cutoff
     if (isDateDisabled(adjustedDateTime)) {
       return;
     }
 
-    // Ensure start time is at least 30 minutes from now if it's today
-    if (
-      newDateTime.isSame(now, "day") &&
-      newDateTime.isBefore(now.add(30, "minute"))
-    ) {
-      adjustedDateTime = now.add(30, "minute");
-    }
-
-    // Ensure time is within business hours
-    const hour = adjustedDateTime.hour();
-    if (hour < BUSINESS_HOURS.openingHour) {
-      adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
-    } else if (hour >= BUSINESS_HOURS.cutoffHour) {
-      adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
+    // Case 1: Current date selected - set to current time + 30 minutes
+    if (adjustedDateTime.isSame(today, 'day')) {
+      const nowPlus30 = today.add(30, 'minute');
+      
+      // If selected time is before now + 30, adjust it
+      if (adjustedDateTime.isBefore(nowPlus30)) {
+        adjustedDateTime = nowPlus30;
+      }
+      
+      // Ensure time is within 5 AM - 10 PM
+      if (adjustedDateTime.hour() < BUSINESS_HOURS.openingHour) {
+        adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
+      } else if (adjustedDateTime.hour() >= BUSINESS_HOURS.cutoffHour) {
+        adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
+      }
+    } else {
+      // Case 2: Future date selected - set to 5:00 AM by default
+      // Only set to 5:00 AM if the date changed but time didn't
+      if (isDateChanged || (adjustedDateTime.hour() === 0 && adjustedDateTime.minute() === 0)) {
+        adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
+      }
     }
 
     // Store dates and times in clean formats
     setStartDate(adjustedDateTime.format("YYYY-MM-DD"));
     setStartTime(adjustedDateTime);
+    setLastSelectedDate(adjustedDateTime);
 
     // Set default end time based on booking option
+    const defaultEndTime = adjustedDateTime.add(1, "hour");
+    
     if (selectedOption === "Date") {
-      const defaultEnd = adjustedDateTime.add(1, "hour");
       // Ensure end time doesn't go beyond cutoff
-      let finalEnd = defaultEnd;
-      if (defaultEnd.hour() >= BUSINESS_HOURS.cutoffHour) {
+      let finalEnd = defaultEndTime;
+      if (defaultEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
         finalEnd = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
       }
       setEndDate(finalEnd.format("YYYY-MM-DD"));
@@ -387,7 +404,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     } else if (selectedOption === "Monthly") {
       const endDateValue = adjustedDateTime.add(1, "month");
       setEndDate(endDateValue.format("YYYY-MM-DD"));
-      setEndTime(endDateValue);
+      setEndTime(defaultEndTime);
     }
   };
 
@@ -577,6 +594,191 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const fontSizes = getFontSizes();
+
+  // Reusable duration selector component
+  const renderDurationSelector = () => {
+    // Don't show if start time is not set
+    if (!startTime) return null;
+
+    // For Monthly, we need end time
+    if (selectedOption === "Monthly" && !endTime) return null;
+    
+    // For Short term, we need start date and end date
+    if (selectedOption === "Short term" && (!startDate || !endDate)) return null;
+
+    // Calculate current duration
+    const currentDuration = endTime ? endTime.diff(startTime, 'hour') : 1;
+    
+    // Check if we can increase duration (not exceeding 10 PM)
+    const canIncreaseDuration = () => {
+      if (!startTime) return false;
+      const newEndTime = startTime.add(currentDuration + 1, 'hour');
+      return newEndTime.hour() < BUSINESS_HOURS.cutoffHour;
+    };
+
+    // Check if we can decrease duration (minimum 1 hour)
+    const canDecreaseDuration = () => {
+      return currentDuration > 1;
+    };
+
+    // Handle duration increase
+    const handleIncreaseDuration = () => {
+      if (!startTime) return;
+      
+      const newEndTime = startTime.add(currentDuration + 1, 'hour');
+      
+      // Check if exceeds max time
+      if (newEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
+        return;
+      }
+      
+      setEndTime(newEndTime);
+      // For Date option, also update endDate
+      if (selectedOption === "Date") {
+        setEndDate(newEndTime.format("YYYY-MM-DD"));
+      }
+      // For Monthly and Short term, don't update endDate
+    };
+
+    // Handle duration decrease
+    const handleDecreaseDuration = () => {
+      if (!startTime) return;
+      
+      if (currentDuration > 1) {
+        const newEndTime = startTime.add(currentDuration - 1, 'hour');
+        setEndTime(newEndTime);
+        // For Date option, also update endDate
+        if (selectedOption === "Date") {
+          setEndDate(newEndTime.format("YYYY-MM-DD"));
+        }
+        // For Monthly and Short term, don't update endDate
+      }
+    };
+
+    return (
+      <View style={[styles.confirmationContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {/* Header */}
+        <View style={styles.confirmationHeader}>
+          <Text style={[styles.confirmationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.confirmBox.title')}</Text>
+        </View>
+
+        {/* Booking Details Summary */}
+        <View style={styles.confirmationSection}>
+          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.bookingDetails')}</Text>
+          <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+            {t('booking.startDate')}: {startDate ? dayjs(startDate).format('MMMM D, YYYY') : t('common.notSelected')}
+          </Text>
+          {selectedOption === "Monthly" && endDate && (
+            <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+              {t('booking.endDate')}: {dayjs(endDate).format('MMMM D, YYYY')} (1 month later)
+            </Text>
+          )}
+          {selectedOption === "Short term" && endDate && (
+            <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+              {t('booking.endDate')}: {dayjs(endDate).format('MMMM D, YYYY')}
+            </Text>
+          )}
+          <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+            {t('booking.startTime')}: {startTime ? startTime.format('h:mm A') : t('common.notSelected')}
+          </Text>
+          {endTime && (
+            <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+              {t('booking.endTime')}: {endTime.format('h:mm A')}
+            </Text>
+          )}
+          
+          {/* Show date range for Short term */}
+          {selectedOption === "Short term" && endDate && (
+            <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
+              Service will run from {dayjs(startDate).format('MMMM D')} to {dayjs(endDate).format('MMMM D, YYYY')}, 
+              daily from {startTime?.format('h:mm A')} to {endTime?.format('h:mm A')}
+            </Text>
+          )}
+          
+          {/* Show monthly subscription message */}
+          {selectedOption === "Monthly" && endDate && (
+            <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
+              Monthly subscription from {dayjs(startDate).format('MMMM D, YYYY')} to {dayjs(endDate).format('MMMM D, YYYY')}
+            </Text>
+          )}
+          
+          {selectedOption === "Date" && (
+            <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
+              {t('booking.confirmBox.serviceStarts', { 
+                date: startDate ? dayjs(startDate).format('MMMM D, YYYY') : '___', 
+                time: startTime ? startTime.format('h:mm A') : '___' 
+              })}
+            </Text>
+          )}
+        </View>
+
+        {/* Service Duration */}
+        <View style={styles.confirmationSection}>
+          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.confirmBox.serviceDuration')}</Text>
+          <Text style={[styles.confirmationText, styles.confirmationSecondary, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+            {selectedOption === "Short term" 
+              ? "This duration applies to each day of service" 
+              : selectedOption === "Monthly"
+              ? "This duration applies to each day of your monthly subscription"
+              : t('booking.confirmBox.adjustDuration')}
+          </Text>
+
+          {/* Duration Selector */}
+          <View style={[styles.durationSelector, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={[
+                styles.durationButton,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+                !canDecreaseDuration() && [styles.durationButtonDisabled, { borderColor: colors.disabled, backgroundColor: colors.surface }]
+              ]}
+              onPress={handleDecreaseDuration}
+              disabled={!canDecreaseDuration()}
+            >
+              <Text style={[
+                styles.durationButtonText,
+                { color: colors.primary, fontSize: fontSizes.title },
+                !canDecreaseDuration() && { color: colors.disabled }
+              ]}>-</Text>
+            </TouchableOpacity>
+
+            <View style={styles.durationDisplay}>
+              <Text style={[styles.durationDisplayText, { color: colors.text, fontSize: fontSizes.title }]}>
+                {currentDuration} {t('booking.hours', { count: currentDuration })}
+              </Text>
+              {endTime && (
+                <Text style={[styles.durationEndTime, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+                  {t('booking.until')} {endTime.format('h:mm A')}
+                </Text>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.durationButton,
+                { borderColor: colors.primary, backgroundColor: colors.card },
+                !canIncreaseDuration() && [styles.durationButtonDisabled, { borderColor: colors.disabled, backgroundColor: colors.surface }]
+              ]}
+              onPress={handleIncreaseDuration}
+              disabled={!canIncreaseDuration()}
+            >
+              <Text style={[
+                styles.durationButtonText,
+                { color: colors.primary, fontSize: fontSizes.title },
+                !canIncreaseDuration() && { color: colors.disabled }
+              ]}>+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Relax Message */}
+        <View style={[styles.relaxMessageContainer, { backgroundColor: colors.infoLight }]}>
+          <Text style={[styles.relaxMessageText, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+            {t('booking.confirmBox.relaxMessage')}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   // If user is service provider, show disabled message
   if (isServiceDisabled) {
@@ -947,113 +1149,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     );
   };
 
-  // Confirmation Box Component with Duration Selector and Relax Message
-  const renderConfirmationBox = () => {
-    if (!startDate || !startTime) return null;
-
-    const currentDuration = startTime && endTime ? endTime.diff(startTime, 'hour') : 1;
-
-    return (
-      <View style={[styles.confirmationContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Header */}
-        <View style={styles.confirmationHeader}>
-          <Text style={[styles.confirmationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.confirmBox.title')}</Text>
-        </View>
-
-        {/* Booking Details */}
-        <View style={styles.confirmationSection}>
-          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.bookingDetails')}</Text>
-          <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-            {t('booking.startDate')}: {startDate ? dayjs(startDate).format('MMMM D, YYYY') : t('common.notSelected')}
-          </Text>
-          <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-            {t('booking.startTime')}: {startTime ? startTime.format('h:mm A') : t('common.notSelected')}
-          </Text>
-          <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
-            {t('booking.confirmBox.serviceStarts', { 
-              date: startDate ? dayjs(startDate).format('MMMM D, YYYY') : '___', 
-              time: startTime ? startTime.format('h:mm A') : '___' 
-            })}
-          </Text>
-        </View>
-
-        {/* Service Duration */}
-        <View style={styles.confirmationSection}>
-          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.confirmBox.serviceDuration')}</Text>
-          <Text style={[styles.confirmationText, styles.confirmationSecondary, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
-            {t('booking.confirmBox.adjustDuration')}
-          </Text>
-
-          {/* Duration Selector */}
-          <View style={[styles.durationSelector, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TouchableOpacity
-              style={[
-                styles.durationButton,
-                { borderColor: colors.primary, backgroundColor: colors.card },
-                currentDuration <= 1 && [styles.durationButtonDisabled, { borderColor: colors.disabled, backgroundColor: colors.surface }]
-              ]}
-              onPress={() => {
-                if (startTime && endTime) {
-                  const currentDuration = endTime.diff(startTime, 'hour');
-                  if (currentDuration > 1) {
-                    const newEnd = startTime.add(currentDuration - 1, 'hour');
-                    setEndTime(newEnd);
-                    setEndDate(newEnd.format("YYYY-MM-DD"));
-                  }
-                }
-              }}
-              disabled={!startTime || !endTime || currentDuration <= 1}
-            >
-              <Text style={[
-                styles.durationButtonText,
-                { color: colors.primary, fontSize: fontSizes.title },
-                currentDuration <= 1 && { color: colors.disabled }
-              ]}>-</Text>
-            </TouchableOpacity>
-
-            <View style={styles.durationDisplay}>
-              <Text style={[styles.durationDisplayText, { color: colors.text, fontSize: fontSizes.title }]}>
-                {currentDuration} {t('booking.hours', { count: currentDuration })}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.durationButton,
-                { borderColor: colors.primary, backgroundColor: colors.card },
-                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && [styles.durationButtonDisabled, { borderColor: colors.disabled, backgroundColor: colors.surface }]
-              ]}
-              onPress={() => {
-                if (startTime && endTime) {
-                  const currentDuration = endTime.diff(startTime, 'hour');
-                  const newEnd = startTime.add(currentDuration + 1, 'hour');
-                  if (newEnd.hour() < BUSINESS_HOURS.cutoffHour) {
-                    setEndTime(newEnd);
-                    setEndDate(newEnd.format("YYYY-MM-DD"));
-                  }
-                }
-              }}
-              disabled={!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)}
-            >
-              <Text style={[
-                styles.durationButtonText,
-                { color: colors.primary, fontSize: fontSizes.title },
-                (!startTime || !endTime || (endTime && endTime.hour() >= BUSINESS_HOURS.cutoffHour - 1)) && { color: colors.disabled }
-              ]}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Relax Message */}
-        <View style={[styles.relaxMessageContainer, { backgroundColor: colors.infoLight }]}>
-          <Text style={[styles.relaxMessageText, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
-            {t('booking.confirmBox.relaxMessage')}
-          </Text>
-        </View>
-      </View>
-    );
-  };
-
   return (
     <Modal visible={open} transparent animationType="fade">
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
@@ -1144,8 +1239,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
 
-                {/* Confirmation Box with Relax Message */}
-                {renderConfirmationBox()}
+                {/* Duration Selector with Confirmation Box */}
+                {renderDurationSelector()}
               </>
             )}
 
@@ -1161,15 +1256,25 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       startDate: startTime?.toDate(),
                       endDate: endTime?.toDate(),
                     }}
-                    onChange={({ startDate, endDate }) => {
+                    onChange={({ startDate, endDate, time }) => {
                       const start = dayjs(startDate);
                       const end = dayjs(endDate);
+                      
+                      // Parse the time string
+                      const [t, meridian] = time.split(" ");
+                      let hour = Number(t.split(":")[0]);
+                      
+                      if (meridian === "PM" && hour !== 12) hour += 12;
+                      if (meridian === "AM" && hour === 12) hour = 0;
+                      
+                      // Apply the selected time to start date only
+                      const startWithTime = start.hour(hour).minute(0);
 
                       // ⛔ past dates
                       if (start.isBefore(dayjs(), "day")) return;
 
                       // ⛔ cutoff time check for start date
-                      if (isDateDisabled(start)) {
+                      if (isDateDisabled(startWithTime)) {
                         return;
                       }
 
@@ -1178,25 +1283,19 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                         return;
                       }
 
-                      setStartDate(start.format("YYYY-MM-DD"));
-                      setEndDate(end.format("YYYY-MM-DD"));
-                      setStartTime(start);
-                      setEndTime(end);
+                      setStartDate(startWithTime.format("YYYY-MM-DD"));
+                      setStartTime(startWithTime);
+                      setEndDate(end.format('YYYY-MM-DD'));
+                      
+                      // Set default end time to start time + 1 hour
+                      const defaultEndTime = startWithTime.add(1, 'hour');
+                      setEndTime(defaultEndTime);
                     }}
                   />
                 </View>
 
-                {startTime && endTime && (
-                  <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.bookingDetails')}</Text>
-                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                      {t('booking.from')}: {startTime.format("MMM D, YYYY HH:mm")} GMT
-                    </Text>
-                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                      {t('booking.to')}: {endTime.format("MMM D, YYYY HH:mm")} GMT
-                    </Text>
-                  </View>
-                )}
+                {/* Duration Selector for Short term option */}
+                {startDate && startTime && endTime && renderDurationSelector()}
               </>
             )}
 
@@ -1208,40 +1307,34 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     mode="single"
                     value={startTime?.toDate()}
                     onChange={(date: Date) => {
-                      const start = dayjs(date);
+                      const selected = dayjs(date);
+                      const now = dayjs();
 
-                      if (start.isBefore(dayjs(), "day")) return;
+                      if (selected.isBefore(now, "day")) return;
                       
                       // ⛔ cutoff time check
-                      if (isDateDisabled(start)) {
+                      if (isDateDisabled(selected)) {
                         return;
                       }
                       
-                      if (start.isAfter(maxDate90Days, "day")) return;
+                      if (selected.isAfter(maxDate90Days, "day")) return;
 
-                      const end = start.add(1, "month");
-
-                      setStartDate(start.format("YYYY-MM-DD"));
-                      setStartTime(start);
-                      setEndDate(end.format("YYYY-MM-DD"));
-                      setEndTime(end);
+                      updateStartDateTime(selected);
                     }}
                   />
                 </View>
 
-                {startTime && (
-                  <View style={[styles.confirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.monthly')}</Text>
-                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                      {t('booking.start')}: {startTime.format("MMMM D, YYYY HH:mm")} GMT
-                    </Text>
-                    <Text style={[styles.sectionText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                      {t('booking.end')}:{" "}
-                      {startTime.add(1, "month").format("MMMM D, YYYY HH:mm")}{" "}
-                      GMT
+                {/* Show end date info */}
+                {startDate && endDate && (
+                  <View style={[styles.endDateInfo, { backgroundColor: colors.infoLight }]}>
+                    <Text style={[styles.endDateInfoText, { color: colors.primary, fontSize: fontSizes.small }]}>
+                      📅 Subscription Period: {dayjs(startDate).format('MMMM D, YYYY')} - {dayjs(endDate).format('MMMM D, YYYY')}
                     </Text>
                   </View>
                 )}
+                
+                {/* Duration Selector for Monthly option */}
+                {startDate && startTime && endTime && renderDurationSelector()}
               </>
             )}
 
@@ -1338,61 +1431,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   dateTimeContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
     paddingHorizontal: 20,
-  },
-  dateButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginVertical: 6,
-  },
-  dateButtonText: {
-    fontSize: 14,
-    textAlign: "center",
-  },
-  confirmBox: {
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
-    marginHorizontal: 20,
-    borderWidth: 1,
-  },
-  sectionTitle: {
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  sectionText: {
-    fontSize: 14,
-    marginBottom: 3,
-  },
-  durationRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  adjustButton: {
-    padding: 10,
-    borderRadius: 6,
-    minWidth: 40,
-    alignItems: "center",
-  },
-  adjustText: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  durationText: {
-    fontSize: 16,
-    fontWeight: "600",
+    marginVertical: 10,
   },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 20,
+    marginBottom: 10,
     paddingHorizontal: 20,
   },
   cancelButton: {
@@ -1586,6 +1632,9 @@ const styles = StyleSheet.create({
   durationDisplayText: {
     fontWeight: "600",
   },
+  durationEndTime: {
+    marginTop: 4,
+  },
   // Relax Message Styles
   relaxMessageContainer: {
     alignItems: "center",
@@ -1637,5 +1686,15 @@ const styles = StyleSheet.create({
   },
   disabledCloseButtonText: {
     fontWeight: "600",
+  },
+  endDateInfo: {
+    textAlign: 'center',
+    padding: 12,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 8,
+  },
+  endDateInfoText: {
+    textAlign: 'center',
   },
 });

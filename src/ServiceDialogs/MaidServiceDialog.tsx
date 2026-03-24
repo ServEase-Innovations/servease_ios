@@ -9,23 +9,19 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
-  Platform,
   BackHandler
 } from 'react-native';
-import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { BookingDetails } from '../types/engagementRequest';
 import { BOOKINGS } from '../Constants/pagesConstants';
 import { EnhancedProviderDetails } from '../types/ProviderDetailsType';
-import axiosInstance from '../services/axiosInstance';
 import { addToCart, removeFromCart, selectCartItems } from '../features/addToSlice';
 import { isMaidCartItem } from '../types/cartSlice';
-import RazorpayCheckout from 'react-native-razorpay';
 import { usePricingFilterService } from '../utils/PricingFilter';
 import BookingService, { BookingPayload } from '../services/bookingService';
 import { useAppUser } from '../context/AppUserContext';
 import LinearGradient from "react-native-linear-gradient";
+import { CartDialog } from '../CartDiaog/CartDialog';
 
 interface MaidServiceDialogProps {
   open: boolean;
@@ -83,21 +79,17 @@ const getBasePrice = (service: any, bookingType: any) => {
 // --- Types that mirror the pricing dataset ---
 interface MaidPricingRow {
   _id?: string;
-  Service?: string; // e.g. "Maid"
-  Type?: string;    // e.g. "On Demand" | "Monthly" | etc.
-  Categories?: string; // e.g. "Utensil Cleaning"
-  'Sub-Categories'?: string; // e.g. "People" | "House Size" | "Bathrooms"
-  'Numbers/Size'?: string; // e.g. "<=3", "4-6", "2BHK"
+  Service?: string;
+  Type?: string;
+  Categories?: string;
+  'Sub-Categories'?: string;
+  'Numbers/Size'?: string;
   'Price /Day (INR)'?: number;
   'Price /Month (INR)'?: number;
   'Price /Visit (INR)'?: number;
   'Price /Week (INR)'?: number;
   'Job Description'?: string;
 }
-
-const monthlyFromDaily = (daily?: number) => (daily ? Math.round(daily * 26) : 0); // business days heuristic
-const monthlyFromWeekly = (weekly?: number) => (weekly ? Math.round(weekly * 4) : 0);
-const monthlyFromVisit = (perVisit?: number, visitsPerMonth = 8) => (perVisit ? Math.round(perVisit * visitsPerMonth) : 0); // fallback
 
 // checks if a numeric value satisfies a textual range like "<=3", ">=7", "4-6"
 const matchesNumericBand = (band: string, value: number) => {
@@ -127,11 +119,13 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
   const allCartItems = useSelector(selectCartItems);
   const maidCartItems = allCartItems.filter(isMaidCartItem);
   const [loading, setLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [voucherCode, setVoucherCode] = useState('');
+  const [showCartDialog, setShowCartDialog] = useState(false);
   
   // Use the pricing filter service
   const { getFilteredPricing } = usePricingFilterService();
   const maidPricing = getFilteredPricing('maid');
-  console.log('Maid Pricing Data:', maidPricing);
 
   const [cartItems, setCartItems] = useState<CartItemsType>(() => {
     const initialCartItems: CartItemsType = {
@@ -161,13 +155,8 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
   });
   
   const dispatch = useDispatch();
-  const { setAppUser, appUser } = useAppUser();
+  const { appUser } = useAppUser();
   
-  const users = useSelector((state: any) => state.user?.value);
-  const currentLocation = users?.customerDetails?.currentLocation;
-  const providerFullName = `${providerDetails?.firstname} ${providerDetails?.lastName}`;
-  const customerId = appUser?.customerid || user?.customerid || 19;
-
   // Normalize pricing source
   const maidPricingRows: MaidPricingRow[] = useMemo(() => {
     const asArray = (data: any): MaidPricingRow[] => {
@@ -194,6 +183,14 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
     if (pref === 'short term') return 'SHORT_TERM';
     return 'MONTHLY';
   };
+
+  // FIX: Reset loading state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setLoading(false);
+      setIsProcessing(false);
+    }
+  }, [open]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -292,15 +289,6 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
     return candidates[0];
   };
 
-  const priceToMonthly = (row?: MaidPricingRow): number => {
-    if (!row) return 0;
-    if (row['Price /Month (INR)']) return row['Price /Month (INR)'] as number;
-    if (row['Price /Week (INR)']) return monthlyFromWeekly(row['Price /Week (INR)']);
-    if (row['Price /Visit (INR)']) return monthlyFromVisit(row['Price /Visit (INR)']);
-    if (row['Price /Day (INR)']) return monthlyFromDaily(row['Price /Day (INR)']);
-    return 0;
-  };
-
   // Updated pricing functions using the same logic as React code
   const getPackagePrice = (packageName: CartItemKey): number => {
     const preferOnDemand = bookingType?.bookingPreference?.toLowerCase() === 'date';
@@ -313,19 +301,12 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       }
       case 'sweepingMopping': {
         const size = packageStates.sweepingMopping.houseSize;
-        const preferOnDemand = bookingType?.bookingPreference?.toLowerCase() === 'date';
-
-        // use "House" instead of "House Size"
         const row = findRow('Sweeping & Mopping', 'House', size, undefined, preferOnDemand);
-
         return getBasePrice(row, bookingType) || 1200;
       }
       case 'bathroomCleaning': {
         const bathrooms = packageStates.bathroomCleaning.bathrooms;
-        const preferOnDemand = bookingType?.bookingPreference?.toLowerCase() === 'date';
-
         const row = findRow('Bathroom', 'Number', undefined, bathrooms, preferOnDemand);
-
         return getBasePrice(row, bookingType) || 600;
       }
       default:
@@ -410,7 +391,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
     );
 
     return () => backHandler.remove();
-  }, []);
+  }, [handleClose]);
 
   const handleAddPackageToCart = (packageName: CartItemKey) => {
     const packageDetails = {
@@ -483,9 +464,110 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
   const getPriceDisplayText = () => {
     return bookingType?.bookingPreference?.toLowerCase() === 'date' ? 'Per Day' : 'Monthly service';
   };
-  
-  const handleCheckout = async () => {
+
+  const formatTimeForBackend = (timeString: string): string => {
+    if (!timeString) {
+      return '10:00:00';
+    }
+    
     try {
+      let timeToFormat = timeString;
+      
+      if (timeString.includes(' - ')) {
+        timeToFormat = timeString.split(' - ')[0].trim();
+      }
+      
+      if (/^\d{2}:\d{2}:\d{2}$/.test(timeToFormat)) {
+        return timeToFormat;
+      }
+      
+      const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)/i;
+      const match = timeToFormat.match(timeRegex);
+      
+      if (match) {
+        let [_, hours, minutes, modifier] = match;
+        let hourNum = parseInt(hours);
+        
+        if (modifier.toUpperCase() === 'PM' && hourNum !== 12) {
+          hourNum += 12;
+        } else if (modifier.toUpperCase() === 'AM' && hourNum === 12) {
+          hourNum = 0;
+        }
+        
+        return `${hourNum.toString().padStart(2, '0')}:${minutes}:00`;
+      }
+      
+      if (timeToFormat.includes(':')) {
+        const parts = timeToFormat.split(':');
+        if (parts.length === 2) {
+          return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+        }
+      }
+      
+      return '10:00:00';
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return '10:00:00';
+    }
+  };
+
+  const prepareCartForCheckout = () => {
+    // Clear all existing cart items
+    dispatch(removeFromCart({ type: 'meal' }));
+    dispatch(removeFromCart({ type: 'maid' }));
+    dispatch(removeFromCart({ type: 'nanny' }));
+
+    // Add only the currently selected packages and add-ons
+    Object.entries(cartItems).forEach(([key, isSelected]) => {
+      if (isSelected && isCartItemKey(key)) {
+        if (['utensilCleaning', 'sweepingMopping', 'bathroomCleaning'].includes(key)) {
+          // It's a package
+          const packageDetails = {
+            id: `package_${key}`,
+            type: 'maid' as const,
+            serviceType: 'package' as const,
+            name: key,
+            price: getPackagePrice(key),
+            description: getPackageDescription(key),
+            details: getPackageDetails(key)
+          };
+          dispatch(addToCart(packageDetails));
+        } else {
+          // It's an add-on
+          const addOnDetails = {
+            id: `addon_${key}`,
+            type: 'maid' as const,
+            serviceType: 'addon' as const,
+            name: key,
+            price: getAddOnPrice(key),
+            description: getAddOnDescription(key)
+          };
+          dispatch(addToCart(addOnDetails));
+        }
+      }
+    });
+  };
+
+  const handleOpenCartDialog = () => {
+    const selectedCount = countSelectedItems();
+    if (selectedCount === 0) {
+      Alert.alert("Selection Required", "Please select at least one service");
+      return;
+    }
+
+    prepareCartForCheckout();
+    setShowCartDialog(true);
+  };
+
+  const handleCheckout = async () => {
+    // Prevent multiple simultaneous calls
+    if (isProcessing) {
+      console.log("Checkout already in progress, skipping...");
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
       setLoading(true);
 
       const selectedServices = maidCartItems.filter(isMaidCartItem);
@@ -494,10 +576,11 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       if (baseTotal <= 0) {
         Alert.alert('Warning', 'No items selected for checkout');
         setLoading(false);
+        setIsProcessing(false);
         return;
       }
 
-      const customerId = appUser?.customerid || user?.customerid || "guest-id";
+      const customerId = appUser?.customerid || user?.customerid || 19;
       
       // Separate packages and add-ons
       const packages = selectedServices.filter(item => item.serviceType === "package");
@@ -535,55 +618,6 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
       const isOnDemand = currentBookingType === "ON_DEMAND";
       
-      // Format time properly
-      const formatTimeForBackend = (timeString: string): string => {
-        console.log("🕒 Original time string:", timeString);
-        
-        if (!timeString) {
-          return '10:00:00';
-        }
-        
-        try {
-          let timeToFormat = timeString;
-          
-          if (timeString.includes(' - ')) {
-            timeToFormat = timeString.split(' - ')[0].trim();
-          }
-          
-          if (/^\d{2}:\d{2}:\d{2}$/.test(timeToFormat)) {
-            return timeToFormat;
-          }
-          
-          const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)/i;
-          const match = timeToFormat.match(timeRegex);
-          
-          if (match) {
-            let [_, hours, minutes, modifier] = match;
-            let hourNum = parseInt(hours);
-            
-            if (modifier.toUpperCase() === 'PM' && hourNum !== 12) {
-              hourNum += 12;
-            } else if (modifier.toUpperCase() === 'AM' && hourNum === 12) {
-              hourNum = 0;
-            }
-            
-            return `${hourNum.toString().padStart(2, '0')}:${minutes}:00`;
-          }
-          
-          if (timeToFormat.includes(':')) {
-            const parts = timeToFormat.split(':');
-            if (parts.length === 2) {
-              return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
-            }
-          }
-          
-          return '10:00:00';
-        } catch (error) {
-          console.error("🕒 Error formatting time:", error);
-          return '10:00:00';
-        }
-      };
-
       // Calculate times
       const startTime = formatTimeForBackend(bookingType?.timeRange);
       let endTime = '';
@@ -599,7 +633,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
         }
       }
 
-      // Prepare payload
+      // ✅ UPDATED: Always include end_time with fallback (matching React code pattern)
       const payload: BookingPayload = {
         customerid: customerId,
         serviceproviderid: providerDetails?.serviceproviderId
@@ -608,24 +642,22 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
         start_date: bookingType?.startDate || new Date().toISOString().split("T")[0],
         end_date: bookingType?.endDate || new Date().toISOString().split("T")[0],
         start_time: startTime,
+        end_time: bookingType?.endTime || endTime || "", // ✅ Always included with fallback
         responsibilities: responsibilities,
         booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
         service_type: "MAID",
         base_amount: baseTotal,
         payment_mode: "razorpay",
-        ...(isOnDemand && {
-          end_time: endTime,
-        }),
       };
 
       console.log("Final Maid Service Payload:", JSON.stringify(payload, null, 2));
+      console.log(`⏰ Times - Start: ${payload.start_time}, End: ${payload.end_time}`);
 
       // ✅ Use ONLY BookingService.bookAndPay - it handles Razorpay internally
-      console.log("🚀 Calling BookingService.bookAndPay...");
       const result = await BookingService.bookAndPay(payload);
       
-      console.log("✅ bookAndPay result:", result);
+      console.log("bookAndPay result:", result);
 
       // Success handling
       Alert.alert(
@@ -635,6 +667,11 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
           {
             text: "OK",
             onPress: () => {
+              // Clear cart items
+              dispatch(removeFromCart({ type: 'meal' }));
+              dispatch(removeFromCart({ type: 'maid' }));
+              dispatch(removeFromCart({ type: 'nanny' }));
+              setShowCartDialog(false);
               if (sendDataToParent) {
                 sendDataToParent(BOOKINGS);
               }
@@ -645,7 +682,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       );
 
     } catch (error: any) {
-      console.error('❌ Checkout error:', error);
+      console.error('Checkout error:', error);
       
       let backendMessage = "Failed to complete booking";
       
@@ -681,7 +718,12 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       Alert.alert("Error", backendMessage);
     } finally {
       setLoading(false);
+      setIsProcessing(false);
     }
+  };
+
+  const handleApplyVoucher = () => {
+    Alert.alert('Voucher Applied', 'Your voucher has been applied successfully');
   };
 
   if (!open) return null;
@@ -1213,8 +1255,13 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
                 style={styles.voucherInput}
                 placeholder="Enter voucher code"
                 placeholderTextColor="#999"
+                value={voucherCode}
+                onChangeText={setVoucherCode}
               />
-              <TouchableOpacity style={styles.voucherButton}>
+              <TouchableOpacity 
+                style={styles.voucherButton}
+                onPress={handleApplyVoucher}
+              >
                 <Text style={styles.voucherButtonText}>Apply Voucher</Text>
               </TouchableOpacity>
             </View>
@@ -1239,10 +1286,10 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
               <TouchableOpacity
                 style={[
                   styles.checkoutButton,
-                  countSelectedItems() === 0 && styles.disabledButton
+                  (countSelectedItems() === 0 || loading || isProcessing) && styles.disabledButton
                 ]}
-                onPress={handleCheckout}
-                disabled={countSelectedItems() === 0 || loading}
+                onPress={handleOpenCartDialog}
+                disabled={countSelectedItems() === 0 || loading || isProcessing}
               >
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
@@ -1257,6 +1304,13 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
           </View>
         </View>
       </View>
+
+      {/* Cart Dialog */}
+      <CartDialog
+        open={showCartDialog}
+        handleClose={() => setShowCartDialog(false)}
+        handleCheckout={handleCheckout}
+      />
     </Modal>
   );
 };

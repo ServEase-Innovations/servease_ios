@@ -47,7 +47,7 @@ import Footer from "./src/Footer/Footer";
 import Chatbot from "./src/Chatbot/Chatbot";
 import Booking from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
-import ProfileScreen from "./src/UserProfile/ProfileScreen";
+import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard"; // ADD THIS IMPORT
 import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD } from "./src/Constants/pagesConstants"; // ADD AGENT_DASHBOARD
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
@@ -791,7 +791,8 @@ const MainApp = () => {
       case DASHBOARD:
         // Show Dashboard for service providers, but if profile view is requested from dashboard
         return showProfileFromDashboard ? (
-          <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />
+          // <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />
+          <ProfileScreen/>
         ) : (
           <Dashboard 
             onProfilePress={handleDashboardProfilePress} 
@@ -804,7 +805,9 @@ const MainApp = () => {
         return <AgentDashboard />;
         
       case PROFILE:
-        return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />;
+        // return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />;
+        return <ProfileScreen/>;
+
         
       default:
         // This handles "DETAILS" and any other views

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import RazorpayCheckout from 'react-native-razorpay';
 import { BookingDetails } from '../types/engagementRequest';
 import { BOOKINGS } from '../Constants/pagesConstants';
 import axiosInstance from '../services/axiosInstance';
@@ -97,10 +96,16 @@ const DemoCook = ({
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
-  //using for location fetching from head.tsx
   const [currentLocation, setCurrentLocation] = React.useState<LocationData | null>(null);
 
-  // Consistent blue color for all meal types (like Breakfast in the image)
+  // FIX: Reset loading state when dialog closes
+  useEffect(() => {
+    if (!visible) {
+      setLoading(false);
+    }
+  }, [visible]);
+
+  // Consistent blue color for all meal types
   const PRIMARY_COLOR = '#0984e3';
   const LIGHT_BLUE_BG = '#e6f3ff';
 
@@ -130,7 +135,7 @@ const DemoCook = ({
     }
   };
 
-  // Fix: Format time for backend - more robust version
+  // Format time for backend
   const formatTimeForBackend = (timeString: string): string => {
     console.log("🕒 Original time string:", timeString);
     
@@ -140,20 +145,16 @@ const DemoCook = ({
     }
     
     try {
-      // Handle different time formats
       let timeToFormat = timeString;
       
-      // If it's a range like "10:00 AM - 2:00 PM", take the first part
       if (timeString.includes(' - ')) {
         timeToFormat = timeString.split(' - ')[0].trim();
       }
       
-      // If it's already in 24-hour format with seconds, return as is
       if (/^\d{2}:\d{2}:\d{2}$/.test(timeToFormat)) {
         return timeToFormat;
       }
       
-      // Parse 12-hour format
       const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)/i;
       const match = timeToFormat.match(timeRegex);
       
@@ -172,7 +173,6 @@ const DemoCook = ({
         return formattedTime;
       }
       
-      // If no AM/PM detected, assume 24-hour format and add seconds
       if (timeToFormat.includes(':')) {
         const parts = timeToFormat.split(':');
         if (parts.length === 2) {
@@ -190,35 +190,37 @@ const DemoCook = ({
     }
   };
 
-  // Add this helper function to validate payload
+  // Validate payload
   const validatePayload = (payload: BookingPayload) => {
-    const errors: string[] = [];
-
     if (!payload.customerid || payload.customerid <= 0) {
-      errors.push("Invalid customer ID");
+      Alert.alert("Validation Error", "Invalid customer ID");
+      return false;
     }
 
-    // For ON_DEMAND bookings, serviceproviderid can be null/0
-    // For other types, it should be valid
     const isOnDemand = payload.booking_type === "ON_DEMAND";
     if (!isOnDemand && (!payload.serviceproviderid || payload.serviceproviderid <= 0)) {
-      errors.push("Invalid service provider ID");
+      Alert.alert("Validation Error", "Invalid service provider ID");
+      return false;
     }
 
     if (!payload.start_date) {
-      errors.push("Start date is required");
+      Alert.alert("Validation Error", "Start date is required");
+      return false;
     }
 
     if (!payload.start_time || !/^\d{2}:\d{2}:\d{2}$/.test(payload.start_time)) {
-      errors.push("Invalid start time format. Expected HH:MM:SS");
+      Alert.alert("Validation Error", "Invalid start time format. Expected HH:MM:SS");
+      return false;
     }
 
     if (payload.booking_type === "ON_DEMAND" && !payload.end_time) {
-      errors.push("End time is required for ON_DEMAND bookings");
+      Alert.alert("Validation Error", "End time is required for ON_DEMAND bookings");
+      return false;
     }
 
     if (!payload.base_amount || payload.base_amount <= 0) {
-      errors.push("Invalid base amount");
+      Alert.alert("Validation Error", "Invalid base amount");
+      return false;
     }
 
     return true;
@@ -240,7 +242,7 @@ const DemoCook = ({
       return {
         name: item.Categories || item.ServiceName || '',
         price: basePrice,
-        basePrice: basePrice, // Store base price separately
+        basePrice: basePrice,
         rating: 4.84,
         reviews: getReviewsText(category),
         prepTime: getPreparationTime(category),
@@ -364,8 +366,10 @@ const DemoCook = ({
   };
 
   const prepareCartForCheckout = () => {
-    // Clear all existing cart items of type 'meal'
+    // Clear all existing cart items
     dispatch(removeFromCart({ type: 'meal' }));
+    dispatch(removeFromCart({ type: 'maid' }));
+    dispatch(removeFromCart({ type: 'nanny' }));
 
     // Add only the currently selected packages
     packages.forEach(pkg => {
@@ -387,7 +391,7 @@ const DemoCook = ({
   const handleOpenCartDialog = () => {
     const selectedPackages = packages.filter(pkg => pkg.selected);
     if (selectedPackages.length === 0) {
-      Alert.alert("Please select at least one package");
+      Alert.alert("Selection Required", "Please select at least one package");
       return;
     }
 
@@ -396,6 +400,12 @@ const DemoCook = ({
   };
 
   const handleCheckout = async () => {
+    // Prevent multiple calls
+    if (loading) {
+      console.log("Checkout already in progress, skipping...");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -417,63 +427,49 @@ const DemoCook = ({
         }))
       };
 
-      // Format start_time properly
       const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
       const startTime = formatTimeForBackend(bookingType?.timeRange);
-      console.log("Booking type :1234",bookingType)
-      console.log("Formatted start time for backend:", startTime);
-
-      // Conditional serviceproviderid logic - FIXED
+      
       const isOnDemand = currentBookingType === "ON_DEMAND";
       
-      // Handle serviceproviderid properly to match BookingPayload type
       let serviceproviderid: number | null = null;
       if (!isOnDemand && providerDetails?.serviceproviderId) {
         serviceproviderid = Number(providerDetails.serviceproviderId);
       }
 
-      console.log("Determined serviceproviderid:", bookingType);
-
-      const demoForStartTime = bookingType?.timeRange.split("-");
-      console.log("Demo for start time :", demoForStartTime)
-      // console.log("Demo for start time :", demoForStartTime + ":00")
-      // Prepare payload matching BookingPayload interface
+      // ✅ UPDATED: Use bookingType?.endTime with fallback to empty string
       const payload: BookingPayload = {
         customerid: customerId,
-        serviceproviderid: serviceproviderid, // Now properly typed as number | null
-        start_date: bookingType?.start_date,
-        end_date: bookingType?.end_date,
+        serviceproviderid: serviceproviderid,
+        start_date: bookingType?.start_date || new Date().toISOString().split("T")[0],
+        end_date: bookingType?.end_date || "",
         responsibilities: responsibilities,
         booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
         service_type: "COOK",
         base_amount: baseTotal,
         payment_mode: "razorpay",
-         start_time: bookingType?.start_time || "",
-        ...(getBookingTypeFromPreference(bookingType?.bookingPreference) === "ON_DEMAND" && {
-          end_time: bookingType?.end_time || "",
-        }),
+        start_time: bookingType?.start_time || startTime,
+        end_time: bookingType?.endTime || "",  // ✅ NEW CHANGE - end_time with fallback
       };
-
-      console.log("Prepared booking payload:", JSON.stringify(payload));
 
       console.log("📦 Booking payload:", JSON.stringify(payload, null, 2));
       console.log(`🔍 Booking Type: ${currentBookingType}, Service Provider ID: ${serviceproviderid}`);
+      console.log(`⏰ Times - Start: ${payload.start_time}, End: ${payload.end_time}`);
 
       // Validate payload before sending
       if (!validatePayload(payload)) {
-        Alert.alert("Validation Error", "Please check your booking details");
         setLoading(false);
         return;
       }
 
-      // ✅ Use the bookAndPay method exactly like in React web version
+      // ✅ Use bookAndPay method
       console.log("🚀 Calling BookingService.bookAndPay...");
       const result = await BookingService.bookAndPay(payload);
       
       console.log("✅ bookAndPay result:", result);
 
-      // ✅ Success handling - matching your React web version
+      // ✅ Success handling
       setSnackbarMessage(result?.verifyResult?.message || "Booking & Payment Successful ✅");
       setSnackbarSeverity("success");
       setSnackbarVisible(true);
@@ -498,7 +494,6 @@ const DemoCook = ({
     } catch (error: any) {
       console.error('❌ Checkout error:', error);
       
-      // ✅ Enhanced error handling - matching your React web version
       let backendMessage = "Failed to initiate payment";
       
       if (error?.response?.data) {
@@ -553,7 +548,12 @@ const DemoCook = ({
   const selectedCount = packages.filter(pkg => pkg.inCart).length;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal 
+      visible={visible} 
+      animationType="slide" 
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <LinearGradient
@@ -721,7 +721,7 @@ const DemoCook = ({
               <TouchableOpacity
                 style={[
                   styles.checkoutButton,
-                  selectedCount === 0 && styles.disabledButton
+                  (selectedCount === 0 || loading) && styles.disabledButton
                 ]}
                 onPress={handleOpenCartDialog}
                 disabled={selectedCount === 0 || loading}
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 9,
     backgroundColor: '#f0f0f0',
-    borderWidth: 0,
+    borderWidth: 1,
     borderColor: "#007AFF",
     alignItems: 'center',
     justifyContent: 'center',

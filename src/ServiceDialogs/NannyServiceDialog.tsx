@@ -10,19 +10,13 @@ import {
   Alert,
   ActivityIndicator,
   BackHandler,
-  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import axios from 'axios';
-import RazorpayCheckout from 'react-native-razorpay';
 import { addToCart, removeFromCart, selectCartItems } from '../features/addToSlice';
 import { isNannyCartItem } from '../types/cartSlice';
 import { EnhancedProviderDetails } from '../types/ProviderDetailsType';
-import { BookingDetails } from '../types/engagementRequest';
-import axiosInstance from '../services/axiosInstance';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Dimensions } from 'react-native';
-import { useAuth0 } from 'react-native-auth0';
 import { usePricingFilterService } from '../utils/PricingFilter';
 import { useAppUser } from '../context/AppUserContext';
 import BookingService from '../services/bookingService';
@@ -53,7 +47,7 @@ interface PackagesState {
   [key: string]: NannyPackage;
 }
 
-// ✅ Helper to check DB "Numbers/Size" conditions
+// Helper to check DB "Numbers/Size" conditions
 const matchAgeToSize = (numbersSize: string, age: number): boolean => {
   if (!numbersSize) return false;
   
@@ -83,7 +77,7 @@ const matchAgeToSize = (numbersSize: string, age: number): boolean => {
   return age === exactAge;
 };
 
-// ✅ Compute price dynamically from DB
+// Compute price dynamically from DB
 const getPackagePrice = (
   allServices: any[],
   category: string,
@@ -106,7 +100,6 @@ const getPackagePrice = (
     ? matched["Price /Day (INR)"]
     : matched["Price /Month (INR)"];
 
-  console.log(`Price calculated: ${price} for ${category}, age: ${age}, type: ${bookingType}`);
   return price || 0;
 };
 
@@ -132,9 +125,10 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   const [allServices, setAllServices] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [voucherCode, setVoucherCode] = useState('');
   const [showCartDialog, setShowCartDialog] = useState(false);
-  const { user: auth0User } = useAuth0();
+  
   const { setAppUser, appUser } = useAppUser();
   
   const { getFilteredPricing } = usePricingFilterService();
@@ -157,6 +151,14 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   }, [getFilteredPricing]);
 
   const isInitialized = useRef(false);
+
+  // FIX: Reset loading state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setLoading(false);
+      setIsProcessing(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open && nannyPricing && nannyPricing.length > 0 && !isInitialized.current) {
@@ -194,9 +196,8 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
       setPackages(newPackages);
       setAllServices(updatedNannyServices);
       isInitialized.current = true;
-      console.log('Packages initialized with pricing:', newPackages);
     }
-  }, [open, nannyPricing, bookingTypeLabel, packages]);
+  }, [open, nannyPricing, bookingTypeLabel]);
 
   useEffect(() => {
     if (!open) {
@@ -298,7 +299,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
     return () => backHandler.remove();
   }, [open, handleClose]);
 
-  // ✅ FIXED: Age change handler with proper increment/decrement
+  // Age change handler with proper increment/decrement
   const handleAgeChange = useCallback((key: string, increment: number) => {
     setPackages(prev => {
       const currentPkg = prev[key];
@@ -423,6 +424,9 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   };
 
   const prepareCartForCheckout = () => {
+    // Clear all existing cart items
+    dispatch(removeFromCart({ type: 'meal' }));
+    dispatch(removeFromCart({ type: 'maid' }));
     dispatch(removeFromCart({ type: 'nanny' }));
 
     Object.entries(packages).forEach(([key, pkg]) => {
@@ -462,8 +466,61 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
     setShowCartDialog(true);
   };
 
-  const handleCheckout = async () => {
+  const formatTimeForBackend = (timeString: string): string => {
+    if (!timeString) {
+      return '10:00:00';
+    }
+    
     try {
+      let timeToFormat = timeString;
+      
+      if (timeString.includes(' - ')) {
+        timeToFormat = timeString.split(' - ')[0].trim();
+      }
+      
+      if (/^\d{2}:\d{2}:\d{2}$/.test(timeToFormat)) {
+        return timeToFormat;
+      }
+      
+      const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)/i;
+      const match = timeToFormat.match(timeRegex);
+      
+      if (match) {
+        let [_, hours, minutes, modifier] = match;
+        let hourNum = parseInt(hours);
+        
+        if (modifier.toUpperCase() === 'PM' && hourNum !== 12) {
+          hourNum += 12;
+        } else if (modifier.toUpperCase() === 'AM' && hourNum === 12) {
+          hourNum = 0;
+        }
+        
+        return `${hourNum.toString().padStart(2, '0')}:${minutes}:00`;
+      }
+      
+      if (timeToFormat.includes(':')) {
+        const parts = timeToFormat.split(':');
+        if (parts.length === 2) {
+          return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+        }
+      }
+      
+      return '10:00:00';
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return '10:00:00';
+    }
+  };
+
+  const handleCheckout = async () => {
+    // Prevent multiple simultaneous calls
+    if (isProcessing) {
+      console.log("Checkout already in progress, skipping...");
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
       setLoading(true);
 
       const selectedPackages = Object.entries(packages)
@@ -480,14 +537,11 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
       if (baseTotal === 0) {
         Alert.alert("Selection Required", "Please select at least one service");
         setLoading(false);
+        setIsProcessing(false);
         return;
       }
 
-      if (!appUser?.customerid) {
-        Alert.alert("Authentication Required", "Please log in to proceed with booking");
-        setLoading(false);
-        return;
-      }
+      const customerId = appUser?.customerid || user?.customerid || 19;
 
       const responsibilities = selectedPackages.map(pkg => ({
         taskType: `${pkg.category} care - ${pkg.packageType} service`,
@@ -495,29 +549,45 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
         careType: activeTab,
       }));
 
-      console.log("console booking:", bookingType);
+      const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
+      const isOnDemand = currentBookingType === "ON_DEMAND";
+      
+      const startTime = formatTimeForBackend(bookingType?.timeRange);
+      let endTime = '';
+      
+      if (isOnDemand) {
+        try {
+          const [hours, minutes] = startTime.split(':').map(Number);
+          let endHours = hours + 1;
+          if (endHours >= 24) endHours -= 24;
+          endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+        } catch (error) {
+          endTime = formatTimeForBackend('06:00 PM');
+        }
+      }
 
+      // ✅ UPDATED: Include end_time in payload with fallback
       const payload = {
-        customerid: appUser.customerid,
+        customerid: customerId,
         serviceproviderid: providerDetails?.serviceproviderId
           ? Number(providerDetails.serviceproviderId)
           : 0,
         start_date: bookingType?.startDate || new Date().toISOString().split('T')[0],
         end_date: bookingType?.endDate || new Date().toISOString().split('T')[0],
-        start_time: bookingType?.timeRange || '',
+        start_time: startTime,
+        end_time: bookingType?.endTime || endTime || "", // ✅ NEW CHANGE - end_time with fallback
         responsibilities: { tasks: responsibilities },
-        booking_type: getBookingTypeFromPreference(bookingType?.bookingPreference),
+        booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
         service_type: "NANNY",
         base_amount: baseTotal,
         payment_mode: "razorpay",
-        ...(bookingType?.bookingPreference?.toLowerCase() === "date" && {
-          end_time: bookingType?.endTime || "",
-        }),
       };
 
-      console.log("Final Nanny Payload:", payload);
+      console.log("Final Nanny Payload:", JSON.stringify(payload, null, 2));
+      console.log(`⏰ Times - Start: ${payload.start_time}, End: ${payload.end_time}`);
 
+      // ✅ Single call to BookingService.bookAndPay
       const result = await BookingService.bookAndPay(payload);
 
       Alert.alert(
@@ -556,13 +626,31 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
         backendMessage = err.message;
       }
 
+      // Handle Razorpay specific errors
+      if (err?.code) {
+        switch (err.code) {
+          case 0:
+            backendMessage = "Payment cancelled by user";
+            break;
+          case 1:
+            backendMessage = "Payment failed. Please try again.";
+            break;
+          case 2:
+            backendMessage = "Network error. Please check your internet connection.";
+            break;
+          default:
+            backendMessage = err.description || "Payment failed";
+        }
+      }
+
       Alert.alert("Payment Error", backendMessage);
     } finally {
       setLoading(false);
+      setIsProcessing(false);
     }
   };
 
-  // ✅ UPDATED: Package rendering with new styling (no inCartText)
+  // Package rendering with styling
   const renderPackage = useCallback((key: string, pkg: NannyPackage) => {
     const packageType = key.includes("day") ? "day" 
                     : key.includes("night") ? "night" 
@@ -570,7 +658,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
                     
     const displayPackageType = packageType.charAt(0).toUpperCase() + packageType.slice(1);
     const color = activeTab === 'baby' ? '#0984e3' : '#0984e3';
-    const cartColor = '#0984e3'; // Blue color for cart items
+    const cartColor = '#0984e3';
     
     const isBaby = activeTab === 'baby';
     const minAge = isBaby ? 1 : 60;
@@ -602,7 +690,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
           </View>
         </View>
 
-        {/* Age Control with Square Buttons */}
+        {/* Age Control */}
         <View style={styles.personsControl}>
           <Text style={styles.personsLabel}>Age:</Text>
           <View style={styles.personsInput}>
@@ -811,10 +899,10 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
               <TouchableOpacity
                 style={[
                   styles.checkoutButton,
-                  (getSelectedPackagesCount === 0 || loading) && styles.disabledButton
+                  (getSelectedPackagesCount === 0 || loading || isProcessing) && styles.disabledButton
                 ]}
                 onPress={handleOpenCartDialog}
-                disabled={getSelectedPackagesCount === 0 || loading}
+                disabled={getSelectedPackagesCount === 0 || loading || isProcessing}
               >
                 {loading ? (
                   <ActivityIndicator size="small" color="white" />
@@ -928,7 +1016,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 5,
   },
   inCartPackage: {
-    backgroundColor: '#dff0ff', // Light teal background for cart items
+    backgroundColor: '#dff0ff',
     borderColor: '#0984e3',
   },
   packageHeader: {
