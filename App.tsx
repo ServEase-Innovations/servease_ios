@@ -1,4 +1,4 @@
-// App.tsx - Complete version with ThemeProvider, Settings, and Multi-language support
+// App.tsx - Complete version with ThemeProvider, Settings, Multi-language support, and Professional Loading Animation
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -23,6 +23,7 @@ import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "./i18n";
+// import { LinearGradient } from 'expo-linear-gradient'; // Import LinearGradient
 
 // Import Theme Provider
 import { ThemeProvider, useTheme } from "./src/Settings/ThemeContext";
@@ -48,8 +49,8 @@ import Chatbot from "./src/Chatbot/Chatbot";
 import Booking from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
-import AgentDashboard from "./src/Agent/AgentDashboard"; // ADD THIS IMPORT
-import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD } from "./src/Constants/pagesConstants"; // ADD AGENT_DASHBOARD
+import AgentDashboard from "./src/Agent/AgentDashboard";
+import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD } from "./src/Constants/pagesConstants";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
@@ -68,6 +69,7 @@ import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegis
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
 import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
+import LinearGradient from "react-native-linear-gradient";
 
 interface Engagement {
   engagement_id: number;
@@ -98,7 +100,7 @@ const MainApp = () => {
   const [currentView, setCurrentView] = useState(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(true); // This now controls the loading screen
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
   const [activeToast, setActiveToast] = useState<Engagement | null>(null);
   const [showNotificationClient, setShowNotificationClient] = useState(false);
@@ -815,14 +817,30 @@ const MainApp = () => {
     }
   };
 
+  // ============= UPDATED LOADING SCREEN =============
+  // This now implements the professional loading animation with LinearGradient,
+  // Logo, "Loading Server" text, and a 2-second delay.
   if (showSplash) {
     return (
-      <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim, backgroundColor: colors.primary }]}>
-        <Image
-          source={require("./assets/images/serveasologo.png")}
-          style={styles.splashImage}
-          resizeMode="contain"
-        />
+      <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
+        <LinearGradient
+          colors={["#0a2a66ff", "#004aadff"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradientBackground}
+        >
+          <View style={styles.loadingContent}>
+            <Image
+              source={require("./assets/images/serveasologo.png")}
+              style={styles.splashImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.loadingServerText}>Loading Server</Text>
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="large" color="#ffffff" />
+            </View>
+          </View>
+        </LinearGradient>
       </Animated.View>
     );
   }
@@ -1069,13 +1087,20 @@ const App = () => {
   if (!i18nInitialized) {
     // Show a minimal loading screen while i18n initializes
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#004aadff' }}>
-        <Image
-          source={require("./assets/images/serveasologo.png")}
-          style={{ width: 200, height: 200 }}
-          resizeMode="contain"
-        />
-      </View>
+      <LinearGradient
+        colors={["#0a2a66ff", "#004aadff"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.gradientBackground}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Image
+            source={require("./assets/images/serveasologo.png")}
+            style={{ width: 200, height: 200 }}
+            resizeMode="contain"
+          />
+        </View>
+      </LinearGradient>
     );
   }
 
@@ -1093,14 +1118,35 @@ const App = () => {
 };
 
 const styles = StyleSheet.create({
+  gradientBackground: {
+    flex: 1,
+  },
   splashContainer: {
+    flex: 1,
+  },
+  loadingContent: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   splashImage: { 
     width: "80%", 
-    height: "80%" 
+    height: "30%", 
+    marginBottom: 30,
+  },
+  loadingServerText: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#ffffff",
+    marginBottom: 40,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  loaderContainer: {
+    marginTop: 20,
   },
   safeArea: {
     flex: 1,

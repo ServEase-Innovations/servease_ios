@@ -17,6 +17,8 @@ export interface BookingPayload {
   payment_mode?: "razorpay" | "UPI" | "CASH" | string;
   latitude?: number;
   longitude?: number;
+  address?: string | null;
+  duration_minutes?: number;
   [key: string]: any;
 }
 
@@ -38,7 +40,6 @@ export interface LocationData {
   };
 }
 
-
 // Error types for better error handling
 export interface RazorpayError {
   code: number;
@@ -52,7 +53,7 @@ export const BookingService = {
   createEngagement: async (payload: BookingPayload) => {
     console.log("Creating engagement with payload:", payload);
     try {
-      console.log("Create Engagement payload ",PaymentInstance.getUri()+'/api/v2/createEngagement')
+      console.log("Create Engagement payload ", PaymentInstance.getUri() + '/api/v2/createEngagement')
       const res = await PaymentInstance.post(`/api/v2/createEngagements`, payload, {
         headers: { "Content-Type": "application/json" },
       });
@@ -185,11 +186,14 @@ export const BookingService = {
   /**
    * Complete booking and payment flow with location data
    */
-  bookAndPay: async (payload: BookingPayload, locationData?: { latitude: number; longitude: number } | LocationData) => {
+  bookAndPay: async (payload: BookingPayload, locationData?: { latitude: number; longitude: number; formatted_address?: string } | LocationData) => {
     console.log("Starting bookAndPay with payload:", payload);
+    console.log("Booking payload before processing:", payload);
+
     try {
       let latitude = 0;
       let longitude = 0;
+      let address: string | null = null;
 
       // Use provided location data first (preferred method)
       if (locationData) {
@@ -197,47 +201,60 @@ export const BookingService = {
           // It's a LocationData object
           latitude = locationData.geometry.location.lat;
           longitude = locationData.geometry.location.lng;
+          address = locationData.formatted_address || null;
+          console.log("Location from provided data:", locationData);
         } else {
           // It's a simple coordinates object
           latitude = locationData.latitude;
           longitude = locationData.longitude;
+          address = locationData.formatted_address || null;
         }
         console.log("Using provided location coordinates - lat:", latitude, "lng:", longitude);
+        console.log("Using provided address:", address);
       } else {
         // Fallback to Redux store (backward compatibility)
         const state: any = store.getState();
         const location = state?.geoLocation?.value ?? null;
 
+        console.log("Location from store:", location);
+
         if (location?.geometry?.location) {
           latitude = location.geometry.location.lat;
           longitude = location.geometry.location.lng;
+          address = location.formatted_address || null;
         } else if (location?.lat && location?.lng) {
           latitude = location.lat;
           longitude = location.lng;
+          address = location.formatted_address || null;
         }
-        console.log("Using Redux store coordinates - lat:", latitude, "lng:", longitude);
+
+        console.log("location payload:", location);
+        console.log("Current location from store:", location);
       }
 
       // Process payload
+      payload.duration_minutes = payload.duration_minutes || 60; // Default to 60 minutes if not provided
+
+      if (payload.start_time && payload.end_time) {
+        const start = dayjs(`${payload.start_date} ${payload.start_time}`);
+        const end = dayjs(`${payload.end_date} ${payload.end_time}`);
+        payload.duration_minutes = Math.round(end.diff(start, 'minute'));
+      }
+
       payload.serviceproviderid = payload.serviceproviderid === 0 ? null : payload.serviceproviderid;
       payload.latitude = latitude;
       payload.longitude = longitude;
+      payload.address = address || null;
 
-      if(payload.start_time && payload.end_time){
-      const start = dayjs(`${payload.start_date} ${payload.start_time}`);
-      const end = dayjs(`${payload.end_date} ${payload.end_time}`);
-      payload.duration_minutes = Math.round(end.diff(start, 'minute'));
-    }
-
-      console.log("Final payload with coordinates:", {
+      console.log("Final payload with coordinates and address:", {
         ...payload,
         latitude,
-        longitude
+        longitude,
+        address
       });
 
       // Create engagement
       const engagementData = await BookingService.createEngagement(payload);
-      // const engagementData = []
       console.log("Engagement data received:", JSON.stringify(engagementData, null, 2));
 
       // Extract order id using helper function
@@ -276,7 +293,6 @@ export const BookingService = {
       paymentResponse.engagementId = engagementData?.engagement_id;
 
       // Verify payment on backend
-
       console.log("Payment response from Razorpay:", paymentResponse);
       const verifyResult = await BookingService.verifyPayment(paymentResponse);
 
@@ -295,39 +311,55 @@ export const BookingService = {
   /**
    * Alternative method for cash/UPI payments without Razorpay
    */
-  bookWithoutOnlinePayment: async (payload: BookingPayload, locationData?: { latitude: number; longitude: number } | LocationData) => {
+  bookWithoutOnlinePayment: async (payload: BookingPayload, locationData?: { latitude: number; longitude: number; formatted_address?: string } | LocationData) => {
     try {
       let latitude = 0;
       let longitude = 0;
+      let address: string | null = null;
 
       // Use provided location data first
       if (locationData) {
         if ('geometry' in locationData) {
           latitude = locationData.geometry.location.lat;
           longitude = locationData.geometry.location.lng;
+          address = locationData.formatted_address || null;
         } else {
           latitude = locationData.latitude;
           longitude = locationData.longitude;
+          address = locationData.formatted_address || null;
         }
         console.log("Using provided location coordinates for cash payment - lat:", latitude, "lng:", longitude);
+        console.log("Using provided address for cash payment:", address);
       } else {
         // Fallback to Redux store
         const state: any = store.getState();
         const location = state?.geoLocation?.value ?? null;
 
+        console.log("Location from store for cash payment:", location);
+
         if (location?.geometry?.location) {
           latitude = location.geometry.location.lat;
           longitude = location.geometry.location.lng;
+          address = location.formatted_address || null;
         } else if (location?.lat && location?.lng) {
           latitude = location.lat;
           longitude = location.lng;
+          address = location.formatted_address || null;
         }
       }
 
       payload.serviceproviderid = payload.serviceproviderid === 0 ? null : payload.serviceproviderid;
       payload.latitude = latitude;
       payload.longitude = longitude;
+      payload.address = address || null;
       payload.payment_mode = payload.payment_mode || "CASH";
+
+      console.log("Final cash payment payload:", {
+        ...payload,
+        latitude,
+        longitude,
+        address
+      });
 
       const engagementData = await BookingService.createEngagement(payload);
       

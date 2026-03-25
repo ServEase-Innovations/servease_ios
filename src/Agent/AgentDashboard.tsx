@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -10,10 +10,42 @@ import {
   Dimensions,
   StatusBar,
   Alert,
-  FlatList
+  FlatList,
+  ActivityIndicator,
 } from 'react-native';
+import providerInstance from '../services/providerInstance';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 // --- Data Types ---
+interface ServiceProviderDetails {
+  serviceproviderid: string;
+  vendorId: string;
+  firstName: string;
+  lastName: string;
+  mobileNo: string;
+  emailId: string;
+  housekeepingRole: string;
+  experience: number;
+  dob: string;
+  currentLocation: string;
+  rating: number;
+  isactive: boolean;
+  enrolleddate: string;
+}
+
+interface VendorData {
+  vendorId: string;
+  address: string;
+  companyName: string;
+  createdDate: string;
+  emailid: string;
+  isActive: boolean;
+  phoneNo: string;
+  registrationId: string;
+  serviceProviders: ServiceProviderDetails[];
+  providers: ServiceProviderDetails[];
+}
+
 interface ProviderData {
   id: string;
   providerName: string;
@@ -21,6 +53,10 @@ interface ProviderData {
   dateRegistered: string;
   status: string;
   action: string;
+  mobileNo?: string;
+  emailId?: string;
+  experience?: number;
+  rating?: number;
 }
 
 type ViewType = 'dashboard' | 'all-providers' | 'applications' | 'register';
@@ -28,20 +64,107 @@ type ViewType = 'dashboard' | 'all-providers' | 'applications' | 'register';
 const { width } = Dimensions.get('window');
 
 const AgentDashboard: React.FC = () => {
+  const { colors, isDarkMode } = useTheme();
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  const [providers, setProviders] = useState<ProviderData[]>([]);
+  const [vendorData, setVendorData] = useState<VendorData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // User ID - you can get this from auth context or props
+  const userId = 17; // Example vendor ID
 
-  const [providers] = useState<ProviderData[]>([
-    { id: '1', providerName: 'Anita R.', type: 'Caregiver', dateRegistered: '2024-05-15', status: 'Verifying', action: 'Review' },
-    { id: '2', providerName: 'Rajesh S.', type: 'Cook', dateRegistered: '2024-05-14', status: 'Active', action: 'View Profile' },
-    { id: '3', providerName: 'Priya K.', type: 'Cleaning', dateRegistered: '2024-05-14', status: 'Docs Required', action: 'Contact' },
-    { id: '4', providerName: 'Sunil V.', type: 'Cook', dateRegistered: '2024-04-10', status: 'Active', action: 'View Profile' },
-  ]);
+  // Fetch vendor data on component mount
+  useEffect(() => {
+    const fetchVendorData = async () => {
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await providerInstance.get(`/api/vendor/${userId}`);
+        
+        if (response.data?.status === 200 && response.data?.data) {
+          const vendorDataResponse = response.data.data;
+          setVendorData(vendorDataResponse);
+          
+          // Transform service providers to the format needed for the grid
+          const transformedProviders = transformProvidersData(vendorDataResponse.providers || []);
+          setProviders(transformedProviders);
+          setError(null);
+        } else {
+          setError('Failed to fetch vendor data');
+        }
+      } catch (err) {
+        console.error("Error fetching vendor data:", err);
+        setError('Unable to load provider data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchVendorData();
+  }, [userId]);
+
+  // Transform API data to grid format
+  const transformProvidersData = (apiProviders: ServiceProviderDetails[]): ProviderData[] => {
+    return apiProviders.map(provider => ({
+      id: provider.serviceproviderid,
+      providerName: `${provider.firstName} ${provider.lastName}`,
+      type: formatProviderType(provider.housekeepingRole),
+      dateRegistered: formatDateForDisplay(provider.enrolleddate),
+      status: provider.isactive ? 'Active' : 'Inactive',
+      action: 'View Profile',
+      mobileNo: provider.mobileNo,
+      emailId: provider.emailId,
+      experience: provider.experience,
+      rating: provider.rating
+    }));
+  };
+
+  // Format provider type for display
+  const formatProviderType = (role: string): string => {
+    const typeMap: { [key: string]: string } = {
+      'NANNY': 'Caregiver',
+      'COOK': 'Cook',
+      'CLEANING': 'Cleaning',
+      'MAID': 'Maid / Cleaning'
+    };
+    return typeMap[role] || role;
+  };
+
+  // Format date for display
+  const formatDateForDisplay = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Calculate stats based on actual data
+  const getProviderStats = () => {
+    const activeProviders = providers.filter(p => p.status === 'Active');
+    const cooks = providers.filter(p => p.type === 'Cook').length;
+    const cleaning = providers.filter(p => p.type === 'Cleaning').length;
+    const caregivers = providers.filter(p => p.type === 'Caregiver').length;
+    
+    return {
+      totalActive: activeProviders.length,
+      cooks,
+      cleaning,
+      caregivers
+    };
+  };
 
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'Active':
         return '#16a34a';
-      case 'Docs Required':
+      case 'Inactive':
         return '#dc2626';
       default:
         return '#ca8a04';
@@ -55,13 +178,24 @@ const AgentDashboard: React.FC = () => {
   };
 
   const handleActionPress = (provider: ProviderData) => {
-    Alert.alert('Action', `Opening details for ${provider.providerName}`);
+    Alert.alert(
+      'Provider Details',
+      `Provider: ${provider.providerName}\nType: ${provider.type}\nMobile: ${provider.mobileNo || 'N/A'}\nEmail: ${provider.emailId || 'N/A'}\nExperience: ${provider.experience || 0} years\nRating: ${provider.rating || 0}/5`
+    );
   };
 
   const renderProviderTable = () => {
     const data = currentView === 'applications' 
       ? providers.filter(p => p.status !== 'Active') 
       : providers;
+
+    if (data.length === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateText}>No providers found</Text>
+        </View>
+      );
+    }
 
     return (
       <View style={styles.tableContainer}>
@@ -75,6 +209,7 @@ const AgentDashboard: React.FC = () => {
         <FlatList
           data={data}
           keyExtractor={(item) => item.id}
+          scrollEnabled={false}
           renderItem={({ item }) => (
             <View style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 1.5 }]} numberOfLines={1}>
@@ -107,33 +242,35 @@ const AgentDashboard: React.FC = () => {
               </TouchableOpacity>
             </View>
           )}
-          scrollEnabled={false}
         />
       </View>
     );
   };
 
-  const renderStatsCards = () => (
-    <View style={styles.statsContainer}>
-      {[
-        { label: 'Cooks', count: '34 Active', icon: '👨‍🍳' },
-        { label: 'Cleaning Help', count: '56 Active', icon: '🧹' },
-        { label: 'Caregivers', count: '22 Active', icon: '❤️' }
-      ].map((card, i) => (
-        <View key={i} style={styles.statCard}>
-          <Text style={styles.statIcon}>{card.icon}</Text>
-          <View>
-            <Text style={styles.statLabel}>{card.label}</Text>
-            <Text style={styles.statCount}>{card.count}</Text>
+  const renderStatsCards = () => {
+    const stats = getProviderStats();
+    return (
+      <View style={styles.statsContainer}>
+        {[
+          { label: 'Cooks', count: `${stats.cooks} Active`, icon: '👨‍🍳' },
+          { label: 'Cleaning Help', count: `${stats.cleaning} Active`, icon: '🧹' },
+          { label: 'Caregivers', count: `${stats.caregivers} Active`, icon: '❤️' }
+        ].map((card, i) => (
+          <View key={i} style={styles.statCard}>
+            <Text style={styles.statIcon}>{card.icon}</Text>
+            <View>
+              <Text style={styles.statLabel}>{card.label}</Text>
+              <Text style={styles.statCount}>{card.count}</Text>
+            </View>
           </View>
-        </View>
-      ))}
-    </View>
-  );
+        ))}
+      </View>
+    );
+  };
 
   const renderWelcomeCard = () => (
     <View style={styles.welcomeCard}>
-      <Text style={styles.welcomeTitle}>Welcome, Rahul Sharma</Text>
+      <Text style={styles.welcomeTitle}>Welcome, {vendorData?.companyName ? `${vendorData.companyName} Admin` : 'Rahul Sharma'}</Text>
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={styles.registerButton}
@@ -151,34 +288,36 @@ const AgentDashboard: React.FC = () => {
     </View>
   );
 
-  const renderSidebar = () => (
-    <View style={styles.sidebar}>
-      <View style={styles.earningsCard}>
-        <Text style={styles.earningsLabel}>Monthly Earnings</Text>
-        <Text style={styles.earningsAmount}>
-          ₹25,000 <Text style={styles.earningsPeriod}>/ month</Text>
-        </Text>
-        <View style={styles.progressBar}>
-          <View style={styles.progressFill} />
+  const renderSidebar = () => {
+    const stats = getProviderStats();
+    return (
+      <View style={styles.sidebar}>
+        <View style={styles.earningsCard}>
+          <Text style={styles.earningsLabel}>Total Providers</Text>
+          <Text style={styles.earningsAmount}>{providers.length}</Text>
+          <Text style={styles.earningsPeriod}>{stats.totalActive} Active Providers</Text>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${(stats.totalActive / (providers.length || 1)) * 100}%` }]} />
+          </View>
         </View>
-      </View>
 
-      <View style={styles.resourceCard}>
-        <Text style={styles.resourceTitle}>Resource Center</Text>
-        <View style={styles.resourceItems}>
-          <TouchableOpacity style={styles.resourceItem}>
-            <Text style={styles.resourceItemText}>How to verify IDs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.resourceItem}>
-            <Text style={styles.resourceItemText}>Managing client expectations</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.resourceItem}>
-            <Text style={styles.resourceItemText}>Earnings payout cycle</Text>
-          </TouchableOpacity>
+        <View style={styles.resourceCard}>
+          <Text style={styles.resourceTitle}>Resource Center</Text>
+          <View style={styles.resourceItems}>
+            <TouchableOpacity style={styles.resourceItem}>
+              <Text style={styles.resourceItemText}>How to verify IDs</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.resourceItem}>
+              <Text style={styles.resourceItemText}>Managing client expectations</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.resourceItem}>
+              <Text style={styles.resourceItemText}>Earnings payout cycle</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderRegisterForm = () => (
     <View style={styles.registerForm}>
@@ -225,14 +364,129 @@ const AgentDashboard: React.FC = () => {
     </View>
   );
 
+  // Show loading state with skeleton loaders
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: '#D6E6F7' }]}>
+        <StatusBar backgroundColor="#001F3F" barStyle="light-content" />
+        
+        {/* Navbar Skeleton */}
+        <View style={styles.navbar}>
+          <View style={styles.skeletonLogo} />
+          <View style={styles.skeletonNavLinks}>
+            <View style={styles.skeletonNavLink} />
+            <View style={styles.skeletonNavLink} />
+            <View style={styles.skeletonNavLink} />
+            <View style={styles.skeletonNavLink} />
+          </View>
+          <View style={styles.navRight}>
+            <View style={styles.skeletonLocationBadge} />
+            <View style={styles.skeletonNotification} />
+            <View style={styles.skeletonAgentBadge} />
+          </View>
+        </View>
+
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Title Skeleton */}
+          <View style={styles.skeletonTitle} />
+          
+          {/* Welcome Card Skeleton */}
+          <View style={styles.skeletonWelcomeCard}>
+            <View style={styles.skeletonWelcomeTitle} />
+            <View style={styles.skeletonButtonGroup}>
+              <View style={styles.skeletonButton} />
+              <View style={styles.skeletonButtonSecondary} />
+            </View>
+          </View>
+
+          {/* Stats Grid Skeleton */}
+          <View style={styles.statsContainer}>
+            {[1, 2, 3].map((i) => (
+              <View key={i} style={styles.skeletonStatCard}>
+                <View style={styles.skeletonStatIcon} />
+                <View>
+                  <View style={styles.skeletonStatLabel} />
+                  <View style={styles.skeletonStatCount} />
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Main Content Skeleton */}
+          <View style={styles.mainContent}>
+            <View style={styles.skeletonTableWrapper}>
+              <View style={styles.skeletonTableHeader}>
+                <View style={styles.skeletonTableTitle} />
+                <View style={styles.skeletonViewAllLink} />
+              </View>
+              <View style={styles.tableContainer}>
+                <View style={styles.tableHeader}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <View key={i} style={[styles.skeletonTableCell, { flex: i === 0 ? 1.5 : i === 1 ? 1 : i === 2 ? 1.2 : i === 3 ? 1.2 : 1 }]} />
+                  ))}
+                </View>
+                {[1, 2, 3, 4].map((i) => (
+                  <View key={i} style={styles.skeletonTableRow}>
+                    {[1, 2, 3, 4, 5].map((j) => (
+                      <View key={j} style={[styles.skeletonTableRowCell, { flex: j === 0 ? 1.5 : j === 1 ? 1 : j === 2 ? 1.2 : j === 3 ? 1.2 : 1 }]} />
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Sidebar Skeleton */}
+            <View style={styles.sidebar}>
+              <View style={styles.skeletonEarningsCard}>
+                <View style={styles.skeletonEarningsLabel} />
+                <View style={styles.skeletonEarningsAmount} />
+                <View style={styles.skeletonEarningsPeriod} />
+                <View style={styles.skeletonProgressBar} />
+              </View>
+              <View style={styles.skeletonResourceCard}>
+                <View style={styles.skeletonResourceTitle} />
+                {[1, 2, 3].map((i) => (
+                  <View key={i} style={styles.skeletonResourceItem} />
+                ))}
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: '#D6E6F7' }]}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>⚠️ Error: {error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              setIsLoading(true);
+              setError(null);
+              // Re-fetch data logic would go here
+            }}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const stats = getProviderStats();
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#D6E6F7' }]}>
       <StatusBar backgroundColor="#001F3F" barStyle="light-content" />
       
       {/* Navbar */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => setCurrentView('dashboard')}>
-          <Text style={styles.logo}>SERVEASO</Text>
+          <Text style={styles.logo}>{vendorData?.companyName || 'SERVEASO'}</Text>
         </TouchableOpacity>
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.navLinks}>
@@ -252,7 +506,7 @@ const AgentDashboard: React.FC = () => {
 
         <View style={styles.navRight}>
           <View style={styles.locationBadge}>
-            <Text style={styles.locationText}>📍 V495+4JM, West Bengal</Text>
+            <Text style={styles.locationText}>📍 {vendorData?.address || 'Location not set'}</Text>
           </View>
           <TouchableOpacity>
             <Text style={styles.notificationIcon}>🔔</Text>
@@ -309,12 +563,12 @@ const AgentDashboard: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#D6E6F7',
   },
   navbar: {
     backgroundColor: '#001F3F',
     paddingHorizontal: 20,
     paddingVertical: 12,
+    paddingTop: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -337,6 +591,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginRight: 20,
     paddingVertical: 5,
+    opacity: 0.7,
   },
   navLinkActive: {
     opacity: 1,
@@ -550,7 +805,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   earningsAmount: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
     color: '#0f172a',
   },
@@ -558,6 +813,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
     color: '#64748b',
+    marginTop: 4,
   },
   progressBar: {
     height: 6,
@@ -567,7 +823,6 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    width: '75%',
     backgroundColor: '#2563eb',
     borderRadius: 10,
   },
@@ -658,6 +913,229 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#1e293b',
     fontSize: 14,
+  },
+  emptyStateContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    color: '#64748b',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#dc2626',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  // Skeleton styles
+  skeletonLogo: {
+    width: 100,
+    height: 24,
+    backgroundColor: '#2c5282',
+    borderRadius: 4,
+  },
+  skeletonNavLinks: {
+    flexDirection: 'row',
+    marginLeft: 20,
+    gap: 20,
+  },
+  skeletonNavLink: {
+    width: 80,
+    height: 16,
+    backgroundColor: '#2c5282',
+    borderRadius: 4,
+  },
+  skeletonLocationBadge: {
+    width: 120,
+    height: 28,
+    backgroundColor: '#2c5282',
+    borderRadius: 20,
+  },
+  skeletonNotification: {
+    width: 28,
+    height: 28,
+    backgroundColor: '#2c5282',
+    borderRadius: 14,
+  },
+  skeletonAgentBadge: {
+    width: 60,
+    height: 28,
+    backgroundColor: '#2c5282',
+    borderRadius: 20,
+  },
+  skeletonTitle: {
+    width: 250,
+    height: 32,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 6,
+    marginBottom: 20,
+  },
+  skeletonWelcomeCard: {
+    backgroundColor: 'rgba(203, 213, 225, 0.4)',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+  },
+  skeletonWelcomeTitle: {
+    width: 200,
+    height: 28,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+    marginBottom: 15,
+  },
+  skeletonButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  skeletonButton: {
+    width: 180,
+    height: 40,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 30,
+  },
+  skeletonButtonSecondary: {
+    width: 140,
+    height: 40,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 30,
+  },
+  skeletonStatCard: {
+    backgroundColor: 'rgba(203, 213, 225, 0.5)',
+    borderRadius: 15,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  skeletonStatIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 20,
+  },
+  skeletonStatLabel: {
+    width: 100,
+    height: 18,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonStatCount: {
+    width: 80,
+    height: 16,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+  },
+  skeletonTableWrapper: {
+    flex: 2,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+  },
+  skeletonTableHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  skeletonTableTitle: {
+    width: 150,
+    height: 24,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+  },
+  skeletonViewAllLink: {
+    width: 100,
+    height: 20,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+  },
+  skeletonTableCell: {
+    height: 16,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+    marginHorizontal: 8,
+  },
+  skeletonTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  skeletonTableRowCell: {
+    height: 16,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+    marginHorizontal: 8,
+  },
+  skeletonEarningsCard: {
+    backgroundColor: 'rgba(203, 213, 225, 0.4)',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 15,
+  },
+  skeletonEarningsLabel: {
+    width: 100,
+    height: 14,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonEarningsAmount: {
+    width: 120,
+    height: 32,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonEarningsPeriod: {
+    width: 150,
+    height: 16,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+  },
+  skeletonProgressBar: {
+    height: 6,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  skeletonResourceCard: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+  },
+  skeletonResourceTitle: {
+    width: 120,
+    height: 20,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonResourceItem: {
+    height: 40,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 6,
+    marginBottom: 8,
   },
 });
 

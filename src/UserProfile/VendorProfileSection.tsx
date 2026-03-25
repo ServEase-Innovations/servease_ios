@@ -194,7 +194,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
     >
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.mainContent}>
-          {/* Company Header Card */}
+          {/* Header Card - Company Header with Registration ID */}
           <LinearGradient
             colors={[colors.primary, colors.secondary || '#1e3a8a']}
             start={{ x: 0, y: 0 }}
@@ -203,7 +203,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
           >
             <View style={styles.headerContent}>
               <View style={[styles.iconContainer, { backgroundColor: colors.infoLight + '40' }]}>
-                <BuildingIcon size={40} color="#fff" />
+                <MaterialCommunityIcons name="office-building" size={40} color="#fff" />
               </View>
               <View style={styles.headerTextContainer}>
                 <Text style={[styles.companyName, { color: '#fff', fontSize: fontSizes.title }]}>
@@ -254,12 +254,12 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
 
           {/* Main Content Grid */}
           <View style={styles.contentGrid}>
-            {/* Company Details Section */}
+            {/* Left Column - Company Details */}
             <View style={styles.leftColumn}>
               {/* Contact Information */}
               <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.cardHeader}>
-                  <BuildingIcon size={20} color={colors.primary} />
+                  <MaterialCommunityIcons name="office-building" size={20} color={colors.primary} />
                   <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
                     {t('profile.page.contactInformation')}
                   </Text>
@@ -267,7 +267,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                 <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <View style={styles.infoLabelContainer}>
-                      <MailIcon size={16} color={colors.textSecondary} />
+                      <MaterialCommunityIcons name="email" size={16} color={colors.textSecondary} />
                       <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                         {t('profile.page.emailAddress')}
                       </Text>
@@ -278,7 +278,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                   </View>
                   <View style={styles.infoItem}>
                     <View style={styles.infoLabelContainer}>
-                      <PhoneIcon size={16} color={colors.textSecondary} />
+                      <MaterialCommunityIcons name="phone" size={16} color={colors.textSecondary} />
                       <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                         {t('profile.page.phoneNumber')}
                       </Text>
@@ -289,7 +289,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                   </View>
                   <View style={[styles.infoItem, styles.fullWidth]}>
                     <View style={styles.infoLabelContainer}>
-                      <MapPinIcon size={16} color={colors.textSecondary} />
+                      <MaterialCommunityIcons name="map-marker" size={16} color={colors.textSecondary} />
                       <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                         {t('profile.page.businessAddress')}
                       </Text>
@@ -304,7 +304,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
               {/* Business Details */}
               <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.cardHeader}>
-                  <BuildingIcon size={20} color={colors.primary} />
+                  <MaterialCommunityIcons name="office-building" size={20} color={colors.primary} />
                   <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
                     {t('profile.page.businessDetails')}
                   </Text>
@@ -312,18 +312,18 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                 <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <View style={styles.infoLabelContainer}>
-                      <HashIcon size={16} color={colors.textSecondary} />
+                      <MaterialCommunityIcons name="hash" size={16} color={colors.textSecondary} />
                       <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                         {t('profile.page.vendorId')}
                       </Text>
                     </View>
-                    <Text style={[styles.infoValue, { color: colors.text, fontSize: fontSizes.body, fontFamily: 'monospace' }]}>
+                    <Text style={[styles.infoValue, { color: colors.text, fontSize: fontSizes.body, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
                       {vendorData.vendorId}
                     </Text>
                   </View>
                   <View style={styles.infoItem}>
                     <View style={styles.infoLabelContainer}>
-                      <CalendarIcon size={16} color={colors.textSecondary} />
+                      <MaterialCommunityIcons name="calendar" size={16} color={colors.textSecondary} />
                       <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                         {t('profile.page.registeredSince')}
                       </Text>
@@ -334,7 +334,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                   </View>
                   <View style={styles.infoItem}>
                     <View style={styles.infoLabelContainer}>
-                      <UsersIcon size={16} color={colors.textSecondary} />
+                      <MaterialCommunityIcons name="account-group" size={16} color={colors.textSecondary} />
                       <Text style={[styles.infoLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                         {t('profile.page.associatedProviders')}
                       </Text>
@@ -347,7 +347,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
               </View>
             </View>
 
-            {/* Sidebar */}
+            {/* Right Column - Sidebar */}
             <View style={styles.rightColumn}>
               {/* Quick Actions */}
               <View style={[styles.sidebarCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -359,7 +359,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                     style={[styles.actionButton, styles.primaryButton, { backgroundColor: colors.primary }]}
                     onPress={handleManageProviders}
                   >
-                    <UsersIcon size={18} color="#fff" />
+                    <MaterialCommunityIcons name="account-group" size={18} color="#fff" />
                     <Text style={[styles.actionButtonText, { color: '#fff', fontSize: fontSizes.button }]}>
                       {t('profile.page.manageProviders')}
                     </Text>
@@ -368,7 +368,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                     style={[styles.actionButton, styles.secondaryButton, { borderColor: colors.primary }]}
                     onPress={handleViewAnalytics}
                   >
-                    <BarChartIcon size={18} color={colors.primary} />
+                    <MaterialCommunityIcons name="chart-bar" size={18} color={colors.primary} />
                     <Text style={[styles.actionButtonText, { color: colors.primary, fontSize: fontSizes.button }]}>
                       {t('profile.page.viewAnalytics')}
                     </Text>
@@ -377,7 +377,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                     style={[styles.actionButton, styles.outlineButton, { borderColor: colors.border }]}
                     onPress={handleEditProfile}
                   >
-                    <EditIcon size={18} color={colors.textSecondary} />
+                    <MaterialCommunityIcons name="pencil" size={18} color={colors.textSecondary} />
                     <Text style={[styles.actionButtonText, { color: colors.textSecondary, fontSize: fontSizes.button }]}>
                       {t('profile.page.editProfile')}
                     </Text>
@@ -430,7 +430,7 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
                     <Text style={[styles.summaryLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
                       {t('profile.page.registrationId')}
                     </Text>
-                    <Text style={[styles.summaryValue, { color: colors.text, fontSize: fontSizes.caption, fontFamily: 'monospace' }]}>
+                    <Text style={[styles.summaryValue, { color: colors.text, fontSize: fontSizes.caption, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
                       {vendorData.registrationId}
                     </Text>
                   </View>
@@ -443,43 +443,6 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
     </KeyboardAvoidingView>
   );
 };
-
-// Custom Icon Components (since we can't use lucide-react directly)
-const BuildingIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="office-building" size={size} color={color} />
-);
-
-const MailIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="email" size={size} color={color} />
-);
-
-const PhoneIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="phone" size={size} color={color} />
-);
-
-const MapPinIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="map-marker" size={size} color={color} />
-);
-
-const HashIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="hash" size={size} color={color} />
-);
-
-const CalendarIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="calendar" size={size} color={color} />
-);
-
-const UsersIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="account-group" size={size} color={color} />
-);
-
-const BarChartIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="chart-bar" size={size} color={color} />
-);
-
-const EditIcon = ({ size, color }: { size: number; color: string }) => (
-  <MaterialCommunityIcons name="pencil" size={size} color={color} />
-);
 
 const styles = StyleSheet.create({
   container: {
