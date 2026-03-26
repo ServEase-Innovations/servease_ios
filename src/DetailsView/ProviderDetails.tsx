@@ -132,14 +132,29 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return moment(timeString, "HH:mm").format("hh:mm A");
   };
 
-  // Get diet color - more subtle in dark mode
+  // Helper function to normalize languages to array
+  const normalizeLanguages = (languages: string | string[] | null | undefined): string[] => {
+    if (!languages) return [];
+    if (Array.isArray(languages)) return languages;
+    if (typeof languages === 'string') {
+      return languages.split(',').map(lang => lang.trim());
+    }
+    return [];
+  };
+
+  // Get all languages as array
+  const getAllLanguages = (): string[] => {
+    return normalizeLanguages(props.languageknown);
+  };
+
+  // Get diet color
   const getDietColor = () => {
     if (isDarkMode) {
       switch(props.diet?.toUpperCase()) {
         case 'VEG':
-          return '#4ade80'; // Softer green
+          return '#4ade80';
         case 'NONVEG':
-          return '#f87171'; // Softer red
+          return '#f87171';
         default:
           return colors.textSecondary;
       }
@@ -164,17 +179,17 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     } else {
       const exceptions = props.monthlyAvailability.exceptions?.length || 0;
       if (exceptions > 20) {
-        return `Very Limited (${exceptions} exceptions)`;
+        return "Very Limited";
       } else if (exceptions > 10) {
-        return `Limited (${exceptions} exceptions)`;
+        return "Limited";
       } else if (exceptions > 0) {
-        return `Partially Available (${exceptions} exceptions)`;
+        return "Partially Available";
       }
       return "Partially Available";
     }
   };
 
-  // Get availability chip style - more subtle for dark mode
+  // Get availability chip style
   const getAvailabilityStyle = () => {
     if (!props.monthlyAvailability) return {
       container: { backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface2 },
@@ -183,25 +198,25 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     
     if (props.monthlyAvailability.fullyAvailable) {
       return {
-        container: { backgroundColor: isDarkMode ? '#1a3a2a' : colors.successLight },
-        text: { color: isDarkMode ? '#4ade80' : colors.success }
+        container: { backgroundColor: isDarkMode ? '#1a3a2a' : '#e8f5e9' },
+        text: { color: isDarkMode ? '#4ade80' : '#2e7d32' }
       };
     } else {
       const exceptions = props.monthlyAvailability.exceptions?.length || 0;
       if (exceptions > 20) {
         return {
-          container: { backgroundColor: isDarkMode ? '#3a2a2a' : colors.errorLight },
-          text: { color: isDarkMode ? '#f87171' : colors.error }
+          container: { backgroundColor: isDarkMode ? '#3a2a2a' : '#ffebee' },
+          text: { color: isDarkMode ? '#f87171' : '#c62828' }
         };
       } else if (exceptions > 10) {
         return {
-          container: { backgroundColor: isDarkMode ? '#3a352a' : colors.warningLight },
-          text: { color: isDarkMode ? '#fbbf24' : colors.warning }
+          container: { backgroundColor: isDarkMode ? '#3a352a' : '#fff3e0' },
+          text: { color: isDarkMode ? '#fbbf24' : '#ed6c02' }
         };
       } else {
         return {
-          container: { backgroundColor: isDarkMode ? '#1a2a3a' : colors.infoLight },
-          text: { color: isDarkMode ? '#60a5fa' : colors.info }
+          container: { backgroundColor: isDarkMode ? '#1a2a3a' : '#e3f2fd' },
+          text: { color: isDarkMode ? '#60a5fa' : '#0288d1' }
         };
       }
     }
@@ -222,7 +237,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     if (exceptions > 20) {
       return "Very limited availability";
     } else if (exceptions > 10) {
-      return "Limited availability this month";
+      return "Limited availability";
     } else if (exceptions > 0) {
       return `Usually available at ${formatTimeForDisplay(props.monthlyAvailability.preferredTime)}`;
     }
@@ -230,22 +245,22 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return `Available at ${formatTimeForDisplay(props.monthlyAvailability.preferredTime)}`;
   };
 
-  // Get time icon color - more subtle for dark mode
+  // Get time icon color
   const getTimeIconColor = () => {
-    if (!props.monthlyAvailability) return isDarkMode ? '#64748b' : colors.textTertiary;
+    if (!props.monthlyAvailability) return isDarkMode ? '#64748b' : '#9e9e9e';
     
     if (props.monthlyAvailability.fullyAvailable) {
-      return isDarkMode ? '#4ade80' : colors.success;
+      return isDarkMode ? '#4ade80' : '#2e7d32';
     }
     
     const exceptions = props.monthlyAvailability.exceptions?.length || 0;
     
     if (exceptions > 20) {
-      return isDarkMode ? '#f87171' : colors.error;
+      return isDarkMode ? '#f87171' : '#c62828';
     } else if (exceptions > 10) {
-      return isDarkMode ? '#fbbf24' : colors.warning;
+      return isDarkMode ? '#fbbf24' : '#ed6c02';
     } else {
-      return isDarkMode ? '#60a5fa' : colors.info;
+      return isDarkMode ? '#60a5fa' : '#0288d1';
     }
   };
 
@@ -316,23 +331,23 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Get provider ID
   const getProviderId = () => {
-    const id = props.serviceproviderId || props.serviceproviderid;
+    const id = props.serviceproviderid;
     return id ? String(id) : undefined;
   };
 
   // Get first name
   const getFirstName = () => {
-    return props.firstName || props.firstname || '';
+    return props.firstName || '';
   };
 
   // Get last name
   const getLastName = () => {
-    return props.lastName || props.lastname || '';
+    return props.lastName || '';
   };
 
   // Get housekeeping role
   const getHousekeepingRole = () => {
-    return props.housekeepingRole || props.housekeepingrole || "UNKNOWN";
+    return props.housekeepingRole || "UNKNOWN";
   };
 
   // Handle Book Now
@@ -429,17 +444,12 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  // Get language display
-  const getLanguageDisplay = () => {
-    if (props.languageknown && props.languageknown.length > 0) {
-      return props.languageknown[0];
-    }
-    return "English";
-  };
-
   // Get rating display
   const getRatingDisplay = () => {
-    return props.rating?.toFixed(1) || "0.0";
+    if (!props.rating || props.rating === 0) {
+      return "0.0";
+    }
+    return props.rating.toFixed(1);
   };
 
   // Get review count display
@@ -529,6 +539,9 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const housekeepingRole = getHousekeepingRole();
   const providerId = getProviderId();
   const availabilityStyle = getAvailabilityStyle();
+  const allLanguages = getAllLanguages();
+  const hasLanguages = allLanguages.length > 0;
+  const diet = props.diet || "NONVEG";
 
   return (
     <View style={[styles.container, { 
@@ -545,27 +558,48 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           shadowColor: colors.shadow,
         }
       ]}>
-        {/* Best Match Ribbon */}
-        {props.bestMatch && (
-          <View style={[
-            styles.bestMatchRibbon,
-            isMobile && styles.bestMatchRibbonMobile,
-            { backgroundColor: isDarkMode ? '#3b3f5c' : colors.accent }
-          ]}>
-            <MaterialCommunityIcons name="fire" size={14} color="#ffffff" />
-            <Text style={[
-              styles.bestMatchRibbonText,
-              isMobile && styles.bestMatchRibbonTextMobile,
-              { fontSize: fontStyles.xSmall }
-            ]}>Best Match</Text>
-          </View>
-        )}
+        {/* Badges Container - Both badges on left side */}
+        <View style={[
+          styles.badgeContainer,
+          isMobile && styles.badgeContainerMobile
+        ]}>
+          {/* Best Match Badge */}
+          {props.bestMatch && (
+            <View style={[
+              styles.bestMatchBadge,
+              isMobile && styles.bestMatchBadgeMobile,
+              { backgroundColor: '#ff9800' }
+            ]}>
+              <MaterialCommunityIcons name="fire" size={12} color="#ffffff" />
+              <Text style={[
+                styles.badgeText,
+                isMobile && styles.badgeTextMobile,
+                { fontSize: fontStyles.xSmall }
+              ]}>Best Match</Text>
+            </View>
+          )}
+          
+          {/* Previously Booked Badge */}
+          {props.previouslyBooked && (
+            <View style={[
+              styles.previouslyBookedBadge,
+              isMobile && styles.previouslyBookedBadgeMobile,
+              { backgroundColor: '#2196f3' }
+            ]}>
+              <MaterialCommunityIcons name="history" size={12} color="#ffffff" />
+              <Text style={[
+                styles.badgeText,
+                isMobile && styles.badgeTextMobile,
+                { fontSize: fontStyles.xSmall }
+              ]}>Previously Booked</Text>
+            </View>
+          )}
+        </View>
 
         {/* Main Content */}
         <View style={[
           styles.mainContent,
-          isMobile && styles.mainContentMobile,
-          { gap: 20 * spacingMultiplier }
+          isMobile && styles.mainContentMobile
         ]}>
           {/* Left Section - Provider Info */}
           <View style={[
@@ -573,7 +607,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             isMobile && styles.leftSectionMobile
           ]}>
             {/* Name and Basic Info */}
-            <View style={[styles.nameRow, { marginBottom: 8 * spacingMultiplier, gap: 8 }]}>
+            <View style={styles.nameRow}>
               <Text style={[
                 styles.nameText,
                 isMobile && styles.nameTextMobile,
@@ -581,87 +615,74 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               ]}>
                 {fullName}
               </Text>
-              <View style={[styles.genderAgeChip, { 
-                borderColor: isDarkMode ? '#4b5563' : colors.primary,
-                backgroundColor: isDarkMode ? '#2d3a4f' : 'transparent'
-              }]}>
-                <Text style={[
-                  styles.genderAgeText,
-                  isMobile && styles.genderAgeTextMobile,
-                  { color: isDarkMode ? '#e2e8f0' : colors.primary, fontSize: fontStyles.xSmall, fontWeight: '600' }
-                ]}>
-                  {genderSymbol} • {age} yrs
-                </Text>
-              </View>
+              <Text style={[
+                styles.genderAgeText,
+                isMobile && styles.genderAgeTextMobile,
+                { color: colors.textSecondary, fontSize: fontStyles.smallText, marginLeft: 8 }
+              ]}>
+                {genderSymbol} • {age} yrs
+              </Text>
             </View>
 
-            {/* Meta Info Row */}
+            {/* Meta Info Row - Diet and Languages */}
             <View style={[
               styles.metaRow,
-              isMobile && styles.metaRowMobile,
-              { marginBottom: 16 * spacingMultiplier, gap: 12 * spacingMultiplier }
+              isMobile && styles.metaRowMobile
             ]}>
-              <View style={[styles.metaItem, { gap: 4 }]}>
-                <Icon name="restaurant" size={14} color={getDietColor()} />
+              {/* Diet */}
+              <View style={styles.metaItem}>
+                <MaterialCommunityIcons name="food" size={14} color={getDietColor()} />
                 <Text style={[
                   styles.metaText,
                   isMobile && styles.metaTextMobile,
-                  { color: colors.textSecondary, fontSize: fontStyles.smallText }
-                ]}>{props.diet || "NONVEG"}</Text>
+                  { color: colors.textSecondary, fontSize: fontStyles.smallText, marginLeft: 4 }
+                ]}>{diet}</Text>
               </View>
 
               <View style={[styles.metaDivider, { 
                 backgroundColor: colors.border,
-                height: 12 * spacingMultiplier,
+                width: 1,
+                height: 14,
+                marginHorizontal: 8
               }]} />
 
-              <View style={[styles.metaItem, { gap: 4 }]}>
-                <Icon name="language" size={14} color={isDarkMode ? '#94a3b8' : colors.secondary} />
-                <Text style={[
-                  styles.metaText,
-                  isMobile && styles.metaTextMobile,
-                  { color: colors.textSecondary, fontSize: fontStyles.smallText }
-                ]}>{getLanguageDisplay()}</Text>
-              </View>
-
-              <View style={[styles.metaDivider, { 
-                backgroundColor: colors.border,
-                height: 12 * spacingMultiplier,
-              }]} />
-
-              <View style={[styles.metaItem, { gap: 4 }]}>
-                <Icon name="location-on" size={14} color={isDarkMode ? '#94a3b8' : colors.info} />
-                <Text style={[
-                  styles.metaText,
-                  isMobile && styles.metaTextMobile,
-                  { color: colors.textSecondary, fontSize: fontStyles.smallText }
-                ]}>{props.locality || "Location not specified"}</Text>
+              {/* Languages */}
+              <View style={styles.metaItem}>
+                <MaterialCommunityIcons name="translate" size={14} color={colors.textSecondary} />
+                {hasLanguages ? (
+                  <Text style={[
+                    styles.metaText,
+                    isMobile && styles.metaTextMobile,
+                    { color: colors.textSecondary, fontSize: fontStyles.smallText, marginLeft: 4 }
+                  ]}>
+                    {allLanguages.join(', ')}
+                  </Text>
+                ) : (
+                  <Text style={[
+                    styles.metaText,
+                    isMobile && styles.metaTextMobile,
+                    { color: colors.textSecondary, fontSize: fontStyles.smallText, marginLeft: 4 }
+                  ]}>Not specified</Text>
+                )}
               </View>
             </View>
 
             {/* Availability Section */}
             <View style={[
               styles.availabilitySection,
-              isMobile && styles.availabilitySectionMobile,
-              { marginBottom: 16 * spacingMultiplier }
+              { marginTop: 12 * spacingMultiplier }
             ]}>
               <Text style={[
                 styles.availabilityLabel,
-                isMobile && styles.availabilityLabelMobile,
-                { color: colors.textSecondary, fontSize: fontStyles.smallText, fontWeight: '600' }
+                { color: colors.textSecondary, fontSize: fontStyles.smallText, fontWeight: '600', marginBottom: 8 }
               ]}>Availability</Text>
               
               {/* Availability Info Row */}
-              <View style={[
-                styles.availabilityInfoRow,
-                isMobile && styles.availabilityInfoRowMobile,
-                { marginBottom: 8 * spacingMultiplier }
-              ]}>
-                <Icon name="access-time" size={16} color={getTimeIconColor()} />
+              <View style={styles.availabilityInfoRow}>
+                <MaterialCommunityIcons name="clock-outline" size={16} color={getTimeIconColor()} />
                 <Text style={[
                   styles.availabilityMessage,
-                  isMobile && styles.availabilityMessageMobile,
-                  { color: colors.text, fontSize: fontStyles.textSize }
+                  { color: colors.text, fontSize: fontStyles.textSize, marginLeft: 8, flex: 1 }
                 ]}>
                   {getAvailabilityMessage()}
                 </Text>
@@ -670,21 +691,22 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               {/* Availability Chips Row */}
               <View style={[
                 styles.availabilityChipsRow,
-                isMobile && styles.availabilityChipsRowMobile,
-                { gap: 8 * spacingMultiplier, marginBottom: 8 * spacingMultiplier }
+                { marginTop: 8, marginBottom: 8, gap: 8 }
               ]}>
                 <View style={[
                   styles.durationChip,
-                  isMobile && styles.durationChipMobile,
                   { 
-                    borderColor: isDarkMode ? '#4b5563' : colors.secondary,
-                    backgroundColor: isDarkMode ? '#2d3a4f' : 'transparent'
+                    borderWidth: 1,
+                    borderColor: colors.secondary,
+                    borderRadius: 16,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    backgroundColor: 'transparent'
                   }
                 ]}>
                   <Text style={[
                     styles.durationChipText,
-                    isMobile && styles.durationChipTextMobile,
-                    { color: isDarkMode ? '#e2e8f0' : colors.secondary, fontSize: fontStyles.xSmall, fontWeight: '600' }
+                    { color: colors.secondary, fontSize: fontStyles.xSmall, fontWeight: '600' }
                   ]}>
                     {getAvailabilityDuration()}
                   </Text>
@@ -692,12 +714,15 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
                 <View style={[
                   styles.availabilityChipContainer,
-                  isMobile && styles.availabilityChipContainerMobile,
-                  availabilityStyle.container
+                  availabilityStyle.container,
+                  {
+                    borderRadius: 16,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4
+                  }
                 ]}>
                   <Text style={[
                     styles.availabilityChipText,
-                    isMobile && styles.availabilityChipTextMobile,
                     { fontSize: fontStyles.xSmall, fontWeight: '600' },
                     availabilityStyle.text
                   ]}>
@@ -708,16 +733,16 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
               {/* Additional Availability Info */}
               {props.monthlyAvailability?.exceptions && props.monthlyAvailability.exceptions.length > 0 && (
-                <View style={[styles.exceptionContainer, { 
-                  backgroundColor: isDarkMode ? '#3a352a' : colors.warningLight,
-                  padding: 6 * spacingMultiplier,
-                  borderRadius: 6,
-                  marginTop: 4 * spacingMultiplier
-                }]}>
+                <View style={[
+                  styles.exceptionContainer,
+                  { 
+                    marginTop: 4,
+                    marginBottom: 4
+                  }
+                ]}>
                   <Text style={[
                     styles.exceptionText,
-                    isMobile && styles.exceptionTextMobile,
-                    { color: isDarkMode ? '#fffefc' : colors.warning, fontSize: fontStyles.xSmall, fontWeight: '500' }
+                    { color: isDarkMode ? '#fbbf24' : '#ed6c02', fontSize: fontStyles.xSmall, fontWeight: '500' }
                   ]}>
                     ⚠️ {props.monthlyAvailability.exceptions.length} schedule exceptions this month
                   </Text>
@@ -725,97 +750,122 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               )}
 
               {props.monthlyAvailability?.fullyAvailable && (
-                <View style={[styles.fullyAvailableContainer, { 
-                  backgroundColor: isDarkMode ? '#1a3a2a' : colors.successLight,
-                  padding: 6 * spacingMultiplier,
-                  borderRadius: 6,
-                  marginTop: 4 * spacingMultiplier
-                }]}>
+                <View style={[
+                  styles.fullyAvailableContainer,
+                  { marginTop: 4, marginBottom: 4 }
+                ]}>
                   <Text style={[
                     styles.fullyAvailableText,
-                    isMobile && styles.fullyAvailableTextMobile,
-                    { color: isDarkMode ? '#4ade80' : colors.success, fontSize: fontStyles.xSmall, fontWeight: '500' }
+                    { color: isDarkMode ? '#4ade80' : '#2e7d32', fontSize: fontStyles.xSmall, fontWeight: '500' }
                   ]}>
                     ✓ Fully available all month
+                  </Text>
+                </View>
+              )}
+
+              {props.monthlyAvailability && !props.monthlyAvailability.fullyAvailable && 
+               (!props.monthlyAvailability.exceptions || props.monthlyAvailability.exceptions.length === 0) && (
+                <View style={[
+                  styles.partiallyAvailableContainer,
+                  { marginTop: 4, marginBottom: 4 }
+                ]}>
+                  <Text style={[
+                    styles.partiallyAvailableText,
+                    { color: isDarkMode ? '#fbbf24' : '#ed6c02', fontSize: fontStyles.xSmall, fontWeight: '500' }
+                  ]}>
+                    ⚠️ Partially available this month
+                  </Text>
+                </View>
+              )}
+
+              {props.otherServices && (
+                <View style={[
+                  styles.otherServicesContainer,
+                  { marginTop: 8 }
+                ]}>
+                  <Text style={[
+                    styles.otherServicesText,
+                    { color: colors.text, fontSize: fontStyles.smallText }
+                  ]}>
+                    {props.otherServices}
                   </Text>
                 </View>
               )}
             </View>
           </View>
 
-          {/* Metrics Section - Center */}
+          {/* Metrics Section - Row of 3 metrics */}
           <View style={[
             styles.metricsSection,
             isMobile && styles.metricsSectionMobile,
-            { gap: 8 * spacingMultiplier }
+            { gap: 8, marginTop: isMobile ? 12 : 0 }
           ]}>
             <View style={[
               styles.metricBox,
-              isMobile && styles.metricBoxMobile,
               { 
-                backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface,
-                borderColor: isDarkMode ? '#4b5563' : colors.borderLight,
-                padding: 12 * spacingMultiplier,
-                minWidth: isSmallScreen ? 60 : 70
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                padding: 8,
+                alignItems: 'center',
+                flex: 1
               }
             ]}>
               <Text style={[
                 styles.metricValue,
-                isMobile && styles.metricValueMobile,
                 { color: colors.text, fontSize: fontStyles.textSize, fontWeight: '700' }
               ]}>{getDistanceDisplay()}</Text>
               <Text style={[
                 styles.metricLabel,
-                isMobile && styles.metricLabelMobile,
-                { color: colors.textTertiary, fontSize: fontStyles.xSmall }
+                { color: colors.textTertiary, fontSize: fontStyles.xSmall, marginTop: 4 }
               ]}>km away</Text>
             </View>
 
             <View style={[
               styles.metricBox,
-              isMobile && styles.metricBoxMobile,
               { 
-                backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface,
-                borderColor: isDarkMode ? '#4b5563' : colors.borderLight,
-                padding: 12 * spacingMultiplier,
-                minWidth: isSmallScreen ? 60 : 70
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                padding: 8,
+                alignItems: 'center',
+                flex: 1
               }
             ]}>
-              <View style={[styles.ratingRow, { gap: 4 * spacingMultiplier }]}>
-                <Icon name="star" size={14} color={isDarkMode ? '#fbbf24' : colors.rating} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="star" size={14} color="#ffc107" />
                 <Text style={[
                   styles.metricValue,
-                  isMobile && styles.metricValueMobile,
                   { color: colors.text, fontSize: fontStyles.textSize, fontWeight: '700' }
                 ]}>{getRatingDisplay()}</Text>
               </View>
               <Text style={[
                 styles.metricLabel,
-                isMobile && styles.metricLabelMobile,
-                { color: colors.textTertiary, fontSize: fontStyles.xSmall }
-              ]}>{t('provider.reviews', { count: getReviewCount() })}</Text>
+                { color: colors.textTertiary, fontSize: fontStyles.xSmall, marginTop: 4 }
+              ]}>{props.rating === 0 ? 'Ratings' : 'reviews'}</Text>
             </View>
 
             <View style={[
               styles.metricBox,
-              isMobile && styles.metricBoxMobile,
               { 
-                backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface,
-                borderColor: isDarkMode ? '#4b5563' : colors.borderLight,
-                padding: 12 * spacingMultiplier,
-                minWidth: isSmallScreen ? 60 : 70
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                padding: 8,
+                alignItems: 'center',
+                flex: 1
               }
             ]}>
               <Text style={[
                 styles.metricValue,
-                styles.experienceValue,
-                isMobile && styles.metricValueMobile,
-                { color: isDarkMode ? '#4ade80' : colors.success, fontSize: fontStyles.textSize, fontWeight: '700' }
+                { color: colors.success, fontSize: fontStyles.textSize, fontWeight: '700' }
               ]}>{getExperienceDisplay()}</Text>
               <Text style={[
                 styles.metricLabel,
-                isMobile && styles.metricLabelMobile,
-                { color: colors.textTertiary, fontSize: fontStyles.xSmall }
+                { color: colors.textTertiary, fontSize: fontStyles.xSmall, marginTop: 4 }
               ]}>years exp</Text>
             </View>
           </View>
@@ -824,27 +874,23 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           <View style={[
             styles.rightSection,
             isMobile && styles.rightSectionMobile,
-            { gap: 8 * spacingMultiplier }
+            { gap: 8, marginTop: isMobile ? 12 : 0 }
           ]}>
             {/* Role Chip */}
             {housekeepingRole && housekeepingRole !== "UNKNOWN" && (
               <View style={[
                 styles.roleChip,
-                isMobile && styles.roleChipMobile,
                 { 
-                  backgroundColor: isDarkMode ? '#4b5563' : colors.accent,
-                  shadowColor: colors.shadow,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: isDarkMode ? 0.2 : 0.3,
-                  shadowRadius: 4,
-                  elevation: isDarkMode ? 2 : 5,
-                  paddingHorizontal: 12 * spacingMultiplier,
-                  paddingVertical: 6 * spacingMultiplier,
+                  backgroundColor: colors.primary,
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 6,
+                  alignSelf: isMobile ? 'flex-start' : 'center',
+                  marginBottom: isMobile ? 0 : 8
                 }
               ]}>
                 <Text style={[
                   styles.roleChipText,
-                  isMobile && styles.roleChipTextMobile,
                   { color: '#ffffff', fontSize: fontStyles.smallText, fontWeight: '700' }
                 ]}>
                   {housekeepingRole}
@@ -856,25 +902,27 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             <TouchableOpacity 
               style={[
                 styles.detailsButton,
-                isMobile && styles.detailsButtonMobile,
                 { 
-                  borderColor: isDarkMode ? '#4b5563' : colors.primary,
-                  backgroundColor: isDarkMode ? '#2d3a4f' : colors.infoLight,
-                  gap: 6 * spacingMultiplier,
-                  paddingHorizontal: 12 * spacingMultiplier,
-                  paddingVertical: 8 * spacingMultiplier,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
                   borderRadius: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                  backgroundColor: 'transparent'
                 }
               ]}
               onPress={handleViewDetails}
             >
-              <Icon name="info-outline" size={16} color={isDarkMode ? '#e2e8f0' : colors.primary} />
+              <MaterialCommunityIcons name="information-outline" size={16} color={colors.primary} />
               <Text style={[
                 styles.detailsButtonText,
-                isMobile && styles.detailsButtonTextMobile,
-                { color: isDarkMode ? '#e2e8f0' : colors.primary, fontSize: fontStyles.smallText, fontWeight: '600' }
+                { color: colors.primary, fontSize: fontStyles.smallText, fontWeight: '600' }
               ]}>
-                {t('provider.viewDetails')}
+                Details
               </Text>
             </TouchableOpacity>
 
@@ -882,27 +930,22 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             <TouchableOpacity 
               style={[
                 styles.bookNowButton,
-                isMobile && styles.bookNowButtonMobile,
                 { 
-                  backgroundColor: isDarkMode ? '#3b82f6' : colors.primary,
-                  paddingHorizontal: 12 * spacingMultiplier,
-                  paddingVertical: 10 * spacingMultiplier,
+                  backgroundColor: colors.primary,
                   borderRadius: 8,
-                  shadowColor: isDarkMode ? '#3b82f6' : colors.primary,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: isDarkMode ? 0.2 : 0.3,
-                  shadowRadius: 8,
-                  elevation: isDarkMode ? 3 : 5,
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }
               ]}
               onPress={handleBookNow}
             >
               <Text style={[
                 styles.bookNowButtonText,
-                isMobile && styles.bookNowButtonTextMobile,
                 { color: '#ffffff', fontSize: fontStyles.textSize, fontWeight: '700' }
               ]}>
-                {t('provider.bookNow')}
+                Book Now
               </Text>
             </TouchableOpacity>
           </View>
@@ -948,42 +991,68 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
   },
-  bestMatchRibbon: {
+  badgeContainer: {
     position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 10,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  badgeContainerMobile: {
     top: 8,
     left: 8,
-    zIndex: 10,
+    gap: 6,
+  },
+  bestMatchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 3,
+    elevation: 2,
   },
-  bestMatchRibbonMobile: {
-    top: 6,
-    left: 6,
+  bestMatchBadgeMobile: {
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
-  bestMatchRibbonText: {
-    color: 'white',
+  previouslyBookedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  previouslyBookedBadgeMobile: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    color: '#ffffff',
     fontWeight: '700',
   },
-  bestMatchRibbonTextMobile: {},
+  badgeTextMobile: {},
   mainContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    flexWrap: 'wrap',
   },
   mainContentMobile: {
     flexDirection: 'column',
   },
   leftSection: {
-    flex: 1,
+    flex: 2,
+    minWidth: 200,
   },
   leftSectionMobile: {
     width: '100%',
@@ -992,6 +1061,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    marginBottom: 8,
   },
   nameText: {
     fontWeight: '700',
@@ -999,182 +1069,89 @@ const styles = StyleSheet.create({
   nameTextMobile: {
     fontSize: 16,
   },
-  genderAgeChip: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
   genderAgeText: {
-    fontWeight: '600',
+    fontWeight: '500',
   },
   genderAgeTextMobile: {},
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    marginBottom: 12,
   },
   metaRowMobile: {},
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  metaText: {
-    marginLeft: 2,
-  },
+  metaText: {},
   metaTextMobile: {},
-  metaDivider: {
-    width: 1,
-  },
+  metaDivider: {},
   availabilitySection: {},
-  availabilitySectionMobile: {},
-  availabilityLabel: {
-    marginBottom: 8,
-  },
-  availabilityLabelMobile: {},
+  availabilityLabel: {},
   availabilityInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  availabilityInfoRowMobile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    marginBottom: 8,
   },
   availabilityMessage: {
-    marginLeft: 6,
     flex: 1,
   },
-  availabilityMessageMobile: {},
   availabilityChipsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
   },
-  availabilityChipsRowMobile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  durationChip: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  durationChipMobile: {
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  durationChipText: {
-    fontWeight: '600',
-  },
-  durationChipTextMobile: {},
-  availabilityChipContainer: {
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  availabilityChipContainerMobile: {
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  availabilityChipText: {
-    fontWeight: '600',
-  },
-  availabilityChipTextMobile: {},
+  durationChip: {},
+  durationChipText: {},
+  availabilityChipContainer: {},
+  availabilityChipText: {},
   exceptionContainer: {},
   exceptionText: {},
-  exceptionTextMobile: {},
   fullyAvailableContainer: {},
   fullyAvailableText: {},
-  fullyAvailableTextMobile: {},
+  partiallyAvailableContainer: {},
   partiallyAvailableText: {},
-  partiallyAvailableTextMobile: {},
+  otherServicesContainer: {},
+  otherServicesText: {},
   metricsSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flex: 1,
+    marginLeft: 16,
   },
   metricsSectionMobile: {
     width: '100%',
-    justifyContent: 'space-around',
+    marginLeft: 0,
+    marginTop: 12,
   },
-  metricBox: {
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    flex: 1,
-  },
-  metricBoxMobile: {},
-  metricValue: {
-    textAlign: 'center',
-  },
-  metricValueMobile: {},
-  experienceValue: {},
-  metricLabel: {
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  metricLabelMobile: {},
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  metricBox: {},
+  metricValue: {},
+  metricLabel: {},
   rightSection: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    minWidth: 100,
+    minWidth: 110,
+    marginLeft: 16,
   },
   rightSectionMobile: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginLeft: 0,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
-    paddingTop: 12,
-    marginTop: 12,
   },
-  roleChip: {
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleChipMobile: {
-    alignSelf: 'flex-start',
-    borderRadius: 16,
-  },
-  roleChipText: {
-    textAlign: 'center',
-  },
-  roleChipTextMobile: {},
-  detailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  detailsButtonMobile: {
-    flex: 1,
-    minHeight: 40,
-  },
+  roleChip: {},
+  roleChipText: {},
+  detailsButton: {},
   detailsButtonText: {},
-  detailsButtonTextMobile: {},
-  bookNowButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bookNowButtonMobile: {
-    flex: 1,
-    minHeight: 40,
-  },
+  bookNowButton: {},
   bookNowButtonText: {},
-  bookNowButtonTextMobile: {},
 });
 
 export default ProviderDetails;

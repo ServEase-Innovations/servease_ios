@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   ScrollView,
@@ -29,16 +29,29 @@ interface ProviderAvailabilityDrawerProps {
   provider: ServiceProviderDTO | null;
 }
 
+// Helper function to format date and time
+const formatDateTime = (dateString: string) => {
+  return moment(dateString).format('MMM D, YYYY • hh:mm A');
+};
+
 const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   open,
   onClose,
   provider,
 }) => {
+  // State for expand/collapse - both collapsed by default
+  const [previousBookingExpanded, setPreviousBookingExpanded] = useState(false);
+  const [scheduleExceptionsExpanded, setScheduleExceptionsExpanded] = useState(false);
+
   if (!provider) return null;
 
   const formatTime = (timeString: string) => {
     if (!timeString) return '08:00 AM';
     return moment(timeString, 'HH:mm').format('hh:mm A');
+  };
+
+  const formatDate = (dateString: string) => {
+    return moment(dateString).format('MMMM D, YYYY');
   };
 
   const getAvailabilityStatus = () => {
@@ -47,6 +60,14 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     
     if (availability.fullyAvailable) return 'Fully Available';
     return 'Partially Available';
+  };
+
+  const getAvailabilityColor = () => {
+    const availability = provider.monthlyAvailability;
+    if (!availability) return 'default';
+    
+    if (availability.fullyAvailable) return 'success';
+    return 'warning';
   };
 
   const getBestMatchMessage = () => {
@@ -60,27 +81,70 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     }
   };
 
+  const getBookingTypeLabel = (bookingType: string) => {
+    switch(bookingType) {
+      case 'MONTHLY':
+        return 'Monthly';
+      case 'WEEKLY':
+        return 'Weekly';
+      case 'DAILY':
+        return 'Daily';
+      default:
+        return bookingType;
+    }
+  };
+
+  const getServiceTypeLabel = (serviceType: string) => {
+    switch(serviceType) {
+      case 'COOK':
+        return 'Cook';
+      case 'MAID':
+        return 'Maid';
+      case 'NANNY':
+        return 'Nanny';
+      default:
+        return serviceType;
+    }
+  };
+
+  const getEngagementStatusLabel = (status: string) => {
+    switch(status) {
+      case 'ASSIGNED':
+        return 'Assigned';
+      case 'COMPLETED':
+        return 'Completed';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  };
+
   const renderHeader = () => (
-    <>
-    {/* <View style={styles.header}> */}
-     <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.header}
-            >
+    <LinearGradient
+      colors={["#0a2a66ff", "#004aadff"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.header}
+    >
       <View style={styles.headerContent}>
-        <Text variant="headlineMedium" style={styles.headerTitle}>
+        <Text style={styles.headerTitle}>
           Availability Details
         </Text>
         <View style={styles.providerInfo}>
-          <Text variant="titleMedium" style={styles.providerName}>
+          <Text style={styles.providerName}>
             {provider.firstName} {provider.lastName}
           </Text>
           {provider.bestMatch && (
             <View style={styles.bestMatchBadge}>
-              <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
+              <MaterialCommunityIcons name="fire" size={14} color="#FFD700" />
               <Text style={styles.bestMatchText}>Best Match</Text>
+            </View>
+          )}
+          {provider.previouslyBooked && (
+            <View style={styles.previouslyBookedBadge}>
+              <MaterialCommunityIcons name="history" size={14} color="#ffffff" />
+              <Text style={styles.previouslyBookedText}>Previously Booked</Text>
             </View>
           )}
         </View>
@@ -88,9 +152,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
       <TouchableOpacity onPress={onClose} style={styles.closeButton}>
         <Icon name="close" size={28} color="#fcf7f7" />
       </TouchableOpacity>
-    {/* </View> */}
     </LinearGradient>
-</>
   );
 
   const renderBestMatchAlert = () => {
@@ -109,7 +171,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               Best Match Provider!
             </Text>
             <Text style={styles.alertMessage}>
-              This provider perfectly matches all your requirements and preferences.
+              {getBestMatchMessage()}
             </Text>
           </View>
         </View>
@@ -133,8 +195,121 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     }
   };
 
+  const renderPreviousBooking = () => {
+    if (!provider.previouslyBooked || !provider.previousBookingDetails) {
+      return null;
+    }
+
+    const details = provider.previousBookingDetails;
+
+    return (
+      <Card style={styles.mainCard}>
+        <Card.Content>
+          <TouchableOpacity 
+            onPress={() => setPreviousBookingExpanded(!previousBookingExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.collapsibleHeader}>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons name="history" size={24} color="#2196f3" />
+                <Text style={styles.sectionTitle}>Previous Booking</Text>
+                <View style={styles.expandBadge}>
+                  <Text style={styles.expandBadgeText}>Click to {previousBookingExpanded ? 'collapse' : 'expand'}</Text>
+                </View>
+              </View>
+              <Icon 
+                name={previousBookingExpanded ? "expand-less" : "expand-more"} 
+                size={24} 
+                color="#666" 
+              />
+            </View>
+          </TouchableOpacity>
+
+          {previousBookingExpanded && (
+            <View style={styles.collapsibleContent}>
+              <Divider style={styles.contentDivider} />
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLabel}>
+                  <MaterialCommunityIcons name="receipt" size={16} color="#666" />
+                  <Text style={styles.detailLabelText}>Booking ID:</Text>
+                </View>
+                <Text style={styles.detailValue}>#{details.engagementId}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLabel}>
+                  <MaterialCommunityIcons name="clock-outline" size={16} color="#666" />
+                  <Text style={styles.detailLabelText}>Booking Type:</Text>
+                </View>
+                <View style={styles.chip}>
+                  <Text style={styles.chipText}>{getBookingTypeLabel(details.bookingType)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLabel}>
+                  <MaterialCommunityIcons name="silverware" size={16} color="#666" />
+                  <Text style={styles.detailLabelText}>Service Type:</Text>
+                </View>
+                <View style={[styles.chip, styles.secondaryChip]}>
+                  <Text style={styles.chipText}>{getServiceTypeLabel(details.serviceType)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLabel}>
+                  <MaterialCommunityIcons name="calendar-today" size={16} color="#666" />
+                  <Text style={styles.detailLabelText}>Duration:</Text>
+                </View>
+                <Text style={styles.detailValue}>
+                  {formatDate(details.startDate)} - {formatDate(details.endDate)}
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLabel}>
+                  <MaterialCommunityIcons name="information" size={16} color="#666" />
+                  <Text style={styles.detailLabelText}>Status:</Text>
+                </View>
+                <View style={[
+                  styles.chip, 
+                  details.engagementStatus === 'ASSIGNED' ? styles.successChip : styles.defaultChip
+                ]}>
+                  <Text style={styles.chipText}>{getEngagementStatusLabel(details.engagementStatus)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLabel}>
+                  <MaterialCommunityIcons name="currency-inr" size={16} color="#666" />
+                  <Text style={styles.detailLabelText}>Amount:</Text>
+                </View>
+                <Text style={[styles.detailValue, styles.amountValue]}>₹{details.baseAmount}</Text>
+              </View>
+
+              <Divider style={styles.contentDivider} />
+
+              <View style={styles.detailRow}>
+                <Text style={styles.captionText}>Booked on:</Text>
+                <Text style={styles.captionText}>{formatDateTime(details.createdAt)}</Text>
+              </View>
+
+              <View style={[styles.alert, styles.infoAlert, styles.smallAlert]}>
+                <Text style={styles.alertMessageSmall}>
+                  You have previously booked this provider. Rebooking with them would be quick and easy!
+                </Text>
+              </View>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
+    );
+  };
+
   const renderMonthlyAvailability = () => {
     const isFullyAvailable = provider.monthlyAvailability?.fullyAvailable === true;
+    const availabilityColor = getAvailabilityColor();
     
     return (
       <Card style={styles.mainCard}>
@@ -221,15 +396,6 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               </View>
             </View>
           )}
-
-          {!provider.monthlyAvailability?.summary && (
-            <View style={styles.noDataSection}>
-              <Icon name="info" size={20} color="#666" />
-              <Text style={styles.noDataText}>
-                Detailed availability information is not available for this provider.
-              </Text>
-            </View>
-          )}
         </Card.Content>
       </Card>
     );
@@ -242,52 +408,71 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     }
 
     return (
-      <Card style={styles.card}>
+      <Card style={styles.mainCard}>
         <Card.Content>
-          <View style={styles.exceptionsHeader}>
-            <Icon name="warning" size={24} color="#ff9800" />
-            <Text style={styles.sectionTitle}>Schedule Exceptions</Text>
-            <View style={styles.exceptionCountBadge}>
-              <Text style={styles.exceptionCountText}>
-                {provider.monthlyAvailability.exceptions.length} exception(s)
-              </Text>
-            </View>
-          </View>
-
-          {provider.monthlyAvailability.exceptions.map((exception, index) => (
-            <View key={index} style={styles.exceptionItem}>
-              <View style={styles.exceptionHeaderRow}>
-                <Text style={styles.exceptionDate}>
-                  {moment(exception.date).format('ddd, MMM D, YYYY')}
-                </Text>
-                <View style={styles.exceptionReasonBadge}>
-                  <Text style={styles.exceptionReasonText}>
-                    {exception.reason?.replace('_', ' ') || 'Exception'}
+          <TouchableOpacity 
+            onPress={() => setScheduleExceptionsExpanded(!scheduleExceptionsExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.collapsibleHeader}>
+              <View style={styles.exceptionsHeader}>
+                <Icon name="warning" size={24} color="#ff9800" />
+                <Text style={styles.sectionTitle}>Schedule Exceptions</Text>
+                <View style={styles.exceptionCountBadge}>
+                  <Text style={styles.exceptionCountText}>
+                    {provider.monthlyAvailability.exceptions.length} exception(s)
                   </Text>
+                </View>
+                <View style={styles.expandBadge}>
+                  <Text style={styles.expandBadgeText}>Click to {scheduleExceptionsExpanded ? 'collapse' : 'expand'}</Text>
                 </View>
               </View>
-              <Text style={styles.exceptionDescription}>
-                {exception.reason === 'ON_DEMAND' 
-                  ? 'Available on demand at different time'
-                  : 'Not available at preferred time'}
-              </Text>
-              {exception.suggestedTime && (
-                <View style={styles.suggestedTime}>
-                  <Icon name="access-time" size={16} color="#666" />
-                  <Text style={styles.suggestedTimeText}>
-                    Suggested time: {formatTime(exception.suggestedTime)}
-                  </Text>
-                </View>
-              )}
+              <Icon 
+                name={scheduleExceptionsExpanded ? "expand-less" : "expand-more"} 
+                size={24} 
+                color="#666" 
+              />
             </View>
-          ))}
+          </TouchableOpacity>
 
-          <View style={[styles.alert, styles.infoAlert, styles.exceptionAlert]}>
-            <Text style={styles.exceptionNote}>
-              These dates have different availability. You can still book for these dates,
-              but the timing might vary.
-            </Text>
-          </View>
+          {scheduleExceptionsExpanded && (
+            <View style={styles.collapsibleContent}>
+              {provider.monthlyAvailability.exceptions.map((exception, index) => (
+                <View key={index} style={styles.exceptionItem}>
+                  <View style={styles.exceptionHeaderRow}>
+                    <Text style={styles.exceptionDate}>
+                      {moment(exception.date).format('ddd, MMM D, YYYY')}
+                    </Text>
+                    <View style={styles.exceptionReasonBadge}>
+                      <Text style={styles.exceptionReasonText}>
+                        {exception.reason?.replace('_', ' ') || 'Exception'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.exceptionDescription}>
+                    {exception.reason === 'ON_DEMAND' 
+                      ? 'Available on demand at different time'
+                      : 'Not available at preferred time'}
+                  </Text>
+                  {exception.suggestedTime && (
+                    <View style={styles.suggestedTime}>
+                      <Icon name="access-time" size={16} color="#666" />
+                      <Text style={styles.suggestedTimeText}>
+                        Suggested time: {formatTime(exception.suggestedTime)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+
+              <View style={[styles.alert, styles.infoAlert, styles.exceptionAlert]}>
+                <Text style={styles.exceptionNote}>
+                  These dates have different availability. You can still book for these dates,
+                  but the timing might vary.
+                </Text>
+              </View>
+            </View>
+          )}
         </Card.Content>
       </Card>
     );
@@ -351,6 +536,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               showsVerticalScrollIndicator={false}
             >
               {renderBestMatchAlert()}
+              {renderPreviousBooking()}
               {renderMonthlyAvailability()}
               {renderExceptions()}
               {renderNotices()}
@@ -376,7 +562,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
   },
   headerContent: {
     flex: 1,
@@ -391,17 +576,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    gap: 8,
   },
   providerName: {
     fontWeight: '600',
     fontSize: 16,
     color: '#ffffff',
-    marginRight: 8,
   },
   bestMatchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF9C4',
+    backgroundColor: '#FF9800',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -409,7 +594,21 @@ const styles = StyleSheet.create({
   bestMatchText: {
     fontWeight: '600',
     fontSize: 12,
-    color: '#FF8F00',
+    color: '#ffffff',
+    marginLeft: 4,
+  },
+  previouslyBookedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2196f3',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  previouslyBookedText: {
+    fontWeight: '600',
+    fontSize: 12,
+    color: '#ffffff',
     marginLeft: 4,
   },
   closeButton: {
@@ -446,6 +645,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#333',
   },
+  alertMessageSmall: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#333',
+  },
   successAlert: {
     backgroundColor: '#E8F5E9',
     borderLeftWidth: 4,
@@ -471,20 +675,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
-  card: {
-    marginBottom: 16,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    flex: 1,
   },
   sectionTitle: {
     fontWeight: '700',
@@ -492,6 +686,31 @@ const styles = StyleSheet.create({
     color: '#000',
     marginLeft: 12,
     marginRight: 'auto',
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  collapsibleContent: {
+    marginTop: 16,
+  },
+  contentDivider: {
+    marginVertical: 12,
+    backgroundColor: '#E0E0E0',
+    height: 1,
+  },
+  expandBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+    marginLeft: 8,
+  },
+  expandBadgeText: {
+    fontSize: 10,
+    color: '#666',
+    fontWeight: '500',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -597,24 +816,63 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2196F3',
   },
-  noDataSection: {
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 8,
+    gap: 6,
   },
-  noDataText: {
-    marginLeft: 12,
-    color: '#666',
+  detailLabelText: {
     fontSize: 14,
-    flex: 1,
+    color: '#666',
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  amountValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4caf50',
+  },
+  captionText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  chip: {
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666',
+  },
+  secondaryChip: {
+    backgroundColor: '#E3F2FD',
+  },
+  successChip: {
+    backgroundColor: '#E8F5E9',
+  },
+  defaultChip: {
+    backgroundColor: '#F5F5F5',
+  },
+  smallAlert: {
+    marginTop: 12,
+    padding: 12,
   },
   exceptionsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    flex: 1,
   },
   exceptionCountBadge: {
     paddingHorizontal: 10,
@@ -623,6 +881,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FF9800',
     backgroundColor: '#FFF8E1',
+    marginLeft: 8,
   },
   exceptionCountText: {
     color: '#FF9800',

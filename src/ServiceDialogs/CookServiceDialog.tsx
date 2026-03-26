@@ -688,7 +688,7 @@ const DemoCook = ({
           </ScrollView>
           
           <View style={styles.footerContainer}>
-            <View style={styles.voucherContainer}>
+            {/* <View style={styles.voucherContainer}>
               <TextInput
                 style={styles.voucherInput}
                 placeholder="Enter voucher code"
@@ -699,7 +699,7 @@ const DemoCook = ({
               <TouchableOpacity style={styles.voucherButton}>
                 <Text style={styles.voucherButtonText}>Apply Voucher</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
             
             <View style={styles.totalContainer}>
               <Text style={styles.footerText}>

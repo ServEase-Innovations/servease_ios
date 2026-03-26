@@ -11,12 +11,51 @@ import {
   StatusBar,
   Alert,
   FlatList,
-  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import providerInstance from '../services/providerInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { useAuth0 } from "react-native-auth0";
+import { useAppUser } from "../context/AppUserContext";
+import { useTranslation } from 'react-i18next';
 
 // --- Data Types ---
+interface ProviderData {
+  id: string;
+  providerName: string;
+  type: string;
+  dateRegistered: string;
+  status: string;
+  action: string;
+  mobileNo?: string;
+  emailId?: string;
+  experience?: number;
+  rating?: number;
+}
+
+interface VendorData {
+  vendorId: string;
+  address: string;
+  companyName: string;
+  createdDate: string;
+  emailid: string;
+  isActive: boolean;
+  phoneNo: string;
+  registrationId: string;
+  serviceProviders: ServiceProvider[];
+  providers: ServiceProviderDetails[];
+}
+
+interface ServiceProvider {
+  serviceproviderid: string;
+  firstName: string;
+  lastName: string;
+  mobileNo: string;
+  emailId: string;
+  housekeepingRole: string;
+  experience: number;
+}
+
 interface ServiceProviderDetails {
   serviceproviderid: string;
   vendorId: string;
@@ -33,80 +72,65 @@ interface ServiceProviderDetails {
   enrolleddate: string;
 }
 
-interface VendorData {
-  vendorId: string;
-  address: string;
-  companyName: string;
-  createdDate: string;
-  emailid: string;
-  isActive: boolean;
-  phoneNo: string;
-  registrationId: string;
-  serviceProviders: ServiceProviderDetails[];
-  providers: ServiceProviderDetails[];
-}
-
-interface ProviderData {
-  id: string;
-  providerName: string;
-  type: string;
-  dateRegistered: string;
-  status: string;
-  action: string;
-  mobileNo?: string;
-  emailId?: string;
-  experience?: number;
-  rating?: number;
-}
-
 type ViewType = 'dashboard' | 'all-providers' | 'applications' | 'register';
 
 const { width } = Dimensions.get('window');
 
 const AgentDashboard: React.FC = () => {
   const { colors, isDarkMode } = useTheme();
+  const { t } = useTranslation();
+  const { user: auth0User } = useAuth0();
+  const { appUser } = useAppUser();
+  const isAuthenticated = !!auth0User;
+  
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [providers, setProviders] = useState<ProviderData[]>([]);
   const [vendorData, setVendorData] = useState<VendorData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   
-  // User ID - you can get this from auth context or props
-  const userId = 17; // Example vendor ID
+  const vendorId = appUser?.vendorId ? Number(appUser.vendorId) : null;
 
   // Fetch vendor data on component mount
   useEffect(() => {
-    const fetchVendorData = async () => {
-      if (!userId) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const response = await providerInstance.get(`/api/vendor/${userId}`);
-        
-        if (response.data?.status === 200 && response.data?.data) {
-          const vendorDataResponse = response.data.data;
-          setVendorData(vendorDataResponse);
-          
-          // Transform service providers to the format needed for the grid
-          const transformedProviders = transformProvidersData(vendorDataResponse.providers || []);
-          setProviders(transformedProviders);
-          setError(null);
-        } else {
-          setError('Failed to fetch vendor data');
-        }
-      } catch (err) {
-        console.error("Error fetching vendor data:", err);
-        setError('Unable to load provider data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchVendorData();
-  }, [userId]);
+  }, [vendorId, isAuthenticated]);
+
+  const fetchVendorData = async () => {
+    if (!vendorId || !isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await providerInstance.get(`/api/vendor/${vendorId}`);
+      
+      if (response.data?.status === 200 && response.data?.data) {
+        const vendorDataResponse = response.data.data;
+        setVendorData(vendorDataResponse);
+        
+        // Transform service providers to the format needed for the grid
+        const transformedProviders = transformProvidersData(vendorDataResponse.providers || []);
+        setProviders(transformedProviders);
+        setError(null);
+      } else {
+        setError(t('fetchFailed') || 'Failed to fetch vendor data');
+      }
+    } catch (err) {
+      console.error("Error fetching vendor data:", err);
+      setError(t('unableToLoad') || 'Unable to load provider data');
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchVendorData();
+  };
 
   // Transform API data to grid format
   const transformProvidersData = (apiProviders: ServiceProviderDetails[]): ProviderData[] => {
@@ -127,10 +151,10 @@ const AgentDashboard: React.FC = () => {
   // Format provider type for display
   const formatProviderType = (role: string): string => {
     const typeMap: { [key: string]: string } = {
-      'NANNY': 'Caregiver',
-      'COOK': 'Cook',
-      'CLEANING': 'Cleaning',
-      'MAID': 'Maid / Cleaning'
+      'NANNY': t('caregiver') || 'Caregiver',
+      'COOK': t('cook') || 'Cook',
+      'CLEANING': t('cleaning') || 'Cleaning',
+      'MAID': t('maidCleaning') || 'Maid / Cleaning'
     };
     return typeMap[role] || role;
   };
@@ -148,9 +172,9 @@ const AgentDashboard: React.FC = () => {
   // Calculate stats based on actual data
   const getProviderStats = () => {
     const activeProviders = providers.filter(p => p.status === 'Active');
-    const cooks = providers.filter(p => p.type === 'Cook').length;
-    const cleaning = providers.filter(p => p.type === 'Cleaning').length;
-    const caregivers = providers.filter(p => p.type === 'Caregiver').length;
+    const cooks = providers.filter(p => p.type === (t('cook') || 'Cook')).length;
+    const cleaning = providers.filter(p => p.type === (t('cleaning') || 'Cleaning') || p.type === (t('maidCleaning') || 'Maid / Cleaning')).length;
+    const caregivers = providers.filter(p => p.type === (t('caregiver') || 'Caregiver')).length;
     
     return {
       totalActive: activeProviders.length,
@@ -172,15 +196,15 @@ const AgentDashboard: React.FC = () => {
   };
 
   const getTableTitle = (): string => {
-    if (currentView === 'applications') return "Pending Applications";
-    if (currentView === 'all-providers') return "All Agency Providers";
-    return "Recent Registrations & Status";
+    if (currentView === 'applications') return t('pendingApplications') || "Pending Applications";
+    if (currentView === 'all-providers') return t('allAgencyProviders') || "All Agency Providers";
+    return t('recentRegistrations') || "Recent Registrations & Status";
   };
 
-  const handleActionPress = (provider: ProviderData) => {
+  const handleViewProfile = (provider: ProviderData) => {
     Alert.alert(
-      'Provider Details',
-      `Provider: ${provider.providerName}\nType: ${provider.type}\nMobile: ${provider.mobileNo || 'N/A'}\nEmail: ${provider.emailId || 'N/A'}\nExperience: ${provider.experience || 0} years\nRating: ${provider.rating || 0}/5`
+      t('providerDetails') || 'Provider Details',
+      `${t('provider') || 'Provider'}: ${provider.providerName}\n${t('type') || 'Type'}: ${provider.type}\n${t('mobileNumber') || 'Mobile Number'}: ${provider.mobileNo || 'N/A'}\n${t('email') || 'Email'}: ${provider.emailId || 'N/A'}\n${t('experience') || 'Experience'}: ${provider.experience || 0} ${t('years') || 'years'}\n${t('rating') || 'Rating'}: ${provider.rating || 0}/5`
     );
   };
 
@@ -192,7 +216,7 @@ const AgentDashboard: React.FC = () => {
     if (data.length === 0) {
       return (
         <View style={styles.emptyStateContainer}>
-          <Text style={styles.emptyStateText}>No providers found</Text>
+          <Text style={styles.emptyStateText}>{t('noProvidersFound') || 'No providers found'}</Text>
         </View>
       );
     }
@@ -200,11 +224,11 @@ const AgentDashboard: React.FC = () => {
     return (
       <View style={styles.tableContainer}>
         <View style={styles.tableHeader}>
-          <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Provider Name</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Type</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Date</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Status</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Action</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>{t('providerName') || 'Provider Name'}</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1 }]}>{t('type') || 'Type'}</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>{t('dateRegistered') || 'Date Registered'}</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>{t('status') || 'Status'}</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1 }]}>{t('action') || 'Action'}</Text>
         </View>
         <FlatList
           data={data}
@@ -236,7 +260,7 @@ const AgentDashboard: React.FC = () => {
               </Text>
               <TouchableOpacity 
                 style={[{ flex: 1, justifyContent: 'center' }]}
-                onPress={() => handleActionPress(item)}
+                onPress={() => handleViewProfile(item)}
               >
                 <Text style={[styles.tableCell, styles.actionText]}>{item.action}</Text>
               </TouchableOpacity>
@@ -252,9 +276,9 @@ const AgentDashboard: React.FC = () => {
     return (
       <View style={styles.statsContainer}>
         {[
-          { label: 'Cooks', count: `${stats.cooks} Active`, icon: '👨‍🍳' },
-          { label: 'Cleaning Help', count: `${stats.cleaning} Active`, icon: '🧹' },
-          { label: 'Caregivers', count: `${stats.caregivers} Active`, icon: '❤️' }
+          { label: t('cooks') || 'Cooks', count: `${stats.cooks} ${t('active') || 'Active'}`, icon: '👨‍🍳' },
+          { label: t('cleaningHelp') || 'Cleaning Help', count: `${stats.cleaning} ${t('active') || 'Active'}`, icon: '🧹' },
+          { label: t('caregivers') || 'Caregivers', count: `${stats.caregivers} ${t('active') || 'Active'}`, icon: '❤️' }
         ].map((card, i) => (
           <View key={i} style={styles.statCard}>
             <Text style={styles.statIcon}>{card.icon}</Text>
@@ -268,50 +292,55 @@ const AgentDashboard: React.FC = () => {
     );
   };
 
-  const renderWelcomeCard = () => (
-    <View style={styles.welcomeCard}>
-      <Text style={styles.welcomeTitle}>Welcome, {vendorData?.companyName ? `${vendorData.companyName} Admin` : 'Rahul Sharma'}</Text>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.registerButton}
-          onPress={() => setCurrentView('register')}
-        >
-          <Text style={styles.registerButtonText}>+ Register New Provider</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.applicationsButton}
-          onPress={() => setCurrentView('applications')}
-        >
-          <Text style={styles.applicationsButtonText}>View Applications</Text>
-        </TouchableOpacity>
+  const renderWelcomeCard = () => {
+    const displayName = appUser?.name || auth0User?.name || 'User';
+    return (
+      <View style={styles.welcomeCard}>
+        <Text style={styles.welcomeTitle}>{t('welcome') || 'Welcome'}, {displayName}</Text>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.registerButton}
+            onPress={() => setCurrentView('register')}
+          >
+            <Text style={styles.registerButtonText}>+ {t('registerNewProvider') || 'Register New Provider'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.applicationsButton}
+            onPress={() => setCurrentView('applications')}
+          >
+            <Text style={styles.applicationsButtonText}>{t('viewApplications') || 'View Applications'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderSidebar = () => {
     const stats = getProviderStats();
     return (
       <View style={styles.sidebar}>
         <View style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>Total Providers</Text>
+          <Text style={styles.earningsLabel}>{t('totalProviders') || 'Total Providers'}</Text>
           <Text style={styles.earningsAmount}>{providers.length}</Text>
-          <Text style={styles.earningsPeriod}>{stats.totalActive} Active Providers</Text>
+          <Text style={styles.earningsPeriod}>
+            {stats.totalActive} {t('activeProviders') || 'Active Providers'}
+          </Text>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${(stats.totalActive / (providers.length || 1)) * 100}%` }]} />
           </View>
         </View>
 
         <View style={styles.resourceCard}>
-          <Text style={styles.resourceTitle}>Resource Center</Text>
+          <Text style={styles.resourceTitle}>{t('resourceCenter') || 'Resource Center'}</Text>
           <View style={styles.resourceItems}>
             <TouchableOpacity style={styles.resourceItem}>
-              <Text style={styles.resourceItemText}>How to verify IDs</Text>
+              <Text style={styles.resourceItemText}>{t('verifyIds') || 'How to verify IDs'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.resourceItem}>
-              <Text style={styles.resourceItemText}>Managing client expectations</Text>
+              <Text style={styles.resourceItemText}>{t('manageExpectations') || 'Managing client expectations'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.resourceItem}>
-              <Text style={styles.resourceItemText}>Earnings payout cycle</Text>
+              <Text style={styles.resourceItemText}>{t('payoutCycle') || 'Earnings payout cycle'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -321,29 +350,28 @@ const AgentDashboard: React.FC = () => {
 
   const renderRegisterForm = () => (
     <View style={styles.registerForm}>
-      <Text style={styles.registerFormTitle}>Register New Provider</Text>
+      <Text style={styles.registerFormTitle}>{t('registerNewProvider') || 'Register New Provider'}</Text>
       <Text style={styles.registerFormSubtitle}>
-        Enter the details of the service provider to begin onboarding.
+        {t('enterProviderDetails') || 'Enter the details of the service provider to begin onboarding.'}
       </Text>
       
       <View style={styles.formFields}>
         <TextInput 
-          placeholder="Full Name" 
+          placeholder={t('fullName') || 'Full Name'} 
           style={styles.input}
           placeholderTextColor="#94a3b8"
         />
         <View style={styles.pickerContainer}>
           <TextInput 
-            placeholder="Select Service Type"
+            placeholder={t('selectServiceType') || 'Select Service Type'}
             style={styles.input}
             placeholderTextColor="#94a3b8"
             editable={false}
-            value="Select Service Type"
+            value={t('selectServiceType') || 'Select Service Type'}
           />
-          {/* Note: For actual dropdown, you'd want to use a proper picker component */}
         </View>
         <TextInput 
-          placeholder="Phone Number" 
+          placeholder={t('phoneNumber') || 'Phone Number'} 
           style={styles.input}
           placeholderTextColor="#94a3b8"
           keyboardType="phone-pad"
@@ -351,13 +379,13 @@ const AgentDashboard: React.FC = () => {
         
         <View style={styles.formButtons}>
           <TouchableOpacity style={styles.submitButton}>
-            <Text style={styles.submitButtonText}>Submit Details</Text>
+            <Text style={styles.submitButtonText}>{t('submitDetails') || 'Submit Details'}</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.cancelButton}
             onPress={() => setCurrentView('dashboard')}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>{t('cancel') || 'Cancel'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -386,7 +414,13 @@ const AgentDashboard: React.FC = () => {
           </View>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
           {/* Title Skeleton */}
           <View style={styles.skeletonTitle} />
           
@@ -461,16 +495,16 @@ const AgentDashboard: React.FC = () => {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: '#D6E6F7' }]}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>⚠️ Error: {error}</Text>
+          <Text style={styles.errorText}>⚠️ {t('error') || 'Error'}: {error}</Text>
           <TouchableOpacity 
             style={styles.retryButton}
             onPress={() => {
               setIsLoading(true);
               setError(null);
-              // Re-fetch data logic would go here
+              fetchVendorData();
             }}
           >
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            <Text style={styles.retryButtonText}>{t('tryAgain') || 'Try Again'}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -491,35 +525,49 @@ const AgentDashboard: React.FC = () => {
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.navLinks}>
           <TouchableOpacity onPress={() => setCurrentView('dashboard')}>
-            <Text style={[styles.navLink, currentView === 'dashboard' && styles.navLinkActive]}>Dashboard</Text>
+            <Text style={[styles.navLink, currentView === 'dashboard' && styles.navLinkActive]}>
+              {t('dashboard') || 'Dashboard'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setCurrentView('all-providers')}>
-            <Text style={[styles.navLink, currentView === 'all-providers' && styles.navLinkActive]}>My Providers</Text>
+            <Text style={[styles.navLink, currentView === 'all-providers' && styles.navLinkActive]}>
+              {t('myProviders') || 'My Providers'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity>
-            <Text style={styles.navLink}>Recruitment Feed</Text>
+            <Text style={styles.navLink}>{t('recruitmentFeed') || 'Recruitment Feed'}</Text>
           </TouchableOpacity>
           <TouchableOpacity>
-            <Text style={styles.navLink}>Earnings</Text>
+            <Text style={styles.navLink}>{t('earnings') || 'Earnings'}</Text>
           </TouchableOpacity>
         </ScrollView>
 
         <View style={styles.navRight}>
           <View style={styles.locationBadge}>
-            <Text style={styles.locationText}>📍 {vendorData?.address || 'Location not set'}</Text>
+            <Text style={styles.locationText}>
+              📍 {vendorData?.address || (t('locationNotSet') || 'Location not set')}
+            </Text>
           </View>
           <TouchableOpacity>
             <Text style={styles.notificationIcon}>🔔</Text>
           </TouchableOpacity>
           <View style={styles.agentBadge}>
-            <Text style={styles.agentText}>👤 Agent</Text>
+            <Text style={styles.agentText}>👤 {t('agent') || 'Agent'}</Text>
           </View>
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <Text style={styles.pageTitle}>
-          {currentView === 'dashboard' ? "Provider Management Dashboard" : currentView.replace('-', ' ').toUpperCase()}
+          {currentView === 'dashboard' 
+            ? (t('providerManagementDashboard') || "Provider Management Dashboard") 
+            : (currentView.replace('-', ' ').toUpperCase())}
         </Text>
 
         {currentView !== 'register' && renderWelcomeCard()}
@@ -535,12 +583,12 @@ const AgentDashboard: React.FC = () => {
                 <Text style={styles.tableTitle}>{getTableTitle()}</Text>
                 {currentView === 'dashboard' && (
                   <TouchableOpacity onPress={() => setCurrentView('all-providers')}>
-                    <Text style={styles.viewAllLink}>View Full List →</Text>
+                    <Text style={styles.viewAllLink}>{t('viewFullList') || 'View Full List'} →</Text>
                   </TouchableOpacity>
                 )}
                 {currentView !== 'dashboard' && (
                   <TouchableOpacity onPress={() => setCurrentView('dashboard')}>
-                    <Text style={styles.backLink}>← Back to Dashboard</Text>
+                    <Text style={styles.backLink}>← {t('backToDashboard') || 'Back to Dashboard'}</Text>
                   </TouchableOpacity>
                 )}
               </View>

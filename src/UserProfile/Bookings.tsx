@@ -32,6 +32,9 @@ import RazorpayCheckout from 'react-native-razorpay';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
 
+// Import SkeletonLoader
+import { SkeletonLoader } from '../common/SkeletonLoader';
+
 // Import existing components
 import UserHoliday from './UserHoliday';
 import ModifyBookingDialog from './ModifyBookingDialog';
@@ -209,6 +212,145 @@ const Separator: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => {
   const { colors } = useTheme();
   return (
     <View style={[styles.separatorBase, { backgroundColor: colors.border }, style]} />
+  );
+};
+
+// Skeleton Loader Component for Booking Cards
+const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
+  return (
+    <Card style={[styles.bookingCard, { borderColor: colors.border }]}>
+      {/* Header Skeleton */}
+      <View style={styles.cardHeader}>
+        <View style={styles.serviceInfoContainer}>
+          <SkeletonLoader width={32} height={32} variant="circular" />
+          <SkeletonLoader width={120} height={20} style={{ marginLeft: 8 }} />
+        </View>
+        <SkeletonLoader width={80} height={28} variant="rectangular" />
+      </View>
+
+      {/* Date and Time Skeleton */}
+      <View style={styles.dateTimeRow}>
+        <View style={styles.infoItem}>
+          <SkeletonLoader width={16} height={16} variant="circular" />
+          <SkeletonLoader width={140} height={16} style={{ marginLeft: 6 }} />
+        </View>
+        <View style={styles.infoItem}>
+          <SkeletonLoader width={16} height={16} variant="circular" />
+          <SkeletonLoader width={100} height={16} style={{ marginLeft: 6 }} />
+        </View>
+      </View>
+
+      <Separator style={styles.separator} />
+
+      {/* Action Buttons Skeleton */}
+      <View style={styles.actionButtonsRow}>
+        <SkeletonLoader width={100} height={40} variant="rectangular" />
+        <SkeletonLoader width={100} height={40} variant="rectangular" />
+        <SkeletonLoader width={100} height={40} variant="rectangular" />
+      </View>
+
+      {/* View Details Indicator Skeleton */}
+      <View style={styles.viewDetailsIndicator}>
+        <SkeletonLoader width={120} height={14} variant="rectangular" />
+      </View>
+    </Card>
+  );
+};
+
+// Skeleton Loader for Section Header
+const SectionHeaderSkeleton: React.FC<{ colors: any }> = ({ colors }) => {
+  return (
+    <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
+      <SkeletonLoader width={24} height={24} variant="circular" />
+      <View style={styles.sectionHeaderContent}>
+        <SkeletonLoader width={150} height={24} />
+        <SkeletonLoader width={100} height={16} style={{ marginTop: 4 }} />
+      </View>
+      <SkeletonLoader width={40} height={32} variant="rectangular" />
+    </View>
+  );
+};
+
+// Skeleton Loader for Status Tabs
+const StatusTabsSkeleton: React.FC = () => {
+  return (
+    <View style={styles.statusFilterContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {[1, 2, 3, 4, 5].map((item) => (
+          <SkeletonLoader
+            key={item}
+            width={80}
+            height={36}
+            variant="rectangular"
+            style={{ marginRight: 10 }}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
+// Main Skeleton Loader Component for Booking Page
+const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header Skeleton */}
+      <LinearGradient
+        colors={[
+          colors.primary + '40',
+          colors.primary + '20',
+          colors.background
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerTopRow}>
+          <SkeletonLoader width={40} height={40} variant="circular" />
+          <View style={styles.headerContent}>
+            <SkeletonLoader width={200} height={32} />
+            <SkeletonLoader width={250} height={16} style={{ marginTop: 8 }} />
+          </View>
+        </View>
+        
+        <View style={styles.headerRight}>
+          <View style={styles.searchContainer}>
+            <SkeletonLoader width="100%" height={48} variant="rectangular" />
+          </View>
+          <SkeletonLoader width={70} height={70} variant="rectangular" style={{ marginLeft: 12 }} />
+        </View>
+      </LinearGradient>
+
+      <ScrollView>
+        {/* Upcoming Bookings Section Skeleton */}
+        <View style={styles.section}>
+          <SectionHeaderSkeleton colors={colors} />
+          <StatusTabsSkeleton />
+          
+          {/* Booking Cards Skeletons */}
+          {[1, 2, 3].map((item) => (
+            <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
+          ))}
+        </View>
+
+        {/* Past Bookings Section Skeleton */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
+            <SkeletonLoader width={24} height={24} variant="circular" />
+            <View style={styles.sectionHeaderContent}>
+              <SkeletonLoader width={150} height={24} />
+              <SkeletonLoader width={100} height={16} style={{ marginTop: 4 }} />
+            </View>
+            <SkeletonLoader width={40} height={32} variant="rectangular" />
+          </View>
+          
+          {/* Past Booking Cards Skeletons */}
+          {[1, 2].map((item) => (
+            <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -2033,14 +2175,10 @@ const mapBookingData = (data: any[]) => {
     confirmationDialog.open
   ]);
 
+  // REPLACED: Loading screen with SkeletonLoader instead of boring loading screen
   if (isLoading) {
-    console.log('⏳ Loading state active');
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.page.loading')}</Text>
-      </View>
-    );
+    console.log('⏳ Loading state active - showing skeleton loader');
+    return <BookingPageSkeleton colors={colors} fontSizes={fontSizes} />;
   }
 
   return (

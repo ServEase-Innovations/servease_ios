@@ -27,6 +27,7 @@ import ProviderFilter, { FilterCriteria } from "./ProviderFilter";
 import { useTheme } from '../Settings/ThemeContext'; // Import useTheme
 import { SkeletonLoader } from '../common/SkeletonLoader'; // Import SkeletonLoader
 import dayjs, { Dayjs } from 'dayjs';
+import { useAppUser } from '../context/AppUserContext'; // Import useAppUser
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;
@@ -44,6 +45,12 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   // Get theme values
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   
+  // Get appUser from context
+  const { appUser } = useAppUser();
+  
+  // Only get customerId if the user role is CUSTOMER
+  const customerId = appUser?.role === "CUSTOMER" ? appUser?.customerid : null;
+  
   const [serviceProvidersData, setServiceProvidersData] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,6 +64,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterCriteria | null>(null);
   const [activeFilterCount, setActiveFilterCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0); // Add state for total count
   
   // Get font size styles based on settings
   const getFontSizeStyles = () => {
@@ -79,6 +87,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const bookingType = getBookingType();
   
   console.log("Details:", bookingType);
+  console.log("App User Role:", appUser?.role);
+  console.log("Customer ID:", customerId); // For debugging
   
   const dispatch = useDispatch();
 
@@ -245,7 +255,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         preferredStartTime,
         housekeepingRole,
         latitude,
-        longitude
+        longitude,
+        customerId
       });
 
       if (latitude === 0 && longitude === 0) {
@@ -262,26 +273,37 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       }
 
       try {
-        // Prepare the request payload
-        const requestPayload = {
+        // Build the base payload without customerId
+        const payload: any = {
           lat: latitude.toString(),
           lng: longitude.toString(),
           radius: 10,
           startDate: startDate,
           endDate: endDate,
-          preferredStartTime: preferredStartTime, // Now properly formatted (e.g., "12:00", "08:30", etc.)
+          preferredStartTime: preferredStartTime,
           role: housekeepingRole,
           serviceDurationMinutes: 60
         };
+
+        // Only add customerId if user role is CUSTOMER and customerId exists
+        if (appUser?.role === "CUSTOMER" && customerId && customerId !== 0 && customerId !== null && customerId !== undefined) {
+          payload.customerID = Number(customerId);
+          console.log("Adding customerId to payload:", customerId);
+        } else {
+          console.log("Not adding customerId - User is not a CUSTOMER or customerId not available");
+        }
+
+        console.log('📤 API Request Payload:', JSON.stringify(payload, null, 2));
         
-        console.log('📤 API Request Payload:', JSON.stringify(requestPayload, null, 2));
-        
-        const response = await providerInstance.post('/api/service-providers/nearby-monthly', requestPayload);
+        const response = await providerInstance.post('/api/service-providers/nearby-monthly', payload);
 
         console.log('✅ API Response received');
         console.log('📦 Raw response data:', response.data);
         console.log('🧾 FULL AXIOS RESPONSE:', response);
         console.log('📦 RESPONSE.DATA:', JSON.stringify(response.data, null, 2));
+
+        // Store total count from response
+        setTotalCount(response.data.count || 0);
 
         if (response.data && response.data.providers) {
           const providers = response.data.providers;
@@ -336,6 +358,17 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
   };
 
+  // Helper function to normalize languages to array
+  const normalizeLanguages = (languages: string | string[] | null | undefined): string[] => {
+    if (!languages) return [];
+    if (Array.isArray(languages)) return languages;
+    // If it's a string, split by comma
+    if (typeof languages === 'string') {
+      return languages.split(',').map(lang => lang.trim());
+    }
+    return [];
+  };
+
   // Apply filters to providers
   const applyFilters = (providers: ServiceProviderDTO[], filters: FilterCriteria): ServiceProviderDTO[] => {
     return providers.filter(provider => {
@@ -364,9 +397,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         return false;
       }
 
-      // Language filter
+      // Language filter - FIXED: Normalize to array first
       if (filters.language.length > 0) {
-        const providerLanguages = provider.languageknown || [];
+        const providerLanguages = normalizeLanguages(provider.languageknown);
         const hasMatchingLanguage = providerLanguages.some(lang => 
           filters.language.includes(lang)
         );
@@ -456,7 +489,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         count: serviceProviderData.length,
         providers: serviceProviderData.map(p => ({
           id: p.serviceproviderid,
-          name: `${p.firstname} ${p.lastname}`,
+          name: `${p.firstName} ${p.lastName}`,
           role: p.housekeepingRole
         }))
       });
@@ -467,6 +500,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     serviceProviderDataLength: serviceProviderData?.length || 0,
     filteredProvidersLength: filteredProviders?.length || 0,
     activeFilterCount,
+    totalCount,
     loading,
     selectedProviderType,
     hasPerformedSearch,
@@ -564,7 +598,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             paddingHorizontal: 16 * spacingMultiplier,
             paddingVertical: 8 * spacingMultiplier,
           }]}>
-            Found {filteredProviders.length} provider{filteredProviders.length !== 1 ? 's' : ''} near you
+            {activeFilters 
+              ? `Found ${filteredProviders.length} provider${filteredProviders.length !== 1 ? 's' : ''} matching your filters`
+              : `${totalCount} service provider${totalCount !== 1 ? 's' : ''} found near your location`
+            }
           </Text>
           
           {filteredProviders.map((provider, index) => (

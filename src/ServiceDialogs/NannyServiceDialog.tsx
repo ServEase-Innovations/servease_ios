@@ -139,7 +139,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   const nannyCartItems = allCartItems.filter(isNannyCartItem);
   const dispatch = useDispatch();
 
-  const providerFullName = `${providerDetails?.firstname} ${providerDetails?.lastName}`;
+  const providerFullName = `${providerDetails?.firstName} ${providerDetails?.lastName}`;
 
   const bookingTypeLabel = useMemo((): BookingType => {
     const isOnDemand = bookingType?.bookingPreference?.toLowerCase() === "date";
@@ -352,7 +352,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
       age: pkg.age,
       price: pkg.calculatedPrice,
       description: pkg.description.join(", "),
-      providerId: providerDetails?.serviceproviderId || '',
+      providerId: providerDetails?.serviceproviderid || '',
       providerName: providerFullName,
       activeTab: activeTab
     };
@@ -447,7 +447,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
           age: pkg.age,
           price: pkg.calculatedPrice,
           description: pkg.description.join(", "),
-          providerId: providerDetails?.serviceproviderId || '',
+          providerId: providerDetails?.serviceproviderid || '',
           providerName: providerFullName,
           activeTab: activeTab
         }));
@@ -569,8 +569,8 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
       // ✅ UPDATED: Include end_time in payload with fallback
       const payload = {
         customerid: customerId,
-        serviceproviderid: providerDetails?.serviceproviderId
-          ? Number(providerDetails.serviceproviderId)
+        serviceproviderid: providerDetails?.serviceproviderid
+          ? Number(providerDetails.serviceproviderid)
           : 0,
         start_date: bookingType?.startDate || new Date().toISOString().split('T')[0],
         end_date: bookingType?.endDate || new Date().toISOString().split('T')[0],
@@ -865,7 +865,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
           </ScrollView>
           
           <View style={styles.footerContainer}>
-            <View style={styles.voucherContainer}>
+            {/* <View style={styles.voucherContainer}>
               <TextInput
                 style={styles.voucherInput}
                 placeholder="Enter voucher code"
@@ -879,7 +879,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
               >
                 <Text style={styles.voucherButtonText}>APPLY</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
             
             <View style={styles.totalContainer}>
               <Text style={styles.footerText}>

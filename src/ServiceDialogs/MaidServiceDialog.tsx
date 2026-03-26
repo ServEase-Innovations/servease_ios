@@ -636,8 +636,8 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       // ✅ UPDATED: Always include end_time with fallback (matching React code pattern)
       const payload: BookingPayload = {
         customerid: customerId,
-        serviceproviderid: providerDetails?.serviceproviderId
-          ? Number(providerDetails.serviceproviderId)
+        serviceproviderid: providerDetails?.serviceproviderid
+          ? Number(providerDetails.serviceproviderid)
           : 0,
         start_date: bookingType?.startDate || new Date().toISOString().split("T")[0],
         end_date: bookingType?.endDate || new Date().toISOString().split("T")[0],
@@ -1250,7 +1250,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
           
           {/* Footer with Checkout */}
           <View style={styles.footerContainer}>
-            <View style={styles.voucherContainer}>
+            {/* <View style={styles.voucherContainer}>
               <TextInput
                 style={styles.voucherInput}
                 placeholder="Enter voucher code"
@@ -1264,7 +1264,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
               >
                 <Text style={styles.voucherButtonText}>Apply Voucher</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           
             <View style={styles.totalContainer}>
               <Text style={styles.footerText}>
