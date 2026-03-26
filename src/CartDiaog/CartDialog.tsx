@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -17,6 +19,7 @@ import { TermsCheckboxes } from '../common/TermsCheckboxes';
 import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
+import { CouponDialog, Coupon } from '../Coupons/CouponDialog';
 
 interface CartDialogProps {
   open: boolean;
@@ -62,6 +65,11 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const dispatch = useDispatch();
   const allCartItems = useSelector(selectCartItems);
   
+  // Coupon state
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponDialogOpen, setCouponDialogOpen] = useState(false);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  
   // Terms checkboxes state
   const [termsAccepted, setTermsAccepted] = useState({
     keyFacts: false,
@@ -91,18 +99,63 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const maidCartTotal = maidCartItems.reduce((sum, item) => sum + (item.price || 0), 0);
   const nannyCartTotal = nannyCartItems.reduce((sum, item) => sum + (item.price || 0), 0);
   const totalPrice = mealCartTotal + maidCartTotal + nannyCartTotal;
-  const tax = totalPrice * 0.18;
-  const platformFee = totalPrice * 0.06;
-  const grandTotal = totalPrice + tax + platformFee;
+  
+  // Apply coupon discount to subtotal
+  const discountedTotal = Math.max(0, totalPrice - couponDiscount);
+  const tax = discountedTotal * 0.18;
+  const platformFee = discountedTotal * 0.06;
+  const grandTotal = discountedTotal + tax + platformFee;
+  
+  // Calculate total savings
+  const originalTax = totalPrice * 0.18;
+  const originalPlatformFee = totalPrice * 0.06;
+  const totalSaved = couponDiscount + (originalTax - tax) + (originalPlatformFee - platformFee);
+
+  // Determine service type based on cart items
+  const getServiceType = (): string => {
+    if (mealCartItems.length > 0) return 'COOK';
+    if (maidCartItems.length > 0) return 'MAID';
+    if (nannyCartItems.length > 0) return 'NANNY';
+    return 'COOK'; // Default
+  };
+  
+  // Get user city - you'll need to get this from your user context/Redux
+  const getUserCity = (): string => {
+    // Replace with actual user city from your state management
+    return 'Bangalore';
+  };
+
+  // Coupon handlers
+  const handleApplyCoupon = (coupon: Coupon) => {
+    let discount = 0;
+    if (coupon.discount_type === 'PERCENTAGE') {
+      discount = (totalPrice * coupon.discount_value) / 100;
+      // You can add max discount logic here if needed
+    } else {
+      discount = coupon.discount_value;
+    }
+    
+    setAppliedCoupon(coupon);
+    setCouponDiscount(discount);
+  };
+  
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+  };
 
   const handleRemoveItem = (id: string, itemType: CartItem['type']) => {
     dispatch(removeFromCart({ id, type: itemType }));
+    // Reset coupon when cart items change
+    if (appliedCoupon) {
+      handleRemoveCoupon();
+    }
   };
 
   // Check if all terms are accepted
   const allTermsAccepted = termsAccepted.keyFacts && termsAccepted.terms && termsAccepted.privacy;
 
-  // Reset checkboxes whenever dialog closes
+  // Reset checkboxes and coupon whenever dialog closes
   useEffect(() => {
     if (!open) {
       setTermsAccepted({
@@ -112,6 +165,13 @@ export const CartDialog: React.FC<CartDialogProps> = ({
       });
     }
   }, [open]);
+
+  // Reset coupon when cart becomes empty
+  useEffect(() => {
+    if (allCartItems.length === 0 && appliedCoupon) {
+      handleRemoveCoupon();
+    }
+  }, [allCartItems.length, appliedCoupon]);
 
   // Debug: Log when terms acceptance changes
   useEffect(() => {
@@ -205,17 +265,24 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             {/* Header */}
-            <View style={styles.dialogHeader}>
+             <LinearGradient
+                                colors={["#0a2a66ff", "#004aadff"]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.dialogHeader}
+                              >
+            {/* <View style={styles.dialogHeader}> */}
               <View style={styles.headerContent}>
                 <Text style={styles.dialogTitle}>Your Order Summary</Text>
                 <TouchableOpacity
                   style={styles.closeButton}
                   onPress={handleClose}
                 >
-                  <Icon name="close" size={24} color="#718096" />
+                  <Icon name="close" size={24} color="#f7f8fa" />
                 </TouchableOpacity>
               </View>
-            </View>
+            {/* </View> */}
+            </LinearGradient>
             
             {/* Content */}
             <ScrollView style={styles.dialogContent}>
@@ -280,12 +347,76 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     )}
                   </View>
 
+                  {/* Coupons Section */}
+                  <TouchableOpacity 
+                    style={styles.couponsSection}
+                    onPress={() => setCouponDialogOpen(true)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.couponsHeader}>
+                      <View style={styles.couponsHeaderLeft}>
+                        <MaterialCommunityIcons name="tag" size={20} color="#0984e3" />
+                        <Text style={styles.couponsTitle}>
+                          {appliedCoupon ? 'Coupon Applied' : 'Coupons and Offers'}
+                        </Text>
+                        {appliedCoupon && (
+                          <View style={styles.appliedChip}>
+                            <Text style={styles.appliedChipText}>{appliedCoupon.coupon_code}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.couponsHeaderRight}>
+                        {couponDiscount > 0 && (
+                          <Text style={styles.discountAmount}>
+                            -₹{couponDiscount.toFixed(2)}
+                          </Text>
+                        )}
+                        <Text style={styles.viewAllLink}>View all →</Text>
+                      </View>
+                    </View>
+                    
+                    {appliedCoupon && (
+                      <View style={styles.appliedCouponDetails}>
+                        <Text style={styles.couponDescription}>
+                          {appliedCoupon.description}
+                        </Text>
+                        <TouchableOpacity 
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleRemoveCoupon();
+                          }}
+                        >
+                          <Text style={styles.removeCouponText}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    
+                    {!appliedCoupon && totalSaved > 0 && (
+                      <Text style={styles.savedText}>
+                        ₹{totalSaved.toFixed(2)} saved with coupons
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
                   {/* Pricing Summary */}
                   <View style={styles.pricingContainer}>
                     <View style={styles.pricingRow}>
                       <Text style={styles.pricingLabel}>Subtotal:</Text>
                       <Text style={styles.pricingValue}>₹{totalPrice.toFixed(2)}</Text>
                     </View>
+                    
+                    {/* Show coupon discount if applied */}
+                    {couponDiscount > 0 && (
+                      <View style={styles.pricingRow}>
+                        <Text style={styles.couponDiscountLabel}>
+                          Coupon Discount ({appliedCoupon?.coupon_code}):
+                        </Text>
+                        <Text style={styles.couponDiscountValue}>
+                          -₹{couponDiscount.toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+                    
                     <View style={styles.pricingRow}>
                       <Text style={styles.pricingLabel}>Tax (18%):</Text>
                       <Text style={styles.pricingValue}>₹{tax.toFixed(2)}</Text>
@@ -301,6 +432,15 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                       <Text style={styles.totalLabel}>Total:</Text>
                       <Text style={styles.totalValue}>₹{grandTotal.toFixed(2)}</Text>
                     </View>
+                    
+                    {/* Show total savings */}
+                    {totalSaved > 0 && (
+                      <View style={styles.totalSavingsRow}>
+                        <Text style={styles.totalSavingsText}>
+                          Total savings: ₹{totalSaved.toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
                     
                     <View style={styles.termsDivider} />
 
@@ -347,7 +487,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                       styles.checkoutButtonText,
                       !isCheckoutEnabled && styles.disabledButtonText
                     ]}>
-                      Proceed to Checkout (₹{grandTotal.toFixed(2)})
+                      Proceed to Pay ₹{grandTotal.toFixed(2)}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -356,6 +496,18 @@ export const CartDialog: React.FC<CartDialogProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* Coupon Dialog */}
+      <CouponDialog
+        open={couponDialogOpen}
+        handleClose={() => setCouponDialogOpen(false)}
+        currentTotal={totalPrice}
+        onApplyCoupon={handleApplyCoupon}
+        onRemoveCoupon={handleRemoveCoupon}
+        appliedCoupon={appliedCoupon}
+        serviceType={getServiceType()}
+        userCity={getUserCity()}
+      />
 
       {/* Policy Modal - Same as in registration page */}
       <Modal
@@ -665,7 +817,7 @@ const styles = StyleSheet.create({
   dialogTitle: {
     fontWeight: '600',
     fontSize: 20,
-    color: '#2d3748',
+    color: '#fbfcff',
   },
   closeButton: {
     padding: 4,
@@ -711,6 +863,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#edf2f7',
     marginVertical: 16,
   },
+  couponsSection: {
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#edf2f7',
+    padding: 20,
+    marginBottom: 8,
+  },
+  couponsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  couponsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  couponsTitle: {
+    fontSize: 14,
+    color: '#4a5568',
+    fontWeight: '500',
+  },
+  appliedChip: {
+    backgroundColor: '#38a169',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  appliedChipText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  couponsHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  discountAmount: {
+    fontSize: 14,
+    color: '#38a169',
+    fontWeight: '600',
+  },
+  viewAllLink: {
+    fontSize: 14,
+    color: '#0984e3',
+  },
+  appliedCouponDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  couponDescription: {
+    fontSize: 12,
+    color: '#718096',
+    flex: 1,
+  },
+  removeCouponText: {
+    fontSize: 12,
+    color: '#e53e3e',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  savedText: {
+    fontSize: 12,
+    color: '#38a169',
+    marginTop: 8,
+  },
   pricingContainer: {
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
@@ -736,6 +958,14 @@ const styles = StyleSheet.create({
     color: '#4a5568',
     fontSize: 14,
   },
+  couponDiscountLabel: {
+    color: '#38a169',
+    fontSize: 14,
+  },
+  couponDiscountValue: {
+    color: '#38a169',
+    fontSize: 14,
+  },
   totalLabel: {
     color: '#2d3748',
     fontSize: 16,
@@ -745,6 +975,16 @@ const styles = StyleSheet.create({
     color: '#2b6cb0',
     fontSize: 16,
     fontWeight: '600',
+  },
+  totalSavingsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  totalSavingsText: {
+    fontSize: 12,
+    color: '#38a169',
+    fontWeight: '500',
   },
   termsDivider: {
     height: 1,

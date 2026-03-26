@@ -26,6 +26,7 @@ import { ServiceProviderDTO } from "../types/ProviderDetailsType";
 import ProviderFilter, { FilterCriteria } from "./ProviderFilter";
 import { useTheme } from '../Settings/ThemeContext'; // Import useTheme
 import { SkeletonLoader } from '../common/SkeletonLoader'; // Import SkeletonLoader
+import dayjs, { Dayjs } from 'dayjs';
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;
@@ -153,6 +154,32 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return dateString.split("T")[0];
   };
 
+  // Helper function to format time to HH:mm (24-hour format)
+  const formatTimeToHHMM = (time?: Dayjs | string | null): string => {
+    if (!time) return "08:00"; // Default time
+    
+    if (typeof time === 'string') {
+      // If time is a string like "12:00", ensure it's properly formatted
+      const trimmedTime = time.trim();
+      if (/^\d{2}:\d{2}$/.test(trimmedTime)) {
+        return trimmedTime;
+      }
+      // Try to parse the time string
+      const parsed = dayjs(trimmedTime, ['HH:mm', 'h:mm A', 'h:mm a']);
+      if (parsed.isValid()) {
+        return parsed.format('HH:mm');
+      }
+      return "08:00";
+    }
+    
+    // If time is a Dayjs object
+    if (time && typeof time === 'object' && 'format' in time) {
+      return (time as Dayjs).format('HH:mm');
+    }
+    
+    return "08:00";
+  };
+
   const logProviderDetails = (providers: any[], source: string) => {
     console.log(`\n📊 =========== PROVIDER DETAILS FROM ${source} ===========`);
     console.log(`📦 Total providers: ${providers.length}`);
@@ -195,13 +222,27 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
       const startDate = formatDateOnly(bookingType?.startDate) || '2025-04-01';
       const endDate = formatDateOnly(bookingType?.endDate) || '2025-04-30';
-      const timeslot = bookingType?.timeRange || '16:37-16:37';
+      
+      // FIXED: Properly format the time to HH:mm without trailing spaces
+      let preferredStartTime = "08:00"; // Default time
+      
+      if (bookingType?.timeRange) {
+        // Extract the start time from timeRange (format like "12:00-13:00")
+        const startTimeFromRange = bookingType.timeRange.split('-')[0];
+        preferredStartTime = formatTimeToHHMM(startTimeFromRange);
+      } else if (bookingType?.startTime) {
+        preferredStartTime = formatTimeToHHMM(bookingType.startTime);
+      }
+      
+      // Ensure no trailing spaces
+      preferredStartTime = preferredStartTime.trim();
+      
       const housekeepingRole = bookingType?.housekeepingRole || 'COOK';
 
       console.log('🔍 Search Parameters:', {
         startDate,
         endDate,
-        timeslot,
+        preferredStartTime,
         housekeepingRole,
         latitude,
         longitude
@@ -221,16 +262,21 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       }
 
       try {
-        const response = await providerInstance.post('/api/service-providers/nearby-monthly', {
+        // Prepare the request payload
+        const requestPayload = {
           lat: latitude.toString(),
           lng: longitude.toString(),
           radius: 10,
           startDate: startDate,
           endDate: endDate,
-          preferredStartTime: bookingType?.timeRange ? bookingType.timeRange.split('-')[0] : "16:37",
+          preferredStartTime: preferredStartTime, // Now properly formatted (e.g., "12:00", "08:30", etc.)
           role: housekeepingRole,
           serviceDurationMinutes: 60
-        });
+        };
+        
+        console.log('📤 API Request Payload:', JSON.stringify(requestPayload, null, 2));
+        
+        const response = await providerInstance.post('/api/service-providers/nearby-monthly', requestPayload);
 
         console.log('✅ API Response received');
         console.log('📦 Raw response data:', response.data);
@@ -267,7 +313,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       } catch (apiError: any) {
         console.error('❌ API Error:', apiError.message);
         console.log('💡 Error details:', apiError.response?.data);
-        Alert.alert('Error', 'Failed to search for providers');
+        
+        // Show more specific error message
+        const errorMessage = apiError.response?.data?.message || 'Failed to search for providers';
+        Alert.alert('Error', errorMessage);
+        
         setServiceProviderData([]);
         setFilteredProviders([]);
       }
