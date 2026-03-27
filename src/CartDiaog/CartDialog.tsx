@@ -262,6 +262,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         transparent={true}
         onRequestClose={handleClose}
       >
+        
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             {/* Header */}

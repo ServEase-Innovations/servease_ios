@@ -376,6 +376,7 @@ const DemoCook = ({
         serviceproviderid = Number(providerDetails.serviceproviderId);
       }
 
+      // FIX: Use the correct field names from bookingType
       const payload: BookingPayload = {
         customerid: customerId,
         serviceproviderid: serviceproviderid,
@@ -387,12 +388,13 @@ const DemoCook = ({
         service_type: "COOK",
         base_amount: baseTotal,
         payment_mode: "razorpay",
-        start_time: bookingType?.start_time || "",
-        end_time: bookingType?.endTime || "",
+        start_time: bookingType?.start_time || "",  // Fixed: use start_time (with underscore)
+        end_time: bookingType?.end_time || "",      // Fixed: use end_time (with underscore)
       };
 
       console.log("📦 Booking payload:", JSON.stringify(payload, null, 2));
       console.log(`🔍 Booking Type: ${currentBookingType}, Service Provider ID: ${serviceproviderid}`);
+      console.log(`⏰ Times - Start: ${payload.start_time}, End: ${payload.end_time}`);
 
       // Validate payload before sending
       if (!validatePayload(payload)) {
