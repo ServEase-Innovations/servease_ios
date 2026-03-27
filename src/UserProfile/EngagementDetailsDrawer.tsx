@@ -9,7 +9,8 @@ import {
   ScrollView,
   Dimensions,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { getServiceTitle, getBookingTypeBadge, getStatusBadge } from '../common/BookingUtils';
@@ -19,6 +20,7 @@ import { Button } from '../common/Button';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import Snackbar from 'react-native-snackbar';
 
 const { width } = Dimensions.get('window');
 
@@ -60,6 +62,135 @@ const Separator: React.FC<{ style?: any }> = ({ style }) => {
   return <View style={[styles.separator, { backgroundColor: colors.border }, style]} />;
 };
 
+// Custom Cancel Dialog Component
+const CancelDialog: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  serviceName: string;
+  isLoading: boolean;
+}> = ({ visible, onClose, onConfirm, serviceName, isLoading }) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
+  
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          title: 20,
+          message: 14,
+          buttonText: 14,
+        };
+      case 'large':
+        return {
+          title: 24,
+          message: 16,
+          buttonText: 16,
+        };
+      default:
+        return {
+          title: 20,
+          message: 14,
+          buttonText: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={cancelDialogStyles.overlay}>
+        <View style={[
+          cancelDialogStyles.dialogContainer,
+          { backgroundColor: colors.card }
+        ]}>
+          {/* Header with Linear Gradient */}
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={cancelDialogStyles.header}
+          >
+            <View style={cancelDialogStyles.headerContent}>
+              <Icon name="alert-triangle" size={24} color="#FFFFFF" />
+              <Text style={[cancelDialogStyles.headerTitle, { fontSize: fontSizes.title }]}>
+                Cancel Booking
+              </Text>
+            </View>
+          </LinearGradient>
+
+          {/* Content */}
+          <View style={cancelDialogStyles.content}>
+            <Text style={[
+              cancelDialogStyles.message,
+              { 
+                fontSize: fontSizes.message,
+                color: colors.text 
+              }
+            ]}>
+              Are you sure you want to cancel the {serviceName} service? This action cannot be undone.
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={cancelDialogStyles.buttonContainer}>
+              <TouchableOpacity
+                style={[
+                  cancelDialogStyles.button,
+                  cancelDialogStyles.cancelButton,
+                  { borderColor: colors.border }
+                ]}
+                onPress={onClose}
+                disabled={isLoading}
+              >
+                <Text style={[
+                  cancelDialogStyles.buttonText,
+                  { 
+                    fontSize: fontSizes.buttonText,
+                    color: colors.textSecondary 
+                  }
+                ]}>
+                  No, Keep It
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  cancelDialogStyles.button,
+                  cancelDialogStyles.confirmButton,
+                  { backgroundColor: colors.error }
+                ]}
+                onPress={onConfirm}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={[
+                    cancelDialogStyles.buttonText,
+                    { 
+                      fontSize: fontSizes.buttonText,
+                      color: '#FFFFFF' 
+                    }
+                  ]}>
+                    Yes, Cancel Booking
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
   try {
@@ -91,6 +222,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isMessageLoading, setIsMessageLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
+  const [showCancelDialog, setShowCancelDialog] = React.useState(false);
 
   // Get font sizes based on theme
   const getFontSizes = () => {
@@ -243,50 +375,68 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   const handleCancelBooking = async () => {
-    Alert.alert(
-      t('engagementDetails.cancelConfirmation'),
-      t('engagementDetails.cancelConfirmationMessage', { service: getServiceTitle(booking.service_type) }),
-      [
-        { text: t('engagementDetails.no'), style: "cancel" },
-        {
-          text: t('engagementDetails.yesCancel'),
-          style: "destructive",
-          onPress: async () => {
-            setIsCancelLoading(true);
-            try {
-              console.log(`🚫 Cancelling booking ${booking.id}`);
-              
-              await PaymentInstance.put(
-                `/api/engagements/${booking.id}`,
-                {
-                  task_status: "CANCELLED"
-                },
-                {
-                  headers: {
-                    'Content-Type': 'application/json'
-                  }
-                }
-              );
+    setShowCancelDialog(true);
+  };
 
-              console.log(`✅ Booking ${booking.id} cancelled successfully`);
-              Alert.alert(t('engagementDetails.success'), t('engagementDetails.bookingCancelled'));
-              
-              if (onPaymentComplete) {
-                onPaymentComplete(); // Refresh bookings
-              }
-              
-              onClose(); // Close drawer after cancellation
-              
-            } catch (error: any) {
-              console.error("❌ Error cancelling engagement:", error);
-              Alert.alert(t('engagementDetails.error'), t('engagementDetails.bookingCancelFailed'));
-            } finally {
-              setIsCancelLoading(false);
-            }
+  const confirmCancelBooking = async () => {
+    setIsCancelLoading(true);
+    try {
+      console.log(`🚫 Cancelling booking ${booking.id}`);
+      
+      await PaymentInstance.put(
+        `/api/engagements/${booking.id}`,
+        {
+          task_status: "CANCELLED"
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json'
           }
         }
-      ]
-    );
+      );
+
+      console.log(`✅ Booking ${booking.id} cancelled successfully`);
+      
+      // Close the cancel dialog
+      setShowCancelDialog(false);
+      
+      // Show success snackbar instead of alert
+      Snackbar.show({
+        text: `${getServiceTitle(booking.service_type)} service cancelled successfully`,
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: colors.success,
+        textColor: '#FFFFFF',
+        action: {
+          text: 'OK',
+          textColor: '#FFFFFF',
+          onPress: () => {
+            // Optional: handle action
+          },
+        },
+      });
+      
+      if (onPaymentComplete) {
+        onPaymentComplete(); // Refresh bookings
+      }
+      
+      // Close drawer after a short delay to allow snackbar to show
+      setTimeout(() => {
+        onClose(); // Close drawer after cancellation
+      }, 500);
+      
+    } catch (error: any) {
+      console.error("❌ Error cancelling engagement:", error);
+      
+      // Show error snackbar
+      Snackbar.show({
+        text: error?.response?.data?.message || 'Failed to cancel booking. Please try again.',
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: colors.error,
+        textColor: '#FFFFFF',
+      });
+    } finally {
+      setIsCancelLoading(false);
+    }
   };
 
   const getServiceIcon = (serviceType: string) => {
@@ -681,332 +831,344 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   });
 
   return (
-    <Modal
-      visible={isOpen}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={dynamicStyles.modalOverlay}>
-        <TouchableOpacity style={dynamicStyles.overlayTouchable} onPress={onClose} />
-       
-        <View style={dynamicStyles.drawerContainer}>
-          {/* Header */}
-          <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.header}
-          >
-            <View style={dynamicStyles.headerContent}>
-              <View style={dynamicStyles.headerLeftPlaceholder} />
-              <Text style={dynamicStyles.headerTitle}>{t('engagementDetails.title')}</Text>
-              <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
-                <Icon name="x" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-
-          {/* Content */}
-          <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
-            {/* Booking ID and Status */}
-            <View style={dynamicStyles.bookingIdContainer}>
-              <View>
-                <Text style={dynamicStyles.labelText}>{t('engagementDetails.bookingId')}</Text>
-                <Text style={dynamicStyles.bookingIdText}>#{booking.id}</Text>
+    <>
+      <Modal
+        visible={isOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <View style={dynamicStyles.modalOverlay}>
+          <TouchableOpacity style={dynamicStyles.overlayTouchable} onPress={onClose} />
+         
+          <View style={dynamicStyles.drawerContainer}>
+            {/* Header */}
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={dynamicStyles.header}
+            >
+              <View style={dynamicStyles.headerContent}>
+                <View style={dynamicStyles.headerLeftPlaceholder} />
+                <Text style={dynamicStyles.headerTitle}>{t('engagementDetails.title')}</Text>
+                <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
+                  <Icon name="x" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
-              <View style={dynamicStyles.statusContainer}>
-                {getBookingTypeBadge(booking.bookingType)}
-                {getStatusBadge(booking.taskStatus)}
+            </LinearGradient>
+
+            {/* Content */}
+            <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
+              {/* Booking ID and Status */}
+              <View style={dynamicStyles.bookingIdContainer}>
+                <View>
+                  <Text style={dynamicStyles.labelText}>{t('engagementDetails.bookingId')}</Text>
+                  <Text style={dynamicStyles.bookingIdText}>#{booking.id}</Text>
+                </View>
+                <View style={dynamicStyles.statusContainer}>
+                  {getBookingTypeBadge(booking.bookingType)}
+                  {getStatusBadge(booking.taskStatus)}
+                </View>
               </View>
-            </View>
 
-            {/* Service Type */}
-            <View style={dynamicStyles.serviceTypeContainer}>
-              <View style={dynamicStyles.serviceIconContainer}>
-                <Text style={dynamicStyles.serviceIcon}>
-                  {getServiceIcon(booking.service_type)}
-                </Text>
+              {/* Service Type */}
+              <View style={dynamicStyles.serviceTypeContainer}>
+                <View style={dynamicStyles.serviceIconContainer}>
+                  <Text style={dynamicStyles.serviceIcon}>
+                    {getServiceIcon(booking.service_type)}
+                  </Text>
+                </View>
+                <View style={dynamicStyles.serviceTextContainer}>
+                  <Text style={dynamicStyles.serviceLabel}>{t('engagementDetails.serviceType')}</Text>
+                  <Text style={dynamicStyles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
+                </View>
               </View>
-              <View style={dynamicStyles.serviceTextContainer}>
-                <Text style={dynamicStyles.serviceLabel}>{t('engagementDetails.serviceType')}</Text>
-                <Text style={dynamicStyles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
-              </View>
-            </View>
 
-            {/* Action Buttons - Call, Message, Cancel */}
-            <View style={dynamicStyles.actionButtonsContainer}>
-              <TouchableOpacity 
-                style={[dynamicStyles.actionButton, dynamicStyles.callButton]}
-                onPress={handleCallProvider}
-                disabled={isCallLoading}
-              >
-                {isCallLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Icon name="phone" size={18} color="#FFFFFF" />
-                    {/* <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.call')}</Text> */}
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[dynamicStyles.actionButton, dynamicStyles.messageButton]}
-                onPress={handleMessageProvider}
-                disabled={isMessageLoading}
-              >
-                {isMessageLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Icon name="message-square" size={18} color="#FFFFFF" />
-                    {/* <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.message')}</Text> */}
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {isCancellable() && (
+              {/* Action Buttons - Call, Message, Cancel */}
+              <View style={dynamicStyles.actionButtonsContainer}>
                 <TouchableOpacity 
-                  style={[dynamicStyles.actionButton, dynamicStyles.cancelButton]}
-                  onPress={handleCancelBooking}
-                  disabled={isCancelLoading}
+                  style={[dynamicStyles.actionButton, dynamicStyles.callButton]}
+                  onPress={handleCallProvider}
+                  disabled={isCallLoading}
                 >
-                  {isCancelLoading ? (
+                  {isCallLoading ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <>
-                      <Icon name="x-circle" size={18} color="#FFFFFF" />
-                      <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.cancel')}</Text>
+                      <Icon name="phone" size={18} color="#FFFFFF" />
+                      {/* <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.call')}</Text> */}
                     </>
                   )}
                 </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.messageButton]}
+                  onPress={handleMessageProvider}
+                  disabled={isMessageLoading}
+                >
+                  {isMessageLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Icon name="message-square" size={18} color="#FFFFFF" />
+                      {/* <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.message')}</Text> */}
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {isCancellable() && (
+                  <TouchableOpacity 
+                    style={[dynamicStyles.actionButton, dynamicStyles.cancelButton]}
+                    onPress={handleCancelBooking}
+                    disabled={isCancelLoading}
+                  >
+                    {isCancelLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Icon name="x-circle" size={18} color="#FFFFFF" />
+                        <Text style={dynamicStyles.actionButtonText}>{t('engagementDetails.cancel')}</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Rest of your content remains the same */}
+              {/* Schedule Information */}
+              <View style={dynamicStyles.section}>
+                <View style={dynamicStyles.sectionHeader}>
+                  <Icon name="calendar" size={20} color={colors.primary} />
+                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.schedule')}</Text>
+                </View>
+                
+                <View style={dynamicStyles.scheduleGrid}>
+                  <View style={dynamicStyles.scheduleItem}>
+                    <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.startDate')}</Text>
+                    <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.startDate)}</Text>
+                  </View>
+                  <View style={dynamicStyles.scheduleItem}>
+                    <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.endDate')}</Text>
+                    <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.endDate)}</Text>
+                  </View>
+                </View>
+
+                <View style={dynamicStyles.timeSlotContainer}>
+                  <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.timeSlot')}</Text>
+                  <View style={dynamicStyles.timeSlotValueContainer}>
+                    <Icon name="clock" size={16} color={colors.textSecondary} />
+                    <Text style={dynamicStyles.scheduleValue}>
+                      {formatTimeToAMPM(booking.start_time)} - {formatTimeToAMPM(booking.end_time)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Provider Information */}
+              {booking.serviceProviderName && booking.serviceProviderName !== 'Not Assigned' && (
+                <View style={dynamicStyles.section}>
+                  <View style={dynamicStyles.sectionHeader}>
+                    <Icon name="user" size={20} color={colors.success} />
+                    <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.serviceProvider')}</Text>
+                  </View>
+                  
+                  <View style={dynamicStyles.providerContainer}>
+                    <View style={dynamicStyles.providerInfo}>
+                      <Text style={dynamicStyles.providerName}>{booking.serviceProviderName}</Text>
+                    </View>
+                    {booking.providerRating > 0 && (
+                      <Badge style={dynamicStyles.ratingBadge}>
+                        ⭐ {booking.providerRating.toFixed(1)}
+                      </Badge>
+                    )}
+                  </View>
+                </View>
               )}
-            </View>
 
-            {/* Schedule Information */}
-            <View style={dynamicStyles.section}>
-              <View style={dynamicStyles.sectionHeader}>
-                <Icon name="calendar" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.schedule')}</Text>
-              </View>
-              
-              <View style={dynamicStyles.scheduleGrid}>
-                <View style={dynamicStyles.scheduleItem}>
-                  <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.startDate')}</Text>
-                  <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.startDate)}</Text>
-                </View>
-                <View style={dynamicStyles.scheduleItem}>
-                  <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.endDate')}</Text>
-                  <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.endDate)}</Text>
-                </View>
-              </View>
-
-              <View style={dynamicStyles.timeSlotContainer}>
-                <Text style={dynamicStyles.scheduleLabel}>{t('engagementDetails.timeSlot')}</Text>
-                <View style={dynamicStyles.timeSlotValueContainer}>
-                  <Icon name="clock" size={16} color={colors.textSecondary} />
-                  <Text style={dynamicStyles.scheduleValue}>
-                    {formatTimeToAMPM(booking.start_time)} - {formatTimeToAMPM(booking.end_time)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Provider Information */}
-            {booking.serviceProviderName && booking.serviceProviderName !== 'Not Assigned' && (
+              {/* Tasks & Responsibilities */}
               <View style={dynamicStyles.section}>
                 <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="user" size={20} color={colors.success} />
-                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.serviceProvider')}</Text>
+                  <Icon name="file-text" size={20} color={colors.info} />
+                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.tasksResponsibilities')}</Text>
                 </View>
                 
-                <View style={dynamicStyles.providerContainer}>
-                  <View style={dynamicStyles.providerInfo}>
-                    <Text style={dynamicStyles.providerName}>{booking.serviceProviderName}</Text>
-                  </View>
-                  {booking.providerRating > 0 && (
-                    <Badge style={dynamicStyles.ratingBadge}>
-                      ⭐ {booking.providerRating.toFixed(1)}
-                    </Badge>
+                <View style={dynamicStyles.tasksContainer}>
+                  {/* Main Tasks */}
+                  {booking.responsibilities?.tasks && booking.responsibilities.tasks.length > 0 && (
+                    <View>
+                      <Text style={dynamicStyles.tasksSubLabel}>{t('engagementDetails.mainTasks')}</Text>
+                      <View style={dynamicStyles.tasksList}>
+                        {booking.responsibilities.tasks.map((task: any, index: number) => {
+                          const taskDetails = Object.entries(task)
+                            .filter(([key]) => key !== 'taskType')
+                            .map(([key, value]) => `${value} ${key}`)
+                            .join(', ');
+                          
+                          return (
+                            <Badge key={index} variant="outline" style={dynamicStyles.mainTaskBadge}>
+                              {task.taskType} {taskDetails && `- ${taskDetails}`}
+                            </Badge>
+                          );
+                        })}
+                      </View>
+                    </View>
                   )}
-                </View>
-              </View>
-            )}
 
-            {/* Tasks & Responsibilities */}
-            <View style={dynamicStyles.section}>
-              <View style={dynamicStyles.sectionHeader}>
-                <Icon name="file-text" size={20} color={colors.info} />
-                <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.tasksResponsibilities')}</Text>
-              </View>
-              
-              <View style={dynamicStyles.tasksContainer}>
-                {/* Main Tasks */}
-                {booking.responsibilities?.tasks && booking.responsibilities.tasks.length > 0 && (
-                  <View>
-                    <Text style={dynamicStyles.tasksSubLabel}>{t('engagementDetails.mainTasks')}</Text>
-                    <View style={dynamicStyles.tasksList}>
-                      {booking.responsibilities.tasks.map((task: any, index: number) => {
-                        const taskDetails = Object.entries(task)
-                          .filter(([key]) => key !== 'taskType')
-                          .map(([key, value]) => `${value} ${key}`)
-                          .join(', ');
-                        
-                        return (
-                          <Badge key={index} variant="outline" style={dynamicStyles.mainTaskBadge}>
-                            {task.taskType} {taskDetails && `- ${taskDetails}`}
+                  {/* Add-ons */}
+                  {booking.responsibilities?.add_ons && booking.responsibilities.add_ons.length > 0 && (
+                    <View>
+                      <Text style={dynamicStyles.tasksSubLabel}>{t('engagementDetails.addOns')}</Text>
+                      <View style={dynamicStyles.tasksList}>
+                        {booking.responsibilities.add_ons.map((addon: any, index: number) => (
+                          <Badge key={index} variant="outline" style={dynamicStyles.addonBadge}>
+                            {addon.taskType}
                           </Badge>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
-
-                {/* Add-ons */}
-                {booking.responsibilities?.add_ons && booking.responsibilities.add_ons.length > 0 && (
-                  <View>
-                    <Text style={dynamicStyles.tasksSubLabel}>{t('engagementDetails.addOns')}</Text>
-                    <View style={dynamicStyles.tasksList}>
-                      {booking.responsibilities.add_ons.map((addon: any, index: number) => (
-                        <Badge key={index} variant="outline" style={dynamicStyles.addonBadge}>
-                          {addon.taskType}
-                        </Badge>
-                      ))}
-                    </View>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Payment Details */}
-            {booking.payment && (
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="credit-card" size={20} color={colors.warning} />
-                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.paymentDetails')}</Text>
-                </View>
-                
-                <View style={dynamicStyles.paymentContainer}>
-                  <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.baseAmount')}</Text>
-                    <Text style={dynamicStyles.paymentValue}>₹{booking.payment.base_amount}</Text>
-                  </View>
-                  <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.platformFee')}</Text>
-                    <Text style={dynamicStyles.paymentValue}>₹{booking.payment.platform_fee}</Text>
-                  </View>
-                  <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.gst')}</Text>
-                    <Text style={dynamicStyles.paymentValue}>₹{booking.payment.gst}</Text>
-                  </View>
-                  <Separator style={dynamicStyles.separator} />
-                  <View style={dynamicStyles.paymentTotalRow}>
-                    <Text style={dynamicStyles.paymentTotalLabel}>{t('engagementDetails.total')}</Text>
-                    <Text style={dynamicStyles.paymentTotalValue}>₹{booking.payment.total_amount}</Text>
-                  </View>
-                  
-                  <View style={dynamicStyles.paymentStatusRow}>
-                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.paymentStatus')}</Text>
-                    <Badge style={[dynamicStyles.paymentStatusBadge, ...getPaymentStatusColor(booking.payment.status)]}>
-                      {booking.payment.status}
-                    </Badge>
-                  </View>
-                  
-                  <View style={dynamicStyles.paymentRow}>
-                    <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.paymentMode')}</Text>
-                    <Text style={dynamicStyles.paymentModeValue}>{booking.payment.payment_mode}</Text>
-                  </View>
-
-                  {/* Complete Payment Button - Show only for PENDING status */}
-                  {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
-                    <View style={dynamicStyles.completePaymentContainer}>
-                      <TouchableOpacity
-                        style={dynamicStyles.completePaymentButton}
-                        onPress={handleCompletePayment}
-                        disabled={isProcessingPayment}
-                      >
-                        {isProcessingPayment ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <>
-                            <Icon name="credit-card" size={20} color="#FFFFFF" />
-                            <Text style={dynamicStyles.completePaymentText}>{t('engagementDetails.completePaymentNow')}</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                      <Text style={dynamicStyles.completePaymentNote}>
-                        {t('engagementDetails.completePaymentNote')}
-                      </Text>
+                        ))}
+                      </View>
                     </View>
                   )}
                 </View>
               </View>
-            )}
 
-            {/* Modification History */}
-            {booking.modifications && booking.modifications.length > 0 && (
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="alert-circle" size={20} color={colors.warning} />
-                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.modificationHistory')}</Text>
-                </View>
-                
-                <View style={dynamicStyles.modificationsContainer}>
-                  {booking.modifications.map((mod: any, index: number) => (
-                    <View key={index} style={dynamicStyles.modificationItem}>
-                      <View style={dynamicStyles.modificationHeader}>
-                        <Badge style={dynamicStyles.modificationBadge}>
-                          {mod.action}
-                        </Badge>
-                        <Text style={dynamicStyles.modificationDate}>
-                          {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
+              {/* Payment Details */}
+              {booking.payment && (
+                <View style={dynamicStyles.section}>
+                  <View style={dynamicStyles.sectionHeader}>
+                    <Icon name="credit-card" size={20} color={colors.warning} />
+                    <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.paymentDetails')}</Text>
+                  </View>
+                  
+                  <View style={dynamicStyles.paymentContainer}>
+                    <View style={dynamicStyles.paymentRow}>
+                      <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.baseAmount')}</Text>
+                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.base_amount}</Text>
+                    </View>
+                    <View style={dynamicStyles.paymentRow}>
+                      <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.platformFee')}</Text>
+                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.platform_fee}</Text>
+                    </View>
+                    <View style={dynamicStyles.paymentRow}>
+                      <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.gst')}</Text>
+                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.gst}</Text>
+                    </View>
+                    <Separator style={dynamicStyles.separator} />
+                    <View style={dynamicStyles.paymentTotalRow}>
+                      <Text style={dynamicStyles.paymentTotalLabel}>{t('engagementDetails.total')}</Text>
+                      <Text style={dynamicStyles.paymentTotalValue}>₹{booking.payment.total_amount}</Text>
+                    </View>
+                    
+                    <View style={dynamicStyles.paymentStatusRow}>
+                      <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.paymentStatus')}</Text>
+                      <Badge style={[dynamicStyles.paymentStatusBadge, ...getPaymentStatusColor(booking.payment.status)]}>
+                        {booking.payment.status}
+                      </Badge>
+                    </View>
+                    
+                    <View style={dynamicStyles.paymentRow}>
+                      <Text style={dynamicStyles.paymentLabel}>{t('engagementDetails.paymentMode')}</Text>
+                      <Text style={dynamicStyles.paymentModeValue}>{booking.payment.payment_mode}</Text>
+                    </View>
+
+                    {/* Complete Payment Button - Show only for PENDING status */}
+                    {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
+                      <View style={dynamicStyles.completePaymentContainer}>
+                        <TouchableOpacity
+                          style={dynamicStyles.completePaymentButton}
+                          onPress={handleCompletePayment}
+                          disabled={isProcessingPayment}
+                        >
+                          {isProcessingPayment ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Icon name="credit-card" size={20} color="#FFFFFF" />
+                              <Text style={dynamicStyles.completePaymentText}>{t('engagementDetails.completePaymentNow')}</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <Text style={dynamicStyles.completePaymentNote}>
+                          {t('engagementDetails.completePaymentNote')}
                         </Text>
                       </View>
-                      {mod.refund && (
-                        <Text style={dynamicStyles.refundText}>Refund: ₹{mod.refund}</Text>
-                      )}
-                      {mod.penalty && (
-                        <Text style={dynamicStyles.penaltyText}>Penalty: ₹{mod.penalty}</Text>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Additional Information */}
-            <View style={dynamicStyles.section}>
-              <View style={dynamicStyles.sectionHeader}>
-                <Icon name="tag" size={20} color={colors.textSecondary} />
-                <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.additionalInformation')}</Text>
-              </View>
-              
-              <View style={dynamicStyles.additionalInfoGrid}>
-                <View style={dynamicStyles.additionalInfoItem}>
-                  <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.bookingDate')}</Text>
-                  <Text style={dynamicStyles.additionalInfoValue}>
-                    {dayjs(booking.bookingDate).format('MMM D, YYYY')}
-                  </Text>
-                </View>
-                <View style={dynamicStyles.additionalInfoItem}>
-                  <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.assignmentStatus')}</Text>
-                  <Text style={dynamicStyles.additionalInfoValue}>
-                    {booking.assignmentStatus}
-                  </Text>
-                </View>
-                {booking.leave_days > 0 && (
-                  <View style={dynamicStyles.additionalInfoItem}>
-                    <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.leaveDays')}</Text>
-                    <Text style={dynamicStyles.additionalInfoValue}>{booking.leave_days}</Text>
+                    )}
                   </View>
-                )}
+                </View>
+              )}
+
+              {/* Modification History */}
+              {booking.modifications && booking.modifications.length > 0 && (
+                <View style={dynamicStyles.section}>
+                  <View style={dynamicStyles.sectionHeader}>
+                    <Icon name="alert-circle" size={20} color={colors.warning} />
+                    <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.modificationHistory')}</Text>
+                  </View>
+                  
+                  <View style={dynamicStyles.modificationsContainer}>
+                    {booking.modifications.map((mod: any, index: number) => (
+                      <View key={index} style={dynamicStyles.modificationItem}>
+                        <View style={dynamicStyles.modificationHeader}>
+                          <Badge style={dynamicStyles.modificationBadge}>
+                            {mod.action}
+                          </Badge>
+                          <Text style={dynamicStyles.modificationDate}>
+                            {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
+                          </Text>
+                        </View>
+                        {mod.refund && (
+                          <Text style={dynamicStyles.refundText}>Refund: ₹{mod.refund}</Text>
+                        )}
+                        {mod.penalty && (
+                          <Text style={dynamicStyles.penaltyText}>Penalty: ₹{mod.penalty}</Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Additional Information */}
+              <View style={dynamicStyles.section}>
+                <View style={dynamicStyles.sectionHeader}>
+                  <Icon name="tag" size={20} color={colors.textSecondary} />
+                  <Text style={dynamicStyles.sectionTitle}>{t('engagementDetails.additionalInformation')}</Text>
+                </View>
+                
+                <View style={dynamicStyles.additionalInfoGrid}>
+                  <View style={dynamicStyles.additionalInfoItem}>
+                    <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.bookingDate')}</Text>
+                    <Text style={dynamicStyles.additionalInfoValue}>
+                      {dayjs(booking.bookingDate).format('MMM D, YYYY')}
+                    </Text>
+                  </View>
+                  <View style={dynamicStyles.additionalInfoItem}>
+                    <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.assignmentStatus')}</Text>
+                    <Text style={dynamicStyles.additionalInfoValue}>
+                      {booking.assignmentStatus}
+                    </Text>
+                  </View>
+                  {booking.leave_days > 0 && (
+                    <View style={dynamicStyles.additionalInfoItem}>
+                      <Text style={dynamicStyles.additionalInfoLabel}>{t('engagementDetails.leaveDays')}</Text>
+                      <Text style={dynamicStyles.additionalInfoValue}>{booking.leave_days}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          </ScrollView>
+            </ScrollView>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* Custom Cancel Dialog */}
+      <CancelDialog
+        visible={showCancelDialog}
+        onClose={() => setShowCancelDialog(false)}
+        onConfirm={confirmCancelBooking}
+        serviceName={getServiceTitle(booking.service_type)}
+        isLoading={isCancelLoading}
+      />
+    </>
   );
 };
 
@@ -1035,6 +1197,69 @@ const styles = StyleSheet.create({
   paymentPending: {},
   paymentFailed: {},
   paymentDefault: {},
+});
+
+// Styles for Cancel Dialog
+const cancelDialogStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogContainer: {
+    width: width - 48,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  header: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTitle: {
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  content: {
+    padding: 20,
+  },
+  message: {
+    lineHeight: 20,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  confirmButton: {
+    backgroundColor: '#FF3B30',
+  },
+  buttonText: {
+    fontWeight: '600',
+  },
 });
 
 export default EngagementDetailsDrawer;
