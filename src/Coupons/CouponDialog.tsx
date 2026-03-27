@@ -16,6 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import LinearGradient from 'react-native-linear-gradient';
+import { useAppUser } from '../context/AppUserContext'; // Import AppUser context
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +58,7 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
   serviceType = 'COOK',
   userCity = 'Bangalore'
 }) => {
+  const { appUser } = useAppUser(); // Get appUser from context
   const [couponCode, setCouponCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,22 +66,26 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [fetchingCoupons, setFetchingCoupons] = useState(false);
 
-  // Fetch coupons from API when dialog opens
+  // Get customer ID from appUser
+  const customerId = appUser?.customerid || null;
+
+  // Fetch coupons from API when dialog opens - using customer ID from appUser
   useEffect(() => {
-    if (open) {
+    if (open && customerId) {
       fetchCoupons();
     }
-  }, [open]);
+  }, [open, customerId]);
 
   const fetchCoupons = async () => {
     setFetchingCoupons(true);
     setError(null);
     try {
-      const response = await axios.get('https://coupons-o26r.onrender.com/api/coupons/all');
+      // Use customer-specific API endpoint with the customer ID from appUser
+      const response = await axios.get(`https://coupons-o26r.onrender.com/api/coupons/customer/${customerId}`);
       if (response.data.success) {
         const now = new Date();
         // Filter coupons by service type, city, active status, and date range
-        const filteredCoupons = response.data.data.filter((coupon: Coupon) => {
+        const filteredCoupons = response.data.data.coupons.filter((coupon: Coupon) => {
           const startDate = new Date(coupon.start_date);
           const endDate = new Date(coupon.end_date);
           return (
@@ -220,6 +226,53 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
     </>
   );
 
+  // Show message if no customer ID is available
+  if (!customerId && open) {
+    return (
+      <Modal
+        visible={open}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Dialog Header */}
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.dialogHeader}
+            >
+              <View style={styles.headerContent}>
+                <Icon name="local-offer" size={24} color="#ebeef4" />
+                <Text style={styles.headerTitle}>
+                  Coupons and Offers
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleClose}
+                style={styles.closeButton}
+              >
+                <Icon name="close" size={24} color="#fafafaff" />
+              </TouchableOpacity>
+            </LinearGradient>
+
+            {/* Dialog Content */}
+            <View style={styles.dialogContent}>
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  Please log in to view available coupons
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       visible={open}
@@ -231,12 +284,11 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
         <View style={styles.modalContainer}>
           {/* Dialog Header */}
           <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.dialogHeader}
-                  >
-          {/* <View style={styles.dialogHeader}> */}
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.dialogHeader}
+          >
             <View style={styles.headerContent}>
               <Icon name="local-offer" size={24} color="#ebeef4" />
               <Text style={styles.headerTitle}>
@@ -250,7 +302,6 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
             >
               <Icon name="close" size={24} color="#fafafaff" />
             </TouchableOpacity>
-          {/* </View> */}
           </LinearGradient>
 
           {/* Dialog Content */}
@@ -424,7 +475,6 @@ const styles = StyleSheet.create({
     minHeight: '70%',
   },
   dialogHeader: {
-    backgroundColor: '#2c3e50',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderTopLeftRadius: 12,
@@ -646,6 +696,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#718096',
+    textAlign: 'center',
   },
   skeletonCard: {
     marginBottom: 16,

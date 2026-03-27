@@ -41,8 +41,8 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('transactions');
   const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const { appUser } = useAppUser();
 
   // Fallback dummy wallet (optional - not used when showing error)
@@ -142,51 +142,41 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
 
   useEffect(() => {
     if (open && appUser?.customerid) {
-      fetchWalletData();
-    } else if (open) {
-      // If no customerid, show error immediately
-      setError(t('wallet.error.unavailable'));
-      setLoading(false);
+      console.log('Fetching wallet for user:', appUser.customerid);
+      setIsLoading(true);
+      setHasError(false);
+      
+      PaymentInstance
+        .get(`/api/wallets/${appUser.customerid}`)
+        .then((response) => {
+          console.log('Wallet API Response:', response.data);
+          setWallet(response.data);
+          setIsLoading(false);
+        })
+        .catch((error) => {
+          console.error('Wallet fetch error:', error);
+          // Check if error is "Wallet not found for this customer"
+          if (error.response?.data?.error === "Wallet not found for this customer" || 
+              error.message?.includes("Wallet not found")) {
+            setHasError(true);
+          }
+          setIsLoading(false);
+        });
+    } else if (open && (!appUser?.customerid)) {
+      // If no customerid, show error
+      setHasError(true);
+      setIsLoading(false);
     }
-  }, [open, appUser, t]);
+  }, [open, appUser]);
 
-  const fetchWalletData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setWallet(null); // Reset wallet data
-      
-      console.log('Fetching wallet for user:', appUser?.customerid);
-
-      const response = await PaymentInstance.get(`/api/wallets/${appUser?.customerid}`);
-      
-      console.log('Wallet API Response:', response.data);
-      setWallet(response.data);
-      
-    } catch (error: any) {
-      console.error('Wallet fetch error:', error);
-      
-      // Check different error conditions
-      if (!appUser?.customerid) {
-        setError(t('wallet.error.unavailable'));
-      } else if (error.response?.status === 404) {
-        setError(t('wallet.error.noAccount'));
-      } else if (error.response?.status === 401) {
-        setError(t('wallet.error.signInRequired'));
-      } else if (error.code === 'ECONNABORTED') {
-        setError(t('wallet.error.connectionTimeout'));
-      } else if (error.message?.includes('Network Error')) {
-        setError(t('wallet.error.networkUnavailable'));
-      } else if (error.response?.data?.message) {
-        setError(error.response.data.message);
-      } else {
-        setError(t('wallet.error.generic'));
-      }
-      
-    } finally {
-      setLoading(false);
+  // Reset states when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setIsLoading(false);
+      setHasError(false);
+      setWallet(null);
     }
-  };
+  }, [open]);
 
   const formatCurrency = (amount: number) => {
     return `₹${amount.toFixed(2)}`;
@@ -200,7 +190,7 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
         day: 'numeric'
       });
     } catch (e) {
-      return dateString; // Return original string if parsing fails
+      return dateString;
     }
   };
 
@@ -286,144 +276,119 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
     </View>
   );
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingTitle, { color: colors.text, fontSize: fontSizes.loadingTitle }]}>{t('wallet.loading')}</Text>
-            <Text style={[styles.loadingSubtitle, { color: colors.textSecondary, fontSize: fontSizes.loadingSubtitle }]}>
-              {t('wallet.loadingDesc')}
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    if (error || !wallet) {
-      const isNoWalletError = error === t('wallet.error.noAccount') || 
-                            error === t('wallet.error.unavailable') ||
-                            !appUser?.customerid;
-      
-      return (
-        <View style={styles.errorContainer}>
-          <View style={[styles.errorCard, { backgroundColor: colors.card }]}>
-            <View style={[styles.errorIconContainer, { backgroundColor: colors.surface }]}>
-              <Icon 
-                name={isNoWalletError ? "wallet-plus" : "wifi-off"} 
-                size={56} 
-                color={isNoWalletError ? colors.textSecondary : colors.warning} 
-              />
-            </View>
-            
-            <Text style={[styles.errorMessage, { color: colors.textSecondary, fontSize: fontSizes.errorMessage }]}>
-              {error || t('wallet.error.generic')}
-            </Text>
-            
-            <View style={styles.errorActions}>
-              <TouchableOpacity 
-                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                onPress={fetchWalletData}
-              >
-                <Text style={[styles.primaryButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('wallet.actions.tryAgain')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.secondaryButton, { backgroundColor: colors.surface }]}
-                onPress={onClose}
-              >
-                <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>{t('wallet.actions.close')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      );
-    }
-
+  // Render loading state
+  if (isLoading) {
     return (
-      <ScrollView style={[styles.content, { backgroundColor: colors.background }]}>
-        {/* Balance Card */}
-        <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.balanceLabel, { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.balanceLabel }]}>{t('wallet.availableBalance')}</Text>
-          <Text style={[styles.balanceAmount, { color: '#fff', fontSize: fontSizes.balanceAmount }]}>
-            {formatCurrency(wallet.balance)}
-          </Text>
-          <View style={styles.balanceButtons}>
-            <TouchableOpacity style={[styles.addMoneyButton, { backgroundColor: '#fff' }]}>
-              <Icon name="plus-circle" size={18} color={colors.primary} />
-              <Text style={[styles.addMoneyText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('wallet.addMoney')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.transferButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderColor: 'rgba(255,255,255,0.3)' }]}>
-              <Icon name="swap-horizontal" size={18} color="#fff" />
-              <Text style={[styles.transferText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('wallet.transfer')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Tabs */}
-        <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'transactions' && [styles.activeTab, { backgroundColor: colors.surface }]]}
-            onPress={() => setActiveTab('transactions')}
+      <Modal
+        visible={open}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.linearGradient}
           >
-            <Icon 
-              name="history" 
-              size={18} 
-              color={activeTab === 'transactions' ? colors.primary : colors.textSecondary} 
-              style={styles.tabIcon}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: colors.textSecondary, fontSize: fontSizes.tabText },
-                activeTab === 'transactions' && [styles.activeTabText, { color: colors.primary }],
-              ]}
-            >
-              {t('wallet.transactions')}
-            </Text>
-            {activeTab === 'transactions' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
-          </TouchableOpacity>
+            <View style={styles.header}>
+              <View style={styles.titleContainer}>
+                <Icon name="wallet" size={22} color="#fff" style={styles.titleIcon} />
+                <Text style={[styles.headtitle, { color: '#fff', fontSize: fontSizes.headtitle }]}>{t('wallet.title')}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                <Icon name="close-thick" size={22} color="#f2f2f2" />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
           
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'rewards' && [styles.activeTab, { backgroundColor: colors.surface }]]}
-            onPress={() => setActiveTab('rewards')}
-          >
-            <Icon 
-              name="gift" 
-              size={18} 
-              color={activeTab === 'rewards' ? colors.primary : colors.textSecondary} 
-              style={styles.tabIcon}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: colors.textSecondary, fontSize: fontSizes.tabText },
-                activeTab === 'rewards' && [styles.activeTabText, { color: colors.primary }],
-              ]}
-            >
-              {t('wallet.rewards')}
-            </Text>
-            {activeTab === 'rewards' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
-          </TouchableOpacity>
-        </View>
-
-        {/* Tab Content */}
-        {activeTab === 'transactions' ? (
-          <View style={styles.tabContent}>
-            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('wallet.recentActivity')}</Text>
-            <ScrollView style={styles.transactionsList}>
-              {renderTransactions()}
-            </ScrollView>
+          <View style={styles.loadingContainer}>
+            <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingTitle, { color: colors.text, fontSize: fontSizes.loadingTitle }]}>{t('wallet.loading')}</Text>
+              <Text style={[styles.loadingSubtitle, { color: colors.textSecondary, fontSize: fontSizes.loadingSubtitle }]}>
+                {t('wallet.loadingDesc')}
+              </Text>
+            </View>
           </View>
-        ) : (
-          renderRewards()
-        )}
-      </ScrollView>
+        </SafeAreaView>
+      </Modal>
     );
-  };
+  }
 
-  if (!open) return null;
+  // Render error state
+  if (hasError) {
+    return (
+      <Modal
+        visible={open}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.linearGradient}
+          >
+            <View style={styles.header}>
+              <View style={styles.titleContainer}>
+                <Icon name="wallet" size={22} color="#fff" style={styles.titleIcon} />
+                <Text style={[styles.headtitle, { color: '#fff', fontSize: fontSizes.headtitle }]}>{t('wallet.title')}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                <Icon name="close-thick" size={22} color="#f2f2f2" />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+          
+          <View style={styles.errorContainer}>
+            <View style={[styles.errorCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.errorIconContainer, { backgroundColor: colors.surface }]}>
+                <Icon name="wallet-plus" size={56} color={colors.textSecondary} />
+              </View>
+              <Text style={[styles.errorMessage, { color: colors.textSecondary, fontSize: fontSizes.errorMessage }]}>
+                {t('wallet.error.noAccount')}
+              </Text>
+              <View style={styles.errorActions}>
+                <TouchableOpacity 
+                  style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    // Reset and retry
+                    setIsLoading(true);
+                    setHasError(false);
+                    if (appUser?.customerid) {
+                      PaymentInstance
+                        .get(`/api/wallets/${appUser.customerid}`)
+                        .then((response) => {
+                          setWallet(response.data);
+                          setIsLoading(false);
+                        })
+                        .catch((error) => {
+                          console.error('Retry error:', error);
+                          setHasError(true);
+                          setIsLoading(false);
+                        });
+                    }
+                  }}
+                >
+                  <Text style={[styles.primaryButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('wallet.actions.tryAgain')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.secondaryButton, { backgroundColor: colors.surface }]}
+                  onPress={onClose}
+                >
+                  <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>{t('wallet.actions.close')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -451,7 +416,109 @@ const WalletDialog: React.FC<WalletDialogProps> = ({ open, onClose }) => {
           </View>
         </LinearGradient>
 
-        {renderContent()}
+        {/* Content */}
+        <ScrollView style={[styles.content, { backgroundColor: colors.background }]}>
+          {/* Balance Card */}
+          <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.balanceLabel, { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.balanceLabel }]}>{t('wallet.availableBalance')}</Text>
+            <Text style={[styles.balanceAmount, { color: '#fff', fontSize: fontSizes.balanceAmount }]}>
+              {wallet ? formatCurrency(wallet.balance) : formatCurrency(walletData.balance)}
+            </Text>
+            <View style={styles.balanceButtons}>
+              <TouchableOpacity style={[styles.addMoneyButton, { backgroundColor: '#fff' }]}>
+                <Icon name="plus-circle" size={18} color={colors.primary} />
+                <Text style={[styles.addMoneyText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('wallet.addMoney')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.transferButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)', borderColor: 'rgba(255,255,255,0.3)' }]}>
+                <Icon name="swap-horizontal" size={18} color="#fff" />
+                <Text style={[styles.transferText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('wallet.transfer')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Tabs */}
+          <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'transactions' && [styles.activeTab, { backgroundColor: colors.surface }]]}
+              onPress={() => setActiveTab('transactions')}
+            >
+              <Icon 
+                name="history" 
+                size={18} 
+                color={activeTab === 'transactions' ? colors.primary : colors.textSecondary} 
+                style={styles.tabIcon}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: colors.textSecondary, fontSize: fontSizes.tabText },
+                  activeTab === 'transactions' && [styles.activeTabText, { color: colors.primary }],
+                ]}
+              >
+                {t('wallet.transactions')}
+              </Text>
+              {activeTab === 'transactions' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'rewards' && [styles.activeTab, { backgroundColor: colors.surface }]]}
+              onPress={() => setActiveTab('rewards')}
+            >
+              <Icon 
+                name="gift" 
+                size={18} 
+                color={activeTab === 'rewards' ? colors.primary : colors.textSecondary} 
+                style={styles.tabIcon}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: colors.textSecondary, fontSize: fontSizes.tabText },
+                  activeTab === 'rewards' && [styles.activeTabText, { color: colors.primary }],
+                ]}
+              >
+                {t('wallet.rewards')}
+              </Text>
+              {activeTab === 'rewards' && <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />}
+            </TouchableOpacity>
+          </View>
+
+          {/* Tab Content */}
+          {activeTab === 'transactions' ? (
+            <View style={styles.tabContent}>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('wallet.recentActivity')}</Text>
+              <ScrollView style={styles.transactionsList}>
+                {(wallet?.transactions || []).map((transaction) => (
+                  <View key={transaction.transaction_id} style={[styles.transactionItem, { backgroundColor: colors.card }]}>
+                    <View style={[styles.transactionIcon, { backgroundColor: colors.surface }]}>
+                      <Icon
+                        name={getTransactionIcon(transaction.transaction_type)}
+                        size={24}
+                        color={getTransactionColor(transaction.transaction_type)}
+                      />
+                    </View>
+                    <View style={styles.transactionDetails}>
+                      <Text style={[styles.transactionDescription, { color: colors.text, fontSize: fontSizes.transactionDescription }]}>{transaction.description}</Text>
+                      <Text style={[styles.transactionMeta, { color: colors.textSecondary, fontSize: fontSizes.transactionMeta }]}>
+                        {formatDate(transaction.created_at)} • {transaction.status}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.transactionAmount,
+                        { color: getTransactionColor(transaction.transaction_type), fontSize: fontSizes.transactionAmount }
+                      ]}
+                    >
+                      {transaction.transaction_type === 'credit' ? '+' : '-'}₹{transaction.amount}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : (
+            renderRewards()
+          )}
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );

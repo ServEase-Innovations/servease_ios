@@ -57,9 +57,12 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
   ]);
   const [inputText, setInputText] = useState('');
-  const [showAllFaq, setShowAllFaq] = useState(true);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  
+  const [showViewAllBtn, setShowViewAllBtn] = useState(false);
+  const [showAccordion, setShowAccordion] = useState(true);
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [mongoUser, setMongoUser] = useState<any>(null);
 
@@ -69,6 +72,17 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  /* ---------------- DETECT MOBILE DEVICE ---------------- */
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = Dimensions.get('window').width <= 768 || 
+        Platform.OS !== 'web';
+      setIsMobile(isMobileDevice);
+    };
+    
+    checkMobile();
+  }, []);
 
   /* ---------------- SOCKET CONNECT ---------------- */
   useEffect(() => {
@@ -93,11 +107,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-    
-    if (isMinimized && messages.length > 1) {
-      setUnreadCount(prev => prev + 1);
-    }
   }, [messages]);
+
+  /* ---------------- AUTO SCROLL TO ACCORDION ---------------- */
+  useEffect(() => {
+    if (showAccordion && scrollViewRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [showAccordion]);
 
   useEffect(() => {
     if (open) {
@@ -114,11 +133,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
         }),
       ]).start();
     } else {
-      setIsMinimized(false);
-      setUnreadCount(0);
       setChatOpen(false);
       setIsLiveChat(false);
-      setShowAllFaq(true);
+      setShowAccordion(true);
+      setShowViewAllBtn(false);
+      setExpandedFaq(null);
       setMessages([
         { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
       ]);
@@ -126,13 +145,30 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   }, [open]);
 
   /* ---------------- FAQ CLICK ---------------- */
-  const handleQuestionClick = (faq: any) => {
+  const handleQuestionClick = (faq: any, index: number) => {
+    // Toggle accordion expansion
+    setExpandedFaq(expandedFaq === index ? null : index);
+    
+    // Add question and answer to chat
     setMessages((prev) => [
       ...prev,
       { content: faq.question, sender: "user" },
       { content: faq.answer, sender: "bot" }
     ]);
-    setShowAllFaq(false);
+    setShowViewAllBtn(true);
+    setShowAccordion(false);
+  };
+
+  /* ---------------- BACK BUTTON HANDLER ---------------- */
+  const handleBackClick = () => {
+    setChatOpen(false);
+    setIsLiveChat(false);
+    setShowAccordion(true);
+    setShowViewAllBtn(false);
+    setExpandedFaq(null);
+    setMessages([
+      { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
+    ]);
   };
 
   /* ---------------- START LIVE CHAT ---------------- */
@@ -140,7 +176,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     if (!appUser) return;
 
     try {
-      // find or create Mongo user
       const { data: userData } = await axios.post(
         `${ENDPOINT}/api/user/find-or-create`,
         {
@@ -151,7 +186,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
 
       setMongoUser(userData);
 
-      // access chat with admin
       const { data: chatData } = await axios.post(
         `${ENDPOINT}/api/chat`,
         {
@@ -164,7 +198,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
 
       socketRef.current?.emit("join chat", chatData._id);
 
-      // load previous messages
       const messageData = await axios.get(
         `${ENDPOINT}/api/message/${chatData._id}`
       );
@@ -178,6 +211,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
 
       setIsLiveChat(true);
       setChatOpen(true);
+      
+      setShowViewAllBtn(false);
+      setShowAccordion(false);
+      setExpandedFaq(null);
 
     } catch (err) {
       console.error(err);
@@ -189,7 +226,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
-    // If not in live chat, treat as FAQ conversation
     if (!isLiveChat) {
       setMessages((prev) => [
         ...prev,
@@ -224,13 +260,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     }
   };
 
-  const toggleMinimize = () => {
-    setIsMinimized(!isMinimized);
-    if (!isMinimized) {
-      setUnreadCount(0);
-    }
-  };
-
   const handleEmailSupport = () => {
     Linking.openURL('mailto:support@serveaso.com').catch(err => 
       Alert.alert('Error', 'Could not open email client')
@@ -243,218 +272,194 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     );
   };
 
-  if (!open && !isMinimized) return null;
+  if (!open) return null;
+
+  const allFaqs = appUser?.role === "CUSTOMER" 
+    ? [...generalFaqData, ...customerFaqData]
+    : generalFaqData;
 
   return (
-    <>
-      {/* Minimized Chat Button */}
-      {isMinimized && (
-        <View style={styles.minimizedButton}>
-          <TouchableOpacity onPress={toggleMinimize} style={styles.minimizedButtonContent}>
-            <Icon name="chat" size={28} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Chat Container */}
-      {open && !isMinimized && (
-        <Animated.View
-          style={[
-            styles.chatContainer,
-            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-          ]}
+    <Animated.View
+      style={[
+        styles.chatContainer,
+        { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+      ]}
+    >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.chatContent}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+      >
+        {/* Header Section */}
+        <LinearGradient
+          colors={["#0a2a66ff", "#004aadff"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
         >
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.chatContent}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
-          >
-            {/* Header Section */}
-            <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.header}
+          {chatOpen && (
+            <TouchableOpacity 
+              onPress={handleBackClick} 
+              style={styles.backButton}
             >
-              {chatOpen && (
-                <TouchableOpacity 
+              <Icon name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.headerText}>Chat Support</Text>
+          <View style={styles.headerRightButtons}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Icon name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+
+        {/* Messages and FAQ Section */}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {messages.map((msg, index) => (
+            <View
+              key={index}
+              style={[
+                styles.messageBubble,
+                msg.sender === 'user' ? styles.userMessage : 
+                msg.sender === 'admin' ? styles.adminMessage : styles.botMessage,
+              ]}
+            >
+              <Text 
+                style={
+                  msg.sender === 'user' ? styles.userMessageText : 
+                  msg.sender === 'admin' ? styles.adminMessageText : styles.botMessageText
+                }
+              >
+                {msg.content}
+              </Text>
+            </View>
+          ))}
+
+          {/* FAQ SECTION (Only before live chat starts) */}
+          {!isLiveChat && (
+            <>
+              {showAccordion && (
+                <View style={styles.faqContainer}>
+                  <Text style={styles.faqTitle}>FAQs:</Text>
+                  {allFaqs.map((faq, index) => (
+                    <View key={index} style={styles.accordionItem}>
+                      <TouchableOpacity
+                        style={styles.accordionHeader}
+                        onPress={() => handleQuestionClick(faq, index)}
+                      >
+                        <Text style={styles.accordionQuestion}>{faq.question}</Text>
+                        <Icon 
+                          name={expandedFaq === index ? "chevron-up" : "chevron-down"} 
+                          size={20} 
+                          color="#666" 
+                        />
+                      </TouchableOpacity>
+                      {expandedFaq === index && (
+                        <View style={styles.accordionContent}>
+                          <Text style={styles.accordionAnswer}>{faq.answer}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {showViewAllBtn && !showAccordion && (
+                <TouchableOpacity
+                  style={styles.viewAllButton}
                   onPress={() => {
-                    setChatOpen(false);
-                    setIsLiveChat(false);
-                    setMessages([
-                      { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
-                    ]);
-                  }} 
-                  style={styles.backButton}
+                    setShowAccordion(true);
+                    setExpandedFaq(null);
+                  }}
                 >
-                  <Icon name="arrow-left" size={24} color="#fff" />
+                  <Text style={styles.viewAllButtonText}>View All FAQs</Text>
                 </TouchableOpacity>
               )}
-              <Text style={styles.headerText}>Chat Support</Text>
-              <View style={styles.headerRightButtons}>
-                <TouchableOpacity onPress={toggleMinimize} style={styles.minimizeButton}>
-                  <Icon name="chevron-down" size={24} color="#ffffff" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Icon name="close" size={24} color="#ffffff" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
 
-            {/* Messages and FAQ Section */}
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.messagesContainer}
-              contentContainerStyle={styles.messagesContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {messages.map((msg, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.messageBubble,
-                    msg.sender === 'user' ? styles.userMessage : 
-                    msg.sender === 'admin' ? styles.adminMessage : styles.botMessage,
-                  ]}
+              {showViewAllBtn && showAccordion && (
+                <TouchableOpacity
+                  style={styles.viewAllButton}
+                  onPress={() => {
+                    setShowAccordion(false);
+                    setExpandedFaq(null);
+                  }}
                 >
-                  <Text 
-                    style={
-                      msg.sender === 'user' ? styles.userMessageText : 
-                      msg.sender === 'admin' ? styles.adminMessageText : styles.botMessageText
-                    }
-                  >
-                    {msg.content}
+                  <Text style={styles.viewAllButtonText}>Hide FAQs</Text>
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.divider} />
+
+              {/* Live Chat Button */}
+              {appUser ? (
+                <TouchableOpacity
+                  style={styles.chatAssistantButton}
+                  onPress={startLiveChat}
+                >
+                  <FeatherIcon name="message-circle" size={16} color="#fff" />
+                  <Text style={styles.chatAssistantButtonText}>Chat with Assistant</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.loginMessage}>
+                  <Text style={styles.loginMessageText}>
+                    Please login to chat with our support team.
                   </Text>
                 </View>
-              ))}
-
-              {/* FAQ SECTION (Only before live chat starts) */}
-              {!isLiveChat && (
-                <>
-                  <View style={styles.faqContainer}>
-                    {(appUser?.role === "CUSTOMER"
-                      ? [...generalFaqData, ...customerFaqData]
-                      : generalFaqData
-                    ).map((faq, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.faqButton}
-                        onPress={() => handleQuestionClick(faq)}
-                      >
-                        <Text style={styles.faqButtonText}>{faq.question}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  {/* Live Chat Button */}
-                  {appUser ? (
-                    <TouchableOpacity
-                      style={styles.chatAssistantButton}
-                      onPress={startLiveChat}
-                    >
-                      <FeatherIcon name="message-circle" size={16} color="#fff" />
-                      <Text style={styles.chatAssistantButtonText}>Chat with Assistant</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.loginMessage}>
-                      <Text style={styles.loginMessageText}>
-                        Please login to chat with our support team.
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Contact Options */}
-                  <View style={styles.contactContainer}>
-                    <TouchableOpacity
-                      style={styles.supportButton}
-                      onPress={handleEmailSupport}
-                    >
-                      <FeatherIcon name="mail" size={18} color="#3b82f6" />
-                      <Text style={styles.supportButtonText}>support@serveaso.com</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.supportButton}
-                      onPress={handleCallSupport}
-                    >
-                      <FeatherIcon name="phone" size={18} color="#10b981" />
-                      <Text style={styles.supportButtonText}>080-123456789</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
               )}
-            </ScrollView>
 
-            {/* Chat Input Section */}
-            {chatOpen && (
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.textInput}
-                  value={inputText}
-                  onChangeText={setInputText}
-                  placeholder="Type your message..."
-                  placeholderTextColor="#999"
-                  onSubmitEditing={handleSendMessage}
-                  returnKeyType="send"
-                />
-                <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-                  <FeatherIcon name="send" size={20} color="#fff" />
+              {/* Contact Options */}
+              <View style={styles.contactContainer}>
+                <TouchableOpacity
+                  style={styles.supportButton}
+                  onPress={handleEmailSupport}
+                >
+                  <FeatherIcon name="mail" size={18} color="#3b82f6" />
+                  <Text style={styles.supportButtonText}>support@serveaso.com</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.supportButton}
+                  onPress={handleCallSupport}
+                >
+                  <FeatherIcon name="phone" size={18} color="#10b981" />
+                  <Text style={styles.supportButtonText}>080-123456789</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </KeyboardAvoidingView>
-        </Animated.View>
-      )}
-    </>
+            </>
+          )}
+        </ScrollView>
+
+        {/* Chat Input Section */}
+        {chatOpen && (
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Type your message..."
+              placeholderTextColor="#999"
+              onSubmitEditing={handleSendMessage}
+              returnKeyType="send"
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
+              <FeatherIcon name="send" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  minimizedButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    zIndex: 1001,
-  },
-  minimizedButtonContent: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  badge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: 'red',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   chatContainer: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 20,
     right: 20,
     width: Dimensions.get('window').width * 0.9,
     maxWidth: 380,
@@ -497,19 +502,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  minimizeButton: {
-    marginRight: 15,
-    padding: 4,
-  },
   closeButton: {
     padding: 4,
   },
   messagesContainer: {
     flex: 1,
     backgroundColor: '#f9fafb',
-    padding: 10,
   },
   messagesContent: {
+    padding: 10,
     paddingBottom: 15,
   },
   messageBubble: {
@@ -556,19 +557,54 @@ const styles = StyleSheet.create({
   faqContainer: {
     marginTop: 10,
   },
-  faqButton: {
-    backgroundColor: '#fff',
+  faqTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  accordionItem: {
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    width: '100%',
+    backgroundColor: '#fff',
+    overflow: 'hidden',
   },
-  faqButtonText: {
+  accordionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#fff',
+  },
+  accordionQuestion: {
     fontSize: 14,
+    fontWeight: '500',
     color: '#374151',
-    textAlign: 'left',
+    flex: 1,
+    marginRight: 10,
+  },
+  accordionContent: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  accordionAnswer: {
+    fontSize: 13,
+    color: '#6b7280',
+    lineHeight: 18,
+  },
+  viewAllButton: {
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  viewAllButtonText: {
+    color: '#3b82f6',
+    fontSize: 14,
+    fontWeight: '500',
   },
   divider: {
     height: 1,
