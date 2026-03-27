@@ -135,61 +135,6 @@ const DemoCook = ({
     }
   };
 
-  // Format time for backend
-  const formatTimeForBackend = (timeString: string): string => {
-    console.log("🕒 Original time string:", timeString);
-    
-    if (!timeString) {
-      console.log("🕒 Using default time: 10:00:00");
-      return '10:00:00';
-    }
-    
-    try {
-      let timeToFormat = timeString;
-      
-      if (timeString.includes(' - ')) {
-        timeToFormat = timeString.split(' - ')[0].trim();
-      }
-      
-      if (/^\d{2}:\d{2}:\d{2}$/.test(timeToFormat)) {
-        return timeToFormat;
-      }
-      
-      const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)/i;
-      const match = timeToFormat.match(timeRegex);
-      
-      if (match) {
-        let [_, hours, minutes, modifier] = match;
-        let hourNum = parseInt(hours);
-        
-        if (modifier.toUpperCase() === 'PM' && hourNum !== 12) {
-          hourNum += 12;
-        } else if (modifier.toUpperCase() === 'AM' && hourNum === 12) {
-          hourNum = 0;
-        }
-        
-        const formattedTime = `${hourNum.toString().padStart(2, '0')}:${minutes}:00`;
-        console.log("🕒 Formatted time:", formattedTime);
-        return formattedTime;
-      }
-      
-      if (timeToFormat.includes(':')) {
-        const parts = timeToFormat.split(':');
-        if (parts.length === 2) {
-          const formattedTime = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
-          console.log("🕒 Assumed 24-hour format:", formattedTime);
-          return formattedTime;
-        }
-      }
-      
-      console.log("🕒 Could not parse time, using default");
-      return '10:00:00';
-    } catch (error) {
-      console.error("🕒 Error formatting time:", error);
-      return '10:00:00';
-    }
-  };
-
   // Validate payload
   const validatePayload = (payload: BookingPayload) => {
     if (!payload.customerid || payload.customerid <= 0) {
@@ -205,11 +150,6 @@ const DemoCook = ({
 
     if (!payload.start_date) {
       Alert.alert("Validation Error", "Start date is required");
-      return false;
-    }
-
-    if (!payload.start_time || !/^\d{2}:\d{2}:\d{2}$/.test(payload.start_time)) {
-      Alert.alert("Validation Error", "Invalid start time format. Expected HH:MM:SS");
       return false;
     }
 
@@ -428,7 +368,6 @@ const DemoCook = ({
       };
 
       const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
-      const startTime = formatTimeForBackend(bookingType?.timeRange);
       
       const isOnDemand = currentBookingType === "ON_DEMAND";
       
@@ -437,7 +376,6 @@ const DemoCook = ({
         serviceproviderid = Number(providerDetails.serviceproviderId);
       }
 
-      // ✅ UPDATED: Use bookingType?.endTime with fallback to empty string
       const payload: BookingPayload = {
         customerid: customerId,
         serviceproviderid: serviceproviderid,
@@ -449,13 +387,12 @@ const DemoCook = ({
         service_type: "COOK",
         base_amount: baseTotal,
         payment_mode: "razorpay",
-        start_time: bookingType?.start_time || startTime,
-        end_time: bookingType?.endTime || "",  // ✅ NEW CHANGE - end_time with fallback
+        start_time: bookingType?.start_time || "",
+        end_time: bookingType?.endTime || "",
       };
 
       console.log("📦 Booking payload:", JSON.stringify(payload, null, 2));
       console.log(`🔍 Booking Type: ${currentBookingType}, Service Provider ID: ${serviceproviderid}`);
-      console.log(`⏰ Times - Start: ${payload.start_time}, End: ${payload.end_time}`);
 
       // Validate payload before sending
       if (!validatePayload(payload)) {
@@ -688,19 +625,6 @@ const DemoCook = ({
           </ScrollView>
           
           <View style={styles.footerContainer}>
-            {/* <View style={styles.voucherContainer}>
-              <TextInput
-                style={styles.voucherInput}
-                placeholder="Enter voucher code"
-                placeholderTextColor="#999"
-                value={voucher}
-                onChangeText={setVoucher}
-              />
-              <TouchableOpacity style={styles.voucherButton}>
-                <Text style={styles.voucherButtonText}>Apply Voucher</Text>
-              </TouchableOpacity>
-            </View> */}
-            
             <View style={styles.totalContainer}>
               <Text style={styles.footerText}>
                 Total for {selectedCount} item{selectedCount !== 1 ? 's' : ''} ({totalPersons} person{totalPersons !== 1 ? 's' : ''})

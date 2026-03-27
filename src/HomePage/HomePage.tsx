@@ -1183,7 +1183,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
       <Modal visible={showAgentRegistration} animationType="slide">
         <AgentRegistrationForm
           onBackToLogin={() => setShowAgentRegistration(false)}
-          onRegistrationSuccess={() => setShowAgentRegistration(false)}
+          // onRegistrationSuccess={() => setShowAgentRegistration(false)}
         />
       </Modal>
 

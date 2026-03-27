@@ -613,6 +613,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
           taskType: item.name 
         }))
       };
+      
 
       // Get booking type
       const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);

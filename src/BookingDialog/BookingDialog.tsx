@@ -99,15 +99,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const isDateDisabled = (date: Dayjs): boolean => {
     const now = dayjs();
     
-    // If it's a past date, it's disabled
     if (date.isBefore(now, 'day')) return true;
     
-    // If it's today, check if current time is past cutoff
     if (date.isSame(now, 'day')) {
       const currentTotalMinutes = now.hour() * 60 + now.minute();
       const cutoffTotalMinutes = BUSINESS_HOURS.cutoffHour * 60 + BUSINESS_HOURS.cutoffMinute;
       
-      // If current time is past cutoff (10 PM), disable today
       if (currentTotalMinutes >= cutoffTotalMinutes) {
         return true;
       }
@@ -127,19 +124,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   // Reset all booking state when modal closes
   useEffect(() => {
     if (!open) {
-      // Reset picker states
       setShowDatePicker(null);
       setShowCustomTimePicker(null);
       setTempDate(null);
-      
-      // Reset booking data
       setStartDate(null);
       setEndDate(null);
       setStartTime(null);
       setEndTime(null);
       setLastSelectedDate(null);
-      
-      // Reset custom time picker values to defaults
       setCustomHours(12);
       setCustomMinutes(0);
       setCustomAmPm("AM");
@@ -153,13 +145,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       const currentTime =
         showCustomTimePicker === "start" ? startTime : endTime;
       const now = dayjs();
-      let defaultTime = now.add(30, "minute"); // Default to 30 minutes from now
+      let defaultTime = now.add(30, "minute");
 
       if (currentTime) {
         defaultTime = currentTime;
       }
 
-      // Adjust to valid time range if needed
       if (defaultTime.hour() < BUSINESS_HOURS.openingHour) {
         defaultTime = defaultTime.hour(BUSINESS_HOURS.openingHour).minute(0);
       } else if (defaultTime.hour() >= BUSINESS_HOURS.cutoffHour) {
@@ -170,10 +161,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       const minutes = defaultTime.minute();
 
       if (use24HourFormat) {
-        // 24-hour format
         setCustomHours(hours);
       } else {
-        // 12-hour format
         if (hours === 0) {
           setCustomHours(12);
           setCustomAmPm("AM");
@@ -210,7 +199,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     if (selectedDate && showDatePicker) {
       setTempDate(selectedDate);
 
-      // Auto-show time picker after date selection on Android
       if (Platform.OS === "android") {
         setTimeout(() => {
           setShowCustomTimePicker(showDatePicker);
@@ -229,12 +217,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       ? dayjs(tempDate).hour(hours24).minute(minutes)
       : dayjs().hour(hours24).minute(minutes);
 
-    // Check if the date itself is disabled
     if (isDateDisabled(selectedDateTime)) {
       return false;
     }
 
-    // For start time, check 30-minute minimum gap
     if (type === "start") {
       if (
         selectedDateTime.isSame(now, "day") &&
@@ -244,7 +230,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       }
     }
 
-    // Check business hours range (5 AM - 10 PM)
     if (hours24 < BUSINESS_HOURS.openingHour || hours24 >= BUSINESS_HOURS.cutoffHour) {
       return false;
     }
@@ -256,19 +241,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     const now = dayjs();
     const isToday = tempDate ? dayjs(tempDate).isSame(now, "day") : true;
 
-    // If today is disabled by cutoff, return empty hours
     if (isToday && isDateDisabled(now)) {
       return { validHours: [], validMinutes: [] };
     }
 
-    // For 24-hour format: 5 to 21 (5 AM to 9 PM)
     const hours24 = [
       5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
     ];
     const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
     const validHours = hours24.filter((hour24) => {
-      // For start times on today, check 30-minute minimum
       if (type === "start" && isToday) {
         const testTime = tempDate
           ? dayjs(tempDate).hour(hour24).minute(0)
@@ -287,10 +269,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   const handleCustomTimeConfirm = () => {
     if (showCustomTimePicker) {
-      // Convert to 24-hour format for storage
       let hours24 = customHours;
       if (!use24HourFormat) {
-        // Convert from 12-hour to 24-hour format
         if (customAmPm === "PM" && customHours !== 12) {
           hours24 = customHours + 12;
         } else if (customAmPm === "AM" && customHours === 12) {
@@ -298,7 +278,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         }
       }
 
-      // Validate time
       if (!isTimeValid(hours24, customMinutes, showCustomTimePicker)) {
         return;
       }
@@ -322,7 +301,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             .second(0)
             .millisecond(0);
         } else {
-          // Create new datetime with today's date and selected time
           selectedDateTime = dayjs()
             .hour(hours24)
             .minute(customMinutes)
@@ -331,7 +309,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         }
       }
 
-      // Apply final validation and adjustments
       if (showCustomTimePicker === "start") {
         updateStartDateTime(selectedDateTime);
       } else {
@@ -351,50 +328,40 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     const now = dayjs();
     let adjustedDateTime = newDateTime;
     
-    // Check if only the date changed (not the time)
     const isDateChanged = lastSelectedDate && 
       !newDateTime.isSame(lastSelectedDate, 'day') && 
       newDateTime.isSame(lastSelectedDate, 'hour') && 
       newDateTime.isSame(lastSelectedDate, 'minute');
 
-    // Check if date is disabled by cutoff
     if (isDateDisabled(adjustedDateTime)) {
       return;
     }
 
-    // Case 1: Current date selected - set to current time + 30 minutes
     if (adjustedDateTime.isSame(today, 'day')) {
       const nowPlus30 = today.add(30, 'minute');
       
-      // If selected time is before now + 30, adjust it
       if (adjustedDateTime.isBefore(nowPlus30)) {
         adjustedDateTime = nowPlus30;
       }
       
-      // Ensure time is within 5 AM - 10 PM
       if (adjustedDateTime.hour() < BUSINESS_HOURS.openingHour) {
         adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
       } else if (adjustedDateTime.hour() >= BUSINESS_HOURS.cutoffHour) {
         adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
       }
     } else {
-      // Case 2: Future date selected - set to 5:00 AM by default
-      // Only set to 5:00 AM if the date changed but time didn't
       if (isDateChanged || (adjustedDateTime.hour() === 0 && adjustedDateTime.minute() === 0)) {
         adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
       }
     }
 
-    // Store dates and times in clean formats
     setStartDate(adjustedDateTime.format("YYYY-MM-DD"));
     setStartTime(adjustedDateTime);
     setLastSelectedDate(adjustedDateTime);
 
-    // Set default end time based on booking option
     const defaultEndTime = adjustedDateTime.add(1, "hour");
     
     if (selectedOption === "Date") {
-      // Ensure end time doesn't go beyond cutoff
       let finalEnd = defaultEndTime;
       if (defaultEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
         finalEnd = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
@@ -406,17 +373,17 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setEndDate(endDateValue.format("YYYY-MM-DD"));
       setEndTime(defaultEndTime);
     }
+    
+    console.log('Updated start time (HH:MM:SS):', adjustedDateTime.format('HH:mm:ss'));
   };
 
   const updateEndDateTime = (newDateTime: Dayjs) => {
     let adjustedDateTime = newDateTime;
 
-    // Ensure end time is after start time
     if (startTime && newDateTime.isBefore(startTime)) {
       adjustedDateTime = startTime.add(1, "hour");
     }
 
-    // Ensure time is within business hours
     const hour = adjustedDateTime.hour();
     if (hour < BUSINESS_HOURS.openingHour) {
       adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.openingHour).minute(0);
@@ -424,18 +391,17 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       adjustedDateTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
     }
 
-    // Store in clean formats
     setEndDate(adjustedDateTime.format("YYYY-MM-DD"));
     setEndTime(adjustedDateTime);
+    
+    console.log('Updated end time (HH:MM:SS):', adjustedDateTime.format('HH:mm:ss'));
   };
 
   const isConfirmDisabled = () => {
-    // If user is service provider, always disable confirm
     if (isServiceDisabled) {
       return true;
     }
 
-    // If past cutoff, disable confirm button
     if (isPastCutoff()) {
       return true;
     }
@@ -443,7 +409,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     if (selectedOption === "Date") {
       if (!startDate || !startTime) return true;
       
-      // Check if the selected start time is disabled
       if (isDateDisabled(startTime)) {
         return true;
       }
@@ -461,7 +426,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     } else if (selectedOption === "Short term") {
       if (!startDate || !endDate || !startTime || !endTime) return true;
       
-      // Check if start time is disabled
       if (isDateDisabled(startTime)) {
         return true;
       }
@@ -476,10 +440,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         return true;
       }
       
-      // Check if end time is after start time
       if (endTime.isBefore(startTime)) return true;
       
-      // Check if end time is within business hours
       const endHour = endTime.hour();
       if (endHour < BUSINESS_HOURS.openingHour || endHour >= BUSINESS_HOURS.cutoffHour) {
         return true;
@@ -488,7 +450,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     } else if (selectedOption === "Monthly") {
       if (!startDate || !startTime) return true;
       
-      // Check if start time is disabled
       if (isDateDisabled(startTime)) {
         return true;
       }
@@ -508,16 +469,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const handleAccept = () => {
-    // Don't allow service providers to confirm booking
     if (isServiceDisabled) {
       return;
     }
 
-    // Final validation before saving
     if (startTime) {
       const now = dayjs();
       
-      // Check cutoff for start date
       if (isDateDisabled(startTime)) {
         return;
       }
@@ -534,6 +492,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         return;
       }
     }
+
+    console.log('Saving booking with times (HH:MM:SS):', {
+      startTime: startTime?.format('HH:mm:ss'),
+      endTime: endTime?.format('HH:mm:ss'),
+      startDate,
+      endDate,
+      selectedOption
+    });
 
     onSave({
       option: selectedOption,
@@ -552,7 +518,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   const duration = getDuration();
 
-  // Helper function to get maximum date based on selected option
   const getMaximumDate = () => {
     if (selectedOption === "Monthly") {
       return new Date(maxDate90Days.toISOString());
@@ -560,7 +525,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     return new Date(maxDate21Days.toISOString());
   };
 
-  // Get font size based on theme settings
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
@@ -595,74 +559,58 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   const fontSizes = getFontSizes();
 
-  // Reusable duration selector component
   const renderDurationSelector = () => {
-    // Don't show if start time is not set
     if (!startTime) return null;
 
-    // For Monthly, we need end time
     if (selectedOption === "Monthly" && !endTime) return null;
     
-    // For Short term, we need start date and end date
     if (selectedOption === "Short term" && (!startDate || !endDate)) return null;
 
-    // Calculate current duration
     const currentDuration = endTime ? endTime.diff(startTime, 'hour') : 1;
     
-    // Check if we can increase duration (not exceeding 10 PM)
     const canIncreaseDuration = () => {
       if (!startTime) return false;
       const newEndTime = startTime.add(currentDuration + 1, 'hour');
       return newEndTime.hour() < BUSINESS_HOURS.cutoffHour;
     };
 
-    // Check if we can decrease duration (minimum 1 hour)
     const canDecreaseDuration = () => {
       return currentDuration > 1;
     };
 
-    // Handle duration increase
     const handleIncreaseDuration = () => {
       if (!startTime) return;
       
       const newEndTime = startTime.add(currentDuration + 1, 'hour');
       
-      // Check if exceeds max time
       if (newEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
         return;
       }
       
       setEndTime(newEndTime);
-      // For Date option, also update endDate
       if (selectedOption === "Date") {
         setEndDate(newEndTime.format("YYYY-MM-DD"));
       }
-      // For Monthly and Short term, don't update endDate
     };
 
-    // Handle duration decrease
     const handleDecreaseDuration = () => {
       if (!startTime) return;
       
       if (currentDuration > 1) {
         const newEndTime = startTime.add(currentDuration - 1, 'hour');
         setEndTime(newEndTime);
-        // For Date option, also update endDate
         if (selectedOption === "Date") {
           setEndDate(newEndTime.format("YYYY-MM-DD"));
         }
-        // For Monthly and Short term, don't update endDate
       }
     };
 
     return (
       <View style={[styles.confirmationContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Header */}
         <View style={styles.confirmationHeader}>
           <Text style={[styles.confirmationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.confirmBox.title')}</Text>
         </View>
 
-        {/* Booking Details Summary */}
         <View style={styles.confirmationSection}>
           <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.bookingDetails')}</Text>
           <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
@@ -687,7 +635,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </Text>
           )}
           
-          {/* Show date range for Short term */}
           {selectedOption === "Short term" && endDate && (
             <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
               Service will run from {dayjs(startDate).format('MMMM D')} to {dayjs(endDate).format('MMMM D, YYYY')}, 
@@ -695,7 +642,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </Text>
           )}
           
-          {/* Show monthly subscription message */}
           {selectedOption === "Monthly" && endDate && (
             <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
               Monthly subscription from {dayjs(startDate).format('MMMM D, YYYY')} to {dayjs(endDate).format('MMMM D, YYYY')}
@@ -712,7 +658,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           )}
         </View>
 
-        {/* Service Duration */}
         <View style={styles.confirmationSection}>
           <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.confirmBox.serviceDuration')}</Text>
           <Text style={[styles.confirmationText, styles.confirmationSecondary, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
@@ -723,7 +668,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               : t('booking.confirmBox.adjustDuration')}
           </Text>
 
-          {/* Duration Selector */}
           <View style={[styles.durationSelector, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TouchableOpacity
               style={[
@@ -770,7 +714,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </View>
         </View>
 
-        {/* Relax Message */}
         <View style={[styles.relaxMessageContainer, { backgroundColor: colors.infoLight }]}>
           <Text style={[styles.relaxMessageText, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
             {t('booking.confirmBox.relaxMessage')}
@@ -780,7 +723,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     );
   };
 
-  // If user is service provider, show disabled message
   if (isServiceDisabled) {
     return (
       <Modal visible={open} transparent animationType="fade">
@@ -822,7 +764,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     );
   }
 
-  // Custom Time Picker Component
   const renderCustomTimePicker = () => {
     const { validHours, validMinutes } = getValidTimeOptions(
       showCustomTimePicker!,
@@ -830,7 +771,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     const now = dayjs();
     const isToday = tempDate ? dayjs(tempDate).isSame(now, "day") : true;
 
-    // If today is disabled, show message instead of time picker
     if (isToday && isDateDisabled(now)) {
       return (
         <View style={[styles.customTimePickerContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -858,7 +798,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       );
     }
 
-    // Convert current selection to 24-hour format for validation
     let currentHours24 = customHours;
     if (!use24HourFormat) {
       if (customAmPm === "PM" && customHours !== 12) {
@@ -951,7 +890,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         </Text>
 
         <View style={styles.customTimePicker}>
-          {/* Hours Column */}
           <ScrollView
             style={styles.timeColumn}
             showsVerticalScrollIndicator={false}
@@ -963,7 +901,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 displayHour = hour;
                 displayText = hour.toString().padStart(2, "0");
               } else {
-                // Convert to 12-hour format for display
                 if (hour === 0) {
                   displayHour = 12;
                   displayText = "12";
@@ -1027,7 +964,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             })}
           </ScrollView>
 
-          {/* Minutes Column */}
           <ScrollView
             style={styles.timeColumn}
             showsVerticalScrollIndicator={false}
@@ -1055,7 +991,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             ))}
           </ScrollView>
 
-          {/* AM/PM Column - Only show in 12-hour mode */}
           {!use24HourFormat && (
             <View style={styles.timeColumn}>
               <TouchableOpacity
@@ -1157,7 +1092,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             contentContainerStyle={{ paddingBottom: 20 }}
             showsVerticalScrollIndicator={false}
           >
-            {/* Header with Linear Gradient */}
             <LinearGradient
               colors={["#0a2a66ff", "#004aadff"]}
               start={{ x: 0, y: 0 }}
@@ -1165,9 +1099,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               style={styles.headerContainer}
             >
               <View style={styles.headerContent}>
-                <View style={styles.headerLeft}>
-                  {/* Empty view for balance */}
-                </View>
+                <View style={styles.headerLeft} />
                 
                 <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>{t('booking.selectBookingOption')}</Text>
                 
@@ -1179,7 +1111,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </View>
             </LinearGradient>
 
-            {/* Radio options */}
             <View style={styles.radioRow}>
               {[t('booking.options.date'), t('booking.options.shortTerm'), t('booking.options.monthly')].map((opt, index) => (
                 <TouchableOpacity
@@ -1204,7 +1135,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               ))}
             </View>
 
-            {/* DATE Option */}
             {selectedOption === t('booking.options.date') && (
               <>
                 <View style={styles.dateTimeContainer}>
@@ -1215,18 +1145,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       const selected = dayjs(date);
                       const now = dayjs();
 
-                      // ⛔ past dates
                       if (selected.isBefore(now, "day")) return;
 
-                      // ⛔ cutoff time check - disable if today and past cutoff
                       if (isDateDisabled(selected)) {
                         return;
                       }
 
-                      // ⛔ max 21 days
                       if (selected.isAfter(maxDate21Days, "day")) return;
 
-                      // ⛔ 30 min rule
                       if (
                         selected.isSame(now, "day") &&
                         selected.isBefore(now.add(30, "minute"))
@@ -1239,12 +1165,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
 
-                {/* Duration Selector with Confirmation Box */}
                 {renderDurationSelector()}
               </>
             )}
 
-            {/* SHORT TERM Option */}
             {selectedOption === t('booking.options.shortTerm') && (
               <>
                 <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: fontSizes.subtitle }]}>{t('booking.selectDateTime')}</Text>
@@ -1260,25 +1184,20 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       const start = dayjs(startDate);
                       const end = dayjs(endDate);
                       
-                      // Parse the time string
                       const [t, meridian] = time.split(" ");
                       let hour = Number(t.split(":")[0]);
                       
                       if (meridian === "PM" && hour !== 12) hour += 12;
                       if (meridian === "AM" && hour === 12) hour = 0;
                       
-                      // Apply the selected time to start date only
                       const startWithTime = start.hour(hour).minute(0);
 
-                      // ⛔ past dates
                       if (start.isBefore(dayjs(), "day")) return;
 
-                      // ⛔ cutoff time check for start date
                       if (isDateDisabled(startWithTime)) {
                         return;
                       }
 
-                      // ⛔ max 21 days
                       if (end.diff(start, "day") > 21) {
                         return;
                       }
@@ -1287,19 +1206,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       setStartTime(startWithTime);
                       setEndDate(end.format('YYYY-MM-DD'));
                       
-                      // Set default end time to start time + 1 hour
                       const defaultEndTime = startWithTime.add(1, 'hour');
                       setEndTime(defaultEndTime);
                     }}
                   />
                 </View>
 
-                {/* Duration Selector for Short term option */}
                 {startDate && startTime && endTime && renderDurationSelector()}
               </>
             )}
 
-            {/* MONTHLY Option */}
             {selectedOption === t('booking.options.monthly') && (
               <>
                 <View style={styles.dateTimeContainer}>
@@ -1312,7 +1228,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
                       if (selected.isBefore(now, "day")) return;
                       
-                      // ⛔ cutoff time check
                       if (isDateDisabled(selected)) {
                         return;
                       }
@@ -1324,7 +1239,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
 
-                {/* Show end date info */}
                 {startDate && endDate && (
                   <View style={[styles.endDateInfo, { backgroundColor: colors.infoLight }]}>
                     <Text style={[styles.endDateInfoText, { color: colors.primary, fontSize: fontSizes.small }]}>
@@ -1333,12 +1247,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   </View>
                 )}
                 
-                {/* Duration Selector for Monthly option */}
                 {startDate && startTime && endTime && renderDurationSelector()}
               </>
             )}
 
-            {/* Buttons */}
             <View style={styles.actions}>
               <TouchableOpacity style={[styles.cancelButton, { borderColor: colors.primary }]} onPress={onClose}>
                 <Text style={[styles.cancelText, { color: colors.primary, fontSize: fontSizes.button }]}>{t('common.cancel')}</Text>
@@ -1465,7 +1377,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
-  // Custom Time Picker Styles
   customTimePickerContainer: {
     borderRadius: 12,
     padding: 16,
@@ -1565,7 +1476,6 @@ const styles = StyleSheet.create({
   customTimePickerButtonTextConfirm: {
     color: "#fff",
   },
-  // Styles for confirmation box
   confirmationContainer: {
     borderWidth: 1,
     borderRadius: 8,
@@ -1635,7 +1545,6 @@ const styles = StyleSheet.create({
   durationEndTime: {
     marginTop: 4,
   },
-  // Relax Message Styles
   relaxMessageContainer: {
     alignItems: "center",
     padding: 12,
@@ -1646,7 +1555,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     textAlign: "center",
   },
-  // Cutoff message styles
   cutoffMessageContainer: {
     alignItems: "center",
     padding: 20,
@@ -1662,7 +1570,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-  // Disabled styles for service providers
   disabledContainer: {
     padding: 40,
     alignItems: "center",

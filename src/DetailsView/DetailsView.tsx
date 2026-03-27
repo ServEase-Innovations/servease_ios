@@ -65,6 +65,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [activeFilters, setActiveFilters] = useState<FilterCriteria | null>(null);
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0); // Add state for total count
+  const [previousLocationKey, setPreviousLocationKey] = useState<string>(""); // Track location changes
   
   // Get font size styles based on settings
   const getFontSizeStyles = () => {
@@ -93,7 +94,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const dispatch = useDispatch();
 
   const location = useSelector((state: any) => {
-    console.log('🌍 Retrieving geolocation from Redux state:', state);
+    console.log('🌍 Retrieving geolocation from Redux state:', state?.geoLocation?.value);
     return state?.geoLocation?.value;
   });
 
@@ -105,16 +106,35 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
   };
 
+  // Generate a unique key for the current location
+  const getLocationKey = useCallback(() => {
+    if (!location) return "";
+    const lat = location?.geometry?.location?.lat || location?.lat;
+    const lng = location?.geometry?.location?.lng || location?.lng;
+    return `${lat}-${lng}`;
+  }, [location]);
+
+  // Effect to trigger search when location changes
   useEffect(() => {
     console.log('🔄 DetailsView useEffect triggered');
     console.log('📅 Booking type:', bookingType);
     console.log('📍 Location:', location);
     
-    // Only perform search if we have both booking type and location
+    const currentLocationKey = getLocationKey();
+    
+    // Check if location has changed
+    if (location && currentLocationKey !== previousLocationKey) {
+      console.log('📍 Location changed! Previous:', previousLocationKey, 'New:', currentLocationKey);
+      setPreviousLocationKey(currentLocationKey);
+      setHasPerformedSearch(false); // Reset search flag to trigger new search
+      setIsInitialLoad(true); // Reset initial load flag
+    }
+    
+    // Only perform search if we have both booking type and location and search hasn't been performed yet
     if (bookingType && location && !hasPerformedSearch) {
       performSearch();
     }
-  }, [selectedProviderType, location, bookingType]);
+  }, [selectedProviderType, location, bookingType, hasPerformedSearch, getLocationKey]);
 
   useEffect(() => {
     console.log('Selected ...', selected);
@@ -220,6 +240,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       let latitude = 0;
       let longitude = 0;
 
+      // Get coordinates from location object
       if (location?.geometry?.location) {
         latitude = location?.geometry?.location?.lat;
         longitude = location?.geometry?.location?.lng;
@@ -233,7 +254,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       const startDate = formatDateOnly(bookingType?.startDate) || '2025-04-01';
       const endDate = formatDateOnly(bookingType?.endDate) || '2025-04-30';
       
-      // FIXED: Properly format the time to HH:mm without trailing spaces
+      // Properly format the time to HH:mm without trailing spaces
       let preferredStartTime = "08:00"; // Default time
       
       if (bookingType?.timeRange) {
@@ -504,7 +525,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     loading,
     selectedProviderType,
     hasPerformedSearch,
-    isInitialLoad
+    isInitialLoad,
+    previousLocationKey,
+    currentLocationKey: getLocationKey()
   });
 
   const renderSkeletonLoader = () => {

@@ -835,10 +835,10 @@ const MainApp = () => {
               style={styles.splashImage}
               resizeMode="contain"
             />
-            <Text style={styles.loadingServerText}>Loading Server</Text>
+            {/* <Text style={styles.loadingServerText}>Loading Server</Text>
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="large" color="#ffffff" />
-            </View>
+            </View> */}
           </View>
         </LinearGradient>
       </Animated.View>
