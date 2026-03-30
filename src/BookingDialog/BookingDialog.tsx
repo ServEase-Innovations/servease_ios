@@ -111,6 +111,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   // Function to check if a date should be disabled based on cutoff time
   const isDateDisabled = (date: Dayjs): boolean => {
+    console.log("Helllo from isDateDisabled function");
+    console.log('Checking if date is disabled:', date.format('YYYY-MM-DD HH:mm'));
     const now = dayjs();
     
     if (date.isBefore(now, 'day')) return true;
@@ -126,14 +128,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
     
     return false;
-  };
-
-  // Check if current time is past cutoff
-  const isPastCutoff = (): boolean => {
-    const now = dayjs();
-    const currentTotalMinutes = now.hour() * 60 + now.minute();
-    const cutoffTotalMinutes = BUSINESS_HOURS.cutoffHour * 60 + BUSINESS_HOURS.cutoffMinute;
-    return currentTotalMinutes >= cutoffTotalMinutes;
   };
 
   // Reset all booking state when modal closes
@@ -406,30 +400,39 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const isConfirmDisabled = () => {
+    console.log("Checking if confirm should be disabled with state:" , isServiceDisabled ) ;
     if (isServiceDisabled) {
       return true;
     }
 
-    if (isPastCutoff()) {
-      return true;
-    }
-
+    console.log("selectedOption in isConfirmDisabled:", selectedOption);
     if (selectedOption === "Date") {
       if (!localStartDate || !localStartTime) return true;
+
+      if (!startDate || !startTime) return true;
+
+      console.log('Checking if start date is disabled:', startTime.format('YYYY-MM-DD HH:mm'));
+      console.log("isDateDisabled result:", isDateDisabled(startTime));
       
       if (isDateDisabled(localStartTime)) {
         return true;
       }
+
+      console.log('Checking if start time is within 30 minutes:', startTime.format('YYYY-MM-DD HH:mm'), dayjs().add(30, 'minute').format('YYYY-MM-DD HH:mm'));
       
       const now = dayjs();
       if (localStartTime.isSame(now, "day") && localStartTime.isBefore(now.add(30, "minute"))) {
         return true;
       }
+
+      console.log('Checking if start time is within business hours:', startTime.format('YYYY-MM-DD HH:mm'), `Opening: ${BUSINESS_HOURS.openingHour}:00`, `Cutoff: ${BUSINESS_HOURS.cutoffHour}:00`);
       
       const hour = localStartTime.hour();
       if (hour < BUSINESS_HOURS.openingHour || hour >= BUSINESS_HOURS.cutoffHour) {
         return true;
       }
+
+      console.log('Checking if end time is before start time:', endTime?.format('YYYY-MM-DD HH:mm'), startTime.format('YYYY-MM-DD HH:mm'));
       
     } else if (selectedOption === "Short term") {
       if (!localStartDate || !localEndDate || !localStartTime || !localEndTime) return true;
@@ -559,7 +562,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     
     if (selectedOption === "Short term" && (!localStartDate || !localEndDate)) return null;
 
-    const currentDuration = localEndTime ? localEndTime.diff(localStartTime, 'hour') : 1;
+    const currentDuration = endTime ? endTime.diff(startTime, 'hour') : 1;
+    console.log("Current duration in hours:", currentDuration);
     
     const canIncreaseDuration = () => {
       if (!localStartTime) return false;
