@@ -22,6 +22,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import moment from 'moment';
 import { ServiceProviderDTO } from '../types/ProviderDetailsType';
 import LinearGradient from 'react-native-linear-gradient';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface ProviderAvailabilityDrawerProps {
   open: boolean;
@@ -29,7 +31,6 @@ interface ProviderAvailabilityDrawerProps {
   provider: ServiceProviderDTO | null;
 }
 
-// Helper function to format date and time
 const formatDateTime = (dateString: string) => {
   return moment(dateString).format('MMM D, YYYY • hh:mm A');
 };
@@ -39,7 +40,9 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   onClose,
   provider,
 }) => {
-  // State for expand/collapse - both collapsed by default
+  const { t } = useTranslation();
+  const { colors, isDarkMode, fontSize } = useTheme();
+  
   const [previousBookingExpanded, setPreviousBookingExpanded] = useState(false);
   const [scheduleExceptionsExpanded, setScheduleExceptionsExpanded] = useState(false);
 
@@ -56,39 +59,38 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
 
   const getAvailabilityStatus = () => {
     const availability = provider.monthlyAvailability;
-    if (!availability) return 'Unknown';
+    if (!availability) return t('provider.availability.notSpecified');
     
-    if (availability.fullyAvailable) return 'Fully Available';
-    return 'Partially Available';
+    if (availability.fullyAvailable) return t('provider.availability.fullyAvailable');
+    return t('provider.availability.partiallyAvailable');
   };
 
   const getAvailabilityColor = () => {
     const availability = provider.monthlyAvailability;
     if (!availability) return 'default';
-    
     if (availability.fullyAvailable) return 'success';
     return 'warning';
   };
 
   const getBestMatchMessage = () => {
     if (provider.bestMatch) {
-      return "This provider perfectly matches all your requirements and preferences.";
+      return t('availabilityDrawer.bestMatchMessage');
     } else {
       if (provider.monthlyAvailability?.fullyAvailable === false) {
-        return "This provider has some schedule variations. Check availability details below.";
+        return t('availabilityDrawer.hasScheduleVariations');
       }
-      return "This provider matches most of your requirements.";
+      return t('availabilityDrawer.matchesMostRequirements');
     }
   };
 
   const getBookingTypeLabel = (bookingType: string) => {
     switch(bookingType) {
       case 'MONTHLY':
-        return 'Monthly';
+        return t('common.monthly');
       case 'WEEKLY':
-        return 'Weekly';
+        return t('common.weekly');
       case 'DAILY':
-        return 'Daily';
+        return t('common.daily');
       default:
         return bookingType;
     }
@@ -97,11 +99,11 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   const getServiceTypeLabel = (serviceType: string) => {
     switch(serviceType) {
       case 'COOK':
-        return 'Cook';
+        return t('profile.page.cook');
       case 'MAID':
-        return 'Maid';
+        return t('profile.page.maid');
       case 'NANNY':
-        return 'Nanny';
+        return t('profile.page.nanny');
       default:
         return serviceType;
     }
@@ -110,11 +112,11 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   const getEngagementStatusLabel = (status: string) => {
     switch(status) {
       case 'ASSIGNED':
-        return 'Assigned';
+        return t('booking.status.active');
       case 'COMPLETED':
-        return 'Completed';
+        return t('booking.status.completed');
       case 'CANCELLED':
-        return 'Cancelled';
+        return t('booking.status.cancelled');
       default:
         return status;
     }
@@ -129,7 +131,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     >
       <View style={styles.headerContent}>
         <Text style={styles.headerTitle}>
-          Availability Details
+          {t('availabilityDrawer.availabilityDetails')}
         </Text>
         <View style={styles.providerInfo}>
           <Text style={styles.providerName}>
@@ -138,13 +140,13 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
           {provider.bestMatch && (
             <View style={styles.bestMatchBadge}>
               <MaterialCommunityIcons name="fire" size={14} color="#FFD700" />
-              <Text style={styles.bestMatchText}>Best Match</Text>
+              <Text style={styles.bestMatchText}>{t('provider.bestMatch')}</Text>
             </View>
           )}
           {provider.previouslyBooked && (
             <View style={styles.previouslyBookedBadge}>
               <MaterialCommunityIcons name="history" size={14} color="#ffffff" />
-              <Text style={styles.previouslyBookedText}>Previously Booked</Text>
+              <Text style={styles.previouslyBookedText}>{t('availabilityDrawer.previouslyBooked')}</Text>
             </View>
           )}
         </View>
@@ -168,7 +170,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
           </View>
           <View style={styles.alertTextContainer}>
             <Text style={styles.alertTitle}>
-              Best Match Provider!
+              {t('availabilityDrawer.bestMatchProvider')}
             </Text>
             <Text style={styles.alertMessage}>
               {getBestMatchMessage()}
@@ -184,7 +186,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
           </View>
           <View style={styles.alertTextContainer}>
             <Text style={styles.alertTitle}>
-              Good Match
+              {t('availabilityDrawer.goodMatch')}
             </Text>
             <Text style={styles.alertMessage}>
               {getBestMatchMessage()}
@@ -203,7 +205,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     const details = provider.previousBookingDetails;
 
     return (
-      <Card style={styles.mainCard}>
+      <Card style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Card.Content>
           <TouchableOpacity 
             onPress={() => setPreviousBookingExpanded(!previousBookingExpanded)}
@@ -212,92 +214,124 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
             <View style={styles.collapsibleHeader}>
               <View style={styles.sectionHeader}>
                 <MaterialCommunityIcons name="history" size={24} color="#2196f3" />
-                <Text style={styles.sectionTitle}>Previous Booking</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {t('availabilityDrawer.previousBooking')}
+                </Text>
                 <View style={styles.expandBadge}>
-                  <Text style={styles.expandBadgeText}>Click to {previousBookingExpanded ? 'collapse' : 'expand'}</Text>
+                  <Text style={styles.expandBadgeText}>
+                    {t('availabilityDrawer.clickToExpand')}
+                  </Text>
                 </View>
               </View>
               <Icon 
                 name={previousBookingExpanded ? "expand-less" : "expand-more"} 
                 size={24} 
-                color="#666" 
+                color={colors.textSecondary} 
               />
             </View>
           </TouchableOpacity>
 
           {previousBookingExpanded && (
             <View style={styles.collapsibleContent}>
-              <Divider style={styles.contentDivider} />
+              <Divider style={[styles.contentDivider, { backgroundColor: colors.border }]} />
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLabel}>
-                  <MaterialCommunityIcons name="receipt" size={16} color="#666" />
-                  <Text style={styles.detailLabelText}>Booking ID:</Text>
+                  <MaterialCommunityIcons name="receipt" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.detailLabelText, { color: colors.textSecondary }]}>
+                    {t('engagementDetails.bookingId')}:
+                  </Text>
                 </View>
-                <Text style={styles.detailValue}>#{details.engagementId}</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>#{details.engagementId}</Text>
               </View>
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLabel}>
-                  <MaterialCommunityIcons name="clock-outline" size={16} color="#666" />
-                  <Text style={styles.detailLabelText}>Booking Type:</Text>
+                  <MaterialCommunityIcons name="clock-outline" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.detailLabelText, { color: colors.textSecondary }]}>
+                    {t('booking.bookingType')}:
+                  </Text>
                 </View>
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>{getBookingTypeLabel(details.bookingType)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.detailRow}>
-                <View style={styles.detailLabel}>
-                  <MaterialCommunityIcons name="silverware" size={16} color="#666" />
-                  <Text style={styles.detailLabelText}>Service Type:</Text>
-                </View>
-                <View style={[styles.chip, styles.secondaryChip]}>
-                  <Text style={styles.chipText}>{getServiceTypeLabel(details.serviceType)}</Text>
+                <View style={[styles.chip, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.chipText, { color: colors.textSecondary }]}>
+                    {getBookingTypeLabel(details.bookingType)}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLabel}>
-                  <MaterialCommunityIcons name="calendar-today" size={16} color="#666" />
-                  <Text style={styles.detailLabelText}>Duration:</Text>
+                  <MaterialCommunityIcons name="silverware" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.detailLabelText, { color: colors.textSecondary }]}>
+                    {t('booking.serviceType')}:
+                  </Text>
                 </View>
-                <Text style={styles.detailValue}>
+                <View style={[styles.chip, styles.secondaryChip, { backgroundColor: colors.infoLight }]}>
+                  <Text style={[styles.chipText, { color: colors.primary }]}>
+                    {getServiceTypeLabel(details.serviceType)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLabel}>
+                  <MaterialCommunityIcons name="calendar-today" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.detailLabelText, { color: colors.textSecondary }]}>
+                    {t('booking.duration')}:
+                  </Text>
+                </View>
+                <Text style={[styles.detailValue, { color: colors.text }]}>
                   {formatDate(details.startDate)} - {formatDate(details.endDate)}
                 </Text>
               </View>
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLabel}>
-                  <MaterialCommunityIcons name="information" size={16} color="#666" />
-                  <Text style={styles.detailLabelText}>Status:</Text>
+                  <MaterialCommunityIcons name="information" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.detailLabelText, { color: colors.textSecondary }]}>
+                    {t('common.status')}:
+                  </Text>
                 </View>
                 <View style={[
                   styles.chip, 
-                  details.engagementStatus === 'ASSIGNED' ? styles.successChip : styles.defaultChip
+                  details.engagementStatus === 'ASSIGNED' ? styles.successChip : styles.defaultChip,
+                  { backgroundColor: details.engagementStatus === 'ASSIGNED' ? colors.successLight : colors.surface }
                 ]}>
-                  <Text style={styles.chipText}>{getEngagementStatusLabel(details.engagementStatus)}</Text>
+                  <Text style={[
+                    styles.chipText, 
+                    { color: details.engagementStatus === 'ASSIGNED' ? colors.success : colors.textSecondary }
+                  ]}>
+                    {getEngagementStatusLabel(details.engagementStatus)}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLabel}>
-                  <MaterialCommunityIcons name="currency-inr" size={16} color="#666" />
-                  <Text style={styles.detailLabelText}>Amount:</Text>
+                  <MaterialCommunityIcons name="currency-inr" size={16} color={colors.textSecondary} />
+                  <Text style={[styles.detailLabelText, { color: colors.textSecondary }]}>
+                    {t('common.amount')}:
+                  </Text>
                 </View>
-                <Text style={[styles.detailValue, styles.amountValue]}>₹{details.baseAmount}</Text>
+                <Text style={[styles.detailValue, styles.amountValue, { color: colors.success }]}>
+                  ₹{details.baseAmount}
+                </Text>
               </View>
 
-              <Divider style={styles.contentDivider} />
+              <Divider style={[styles.contentDivider, { backgroundColor: colors.border }]} />
 
               <View style={styles.detailRow}>
-                <Text style={styles.captionText}>Booked on:</Text>
-                <Text style={styles.captionText}>{formatDateTime(details.createdAt)}</Text>
+                <Text style={[styles.captionText, { color: colors.textTertiary }]}>
+                  {t('availabilityDrawer.bookedOn')}:
+                </Text>
+                <Text style={[styles.captionText, { color: colors.textTertiary }]}>
+                  {formatDateTime(details.createdAt)}
+                </Text>
               </View>
 
-              <View style={[styles.alert, styles.infoAlert, styles.smallAlert]}>
-                <Text style={styles.alertMessageSmall}>
-                  You have previously booked this provider. Rebooking with them would be quick and easy!
+              <View style={[styles.alert, styles.infoAlert, styles.smallAlert, { backgroundColor: colors.infoLight }]}>
+                <Text style={[styles.alertMessageSmall, { color: colors.textSecondary }]}>
+                  {t('availabilityDrawer.previouslyBookedMessage')}
                 </Text>
               </View>
             </View>
@@ -309,49 +343,62 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
 
   const renderMonthlyAvailability = () => {
     const isFullyAvailable = provider.monthlyAvailability?.fullyAvailable === true;
-    const availabilityColor = getAvailabilityColor();
     
     return (
-      <Card style={styles.mainCard}>
+      <Card style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Card.Content>
           <View style={styles.sectionHeader}>
-            <Icon name="calendar-month" size={24} color="#333" />
-            <Text style={styles.sectionTitle}>Monthly Availability</Text>
+            <Icon name="calendar-month" size={24} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t('availabilityDrawer.monthlyAvailability')}
+            </Text>
             <View style={[
               styles.statusBadge,
-              isFullyAvailable ? styles.statusBadgeSuccess : styles.statusBadgeWarning
+              isFullyAvailable ? styles.statusBadgeSuccess : styles.statusBadgeWarning,
+              { backgroundColor: isFullyAvailable ? colors.successLight : colors.warningLight }
             ]}>
-              <Text style={styles.statusBadgeText}>
+              <Text style={[
+                styles.statusBadgeText,
+                { color: isFullyAvailable ? colors.success : colors.warning }
+              ]}>
                 {getAvailabilityStatus()}
               </Text>
             </View>
           </View>
 
           <View style={styles.infoSection}>
-            <Text style={styles.infoLabel}>Preferred Working Time</Text>
-            <View style={styles.timeInfo}>
-              <Icon name="access-time" size={20} color="#666" />
-              <Text style={styles.timeText}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              {t('availabilityDrawer.preferredWorkingTime')}
+            </Text>
+            <View style={[styles.timeInfo, { backgroundColor: colors.surface }]}>
+              <Icon name="access-time" size={20} color={colors.textSecondary} />
+              <Text style={[styles.timeText, { color: colors.text }]}>
                 {formatTime(provider.monthlyAvailability?.preferredTime)}
               </Text>
-              <View style={styles.dailyBadge}>
-                <Text style={styles.dailyBadgeText}>Daily</Text>
+              <View style={[styles.dailyBadge, { borderColor: colors.primary }]}>
+                <Text style={[styles.dailyBadgeText, { color: colors.primary }]}>
+                  {t('common.daily')}
+                </Text>
               </View>
             </View>
           </View>
 
           {provider.monthlyAvailability?.summary && (
             <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>Availability Summary (Next 30 days)</Text>
+              <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                {t('availabilityDrawer.availabilitySummaryNext30Days')}
+              </Text>
               
               <View style={styles.summaryItem}>
                 <View style={styles.summaryLabel}>
-                  <Icon name="event-available" size={20} color="#4caf50" />
-                  <Text style={styles.summaryText}>Days at preferred time</Text>
+                  <Icon name="event-available" size={20} color={colors.success} />
+                  <Text style={[styles.summaryText, { color: colors.text }]}>
+                    {t('availabilityDrawer.daysAtPreferredTime')}
+                  </Text>
                 </View>
                 <View style={styles.summaryValue}>
-                  <Text style={styles.daysCount}>
-                    {provider.monthlyAvailability.summary.daysAtPreferredTime} days
+                  <Text style={[styles.daysCount, { color: colors.text }]}>
+                    {provider.monthlyAvailability.summary.daysAtPreferredTime} {t('common.days')}
                   </Text>
                 </View>
               </View>
@@ -359,12 +406,14 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               {provider.monthlyAvailability.summary.daysWithDifferentTime > 0 && (
                 <View style={styles.summaryItem}>
                   <View style={styles.summaryLabel}>
-                    <Icon name="access-time" size={20} color="#ff9800" />
-                    <Text style={styles.summaryText}>Days with different time</Text>
+                    <Icon name="access-time" size={20} color={colors.warning} />
+                    <Text style={[styles.summaryText, { color: colors.text }]}>
+                      {t('availabilityDrawer.daysWithDifferentTime')}
+                    </Text>
                   </View>
                   <View style={styles.summaryValue}>
-                    <Text style={styles.daysCount}>
-                      {provider.monthlyAvailability.summary.daysWithDifferentTime} days
+                    <Text style={[styles.daysCount, { color: colors.text }]}>
+                      {provider.monthlyAvailability.summary.daysWithDifferentTime} {t('common.days')}
                     </Text>
                   </View>
                 </View>
@@ -373,24 +422,28 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
               {provider.monthlyAvailability.summary.unavailableDays > 0 && (
                 <View style={styles.summaryItem}>
                   <View style={styles.summaryLabel}>
-                    <Icon name="event-busy" size={20} color="#f44336" />
-                    <Text style={styles.summaryText}>Unavailable days</Text>
+                    <Icon name="event-busy" size={20} color={colors.error} />
+                    <Text style={[styles.summaryText, { color: colors.text }]}>
+                      {t('availabilityDrawer.unavailableDays')}
+                    </Text>
                   </View>
                   <View style={styles.summaryValue}>
-                    <Text style={styles.daysCount}>
-                      {provider.monthlyAvailability.summary.unavailableDays} days
+                    <Text style={[styles.daysCount, { color: colors.text }]}>
+                      {provider.monthlyAvailability.summary.unavailableDays} {t('common.days')}
                     </Text>
                   </View>
                 </View>
               )}
 
-              <Divider style={styles.summaryDivider} />
+              <Divider style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
 
               <View style={styles.totalItem}>
-                <Text style={styles.totalLabel}>Total available days</Text>
+                <Text style={[styles.totalLabel, { color: colors.text }]}>
+                  {t('availabilityDrawer.totalAvailableDays')}
+                </Text>
                 <View style={styles.totalValue}>
-                  <Text style={styles.totalDays}>
-                    {provider.monthlyAvailability.summary.totalDays} days
+                  <Text style={[styles.totalDays, { color: colors.primary }]}>
+                    {provider.monthlyAvailability.summary.totalDays} {t('common.days')}
                   </Text>
                 </View>
               </View>
@@ -408,7 +461,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     }
 
     return (
-      <Card style={styles.mainCard}>
+      <Card style={[styles.mainCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Card.Content>
           <TouchableOpacity 
             onPress={() => setScheduleExceptionsExpanded(!scheduleExceptionsExpanded)}
@@ -416,21 +469,25 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
           >
             <View style={styles.collapsibleHeader}>
               <View style={styles.exceptionsHeader}>
-                <Icon name="warning" size={24} color="#ff9800" />
-                <Text style={styles.sectionTitle}>Schedule Exceptions</Text>
-                <View style={styles.exceptionCountBadge}>
-                  <Text style={styles.exceptionCountText}>
-                    {provider.monthlyAvailability.exceptions.length} exception(s)
+                <Icon name="warning" size={24} color={colors.warning} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {t('availabilityDrawer.scheduleExceptions')}
+                </Text>
+                <View style={[styles.exceptionCountBadge, { backgroundColor: colors.warningLight }]}>
+                  <Text style={[styles.exceptionCountText, { color: colors.warning }]}>
+                    {provider.monthlyAvailability.exceptions.length} {t('availabilityDrawer.exception')}(s)
                   </Text>
                 </View>
                 <View style={styles.expandBadge}>
-                  <Text style={styles.expandBadgeText}>Click to {scheduleExceptionsExpanded ? 'collapse' : 'expand'}</Text>
+                  <Text style={styles.expandBadgeText}>
+                    {t('availabilityDrawer.clickToExpand')}
+                  </Text>
                 </View>
               </View>
               <Icon 
                 name={scheduleExceptionsExpanded ? "expand-less" : "expand-more"} 
                 size={24} 
-                color="#666" 
+                color={colors.textSecondary} 
               />
             </View>
           </TouchableOpacity>
@@ -438,37 +495,36 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
           {scheduleExceptionsExpanded && (
             <View style={styles.collapsibleContent}>
               {provider.monthlyAvailability.exceptions.map((exception, index) => (
-                <View key={index} style={styles.exceptionItem}>
+                <View key={index} style={[styles.exceptionItem, { backgroundColor: colors.warningLight, borderColor: colors.warning }]}>
                   <View style={styles.exceptionHeaderRow}>
-                    <Text style={styles.exceptionDate}>
+                    <Text style={[styles.exceptionDate, { color: colors.text }]}>
                       {moment(exception.date).format('ddd, MMM D, YYYY')}
                     </Text>
-                    <View style={styles.exceptionReasonBadge}>
+                    <View style={[styles.exceptionReasonBadge, { backgroundColor: colors.warning }]}>
                       <Text style={styles.exceptionReasonText}>
-                        {exception.reason?.replace('_', ' ') || 'Exception'}
+                        {exception.reason?.replace('_', ' ') || t('availabilityDrawer.exception')}
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.exceptionDescription}>
+                  <Text style={[styles.exceptionDescription, { color: colors.textSecondary }]}>
                     {exception.reason === 'ON_DEMAND' 
-                      ? 'Available on demand at different time'
-                      : 'Not available at preferred time'}
+                      ? t('availabilityDrawer.availableOnDemand')
+                      : t('availabilityDrawer.notAvailableAtPreferredTime')}
                   </Text>
                   {exception.suggestedTime && (
                     <View style={styles.suggestedTime}>
-                      <Icon name="access-time" size={16} color="#666" />
-                      <Text style={styles.suggestedTimeText}>
-                        Suggested time: {formatTime(exception.suggestedTime)}
+                      <Icon name="access-time" size={16} color={colors.textSecondary} />
+                      <Text style={[styles.suggestedTimeText, { color: colors.text }]}>
+                        {t('availabilityDrawer.suggestedTime')}: {formatTime(exception.suggestedTime)}
                       </Text>
                     </View>
                   )}
                 </View>
               ))}
 
-              <View style={[styles.alert, styles.infoAlert, styles.exceptionAlert]}>
-                <Text style={styles.exceptionNote}>
-                  These dates have different availability. You can still book for these dates,
-                  but the timing might vary.
+              <View style={[styles.alert, styles.infoAlert, styles.exceptionAlert, { backgroundColor: colors.infoLight }]}>
+                <Text style={[styles.exceptionNote, { color: colors.textSecondary }]}>
+                  {t('availabilityDrawer.exceptionNote')}
                 </Text>
               </View>
             </View>
@@ -481,41 +537,52 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   const renderNotices = () => (
     <View style={styles.notices}>
       {provider.monthlyAvailability?.fullyAvailable && (
-        <View style={[styles.alert, styles.successAlert, styles.noticeAlert]}>
+        <View style={[styles.alert, styles.successAlert, styles.noticeAlert, { backgroundColor: colors.successLight }]}>
           <View style={styles.alertIconContainer}>
-            <Icon name="check-circle" size={24} color="#4caf50" />
+            <Icon name="check-circle" size={24} color={colors.success} />
           </View>
           <View style={styles.alertTextContainer}>
-            <Text style={styles.alertTitle}>
-              Perfect Availability!
+            <Text style={[styles.alertTitle, { color: colors.text }]}>
+              {t('availabilityDrawer.perfectAvailability')}
             </Text>
-            <Text style={styles.alertMessage}>
-              This provider is fully available at their preferred time for the entire month.
-              No schedule conflicts or exceptions.
+            <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>
+              {t('availabilityDrawer.perfectAvailabilityMessage')}
             </Text>
           </View>
         </View>
       )}
 
       {!provider.bestMatch && provider.monthlyAvailability?.fullyAvailable === false && (
-        <View style={[styles.alert, styles.warningAlert, styles.noticeAlert]}>
+        <View style={[styles.alert, styles.warningAlert, styles.noticeAlert, { backgroundColor: colors.warningLight }]}>
           <View style={styles.alertIconContainer}>
-            <Icon name="info" size={24} color="#ff9800" />
+            <Icon name="info" size={24} color={colors.warning} />
           </View>
           <View style={styles.alertTextContainer}>
-            <Text style={styles.alertTitle}>
-              Why this isn't a Best Match?
+            <Text style={[styles.alertTitle, { color: colors.text }]}>
+              {t('availabilityDrawer.whyThisIsntBestMatch')}
             </Text>
-            <Text style={styles.alertMessage}>
-              This provider has some schedule variations during the month which prevents 
-              them from being marked as a "Best Match". However, they're still highly 
-              available and can accommodate your needs on most days.
+            <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>
+              {t('availabilityDrawer.hasScheduleVariations')}
             </Text>
           </View>
         </View>
       )}
     </View>
   );
+
+  // Get font sizes based on theme
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return { title: 20, subtitle: 14, text: 12, small: 11 };
+      case 'large':
+        return { title: 28, subtitle: 18, text: 16, small: 14 };
+      default:
+        return { title: 24, subtitle: 16, text: 14, small: 12 };
+    }
+  };
+
+  const fontSizes = getFontSizes();
 
   return (
     <Portal>
@@ -527,9 +594,9 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
         style={styles.modal}
       >
         <PaperProvider>
-          <View style={styles.container}>
+          <View style={[styles.container, { backgroundColor: colors.background }]}>
             {renderHeader()}
-            <Divider />
+            <Divider style={{ backgroundColor: colors.border }} />
             <ScrollView 
               style={styles.content}
               contentContainerStyle={styles.contentContainer}
@@ -554,7 +621,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
@@ -638,42 +704,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     marginBottom: 4,
-    color: '#000',
   },
   alertMessage: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#333',
   },
   alertMessageSmall: {
     fontSize: 13,
     lineHeight: 18,
-    color: '#333',
   },
   successAlert: {
-    backgroundColor: '#E8F5E9',
     borderLeftWidth: 4,
     borderLeftColor: '#4CAF50',
   },
   infoAlert: {
-    backgroundColor: '#E3F2FD',
     borderLeftWidth: 4,
     borderLeftColor: '#2196F3',
   },
   warningAlert: {
-    backgroundColor: '#FFF3E0',
     borderLeftWidth: 4,
     borderLeftColor: '#FF9800',
   },
   mainCard: {
     marginBottom: 16,
     borderRadius: 12,
-    backgroundColor: '#ffffff',
     elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
+    borderWidth: 1,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -683,7 +743,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: '700',
     fontSize: 18,
-    color: '#000',
     marginLeft: 12,
     marginRight: 'auto',
   },
@@ -697,7 +756,6 @@ const styles = StyleSheet.create({
   },
   contentDivider: {
     marginVertical: 12,
-    backgroundColor: '#E0E0E0',
     height: 1,
   },
   expandBadge: {
@@ -717,14 +775,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
   },
-  statusBadgeSuccess: {
-    backgroundColor: '#4CAF50',
-  },
-  statusBadgeWarning: {
-    backgroundColor: '#FF9800',
-  },
+  statusBadgeSuccess: {},
+  statusBadgeWarning: {},
   statusBadgeText: {
-    color: '#fff',
     fontWeight: '700',
     fontSize: 12,
   },
@@ -734,7 +787,6 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontWeight: '600',
     fontSize: 14,
-    color: '#666',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -742,7 +794,6 @@ const styles = StyleSheet.create({
   timeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
     padding: 16,
     borderRadius: 8,
     marginBottom: 8,
@@ -750,20 +801,17 @@ const styles = StyleSheet.create({
   timeText: {
     fontWeight: '700',
     fontSize: 18,
-    color: '#000',
     marginLeft: 12,
     marginRight: 'auto',
   },
   dailyBadge: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#2196F3',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   dailyBadgeText: {
-    color: '#2196F3',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -781,7 +829,6 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: 15,
-    color: '#333',
     marginLeft: 12,
   },
   summaryValue: {
@@ -790,11 +837,9 @@ const styles = StyleSheet.create({
   daysCount: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
   },
   summaryDivider: {
     marginVertical: 16,
-    backgroundColor: '#E0E0E0',
     height: 1,
   },
   totalItem: {
@@ -806,7 +851,6 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
   },
   totalValue: {
     alignItems: 'flex-end',
@@ -814,7 +858,6 @@ const styles = StyleSheet.create({
   totalDays: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2196F3',
   },
   detailRow: {
     flexDirection: 'row',
@@ -829,24 +872,19 @@ const styles = StyleSheet.create({
   },
   detailLabelText: {
     fontSize: 14,
-    color: '#666',
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
   },
   amountValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#4caf50',
   },
   captionText: {
     fontSize: 12,
-    color: '#999',
   },
   chip: {
-    backgroundColor: '#F5F5F5',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -854,17 +892,10 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#666',
   },
-  secondaryChip: {
-    backgroundColor: '#E3F2FD',
-  },
-  successChip: {
-    backgroundColor: '#E8F5E9',
-  },
-  defaultChip: {
-    backgroundColor: '#F5F5F5',
-  },
+  secondaryChip: {},
+  successChip: {},
+  defaultChip: {},
   smallAlert: {
     marginTop: 12,
     padding: 12,
@@ -879,22 +910,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FF9800',
-    backgroundColor: '#FFF8E1',
     marginLeft: 8,
   },
   exceptionCountText: {
-    color: '#FF9800',
     fontSize: 12,
     fontWeight: '600',
   },
   exceptionItem: {
-    backgroundColor: '#FFF8E1',
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#FFE0B2',
   },
   exceptionHeaderRow: {
     flexDirection: 'row',
@@ -906,12 +932,10 @@ const styles = StyleSheet.create({
   exceptionDate: {
     fontWeight: '700',
     fontSize: 16,
-    color: '#333',
     flex: 1,
     marginRight: 8,
   },
   exceptionReasonBadge: {
-    backgroundColor: '#FF9800',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -923,7 +947,6 @@ const styles = StyleSheet.create({
   },
   exceptionDescription: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
   suggestedTime: {
@@ -935,7 +958,6 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
   },
   exceptionAlert: {
     marginTop: 16,
@@ -943,7 +965,6 @@ const styles = StyleSheet.create({
   exceptionNote: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#333',
   },
   notices: {
     marginTop: 8,

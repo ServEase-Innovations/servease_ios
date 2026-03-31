@@ -24,10 +24,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
 import { ServiceProviderDTO } from "../types/ProviderDetailsType";
 import ProviderFilter, { FilterCriteria } from "./ProviderFilter";
-import { useTheme } from '../Settings/ThemeContext'; // Import useTheme
-import { SkeletonLoader } from '../common/SkeletonLoader'; // Import SkeletonLoader
+import { useTheme } from '../Settings/ThemeContext';
+import { SkeletonLoader } from '../common/SkeletonLoader';
 import dayjs, { Dayjs } from 'dayjs';
-import { useAppUser } from '../context/AppUserContext'; // Import useAppUser
+import { useAppUser } from '../context/AppUserContext';
+import { useTranslation } from 'react-i18next';
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;
@@ -42,13 +43,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   checkoutItem,
   selectedProvider,
 }) => {
-  // Get theme values
+  const { t } = useTranslation();
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
-  
-  // Get appUser from context
   const { appUser } = useAppUser();
   
-  // Only get customerId if the user role is CUSTOMER
   const customerId = appUser?.role === "CUSTOMER" ? appUser?.customerid : null;
   
   const [serviceProvidersData, setServiceProvidersData] = useState<any[]>([]);
@@ -64,10 +62,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterCriteria | null>(null);
   const [activeFilterCount, setActiveFilterCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0); // Add state for total count
-  const [previousLocationKey, setPreviousLocationKey] = useState<string>(""); // Track location changes
+  const [totalCount, setTotalCount] = useState(0);
+  const [previousLocationKey, setPreviousLocationKey] = useState<string>("");
   
-  // Get font size styles based on settings
   const getFontSizeStyles = () => {
     switch (fontSize) {
       case 'small':
@@ -80,33 +77,21 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   };
 
   const fontStyles = getFontSizeStyles();
-
-  // Get spacing multiplier based on compact mode
   const spacingMultiplier = compactMode ? 0.8 : 1;
 
   const { getBookingType, getPricingData, getFilteredPricing } = usePricingFilterService();
   const bookingType = getBookingType();
   
-  console.log("Details:", bookingType);
-  console.log("App User Role:", appUser?.role);
-  console.log("Customer ID:", customerId); // For debugging
-  
   const dispatch = useDispatch();
 
-  const location = useSelector((state: any) => {
-    console.log('🌍 Retrieving geolocation from Redux state:', state?.geoLocation?.value);
-    return state?.geoLocation?.value;
-  });
+  const location = useSelector((state: any) => state?.geoLocation?.value);
 
   const handleCheckoutData = (data: any) => {
-    console.log("Received checkout data:", data);
-
     if (checkoutItem) {
       checkoutItem(data);
     }
   };
 
-  // Generate a unique key for the current location
   const getLocationKey = useCallback(() => {
     if (!location) return "";
     const lat = location?.geometry?.location?.lat || location?.lat;
@@ -114,36 +99,22 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return `${lat}-${lng}`;
   }, [location]);
 
-  // Effect to trigger search when location changes
   useEffect(() => {
-    console.log('🔄 DetailsView useEffect triggered');
-    console.log('📅 Booking type:', bookingType);
-    console.log('📍 Location:', location);
-    
     const currentLocationKey = getLocationKey();
     
-    // Check if location has changed
     if (location && currentLocationKey !== previousLocationKey) {
-      console.log('📍 Location changed! Previous:', previousLocationKey, 'New:', currentLocationKey);
       setPreviousLocationKey(currentLocationKey);
-      setHasPerformedSearch(false); // Reset search flag to trigger new search
-      setIsInitialLoad(true); // Reset initial load flag
+      setHasPerformedSearch(false);
+      setIsInitialLoad(true);
     }
     
-    // Only perform search if we have both booking type and location and search hasn't been performed yet
     if (bookingType && location && !hasPerformedSearch) {
       performSearch();
     }
   }, [selectedProviderType, location, bookingType, hasPerformedSearch, getLocationKey]);
 
   useEffect(() => {
-    console.log('Selected ...', selected);
     setSelectedProviderType(selected || '');
-
-    if (selected && !hasPerformedSearch) {
-      // You might want to fetch by role here if needed
-      // fetchServiceProvidersByRole(selected);
-    }
   }, [selected]);
 
   const handleBackClick = () => {
@@ -160,22 +131,13 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   };
 
   const handleSelectedProvider = useCallback((provider: any) => {
-    console.log('👤 Handle selected provider:', {
-      providerId: provider.serviceproviderId || provider.id,
-      name: `${provider.firstname} ${provider.lastname}`,
-      role: provider.housekeepingrole,
-      dataStructure: Object.keys(provider)
-    });
-    
     if (selectedProvider) {
       selectedProvider(provider);
     }
-    
     sendDataToParent(CONFIRMATION);
   }, [selectedProvider, sendDataToParent]);
 
   const handleSearch = (formData: { serviceType: string; startTime: string; endTime: string }) => {
-    console.log("Search data received in MainComponent:", formData);
     setSearchData(formData);
   };
 
@@ -184,17 +146,14 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return dateString.split("T")[0];
   };
 
-  // Helper function to format time to HH:mm (24-hour format)
   const formatTimeToHHMM = (time?: Dayjs | string | null): string => {
-    if (!time) return "08:00"; // Default time
+    if (!time) return "08:00";
     
     if (typeof time === 'string') {
-      // If time is a string like "12:00", ensure it's properly formatted
       const trimmedTime = time.trim();
       if (/^\d{2}:\d{2}$/.test(trimmedTime)) {
         return trimmedTime;
       }
-      // Try to parse the time string
       const parsed = dayjs(trimmedTime, ['HH:mm', 'h:mm A', 'h:mm a']);
       if (parsed.isValid()) {
         return parsed.format('HH:mm');
@@ -202,7 +161,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       return "08:00";
     }
     
-    // If time is a Dayjs object
     if (time && typeof time === 'object' && 'format' in time) {
       return (time as Dayjs).format('HH:mm');
     }
@@ -211,36 +169,17 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   };
 
   const logProviderDetails = (providers: any[], source: string) => {
-    console.log(`\n📊 =========== PROVIDER DETAILS FROM ${source} ===========`);
-    console.log(`📦 Total providers: ${providers.length}`);
-    
-    providers.forEach((provider, index) => {
-      console.log(`\n👤 Provider ${index + 1}:`);
-      console.log('   ID:', provider.serviceproviderId || provider.id);
-      console.log('   Name:', `${provider.firstname} ${provider.lastname}`);
-      console.log('   Role:', provider.housekeepingrole);
-      console.log('   Rating:', provider.rating);
-      console.log('   Experience:', provider.experience, 'years');
-      console.log('   Distance:', provider.distance_km, 'km');
-      console.log('   Locality:', provider.locality);
-    });
-    
-    console.log(`=========== END PROVIDER DETAILS FROM ${source} ===========\n`);
+    // Keep for debugging but can be removed in production
   };
 
   const performSearch = async () => {
     try {
-      console.log('\n🚀 =========== STARTING NEW SEARCH ===========');
       setLoading(true);
       setHasPerformedSearch(true);
-
-      console.log('📋 Booking Type:', bookingType);
-      console.log('📍 Location object:', location);
 
       let latitude = 0;
       let longitude = 0;
 
-      // Get coordinates from location object
       if (location?.geometry?.location) {
         latitude = location?.geometry?.location?.lat;
         longitude = location?.geometry?.location?.lng;
@@ -249,43 +188,26 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         longitude = location?.lng;
       }
 
-      console.log('📌 Extracted coordinates:', { latitude, longitude });
-
       const startDate = formatDateOnly(bookingType?.startDate) || '2025-04-01';
       const endDate = formatDateOnly(bookingType?.endDate) || '2025-04-30';
       
-      // Properly format the time to HH:mm without trailing spaces
-      let preferredStartTime = "08:00"; // Default time
+      let preferredStartTime = "08:00";
       
       if (bookingType?.timeRange) {
-        // Extract the start time from timeRange (format like "12:00-13:00")
         const startTimeFromRange = bookingType.timeRange.split('-')[0];
         preferredStartTime = formatTimeToHHMM(startTimeFromRange);
       } else if (bookingType?.startTime) {
         preferredStartTime = formatTimeToHHMM(bookingType.startTime);
       }
       
-      // Ensure no trailing spaces
       preferredStartTime = preferredStartTime.trim();
-      
       const housekeepingRole = bookingType?.housekeepingRole || 'COOK';
 
-      console.log('🔍 Search Parameters:', {
-        startDate,
-        endDate,
-        preferredStartTime,
-        housekeepingRole,
-        latitude,
-        longitude,
-        customerId
-      });
-
       if (latitude === 0 && longitude === 0) {
-        console.warn('⚠️ No valid coordinates found');
         Alert.alert(
-          'Location Required', 
-          'Please enable location services to find providers near you',
-          [{ text: 'OK' }]
+          t('common.locationRequired'),
+          t('common.locationDenied'),
+          [{ text: t('common.ok') }]
         );
         setServiceProviderData([]);
         setFilteredProviders([]);
@@ -294,7 +216,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       }
 
       try {
-        // Build the base payload without customerId
         const payload: any = {
           lat: latitude.toString(),
           lng: longitude.toString(),
@@ -306,119 +227,77 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           serviceDurationMinutes: 60
         };
 
-        // Only add customerId if user role is CUSTOMER and customerId exists
         if (appUser?.role === "CUSTOMER" && customerId && customerId !== 0 && customerId !== null && customerId !== undefined) {
           payload.customerID = Number(customerId);
-          console.log("Adding customerId to payload:", customerId);
-        } else {
-          console.log("Not adding customerId - User is not a CUSTOMER or customerId not available");
         }
-
-        console.log('📤 API Request Payload:', JSON.stringify(payload, null, 2));
         
         const response = await providerInstance.post('/api/service-providers/nearby-monthly', payload);
 
-        console.log('✅ API Response received');
-        console.log('📦 Raw response data:', response.data);
-        console.log('🧾 FULL AXIOS RESPONSE:', response);
-        console.log('📦 RESPONSE.DATA:', JSON.stringify(response.data, null, 2));
-
-        // Store total count from response
         setTotalCount(response.data.count || 0);
 
         if (response.data && response.data.providers) {
           const providers = response.data.providers;
           if (Array.isArray(providers) && providers.length > 0) {
-            console.log(`🎉 Found ${providers.length} providers in providers object`);
-            logProviderDetails(providers, 'PROVIDERS OBJECT RESPONSE');
             setServiceProviderData(providers);
             setFilteredProviders(providers);
           } else {
-            console.log('❌ No providers found in providers array');
             setServiceProviderData([]);
             setFilteredProviders([]);
           }
         } else if (response.data && Array.isArray(response.data)) {
-          console.log(`🎉 Found ${response.data.length} providers directly in array`);
-          logProviderDetails(response.data, 'DIRECT ARRAY RESPONSE');
           setServiceProviderData(response.data);
           setFilteredProviders(response.data);
         } else {
-          console.log('❌ Unexpected response format');
-          console.log('Response structure:', {
-            isArray: Array.isArray(response.data),
-            hasProviders: !!response.data?.providers,
-            keys: Object.keys(response.data || {})
-          });
           setServiceProviderData([]);
           setFilteredProviders([]);
         }
       } catch (apiError: any) {
-        console.error('❌ API Error:', apiError.message);
-        console.log('💡 Error details:', apiError.response?.data);
-        
-        // Show more specific error message
-        const errorMessage = apiError.response?.data?.message || 'Failed to search for providers';
-        Alert.alert('Error', errorMessage);
-        
+        const errorMessage = apiError.response?.data?.message || t('errors.generic');
+        Alert.alert(t('common.error'), errorMessage);
         setServiceProviderData([]);
         setFilteredProviders([]);
       }
     } catch (error: any) {
-      console.error('❌ Search failed:', {
-        message: error.message,
-        stack: error.stack
-      });
-      Alert.alert('Error', 'Failed to search for providers');
+      Alert.alert(t('common.error'), t('errors.generic'));
       setServiceProviderData([]);
       setFilteredProviders([]);
     } finally {
       setLoading(false);
       setIsInitialLoad(false);
-      console.log('🏁 Search completed');
     }
   };
 
-  // Helper function to normalize languages to array
   const normalizeLanguages = (languages: string | string[] | null | undefined): string[] => {
     if (!languages) return [];
     if (Array.isArray(languages)) return languages;
-    // If it's a string, split by comma
     if (typeof languages === 'string') {
       return languages.split(',').map(lang => lang.trim());
     }
     return [];
   };
 
-  // Apply filters to providers
   const applyFilters = (providers: ServiceProviderDTO[], filters: FilterCriteria): ServiceProviderDTO[] => {
     return providers.filter(provider => {
-      // Experience filter
       if (filters.experience && (provider.experience < filters.experience[0] || provider.experience > filters.experience[1])) {
         return false;
       }
 
-      // Rating filter
       if (filters.rating && (provider.rating || 0) < filters.rating) {
         return false;
       }
 
-      // Distance filter
       if (filters.distance && (provider.distance_km || 0) > filters.distance[1]) {
         return false;
       }
 
-      // Gender filter
       if (filters.gender.length > 0 && !filters.gender.includes(provider.gender || '')) {
         return false;
       }
 
-      // Diet filter
       if (filters.diet.length > 0 && !filters.diet.includes(provider.diet || '')) {
         return false;
       }
 
-      // Language filter - FIXED: Normalize to array first
       if (filters.language.length > 0) {
         const providerLanguages = normalizeLanguages(provider.languageknown);
         const hasMatchingLanguage = providerLanguages.some(lang => 
@@ -427,7 +306,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         if (!hasMatchingLanguage) return false;
       }
 
-      // Availability filter
       if (filters.availability.length > 0) {
         const availabilityStatus = provider.monthlyAvailability?.fullyAvailable 
           ? 'Fully Available' 
@@ -446,11 +324,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     });
   };
 
-  // Handle applying filters
   const handleApplyFilters = (filters: FilterCriteria) => {
     setActiveFilters(filters);
     
-    // Count active filters
     let count = 0;
     if (filters.experience[0] > 0 || filters.experience[1] < 30) count++;
     if (filters.rating) count++;
@@ -462,13 +338,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     setActiveFilterCount(count);
     
-    // Apply filters to current providers
     const filtered = applyFilters(serviceProviderData, filters);
     setFilteredProviders(filtered);
     setFilterOpen(false);
   };
 
-  // Update filtered providers when serviceProviderData or activeFilters change
   useEffect(() => {
     if (activeFilters) {
       const filtered = applyFilters(serviceProviderData, activeFilters);
@@ -478,71 +352,29 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
   }, [serviceProviderData, activeFilters]);
 
-  // Handle clearing filters
   const handleClearFilters = () => {
     setActiveFilters(null);
     setFilteredProviders(serviceProviderData);
     setActiveFilterCount(0);
   };
 
-  // FIXED: Use useCallback to prevent unnecessary re-renders
   const handleProviderSelection = useCallback((provider: any) => {
-    console.log('\n🎯 =========== PROVIDER SELECTED ===========');
-    console.log('Provider selected from ProviderDetails:', {
-      id: provider.serviceproviderId || provider.id,
-      name: `${provider.firstname} ${provider.lastname}`,
-      role: provider.housekeepingrole,
-      selectedMorningTime: provider.selectedMorningTime,
-      selectedEveningTime: provider.selectedEveningTime,
-    });
-    
     if (selectedProvider) {
       selectedProvider(provider);
     }
-    
     sendDataToParent(CONFIRMATION);
   }, [selectedProvider, sendDataToParent]);
-
-  // Log whenever serviceProviderData changes
-  useEffect(() => {
-    if (serviceProviderData.length > 0) {
-      console.log('\n📈 ServiceProviderData updated:', {
-        count: serviceProviderData.length,
-        providers: serviceProviderData.map(p => ({
-          id: p.serviceproviderid,
-          name: `${p.firstName} ${p.lastName}`,
-          role: p.housekeepingRole
-        }))
-      });
-    }
-  }, [serviceProviderData]);
-
-  console.log('📊 Current state:', {
-    serviceProviderDataLength: serviceProviderData?.length || 0,
-    filteredProvidersLength: filteredProviders?.length || 0,
-    activeFilterCount,
-    totalCount,
-    loading,
-    selectedProviderType,
-    hasPerformedSearch,
-    isInitialLoad,
-    previousLocationKey,
-    currentLocationKey: getLocationKey()
-  });
 
   const renderSkeletonLoader = () => {
     return (
       <View style={styles.skeletonContainer}>
-        {/* Header skeleton */}
         <View style={[styles.skeletonHeader, { marginBottom: 16 * spacingMultiplier }]}>
           <SkeletonLoader width={80} height={40} variant="rectangular" />
           <SkeletonLoader width={100} height={40} variant="rectangular" />
         </View>
         
-        {/* Results count skeleton */}
         <SkeletonLoader width="100%" height={40} style={{ marginBottom: 12 * spacingMultiplier }} />
         
-        {/* Provider cards skeletons */}
         {[1, 2, 3].map((item) => (
           <View key={item} style={[styles.skeletonCard, { marginBottom: 16 * spacingMultiplier }]}>
             <View style={styles.skeletonCardHeader}>
@@ -575,7 +407,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
               <Icon name="arrow-back" size={24} color={colors.text} />
               <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                Back
+                {t('common.back')}
               </Text>
             </TouchableOpacity>
             
@@ -591,7 +423,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               >
                 <Icon name="filter-list" size={24} color={colors.text} />
                 <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
-                  Filter
+                  {t('details.filter.title')}
                 </Text>
                 {activeFilterCount > 0 && (
                   <View style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
@@ -606,7 +438,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
                   onPress={handleClearFilters}
                 >
                   <Text style={[styles.clearButtonText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
-                    Clear all
+                    {t('details.filter.clearAll')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -622,8 +454,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             paddingVertical: 8 * spacingMultiplier,
           }]}>
             {activeFilters 
-              ? `Found ${filteredProviders.length} provider${filteredProviders.length !== 1 ? 's' : ''} matching your filters`
-              : `${totalCount} service provider${totalCount !== 1 ? 's' : ''} found near your location`
+              ? t('details.filter.foundWithFilters', { count: filteredProviders.length }) + (filteredProviders.length !== 1 ? 's' : '')
+              : t('details.found', { count: totalCount }) + (totalCount !== 1 ? 's' : '')
             }
           </Text>
           
@@ -642,12 +474,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       return (
         <View style={[styles.centerContainer, { minHeight: 400 }]}>
           <Text style={[styles.title, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-            {activeFilters ? "No Providers Match Your Filters" : "Service Not Available in Your Area"}
+            {activeFilters ? t('details.noFilters') : t('details.noProviders')}
           </Text>
           <Text style={[styles.message, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
-            {activeFilters 
-              ? "Try adjusting your filters to see more providers." 
-              : "Currently, we are unable to provide services in your location. We hope to be available in your area soon."}
+            {activeFilters ? t('details.noFiltersMsg') : t('details.noProvidersMsg')}
           </Text>
           
           {activeFilters && (
@@ -655,7 +485,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               style={[styles.button, { backgroundColor: colors.primary, marginBottom: 12 * spacingMultiplier }]}
               onPress={handleClearFilters}
             >
-              <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Clear Filters</Text>
+              <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>{t('details.clearFilters')}</Text>
             </TouchableOpacity>
           )}
           
@@ -663,23 +493,22 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             style={[styles.button, { backgroundColor: activeFilters ? colors.disabled : colors.primary }]}
             onPress={() => sendDataToParent("")}
           >
-            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Go Back</Text>
+            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>{t('details.goBack')}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.secondary, marginTop: 12 * spacingMultiplier }]}
             onPress={performSearch}
           >
-            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Try Again</Text>
+            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>{t('details.tryAgain')}</Text>
           </TouchableOpacity>
         </View>
       );
     } else {
-      // Initial state - no search performed yet
       return (
         <View style={[styles.centerContainer, { minHeight: 400 }]}>
           <Text style={[styles.initialStateText, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
-            Select booking details to find providers
+            {t('details.initialState')}
           </Text>
         </View>
       );
@@ -707,7 +536,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         {renderContent()}
       </ScrollView>
 
-      {/* Filter Modal/Drawer */}
       <ProviderFilter
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -785,10 +613,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  loadingText: {
-    marginTop: 16,
-    textAlign: 'center',
-  },
   title: {
     fontWeight: '600',
     marginBottom: 10,
@@ -824,7 +648,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
   },
-  // Skeleton loader styles
   skeletonContainer: {
     flex: 1,
   },

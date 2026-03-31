@@ -55,7 +55,6 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get font sizes based on theme
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':

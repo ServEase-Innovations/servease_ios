@@ -35,7 +35,7 @@ type RangeValue = {
 type SingleProps = {
   mode?: "single";
   value?: Date;
-  onChange: (date: Date) => void;
+  onChange: (date: Date, time?: string) => void;
 };
 
 type RangeProps = {
@@ -224,6 +224,9 @@ export default function DribbbleDateTimePicker(props: Props) {
     if (mode === "single") {
       setSelectedDate(date);
       setSelectedTime(null); // Clear selected time when date changes
+      // Notify parent of date selection
+      const singleProps = props as SingleProps;
+      singleProps.onChange(date.toDate());
       return;
     }
 
@@ -264,21 +267,10 @@ export default function DribbbleDateTimePicker(props: Props) {
 
     setSelectedTime(time);
 
-    const [t, meridian] = time.split(" ");
-    let hour = Number(t.split(":")[0]);
-
-    if (meridian === "PM" && hour !== 12) hour += 12;
-    if (meridian === "AM" && hour === 12) hour = 0;
-
     if (mode === "single") {
-      const finalDate = selectedDate
-        .hour(hour)
-        .minute(0)
-        .second(0)
-        .toDate();
-
       const singleProps = props as SingleProps;
-      singleProps.onChange(finalDate);
+      // Pass both the date and time to the parent
+      singleProps.onChange(selectedDate.toDate(), time);
       return;
     }
 
@@ -286,8 +278,8 @@ export default function DribbbleDateTimePicker(props: Props) {
 
     const rangeProps = props as RangeProps;
     rangeProps.onChange({
-      startDate: rangeStart.hour(hour).minute(0).toDate(),
-      endDate: rangeEnd.hour(hour).minute(0).toDate(),
+      startDate: rangeStart.toDate(),
+      endDate: rangeEnd.toDate(),
       time,
     });
   };

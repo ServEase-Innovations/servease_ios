@@ -269,22 +269,9 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     return hour + (minute / 60);
   };
 
-  const getDisabledRangesForSlot = (slots: number[][], currentIndex: number): DisabledRange[] => {
-    const disabledRanges: DisabledRange[] = [];
-
-    slots.forEach((slot, index) => {
-      if (index !== currentIndex) {
-        disabledRanges.push({ start: slot[0], end: slot[1] });
-      }
-    });
-
-    return disabledRanges;
-  };
-
   const formatSelectedTimeSlots = (): string => {
     const allSlots = [...morningSlots, ...eveningSlots];
     if (allSlots.length === 0) return '';
-
     return allSlots
       .map(slot => `${formatDisplayTime(slot[0])} - ${formatDisplayTime(slot[1])}`)
       .join(', ');
@@ -439,10 +426,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     setMorningSlots(morningSlots.filter((_, i) => i !== index));
   };
 
-  const handleClearMorningSlots = () => {
-    setMorningSlots([]);
-  };
-
   const handleAddEveningSlot = () => {
     if (eveningSlots.length < 16) {
       setEveningSlots([...eveningSlots, [12, 20]]);
@@ -451,10 +434,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const handleRemoveEveningSlot = (index: number) => {
     setEveningSlots(eveningSlots.filter((_, i) => i !== index));
-  };
-
-  const handleClearEveningSlots = () => {
-    setEveningSlots([]);
   };
 
   const handleMorningSlotChange = (index: number, newStart: number, newEnd: number) => {
@@ -801,20 +780,20 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                     style={[
                       styles.statusBadge,
                       {
-                        backgroundColor: providerData?.isactive ? '#d1fae5' : '#fee2e2',
+                        backgroundColor: providerData?.isactive ? colors.successLight : colors.errorLight,
                       },
                     ]}
                   >
                     {getIconComponent(
                       providerData?.isactive ? 'check-circle' : 'close-circle',
                       12,
-                      providerData?.isactive ? '#10b981' : '#ef4444'
+                      providerData?.isactive ? colors.success : colors.error
                     )}
                     <Text
                       style={[
                         styles.statusText,
                         {
-                          color: providerData?.isactive ? '#10b981' : '#ef4444',
+                          color: providerData?.isactive ? colors.success : colors.error,
                           fontSize: fontSizes.roleText,
                         },
                       ]}
@@ -1701,7 +1680,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                     <TouchableOpacity
                       style={styles.viewDocumentButton}
                       onPress={() => {
-                        Alert.alert('Document', 'View document functionality would go here');
+                        Alert.alert(t('common.info'), t('profile.page.viewDocument'));
                       }}
                     >
                       <Icon name="eye" size={14} color={colors.primary} />
@@ -1716,7 +1695,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-            {/* Address Information Section - UPDATED: Removed address form fields, only showing Permanent and Correspondence addresses */}
+            {/* Address Information Section */}
             <View style={styles.section}>
               <TouchableOpacity
                 style={styles.sectionHeader}
@@ -1737,7 +1716,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
               {expandedSections.address && (
                 <View style={styles.sectionContent}>
-                  {/* Permanent and Correspondence Addresses - Only these two address cards */}
                   <View style={styles.addressCardsRow}>
                     {providerData?.permanentAddress && (
                       <View style={[styles.addressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -1842,7 +1820,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                             fontSize: fontSizes.input,
                           },
                         ]}
-                        value={providerData?.keyFacts ? t('profile.page.available') : t('profile.page.notAvailable')}
+                        value={providerData?.keyFacts ? t('common.available') : t('profile.page.notAvailable')}
                         editable={false}
                       />
                     </View>

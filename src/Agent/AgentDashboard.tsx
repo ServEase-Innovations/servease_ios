@@ -116,11 +116,11 @@ const AgentDashboard: React.FC = () => {
         setProviders(transformedProviders);
         setError(null);
       } else {
-        setError(t('fetchFailed') || 'Failed to fetch vendor data');
+        setError(t('errors.fetchFailed') || t('errors.generic'));
       }
     } catch (err) {
       console.error("Error fetching vendor data:", err);
-      setError(t('unableToLoad') || 'Unable to load provider data');
+      setError(t('errors.unableToLoad'));
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -139,8 +139,8 @@ const AgentDashboard: React.FC = () => {
       providerName: `${provider.firstName} ${provider.lastName}`,
       type: formatProviderType(provider.housekeepingRole),
       dateRegistered: formatDateForDisplay(provider.enrolleddate),
-      status: provider.isactive ? 'Active' : 'Inactive',
-      action: 'View Profile',
+      status: provider.isactive ? t('common.active') : t('common.inactive'),
+      action: t('profile.page.viewProfile'),
       mobileNo: provider.mobileNo,
       emailId: provider.emailId,
       experience: provider.experience,
@@ -151,17 +151,17 @@ const AgentDashboard: React.FC = () => {
   // Format provider type for display
   const formatProviderType = (role: string): string => {
     const typeMap: { [key: string]: string } = {
-      'NANNY': t('caregiver') || 'Caregiver',
-      'COOK': t('cook') || 'Cook',
-      'CLEANING': t('cleaning') || 'Cleaning',
-      'MAID': t('maidCleaning') || 'Maid / Cleaning'
+      'NANNY': t('profile.page.caregiver'),
+      'COOK': t('profile.page.cook'),
+      'CLEANING': t('common.cleaning'),
+      'MAID': t('profile.page.maid')
     };
     return typeMap[role] || role;
   };
 
   // Format date for display
   const formatDateForDisplay = (dateString: string): string => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return t('common.na');
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -171,10 +171,10 @@ const AgentDashboard: React.FC = () => {
 
   // Calculate stats based on actual data
   const getProviderStats = () => {
-    const activeProviders = providers.filter(p => p.status === 'Active');
-    const cooks = providers.filter(p => p.type === (t('cook') || 'Cook')).length;
-    const cleaning = providers.filter(p => p.type === (t('cleaning') || 'Cleaning') || p.type === (t('maidCleaning') || 'Maid / Cleaning')).length;
-    const caregivers = providers.filter(p => p.type === (t('caregiver') || 'Caregiver')).length;
+    const activeProviders = providers.filter(p => p.status === t('common.active'));
+    const cooks = providers.filter(p => p.type === t('profile.page.cook')).length;
+    const cleaning = providers.filter(p => p.type === t('common.cleaning') || p.type === t('profile.page.maid')).length;
+    const caregivers = providers.filter(p => p.type === t('profile.page.caregiver')).length;
     
     return {
       totalActive: activeProviders.length,
@@ -185,64 +185,71 @@ const AgentDashboard: React.FC = () => {
   };
 
   const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'Active':
-        return '#16a34a';
-      case 'Inactive':
-        return '#dc2626';
-      default:
-        return '#ca8a04';
-    }
+    if (status === t('common.active')) return '#16a34a';
+    if (status === t('common.inactive')) return '#dc2626';
+    return '#ca8a04';
   };
 
   const getTableTitle = (): string => {
-    if (currentView === 'applications') return t('pendingApplications') || "Pending Applications";
-    if (currentView === 'all-providers') return t('allAgencyProviders') || "All Agency Providers";
-    return t('recentRegistrations') || "Recent Registrations & Status";
+    if (currentView === 'applications') return t('agent.pendingApplications');
+    if (currentView === 'all-providers') return t('agent.allAgencyProviders');
+    return t('agent.recentRegistrations');
   };
 
   const handleViewProfile = (provider: ProviderData) => {
     Alert.alert(
-      t('providerDetails') || 'Provider Details',
-      `${t('provider') || 'Provider'}: ${provider.providerName}\n${t('type') || 'Type'}: ${provider.type}\n${t('mobileNumber') || 'Mobile Number'}: ${provider.mobileNo || 'N/A'}\n${t('email') || 'Email'}: ${provider.emailId || 'N/A'}\n${t('experience') || 'Experience'}: ${provider.experience || 0} ${t('years') || 'years'}\n${t('rating') || 'Rating'}: ${provider.rating || 0}/5`
+      t('agent.providerDetails'),
+      `${t('agent.provider')}: ${provider.providerName}\n${t('agent.type')}: ${provider.type}\n${t('common.mobileNumber')}: ${provider.mobileNo || t('common.na')}\n${t('common.email')}: ${provider.emailId || t('common.na')}\n${t('common.experience')}: ${provider.experience || 0} ${t('common.years')}\n${t('common.rating')}: ${provider.rating || 0}/5`
     );
   };
 
   const renderProviderTable = () => {
     const data = currentView === 'applications' 
-      ? providers.filter(p => p.status !== 'Active') 
+      ? providers.filter(p => p.status !== t('common.active')) 
       : providers;
 
     if (data.length === 0) {
       return (
         <View style={styles.emptyStateContainer}>
-          <Text style={styles.emptyStateText}>{t('noProvidersFound') || 'No providers found'}</Text>
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            {t('agent.noProvidersFound')}
+          </Text>
         </View>
       );
     }
 
     return (
       <View style={styles.tableContainer}>
-        <View style={styles.tableHeader}>
-          <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>{t('providerName') || 'Provider Name'}</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1 }]}>{t('type') || 'Type'}</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>{t('dateRegistered') || 'Date Registered'}</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>{t('status') || 'Status'}</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1 }]}>{t('action') || 'Action'}</Text>
+        <View style={[styles.tableHeader, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.tableHeaderCell, { color: colors.text, flex: 1.5 }]}>
+            {t('agent.providerName')}
+          </Text>
+          <Text style={[styles.tableHeaderCell, { color: colors.text, flex: 1 }]}>
+            {t('agent.type')}
+          </Text>
+          <Text style={[styles.tableHeaderCell, { color: colors.text, flex: 1.2 }]}>
+            {t('agent.dateRegistered')}
+          </Text>
+          <Text style={[styles.tableHeaderCell, { color: colors.text, flex: 1.2 }]}>
+            {t('common.status')}
+          </Text>
+          <Text style={[styles.tableHeaderCell, { color: colors.text, flex: 1 }]}>
+            {t('agent.action')}
+          </Text>
         </View>
         <FlatList
           data={data}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           renderItem={({ item }) => (
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 1.5 }]} numberOfLines={1}>
+            <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.tableCell, { color: colors.text, flex: 1.5 }]} numberOfLines={1}>
                 {item.providerName}
               </Text>
-              <Text style={[styles.tableCell, { flex: 1 }]} numberOfLines={1}>
+              <Text style={[styles.tableCell, { color: colors.text, flex: 1 }]} numberOfLines={1}>
                 {item.type}
               </Text>
-              <Text style={[styles.tableCell, { flex: 1.2 }]} numberOfLines={1}>
+              <Text style={[styles.tableCell, { color: colors.text, flex: 1.2 }]} numberOfLines={1}>
                 {item.dateRegistered}
               </Text>
               <Text 
@@ -262,7 +269,9 @@ const AgentDashboard: React.FC = () => {
                 style={[{ flex: 1, justifyContent: 'center' }]}
                 onPress={() => handleViewProfile(item)}
               >
-                <Text style={[styles.tableCell, styles.actionText]}>{item.action}</Text>
+                <Text style={[styles.tableCell, styles.actionText, { color: colors.primary }]}>
+                  {item.action}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -276,15 +285,15 @@ const AgentDashboard: React.FC = () => {
     return (
       <View style={styles.statsContainer}>
         {[
-          { label: t('cooks') || 'Cooks', count: `${stats.cooks} ${t('active') || 'Active'}`, icon: '👨‍🍳' },
-          { label: t('cleaningHelp') || 'Cleaning Help', count: `${stats.cleaning} ${t('active') || 'Active'}`, icon: '🧹' },
-          { label: t('caregivers') || 'Caregivers', count: `${stats.caregivers} ${t('active') || 'Active'}`, icon: '❤️' }
+          { label: t('agent.cooks'), count: `${stats.cooks} ${t('common.active')}`, icon: '👨‍🍳' },
+          { label: t('common.cleaning'), count: `${stats.cleaning} ${t('common.active')}`, icon: '🧹' },
+          { label: t('agent.caregivers'), count: `${stats.caregivers} ${t('common.active')}`, icon: '❤️' }
         ].map((card, i) => (
-          <View key={i} style={styles.statCard}>
+          <View key={i} style={[styles.statCard, { backgroundColor: colors.surface }]}>
             <Text style={styles.statIcon}>{card.icon}</Text>
             <View>
-              <Text style={styles.statLabel}>{card.label}</Text>
-              <Text style={styles.statCount}>{card.count}</Text>
+              <Text style={[styles.statLabel, { color: colors.text }]}>{card.label}</Text>
+              <Text style={[styles.statCount, { color: colors.textSecondary }]}>{card.count}</Text>
             </View>
           </View>
         ))}
@@ -293,22 +302,29 @@ const AgentDashboard: React.FC = () => {
   };
 
   const renderWelcomeCard = () => {
-    const displayName = appUser?.name || auth0User?.name || 'User';
+    const displayName = appUser?.name || auth0User?.name || t('common.user');
+    const stats = getProviderStats();
     return (
-      <View style={styles.welcomeCard}>
-        <Text style={styles.welcomeTitle}>{t('welcome') || 'Welcome'}, {displayName}</Text>
+      <View style={[styles.welcomeCard, { backgroundColor: colors.card }]}>
+        <Text style={[styles.welcomeTitle, { color: colors.text }]}>
+          {t('common.welcome')}, {displayName}
+        </Text>
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
-            style={styles.registerButton}
+            style={[styles.registerButton, { backgroundColor: colors.primary }]}
             onPress={() => setCurrentView('register')}
           >
-            <Text style={styles.registerButtonText}>+ {t('registerNewProvider') || 'Register New Provider'}</Text>
+            <Text style={[styles.registerButtonText, { color: '#fff' }]}>
+              + {t('agent.registerNewProvider')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.applicationsButton}
+            style={[styles.applicationsButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => setCurrentView('applications')}
           >
-            <Text style={styles.applicationsButtonText}>{t('viewApplications') || 'View Applications'}</Text>
+            <Text style={[styles.applicationsButtonText, { color: colors.text }]}>
+              {t('agent.viewApplications')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -319,28 +335,38 @@ const AgentDashboard: React.FC = () => {
     const stats = getProviderStats();
     return (
       <View style={styles.sidebar}>
-        <View style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>{t('totalProviders') || 'Total Providers'}</Text>
-          <Text style={styles.earningsAmount}>{providers.length}</Text>
-          <Text style={styles.earningsPeriod}>
-            {stats.totalActive} {t('activeProviders') || 'Active Providers'}
+        <View style={[styles.earningsCard, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.earningsLabel, { color: colors.textSecondary }]}>
+            {t('agent.totalProviders')}
           </Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${(stats.totalActive / (providers.length || 1)) * 100}%` }]} />
+          <Text style={[styles.earningsAmount, { color: colors.text }]}>{providers.length}</Text>
+          <Text style={[styles.earningsPeriod, { color: colors.textSecondary }]}>
+            {stats.totalActive} {t('agent.activeProviders')}
+          </Text>
+          <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+            <View style={[styles.progressFill, { backgroundColor: colors.primary, width: `${(stats.totalActive / (providers.length || 1)) * 100}%` }]} />
           </View>
         </View>
 
-        <View style={styles.resourceCard}>
-          <Text style={styles.resourceTitle}>{t('resourceCenter') || 'Resource Center'}</Text>
+        <View style={[styles.resourceCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.resourceTitle, { color: colors.text }]}>
+            {t('agent.resourceCenter')}
+          </Text>
           <View style={styles.resourceItems}>
-            <TouchableOpacity style={styles.resourceItem}>
-              <Text style={styles.resourceItemText}>{t('verifyIds') || 'How to verify IDs'}</Text>
+            <TouchableOpacity style={[styles.resourceItem, { backgroundColor: colors.surface, borderLeftColor: colors.primary }]}>
+              <Text style={[styles.resourceItemText, { color: colors.primary }]}>
+                {t('agent.verifyIds')}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.resourceItem}>
-              <Text style={styles.resourceItemText}>{t('manageExpectations') || 'Managing client expectations'}</Text>
+            <TouchableOpacity style={[styles.resourceItem, { backgroundColor: colors.surface, borderLeftColor: colors.primary }]}>
+              <Text style={[styles.resourceItemText, { color: colors.primary }]}>
+                {t('agent.manageExpectations')}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.resourceItem}>
-              <Text style={styles.resourceItemText}>{t('payoutCycle') || 'Earnings payout cycle'}</Text>
+            <TouchableOpacity style={[styles.resourceItem, { backgroundColor: colors.surface, borderLeftColor: colors.primary }]}>
+              <Text style={[styles.resourceItemText, { color: colors.primary }]}>
+                {t('agent.payoutCycle')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -349,43 +375,49 @@ const AgentDashboard: React.FC = () => {
   };
 
   const renderRegisterForm = () => (
-    <View style={styles.registerForm}>
-      <Text style={styles.registerFormTitle}>{t('registerNewProvider') || 'Register New Provider'}</Text>
-      <Text style={styles.registerFormSubtitle}>
-        {t('enterProviderDetails') || 'Enter the details of the service provider to begin onboarding.'}
+    <View style={[styles.registerForm, { backgroundColor: colors.card }]}>
+      <Text style={[styles.registerFormTitle, { color: colors.text }]}>
+        {t('agent.registerNewProvider')}
+      </Text>
+      <Text style={[styles.registerFormSubtitle, { color: colors.textSecondary }]}>
+        {t('agent.enterProviderDetails')}
       </Text>
       
       <View style={styles.formFields}>
         <TextInput 
-          placeholder={t('fullName') || 'Full Name'} 
-          style={styles.input}
-          placeholderTextColor="#94a3b8"
+          placeholder={t('common.fullName')} 
+          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+          placeholderTextColor={colors.placeholder}
         />
         <View style={styles.pickerContainer}>
           <TextInput 
-            placeholder={t('selectServiceType') || 'Select Service Type'}
-            style={styles.input}
-            placeholderTextColor="#94a3b8"
+            placeholder={t('agent.selectServiceType')}
+            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+            placeholderTextColor={colors.placeholder}
             editable={false}
-            value={t('selectServiceType') || 'Select Service Type'}
+            value={t('agent.selectServiceType')}
           />
         </View>
         <TextInput 
-          placeholder={t('phoneNumber') || 'Phone Number'} 
-          style={styles.input}
-          placeholderTextColor="#94a3b8"
+          placeholder={t('common.phoneNumber')} 
+          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+          placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
         />
         
         <View style={styles.formButtons}>
-          <TouchableOpacity style={styles.submitButton}>
-            <Text style={styles.submitButtonText}>{t('submitDetails') || 'Submit Details'}</Text>
+          <TouchableOpacity style={[styles.submitButton, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.submitButtonText, { color: '#fff' }]}>
+              {t('agent.submitDetails')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.cancelButton}
+            style={[styles.cancelButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => setCurrentView('dashboard')}
           >
-            <Text style={styles.cancelButtonText}>{t('cancel') || 'Cancel'}</Text>
+            <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+              {t('common.cancel')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -395,52 +427,52 @@ const AgentDashboard: React.FC = () => {
   // Show loading state with skeleton loaders
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: '#D6E6F7' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar backgroundColor="#001F3F" barStyle="light-content" />
         
         {/* Navbar Skeleton */}
-        <View style={styles.navbar}>
-          <View style={styles.skeletonLogo} />
+        <View style={[styles.navbar, { backgroundColor: colors.primary }]}>
+          <View style={[styles.skeletonLogo, { backgroundColor: colors.surface }]} />
           <View style={styles.skeletonNavLinks}>
-            <View style={styles.skeletonNavLink} />
-            <View style={styles.skeletonNavLink} />
-            <View style={styles.skeletonNavLink} />
-            <View style={styles.skeletonNavLink} />
+            <View style={[styles.skeletonNavLink, { backgroundColor: colors.surface }]} />
+            <View style={[styles.skeletonNavLink, { backgroundColor: colors.surface }]} />
+            <View style={[styles.skeletonNavLink, { backgroundColor: colors.surface }]} />
+            <View style={[styles.skeletonNavLink, { backgroundColor: colors.surface }]} />
           </View>
           <View style={styles.navRight}>
-            <View style={styles.skeletonLocationBadge} />
-            <View style={styles.skeletonNotification} />
-            <View style={styles.skeletonAgentBadge} />
+            <View style={[styles.skeletonLocationBadge, { backgroundColor: colors.surface }]} />
+            <View style={[styles.skeletonNotification, { backgroundColor: colors.surface }]} />
+            <View style={[styles.skeletonAgentBadge, { backgroundColor: colors.surface }]} />
           </View>
         </View>
 
         <ScrollView 
-          style={styles.content} 
+          style={[styles.content, { backgroundColor: colors.background }]} 
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
           {/* Title Skeleton */}
-          <View style={styles.skeletonTitle} />
+          <View style={[styles.skeletonTitle, { backgroundColor: colors.surface }]} />
           
           {/* Welcome Card Skeleton */}
-          <View style={styles.skeletonWelcomeCard}>
-            <View style={styles.skeletonWelcomeTitle} />
+          <View style={[styles.skeletonWelcomeCard, { backgroundColor: colors.card }]}>
+            <View style={[styles.skeletonWelcomeTitle, { backgroundColor: colors.surface }]} />
             <View style={styles.skeletonButtonGroup}>
-              <View style={styles.skeletonButton} />
-              <View style={styles.skeletonButtonSecondary} />
+              <View style={[styles.skeletonButton, { backgroundColor: colors.surface }]} />
+              <View style={[styles.skeletonButtonSecondary, { backgroundColor: colors.surface }]} />
             </View>
           </View>
 
           {/* Stats Grid Skeleton */}
           <View style={styles.statsContainer}>
             {[1, 2, 3].map((i) => (
-              <View key={i} style={styles.skeletonStatCard}>
-                <View style={styles.skeletonStatIcon} />
+              <View key={i} style={[styles.skeletonStatCard, { backgroundColor: colors.surface }]}>
+                <View style={[styles.skeletonStatIcon, { backgroundColor: colors.border }]} />
                 <View>
-                  <View style={styles.skeletonStatLabel} />
-                  <View style={styles.skeletonStatCount} />
+                  <View style={[styles.skeletonStatLabel, { backgroundColor: colors.border }]} />
+                  <View style={[styles.skeletonStatCount, { backgroundColor: colors.border }]} />
                 </View>
               </View>
             ))}
@@ -448,21 +480,21 @@ const AgentDashboard: React.FC = () => {
 
           {/* Main Content Skeleton */}
           <View style={styles.mainContent}>
-            <View style={styles.skeletonTableWrapper}>
+            <View style={[styles.skeletonTableWrapper, { backgroundColor: colors.card }]}>
               <View style={styles.skeletonTableHeader}>
-                <View style={styles.skeletonTableTitle} />
-                <View style={styles.skeletonViewAllLink} />
+                <View style={[styles.skeletonTableTitle, { backgroundColor: colors.surface }]} />
+                <View style={[styles.skeletonViewAllLink, { backgroundColor: colors.surface }]} />
               </View>
               <View style={styles.tableContainer}>
-                <View style={styles.tableHeader}>
+                <View style={[styles.tableHeader, { backgroundColor: colors.surface }]}>
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <View key={i} style={[styles.skeletonTableCell, { flex: i === 0 ? 1.5 : i === 1 ? 1 : i === 2 ? 1.2 : i === 3 ? 1.2 : 1 }]} />
+                    <View key={i} style={[styles.skeletonTableCell, { backgroundColor: colors.border, flex: i === 0 ? 1.5 : i === 1 ? 1 : i === 2 ? 1.2 : i === 3 ? 1.2 : 1 }]} />
                   ))}
                 </View>
                 {[1, 2, 3, 4].map((i) => (
-                  <View key={i} style={styles.skeletonTableRow}>
+                  <View key={i} style={[styles.skeletonTableRow, { borderBottomColor: colors.border }]}>
                     {[1, 2, 3, 4, 5].map((j) => (
-                      <View key={j} style={[styles.skeletonTableRowCell, { flex: j === 0 ? 1.5 : j === 1 ? 1 : j === 2 ? 1.2 : j === 3 ? 1.2 : 1 }]} />
+                      <View key={j} style={[styles.skeletonTableRowCell, { backgroundColor: colors.border, flex: j === 0 ? 1.5 : j === 1 ? 1 : j === 2 ? 1.2 : j === 3 ? 1.2 : 1 }]} />
                     ))}
                   </View>
                 ))}
@@ -471,16 +503,16 @@ const AgentDashboard: React.FC = () => {
 
             {/* Sidebar Skeleton */}
             <View style={styles.sidebar}>
-              <View style={styles.skeletonEarningsCard}>
-                <View style={styles.skeletonEarningsLabel} />
-                <View style={styles.skeletonEarningsAmount} />
-                <View style={styles.skeletonEarningsPeriod} />
-                <View style={styles.skeletonProgressBar} />
+              <View style={[styles.skeletonEarningsCard, { backgroundColor: colors.surface }]}>
+                <View style={[styles.skeletonEarningsLabel, { backgroundColor: colors.border }]} />
+                <View style={[styles.skeletonEarningsAmount, { backgroundColor: colors.border }]} />
+                <View style={[styles.skeletonEarningsPeriod, { backgroundColor: colors.border }]} />
+                <View style={[styles.skeletonProgressBar, { backgroundColor: colors.border }]} />
               </View>
-              <View style={styles.skeletonResourceCard}>
-                <View style={styles.skeletonResourceTitle} />
+              <View style={[styles.skeletonResourceCard, { backgroundColor: colors.surface }]}>
+                <View style={[styles.skeletonResourceTitle, { backgroundColor: colors.border }]} />
                 {[1, 2, 3].map((i) => (
-                  <View key={i} style={styles.skeletonResourceItem} />
+                  <View key={i} style={[styles.skeletonResourceItem, { backgroundColor: colors.border }]} />
                 ))}
               </View>
             </View>
@@ -493,18 +525,18 @@ const AgentDashboard: React.FC = () => {
   // Show error state
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: '#D6E6F7' }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>⚠️ {t('error') || 'Error'}: {error}</Text>
+          <Text style={[styles.errorText, { color: colors.error }]}>⚠️ {t('common.error')}: {error}</Text>
           <TouchableOpacity 
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               setIsLoading(true);
               setError(null);
               fetchVendorData();
             }}
           >
-            <Text style={styles.retryButtonText}>{t('tryAgain') || 'Try Again'}</Text>
+            <Text style={[styles.retryButtonText, { color: '#fff' }]}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -514,60 +546,64 @@ const AgentDashboard: React.FC = () => {
   const stats = getProviderStats();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#D6E6F7' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar backgroundColor="#001F3F" barStyle="light-content" />
       
       {/* Navbar */}
-      <View style={styles.navbar}>
+      <View style={[styles.navbar, { backgroundColor: colors.primary }]}>
         <TouchableOpacity onPress={() => setCurrentView('dashboard')}>
-          <Text style={styles.logo}>{vendorData?.companyName || 'SERVEASO'}</Text>
+          <Text style={[styles.logo, { color: '#fff' }]}>{vendorData?.companyName || 'SERVEASO'}</Text>
         </TouchableOpacity>
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.navLinks}>
           <TouchableOpacity onPress={() => setCurrentView('dashboard')}>
-            <Text style={[styles.navLink, currentView === 'dashboard' && styles.navLinkActive]}>
-              {t('dashboard') || 'Dashboard'}
+            <Text style={[styles.navLink, { color: '#fff' }, currentView === 'dashboard' && styles.navLinkActive]}>
+              {t('common.dashboard')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setCurrentView('all-providers')}>
-            <Text style={[styles.navLink, currentView === 'all-providers' && styles.navLinkActive]}>
-              {t('myProviders') || 'My Providers'}
+            <Text style={[styles.navLink, { color: '#fff' }, currentView === 'all-providers' && styles.navLinkActive]}>
+              {t('agent.myProviders')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity>
-            <Text style={styles.navLink}>{t('recruitmentFeed') || 'Recruitment Feed'}</Text>
+            <Text style={[styles.navLink, { color: '#fff' }]}>
+              {t('agent.recruitmentFeed')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity>
-            <Text style={styles.navLink}>{t('earnings') || 'Earnings'}</Text>
+            <Text style={[styles.navLink, { color: '#fff' }]}>
+              {t('common.earnings')}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
 
         <View style={styles.navRight}>
-          <View style={styles.locationBadge}>
-            <Text style={styles.locationText}>
-              📍 {vendorData?.address || (t('locationNotSet') || 'Location not set')}
+          <View style={[styles.locationBadge, { backgroundColor: '#fff' }]}>
+            <Text style={[styles.locationText, { color: colors.textSecondary }]}>
+              📍 {vendorData?.address || t('common.locationNotSet')}
             </Text>
           </View>
           <TouchableOpacity>
             <Text style={styles.notificationIcon}>🔔</Text>
           </TouchableOpacity>
-          <View style={styles.agentBadge}>
-            <Text style={styles.agentText}>👤 {t('agent') || 'Agent'}</Text>
+          <View style={[styles.agentBadge, { backgroundColor: '#fff' }]}>
+            <Text style={[styles.agentText, { color: colors.primary }]}>👤 {t('common.agent')}</Text>
           </View>
         </View>
       </View>
 
       <ScrollView 
-        style={styles.content} 
+        style={[styles.content, { backgroundColor: colors.background }]} 
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Text style={styles.pageTitle}>
+        <Text style={[styles.pageTitle, { color: colors.text }]}>
           {currentView === 'dashboard' 
-            ? (t('providerManagementDashboard') || "Provider Management Dashboard") 
-            : (currentView.replace('-', ' ').toUpperCase())}
+            ? t('agent.providerManagementDashboard')
+            : currentView.replace('-', ' ').toUpperCase()}
         </Text>
 
         {currentView !== 'register' && renderWelcomeCard()}
@@ -578,17 +614,17 @@ const AgentDashboard: React.FC = () => {
           renderRegisterForm()
         ) : (
           <View style={styles.mainContent}>
-            <View style={[styles.tableWrapper, currentView !== 'dashboard' && styles.fullWidth]}>
+            <View style={[styles.tableWrapper, currentView !== 'dashboard' && styles.fullWidth, { backgroundColor: colors.card }]}>
               <View style={styles.tableHeaderContainer}>
-                <Text style={styles.tableTitle}>{getTableTitle()}</Text>
+                <Text style={[styles.tableTitle, { color: colors.text }]}>{getTableTitle()}</Text>
                 {currentView === 'dashboard' && (
                   <TouchableOpacity onPress={() => setCurrentView('all-providers')}>
-                    <Text style={styles.viewAllLink}>{t('viewFullList') || 'View Full List'} →</Text>
+                    <Text style={[styles.viewAllLink, { color: colors.primary }]}>{t('agent.viewFullList')} →</Text>
                   </TouchableOpacity>
                 )}
                 {currentView !== 'dashboard' && (
                   <TouchableOpacity onPress={() => setCurrentView('dashboard')}>
-                    <Text style={styles.backLink}>← {t('backToDashboard') || 'Back to Dashboard'}</Text>
+                    <Text style={[styles.backLink, { color: colors.textSecondary }]}>← {t('agent.backToDashboard')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -613,7 +649,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   navbar: {
-    backgroundColor: '#001F3F',
     paddingHorizontal: 20,
     paddingVertical: 12,
     paddingTop: 30,
@@ -624,7 +659,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#004080',
   },
   logo: {
-    color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 1,
@@ -635,7 +669,6 @@ const styles = StyleSheet.create({
     marginLeft: 20,
   },
   navLink: {
-    color: 'white',
     fontSize: 13,
     marginRight: 20,
     paddingVertical: 5,
@@ -651,13 +684,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   locationBadge: {
-    backgroundColor: 'white',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 20,
   },
   locationText: {
-    color: '#666',
     fontSize: 11,
   },
   notificationIcon: {
@@ -665,13 +696,11 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   agentBadge: {
-    backgroundColor: 'white',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
   },
   agentText: {
-    color: '#004080',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -680,14 +709,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   pageTitle: {
-    color: '#1e293b',
     fontSize: 22,
     fontWeight: '600',
     marginBottom: 20,
     textTransform: 'capitalize',
   },
   welcomeCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
@@ -696,7 +723,6 @@ const styles = StyleSheet.create({
   },
   welcomeTitle: {
     fontSize: 22,
-    color: '#001f3f',
     marginBottom: 15,
     fontWeight: '600',
   },
@@ -705,7 +731,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   registerButton: {
-    backgroundColor: '#002D62',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 30,
@@ -713,20 +738,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   registerButtonText: {
-    color: 'white',
     fontWeight: '600',
     fontSize: 14,
   },
   applicationsButton: {
-    backgroundColor: 'white',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
   },
   applicationsButtonText: {
-    color: '#1e293b',
     fontWeight: '500',
     fontSize: 14,
   },
@@ -737,7 +758,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   statCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
@@ -754,11 +774,9 @@ const styles = StyleSheet.create({
   statLabel: {
     fontWeight: '700',
     fontSize: 15,
-    color: '#334155',
   },
   statCount: {
     fontSize: 13,
-    color: '#64748b',
   },
   mainContent: {
     flexDirection: 'row',
@@ -767,7 +785,6 @@ const styles = StyleSheet.create({
   },
   tableWrapper: {
     flex: 2,
-    backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
     minWidth: width > 800 ? 0 : '100%',
@@ -785,15 +802,12 @@ const styles = StyleSheet.create({
   tableTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
   },
   viewAllLink: {
-    color: '#2563eb',
     fontWeight: '600',
     fontSize: 13,
   },
   backLink: {
-    color: '#64748b',
     fontWeight: '600',
     fontSize: 13,
   },
@@ -805,30 +819,24 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 2,
-    borderBottomColor: '#e2e8f0',
   },
   tableHeaderCell: {
     fontWeight: '700',
     fontSize: 13,
-    color: '#475569',
   },
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   tableCell: {
     fontSize: 13,
-    color: '#334155',
   },
   actionText: {
-    color: '#2563eb',
     fontWeight: '600',
     textDecorationLine: 'underline',
     fontSize: 13,
@@ -839,14 +847,12 @@ const styles = StyleSheet.create({
     minWidth: width > 800 ? 250 : '100%',
   },
   earningsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderRadius: 15,
     padding: 20,
     borderWidth: 1,
     borderColor: 'white',
   },
   earningsLabel: {
-    color: '#64748b',
     fontSize: 12,
     fontWeight: 'bold',
     textTransform: 'uppercase',
@@ -855,27 +861,22 @@ const styles = StyleSheet.create({
   earningsAmount: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0f172a',
   },
   earningsPeriod: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#64748b',
     marginTop: 4,
   },
   progressBar: {
     height: 6,
-    backgroundColor: '#e2e8f0',
     borderRadius: 10,
     marginTop: 12,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2563eb',
     borderRadius: 10,
   },
   resourceCard: {
-    backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
   },
@@ -883,24 +884,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
-    color: '#1e293b',
   },
   resourceItems: {
     gap: 10,
   },
   resourceItem: {
     padding: 10,
-    backgroundColor: '#f8fafc',
     borderRadius: 6,
     borderLeftWidth: 4,
-    borderLeftColor: '#2563eb',
   },
   resourceItemText: {
     fontSize: 13,
-    color: '#2563eb',
   },
   registerForm: {
-    backgroundColor: 'white',
     padding: 25,
     borderRadius: 15,
     maxWidth: 500,
@@ -910,11 +906,9 @@ const styles = StyleSheet.create({
   registerFormTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1e293b',
     marginBottom: 8,
   },
   registerFormSubtitle: {
-    color: '#64748b',
     fontSize: 14,
     marginBottom: 20,
   },
@@ -925,9 +919,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
     fontSize: 14,
-    backgroundColor: 'white',
   },
   pickerContainer: {
     width: '100%',
@@ -941,11 +933,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#002D62',
     alignItems: 'center',
   },
   submitButtonText: {
-    color: 'white',
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -954,12 +944,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: 'white',
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#1e293b',
     fontSize: 14,
   },
   emptyStateContainer: {
@@ -968,7 +955,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyStateText: {
-    color: '#64748b',
     fontSize: 14,
     fontStyle: 'italic',
   },
@@ -979,26 +965,22 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: '#dc2626',
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#2563eb',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: 'white',
     fontWeight: '600',
   },
   // Skeleton styles
   skeletonLogo: {
     width: 100,
     height: 24,
-    backgroundColor: '#2c5282',
     borderRadius: 4,
   },
   skeletonNavLinks: {
@@ -1009,36 +991,30 @@ const styles = StyleSheet.create({
   skeletonNavLink: {
     width: 80,
     height: 16,
-    backgroundColor: '#2c5282',
     borderRadius: 4,
   },
   skeletonLocationBadge: {
     width: 120,
     height: 28,
-    backgroundColor: '#2c5282',
     borderRadius: 20,
   },
   skeletonNotification: {
     width: 28,
     height: 28,
-    backgroundColor: '#2c5282',
     borderRadius: 14,
   },
   skeletonAgentBadge: {
     width: 60,
     height: 28,
-    backgroundColor: '#2c5282',
     borderRadius: 20,
   },
   skeletonTitle: {
     width: 250,
     height: 32,
-    backgroundColor: '#cbd5e1',
     borderRadius: 6,
     marginBottom: 20,
   },
   skeletonWelcomeCard: {
-    backgroundColor: 'rgba(203, 213, 225, 0.4)',
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
@@ -1046,7 +1022,6 @@ const styles = StyleSheet.create({
   skeletonWelcomeTitle: {
     width: 200,
     height: 28,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
     marginBottom: 15,
   },
@@ -1057,17 +1032,14 @@ const styles = StyleSheet.create({
   skeletonButton: {
     width: 180,
     height: 40,
-    backgroundColor: '#cbd5e1',
     borderRadius: 30,
   },
   skeletonButtonSecondary: {
     width: 140,
     height: 40,
-    backgroundColor: '#cbd5e1',
     borderRadius: 30,
   },
   skeletonStatCard: {
-    backgroundColor: 'rgba(203, 213, 225, 0.5)',
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
@@ -1078,25 +1050,21 @@ const styles = StyleSheet.create({
   skeletonStatIcon: {
     width: 40,
     height: 40,
-    backgroundColor: '#cbd5e1',
     borderRadius: 20,
   },
   skeletonStatLabel: {
     width: 100,
     height: 18,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
     marginBottom: 8,
   },
   skeletonStatCount: {
     width: 80,
     height: 16,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
   },
   skeletonTableWrapper: {
     flex: 2,
-    backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
   },
@@ -1108,18 +1076,15 @@ const styles = StyleSheet.create({
   skeletonTableTitle: {
     width: 150,
     height: 24,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
   },
   skeletonViewAllLink: {
     width: 100,
     height: 20,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
   },
   skeletonTableCell: {
     height: 16,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
     marginHorizontal: 8,
   },
@@ -1127,16 +1092,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   skeletonTableRowCell: {
     height: 16,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
     marginHorizontal: 8,
   },
   skeletonEarningsCard: {
-    backgroundColor: 'rgba(203, 213, 225, 0.4)',
     borderRadius: 15,
     padding: 20,
     marginBottom: 15,
@@ -1144,44 +1106,37 @@ const styles = StyleSheet.create({
   skeletonEarningsLabel: {
     width: 100,
     height: 14,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
     marginBottom: 8,
   },
   skeletonEarningsAmount: {
     width: 120,
     height: 32,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
     marginBottom: 4,
   },
   skeletonEarningsPeriod: {
     width: 150,
     height: 16,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
   },
   skeletonProgressBar: {
     height: 6,
-    backgroundColor: '#e2e8f0',
     borderRadius: 10,
     marginTop: 12,
   },
   skeletonResourceCard: {
-    backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
   },
   skeletonResourceTitle: {
     width: 120,
     height: 20,
-    backgroundColor: '#cbd5e1',
     borderRadius: 4,
     marginBottom: 12,
   },
   skeletonResourceItem: {
     height: 40,
-    backgroundColor: '#cbd5e1',
     borderRadius: 6,
     marginBottom: 8,
   },

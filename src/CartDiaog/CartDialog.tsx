@@ -20,6 +20,8 @@ import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { CouponDialog, Coupon } from '../Coupons/CouponDialog';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface CartDialogProps {
   open: boolean;
@@ -30,7 +32,6 @@ interface CartDialogProps {
   handleNannyCheckout?: () => void;
 }
 
-// Add the price calculation function here (same as in DemoCook)
 const calculatePriceForPersons = (basePrice: number, persons: number): number => {
   if (persons <= 3) return basePrice;
   if (persons > 3 && persons <= 6) return basePrice + basePrice * 0.2 * (persons - 3);
@@ -43,7 +44,6 @@ const calculatePriceForPersons = (basePrice: number, persons: number): number =>
   return priceFor9 + priceFor9 * 0.05 * (persons - 9);
 };
 
-// Utility functions for houseSize handling
 const parseHouseSize = (size?: string): number => {
   if (!size) return 1;
   const numericValue = parseInt(size, 10);
@@ -62,33 +62,30 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   handleMaidCheckout,
   handleNannyCheckout
 }) => {
+  const { t } = useTranslation();
+  const { colors, fontSize, isDarkMode } = useTheme();
+  
   const dispatch = useDispatch();
   const allCartItems = useSelector(selectCartItems);
   
-  // Coupon state
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponDialogOpen, setCouponDialogOpen] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
   
-  // Terms checkboxes state
   const [termsAccepted, setTermsAccepted] = useState({
     keyFacts: false,
     terms: false,
     privacy: false
   });
 
-  // Policy modal state
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
   const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
 
-  // Filter items by type
   const mealCartItems = allCartItems.filter(isMealCartItem);
   const maidCartItems = allCartItems.filter(isMaidCartItem);
   const nannyCartItems = allCartItems.filter(isNannyCartItem);
   
-  // Calculate totals - Updated with proper price recalculation for meals
   const mealCartTotal = mealCartItems.reduce((sum, item) => {
-    // Recalculate price based on current persons count to ensure accuracy
     if (item.basePrice) {
       const recalculatedPrice = calculatePriceForPersons(item.basePrice, item.persons || 1);
       return sum + recalculatedPrice;
@@ -100,37 +97,61 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const nannyCartTotal = nannyCartItems.reduce((sum, item) => sum + (item.price || 0), 0);
   const totalPrice = mealCartTotal + maidCartTotal + nannyCartTotal;
   
-  // Apply coupon discount to subtotal
   const discountedTotal = Math.max(0, totalPrice - couponDiscount);
   const tax = discountedTotal * 0.18;
   const platformFee = discountedTotal * 0.06;
   const grandTotal = discountedTotal + tax + platformFee;
   
-  // Calculate total savings
   const originalTax = totalPrice * 0.18;
   const originalPlatformFee = totalPrice * 0.06;
   const totalSaved = couponDiscount + (originalTax - tax) + (originalPlatformFee - platformFee);
 
-  // Determine service type based on cart items
   const getServiceType = (): string => {
     if (mealCartItems.length > 0) return 'COOK';
     if (maidCartItems.length > 0) return 'MAID';
     if (nannyCartItems.length > 0) return 'NANNY';
-    return 'COOK'; // Default
+    return 'COOK';
   };
   
-  // Get user city - you'll need to get this from your user context/Redux
   const getUserCity = (): string => {
-    // Replace with actual user city from your state management
     return 'Bangalore';
   };
 
-  // Coupon handlers
+  const getFontSizes = () => {
+    switch (fontSize) {
+      case 'small':
+        return {
+          title: 16,
+          heading: 14,
+          body: 12,
+          caption: 10,
+          button: 12,
+        };
+      case 'large':
+        return {
+          title: 22,
+          heading: 18,
+          body: 16,
+          caption: 14,
+          button: 16,
+        };
+      default:
+        return {
+          title: 18,
+          heading: 16,
+          body: 14,
+          caption: 12,
+          button: 14,
+        };
+    }
+  };
+
+  const fontSizes = getFontSizes();
+
   const handleApplyCoupon = (coupon: Coupon) => {
     let discount = 0;
     if (coupon.discount_type === 'PERCENTAGE') {
       discount = (totalPrice * coupon.discount_value) / 100;
-      // You can add max discount logic here if needed
     } else {
       discount = coupon.discount_value;
     }
@@ -146,16 +167,13 @@ export const CartDialog: React.FC<CartDialogProps> = ({
 
   const handleRemoveItem = (id: string, itemType: CartItem['type']) => {
     dispatch(removeFromCart({ id, type: itemType }));
-    // Reset coupon when cart items change
     if (appliedCoupon) {
       handleRemoveCoupon();
     }
   };
 
-  // Check if all terms are accepted
   const allTermsAccepted = termsAccepted.keyFacts && termsAccepted.terms && termsAccepted.privacy;
 
-  // Reset checkboxes and coupon whenever dialog closes
   useEffect(() => {
     if (!open) {
       setTermsAccepted({
@@ -166,22 +184,13 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     }
   }, [open]);
 
-  // Reset coupon when cart becomes empty
   useEffect(() => {
     if (allCartItems.length === 0 && appliedCoupon) {
       handleRemoveCoupon();
     }
   }, [allCartItems.length, appliedCoupon]);
 
-  // Debug: Log when terms acceptance changes
-  useEffect(() => {
-    console.log('Terms acceptance state:', termsAccepted);
-    console.log('All terms accepted:', allTermsAccepted);
-  }, [termsAccepted, allTermsAccepted]);
-
-  // Handle terms checkboxes change
   const handleTermsChange = (allAccepted: boolean) => {
-    // This is called from TermsCheckboxes component when all are checked/unchecked via "Check All"
     setTermsAccepted({
       keyFacts: allAccepted,
       terms: allAccepted,
@@ -189,19 +198,15 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     });
   };
 
-  // Handle individual terms acceptance updates from the TermsCheckboxes component
-  // This will be used to sync with the internal state of TermsCheckboxes
   const handleTermsUpdate = (updatedTerms: { keyFacts: boolean; terms: boolean; privacy: boolean }) => {
     setTermsAccepted(updatedTerms);
   };
 
-  // Handle opening policy modal
   const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
     setActivePolicy(policyType);
     setPolicyModalVisible(true);
   };
 
-  // Render policy content based on active policy
   const renderPolicyContent = () => {
     switch (activePolicy) {
       case 'terms':
@@ -215,44 +220,30 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     }
   };
 
-  // Handle checkout button click
   const handleCheckoutClick = () => {
-    console.log('Checkout clicked, terms accepted:', termsAccepted);
-    
     if (handleCheckout) {
-      console.log('Using generic handleCheckout');
       handleCheckout();
       return;
     }
     
     if (mealCartItems.length > 0 && handleCookCheckout) {
-      console.log('Using handleCookCheckout');
       handleCookCheckout();
     } else if (maidCartItems.length > 0 && handleMaidCheckout) {
-      console.log('Using handleMaidCheckout');
       handleMaidCheckout();
     } else if (nannyCartItems.length > 0 && handleNannyCheckout) {
-      console.log('Using handleNannyCheckout');
       handleNannyCheckout();
-    } else {
-      console.error("No checkout handler available for cart items");
     }
   };
 
-  // Check if checkout is available for current cart items
   const isCheckoutAvailable = () => {
     if (handleCheckout) return true;
-    
     if (mealCartItems.length > 0 && !handleCookCheckout) return false;
     if (maidCartItems.length > 0 && !handleMaidCheckout) return false;
     if (nannyCartItems.length > 0 && !handleNannyCheckout) return false;
     return true;
   };
 
-  // Check if checkout button should be enabled
   const isCheckoutEnabled = allCartItems.length > 0 && allTermsAccepted && isCheckoutAvailable();
-
-  console.log('Checkout enabled:', isCheckoutEnabled, 'Items:', allCartItems.length, 'Terms:', allTermsAccepted, 'Available:', isCheckoutAvailable());
 
   return (
     <>
@@ -262,19 +253,18 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         transparent={true}
         onRequestClose={handleClose}
       >
-        
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            {/* Header */}
-             <LinearGradient
-                                colors={["#0a2a66ff", "#004aadff"]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.dialogHeader}
-                              >
-            {/* <View style={styles.dialogHeader}> */}
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.dialogHeader}
+            >
               <View style={styles.headerContent}>
-                <Text style={styles.dialogTitle}>Your Order Summary</Text>
+                <Text style={[styles.dialogTitle, { fontSize: fontSizes.title }]}>
+                  {t('cart.yourOrderSummary')}
+                </Text>
                 <TouchableOpacity
                   style={styles.closeButton}
                   onPress={handleClose}
@@ -282,28 +272,31 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                   <Icon name="close" size={24} color="#f7f8fa" />
                 </TouchableOpacity>
               </View>
-            {/* </View> */}
             </LinearGradient>
             
-            {/* Content */}
             <ScrollView style={styles.dialogContent}>
               {allCartItems.length === 0 ? (
                 <View style={styles.emptyCartContainer}>
-                  <Text style={styles.emptyCartText}>Your cart is empty</Text>
+                  <Text style={[styles.emptyCartText, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+                    {t('cart.yourCartIsEmpty')}
+                  </Text>
                   <TouchableOpacity 
-                    style={styles.browseButton}
+                    style={[styles.browseButton, { backgroundColor: colors.primary }]}
                     onPress={handleClose}
                   >
-                    <Text style={styles.browseButtonText}>Browse Services</Text>
+                    <Text style={[styles.browseButtonText, { color: '#fff', fontSize: fontSizes.button }]}>
+                      {t('cart.browseServices')}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <>
                   <View style={styles.itemsContainer}>
-                    {/* Meal Cart Items */}
                     {mealCartItems.length > 0 && (
                       <>
-                        <Text style={styles.sectionTitle}>Meal Services</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
+                          {t('cart.mealServices')}
+                        </Text>
                         {mealCartItems.map((item, index) => (
                           <CartItemCard 
                             key={`meal_${item.id || index}`}
@@ -312,14 +305,15 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                             itemType="meal"
                           />
                         ))}
-                        <View style={styles.divider} />
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
                       </>
                     )}
                     
-                    {/* Maid Cart Items */}
                     {maidCartItems.length > 0 && (
                       <>
-                        <Text style={styles.sectionTitle}>Maid Services</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
+                          {t('cart.maidServices')}
+                        </Text>
                         {maidCartItems.map((item, index) => (
                           <CartItemCard 
                             key={`maid_${item.id || index}`}
@@ -328,14 +322,15 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                             itemType="maid"
                           />
                         ))}
-                        <View style={styles.divider} />
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
                       </>
                     )}
                     
-                    {/* Nanny Cart Items */}
                     {nannyCartItems.length > 0 && (
                       <>
-                        <Text style={styles.sectionTitle}>Nanny Services</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
+                          {t('cart.nannyServices')}
+                        </Text>
                         {nannyCartItems.map((item, index) => (
                           <CartItemCard 
                             key={`nanny_${item.id || index}`}
@@ -348,37 +343,40 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     )}
                   </View>
 
-                  {/* Coupons Section */}
                   <TouchableOpacity 
-                    style={styles.couponsSection}
+                    style={[styles.couponsSection, { backgroundColor: colors.card, borderColor: colors.border }]}
                     onPress={() => setCouponDialogOpen(true)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.couponsHeader}>
                       <View style={styles.couponsHeaderLeft}>
-                        <MaterialCommunityIcons name="tag" size={20} color="#0984e3" />
-                        <Text style={styles.couponsTitle}>
-                          {appliedCoupon ? 'Coupon Applied' : 'Coupons and Offers'}
+                        <MaterialCommunityIcons name="tag" size={20} color={colors.primary} />
+                        <Text style={[styles.couponsTitle, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+                          {appliedCoupon ? t('cart.couponApplied') : t('cart.couponsAndOffers')}
                         </Text>
                         {appliedCoupon && (
-                          <View style={styles.appliedChip}>
-                            <Text style={styles.appliedChipText}>{appliedCoupon.coupon_code}</Text>
+                          <View style={[styles.appliedChip, { backgroundColor: colors.success }]}>
+                            <Text style={[styles.appliedChipText, { fontSize: fontSizes.caption }]}>
+                              {appliedCoupon.coupon_code}
+                            </Text>
                           </View>
                         )}
                       </View>
                       <View style={styles.couponsHeaderRight}>
                         {couponDiscount > 0 && (
-                          <Text style={styles.discountAmount}>
+                          <Text style={[styles.discountAmount, { color: colors.success, fontSize: fontSizes.body }]}>
                             -₹{couponDiscount.toFixed(2)}
                           </Text>
                         )}
-                        <Text style={styles.viewAllLink}>View all →</Text>
+                        <Text style={[styles.viewAllLink, { color: colors.primary, fontSize: fontSizes.body }]}>
+                          {t('cart.viewAll')} →
+                        </Text>
                       </View>
                     </View>
                     
                     {appliedCoupon && (
                       <View style={styles.appliedCouponDetails}>
-                        <Text style={styles.couponDescription}>
+                        <Text style={[styles.couponDescription, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                           {appliedCoupon.description}
                         </Text>
                         <TouchableOpacity 
@@ -387,65 +385,79 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                             handleRemoveCoupon();
                           }}
                         >
-                          <Text style={styles.removeCouponText}>Remove</Text>
+                          <Text style={[styles.removeCouponText, { color: colors.error, fontSize: fontSizes.caption }]}>
+                            {t('cart.remove')}
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     )}
                     
                     {!appliedCoupon && totalSaved > 0 && (
-                      <Text style={styles.savedText}>
-                        ₹{totalSaved.toFixed(2)} saved with coupons
+                      <Text style={[styles.savedText, { color: colors.success, fontSize: fontSizes.caption }]}>
+                        ₹{totalSaved.toFixed(2)} {t('cart.savedWithCoupons')}
                       </Text>
                     )}
                   </TouchableOpacity>
 
-                  {/* Pricing Summary */}
-                  <View style={styles.pricingContainer}>
+                  <View style={[styles.pricingContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.pricingRow}>
-                      <Text style={styles.pricingLabel}>Subtotal:</Text>
-                      <Text style={styles.pricingValue}>₹{totalPrice.toFixed(2)}</Text>
+                      <Text style={[styles.pricingLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+                        {t('cart.subtotal')}:
+                      </Text>
+                      <Text style={[styles.pricingValue, { color: colors.text, fontSize: fontSizes.body }]}>
+                        ₹{totalPrice.toFixed(2)}
+                      </Text>
                     </View>
                     
-                    {/* Show coupon discount if applied */}
                     {couponDiscount > 0 && (
                       <View style={styles.pricingRow}>
-                        <Text style={styles.couponDiscountLabel}>
-                          Coupon Discount ({appliedCoupon?.coupon_code}):
+                        <Text style={[styles.couponDiscountLabel, { color: colors.success, fontSize: fontSizes.body }]}>
+                          {t('cart.couponDiscount')} ({appliedCoupon?.coupon_code}):
                         </Text>
-                        <Text style={styles.couponDiscountValue}>
+                        <Text style={[styles.couponDiscountValue, { color: colors.success, fontSize: fontSizes.body }]}>
                           -₹{couponDiscount.toFixed(2)}
                         </Text>
                       </View>
                     )}
                     
                     <View style={styles.pricingRow}>
-                      <Text style={styles.pricingLabel}>Tax (18%):</Text>
-                      <Text style={styles.pricingValue}>₹{tax.toFixed(2)}</Text>
+                      <Text style={[styles.pricingLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+                        {t('cart.tax')} (18%):
+                      </Text>
+                      <Text style={[styles.pricingValue, { color: colors.text, fontSize: fontSizes.body }]}>
+                        ₹{tax.toFixed(2)}
+                      </Text>
                     </View>
                     <View style={styles.pricingRow}>
-                      <Text style={styles.pricingLabel}>Platform Fee (6%):</Text>
-                      <Text style={styles.pricingValue}>₹{platformFee.toFixed(2)}</Text>
+                      <Text style={[styles.pricingLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+                        {t('cart.platformFee')} (6%):
+                      </Text>
+                      <Text style={[styles.pricingValue, { color: colors.text, fontSize: fontSizes.body }]}>
+                        ₹{platformFee.toFixed(2)}
+                      </Text>
                     </View>
                     
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     
                     <View style={styles.pricingRow}>
-                      <Text style={styles.totalLabel}>Total:</Text>
-                      <Text style={styles.totalValue}>₹{grandTotal.toFixed(2)}</Text>
+                      <Text style={[styles.totalLabel, { color: colors.text, fontSize: fontSizes.heading, fontWeight: 'bold' }]}>
+                        {t('cart.total')}:
+                      </Text>
+                      <Text style={[styles.totalValue, { color: colors.primary, fontSize: fontSizes.heading, fontWeight: 'bold' }]}>
+                        ₹{grandTotal.toFixed(2)}
+                      </Text>
                     </View>
                     
-                    {/* Show total savings */}
                     {totalSaved > 0 && (
                       <View style={styles.totalSavingsRow}>
-                        <Text style={styles.totalSavingsText}>
-                          Total savings: ₹{totalSaved.toFixed(2)}
+                        <Text style={[styles.totalSavingsText, { color: colors.success, fontSize: fontSizes.caption }]}>
+                          {t('cart.totalSavings')}: ₹{totalSaved.toFixed(2)}
                         </Text>
                       </View>
                     )}
                     
-                    <View style={styles.termsDivider} />
+                    <View style={[styles.termsDivider, { backgroundColor: colors.border }]} />
 
-                    {/* Terms Checkboxes */}
                     <View style={styles.termsContainer}>
                       <TermsCheckboxes 
                         onChange={handleTermsChange}
@@ -459,36 +471,39 @@ export const CartDialog: React.FC<CartDialogProps> = ({
               )}
             </ScrollView>
             
-            {/* Footer */}
             {allCartItems.length > 0 && (
-              <View style={styles.dialogFooter}>
+              <View style={[styles.dialogFooter, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.footerTopRow}>
-                  <Text style={styles.itemCountText}>
-                    {allCartItems.length} item{allCartItems.length !== 1 ? 's' : ''} selected
+                  <Text style={[styles.itemCountText, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
+                    {allCartItems.length} {t('cart.itemsSelected', { count: allCartItems.length })}
                   </Text>
                 </View>
                 
                 <View style={styles.footerButtons}>
                   <TouchableOpacity 
-                    style={styles.modifyButton}
+                    style={[styles.modifyButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                     onPress={handleClose}
                   >
-                    <Text style={styles.modifyButtonText}>Modify Booking</Text>
+                    <Text style={[styles.modifyButtonText, { color: colors.primary, fontSize: fontSizes.button }]}>
+                      {t('cart.modifyBooking')}
+                    </Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity
                     style={[
                       styles.checkoutButton,
-                      !isCheckoutEnabled && styles.disabledButton
+                      { backgroundColor: colors.primary },
+                      !isCheckoutEnabled && [styles.disabledButton, { backgroundColor: colors.disabled }]
                     ]}
                     onPress={handleCheckoutClick}
                     disabled={!isCheckoutEnabled}
                   >
                     <Text style={[
                       styles.checkoutButtonText,
-                      !isCheckoutEnabled && styles.disabledButtonText
+                      { color: '#fff', fontSize: fontSizes.button },
+                      !isCheckoutEnabled && { color: colors.textTertiary }
                     ]}>
-                      Proceed to Pay ₹{grandTotal.toFixed(2)}
+                      {t('cart.proceedToPay')} ₹{grandTotal.toFixed(2)}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -498,7 +513,6 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         </View>
       </Modal>
 
-      {/* Coupon Dialog */}
       <CouponDialog
         open={couponDialogOpen}
         handleClose={() => setCouponDialogOpen(false)}
@@ -510,24 +524,23 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         userCity={getUserCity()}
       />
 
-      {/* Policy Modal - Same as in registration page */}
       <Modal
         visible={policyModalVisible}
         animationType="slide"
         transparent={false}
         onRequestClose={() => setPolicyModalVisible(false)}
       >
-        <View style={styles.policyModalContainer}>
+        <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
           <LinearGradient
             colors={["#0a2a66ff", "#004aadff"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.policyModalHeader}
           >
-            <Text style={styles.policyModalTitle}>
-              {activePolicy === 'terms' && 'Terms and Conditions'}
-              {activePolicy === 'privacy' && 'Privacy Policy'}
-              {activePolicy === 'keyfacts' && 'Key Facts Statement'}
+            <Text style={[styles.policyModalTitle, { fontSize: fontSizes.title }]}>
+              {activePolicy === 'terms' && t('tnc.title')}
+              {activePolicy === 'privacy' && t('privacy.title')}
+              {activePolicy === 'keyfacts' && t('registration.confirmation.keyFacts')}
             </Text>
             <TouchableOpacity
               style={styles.policyModalClose}
@@ -552,20 +565,28 @@ interface CartItemCardProps {
 }
 
 const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
   const dispatch = useDispatch();
+
+  const getFontSizes = () => {
+    // This would come from theme, using default for now
+    return { body: 14, caption: 12, small: 10 };
+  };
+
+  const fontSizes = getFontSizes();
 
   const handleIncrement = (field: string) => {
     if (isMealCartItem(item)) {
       const newPersons = (item.persons || 1) + 1;
-      // Recalculate price based on new persons count
-      const newPrice = calculatePriceForPersons(item.basePrice || item.price, newPersons);
+      const newPrice = (item.basePrice || item.price) * newPersons;
       
       dispatch(updateCartItem({
         id: item.id,
         type: 'meal',
         updates: { 
           persons: newPersons,
-          price: newPrice // Update the price as well
+          price: newPrice
         }
       }));
     } else if (isMaidCartItem(item)) {
@@ -608,15 +629,14 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
     if (isMealCartItem(item)) {
       if (item.persons > 1) {
         const newPersons = item.persons - 1;
-        // Recalculate price based on new persons count
-        const newPrice = calculatePriceForPersons(item.basePrice || item.price, newPersons);
+        const newPrice = (item.basePrice || item.price) * newPersons;
         
         dispatch(updateCartItem({
           id: item.id,
           type: 'meal',
           updates: { 
             persons: newPersons,
-            price: newPrice // Update the price as well
+            price: newPrice
           }
         }));
       }
@@ -678,20 +698,24 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
 
     return (
       <View style={styles.counterContainer}>
-        <Text style={styles.counterLabel}>{label}:</Text>
-        <View style={styles.counterWrapper}>
+        <Text style={[styles.counterLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+          {label}:
+        </Text>
+        <View style={[styles.counterWrapper, { borderColor: colors.border }]}>
           <TouchableOpacity 
-            style={styles.counterButton}
+            style={[styles.counterButton, { backgroundColor: colors.surface }]}
             onPress={() => handleDecrement(field)}
           >
-            <Text style={styles.counterButtonText}>-</Text>
+            <Text style={[styles.counterButtonText, { color: colors.text, fontSize: fontSizes.body }]}>-</Text>
           </TouchableOpacity>
-          <Text style={styles.counterValue}>{displayValue}</Text>
+          <Text style={[styles.counterValue, { color: colors.text, fontSize: fontSizes.body }]}>
+            {displayValue}
+          </Text>
           <TouchableOpacity 
-            style={styles.counterButton}
+            style={[styles.counterButton, { backgroundColor: colors.surface }]}
             onPress={() => handleIncrement(field)}
           >
-            <Text style={styles.counterButtonText}>+</Text>
+            <Text style={[styles.counterButtonText, { color: colors.text, fontSize: fontSizes.body }]}>+</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -700,12 +724,12 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
 
   const getItemType = () => {
     if (isNannyCartItem(item)) {
-      return 'Nanny Service';
+      return t('cart.nannyService');
     }
     if (isMaidCartItem(item)) {
-      return item.serviceType === 'package' ? 'Package' : 'Add-on';
+      return item.serviceType === 'package' ? t('cart.package') : t('cart.addOn');
     }
-    return 'Meal Package';
+    return t('cart.mealPackage');
   };
 
   const getItemName = () => {
@@ -713,7 +737,9 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
       return item.name.replace(/([A-Z])/g, ' $1').trim();
     }
     if (isNannyCartItem(item)) {
-      return `${item.careType === 'baby' ? 'Baby' : 'Elderly'} Care - ${item.packageType.charAt(0).toUpperCase() + item.packageType.slice(1)}`;
+      const careType = item.careType === 'baby' ? t('profile.page.babyCare') : t('profile.page.elderlyCare');
+      const packageType = item.packageType.charAt(0).toUpperCase() + item.packageType.slice(1);
+      return `${careType} - ${packageType}`;
     }
     if (isMealCartItem(item)) {
       return item.mealType;
@@ -722,61 +748,66 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
   };
 
   const renderDescriptionItems = () => {
-    // Handle case where description might be undefined or not a string
     const description = item.description || '';
     return description.split('\n').map((line, i) => (
       <View key={i} style={styles.descriptionItem}>
-        <View style={styles.bulletPoint} />
-        <Text style={styles.descriptionText}>{line}</Text>
+        <View style={[styles.bulletPoint, { backgroundColor: colors.primary }]} />
+        <Text style={[styles.descriptionText, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
+          {line}
+        </Text>
       </View>
     ));
   };
 
-  // Get the current price (for meal items, ensure it's recalculated)
   const getCurrentPrice = (): number => {
     if (isMealCartItem(item) && item.basePrice) {
-      return calculatePriceForPersons(item.basePrice, item.persons || 1);
+      return item.basePrice * (item.persons || 1);
     }
     return item.price || 0;
   };
 
   return (
-    <View style={styles.itemCard}>
+    <View style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <TouchableOpacity
         style={styles.deleteButton}
         onPress={onRemove}
       >
-        <Icon name="delete" size={20} color="#e53e3e" />
+        <Icon name="delete" size={20} color={colors.error} />
       </TouchableOpacity>
       
       <View style={styles.itemHeader}>
-        <Text style={styles.itemTitle}>
+        <Text style={[styles.itemTitle, { color: colors.text, fontSize: fontSizes.body, fontWeight: 'bold' }]}>
           {getItemName()} {getItemType()}
         </Text>
       </View>
       
-      {/* Add counters based on item type */}
-      {isMealCartItem(item) && renderCounter('persons', 'Persons')}
+      {isMealCartItem(item) && renderCounter('persons', t('cart.persons'))}
       
       {isMaidCartItem(item) && (
         <>
-          {item.details?.persons !== undefined && renderCounter('persons', 'Persons')}
-          {item.details?.houseSize !== undefined && renderCounter('houseSize', 'House Size')}
-          {item.details?.bathrooms !== undefined && renderCounter('bathrooms', 'Bathrooms')}
+          {item.details?.persons !== undefined && renderCounter('persons', t('cart.persons'))}
+          {item.details?.houseSize !== undefined && renderCounter('houseSize', t('cart.houseSize'))}
+          {item.details?.bathrooms !== undefined && renderCounter('bathrooms', t('cart.bathrooms'))}
         </>
       )}
       
-      {isNannyCartItem(item) && renderCounter('age', 'Age')}
+      {isNannyCartItem(item) && renderCounter('age', t('cart.age'))}
       
-      <Text style={styles.includesLabel}>Includes:</Text>
+      <Text style={[styles.includesLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
+        {t('cart.includes')}:
+      </Text>
       
       <View style={styles.descriptionList}>
         {renderDescriptionItems()}
       </View>
       
       <View style={styles.priceContainer}>
-        <Text style={styles.priceLabel}>Price:</Text>
-        <Text style={styles.priceValue}>₹{getCurrentPrice().toFixed(2)}</Text>
+        <Text style={[styles.priceLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+          {t('cart.price')}:
+        </Text>
+        <Text style={[styles.priceValue, { color: colors.text, fontSize: fontSizes.body, fontWeight: 'bold' }]}>
+          ₹{getCurrentPrice().toFixed(2)}
+        </Text>
       </View>
     </View>
   );
@@ -787,10 +818,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContainer: {
-    backgroundColor: '#f8f9fa',
     borderRadius: 12,
     maxHeight: '80%',
     width: '90%',
@@ -801,12 +830,8 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   dialogHeader: {
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
     paddingVertical: 16,
     paddingHorizontal: 20,
   },
@@ -817,7 +842,6 @@ const styles = StyleSheet.create({
   },
   dialogTitle: {
     fontWeight: '600',
-    fontSize: 20,
     color: '#fbfcff',
   },
   closeButton: {
@@ -825,50 +849,37 @@ const styles = StyleSheet.create({
   },
   dialogContent: {
     padding: 0,
-    backgroundColor: '#f8f9fa',
   },
   emptyCartContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 48,
-    backgroundColor: '#ffffff',
   },
   emptyCartText: {
-    color: '#4a5568',
     marginBottom: 16,
-    fontSize: 16,
   },
   browseButton: {
-    backgroundColor: '#4299e1',
     borderRadius: 6,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
   browseButtonText: {
-    color: 'white',
-    fontSize: 14,
     fontWeight: '500',
   },
   itemsContainer: {
     padding: 20,
-    backgroundColor: '#ffffff',
   },
   sectionTitle: {
-    fontSize: 18,
     marginBottom: 16,
-    color: '#2d3748',
     fontWeight: '600',
   },
   divider: {
     height: 1,
-    backgroundColor: '#edf2f7',
     marginVertical: 16,
   },
   couponsSection: {
-    backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#edf2f7',
     padding: 20,
     marginBottom: 8,
   },
@@ -883,19 +894,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   couponsTitle: {
-    fontSize: 14,
-    color: '#4a5568',
     fontWeight: '500',
   },
   appliedChip: {
-    backgroundColor: '#38a169',
     borderRadius: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   appliedChipText: {
     color: 'white',
-    fontSize: 11,
     fontWeight: '500',
   },
   couponsHeaderRight: {
@@ -904,13 +911,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   discountAmount: {
-    fontSize: 14,
-    color: '#38a169',
     fontWeight: '600',
   },
   viewAllLink: {
-    fontSize: 14,
-    color: '#0984e3',
+    fontWeight: '500',
   },
   appliedCouponDetails: {
     flexDirection: 'row',
@@ -919,26 +923,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   couponDescription: {
-    fontSize: 12,
-    color: '#718096',
     flex: 1,
   },
   removeCouponText: {
-    fontSize: 12,
-    color: '#e53e3e',
     fontWeight: '500',
     marginLeft: 8,
   },
   savedText: {
-    fontSize: 12,
-    color: '#38a169',
     marginTop: 8,
   },
   pricingContainer: {
-    backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#edf2f7',
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -1 },
@@ -951,45 +947,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  pricingLabel: {
-    color: '#4a5568',
-    fontSize: 14,
-  },
-  pricingValue: {
-    color: '#4a5568',
-    fontSize: 14,
-  },
-  couponDiscountLabel: {
-    color: '#38a169',
-    fontSize: 14,
-  },
-  couponDiscountValue: {
-    color: '#38a169',
-    fontSize: 14,
-  },
-  totalLabel: {
-    color: '#2d3748',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  totalValue: {
-    color: '#2b6cb0',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  pricingLabel: {},
+  pricingValue: {},
+  couponDiscountLabel: {},
+  couponDiscountValue: {},
+  totalLabel: {},
+  totalValue: {},
   totalSavingsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 8,
   },
   totalSavingsText: {
-    fontSize: 12,
-    color: '#38a169',
     fontWeight: '500',
   },
   termsDivider: {
     height: 1,
-    backgroundColor: '#cbd5e0',
     marginVertical: 16,
   },
   termsContainer: {
@@ -997,9 +970,7 @@ const styles = StyleSheet.create({
   },
   dialogFooter: {
     padding: 20,
-    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#edf2f7',
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
   },
@@ -1007,9 +978,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   itemCountText: {
-    color: '#4a5568',
     fontWeight: '500',
-    fontSize: 14,
   },
   footerButtons: {
     flexDirection: 'row',
@@ -1019,9 +988,7 @@ const styles = StyleSheet.create({
   },
   modifyButton: {
     flex: 1,
-    backgroundColor: '#ebf8ff',
     borderWidth: 1,
-    borderColor: '#bee3f8',
     borderRadius: 6,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -1030,14 +997,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modifyButtonText: {
-    color: '#2b6cb0',
-    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
   checkoutButton: {
     flex: 1,
-    backgroundColor: '#4299e1',
     borderRadius: 6,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -1046,29 +1010,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkoutButtonText: {
-    color: 'white',
-    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
   disabledButton: {
-    backgroundColor: '#e2e8f0',
-  },
-  disabledButtonText: {
-    color: '#a0aec0',
+    opacity: 0.6,
   },
   itemCard: {
     marginBottom: 16,
     padding: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#edf2f7',
-    backgroundColor: '#ffffff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
+    position: 'relative',
   },
   deleteButton: {
     position: 'absolute',
@@ -1079,11 +1037,9 @@ const styles = StyleSheet.create({
   },
   itemHeader: {
     marginBottom: 12,
+    paddingRight: 30,
   },
   itemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2d3748',
     textTransform: 'capitalize',
     letterSpacing: 0.5,
   },
@@ -1094,23 +1050,18 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   counterLabel: {
-    color: '#2d3436',
-    fontSize: 14,
     flex: 1,
   },
   counterWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#dfe6e9',
     borderRadius: 20,
   },
   counterButton: {
     padding: 8,
-    backgroundColor: '#f5f5f5',
   },
   counterButtonText: {
-    fontSize: 16,
     fontWeight: '500',
     paddingHorizontal: 8,
   },
@@ -1118,15 +1069,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     minWidth: 40,
     textAlign: 'center',
-    fontSize: 14,
     fontWeight: '500',
   },
   includesLabel: {
     marginTop: 12,
     marginBottom: 8,
-    color: '#4a5568',
     fontWeight: '500',
-    fontSize: 14,
   },
   descriptionList: {
     marginLeft: 8,
@@ -1139,14 +1087,11 @@ const styles = StyleSheet.create({
   bulletPoint: {
     width: 6,
     height: 6,
-    backgroundColor: '#4299e1',
     borderRadius: 3,
     marginTop: 6,
     marginRight: 10,
   },
   descriptionText: {
-    color: '#4a5568',
-    fontSize: 14,
     flex: 1,
   },
   priceContainer: {
@@ -1155,19 +1100,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   priceLabel: {
-    color: '#4a5568',
     fontWeight: '500',
-    fontSize: 14,
   },
-  priceValue: {
-    color: '#2d3748',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  // Policy Modal Styles
+  priceValue: {},
   policyModalContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   policyModalHeader: {
     padding: 20,
@@ -1178,7 +1115,6 @@ const styles = StyleSheet.create({
   },
   policyModalTitle: {
     color: '#fff',
-    fontSize: 20,
     fontWeight: 'bold',
   },
   policyModalClose: {
@@ -1188,7 +1124,6 @@ const styles = StyleSheet.create({
   },
   policyModalContent: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     padding: 16,
   },
 });

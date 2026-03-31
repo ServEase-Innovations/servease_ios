@@ -29,12 +29,12 @@ import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
 import LinearGradient from "react-native-linear-gradient";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useTranslation } from 'react-i18next';
 
 Geocoder.init(keys.api_key);
 
 const { width } = Dimensions.get("window");
 
-// Updated interface to include location data
 interface LocationData {
   formatted_address: string;
   geometry: {
@@ -57,18 +57,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   setUserPreference,
   onLocationChange,
 }) => {
+  const { t } = useTranslation();
   const { colors, fontSize, isDarkMode } = useTheme();
-  console.log("User Preference in LocationSelector:", userPreference);
+  
   const dispatch = useDispatch();
   const locationDispatch = useDispatch();
-  const { appUser } = useAppUser(); // Using AppUser context
+  const { appUser } = useAppUser();
   
   const [location, setLocation] = useState("");
   const [locationAs, setLocationAs] = useState("");
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([
-    { name: "Detect Location", index: 1 },
-    { name: "Add Address", index: 2 },
+    { name: t('locationSelector.detectLocation'), index: 1 },
+    { name: t('locationSelector.addAddress'), index: 2 },
   ]);
   const [dataFromMap, setDataFromMap] = useState<LocationData | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -86,7 +87,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [loadingLocations, setLoadingLocations] = useState(false);
 
-  // New states for pin selection
   const [selectedPinLocation, setSelectedPinLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -94,20 +94,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [selectedPinAddress, setSelectedPinAddress] = useState("");
   const [isPinSelected, setIsPinSelected] = useState(false);
 
-  // New states for search functionality
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchInputFocused, setSearchInputFocused] = useState(false);
 
-  // State to control which location method is active
   const [locationMethod, setLocationMethod] = useState<'auto' | 'manual' | null>(null);
 
-  // Check if user is authenticated
   const isAuthenticated = appUser && appUser.customerid;
 
-  // Get font sizes based on theme
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
@@ -169,7 +165,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const fontSizes = getFontSizes();
 
-  // Helper function to create location data object
   const createLocationData = (lat: number, lng: number, addr: string): LocationData => {
     return {
       formatted_address: addr,
@@ -193,7 +188,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     };
   };
 
-  // Search location function
   const searchLocation = async (query: string) => {
     if (!query || query.trim().length < 3) {
       setSearchResults([]);
@@ -221,7 +215,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Handle search input change with debounce
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery) {
@@ -234,7 +227,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Handle location selection from search results
   const handleLocationSelect = async (location: any) => {
     const { lat, lon, display_name } = location;
     const latitude = parseFloat(lat);
@@ -246,13 +238,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setIsPinSelected(true);
     setShowSearchResults(false);
     setSearchQuery("");
-    setLocationMethod('manual'); // Set method to manual
+    setLocationMethod('manual');
 
-    // Update map region to show selected location
     setLatitude(latitude);
     setLongitude(longitude);
 
-    // Create location data and notify parent
     const locationData = createLocationData(latitude, longitude, display_name);
     setDataFromMap(locationData);
     onLocationChange?.(display_name, locationData);
@@ -260,7 +250,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const checkLocationPermission = async (): Promise<boolean> => {
     try {
-      
       if (Platform.OS === "android") {
         const hasPermission = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
@@ -284,15 +273,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const requestLocationPermission = async (): Promise<boolean> => {
     if (permissionDeniedPermanently) {
       Alert.alert(
-        "Permission Denied",
-        "Location permission was permanently denied. Please enable it in device settings.",
+        t('common.permissionRequired'),
+        t('locationSelector.permissionDeniedMessage'),
         [
           {
-            text: "Open Settings",
+            text: t('common.openSettings'),
             onPress: () => handleOpenSettings(),
           },
           {
-            text: "Cancel",
+            text: t('common.cancel'),
             style: "cancel",
           },
         ]
@@ -309,11 +298,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
-            title: "Location Permission",
-            message: "We need access to your location to provide better service",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK",
+            title: t('common.permissionRequired'),
+            message: t('locationSelector.locationPermissionMessage'),
+            buttonNeutral: t('common.askMeLater'),
+            buttonNegative: t('common.cancel'),
+            buttonPositive: t('common.ok'),
           }
         );
 
@@ -325,15 +314,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
           setPermissionDeniedPermanently(true);
           Alert.alert(
-            "Permission Denied",
-            "Location permission is required. Please enable it in device settings.",
+            t('common.permissionRequired'),
+            t('locationSelector.permissionRequiredMessage'),
             [
               {
-                text: "Open Settings",
+                text: t('common.openSettings'),
                 onPress: () => handleOpenSettings(),
               },
               {
-                text: "Cancel",
+                text: t('common.cancel'),
                 style: "cancel",
               },
             ]
@@ -368,7 +357,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         locationDispatch(addLocation(position.coords));
         setLatitude(latitude);
         setLongitude(longitude);
-        
 
         try {
           const res = await axios.get(
@@ -385,9 +373,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             const newLocation = res.data.display_name;
             setLocation(newLocation);
             setAddress(newLocation);
-            setLocationMethod('auto'); // Set method to auto
+            setLocationMethod('auto');
             
-            // Create location data object with coordinates
             const locationData = createLocationData(latitude, longitude, newLocation);
             setDataFromMap(locationData);
             onLocationChange?.(newLocation, locationData);
@@ -406,21 +393,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           setLocationWatchId(null);
         }
 
-        let errorMessage = "Unable to fetch location.";
+        let errorMessage = t('locationSelector.unableToFetchLocation');
 
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Location permission denied. Please enable location services in settings.";
+            errorMessage = t('locationSelector.permissionDeniedMessage');
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information is unavailable. Please check your network connection and try again.";
+            errorMessage = t('locationSelector.positionUnavailable');
             break;
           case error.TIMEOUT:
-            errorMessage = "Location request timed out. Please ensure you have a clear view of the sky and try again.";
+            errorMessage = t('locationSelector.timeoutMessage');
             break;
         }
 
-        Alert.alert("Location Error", errorMessage);
+        Alert.alert(t('common.error'), errorMessage);
         setLoading(false);
       },
       {
@@ -441,14 +428,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
         if (locationMode !== "high_accuracy") {
           Alert.alert(
-            "High Accuracy Recommended",
-            "For best results, please enable high accuracy location mode in your device settings.",
+            t('locationSelector.highAccuracyRecommended'),
+            t('locationSelector.highAccuracyMessage'),
             [
               {
-                text: "Open Settings",
+                text: t('common.openSettings'),
                 onPress: () => handleOpenSettings(),
               },
-              { text: "Continue Anyway", onPress: () => {} },
+              { text: t('common.continue'), onPress: () => {} },
             ]
           );
         }
@@ -491,10 +478,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       if (addressComponent) {
         return addressComponent;
       }
-      return "Address not available";
+      return t('locationSelector.addressNotAvailable');
     } catch (error) {
       console.warn("Geocoder error:", error);
-      return "Address not available";
+      return t('locationSelector.addressNotAvailable');
     }
   };
 
@@ -507,21 +494,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const fetchLocationWithChecks = async () => {
     setIsCheckingLocation(true);
     setLoading(true);
-    setLocationMethod('auto'); // Set method to auto
+    setLocationMethod('auto');
 
     try {
       const servicesEnabled = await checkLocationServices();
       if (!servicesEnabled) {
         Alert.alert(
-          "Location Services Disabled",
-          "Please enable device location services to continue.",
+          t('locationSelector.locationServicesDisabled'),
+          t('locationSelector.pleaseEnableLocation'),
           [
             {
-              text: "Enable Location",
+              text: t('common.enable'),
               onPress: () => handleOpenSettings(),
             },
             { 
-              text: "Cancel", 
+              text: t('common.cancel'), 
               style: "cancel",
               onPress: () => {
                 setShowGPSButton(true);
@@ -559,20 +546,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     const { coordinate } = event.nativeEvent;
     setSelectedPinLocation(coordinate);
     setIsPinSelected(true);
-    setLocationMethod('manual'); // Set method to manual
+    setLocationMethod('manual');
     
     try {
       const address = await getAddressFromCoords(coordinate.latitude, coordinate.longitude);
       setSelectedPinAddress(address);
       setAddress(address);
 
-      // Create location data and notify parent
       const locationData = createLocationData(coordinate.latitude, coordinate.longitude, address);
       setDataFromMap(locationData);
       onLocationChange?.(address, locationData);
     } catch (error) {
       console.warn("Error getting address for selected pin:", error);
-      setSelectedPinAddress("Address not available");
+      setSelectedPinAddress(t('locationSelector.addressNotAvailable'));
     }
   };
 
@@ -583,7 +569,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery("");
     setSearchResults([]);
     setShowSearchResults(false);
-    setLocationMethod('auto'); // Set method to auto
+    setLocationMethod('auto');
     if (latitude && longitude) {
       getAddressFromCoords(latitude, longitude)
         .then((addr) => {
@@ -597,20 +583,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const handleChange = (newValue: string) => {
-    console.log("➡️ New Value Selected:", newValue);
-    
-    if (newValue === "Add Address") {
+    if (newValue === t('locationSelector.addAddress')) {
       setLoading(false);
       setIsCheckingLocation(false);
       setShowGPSButton(false);
-      setLocationMethod(null); // Reset method when opening modal
-      // Check authentication before opening address modal
+      setLocationMethod(null);
       if (!isAuthenticated) {
         Alert.alert(
-          "Authentication Required",
-          "Please login to save locations.",
+          t('common.authenticationRequired'),
+          t('locationSelector.loginToSaveLocations'),
           [
-            { text: "OK", style: "default" }
+            { text: t('common.ok'), style: "default" }
           ]
         );
         return;
@@ -621,20 +604,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setSearchQuery("");
       setSearchResults([]);
       setShowSearchResults(false);
-    } else if (newValue === "Detect Location") {
+    } else if (newValue === t('locationSelector.detectLocation')) {
       fetchLocationWithChecks();
     } else {
-      console.log("➡️ Selected Saved Location:", newValue);
-      console.log("🗂️ User Preferences:", userPreference);
-      
-      // Check if userPreference has data
       if (!userPreference || (Array.isArray(userPreference) && userPreference.length === 0)) {
-        console.error("userPreference is empty or undefined");
-        Alert.alert("Error", "No saved locations found.");
+        Alert.alert(t('common.error'), t('locationSelector.noSavedLocations'));
         return;
       }
       
-      // Handle both array and object formats
       let savedLocations = [];
       if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
         savedLocations = userPreference[0].savedLocations;
@@ -642,9 +619,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         savedLocations = userPreference.savedLocations;
       }
       
-      console.log("📌 Saved locations from userPreference:", savedLocations);
-      
-      // Find the location - use exact match first, then case-insensitive
       const savedLocation = savedLocations.find(
         (location: any) => location.name === newValue
       ) || savedLocations.find(
@@ -652,12 +626,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       );
       
       if (savedLocation?.location) {
-        console.log("✅ Found saved location:", savedLocation.location);
-        
         let addressToSet = "";
         let locationData = savedLocation.location;
         
-        // Handle different location data structures
         if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
           addressToSet = locationData.address[0].formatted_address;
         } else if (locationData.formatted_address) {
@@ -667,24 +638,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }
         
         if (addressToSet) {
-          console.log("✅ Setting location to:", addressToSet);
           setLocation(addressToSet);
           dispatch(add(savedLocation.location));
           onLocationChange?.(addressToSet, savedLocation.location);
           
-          // Update map coordinates if available
           if (savedLocation.location.geometry?.location) {
             setLatitude(savedLocation.location.geometry.location.lat);
             setLongitude(savedLocation.location.geometry.location.lng);
           }
         } else {
-          console.warn("❌ No valid address found in saved location");
-          Alert.alert("Error", "Could not retrieve address from saved location.");
+          Alert.alert(t('common.error'), t('locationSelector.couldNotRetrieveAddress'));
         }
       } else {
-        console.warn("❌ No matching location found for:", newValue);
-        console.log("Available saved locations:", savedLocations);
-        Alert.alert("Not Found", `Location "${newValue}" not found in your saved locations.`);
+        Alert.alert(t('common.notFound'), t('locationSelector.locationNotFound'));
       }
     }
   };
@@ -718,13 +684,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     
     setOpen(false);
     
-    // Check authentication before showing save options
     if (!isAuthenticated) {
       Alert.alert(
-        "Authentication Required",
-        "Please login to save locations.",
+        t('common.authenticationRequired'),
+        t('locationSelector.loginToSaveLocations'),
         [
-          { text: "OK", style: "default" }
+          { text: t('common.ok'), style: "default" }
         ]
       );
       return;
@@ -738,18 +703,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const locationHandleSave = async () => {
-    console.log("Location saved as:", locationAs);
-    console.log("User preference:", userPreference);
-    console.log("Location data:", dataFromMap);
-    
     setIsSaving(true);
     
     try {
       await updateUserSetting();
       
-      Alert.alert("Success", "Location saved successfully!");
+      Alert.alert(t('common.success'), t('locationSelector.locationSaved'));
       
-      // Close dialog after a short delay
       setTimeout(() => {
         setOpenSaveOptionForSave(false);
         setLocationAs("");
@@ -758,107 +718,89 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       
     } catch (error: any) {
       console.error("Error saving location:", error);
-      
-      Alert.alert("Error", "Failed to save location. Please try again.");
-      
+      Alert.alert(t('common.error'), t('locationSelector.saveFailed'));
       setIsSaving(false);
     }
   };
 
- const updateUserSetting = async () => {
-  // Use appUser for authentication check
-  if (!appUser) {
-    throw new Error("User authentication required. Please login again.");
-  }
+  const updateUserSetting = async () => {
+    if (!appUser) {
+      throw new Error(t('errors.authenticationRequired'));
+    }
 
-  if (!appUser.customerid) {
-    throw new Error("User profile not loaded properly. Please try again.");
-  }
+    if (!appUser.customerid) {
+      throw new Error(t('errors.profileNotLoaded'));
+    }
 
-  if (!locationAs || locationAs.trim() === "") {
-    throw new Error("Please enter a name for this location (Home, Office, or custom name).");
-  }
+    if (!locationAs || locationAs.trim() === "") {
+      throw new Error(t('locationSelector.enterLocationName'));
+    }
 
-  if (!dataFromMap) {
-    throw new Error("No valid location data found. Please select a location first.");
-  }
+    if (!dataFromMap) {
+      throw new Error(t('locationSelector.selectLocationFirst'));
+    }
 
-  const newLocation = {
-    name: locationAs.trim(),
-    location: dataFromMap,
-  };
+    const newLocation = {
+      name: locationAs.trim(),
+      location: dataFromMap,
+    };
 
-  console.log("➕ New location to add:", newLocation);
+    let existingLocations: any[] = [];
+    if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
+      existingLocations = [...userPreference[0].savedLocations];
+    } else if (userPreference?.savedLocations) {
+      existingLocations = [...userPreference.savedLocations];
+    }
 
-  // Get existing locations with proper type annotation
-  let existingLocations: any[] = [];
-  if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
-    existingLocations = [...userPreference[0].savedLocations];
-  } else if (userPreference?.savedLocations) {
-    existingLocations = [...userPreference.savedLocations];
-  }
+    const existingLocationIndex = existingLocations.findIndex(
+      (loc: any) => loc.name.toLowerCase() === locationAs.trim().toLowerCase()
+    );
 
-  // Check if location with same name already exists
-  const existingLocationIndex = existingLocations.findIndex(
-    (loc: any) => loc.name.toLowerCase() === locationAs.trim().toLowerCase()
-  );
+    let updatedLocations;
+    if (existingLocationIndex !== -1) {
+      updatedLocations = [...existingLocations];
+      updatedLocations[existingLocationIndex] = newLocation;
+    } else {
+      updatedLocations = [...existingLocations, newLocation];
+    }
 
-  let updatedLocations;
-  if (existingLocationIndex !== -1) {
-    // Update existing location
-    updatedLocations = [...existingLocations];
-    updatedLocations[existingLocationIndex] = newLocation;
-  } else {
-    // Add new location
-    updatedLocations = [...existingLocations, newLocation];
-  }
-
-  const payload = {
-    customerId: appUser.customerid,
-    savedLocations: updatedLocations,
-  };
-
-  console.log("📤 Updating user settings with payload:", payload);
-  
-  const response = await axios.put(
-    `https://utils-ndt3.onrender.com/user-settings/${appUser.customerid}`,
-    payload
-  );
-
-  if (response.status === 200 || response.status === 201) {
-    console.log("✅ User settings updated successfully");
-    
-    // Update local state with proper structure
-    const updatedUserPreference = {
+    const payload = {
       customerId: appUser.customerid,
-      savedLocations: updatedLocations
+      savedLocations: updatedLocations,
     };
     
-    setUserPreference(updatedUserPreference);
-    
-    // Update suggestions
-    const baseSuggestions = [
-      { name: "Detect Location", index: 1 },
-      { name: "Add Address", index: 2 },
-    ];
-    const savedLocationSuggestions = updatedLocations.map((loc: any, i: number) => ({
-      name: loc.name,
-      index: i + 3,
-    }));
-    
-    const newSuggestions = [...baseSuggestions, ...savedLocationSuggestions];
-    console.log("🔄 Updated suggestions:", newSuggestions);
-    setSuggestions(newSuggestions);
-    
-    return response.data;
-  } else {
-    throw new Error(`Unexpected response: ${response.status}`);
-  }
-};
+    const response = await axios.put(
+      `https://utils-ndt3.onrender.com/user-settings/${appUser.customerid}`,
+      payload
+    );
+
+    if (response.status === 200 || response.status === 201) {
+      const updatedUserPreference = {
+        customerId: appUser.customerid,
+        savedLocations: updatedLocations
+      };
+      
+      setUserPreference(updatedUserPreference);
+      
+      const baseSuggestions = [
+        { name: t('locationSelector.detectLocation'), index: 1 },
+        { name: t('locationSelector.addAddress'), index: 2 },
+      ];
+      const savedLocationSuggestions = updatedLocations.map((loc: any, i: number) => ({
+        name: loc.name,
+        index: i + 3,
+      }));
+      
+      const newSuggestions = [...baseSuggestions, ...savedLocationSuggestions];
+      setSuggestions(newSuggestions);
+      
+      return response.data;
+    } else {
+      throw new Error(`Unexpected response: ${response.status}`);
+    }
+  };
 
   const handleUserPreference = (preference?: string) => {
-    console.log("User preference selected: ", preference);
-
     if (!preference) {
       setShowInput(true);
       setLocationAs("");
@@ -877,18 +819,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     };
   }, []);
 
-  // Function to update suggestions based on userPreference
   const updateSuggestions = () => {
-    console.log("🔄 Updating suggestions based on userPreference:", userPreference);
-    
     const baseSuggestions = [
-      { name: "Detect Location", index: 1 },
-      { name: "Add Address", index: 2 },
+      { name: t('locationSelector.detectLocation'), index: 1 },
+      { name: t('locationSelector.addAddress'), index: 2 },
     ];
 
     let savedLocationSuggestions = [];
     
-    // Handle different userPreference structures
     if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
       savedLocationSuggestions = userPreference[0].savedLocations.map((loc: any, i: number) => ({
         name: loc.name,
@@ -901,27 +839,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       }));
     }
     
-    console.log("📌 Saved location suggestions:", savedLocationSuggestions);
-    
     const finalSuggestions = [...baseSuggestions, ...savedLocationSuggestions];
     setSuggestions(finalSuggestions);
-    
-    console.log("✅ Final suggestions updated:", finalSuggestions);
   };
 
-  // Update suggestions when userPreference changes
   useEffect(() => {
     updateSuggestions();
   }, [userPreference]);
 
-  // Also update when component mounts
   useEffect(() => {
     if (userPreference) {
       updateSuggestions();
     }
   }, []);
 
-  // Render location options with auto-detect and manual search side by side
   const renderLocationMethodSelector = () => {
     return (
       <View style={styles.methodSelectorContainer}>
@@ -948,10 +879,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             { fontSize: fontSizes.methodTitle, color: colors.text },
             locationMethod === 'auto' && { color: colors.primary }
           ]}>
-            Auto Detect
+            {t('locationSelector.autoDetect')}
           </Text>
           <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
-            Use your current location
+            {t('locationSelector.useYourCurrentLocation')}
           </Text>
           {locationMethod === 'auto' && (
             <View style={styles.activeIndicator}>
@@ -980,10 +911,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             { fontSize: fontSizes.methodTitle, color: colors.text },
             locationMethod === 'manual' && { color: colors.primary }
           ]}>
-            Search Manually
+            {t('locationSelector.searchManually')}
           </Text>
           <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
-            Search or tap on map
+            {t('locationSelector.searchOrTapOnMap')}
           </Text>
           {locationMethod === 'manual' && (
             <View style={styles.activeIndicator}>
@@ -995,22 +926,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     );
   };
 
-  // OPTIMIZED: Auto detect content with map view and small refresh button
   const renderAutoDetectContent = () => {
     if (isCheckingLocation) {
       return (
         <View style={styles.statusContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>Checking location services...</Text>
+          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>
+            {t('locationSelector.checkingLocationServices')}
+          </Text>
         </View>
       );
     } else if (loading) {
       return (
         <View style={styles.statusContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>Getting your location...</Text>
+          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>
+            {t('locationSelector.gettingYourLocation')}
+          </Text>
           <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
-            This may take a few seconds
+            {t('locationSelector.thisMayTakeFewSeconds')}
           </Text>
         </View>
       );
@@ -1019,10 +953,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <View style={styles.statusContainer}>
           <MaterialIcon name="location-off" size={50} color={colors.error} />
           <Text style={[styles.statusText, { color: colors.error, fontWeight: '600', fontSize: fontSizes.statusText }]}>
-            Location services are disabled
+            {t('locationSelector.locationServicesDisabled')}
           </Text>
           <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
-            Please enable device location to continue
+            {t('locationSelector.pleaseEnableLocation')}
           </Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
@@ -1030,7 +964,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               onPress={handleOpenSettings}
             >
               <MaterialIcon name="settings" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>Enable Device Location</Text>
+              <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>
+                {t('locationSelector.enableDeviceLocation')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, { marginTop: 12, width: '100%', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
@@ -1038,7 +974,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 setLocationMethod('manual');
               }}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Switch to Manual Search</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+                {t('locationSelector.switchToManualSearch')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1046,10 +984,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     } else {
       return (
         <View style={styles.autoLocationContent}>
-          {/* Map View */}
           <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
             <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
-              📍 Your current location is shown on the map
+              {t('locationSelector.yourCurrentLocation')}
             </Text>
           </View>
           
@@ -1069,13 +1006,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                     latitude: latitude,
                     longitude: longitude,
                   }}
-                  title="Your current location"
+                  title={t('locationSelector.yourCurrentLocation')}
                   pinColor={colors.primary}
                 />
               )}
             </MapView>
             
-            {/* Small Refresh Button */}
             <TouchableOpacity
               style={[styles.smallRefreshButton, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={fetchLocationWithChecks}
@@ -1084,12 +1020,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Location Info */}
           <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
             <View style={styles.locationInfo}>
               <MaterialIcon name="location-on" size={20} color={colors.primary} />
               <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
-                {address || "Fetching your location..."}
+                {address || t('locationSelector.fetchingLocation')}
               </Text>
             </View>
             {latitude && longitude && (
@@ -1108,18 +1043,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  // Manual detect content with search and map
   const renderManualDetectContent = () => {
     return (
       <View style={styles.methodContentContainer}>
-        {/* Search Section */}
         <View style={styles.searchSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Search for a location</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+            {t('locationSelector.searchForLocation')}
+          </Text>
           <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Icon name="search" size={16} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.addressText }]}
-              placeholder="Enter address or place name..."
+              placeholder={t('locationSelector.enterAddressOrPlace')}
               placeholderTextColor={colors.placeholder}
               value={searchQuery}
               onChangeText={(text) => {
@@ -1143,13 +1078,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             )}
           </View>
 
-          {/* Search Results */}
           {showSearchResults && (
             <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {isSearching ? (
                 <View style={styles.searchLoadingContainer}>
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={[styles.searchLoadingText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>Searching...</Text>
+                  <Text style={[styles.searchLoadingText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
+                    {t('locationSelector.searching')}
+                  </Text>
                 </View>
               ) : searchResults.length > 0 ? (
                 <FlatList
@@ -1175,19 +1111,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 />
               ) : searchQuery.length >= 3 ? (
                 <View style={styles.noResultsContainer}>
-                  <Text style={[styles.noResultsText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>No locations found</Text>
+                  <Text style={[styles.noResultsText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
+                    {t('locationSelector.noLocationsFound')}
+                  </Text>
                 </View>
               ) : null}
             </View>
           )}
         </View>
 
-        {/* Map View */}
         <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
           <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
             {isPinSelected 
-              ? "📍 Pin location selected. Tap 'Confirm Location' to use this address."
-              : "📍 Tap on the map to select a location or search above"}
+              ? t('locationSelector.pinLocationSelected')
+              : t('locationSelector.tapOnMapToSelect')}
           </Text>
         </View>
         
@@ -1208,7 +1145,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                   latitude: latitude,
                   longitude: longitude,
                 }}
-                title="Your current location"
+                title={t('locationSelector.yourCurrentLocation')}
                 pinColor={colors.primary}
               />
             )}
@@ -1216,19 +1153,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             {isPinSelected && selectedPinLocation && (
               <Marker
                 coordinate={selectedPinLocation}
-                title="Selected location"
+                title={t('locationSelector.selectedLocation')}
                 pinColor={colors.error}
               />
             )}
           </MapView>
         </View>
 
-        {/* Selected Location Info */}
         <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
           <View style={styles.locationInfo}>
             <MaterialIcon name="location-on" size={20} color={colors.primary} />
             <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
-              {isPinSelected ? selectedPinAddress : (address || "No address selected")}
+              {isPinSelected ? selectedPinAddress : (address || t('locationSelector.noAddressSelected'))}
             </Text>
           </View>
           {selectedPinLocation && (
@@ -1249,28 +1185,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             onPress={handleUseCurrentLocation}
           >
             <MaterialIcon name="my-location" size={16} color={colors.text} style={{ marginRight: 4 }} />
-            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Use Current</Text>
+            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+              {t('locationSelector.useCurrent')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   };
 
-  // Main render function for modal content
   const renderLocationModalContent = () => {
     return (
       <View style={styles.modalContent}>
-        {/* Method Selection Cards - Always Visible */}
         {renderLocationMethodSelector()}
         
-        {/* Divider */}
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         
-        {/* Conditional Content Based on Selected Method */}
         {locationMethod === 'auto' && renderAutoDetectContent()}
         {locationMethod === 'manual' && renderManualDetectContent()}
 
-        {/* Action Buttons - Always Visible */}
         <View style={styles.buttonGroup}>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
@@ -1284,7 +1217,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               setLocationMethod(null);
             }}
           >
-            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Cancel</Text>
+            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+              {t('common.cancel')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -1295,7 +1230,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             onPress={handleLocationSave}
             disabled={!address && !selectedPinAddress}
           >
-            <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>Confirm Location</Text>
+            <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>
+              {t('locationSelector.confirmLocation')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1659,7 +1596,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {location || "Searching ..."}
+          {location || t('locationSelector.searching')}
         </Text> 
         <MaterialIcon name="arrow-drop-down" size={18} color={colors.primary} />
       </TouchableOpacity>
@@ -1669,7 +1606,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           {loadingLocations ? (
             <View style={dynamicStyles.dropdownItem}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[dynamicStyles.dropdownItemText, { marginLeft: 8 }]}>Loading...</Text>
+              <Text style={[dynamicStyles.dropdownItemText, { marginLeft: 8 }]}>
+                {t('common.loading')}
+              </Text>
             </View>
           ) : (
             suggestions.map((suggestion, index) => (
@@ -1677,9 +1616,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 key={index}
                 style={dynamicStyles.dropdownItem}
                 onPress={() => {
-                  console.log(`📍 ${suggestion.name} clicked`);
-                  console.log("📊 Current suggestions:", suggestions);
-                  console.log("📊 Current userPreference:", userPreference);
                   handleChange(suggestion.name);
                   setShowDropdown(false);
                 }}
@@ -1691,7 +1627,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         </View>
       )}
 
-      {/* Location Modal */}
       <Modal
         visible={open}
         animationType="slide"
@@ -1707,13 +1642,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         }}
       >
         <View style={dynamicStyles.modalContainer}>
-           <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.modalHeader}
-            >
-            <Text style={dynamicStyles.modalTitle}>Select Your Location</Text>
+          <LinearGradient
+            colors={["#0a2a66ff", "#004aadff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.modalHeader}
+          >
+            <Text style={dynamicStyles.modalTitle}>{t('locationSelector.selectYourLocation')}</Text>
             <TouchableOpacity onPress={() => {
               setOpen(false);
               setIsPinSelected(false);
@@ -1725,13 +1660,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             }}>
               <Icon name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
-            </LinearGradient>
+          </LinearGradient>
 
           {renderLocationModalContent()}
         </View>
       </Modal>
 
-      {/* Save Location Modal */}
       <Modal
         visible={OpenSaveOptionForSave}
         animationType="slide"
@@ -1745,13 +1679,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             end={{ x: 1, y: 0 }}
             style={styles.modalHeader}
           >
-            <Text style={dynamicStyles.modalTitle}>Save As</Text>
+            <Text style={dynamicStyles.modalTitle}>{t('locationSelector.saveAs')}</Text>
             <TouchableOpacity onPress={() => setOpenSaveOptionForSave(false)}>
               <Icon name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
           </LinearGradient>
           <View style={dynamicStyles.modalContent}>
-            <Text style={dynamicStyles.saveAsText}>Save As:</Text>
+            <Text style={dynamicStyles.saveAsText}>{t('locationSelector.saveAs')}:</Text>
             <View style={styles.saveOptionsContainer}>
               <TouchableOpacity
                 style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
@@ -1759,7 +1693,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 disabled={isSaving}
               >
                 <Icon name="home" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.saveOptionText}>Home</Text>
+                <Text style={dynamicStyles.saveOptionText}>{t('common.home')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
@@ -1767,7 +1701,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 disabled={isSaving}
               >
                 <Icon name="briefcase" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.saveOptionText}>Office</Text>
+                <Text style={dynamicStyles.saveOptionText}>{t('common.office')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
@@ -1775,14 +1709,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 disabled={isSaving}
               >
                 <Icon name="map-marker" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.saveOptionText}>Others</Text>
+                <Text style={dynamicStyles.saveOptionText}>{t('common.others')}</Text>
               </TouchableOpacity>
             </View>
 
             {showInput && (
               <TextInput
                 style={dynamicStyles.locationNameInput}
-                placeholder="Enter Location Name"
+                placeholder={t('locationSelector.enterLocationName')}
                 placeholderTextColor={colors.placeholder}
                 value={locationAs}
                 onChangeText={setLocationAs}
@@ -1796,7 +1730,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 onPress={() => setOpenSaveOptionForSave(false)}
                 disabled={isSaving}
               >
-                <Text style={dynamicStyles.secondaryButtonText}>Cancel</Text>
+                <Text style={dynamicStyles.secondaryButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -1810,7 +1744,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={dynamicStyles.buttonText}>Save</Text>
+                  <Text style={dynamicStyles.buttonText}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1821,7 +1755,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   );
 };
 
-// Keep static styles for layout and structure
 const styles = StyleSheet.create({
   locationSection: {
     flex: 2,
