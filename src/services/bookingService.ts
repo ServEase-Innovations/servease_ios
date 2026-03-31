@@ -254,6 +254,7 @@ export const BookingService = {
       });
 
       // Create engagement
+      console.log("Creating engagement with payload:", JSON.stringify(payload));
       const engagementData = await BookingService.createEngagement(payload);
       console.log("Engagement data received:", JSON.stringify(engagementData, null, 2));
 

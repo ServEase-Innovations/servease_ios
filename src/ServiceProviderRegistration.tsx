@@ -53,6 +53,7 @@ interface FormData {
   keyFacts: boolean;
   panImage: any;
   housekeepingRole: string;
+  housekeepingRoles: string[];
   description: string;
   experience: string;
   kyc: string;
@@ -143,6 +144,7 @@ const ServiceProviderRegistration: React.FC<
     dob: "",
     profilePic: "",
     timeslot: "06:00-20:00",
+    housekeepingRoles: [],
     referralCode: "",
   });
 
@@ -350,16 +352,25 @@ const ServiceProviderRegistration: React.FC<
   };
 
   const handleServiceTypeChange = (value: string) => {
-    setFormData({ ...formData, housekeepingRole: value });
-    setIsCookSelected(value === "COOK");
-    if (value !== "COOK") {
-      setFormData(prev => ({
-        ...prev,
-        housekeepingRole: value,
-        cookingSpeciality: "",
-      }));
+  setFormData(prev => {
+    const alreadySelected = prev.housekeepingRoles.includes(value);
+
+    let updatedRoles;
+
+    if (alreadySelected) {
+      // remove
+      updatedRoles = prev.housekeepingRoles.filter(role => role !== value);
+    } else {
+      // add
+      updatedRoles = [...prev.housekeepingRoles, value];
     }
-  };
+
+    return {
+      ...prev,
+      housekeepingRoles: updatedRoles,
+    };
+  });
+};
 
   const handleCookingSpecialityChange = (value: string) => {
     setFormData(prev => ({ ...prev, cookingSpeciality: value }));
