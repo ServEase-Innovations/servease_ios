@@ -65,6 +65,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [localEndDate, setLocalEndDate] = useState<string | null>(null);
   const [localStartTime, setLocalStartTime] = useState<Dayjs | null>(null);
   const [localEndTime, setLocalEndTime] = useState<Dayjs | null>(null);
+  const [tempSelectedTime, setTempSelectedTime] = useState<string | null>(null);
 
   useEffect(() => {
     if (appUser) {
@@ -111,8 +112,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   // Function to check if a date should be disabled based on cutoff time
   const isDateDisabled = (date: Dayjs): boolean => {
-    console.log("Helllo from isDateDisabled function");
-    console.log('Checking if date is disabled:', date.format('YYYY-MM-DD HH:mm'));
     const now = dayjs();
     
     if (date.isBefore(now, 'day')) return true;
@@ -146,6 +145,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setCustomAmPm("AM");
       setUse24HourFormat(false);
       setIsDateChanged(false);
+      setTempSelectedTime(null);
     }
   }, [open]);
 
@@ -159,6 +159,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setCustomMinutes(0);
       setCustomAmPm("AM");
       setIsDateChanged(false);
+      setTempSelectedTime(null);
     }
   }, [isDateChanged]);
 
@@ -355,7 +356,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
     const defaultEndTime = adjustedDateTime.add(1, "hour");
     
-    if (selectedOption === "Date") {
+    if (selectedOption === t('booking.options.date')) {
       let finalEnd = defaultEndTime;
       if (defaultEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
         finalEnd = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
@@ -364,13 +365,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setLocalEndTime(finalEnd);
       setEndDate(finalEnd.format("YYYY-MM-DD"));
       setEndTime(finalEnd);
-    } else if (selectedOption === "Monthly") {
+    } else if (selectedOption === t('booking.options.monthly')) {
       const endDateValue = adjustedDateTime.add(1, "month");
       setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
       setLocalEndTime(defaultEndTime);
       setEndDate(endDateValue.format("YYYY-MM-DD"));
       setEndTime(defaultEndTime);
-    } else if (selectedOption === "Short term") {
+    } else if (selectedOption === t('booking.options.shortTerm')) {
       // For short term, only set end date if it's a range selection
       if (localEndDate) {
         setLocalEndTime(defaultEndTime);
@@ -399,42 +400,93 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setEndTime(adjustedDateTime);
   };
 
+  const handleDateTimeChange = (date: Date, time?: string, isRange?: boolean, startDateObj?: Date, endDateObj?: Date) => {
+    if (isRange && startDateObj && endDateObj) {
+      // Handle range selection from DribbbleDateTimePicker
+      const start = dayjs(startDateObj);
+      const end = dayjs(endDateObj);
+      
+      // Parse time if provided
+      if (time) {
+        const [t, meridian] = time.split(" ");
+        let hour = Number(t.split(":")[0]);
+        
+        if (meridian === "PM" && hour !== 12) hour += 12;
+        if (meridian === "AM" && hour === 12) hour = 0;
+        
+        const startWithTime = start.hour(hour).minute(0);
+        const endWithTime = end.hour(hour).minute(0);
+        
+        if (!isDateDisabled(startWithTime)) {
+          setLocalStartDate(startWithTime.format("YYYY-MM-DD"));
+          setLocalStartTime(startWithTime);
+          setStartDate(startWithTime.format("YYYY-MM-DD"));
+          setStartTime(startWithTime);
+          
+          setLocalEndDate(endWithTime.format("YYYY-MM-DD"));
+          setLocalEndTime(endWithTime);
+          setEndDate(endWithTime.format("YYYY-MM-DD"));
+          setEndTime(endWithTime);
+        }
+      }
+    } else if (date) {
+      // Handle single date selection
+      const selected = dayjs(date);
+      
+      if (!isDateDisabled(selected)) {
+        updateStartDateTime(selected);
+      }
+    }
+  };
+
+  const handleTimeSelection = (time: string, dateObj?: Date) => {
+    const [t, meridian] = time.split(" ");
+    let hour = Number(t.split(":")[0]);
+    
+    if (meridian === "PM" && hour !== 12) hour += 12;
+    if (meridian === "AM" && hour === 12) hour = 0;
+    
+    let selectedDateTime: Dayjs;
+    
+    if (dateObj) {
+      selectedDateTime = dayjs(dateObj).hour(hour).minute(0);
+    } else if (localStartDate) {
+      selectedDateTime = dayjs(localStartDate).hour(hour).minute(0);
+    } else {
+      selectedDateTime = dayjs().hour(hour).minute(0);
+    }
+    
+    if (!isDateDisabled(selectedDateTime)) {
+      updateStartDateTime(selectedDateTime);
+      setTempSelectedTime(time);
+    }
+  };
+
   const isConfirmDisabled = () => {
-    console.log("Checking if confirm should be disabled with state:" , isServiceDisabled ) ;
     if (isServiceDisabled) {
       return true;
     }
 
-    console.log("selectedOption in isConfirmDisabled:", selectedOption);
-    if (selectedOption === "Date") {
+    if (selectedOption === t('booking.options.date')) {
       if (!localStartDate || !localStartTime) return true;
-
-      if (!startDate || !startTime) return true;
-
-      console.log('Checking if start date is disabled:', startTime.format('YYYY-MM-DD HH:mm'));
-      console.log("isDateDisabled result:", isDateDisabled(startTime));
       
+      // Check if start time is valid
       if (isDateDisabled(localStartTime)) {
         return true;
       }
-
-      console.log('Checking if start time is within 30 minutes:', startTime.format('YYYY-MM-DD HH:mm'), dayjs().add(30, 'minute').format('YYYY-MM-DD HH:mm'));
       
       const now = dayjs();
       if (localStartTime.isSame(now, "day") && localStartTime.isBefore(now.add(30, "minute"))) {
         return true;
       }
-
-      console.log('Checking if start time is within business hours:', startTime.format('YYYY-MM-DD HH:mm'), `Opening: ${BUSINESS_HOURS.openingHour}:00`, `Cutoff: ${BUSINESS_HOURS.cutoffHour}:00`);
       
       const hour = localStartTime.hour();
       if (hour < BUSINESS_HOURS.openingHour || hour >= BUSINESS_HOURS.cutoffHour) {
         return true;
       }
-
-      console.log('Checking if end time is before start time:', endTime?.format('YYYY-MM-DD HH:mm'), startTime.format('YYYY-MM-DD HH:mm'));
       
-    } else if (selectedOption === "Short term") {
+      return false;
+    } else if (selectedOption === t('booking.options.shortTerm')) {
       if (!localStartDate || !localEndDate || !localStartTime || !localEndTime) return true;
       
       if (isDateDisabled(localStartTime)) {
@@ -458,7 +510,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         return true;
       }
       
-    } else if (selectedOption === "Monthly") {
+      return false;
+    } else if (selectedOption === t('booking.options.monthly')) {
       if (!localStartDate || !localStartTime) return true;
       
       if (isDateDisabled(localStartTime)) {
@@ -474,6 +527,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       if (startHour < BUSINESS_HOURS.openingHour || startHour >= BUSINESS_HOURS.cutoffHour) {
         return true;
       }
+      
+      return false;
     }
     
     return false;
@@ -484,33 +539,15 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       return;
     }
 
-    if (localStartTime) {
-      const now = dayjs();
-      
-      if (isDateDisabled(localStartTime)) {
-        return;
-      }
-      
-      if (
-        localStartTime.isSame(now, "day") &&
-        localStartTime.isBefore(now.add(30, "minute"))
-      ) {
-        return;
-      }
-
-      const hour = localStartTime.hour();
-      if (hour < BUSINESS_HOURS.openingHour || hour >= BUSINESS_HOURS.cutoffHour) {
-        return;
-      }
+    if (!isConfirmDisabled()) {
+      onSave({
+        option: selectedOption,
+        startDate: localStartDate,
+        endDate: localEndDate,
+        startTime: localStartTime,
+        endTime: localEndTime,
+      });
     }
-
-    onSave({
-      option: selectedOption,
-      startDate: localStartDate,
-      endDate: localEndDate,
-      startTime: localStartTime,
-      endTime: localEndTime,
-    });
   };
 
   const getDuration = () => {
@@ -558,12 +595,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const renderDurationSelector = () => {
     if (!localStartTime) return null;
 
-    if (selectedOption === "Monthly" && !localEndTime) return null;
+    if (selectedOption === t('booking.options.monthly') && !localEndTime) return null;
     
-    if (selectedOption === "Short term" && (!localStartDate || !localEndDate)) return null;
+    if (selectedOption === t('booking.options.shortTerm') && (!localStartDate || !localEndDate)) return null;
 
-    const currentDuration = endTime ? endTime.diff(startTime, 'hour') : 1;
-    console.log("Current duration in hours:", currentDuration);
+    const currentDuration = localEndTime ? localEndTime.diff(localStartTime, 'hour') : 1;
     
     const canIncreaseDuration = () => {
       if (!localStartTime) return false;
@@ -586,7 +622,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       
       setLocalEndTime(newEndTime);
       setEndTime(newEndTime);
-      if (selectedOption === "Date") {
+      if (selectedOption === t('booking.options.date')) {
         setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
         setEndDate(newEndTime.format("YYYY-MM-DD"));
       }
@@ -599,30 +635,44 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         const newEndTime = localStartTime.add(currentDuration - 1, 'hour');
         setLocalEndTime(newEndTime);
         setEndTime(newEndTime);
-        if (selectedOption === "Date") {
+        if (selectedOption === t('booking.options.date')) {
           setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
           setEndDate(newEndTime.format("YYYY-MM-DD"));
         }
       }
     };
 
+    // Format the duration message based on booking type
+    const getDurationMessage = () => {
+      if (selectedOption === t('booking.options.shortTerm')) {
+        return t('booking.confirmBox.durationAppliesShortTerm');
+      } else if (selectedOption === t('booking.options.monthly')) {
+        return t('booking.confirmBox.durationAppliesMonthly');
+      }
+      return t('booking.confirmBox.adjustDuration');
+    };
+
     return (
       <View style={[styles.confirmationContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.confirmationHeader}>
-          <Text style={[styles.confirmationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.confirmBox.title')}</Text>
+          <Text style={[styles.confirmationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+            {t('booking.confirmBox.title')}
+          </Text>
         </View>
 
         <View style={styles.confirmationSection}>
-          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.bookingDetails')}</Text>
+          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>
+            {t('booking.confirmBox.bookingDetails')}
+          </Text>
           <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
             {t('booking.startDate')}: {localStartDate ? dayjs(localStartDate).format('MMMM D, YYYY') : t('common.notSelected')}
           </Text>
-          {selectedOption === "Monthly" && localEndDate && (
+          {selectedOption === t('booking.options.monthly') && localEndDate && (
             <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
               {t('booking.endDate')}: {dayjs(localEndDate).format('MMMM D, YYYY')} (1 month later)
             </Text>
           )}
-          {selectedOption === "Short term" && localEndDate && (
+          {selectedOption === t('booking.options.shortTerm') && localEndDate && (
             <Text style={[styles.confirmationText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
               {t('booking.endDate')}: {dayjs(localEndDate).format('MMMM D, YYYY')}
             </Text>
@@ -636,20 +686,27 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </Text>
           )}
           
-          {selectedOption === "Short term" && localEndDate && localStartTime && localEndTime && (
+          {selectedOption === t('booking.options.shortTerm') && localEndDate && localStartTime && localEndTime && (
             <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
-              Service will run from {dayjs(localStartDate).format('MMMM D')} to {dayjs(localEndDate).format('MMMM D, YYYY')}, 
-              daily from {localStartTime.format('h:mm A')} to {localEndTime.format('h:mm A')}
+              {t('booking.confirmBox.durationAppliesShortTermDetail', { 
+                startDate: dayjs(localStartDate).format('MMMM D'),
+                endDate: dayjs(localEndDate).format('MMMM D, YYYY'),
+                startTime: localStartTime.format('h:mm A'),
+                endTime: localEndTime.format('h:mm A')
+              })}
             </Text>
           )}
           
-          {selectedOption === "Monthly" && localEndDate && (
+          {selectedOption === t('booking.options.monthly') && localEndDate && (
             <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
-              Monthly subscription from {dayjs(localStartDate).format('MMMM D, YYYY')} to {dayjs(localEndDate).format('MMMM D, YYYY')}
+              {t('booking.confirmBox.monthlySubscription', { 
+                startDate: dayjs(localStartDate).format('MMMM D, YYYY'),
+                endDate: dayjs(localEndDate).format('MMMM D, YYYY')
+              })}
             </Text>
           )}
           
-          {selectedOption === "Date" && localStartDate && localStartTime && (
+          {selectedOption === t('booking.options.date') && localStartDate && localStartTime && (
             <Text style={[styles.confirmationText, styles.confirmationItalic, { color: colors.primary, fontSize: fontSizes.small }]}>
               {t('booking.confirmBox.serviceStarts', { 
                 date: localStartDate ? dayjs(localStartDate).format('MMMM D, YYYY') : '___', 
@@ -660,13 +717,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         </View>
 
         <View style={styles.confirmationSection}>
-          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>{t('booking.confirmBox.serviceDuration')}</Text>
+          <Text style={[styles.confirmationSubtitle, { color: colors.primary, fontSize: fontSizes.subtitle }]}>
+            {t('booking.confirmBox.serviceDuration')}
+          </Text>
           <Text style={[styles.confirmationText, styles.confirmationSecondary, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
-            {selectedOption === "Short term" 
-              ? "This duration applies to each day of service" 
-              : selectedOption === "Monthly"
-              ? "This duration applies to each day of your monthly subscription"
-              : t('booking.confirmBox.adjustDuration')}
+            {getDurationMessage()}
           </Text>
 
           <View style={[styles.durationSelector, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -1132,6 +1187,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     setEndDate(null);
                     setStartTime(null);
                     setEndTime(null);
+                    setTempSelectedTime(null);
                   }}
                 >
                   <Text
@@ -1153,28 +1209,33 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   <DribbbleDateTimePicker
                     mode="single"
                     value={localStartTime?.toDate()}
-                    onChange={(date: Date) => {
-                      const selected = dayjs(date);
-                      const now = dayjs();
-
-                      if (selected.isBefore(now, "day")) return;
-
-                      if (isDateDisabled(selected)) {
-                        return;
+                    onChange={(date: Date, time?: string) => {
+                      if (time) {
+                        // Time was selected in the picker
+                        handleTimeSelection(time, date);
+                      } else if (date) {
+                        // Only date was selected
+                        const selected = dayjs(date);
+                        
+                        if (selected.isBefore(dayjs(), "day")) return;
+                        
+                        if (isDateDisabled(selected)) {
+                          return;
+                        }
+                        
+                        if (selected.isAfter(maxDate21Days, "day")) return;
+                        
+                        if (
+                          selected.isSame(dayjs(), "day") &&
+                          selected.isBefore(dayjs().add(30, "minute"))
+                        ) {
+                          return;
+                        }
+                        
+                        // Mark that date has changed to reset times
+                        setIsDateChanged(true);
+                        updateStartDateTime(selected);
                       }
-
-                      if (selected.isAfter(maxDate21Days, "day")) return;
-
-                      if (
-                        selected.isSame(now, "day") &&
-                        selected.isBefore(now.add(30, "minute"))
-                      ) {
-                        return;
-                      }
-
-                      // Mark that date has changed to reset times
-                      setIsDateChanged(true);
-                      updateStartDateTime(selected);
                     }}
                   />
                 </View>
@@ -1194,10 +1255,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       startDate: localStartTime?.toDate(),
                       endDate: localEndTime?.toDate(),
                     }}
-                    onChange={({ startDate, endDate, time }) => {
-                      const start = dayjs(startDate);
-                      const end = dayjs(endDate);
+                    onChange={(payload: { startDate: Date; endDate: Date; time: string }) => {
+                      const start = dayjs(payload.startDate);
+                      const end = dayjs(payload.endDate);
+                      const time = payload.time;
                       
+                      // Parse time
                       const [t, meridian] = time.split(" ");
                       let hour = Number(t.split(":")[0]);
                       
@@ -1205,17 +1268,18 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       if (meridian === "AM" && hour === 12) hour = 0;
                       
                       const startWithTime = start.hour(hour).minute(0);
-
+                      const endWithTime = end.hour(hour).minute(0);
+                      
                       if (start.isBefore(dayjs(), "day")) return;
-
+                      
                       if (isDateDisabled(startWithTime)) {
                         return;
                       }
-
+                      
                       if (end.diff(start, "day") > 21) {
                         return;
                       }
-
+                      
                       // Mark that date has changed to reset times
                       setIsDateChanged(true);
                       
@@ -1244,21 +1308,27 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   <DribbbleDateTimePicker
                     mode="single"
                     value={localStartTime?.toDate()}
-                    onChange={(date: Date) => {
-                      const selected = dayjs(date);
-                      const now = dayjs();
-
-                      if (selected.isBefore(now, "day")) return;
-                      
-                      if (isDateDisabled(selected)) {
-                        return;
+                    onChange={(date: Date, time?: string) => {
+                      if (time) {
+                        // Time was selected in the picker
+                        handleTimeSelection(time, date);
+                      } else if (date) {
+                        // Only date was selected
+                        const selected = dayjs(date);
+                        const now = dayjs();
+                        
+                        if (selected.isBefore(now, "day")) return;
+                        
+                        if (isDateDisabled(selected)) {
+                          return;
+                        }
+                        
+                        if (selected.isAfter(maxDate90Days, "day")) return;
+                        
+                        // Mark that date has changed to reset times
+                        setIsDateChanged(true);
+                        updateStartDateTime(selected);
                       }
-                      
-                      if (selected.isAfter(maxDate90Days, "day")) return;
-
-                      // Mark that date has changed to reset times
-                      setIsDateChanged(true);
-                      updateStartDateTime(selected);
                     }}
                   />
                 </View>
@@ -1266,7 +1336,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 {localStartDate && localEndDate && (
                   <View style={[styles.endDateInfo, { backgroundColor: colors.infoLight }]}>
                     <Text style={[styles.endDateInfoText, { color: colors.primary, fontSize: fontSizes.small }]}>
-                      📅 Subscription Period: {dayjs(localStartDate).format('MMMM D, YYYY')} - {dayjs(localEndDate).format('MMMM D, YYYY')}
+                      📅 {t('booking.confirmBox.monthlySubscription', { 
+                        startDate: dayjs(localStartDate).format('MMMM D, YYYY'),
+                        endDate: dayjs(localEndDate).format('MMMM D, YYYY')
+                      })}
                     </Text>
                   </View>
                 )}
