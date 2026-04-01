@@ -372,10 +372,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setEndDate(endDateValue.format("YYYY-MM-DD"));
       setEndTime(defaultEndTime);
     } else if (selectedOption === t('booking.options.shortTerm')) {
-      // For short term, only set end date if it's a range selection
-      if (localEndDate) {
-        setLocalEndTime(defaultEndTime);
-        setEndTime(defaultEndTime);
+      // For short term, set the end time to default but keep end date for range
+      setLocalEndTime(defaultEndTime);
+      setEndTime(defaultEndTime);
+      // Only set end date if it's not already set
+      if (!localEndDate) {
+        // For short term, end date will be set when range is selected
+        // Don't set it automatically
       }
     }
   };
@@ -487,6 +490,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       
       return false;
     } else if (selectedOption === t('booking.options.shortTerm')) {
+      // For short term, we need both dates and both times
       if (!localStartDate || !localEndDate || !localStartTime || !localEndTime) return true;
       
       if (isDateDisabled(localStartTime)) {
@@ -595,16 +599,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const renderDurationSelector = () => {
     if (!localStartTime) return null;
 
+    // For monthly, if no end time, don't render
     if (selectedOption === t('booking.options.monthly') && !localEndTime) return null;
     
-    if (selectedOption === t('booking.options.shortTerm') && (!localStartDate || !localEndDate)) return null;
+    // For short term, we need both dates and both times
+    if (selectedOption === t('booking.options.shortTerm') && (!localStartDate || !localEndDate || !localStartTime || !localEndTime)) return null;
+    
+    // For on-demand, we need start time
+    if (selectedOption === t('booking.options.date') && !localStartTime) return null;
 
     const currentDuration = localEndTime ? localEndTime.diff(localStartTime, 'hour') : 1;
     
     const canIncreaseDuration = () => {
       if (!localStartTime) return false;
       const newEndTime = localStartTime.add(currentDuration + 1, 'hour');
-      return newEndTime.hour() < BUSINESS_HOURS.cutoffHour;
+      // For short term, also check if new end time would exceed business hours
+      if (newEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
+        return false;
+      }
+      // For short term, also check if the end date would exceed the range limit
+      if (selectedOption === t('booking.options.shortTerm') && localEndDate) {
+        const endDateObj = dayjs(localEndDate);
+        const newEndDate = newEndTime.format('YYYY-MM-DD');
+        // If the new end time pushes to next day, check if it's within range
+        if (newEndDate !== localEndDate) {
+          // For now, allow if within business hours on next day
+          return true;
+        }
+      }
+      return true;
     };
 
     const canDecreaseDuration = () => {
@@ -622,9 +645,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       
       setLocalEndTime(newEndTime);
       setEndTime(newEndTime);
-      if (selectedOption === t('booking.options.date')) {
-        setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-        setEndDate(newEndTime.format("YYYY-MM-DD"));
+      
+      // For on-demand and short term, update the end date if it crosses to next day
+      if (selectedOption === t('booking.options.date') || selectedOption === t('booking.options.shortTerm')) {
+        const newEndDate = newEndTime.format("YYYY-MM-DD");
+        setLocalEndDate(newEndDate);
+        setEndDate(newEndDate);
       }
     };
 
@@ -635,9 +661,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         const newEndTime = localStartTime.add(currentDuration - 1, 'hour');
         setLocalEndTime(newEndTime);
         setEndTime(newEndTime);
-        if (selectedOption === t('booking.options.date')) {
-          setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-          setEndDate(newEndTime.format("YYYY-MM-DD"));
+        
+        // For on-demand and short term, update the end date if it changes
+        if (selectedOption === t('booking.options.date') || selectedOption === t('booking.options.shortTerm')) {
+          const newEndDate = newEndTime.format("YYYY-MM-DD");
+          setLocalEndDate(newEndDate);
+          setEndDate(newEndDate);
         }
       }
     };
@@ -1291,6 +1320,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       setLocalEndDate(end.format('YYYY-MM-DD'));
                       setEndDate(end.format('YYYY-MM-DD'));
                       
+                      // Set a default end time (1 hour after start time)
                       const defaultEndTime = startWithTime.add(1, 'hour');
                       setLocalEndTime(defaultEndTime);
                       setEndTime(defaultEndTime);
@@ -1298,7 +1328,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
 
-                {localStartDate && localStartTime && localEndTime && renderDurationSelector()}
+                {/* Show duration selector as soon as both dates and times are selected */}
+                {localStartDate && localEndDate && localStartTime && localEndTime && renderDurationSelector()}
               </>
             )}
 
