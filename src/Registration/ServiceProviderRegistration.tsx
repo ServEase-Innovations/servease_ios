@@ -36,7 +36,6 @@ import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { Button } from "../common/Button";
 import { useTheme } from "../../src/Settings/ThemeContext";
-import { useTranslation } from 'react-i18next';
 
 // Import the new components
 import BasicInformation from "./BasicInformation";
@@ -87,7 +86,7 @@ interface FormData {
   keyFacts: boolean;
   kycType: string;
   kycNumber: string;
-  agentReferralId: string; // Add this new field
+  agentReferralId: string;
   permanentAddress: {
     apartment: string;
     street: string;
@@ -178,7 +177,7 @@ const voterIdRegex = /^[A-Z]{3}[0-9]{7}$/;
 const passportRegex = /^[A-Z]{1}[0-9]{7}$/;
 const MAX_NAME_LENGTH = 30;
 
-// Fixed steps without extra spaces
+// Steps without extra spaces
 const steps = [
   "Basic Information",
   "Address Information",
@@ -196,7 +195,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   onBackToLogin, onRegistrationSuccess,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
-  const { t } = useTranslation();
   const [activeStep, setActiveStep] = useState(0);
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -234,6 +232,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  
+  // State to track if next button should be disabled
+  const [isNextDisabled, setIsNextDisabled] = useState(true);
 
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -277,7 +278,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     keyFacts: false,
     kycType: "AADHAR",
     kycNumber: "",
-    agentReferralId: "", // Initialize the new field
+    agentReferralId: "",
     permanentAddress: {
       apartment: "",
       street: "",
@@ -355,6 +356,83 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const { validationResults, validateField, resetValidation } = useFieldValidation();
 
+  // Check if current step is complete
+  const checkStepCompletion = useCallback(() => {
+    let isComplete = false;
+    
+    switch(activeStep) {
+      case 0:
+        isComplete = formData.firstName.trim() !== "" &&
+                     formData.lastName.trim() !== "" &&
+                     formData.gender !== "" &&
+                     formData.emailId.trim() !== "" &&
+                     formData.password.trim() !== "" &&
+                     formData.confirmPassword.trim() !== "" &&
+                     formData.mobileNo.trim() !== "" &&
+                     formData.dob.trim() !== "" &&
+                     !errors.firstName &&
+                     !errors.lastName &&
+                     !errors.gender &&
+                     !errors.emailId &&
+                     !errors.password &&
+                     !errors.confirmPassword &&
+                     !errors.mobileNo &&
+                     !errors.dob &&
+                     validationResults.email.isAvailable !== false &&
+                     validationResults.mobile.isAvailable !== false;
+        break;
+        
+      case 1:
+        isComplete = formData.permanentAddress.apartment?.trim() !== "" &&
+                     formData.permanentAddress.street?.trim() !== "" &&
+                     formData.permanentAddress.city?.trim() !== "" &&
+                     formData.permanentAddress.state?.trim() !== "" &&
+                     formData.permanentAddress.country?.trim() !== "" &&
+                     formData.permanentAddress.pincode?.trim() !== "" &&
+                     formData.permanentAddress.pincode.length === 6 &&
+                     (isSameAddress || (
+                       formData.correspondenceAddress.apartment?.trim() !== "" &&
+                       formData.correspondenceAddress.street?.trim() !== "" &&
+                       formData.correspondenceAddress.city?.trim() !== "" &&
+                       formData.correspondenceAddress.state?.trim() !== "" &&
+                       formData.correspondenceAddress.country?.trim() !== "" &&
+                       formData.correspondenceAddress.pincode?.trim() !== "" &&
+                       formData.correspondenceAddress.pincode.length === 6
+                     ));
+        break;
+        
+      case 2:
+        isComplete = formData.housekeepingRole.length > 0 &&
+                     formData.diet !== "" &&
+                     formData.experience !== "" &&
+                     !isNaN(Number(formData.experience)) &&
+                     Number(formData.experience) >= 0 &&
+                     (!formData.housekeepingRole.includes("COOK") || formData.cookingSpeciality !== "") &&
+                     (!formData.housekeepingRole.includes("NANNY") || formData.nannyCareType !== "");
+        break;
+        
+      case 3:
+        isComplete = formData.kycType !== "" &&
+                     formData.kycNumber !== "" &&
+                     formData.documentImage !== null;
+        break;
+        
+      case 4:
+        isComplete = formData.keyFacts && formData.terms && formData.privacy;
+        break;
+        
+      default:
+        isComplete = false;
+    }
+    
+    setIsNextDisabled(!isComplete);
+  }, [activeStep, formData, errors, validationResults, isSameAddress]);
+
+  // Check step completion whenever relevant data changes
+  useEffect(() => {
+    checkStepCompletion();
+  }, [activeStep, formData, errors, validationResults, isSameAddress, checkStepCompletion]);
+
   const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
     setActivePolicy(policyType);
     setPolicyModalVisible(true);
@@ -423,7 +501,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!hasOverlap) {
         onChange(newValues);
       } else {
-        setSnackbarMessage(t('service.timeRangeOverlap'));
+        setSnackbarMessage("Time range overlaps with another selected slot");
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
       }
@@ -499,7 +577,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   // Update selected time slots summary
   const updateSelectedTimeSlots = useCallback(() => {
     if (isFullTime) {
-      setSelectedTimeSlots(t('service.fullDay'));
+      setSelectedTimeSlots("Full Day (6:00 AM - 8:00 PM)");
       setFormData((prev) => ({ ...prev, timeslot: "06:00-20:00" }));
       return;
     }
@@ -532,10 +610,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       setSelectedTimeSlots(displaySlots.join(', '));
       setFormData((prev) => ({ ...prev, timeslot: storageSlots.join(', ') }));
     } else {
-      setSelectedTimeSlots(t('service.noSlotsSelected'));
+      setSelectedTimeSlots("No slots selected");
       setFormData((prev) => ({ ...prev, timeslot: '' }));
     }
-  }, [isFullTime, morningSlots, eveningSlots, t]);
+  }, [isFullTime, morningSlots, eveningSlots]);
 
   // Update slots when they change
   useEffect(() => {
@@ -586,7 +664,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       // If still no slot found
       if (!foundAvailableSlot) {
-        setSnackbarMessage(t('service.noMorningSlotsAvailable'));
+        setSnackbarMessage("No available morning slots to add");
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
         return prevSlots;
@@ -645,7 +723,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       // If still no slot found
       if (!foundAvailableSlot) {
-        setSnackbarMessage(t('service.noEveningSlotsAvailable'));
+        setSnackbarMessage("No available evening slots to add");
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
         return prevSlots;
@@ -759,7 +837,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }));
   };
 
-  // Handler for agent referral ID change - NEW FUNCTION
+  // Handler for agent referral ID change
   const handleAgentReferralIdChange = (e: any) => {
     const value = e.target.value;
     setFormData(prev => ({
@@ -773,9 +851,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     const labels: Record<string, string> = {
       "AADHAR": "Aadhaar",
       "PAN": "PAN",
-      "DRIVING_LICENSE": t('registration.kyc.documentType.drivingLicense'),
-      "VOTER_ID": t('registration.kyc.documentType.voterId'),
-      "PASSPORT": t('registration.kyc.documentType.passport')
+      "DRIVING_LICENSE": "Driving License",
+      "VOTER_ID": "Voter ID",
+      "PASSPORT": "Passport"
     };
     return labels[kycType] || "KYC";
   };
@@ -804,6 +882,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         setIsFieldsDisabled(false);
         setErrors(prev => ({ ...prev, dob: "" }));
       }
+      
+      // Trigger step completion check
+      checkStepCompletion();
     }
   };
 
@@ -879,11 +960,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       } catch (error) {
         console.error("Error geocoding address:", error);
-        setSnackbarMessage(t('address.geocodingError'));
+        setSnackbarMessage("Error getting location coordinates");
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
       }
     }
+    
+    // Trigger step completion check
+    checkStepCompletion();
   };
 
   const handleSameAddressToggle = (checked: boolean) => {
@@ -902,6 +986,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         correspondenceAddress: undefined
       }));
     }
+    
+    // Trigger step completion check
+    checkStepCompletion();
   };
 
   // Add debounced validation functions
@@ -944,31 +1031,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     resetValidation('alternate');
   };
 
-  // Helper function to check if step 0 is ready for next
-  const isStep0ReadyForNext = () => {
-    // Check if required fields are filled
-    const requiredFieldsFilled = formData.firstName.trim() && 
-                                 formData.lastName.trim() && 
-                                 formData.gender && 
-                                 formData.emailId.trim() && 
-                                 formData.password.trim() && 
-                                 formData.confirmPassword.trim() && 
-                                 formData.mobileNo.trim() &&
-                                 formData.dob.trim();
-
-    // Check if there are any validation errors
-    const hasValidationErrors = validationResults.email.error || 
-                               validationResults.mobile.error ||
-                               !validationResults.email.isAvailable ||
-                               !validationResults.mobile.isAvailable ||
-                               !!errors.dob;
-
-    // Check if DOB is valid
-    const isDobFieldValid = isDobValid && !errors.dob;
-
-    return requiredFieldsFilled && !hasValidationErrors && isDobFieldValid;
-  };
-
   const handleRealTimeValidation = (e: any) => {
     const { name, value } = e.target;
 
@@ -985,17 +1047,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: t('validation.required', { field: t('registration.basicInformation.firstName') }),
+          firstName: "First name is required",
         }));
       } else if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: t('validation.alphabetsOnly', { field: t('registration.basicInformation.firstName') }),
+          firstName: "First name should contain only letters",
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: t('validation.maxLength', { field: t('registration.basicInformation.firstName'), count: MAX_NAME_LENGTH }),
+          firstName: `First name must be less than ${MAX_NAME_LENGTH} characters`,
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1010,17 +1072,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: t('validation.required', { field: t('registration.basicInformation.lastName') }),
+          lastName: "Last name is required",
         }));
       } else if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: t('validation.alphabetsOnly', { field: t('registration.basicInformation.lastName') }),
+          lastName: "Last name should contain only letters",
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: t('validation.maxLength', { field: t('registration.basicInformation.lastName'), count: MAX_NAME_LENGTH }),
+          lastName: `Last name must be less than ${MAX_NAME_LENGTH} characters`,
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1034,32 +1096,32 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!value) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: t('validation.required', { field: t('registration.basicInformation.password') }),
+          password: "Password is required",
         }));
       } else if (value.length < 8) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: t('validation.minLength', { field: t('registration.basicInformation.password'), count: 8 }),
+          password: "Password must be at least 8 characters",
         }));
       } else if (!/[A-Z]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: t('validation.passwordUppercase'),
+          password: "Password must contain at least one uppercase letter",
         }));
       } else if (!/[a-z]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: t('validation.passwordLowercase'),
+          password: "Password must contain at least one lowercase letter",
         }));
       } else if (!/[0-9]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: t('validation.passwordNumber'),
+          password: "Password must contain at least one number",
         }));
       } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          password: t('validation.passwordSpecial'),
+          password: "Password must contain at least one special character",
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1073,12 +1135,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!value) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          confirmPassword: t('validation.required', { field: t('registration.basicInformation.confirmPassword') }),
+          confirmPassword: "Please confirm your password",
         }));
       } else if (value !== formData.password) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          confirmPassword: t('validation.passwordMismatch'),
+          confirmPassword: "Passwords do not match",
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1095,13 +1157,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          emailId: t('validation.required', { field: t('registration.basicInformation.email') }),
+          emailId: "Email address is required",
         }));
         resetValidation('email');
       } else if (!emailPattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          emailId: t('validation.email'),
+          emailId: "Please enter a valid email address",
         }));
         resetValidation('email');
       } else {
@@ -1120,13 +1182,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!trimmedValue) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          mobileNo: t('validation.required', { field: t('registration.basicInformation.mobileNumber') }),
+          mobileNo: "Mobile number is required",
         }));
         resetValidation('mobile');
       } else if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          mobileNo: t('validation.phone'),
+          mobileNo: "Please enter a valid 10-digit mobile number",
         }));
         resetValidation('mobile');
       } else {
@@ -1146,13 +1208,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (trimmedValue === formData.mobileNo) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          AlternateNumber: t('validation.alternateSameAsMobile'),
+          AlternateNumber: "Alternate number cannot be same as mobile number",
         }));
         resetValidation('alternate');
       } else if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          AlternateNumber: t('validation.phone'),
+          AlternateNumber: "Please enter a valid 10-digit number",
         }));
         resetValidation('alternate');
       } else {
@@ -1176,23 +1238,23 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         switch(formData.kycType) {
           case "AADHAR":
             isValid = /^[0-9]{12}$/.test(trimmedValue);
-            errorMessage = t('validation.aadhaarFormat');
+            errorMessage = "Aadhaar number must be 12 digits";
             break;
           case "PAN":
             isValid = panRegex.test(trimmedValue);
-            errorMessage = t('validation.panFormat');
+            errorMessage = "PAN number must be in format: ABCDE1234F";
             break;
           case "DRIVING_LICENSE":
             isValid = trimmedValue.length >= 8;
-            errorMessage = t('validation.drivingLicenseFormat');
+            errorMessage = "Please enter a valid driving license number";
             break;
           case "VOTER_ID":
             isValid = voterIdRegex.test(trimmedValue);
-            errorMessage = t('validation.voterIdFormat');
+            errorMessage = "Voter ID must be in format: ABC1234567";
             break;
           case "PASSPORT":
             isValid = passportRegex.test(trimmedValue);
-            errorMessage = t('validation.passportFormat');
+            errorMessage = "Passport number must be 8 characters (1 letter + 7 digits)";
             break;
         }
         
@@ -1202,7 +1264,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           setErrors(prev => ({ ...prev, kycNumber: "" }));
         }
       } else {
-        setErrors(prev => ({ ...prev, kycNumber: t('validation.required', { field: getKycLabel(formData.kycType) }) }));
+        setErrors(prev => ({ ...prev, kycNumber: `${getKycLabel(formData.kycType)} number is required` }));
       }
     }
 
@@ -1216,7 +1278,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (numericValue.length !== 6) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          pincode: t('validation.pincodeFormat'),
+          pincode: "Pincode must be 6 digits",
         }));
       } else {
         setErrors((prevErrors) => ({
@@ -1230,17 +1292,22 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       ...prevData,
       [name]: value,
     }));
+    
+    // Trigger step completion check
+    checkStepCompletion();
   };
 
   const handleCookingSpecialityChange = (value: string) => {
     setFormData((prevData) => ({ ...prevData, cookingSpeciality: value }));
     setErrors(prevErrors => ({ ...prevErrors, cookingSpeciality: "" }));
+    checkStepCompletion();
   };
 
   // Handler for nanny care type
   const handleNannyCareTypeChange = (value: string) => {
     setFormData(prev => ({ ...prev, nannyCareType: value }));
     setErrors(prev => ({ ...prev, nannyCareType: "" }));
+    checkStepCompletion();
   };
 
   // Helper function to parse address components
@@ -1288,21 +1355,21 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
         Alert.alert(
-          t('common.permissionRequired'),
-          t('permissions.locationRequired'),
+          "Permission Required",
+          "Location permission is required to fetch your current location.",
           [
             {
-              text: t('common.openSettings'),
+              text: "Open Settings",
               onPress: () => Linking.openSettings(),
             },
-            { text: t('common.cancel'), style: "cancel" },
+            { text: "Cancel", style: "cancel" },
           ]
         );
         return;
       }
 
       setLocationLoading(true);
-      setSnackbarMessage(t('location.fetching'));
+      setSnackbarMessage("Fetching your location...");
       setSnackbarSeverity("info");
       setSnackbarOpen(true);
 
@@ -1351,19 +1418,19 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
             // Ensure we have default values
             if (!parsedAddress.country) {
-              parsedAddress.country = t('country.india');
+              parsedAddress.country = "India";
             }
             if (!parsedAddress.state) {
-              parsedAddress.state = t('common.unknown');
+              parsedAddress.state = "Unknown";
             }
             if (!parsedAddress.city) {
-              parsedAddress.city = t('common.unknown');
+              parsedAddress.city = "Unknown";
             }
 
             // Create address data object
             const addressData = {
-              apartment: parsedAddress.apartment || t('location.currentLocation'),
-              street: parsedAddress.street || t('location.currentLocation'),
+              apartment: parsedAddress.apartment || "Current Location",
+              street: parsedAddress.street || "Current Location",
               city: parsedAddress.city,
               state: parsedAddress.state,
               country: parsedAddress.country,
@@ -1401,12 +1468,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               address: address
             });
 
-            setSnackbarMessage(t('location.success'));
+            setSnackbarMessage("Location fetched successfully!");
             setSnackbarSeverity("success");
             setSnackbarOpen(true);
           } catch (error) {
             console.error("Geocoding error:", error);
-            setSnackbarMessage(t('location.geocodingError'));
+            setSnackbarMessage("Error getting address from coordinates");
             setSnackbarSeverity("warning");
             setSnackbarOpen(true);
           } finally {
@@ -1415,7 +1482,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         },
         (error) => {
           console.error("Location error:", error);
-          setSnackbarMessage(t('location.fetchError'));
+          setSnackbarMessage("Unable to fetch your location. Please check your GPS settings.");
           setSnackbarSeverity("error");
           setSnackbarOpen(true);
           setLocationLoading(false);
@@ -1424,7 +1491,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       );
     } catch (error) {
       console.error("Location fetch error:", error);
-      setSnackbarMessage(t('location.fetchError'));
+      setSnackbarMessage("Unable to fetch your location. Please try again.");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
       setLocationLoading(false);
@@ -1453,93 +1520,93 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     if (step === 0) {
       if (!formData.firstName.trim()) {
-        tempErrors.firstName = t('validation.required', { field: t('registration.basicInformation.firstName') });
+        tempErrors.firstName = "First name is required";
         isValid = false;
       } else if (!nameRegex.test(formData.firstName)) {
-        tempErrors.firstName = t('validation.alphabetsOnly', { field: t('registration.basicInformation.firstName') });
+        tempErrors.firstName = "First name should contain only letters";
         isValid = false;
       } else if (formData.firstName.length > MAX_NAME_LENGTH) {
-        tempErrors.firstName = t('validation.maxLength', { field: t('registration.basicInformation.firstName'), count: MAX_NAME_LENGTH });
+        tempErrors.firstName = `First name must be less than ${MAX_NAME_LENGTH} characters`;
         isValid = false;
       }
 
       if (!formData.lastName.trim()) {
-        tempErrors.lastName = t('validation.required', { field: t('registration.basicInformation.lastName') });
+        tempErrors.lastName = "Last name is required";
         isValid = false;
       } else if (!nameRegex.test(formData.lastName)) {
-        tempErrors.lastName = t('validation.alphabetsOnly', { field: t('registration.basicInformation.lastName') });
+        tempErrors.lastName = "Last name should contain only letters";
         isValid = false;
       } else if (formData.lastName.length > MAX_NAME_LENGTH) {
-        tempErrors.lastName = t('validation.maxLength', { field: t('registration.basicInformation.lastName'), count: MAX_NAME_LENGTH });
+        tempErrors.lastName = `Last name must be less than ${MAX_NAME_LENGTH} characters`;
         isValid = false;
       }
 
       if (!formData.gender) {
-        tempErrors.gender = t('validation.required', { field: t('registration.basicInformation.gender') });
+        tempErrors.gender = "Gender is required";
         isValid = false;
       }
       
       if (!formData.emailId.trim()) {
-        tempErrors.emailId = t('validation.required', { field: t('registration.basicInformation.email') });
+        tempErrors.emailId = "Email address is required";
         isValid = false;
       } else if (!emailIdRegex.test(formData.emailId)) {
-        tempErrors.emailId = t('validation.email');
+        tempErrors.emailId = "Please enter a valid email address";
         isValid = false;
       } else if (validationResults.email.error) {
         tempErrors.emailId = validationResults.email.error;
         isValid = false;
       } else if (!validationResults.email.isAvailable) {
-        tempErrors.emailId = t('validation.emailNotAvailable');
+        tempErrors.emailId = "Email is already registered";
         isValid = false;
       }
       
       if (!formData.password.trim()) {
-        tempErrors.password = t('validation.required', { field: t('registration.basicInformation.password') });
+        tempErrors.password = "Password is required";
         isValid = false;
       } else if (!strongPasswordRegex.test(formData.password)) {
-        tempErrors.password = t('validation.passwordStrength');
+        tempErrors.password = "Password must be at least 8 characters and include uppercase, lowercase, number and special character";
         isValid = false;
       }
       
       if (!formData.confirmPassword.trim()) {
-        tempErrors.confirmPassword = t('validation.required', { field: t('registration.basicInformation.confirmPassword') });
+        tempErrors.confirmPassword = "Please confirm your password";
         isValid = false;
       } else if (formData.password !== formData.confirmPassword) {
-        tempErrors.confirmPassword = t('validation.passwordMismatch');
+        tempErrors.confirmPassword = "Passwords do not match";
         isValid = false;
       }
       
       if (!formData.mobileNo.trim()) {
-        tempErrors.mobileNo = t('validation.required', { field: t('registration.basicInformation.mobileNumber') });
+        tempErrors.mobileNo = "Mobile number is required";
         isValid = false;
       } else if (!phoneRegex.test(formData.mobileNo)) {
-        tempErrors.mobileNo = t('validation.phone');
+        tempErrors.mobileNo = "Please enter a valid 10-digit mobile number";
         isValid = false;
       } else if (validationResults.mobile.error) {
         tempErrors.mobileNo = validationResults.mobile.error;
         isValid = false;
       } else if (!validationResults.mobile.isAvailable) {
-        tempErrors.mobileNo = t('validation.mobileNotAvailable');
+        tempErrors.mobileNo = "Mobile number is already registered";
         isValid = false;
       }
       
       // Validate alternate number if provided
       if (formData.AlternateNumber.trim()) {
         if (!phoneRegex.test(formData.AlternateNumber)) {
-          tempErrors.AlternateNumber = t('validation.phone');
+          tempErrors.AlternateNumber = "Please enter a valid 10-digit number";
           isValid = false;
         } else if (formData.AlternateNumber === formData.mobileNo) {
-          tempErrors.AlternateNumber = t('validation.alternateSameAsMobile');
+          tempErrors.AlternateNumber = "Alternate number cannot be same as mobile number";
           isValid = false;
         } else if (!validationResults.alternate.isAvailable) {
-          tempErrors.AlternateNumber = t('validation.alternateNotAvailable');
+          tempErrors.AlternateNumber = "Alternate number is already registered";
           isValid = false;
         }
       }
 
       // Validate DOB
       if (!formData.dob.trim()) {
-        tempErrors.dob = t('validation.required', { field: t('registration.basicInformation.dateOfBirth') });
+        tempErrors.dob = "Date of birth is required";
         isValid = false;
       } else {
         const { isValid: isAgeValid, message } = validateAge(formData.dob);
@@ -1553,30 +1620,30 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     else if (step === 1) {
       const permanentErrors: any = {};
       if (!formData.permanentAddress.apartment?.trim()) {
-        permanentErrors.apartment = t('validation.required', { field: t('registration.address.apartment') });
+        permanentErrors.apartment = "Apartment/House number is required";
         isValid = false;
       }
       if (!formData.permanentAddress.street?.trim()) {
-        permanentErrors.street = t('validation.required', { field: t('registration.address.street') });
+        permanentErrors.street = "Street address is required";
         isValid = false;
       }
       if (!formData.permanentAddress.city?.trim()) {
-        permanentErrors.city = t('validation.required', { field: t('registration.address.city') });
+        permanentErrors.city = "City is required";
         isValid = false;
       }
       if (!formData.permanentAddress.state?.trim()) {
-        permanentErrors.state = t('validation.required', { field: t('registration.address.state') });
+        permanentErrors.state = "State is required";
         isValid = false;
       }
       if (!formData.permanentAddress.country?.trim()) {
-        permanentErrors.country = t('validation.required', { field: t('registration.address.country') });
+        permanentErrors.country = "Country is required";
         isValid = false;
       }
       if (!formData.permanentAddress.pincode?.trim()) {
-        permanentErrors.pincode = t('validation.required', { field: t('registration.address.pincode') });
+        permanentErrors.pincode = "Pincode is required";
         isValid = false;
       } else if (formData.permanentAddress.pincode.length !== 6) {
-        permanentErrors.pincode = t('validation.pincodeFormat');
+        permanentErrors.pincode = "Pincode must be 6 digits";
         isValid = false;
       }
 
@@ -1588,30 +1655,30 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!isSameAddress) {
         const correspondenceErrors: any = {};
         if (!formData.correspondenceAddress.apartment?.trim()) {
-          correspondenceErrors.apartment = t('validation.required', { field: t('registration.address.apartment') });
+          correspondenceErrors.apartment = "Apartment/House number is required";
           isValid = false;
         }
         if (!formData.correspondenceAddress.street?.trim()) {
-          correspondenceErrors.street = t('validation.required', { field: t('registration.address.street') });
+          correspondenceErrors.street = "Street address is required";
           isValid = false;
         }
         if (!formData.correspondenceAddress.city?.trim()) {
-          correspondenceErrors.city = t('validation.required', { field: t('registration.address.city') });
+          correspondenceErrors.city = "City is required";
           isValid = false;
         }
         if (!formData.correspondenceAddress.state?.trim()) {
-          correspondenceErrors.state = t('validation.required', { field: t('registration.address.state') });
+          correspondenceErrors.state = "State is required";
           isValid = false;
         }
         if (!formData.correspondenceAddress.country?.trim()) {
-          correspondenceErrors.country = t('validation.required', { field: t('registration.address.country') });
+          correspondenceErrors.country = "Country is required";
           isValid = false;
         }
         if (!formData.correspondenceAddress.pincode?.trim()) {
-          correspondenceErrors.pincode = t('validation.required', { field: t('registration.address.pincode') });
+          correspondenceErrors.pincode = "Pincode is required";
           isValid = false;
         } else if (formData.correspondenceAddress.pincode.length !== 6) {
-          correspondenceErrors.pincode = t('validation.pincodeFormat');
+          correspondenceErrors.pincode = "Pincode must be 6 digits";
           isValid = false;
         }
 
@@ -1623,90 +1690,90 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     else if (step === 2) {
       if (formData.housekeepingRole.length === 0) {
-        tempErrors.housekeepingRole = t('validation.required', { field: t('registration.service.selectServiceType') });
+        tempErrors.housekeepingRole = "Please select at least one service type";
         isValid = false;
       }
       if (formData.housekeepingRole.includes("COOK") && !formData.cookingSpeciality) {
-        tempErrors.cookingSpeciality = t('validation.required', { field: t('registration.service.cookingSpeciality') });
+        tempErrors.cookingSpeciality = "Please select cooking speciality";
         isValid = false;
       }
       if (formData.housekeepingRole.includes("NANNY") && !formData.nannyCareType) {
-        tempErrors.nannyCareType = t('validation.required', { field: t('registration.service.careType') });
+        tempErrors.nannyCareType = "Please select care type";
         isValid = false;
       }
       if (!formData.diet) {
-        tempErrors.diet = t('validation.required', { field: t('registration.service.dietPreference') });
+        tempErrors.diet = "Please select diet preference";
         isValid = false;
       }
       if (!formData.experience) {
-        tempErrors.experience = t('validation.required', { field: t('registration.service.experience') });
+        tempErrors.experience = "Experience is required";
         isValid = false;
       } else if (isNaN(Number(formData.experience)) || Number(formData.experience) < 0) {
-        tempErrors.experience = t('validation.numeric', { field: t('registration.service.experience') });
+        tempErrors.experience = "Please enter a valid number";
         isValid = false;
       }
     }
 
     else if (step === 3) {
       if (!formData.kycType) {
-        tempErrors.kycType = t('validation.required', { field: t('registration.kyc.selectDocument') });
+        tempErrors.kycType = "Please select document type";
         isValid = false;
       }
       if (!formData.kycNumber) {
-        tempErrors.kycNumber = t('validation.required', { field: getKycLabel(formData.kycType) });
+        tempErrors.kycNumber = `${getKycLabel(formData.kycType)} number is required`;
         isValid = false;
       } else {
         // Add specific validation based on KYC type
         switch(formData.kycType) {
           case "AADHAR":
             if (!aadhaarRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = t('validation.aadhaarFormat');
+              tempErrors.kycNumber = "Aadhaar number must be 12 digits";
               isValid = false;
             }
             break;
           case "PAN":
             if (!panRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = t('validation.panFormat');
+              tempErrors.kycNumber = "PAN number must be in format: ABCDE1234F";
               isValid = false;
             }
             break;
           case "DRIVING_LICENSE":
             if (formData.kycNumber.length < 8) {
-              tempErrors.kycNumber = t('validation.drivingLicenseFormat');
+              tempErrors.kycNumber = "Please enter a valid driving license number";
               isValid = false;
             }
             break;
           case "VOTER_ID":
             if (!voterIdRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = t('validation.voterIdFormat');
+              tempErrors.kycNumber = "Voter ID must be in format: ABC1234567";
               isValid = false;
             }
             break;
           case "PASSPORT":
             if (!passportRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = t('validation.passportFormat');
+              tempErrors.kycNumber = "Passport number must be 8 characters (1 letter + 7 digits)";
               isValid = false;
             }
             break;
         }
       }
       if (!formData.documentImage) {
-        tempErrors.documentImage = t('validation.required', { field: t('registration.kyc.uploadDocument') });
+        tempErrors.documentImage = "Please upload document image";
         isValid = false;
       }
     }
 
     else if (step === 4) {
       if (!formData.keyFacts) {
-        tempErrors.keyFacts = t('validation.required', { field: t('registration.confirmation.agreeKeyFacts') });
+        tempErrors.keyFacts = "You must agree to the Key Facts Statement";
         isValid = false;
       }
       if (!formData.terms) {
-        tempErrors.terms = t('validation.required', { field: t('registration.confirmation.agreeTerms') });
+        tempErrors.terms = "You must agree to the Terms and Conditions";
         isValid = false;
       }
       if (!formData.privacy) {
-        tempErrors.privacy = t('validation.required', { field: t('registration.confirmation.agreePrivacy') });
+        tempErrors.privacy = "You must agree to the Privacy Policy";
         isValid = false;
       }
     }
@@ -1717,37 +1784,35 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   };
 
   const handleNext = () => {
+    // Check if next button is disabled
+    if (isNextDisabled) {
+      setSnackbarMessage("Please fill all required fields");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return;
+    }
+    
     // For step 0, check if validations are complete before proceeding
     if (activeStep === 0) {
       if (validationResults.email.loading || validationResults.mobile.loading) {
-        setSnackbarMessage(t('validation.waitForValidation'));
+        setSnackbarMessage("Please wait for email and mobile validation");
         setSnackbarSeverity("warning");
         setSnackbarOpen(true);
         return;
       }
-      
-      // Validate the current step
-      if (!validateStep(activeStep)) {
-        return;
-      }
-      
-      // Additional check for validation results
-      if (!isStep0ReadyForNext()) {
-        setSnackbarMessage(t('validation.fixErrors'));
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-        return;
-      }
-    } else {
-      // For other steps, just validate
-      if (!validateStep(activeStep)) {
-        return;
-      }
+    }
+    
+    // Validate the current step
+    if (!validateStep(activeStep)) {
+      setSnackbarMessage("Please fix the errors before proceeding");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
     }
     
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
     if (activeStep === steps.length - 1) {
-      setSnackbarMessage(t('registration.success'));
+      setSnackbarMessage("Registration form completed!");
       setSnackbarOpen(true);
     }
   };
@@ -1760,148 +1825,148 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
   
-const handleSubmit = async () => {
-  if (activeStep !== steps.length - 1) return;
+  const handleSubmit = async () => {
+    if (activeStep !== steps.length - 1) return;
 
-  if (validateStep(activeStep)) {
-    setIsSubmitting(true);
-    try {
-      let profilePicUrl = "";
+    if (validateStep(activeStep)) {
+      setIsSubmitting(true);
+      try {
+        let profilePicUrl = "";
 
-      // Only upload profile image - same as React version
-      if (image) {
-        const profileFormData = new FormData();
-        profileFormData.append("image", {
-          uri: image.uri,
-          type: image.type || 'image/jpeg',
-          name: image.name || 'profile.jpg'
-        } as any);
+        // Only upload profile image - same as React version
+        if (image) {
+          const profileFormData = new FormData();
+          profileFormData.append("image", {
+            uri: image.uri,
+            type: image.type || 'image/jpeg',
+            name: image.name || 'profile.jpg'
+          } as any);
 
-        const imageResponse = await axiosInstance.post(
-          "http://65.2.153.173:3000/upload",
-          profileFormData,
+          const imageResponse = await axiosInstance.post(
+            "http://65.2.153.173:3000/upload",
+            profileFormData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+
+          if (imageResponse.status === 200) {
+            profilePicUrl = imageResponse.data.imageUrl;
+          }
+        }
+        
+        // NO document image upload here - just like React version
+        // Document image is handled separately in KYCVerification component
+        
+        const primaryRole = formData.housekeepingRole.length > 0 ? formData.housekeepingRole[0] : "";
+        
+        const payload = {
+          firstName: formData.firstName,
+          middleName: formData.middleName,
+          lastName: formData.lastName,
+          mobileNo: parseInt(formData.mobileNo) || 0,
+          alternateNo: parseInt(formData.AlternateNumber) || 0,
+          emailId: formData.emailId,
+          gender: formData.gender,
+          buildingName: formData.buildingName,
+          locality: formData.locality,
+          latitude: currentLocation?.latitude || formData.latitude,
+          longitude: currentLocation?.longitude || formData.longitude,
+          street: formData.street,
+          pincode: parseInt(formData.pincode) || 0,
+          currentLocation: formData.currentLocation,
+          nearbyLocation: formData.nearbyLocation,
+          location: formData.currentLocation,
+          housekeepingRole: primaryRole,
+          serviceTypes: formData.housekeepingRole,
+          diet: formData.diet,
+          languages: selectedLanguages,
+          ...(formData.housekeepingRole.includes("COOK") && {
+            cookingSpeciality: formData.cookingSpeciality
+          }),
+          ...(formData.housekeepingRole.includes("NANNY") && {
+            nannyCareType: formData.nannyCareType
+          }),
+          timeslot: formData.timeslot,
+          expectedSalary: 0,
+          experience: parseInt(formData.experience) || 0,
+          username: formData.emailId,
+          password: formData.password,
+          agentReferralId: formData.agentReferralId,
+          privacy: formData.privacy,
+          keyFacts: formData.keyFacts,
+          permanentAddress: {
+            field1: formData.permanentAddress.apartment,
+            field2: formData.permanentAddress.street,
+            ctarea: formData.permanentAddress.city,
+            pinno: formData.permanentAddress.pincode,
+            state: formData.permanentAddress.state,
+            country: formData.permanentAddress.country
+          },
+          correspondenceAddress: {
+            field1: formData.correspondenceAddress.apartment,
+            field2: formData.correspondenceAddress.street,
+            ctarea: formData.correspondenceAddress.city,
+            pinno: formData.correspondenceAddress.pincode,
+            state: formData.correspondenceAddress.state,
+            country: formData.correspondenceAddress.country
+          },
+          active: true,
+          kycType: formData.kycType,
+          kycNumber: formData.kycNumber,
+          dob: formData.dob,
+          profilePic: profilePicUrl
+          // Note: No kycDocumentUrl here - matches React version
+        };
+
+        const response = await providerInstance.post(
+          "/api/service-providers/serviceprovider/add",
+          payload,
           {
             headers: {
-              "Content-Type": "multipart/form-data",
+              "Content-Type": "application/json",
             },
           }
         );
 
-        if (imageResponse.status === 200) {
-          profilePicUrl = imageResponse.data.imageUrl;
-        }
-      }
-      
-      // NO document image upload here - just like React version
-      // Document image is handled separately in KYCVerification component
-      
-      const primaryRole = formData.housekeepingRole.length > 0 ? formData.housekeepingRole[0] : "";
-      
-      const payload = {
-        firstName: formData.firstName,
-        middleName: formData.middleName,
-        lastName: formData.lastName,
-        mobileNo: parseInt(formData.mobileNo) || 0,
-        alternateNo: parseInt(formData.AlternateNumber) || 0,
-        emailId: formData.emailId,
-        gender: formData.gender,
-        buildingName: formData.buildingName,
-        locality: formData.locality,
-        latitude: currentLocation?.latitude || formData.latitude,
-        longitude: currentLocation?.longitude || formData.longitude,
-        street: formData.street,
-        pincode: parseInt(formData.pincode) || 0,
-        currentLocation: formData.currentLocation,
-        nearbyLocation: formData.nearbyLocation,
-        location: formData.currentLocation,
-        housekeepingRole: primaryRole,
-        serviceTypes: formData.housekeepingRole,
-        diet: formData.diet,
-        languages: selectedLanguages,
-        ...(formData.housekeepingRole.includes("COOK") && {
-          cookingSpeciality: formData.cookingSpeciality
-        }),
-        ...(formData.housekeepingRole.includes("NANNY") && {
-          nannyCareType: formData.nannyCareType
-        }),
-        timeslot: formData.timeslot,
-        expectedSalary: 0,
-        experience: parseInt(formData.experience) || 0,
-        username: formData.emailId,
-        password: formData.password,
-        agentReferralId: formData.agentReferralId,
-        privacy: formData.privacy,
-        keyFacts: formData.keyFacts,
-        permanentAddress: {
-          field1: formData.permanentAddress.apartment,
-          field2: formData.permanentAddress.street,
-          ctarea: formData.permanentAddress.city,
-          pinno: formData.permanentAddress.pincode,
-          state: formData.permanentAddress.state,
-          country: formData.permanentAddress.country
-        },
-        correspondenceAddress: {
-          field1: formData.correspondenceAddress.apartment,
-          field2: formData.correspondenceAddress.street,
-          ctarea: formData.correspondenceAddress.city,
-          pinno: formData.correspondenceAddress.pincode,
-          state: formData.correspondenceAddress.state,
-          country: formData.correspondenceAddress.country
-        },
-        active: true,
-        kycType: formData.kycType,
-        kycNumber: formData.kycNumber,
-        dob: formData.dob,
-        profilePic: profilePicUrl
-        // Note: No kycDocumentUrl here - matches React version
-      };
+        setSnackbarOpen(true);
+        setSnackbarSeverity("success");
+        setSnackbarMessage("Registration successful!");
 
-      const response = await providerInstance.post(
-        "/api/service-providers/serviceprovider/add",
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+        const authPayload = {
+          email: formData.emailId,
+          password: formData.password,
+          name: `${formData.firstName} ${formData.lastName}`,
+        };
 
-      setSnackbarOpen(true);
-      setSnackbarSeverity("success");
-      setSnackbarMessage(t('registration.success'));
+        axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
+          .then((authResponse) => {
+            console.log("AuthO user created successfully:", authResponse.data);
+          }).catch((authError) => {
+            console.error("Error creating AuthO user:", authError);
+          });
 
-      const authPayload = {
-        email: formData.emailId,
-        password: formData.password,
-        name: `${formData.firstName} ${formData.lastName}`,
-      };
-
-      axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
-        .then((authResponse) => {
-          console.log("AuthO user created successfully:", authResponse.data);
-        }).catch((authError) => {
-          console.error("Error creating AuthO user:", authError);
-        });
-
-      setTimeout(() => {
+        setTimeout(() => {
+          setIsSubmitting(false);
+          if (onRegistrationSuccess) {
+            onRegistrationSuccess();
+          } else {
+            onBackToLogin(true);
+          }
+        }, 3000);
+      } catch (error) {
         setIsSubmitting(false);
-        if (onRegistrationSuccess) {
-          onRegistrationSuccess();
-        } else {
-          onBackToLogin(true);
-        }
-      }, 3000);
-    } catch (error) {
+        setSnackbarOpen(true);
+        setSnackbarSeverity("error");
+        setSnackbarMessage("Registration failed. Please try again.");
+        console.error("Error submitting form:", error);
+      }
+    } else {
       setIsSubmitting(false);
-      setSnackbarOpen(true);
-      setSnackbarSeverity("error");
-      setSnackbarMessage(t('errors.generic'));
-      console.error("Error submitting form:", error);
     }
-  } else {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   const handleCloseSnackbar = () => {
     setSnackbarOpen(false);
@@ -1909,7 +1974,7 @@ const handleSubmit = async () => {
 
   const validateAge = (dob: string): { isValid: boolean; message: string } => {
     if (!dob) {
-      return { isValid: false, message: t('validation.required', { field: t('registration.basicInformation.dateOfBirth') }) };
+      return { isValid: false, message: "Date of birth is required" };
     }
 
     const birthDate = moment(dob, "YYYY-MM-DD");
@@ -1917,7 +1982,7 @@ const handleSubmit = async () => {
     const age = today.diff(birthDate, "years");
 
     if (age < 18) {
-      return { isValid: false, message: t('errors.mustBe18') };
+      return { isValid: false, message: "You must be at least 18 years old" };
     }
 
     return { isValid: true, message: "" };
@@ -1931,7 +1996,8 @@ const handleSubmit = async () => {
       terms: allAccepted,
       privacy: allAccepted,
     }));
-  }, []);
+    checkStepCompletion();
+  }, [checkStepCompletion]);
 
   // Handle individual terms updates
   const handleTermsUpdate = useCallback((updatedTerms: { keyFacts: boolean; terms: boolean; privacy: boolean }) => {
@@ -1941,7 +2007,8 @@ const handleSubmit = async () => {
       terms: updatedTerms.terms,
       privacy: updatedTerms.privacy,
     }));
-  }, []);
+    checkStepCompletion();
+  }, [checkStepCompletion]);
 
   // Handler for service type change (updated for multi-select)
   const handleServiceTypeChange = (e: any) => {
@@ -1971,6 +2038,8 @@ const handleSubmit = async () => {
     if (updatedRoles.length > 0) {
       setErrors(prev => ({ ...prev, housekeepingRole: "" }));
     }
+    
+    checkStepCompletion();
   };
 
   // Handle diet change
@@ -1978,6 +2047,7 @@ const handleSubmit = async () => {
     const { value } = e.target;
     setFormData((prevData) => ({ ...prevData, diet: value }));
     setErrors(prevErrors => ({ ...prevErrors, diet: "" }));
+    checkStepCompletion();
   };
 
   // Handle experience change
@@ -1985,6 +2055,7 @@ const handleSubmit = async () => {
     const value = e.target.value;
     setFormData(prev => ({ ...prev, experience: value }));
     setErrors(prev => ({ ...prev, experience: "" }));
+    checkStepCompletion();
   };
 
   // Handle description change
@@ -2002,6 +2073,7 @@ const handleSubmit = async () => {
   // Handle document upload
   const handleDocumentUpload = (file: RNFile | null) => {
     setFormData(prev => ({ ...prev, documentImage: file }));
+    checkStepCompletion();
   };
 
   // Get font sizes based on theme
@@ -2042,55 +2114,91 @@ const handleSubmit = async () => {
 
   const fontSizes = getFontSizes();
 
+  // Updated stepper component with better styling
+  const renderStepper = () => {
+    return (
+      <View style={styles.stepperWrapper}>
+        {steps.map((step, index) => (
+          <View key={index} style={styles.stepperItem}>
+            <View
+              style={[
+                styles.stepperCircle,
+                index < activeStep && styles.stepperCircleCompleted,
+                index === activeStep && styles.stepperCircleActive,
+                index > activeStep && styles.stepperCircleInactive,
+              ]}
+            >
+              {index < activeStep ? (
+                <Icon name="check" size={16} color="#fff" />
+              ) : (
+                <Text style={[styles.stepperNumber, { fontSize: fontSizes.small }]}>{index + 1}</Text>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.stepperLabel,
+                { fontSize: fontSizes.small },
+                index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
+              ]}
+            >
+              {step}
+            </Text>
+            {index < steps.length - 1 && (
+              <View
+                style={[
+                  styles.stepperLine,
+                  index < activeStep && styles.stepperLineActive,
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
-  return (
-    <BasicInformation
-      formData={formData}
-      errors={errors}
-      validationResults={validationResults}
-      showPassword={showPassword}
-      showConfirmPassword={showConfirmPassword}
-      isDobValid={isDobValid}
-      onImageSelect={handleImageSelect}
-      onFieldChange={handleRealTimeValidation}
-      onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
-      onDobChange={(e) => {
-        // e.target.value contains the date in YYYY-MM-DD format
-        const formattedDate = e.target.value;
-        
-        // Create a Date object for the DateTimePicker if needed
-        if (formattedDate) {
-          const dateObj = new Date(formattedDate);
-          // Call your existing handleDateChange with the proper format
-          // Since handleDateChange expects a different signature, we need to adapt it
-          handleDateChange(null, dateObj);
-        } else {
-          handleDateChange(null, undefined);
-        }
-        
-        // Also directly update the formData if needed
-        setFormData(prev => ({ ...prev, dob: formattedDate }));
-        
-        // Validate age
-        if (formattedDate) {
-          const { isValid, message } = validateAge(formattedDate);
-          setIsDobValid(isValid);
-          if (!isValid) {
-            setErrors(prev => ({ ...prev, dob: message }));
-          } else {
-            setErrors(prev => ({ ...prev, dob: "" }));
-          }
-        }
-      }}
-      onTogglePasswordVisibility={handleTogglePasswordVisibility}
-      onToggleConfirmPasswordVisibility={handleToggleConfirmPasswordVisibility}
-      onClearEmail={handleClearEmail}
-      onClearMobile={handleClearMobile}
-      onClearAlternate={handleClearAlternate}
-    />
-  );
+        return (
+          <BasicInformation
+  formData={formData}
+  errors={errors}
+  validationResults={validationResults}
+  showPassword={showPassword}
+  showConfirmPassword={showConfirmPassword}
+  isDobValid={isDobValid}
+  onImageSelect={handleImageSelect}
+  onFieldChange={handleRealTimeValidation}
+  onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
+  onDobChange={(e) => {
+    // e.target.value contains the date in YYYY-MM-DD format
+    const formattedDate = e.target.value;
+    
+    // Update formData with the selected date
+    setFormData(prev => ({ ...prev, dob: formattedDate }));
+    
+    // Validate age
+    if (formattedDate) {
+      const { isValid, message } = validateAge(formattedDate);
+      setIsDobValid(isValid);
+      if (!isValid) {
+        setErrors(prev => ({ ...prev, dob: message }));
+      } else {
+        setErrors(prev => ({ ...prev, dob: "" }));
+      }
+    }
+    
+    checkStepCompletion();
+  }}
+  onDatePress={handleDatePress}
+  onTogglePasswordVisibility={handleTogglePasswordVisibility}
+  onToggleConfirmPasswordVisibility={handleToggleConfirmPasswordVisibility}
+  onClearEmail={handleClearEmail}
+  onClearMobile={handleClearMobile}
+  onClearAlternate={handleClearAlternate}
+/>
+        );
       
       case 1:
         return (
@@ -2110,10 +2218,10 @@ const handleSubmit = async () => {
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
                 <Icon name="location-on" size={24} color={colors.primary} />
-                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>{t('address.currentLocation')}</Text>
+                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>Current Location</Text>
               </View>
               <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                {t('address.fetchLocationHelper')}
+                Use your current location to auto-fill address details
               </Text>
 
               <TouchableOpacity
@@ -2126,7 +2234,7 @@ const handleSubmit = async () => {
                 ) : (
                   <>
                     <Icon name="my-location" size={20} color="#fff" />
-                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>{t('address.fetchLocation')}</Text>
+                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>Fetch Current Location</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -2135,7 +2243,7 @@ const handleSubmit = async () => {
                 <>
                   <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
                     <Text style={[styles.alertText, { color: colors.success, fontSize: fontSizes.small }]}>
-                      <Text style={{ fontWeight: 'bold' }}>{t('address.detected')}:</Text> {formData.currentLocation || t('address.noAddress')}
+                      <Text style={{ fontWeight: 'bold' }}>Detected:</Text> {formData.currentLocation || "No address available"}
                     </Text>
                   </View>
                 </>
@@ -2162,7 +2270,7 @@ const handleSubmit = async () => {
             onExperienceChange={handleExperienceChange}
             onDescriptionChange={handleDescriptionChange}
             onReferralCodeChange={handleReferralCodeChange}
-            onAgentReferralIdChange={handleAgentReferralIdChange} // PASS THE NEW HANDLER HERE
+            onAgentReferralIdChange={handleAgentReferralIdChange}
             onFullTimeToggle={handleFullTimeToggle}
             onAddMorningSlot={handleAddMorningSlot}
             onRemoveMorningSlot={handleRemoveMorningSlot}
@@ -2197,7 +2305,7 @@ const handleSubmit = async () => {
         return (
           <ScrollView style={[styles.formContainer, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
             <Text style={[styles.confirmationText, { color: colors.text, fontSize: fontSizes.text }]}>
-              {t('registration.confirmation.message')}
+              Please review your information and agree to the terms to complete your registration.
             </Text>
 
             <TermsCheckboxes 
@@ -2217,54 +2325,8 @@ const handleSubmit = async () => {
         );
 
       default:
-        return <Text style={{ color: colors.text, fontSize: fontSizes.text }}>{t('common.unknown')}</Text>;
+        return <Text style={{ color: colors.text, fontSize: fontSizes.text }}>Unknown step</Text>;
     }
-  };
-
-  // COMPLETELY REWRITTEN renderStepper function for proper display
-  const renderStepper = () => {
-    return (
-      <View style={styles.stepperContainer}>
-        {steps.map((step, index) => (
-          <View key={index} style={styles.stepWrapper}>
-            <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  index < activeStep && [styles.completedStep, { backgroundColor: colors.success }],
-                  index === activeStep && [styles.activeStep, { backgroundColor: colors.primary }],
-                  index > activeStep && [styles.inactiveStep, { backgroundColor: colors.border }],
-                ]}
-              >
-                {index < activeStep ? (
-                  <Icon name="check" size={16} color="#fff" />
-                ) : (
-                  <Text style={[styles.stepNumber, { color: '#fff', fontSize: fontSizes.small }]}>{index + 1}</Text>
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.stepLabel,
-                  { fontSize: fontSizes.small },
-                  index <= activeStep ? [styles.activeLabel, { color: colors.primary }] : [styles.inactiveLabel, { color: colors.textSecondary }],
-                ]}
-                numberOfLines={2}
-              >
-                {t(`registration.steps.${step.toLowerCase().replace(' ', '')}`)}
-              </Text>
-            </View>
-            {index < steps.length - 1 && (
-              <View
-                style={[
-                  styles.stepConnector,
-                  index < activeStep ? [styles.activeConnector, { backgroundColor: colors.primary }] : [styles.inactiveConnector, { backgroundColor: colors.border }],
-                ]}
-              />
-            )}
-          </View>
-        ))}
-      </View>
-    );
   };
 
   return (
@@ -2281,7 +2343,7 @@ const handleSubmit = async () => {
           end={{ x: 1, y: 0 }}
           style={styles.headerContainer}
         >
-          <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>{t('registration.title')}</Text>
+          <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => onBackToLogin(true)}
@@ -2299,10 +2361,10 @@ const handleSubmit = async () => {
               variant="outline"
               size="medium"
               onPress={handleBack}
-              disabled={activeStep === 0 || isSubmitting}
+              disabled={isSubmitting}
               startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}
             >
-              {t('registration.buttons.back')}
+              Back
             </Button>
 
             {activeStep === steps.length - 1 ? (
@@ -2310,20 +2372,20 @@ const handleSubmit = async () => {
                 variant="primary"
                 size="medium"
                 onPress={handleSubmit}
-                disabled={!(formData.terms && formData.privacy && formData.keyFacts) || isSubmitting}
+                disabled={isNextDisabled || isSubmitting}
                 loading={isSubmitting}
               >
-                {t('registration.buttons.submit')}
+                Submit
               </Button>
             ) : (
               <Button
                 variant="primary"
                 size="medium"
                 onPress={handleNext}
-                disabled={isSubmitting}
+                disabled={isNextDisabled || isSubmitting}
                 endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
               >
-                {t('registration.buttons.next')}
+                Next
               </Button>
             )}
           </View>
@@ -2344,9 +2406,9 @@ const handleSubmit = async () => {
               style={styles.policyModalHeader}
             >
               <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>
-                {activePolicy === 'terms' && t('tnc.title')}
-                {activePolicy === 'privacy' && t('privacy.title')}
-                {activePolicy === 'keyfacts' && t('tnc.keyFacts')}
+                {activePolicy === 'terms' && "Terms and Conditions"}
+                {activePolicy === 'privacy' && "Privacy Policy"}
+                {activePolicy === 'keyfacts' && "Key Facts Statement"}
               </Text>
               <TouchableOpacity
                 style={styles.policyModalClose}
@@ -2361,6 +2423,17 @@ const handleSubmit = async () => {
           </View>
         </Modal>
 
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={selectedDate || new Date()}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        )}
+
         {snackbarOpen && (
           <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
             <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
@@ -2374,7 +2447,6 @@ const handleSubmit = async () => {
   );
 };
 
-// [Keep all the existing styles from the old code]
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2402,74 +2474,72 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  stepperContainer: {
+  stepperWrapper: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 24,
-    paddingHorizontal: 4,
+    alignItems: 'flex-start',
+    marginBottom: 32,
+    paddingHorizontal: 8,
+    position: 'relative',
   },
-  stepWrapper: {
+  stepperItem: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
   },
-  stepItem: {
-    alignItems: 'center',
-    width: 70,
-  },
-  stepCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  stepperCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
-    elevation: 2,
+    marginBottom: 8,
+    zIndex: 2,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowRadius: 3,
   },
-  completedStep: {
+  stepperCircleCompleted: {
     backgroundColor: '#4caf50',
   },
-  activeStep: {
+  stepperCircleActive: {
     backgroundColor: '#1976d2',
+    transform: [{ scale: 1.05 }],
   },
-  inactiveStep: {
+  stepperCircleInactive: {
     backgroundColor: '#e0e0e0',
   },
-  stepNumber: {
-    color: 'white',
+  stepperNumber: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
   },
-  stepLabel: {
-    fontSize: 10,
+  stepperLabel: {
+    fontSize: 11,
     textAlign: 'center',
     fontWeight: '500',
-    width: 70,
+    width: '100%',
   },
-  activeLabel: {
+  stepperLabelActive: {
     color: '#1976d2',
     fontWeight: 'bold',
   },
-  inactiveLabel: {
+  stepperLabelInactive: {
     color: '#757575',
   },
-  stepConnector: {
-    flex: 1,
+  stepperLine: {
+    position: 'absolute',
+    top: 20,
+    left: '50%',
+    right: '-50%',
     height: 2,
-    marginHorizontal: 4,
-    alignSelf: 'center',
-    marginTop: -16,
-  },
-  activeConnector: {
-    backgroundColor: '#1976d2',
-  },
-  inactiveConnector: {
     backgroundColor: '#e0e0e0',
+    zIndex: 1,
+  },
+  stepperLineActive: {
+    backgroundColor: '#1976d2',
   },
   formContainer: {
     flex: 1,
@@ -2785,7 +2855,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
   },
-  // Policy Modal Styles
   policyModalContainer: {
     flex: 1,
   },
