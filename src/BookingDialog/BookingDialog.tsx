@@ -1152,7 +1152,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               !isCurrentTimeValid && [styles.disabledButton, { backgroundColor: colors.disabled }],
             ]}
             onPress={handleCustomTimeConfirm}
-            disabled={!isCurrentTimeValid}
+            // disabled={!isCurrentTimeValid}
           >
             <Text
               style={[
