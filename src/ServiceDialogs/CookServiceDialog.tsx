@@ -26,6 +26,7 @@ import axios from 'axios';
 import { useAppUser } from '../context/AppUserContext';
 import BookingService, { BookingPayload } from '../services/bookingService';
 import LinearGradient from 'react-native-linear-gradient';
+import BookingSuccessDialog from '../common/BookingSuccessDialog';
 
 interface Package {
   name: string;
@@ -97,6 +98,10 @@ const DemoCook = ({
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [currentLocation, setCurrentLocation] = React.useState<LocationData | null>(null);
+  
+  // State for success dialog
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [bookingSuccessDetails, setBookingSuccessDetails] = useState<any>(null);
 
   // FIX: Reset loading state when dialog closes
   useEffect(() => {
@@ -339,6 +344,40 @@ const DemoCook = ({
     setShowCartDialog(true);
   };
 
+  const handleSuccessDialogClose = () => {
+    setSuccessDialogOpen(false);
+  };
+
+  const handleNavigateToBookings = () => {
+    setSuccessDialogOpen(false);
+    
+    if (sendDataToParent) {
+      sendDataToParent(BOOKINGS);
+    }
+    
+    onClose();
+    setShowCartDialog(false);
+  };
+
+  // FIX: Helper function to get current date in YYYY-MM-DD format
+  const getCurrentDate = (): string => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // FIX: Helper function to format time to HH:MM:SS
+  const formatTimeForPayload = (timeStr: string | undefined): string => {
+    if (!timeStr) return "08:00:00";
+    // If already in HH:MM:SS format
+    if (timeStr.match(/^\d{2}:\d{2}:\d{2}$/)) return timeStr;
+    // If in HH:MM format
+    if (timeStr.match(/^\d{2}:\d{2}$/)) return `${timeStr}:00`;
+    return "08:00:00";
+  };
+
   const handleCheckout = async () => {
     // Prevent multiple calls
     if (loading) {
@@ -359,6 +398,7 @@ const DemoCook = ({
 
       const baseTotal = selectedPackages.reduce((sum, pkg) => sum + pkg.price, 0);
       const customerId = appUser?.customerid || user?.customerid || 19;
+      const providerFullName = `${providerDetails?.firstName || ""} ${providerDetails?.lastName || ""}`.trim();
 
       const responsibilities = {
         tasks: selectedPackages.map(pkg => ({
@@ -376,25 +416,56 @@ const DemoCook = ({
         serviceproviderid = Number(providerDetails.serviceproviderId);
       }
 
-      // FIX: Use the correct field names from bookingType
+      // FIX: Use correct date values with fallbacks
+      const currentDate = getCurrentDate();
+      let startDate = bookingType?.start_date;
+      let endDate = bookingType?.end_date;
+      
+      // FIX: Ensure dates are properly formatted
+      if (!startDate || startDate === "") {
+        startDate = currentDate;
+      }
+      
+      if (currentBookingType === "MONTHLY" && (!endDate || endDate === "")) {
+        // For monthly, set end date to 30 days from start date
+        const start = new Date(startDate);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 30);
+        endDate = end.toISOString().split("T")[0];
+      } else if (!endDate || endDate === "") {
+        endDate = startDate;
+      }
+
+      // FIX: Format times correctly
+      const startTime = formatTimeForPayload(bookingType?.start_time);
+      const endTime = formatTimeForPayload(bookingType?.end_time);
+
+      // FIX: Ensure start_time and end_time are provided for ON_DEMAND bookings
+      if (isOnDemand && (!startTime || startTime === "00:00:00" || !endTime || endTime === "00:00:00")) {
+        Alert.alert("Missing Information", "Please select start and end times for on-demand booking");
+        setLoading(false);
+        return;
+      }
+
       const payload: BookingPayload = {
         customerid: customerId,
         serviceproviderid: serviceproviderid,
-        start_date: bookingType?.start_date || new Date().toISOString().split("T")[0],
-        end_date: bookingType?.end_date || "",
+        start_date: startDate,
+        end_date: endDate || startDate,
         responsibilities: responsibilities,
         booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
         service_type: "COOK",
         base_amount: baseTotal,
         payment_mode: "razorpay",
-        start_time: bookingType?.start_time || "",  // Fixed: use start_time (with underscore)
-        end_time: bookingType?.end_time || "",      // Fixed: use end_time (with underscore)
+        start_time: startTime,
+        end_time: endTime,
       };
 
       console.log("📦 Booking payload:", JSON.stringify(payload, null, 2));
       console.log(`🔍 Booking Type: ${currentBookingType}, Service Provider ID: ${serviceproviderid}`);
       console.log(`⏰ Times - Start: ${payload.start_time}, End: ${payload.end_time}`);
+      console.log(`📅 Dates - Start: ${payload.start_date}, End: ${payload.end_date}`);
 
       // Validate payload before sending
       if (!validatePayload(payload)) {
@@ -408,10 +479,15 @@ const DemoCook = ({
       
       console.log("✅ bookAndPay result:", result);
 
-      // ✅ Success handling
-      setSnackbarMessage(result?.verifyResult?.message || "Booking & Payment Successful ✅");
-      setSnackbarSeverity("success");
-      setSnackbarVisible(true);
+      // ✅ Set success dialog details
+      setBookingSuccessDetails({
+        providerName: providerFullName,
+        serviceType: "Home Cook",
+        totalAmount: baseTotal,
+        bookingDate: startDate,
+        persons: selectedPackages.reduce((sum, pkg) => sum + (pkg.persons || 1), 0),
+        message: result?.verifyResult?.message || "Booking & Payment Successful ✅"
+      });
 
       // Clear cart and close dialogs
       selectedPackages.forEach(pkg => {
@@ -421,21 +497,20 @@ const DemoCook = ({
         }));
       });
 
-      if (sendDataToParent) {
-        sendDataToParent(BOOKINGS);
-      }
-      
-      setTimeout(() => {
-        setShowCartDialog(false);
-        onClose();
-      }, 2000);
+      // Close cart dialog and main dialog, then show success dialog
+      setShowCartDialog(false);
+      onClose();
+      setSuccessDialogOpen(true);
 
     } catch (error: any) {
       console.error('❌ Checkout error:', error);
       
       let backendMessage = "Failed to initiate payment";
       
-      if (error?.response?.data) {
+      // FIX: Better error handling for 409 conflict
+      if (error?.response?.status === 409) {
+        backendMessage = "A booking already exists for this time period. Please check your existing bookings or select different dates.";
+      } else if (error?.response?.data) {
         if (typeof error.response.data === "string") {
           backendMessage = error.response.data;
         } else if (error.response.data.error) {
@@ -467,6 +542,11 @@ const DemoCook = ({
       setSnackbarMessage(backendMessage);
       setSnackbarSeverity("error");
       setSnackbarVisible(true);
+      
+      // Auto-hide snackbar after 5 seconds
+      setTimeout(() => {
+        setSnackbarVisible(false);
+      }, 5000);
     } finally {
       setLoading(false);
     }
@@ -487,190 +567,201 @@ const DemoCook = ({
   const selectedCount = packages.filter(pkg => pkg.inCart).length;
 
   return (
-    <Modal 
-      visible={visible} 
-      animationType="slide" 
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.linearGradient}
-          >
-            <View style={styles.headerContainer}>
-              <Text style={styles.headtitle}>MEAL PACKAGES</Text>
-              
-              <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
-                <Icon name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-          
-          <ScrollView style={styles.scrollView}>
-            <View style={styles.packagesContainer}>
-              {packages.map((pkg, index) => {
-                const currentPersons = pkg.persons || 1;
-                const maxPersons = pkg.maxPersons || 3;
+    <>
+      <Modal 
+        visible={visible} 
+        animationType="slide" 
+        transparent
+        onRequestClose={onClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.linearGradient}
+            >
+              <View style={styles.headerContainer}>
+                <Text style={styles.headtitle}>MEAL PACKAGES</Text>
                 
-                return (
-                  <View key={index} style={[
-                    styles.packageCard, 
-                    pkg.inCart && styles.selectedPackage,
-                    { borderLeftColor: PRIMARY_COLOR }
-                  ]}>
-                    <View style={styles.packageHeader}>
-                      <View>
-                        <Text style={styles.packageTitle}>{pkg.name}</Text>
-                        <View style={styles.ratingContainer}>
-                          <Text style={[styles.ratingValue, { color: PRIMARY_COLOR }]}>{pkg.rating}</Text>
-                          <Text style={styles.reviewsText}>{pkg.reviews}</Text>
-                        </View>
-                        <Text style={styles.bookingTypeText}>
-                          {pkg.bookingType === 'ON_DEMAND' ? 'On Demand' : 'Regular'} • {pkg.bookingType === 'ON_DEMAND' ? 'Per Day' : 'Per Month'}
-                        </Text>
-                      </View>
-                      <View style={styles.priceContainer}>
-                        <Text style={[styles.priceValue, { color: PRIMARY_COLOR }]}>
-                          ₹{pkg.price.toFixed(2)}
-                        </Text>
-                        <Text style={styles.preparationTime}>{pkg.prepTime}</Text>
-                      </View>
-                    </View>
-                    
-                    <View style={styles.personsControl}>
-                      <Text style={styles.personsLabel}>Persons:</Text>
-                      <View style={styles.personsInput}>
-                        <TouchableOpacity 
-                          style={[
-                            styles.decrementButton,
-                            currentPersons <= 1 && styles.disabledButton,
-                            pkg.inCart && styles.selectedIncrementButton
-                          ]}
-                          onPress={() => handlePersonChange(index, 'decrement')}
-                          disabled={currentPersons <= 1}
-                        >
-                          <Text style={[
-                            styles.buttonText,
-                            pkg.inCart && styles.selectedButtonText
-                          ]}>−</Text>
-                        </TouchableOpacity>
-                        
-                        <Text style={[
-                          styles.personsValue,
-                          pkg.inCart && styles.selectedPersonsValue
-                        ]}>
-                          {currentPersons}
-                        </Text>
-                        
-                        <TouchableOpacity 
-                          style={[
-                            styles.incrementButton,
-                            currentPersons >= 15 && styles.disabledButton,
-                            pkg.inCart && styles.selectedIncrementButton
-                          ]}
-                          onPress={() => handlePersonChange(index, 'increment')}
-                          disabled={currentPersons >= 15}
-                        >
-                          <Text style={[
-                            styles.buttonText,
-                            pkg.inCart && styles.selectedButtonText
-                          ]}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    
-                    {currentPersons > maxPersons && (
-                      <Text style={styles.additionalCharges}>*Additional charges applied</Text>
-                    )}
-                    
-                    <View style={styles.descriptionList}>
-                      {pkg.includes.map((item, i) => (
-                        <View key={i} style={styles.descriptionItem}>
-                          <Text style={styles.descriptionBullet}>•</Text>
-                          <Text style={[
-                            styles.descriptionText,
-                            pkg.inCart && styles.selectedDescriptionText
-                          ]}>{item}</Text>
-                        </View>
-                      ))}
-                    </View>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.cartButton,
-                        pkg.inCart && styles.selectedCartButton,
-                        { borderColor: PRIMARY_COLOR }
-                      ]}
-                      onPress={() => toggleCart(index)}
-                    >
-                      {pkg.inCart ? (
-                        <Icon name="remove-shopping-cart" size={20} color="#fff" />
-                      ) : (
-                        <Icon name="add-shopping-cart" size={20} color={PRIMARY_COLOR} />
-                      )}
-                      <Text style={[
-                        styles.cartButtonText,
-                        pkg.inCart && styles.selectedCartButtonText,
-                        !pkg.inCart && { color: PRIMARY_COLOR }
-                      ]}>
-                        {pkg.inCart ? 'ADDED TO CART' : 'ADD TO CART'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-          
-          <View style={styles.footerContainer}>
-            <View style={styles.totalContainer}>
-              <Text style={styles.footerText}>
-                Total for {selectedCount} item{selectedCount !== 1 ? 's' : ''} ({totalPersons} person{totalPersons !== 1 ? 's' : ''})
-              </Text>
-              <Text style={styles.footerPrice}>
-                ₹{getTotal().toFixed(2)}
-              </Text>
-            </View>
+                <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+                  <Icon name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
             
-            <View style={styles.footerButtons}>
-              <TouchableOpacity 
-                style={styles.closeFooterButton}
-                onPress={onClose}
-              >
-                <Text style={styles.closeFooterButtonText}>CLOSE</Text>
-              </TouchableOpacity>
+            <ScrollView style={styles.scrollView}>
+              <View style={styles.packagesContainer}>
+                {packages.map((pkg, index) => {
+                  const currentPersons = pkg.persons || 1;
+                  const maxPersons = pkg.maxPersons || 3;
+                  
+                  return (
+                    <View key={index} style={[
+                      styles.packageCard, 
+                      pkg.inCart && styles.selectedPackage,
+                      { borderLeftColor: PRIMARY_COLOR }
+                    ]}>
+                      <View style={styles.packageHeader}>
+                        <View>
+                          <Text style={styles.packageTitle}>{pkg.name}</Text>
+                          <View style={styles.ratingContainer}>
+                            <Text style={[styles.ratingValue, { color: PRIMARY_COLOR }]}>{pkg.rating}</Text>
+                            <Text style={styles.reviewsText}>{pkg.reviews}</Text>
+                          </View>
+                          <Text style={styles.bookingTypeText}>
+                            {pkg.bookingType === 'ON_DEMAND' ? 'On Demand' : 'Regular'} • {pkg.bookingType === 'ON_DEMAND' ? 'Per Day' : 'Per Month'}
+                          </Text>
+                        </View>
+                        <View style={styles.priceContainer}>
+                          <Text style={[styles.priceValue, { color: PRIMARY_COLOR }]}>
+                            ₹{pkg.price.toFixed(2)}
+                          </Text>
+                          <Text style={styles.preparationTime}>{pkg.prepTime}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.personsControl}>
+                        <Text style={styles.personsLabel}>Persons:</Text>
+                        <View style={styles.personsInput}>
+                          <TouchableOpacity 
+                            style={[
+                              styles.decrementButton,
+                              currentPersons <= 1 && styles.disabledButton,
+                              pkg.inCart && styles.selectedIncrementButton
+                            ]}
+                            onPress={() => handlePersonChange(index, 'decrement')}
+                            disabled={currentPersons <= 1}
+                          >
+                            <Text style={[
+                              styles.buttonText,
+                              pkg.inCart && styles.selectedButtonText
+                            ]}>−</Text>
+                          </TouchableOpacity>
+                          
+                          <Text style={[
+                            styles.personsValue,
+                            pkg.inCart && styles.selectedPersonsValue
+                          ]}>
+                            {currentPersons}
+                          </Text>
+                          
+                          <TouchableOpacity 
+                            style={[
+                              styles.incrementButton,
+                              currentPersons >= 15 && styles.disabledButton,
+                              pkg.inCart && styles.selectedIncrementButton
+                            ]}
+                            onPress={() => handlePersonChange(index, 'increment')}
+                            disabled={currentPersons >= 15}
+                          >
+                            <Text style={[
+                              styles.buttonText,
+                              pkg.inCart && styles.selectedButtonText
+                            ]}>+</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      
+                      {currentPersons > maxPersons && (
+                        <Text style={styles.additionalCharges}>*Additional charges applied</Text>
+                      )}
+                      
+                      <View style={styles.descriptionList}>
+                        {pkg.includes.map((item, i) => (
+                          <View key={i} style={styles.descriptionItem}>
+                            <Text style={styles.descriptionBullet}>•</Text>
+                            <Text style={[
+                              styles.descriptionText,
+                              pkg.inCart && styles.selectedDescriptionText
+                            ]}>{item}</Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.cartButton,
+                          pkg.inCart && styles.selectedCartButton,
+                          { borderColor: PRIMARY_COLOR }
+                        ]}
+                        onPress={() => toggleCart(index)}
+                      >
+                        {pkg.inCart ? (
+                          <Icon name="remove-shopping-cart" size={20} color="#fff" />
+                        ) : (
+                          <Icon name="add-shopping-cart" size={20} color={PRIMARY_COLOR} />
+                        )}
+                        <Text style={[
+                          styles.cartButtonText,
+                          pkg.inCart && styles.selectedCartButtonText,
+                          !pkg.inCart && { color: PRIMARY_COLOR }
+                        ]}>
+                          {pkg.inCart ? 'ADDED TO CART' : 'ADD TO CART'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            
+            <View style={styles.footerContainer}>
+              <View style={styles.totalContainer}>
+                <Text style={styles.footerText}>
+                  Total for {selectedCount} item{selectedCount !== 1 ? 's' : ''} ({totalPersons} person{totalPersons !== 1 ? 's' : ''})
+                </Text>
+                <Text style={styles.footerPrice}>
+                  ₹{getTotal().toFixed(2)}
+                </Text>
+              </View>
               
-              <TouchableOpacity
-                style={[
-                  styles.checkoutButton,
-                  (selectedCount === 0 || loading) && styles.disabledButton
-                ]}
-                onPress={handleOpenCartDialog}
-                disabled={selectedCount === 0 || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="shopping-cart" size={18} color="#fff" style={styles.checkoutIcon} />
-                    <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={styles.footerButtons}>
+                <TouchableOpacity 
+                  style={styles.closeFooterButton}
+                  onPress={onClose}
+                >
+                  <Text style={styles.closeFooterButtonText}>CLOSE</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.checkoutButton,
+                    (selectedCount === 0 || loading) && styles.disabledButton
+                  ]}
+                  onPress={handleOpenCartDialog}
+                  disabled={selectedCount === 0 || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Icon name="shopping-cart" size={18} color="#fff" style={styles.checkoutIcon} />
+                      <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      </Modal>
 
       {/* Cart Dialog */}
       <CartDialog
         open={showCartDialog}
         handleClose={() => setShowCartDialog(false)}
         handleCheckout={handleCheckout}
+      />
+
+      {/* Booking Success Dialog */}
+      <BookingSuccessDialog
+        visible={successDialogOpen}
+        onClose={handleSuccessDialogClose}
+        bookingDetails={bookingSuccessDetails}
+        message={bookingSuccessDetails?.message}
+        onNavigateToBookings={handleNavigateToBookings}
       />
 
       {/* Snackbar for notifications */}
@@ -692,7 +783,7 @@ const DemoCook = ({
           </View>
         </View>
       </Modal>
-    </Modal>
+    </>
   );
 };
 

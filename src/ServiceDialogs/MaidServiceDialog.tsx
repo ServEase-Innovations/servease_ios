@@ -22,6 +22,7 @@ import BookingService, { BookingPayload } from '../services/bookingService';
 import { useAppUser } from '../context/AppUserContext';
 import LinearGradient from "react-native-linear-gradient";
 import { CartDialog } from '../CartDiaog/CartDialog';
+import BookingSuccessDialog from '../common/BookingSuccessDialog';
 
 interface MaidServiceDialogProps {
   open: boolean;
@@ -122,6 +123,10 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [voucherCode, setVoucherCode] = useState('');
   const [showCartDialog, setShowCartDialog] = useState(false);
+  
+  // State for success dialog
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [bookingSuccessDetails, setBookingSuccessDetails] = useState<any>(null);
   
   // Use the pricing filter service
   const { getFilteredPricing } = usePricingFilterService();
@@ -511,6 +516,18 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
     }
   };
 
+  // Helper function to calculate end time (1 hour after start time)
+  const calculateEndTime = (startTime: string): string => {
+    try {
+      const [hours, minutes, seconds] = startTime.split(':').map(Number);
+      let endHours = hours + 1;
+      if (endHours >= 24) endHours -= 24;
+      return `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } catch (error) {
+      return '11:00:00';
+    }
+  };
+
   const prepareCartForCheckout = () => {
     // Clear all existing cart items
     dispatch(removeFromCart({ type: 'meal' }));
@@ -559,6 +576,21 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
     setShowCartDialog(true);
   };
 
+  const handleSuccessDialogClose = () => {
+    setSuccessDialogOpen(false);
+  };
+
+  const handleNavigateToBookings = () => {
+    setSuccessDialogOpen(false);
+    
+    if (sendDataToParent) {
+      sendDataToParent(BOOKINGS);
+    }
+    
+    handleClose();
+    setShowCartDialog(false);
+  };
+
   const handleCheckout = async () => {
     // Prevent multiple simultaneous calls
     if (isProcessing) {
@@ -581,6 +613,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       }
 
       const customerId = appUser?.customerid || user?.customerid || 19;
+      const providerFullName = `${providerDetails?.firstName || ""} ${providerDetails?.lastName || ""}`.trim();
       
       // Separate packages and add-ons
       const packages = selectedServices.filter(item => item.serviceType === "package");
@@ -617,24 +650,16 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
 
       // Get booking type
       const currentBookingType = getBookingTypeFromPreference(bookingType?.bookingPreference);
-      const isOnDemand = currentBookingType === "ON_DEMAND";
       
-      // Calculate times
+      // Calculate times - ALWAYS include both start_time and end_time
       const startTime = formatTimeForBackend(bookingType?.timeRange);
-      let endTime = '';
+      // Calculate end time (1 hour after start time for ALL booking types)
+      const calculatedEndTime = calculateEndTime(startTime);
       
-      if (isOnDemand) {
-        try {
-          const [hours, minutes] = startTime.split(':').map(Number);
-          let endHours = hours + 1;
-          if (endHours >= 24) endHours -= 24;
-          endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-        } catch (error) {
-          endTime = formatTimeForBackend('06:00 PM');
-        }
-      }
+      // Use provided endTime if available, otherwise use calculated end time
+      const endTime = bookingType?.endTime || calculatedEndTime;
 
-      // ✅ UPDATED: Always include end_time with fallback (matching React code pattern)
+      // ✅ UPDATED: Always include end_time (matching NannyServicesDialog pattern)
       const payload: BookingPayload = {
         customerid: customerId,
         serviceproviderid: providerDetails?.serviceproviderid
@@ -643,7 +668,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
         start_date: bookingType?.startDate || new Date().toISOString().split("T")[0],
         end_date: bookingType?.endDate || new Date().toISOString().split("T")[0],
         start_time: startTime,
-        end_time: bookingType?.endTime || endTime || "", // ✅ Always included with fallback
+        end_time: endTime, // ✅ ALWAYS included (matching NannyServicesDialog)
         responsibilities: responsibilities,
         booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
@@ -655,32 +680,30 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       console.log("Final Maid Service Payload:", JSON.stringify(payload, null, 2));
       console.log(`⏰ Times - Start: ${payload.start_time}, End: ${payload.end_time}`);
 
-      // ✅ Use ONLY BookingService.bookAndPay - it handles Razorpay internally
+      // ✅ Use BookingService.bookAndPay - it handles Razorpay internally
       const result = await BookingService.bookAndPay(payload);
       
       console.log("bookAndPay result:", result);
 
-      // Success handling
-      Alert.alert(
-        "Success ✅", 
-        result?.verifyResult?.message || "Maid Service Booking & Payment Successful",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              // Clear cart items
-              dispatch(removeFromCart({ type: 'meal' }));
-              dispatch(removeFromCart({ type: 'maid' }));
-              dispatch(removeFromCart({ type: 'nanny' }));
-              setShowCartDialog(false);
-              if (sendDataToParent) {
-                sendDataToParent(BOOKINGS);
-              }
-              handleClose();
-            }
-          }
-        ]
-      );
+      // ✅ Set success dialog details
+      setBookingSuccessDetails({
+        providerName: providerFullName,
+        serviceType: "Maid Service",
+        totalAmount: baseTotal,
+        bookingDate: bookingType?.startDate || new Date().toISOString().split("T")[0],
+        persons: countSelectedItems(),
+        message: result?.verifyResult?.message || "Maid Service Booking & Payment Successful ✅"
+      });
+
+      // Clear cart items
+      dispatch(removeFromCart({ type: 'meal' }));
+      dispatch(removeFromCart({ type: 'maid' }));
+      dispatch(removeFromCart({ type: 'nanny' }));
+      
+      // Close cart dialog and main dialog, then show success dialog
+      setShowCartDialog(false);
+      handleClose();
+      setSuccessDialogOpen(true);
 
     } catch (error: any) {
       console.error('Checkout error:', error);
@@ -716,6 +739,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
         }
       }
 
+      // Show error in Alert
       Alert.alert("Error", backendMessage);
     } finally {
       setLoading(false);
@@ -730,581 +754,567 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
   if (!open) return null;
 
   return (
-    <Modal
-      visible={open}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.linearGradient}
-          >
-            <View style={styles.headerContainer}>
-              <Text style={styles.headtitle}>MAID SERVICE PACKAGES</Text>
+    <>
+      <Modal
+        visible={open}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.linearGradient}
+            >
+              <View style={styles.headerContainer}>
+                <Text style={styles.headtitle}>MAID SERVICE PACKAGES</Text>
+                
+                <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
+                  <Icon name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+            
+            <ScrollView style={styles.scrollView}>
+              <View style={styles.tabsContainer}>
+                <TouchableOpacity 
+                  style={[styles.tabButton, activeTab === 'regular' && styles.activeTab]}
+                  onPress={() => handleTabChange('regular')}
+                >
+                  <Text style={[styles.tabText, activeTab === 'regular' && styles.activeTabText]}>
+                    Regular Services
+                  </Text>
+                </TouchableOpacity>
+              </View>
               
-              <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
-                <Icon name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-          
-          <ScrollView style={styles.scrollView}>
-            <View style={styles.tabsContainer}>
-              <TouchableOpacity 
-                style={[styles.tabButton, activeTab === 'regular' && styles.activeTab]}
-                onPress={() => handleTabChange('regular')}
-              >
-                <Text style={[styles.tabText, activeTab === 'regular' && styles.activeTabText]}>
-                  Regular Services
+              <View style={styles.packagesContainer}>
+                {/* Utensil Cleaning Package */}
+                <View style={[
+                  styles.packageCard, 
+                  cartItems.utensilCleaning && styles.selectedPackage,
+                  { borderLeftColor: '#0984e3' }
+                ]}>
+                  <View style={styles.packageHeader}>
+                    <View>
+                      <Text style={styles.packageTitle}>Utensil Cleaning</Text>
+                      <View style={styles.ratingContainer}>
+                        <Text style={[styles.ratingValue, { color: '#0984e3' }]}>4.7</Text>
+                        <Text style={styles.reviewsText}>(1.2M reviews)</Text>
+                      </View>
+                    </View>
+                    <View style={styles.priceContainer}>
+                      <Text style={[styles.priceValue, { color: '#0984e3' }]}>
+                        ₹{getPackagePrice('utensilCleaning').toLocaleString('en-IN')}
+                      </Text>
+                      <Text style={styles.preparationTime}>
+                        {getPriceDisplayText()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.personsControl}>
+                    <Text style={styles.personsLabel}>Persons:</Text>
+                    <View style={styles.personsInput}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.decrementButton,
+                          cartItems.utensilCleaning && styles.selectedIncrementButton
+                        ]}
+                        onPress={() => handlePersonChange('decrement')}
+                      >
+                        <Text style={[
+                          styles.buttonText,
+                          cartItems.utensilCleaning && styles.selectedButtonText
+                        ]}>−</Text>
+                      </TouchableOpacity>
+                      
+                      <Text style={[
+                        styles.personsValue,
+                        cartItems.utensilCleaning && styles.selectedPersonsValue
+                      ]}>
+                        {packageStates.utensilCleaning.persons}
+                      </Text>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.incrementButton,
+                          cartItems.utensilCleaning && styles.selectedIncrementButton
+                        ]}
+                        onPress={() => handlePersonChange('increment')}
+                      >
+                        <Text style={[
+                          styles.buttonText,
+                          cartItems.utensilCleaning && styles.selectedButtonText
+                        ]}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.descriptionList}>
+                    <View style={styles.descriptionItem}>
+                      <Text style={styles.descriptionBullet}>•</Text>
+                      <Text style={styles.descriptionText}>All kind of daily utensil cleaning</Text>
+                    </View>
+                    <View style={styles.descriptionItem}>
+                      <Text style={styles.descriptionBullet}>•</Text>
+                      <Text style={styles.descriptionText}>Party used type utensil cleaning</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.cartButton,
+                      cartItems.utensilCleaning && styles.selectedCartButton,
+                      { borderColor: '#0984e3' }
+                    ]}
+                    onPress={() => handleAddPackageToCart('utensilCleaning')}
+                  >
+                    {cartItems.utensilCleaning ? (
+                      <Icon name="remove-shopping-cart" size={20} color="#fff" />
+                    ) : (
+                      <Icon name="add-shopping-cart" size={20} color="#0984e3" />
+                    )}
+                    <Text style={[
+                      styles.cartButtonText,
+                      cartItems.utensilCleaning && styles.selectedCartButtonText,
+                      { color: cartItems.utensilCleaning ? '#fff' : '#0984e3' }
+                    ]}>
+                      {cartItems.utensilCleaning ? 'ADDED TO CART' : 'ADD TO CART'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Sweeping & Mopping Package */}
+                <View style={[
+                  styles.packageCard, 
+                  cartItems.sweepingMopping && styles.selectedPackage,
+                  { borderLeftColor: '#0984e3' }
+                ]}>
+                  <View style={styles.packageHeader}>
+                    <View>
+                      <Text style={styles.packageTitle}>Sweeping & Mopping</Text>
+                      <View style={styles.ratingContainer}>
+                        <Text style={[styles.ratingValue, { color: '#0984e3' }]}>4.8</Text>
+                        <Text style={styles.reviewsText}>(1.5M reviews)</Text>
+                      </View>
+                    </View>
+                    <View style={styles.priceContainer}>
+                      <Text style={[styles.priceValue, { color: '#0984e3' }]}>
+                        ₹{getPackagePrice('sweepingMopping').toLocaleString('en-IN')}
+                      </Text>
+                      <Text style={styles.preparationTime}>
+                        {getPriceDisplayText()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.personsControl}>
+                    <Text style={styles.personsLabel}>House Size:</Text>
+                    <View style={styles.personsInput}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.decrementButton,
+                          cartItems.sweepingMopping && styles.selectedIncrementButton
+                        ]}
+                        onPress={() => handleHouseSizeChange('decrement')}
+                      >
+                        <Text style={[
+                          styles.buttonText,
+                          cartItems.sweepingMopping && styles.selectedButtonText
+                        ]}>−</Text>
+                      </TouchableOpacity>
+                      
+                      <Text style={[
+                        styles.personsValue,
+                        cartItems.sweepingMopping && styles.selectedPersonsValue
+                      ]}>
+                        {packageStates.sweepingMopping.houseSize}
+                      </Text>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.incrementButton,
+                          cartItems.sweepingMopping && styles.selectedIncrementButton
+                        ]}
+                        onPress={() => handleHouseSizeChange('increment')}
+                      >
+                        <Text style={[
+                          styles.buttonText,
+                          cartItems.sweepingMopping && styles.selectedButtonText
+                        ]}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.descriptionList}>
+                    <View style={styles.descriptionItem}>
+                      <Text style={styles.descriptionBullet}>•</Text>
+                      <Text style={styles.descriptionText}>Daily sweeping and mopping of 2 rooms, 1 Hall</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.cartButton,
+                      cartItems.sweepingMopping && styles.selectedCartButton,
+                      { borderColor: '#0984e3' }
+                    ]}
+                    onPress={() => handleAddPackageToCart('sweepingMopping')}
+                  >
+                    {cartItems.sweepingMopping ? (
+                      <Icon name="remove-shopping-cart" size={20} color="#fff" />
+                    ) : (
+                      <Icon name="add-shopping-cart" size={20} color="#0984e3" />
+                    )}
+                    <Text style={[
+                      styles.cartButtonText,
+                      cartItems.sweepingMopping && styles.selectedCartButtonText,
+                      { color: cartItems.sweepingMopping ? '#fff' : '#0984e3' }
+                    ]}>
+                      {cartItems.sweepingMopping ? 'REMOVE FROM CART' : 'ADD TO CART'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Bathroom Cleaning Package */}
+                <View style={[
+                  styles.packageCard, 
+                  cartItems.bathroomCleaning && styles.selectedPackage,
+                  { borderLeftColor: '#0984e3' }
+                ]}>
+                  <View style={styles.packageHeader}>
+                    <View>
+                      <Text style={styles.packageTitle}>Bathroom Cleaning</Text>
+                      <View style={styles.ratingContainer}>
+                        <Text style={[styles.ratingValue, { color: '#0984e3' }]}>4.6</Text>
+                        <Text style={styles.reviewsText}>(980K reviews)</Text>
+                      </View>
+                    </View>
+                    <View style={styles.priceContainer}>
+                      <Text style={[styles.priceValue, { color: '#0984e3' }]}>
+                        ₹{getPackagePrice('bathroomCleaning').toLocaleString('en-IN')}
+                      </Text>
+                      <Text style={styles.preparationTime}>
+                        {getPriceDisplayText()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.personsControl}>
+                    <Text style={styles.personsLabel}>Bathrooms:</Text>
+                    <View style={styles.personsInput}>
+                      <TouchableOpacity 
+                        style={[
+                          styles.decrementButton,
+                          cartItems.bathroomCleaning && styles.selectedIncrementButton
+                        ]}
+                        onPress={() => handleBathroomChange('decrement')}
+                      >
+                        <Text style={[
+                          styles.buttonText,
+                          cartItems.bathroomCleaning && styles.selectedButtonText
+                        ]}>−</Text>
+                      </TouchableOpacity>
+                      
+                      <Text style={[
+                        styles.personsValue,
+                        cartItems.bathroomCleaning && styles.selectedPersonsValue
+                      ]}>
+                        {packageStates.bathroomCleaning.bathrooms}
+                      </Text>
+                      
+                      <TouchableOpacity 
+                        style={[
+                          styles.incrementButton,
+                          cartItems.bathroomCleaning && styles.selectedIncrementButton
+                        ]}
+                        onPress={() => handleBathroomChange('increment')}
+                      >
+                        <Text style={[
+                          styles.buttonText,
+                          cartItems.bathroomCleaning && styles.selectedButtonText
+                        ]}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.descriptionList}>
+                    <View style={styles.descriptionItem}>
+                      <Text style={styles.descriptionBullet}>•</Text>
+                      <Text style={styles.descriptionText}>Weekly cleaning of bathrooms</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.cartButton,
+                      cartItems.bathroomCleaning && styles.selectedCartButton,
+                      { borderColor: '#0984e3' }
+                    ]}
+                    onPress={() => handleAddPackageToCart('bathroomCleaning')}
+                  >
+                    {cartItems.bathroomCleaning ? (
+                      <Icon name="remove-shopping-cart" size={20} color="#fff" />
+                    ) : (
+                      <Icon name="add-shopping-cart" size={20} color="#0984e3" />
+                    )}
+                    <Text style={[
+                      styles.cartButtonText,
+                      cartItems.bathroomCleaning && styles.selectedCartButtonText,
+                      { color: cartItems.bathroomCleaning ? '#fff' : '#0984e3' }
+                    ]}>
+                      {cartItems.bathroomCleaning ? 'REMOVE FROM CART' : 'ADD TO CART'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {/* Add-ons Section */}
+                <View style={styles.addOnsContainer}>
+                  <Text style={styles.addOnsTitle}>Regular Add-on Services</Text>
+                  <View style={styles.addOnsGrid}>
+                    {/* Bathroom Deep Cleaning */}
+                    <View style={[
+                      styles.addOnCard, 
+                      cartItems.bathroomDeepCleaning && styles.selectedAddOn,
+                      { borderLeftColor: '#0984e3' }
+                    ]}>
+                      <View style={styles.addOnHeader}>
+                        <Text style={styles.addOnTitle}>Bathroom Deep Cleaning</Text>
+                        <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
+                          +₹{getAddOnPrice('bathroomDeepCleaning').toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                      <Text style={styles.addOnDescription}>
+                        Weekly cleaning of bathrooms, all bathroom walls cleaned
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.addOnButton,
+                          cartItems.bathroomDeepCleaning && styles.selectedAddOnButton,
+                          { borderColor: '#0984e3' }
+                        ]}
+                        onPress={() => handleAddAddOnToCart('bathroomDeepCleaning')}
+                      >
+                        <Icon 
+                          name={cartItems.bathroomDeepCleaning ? "remove-shopping-cart" : "add-shopping-cart"} 
+                          size={16} 
+                          color={cartItems.bathroomDeepCleaning ? '#fff' : '#0984e3'} 
+                          style={styles.addOnButtonIcon}
+                        />
+                        <Text style={[
+                          styles.addOnButtonText,
+                          cartItems.bathroomDeepCleaning && styles.selectedAddOnButtonText,
+                          { color: cartItems.bathroomDeepCleaning ? '#fff' : '#0984e3' }
+                        ]}>
+                          {cartItems.bathroomDeepCleaning ? 'REMOVE' : 'ADD SERVICE'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Normal Dusting */}
+                    <View style={[
+                      styles.addOnCard, 
+                      cartItems.normalDusting && styles.selectedAddOn,
+                      { borderLeftColor: '#0984e3' }
+                    ]}>
+                      <View style={styles.addOnHeader}>
+                        <Text style={styles.addOnTitle}>Normal Dusting</Text>
+                        <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
+                          +₹{getAddOnPrice('normalDusting').toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                      <Text style={styles.addOnDescription}>
+                        Daily furniture dusting, doors, carpet, bed making
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.addOnButton,
+                          cartItems.normalDusting && styles.selectedAddOnButton,
+                          { borderColor: '#0984e3' }
+                        ]}
+                        onPress={() => handleAddAddOnToCart('normalDusting')}
+                      >
+                        <Icon 
+                          name={cartItems.normalDusting ? "remove-shopping-cart" : "add-shopping-cart"} 
+                          size={16} 
+                          color={cartItems.normalDusting ? '#fff' : '#0984e3'} 
+                          style={styles.addOnButtonIcon}
+                        />
+                        <Text style={[
+                          styles.addOnButtonText,
+                          cartItems.normalDusting && styles.selectedAddOnButtonText,
+                          { color: cartItems.normalDusting ? '#fff' : '#0984e3' }
+                        ]}>
+                          {cartItems.normalDusting ? 'REMOVE' : 'ADD SERVICE'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Deep Dusting */}
+                    <View style={[
+                      styles.addOnCard, 
+                      cartItems.deepDusting && styles.selectedAddOn,
+                      { borderLeftColor: '#0984e3' }
+                    ]}>
+                      <View style={styles.addOnHeader}>
+                        <Text style={styles.addOnTitle}>Deep Dusting</Text>
+                        <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
+                          +₹{getAddOnPrice('deepDusting').toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                      <Text style={styles.addOnDescription}>
+                        Includes chemical agents cleaning: décor items, furniture
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.addOnButton,
+                          cartItems.deepDusting && styles.selectedAddOnButton,
+                          { borderColor: '#0984e3' }
+                        ]}
+                        onPress={() => handleAddAddOnToCart('deepDusting')}
+                      >
+                        <Icon 
+                          name={cartItems.deepDusting ? "remove-shopping-cart" : "add-shopping-cart"} 
+                          size={16} 
+                          color={cartItems.deepDusting ? '#fff' : '#0984e3'} 
+                          style={styles.addOnButtonIcon}
+                        />
+                        <Text style={[
+                          styles.addOnButtonText,
+                          cartItems.deepDusting && styles.selectedAddOnButtonText,
+                          { color: cartItems.deepDusting ? '#fff' : '#0984e3' }
+                        ]}>
+                          {cartItems.deepDusting ? 'REMOVE' : 'ADD SERVICE'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Utensil Drying */}
+                    <View style={[
+                      styles.addOnCard, 
+                      cartItems.utensilDrying && styles.selectedAddOn,
+                      { borderLeftColor: '#0984e3' }
+                    ]}>
+                      <View style={styles.addOnHeader}>
+                        <Text style={styles.addOnTitle}>Utensil Drying</Text>
+                        <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
+                          +₹{getAddOnPrice('utensilDrying').toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                      <Text style={styles.addOnDescription}>
+                        Househelp will dry and make proper arrangements
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.addOnButton,
+                          cartItems.utensilDrying && styles.selectedAddOnButton,
+                          { borderColor: '#0984e3' }
+                        ]}
+                        onPress={() => handleAddAddOnToCart('utensilDrying')}
+                      >
+                        <Icon 
+                          name={cartItems.utensilDrying ? "remove-shopping-cart" : "add-shopping-cart"} 
+                          size={16} 
+                          color={cartItems.utensilDrying ? '#fff' : '#0984e3'} 
+                          style={styles.addOnButtonIcon}
+                        />
+                        <Text style={[
+                          styles.addOnButtonText,
+                          cartItems.utensilDrying && styles.selectedAddOnButtonText,
+                          { color: cartItems.utensilDrying ? '#fff' : '#0984e3' }
+                        ]}>
+                          {cartItems.utensilDrying ? 'REMOVE' : 'ADD SERVICE'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Clothes Drying */}
+                    <View style={[
+                      styles.addOnCard, 
+                      cartItems.clothesDrying && styles.selectedAddOn,
+                      { borderLeftColor: '#0984e3' }
+                    ]}>
+                      <View style={styles.addOnHeader}>
+                        <Text style={styles.addOnTitle}>Clothes Drying</Text>
+                        <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
+                          +₹{getAddOnPrice('clothesDrying').toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                      <Text style={styles.addOnDescription}>
+                        Househelp will get clothes from/to drying place
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.addOnButton,
+                          cartItems.clothesDrying && styles.selectedAddOnButton,
+                          { borderColor: '#0984e3' }
+                        ]}
+                        onPress={() => handleAddAddOnToCart('clothesDrying')}
+                      >
+                        <Icon 
+                          name={cartItems.clothesDrying ? "remove-shopping-cart" : "add-shopping-cart"} 
+                          size={16} 
+                          color={cartItems.clothesDrying ? '#fff' : '#0984e3'} 
+                          style={styles.addOnButtonIcon}
+                        />
+                        <Text style={[
+                          styles.addOnButtonText,
+                          cartItems.clothesDrying && styles.selectedAddOnButtonText,
+                          { color: cartItems.clothesDrying ? '#fff' : '#0984e3' }
+                        ]}>
+                          {cartItems.clothesDrying ? 'REMOVE' : 'ADD SERVICE'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+            
+            {/* Footer with Checkout */}
+            <View style={styles.footerContainer}>
+              <View style={styles.totalContainer}>
+                <Text style={styles.footerText}>
+                  Total for {countSelectedItems()} items
                 </Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.packagesContainer}>
-              {/* Utensil Cleaning Package */}
-              <View style={[
-                styles.packageCard, 
-                cartItems.utensilCleaning && styles.selectedPackage,
-                { borderLeftColor: '#0984e3' }
-              ]}>
-                <View style={styles.packageHeader}>
-                  <View>
-                    <Text style={styles.packageTitle}>Utensil Cleaning</Text>
-                    <View style={styles.ratingContainer}>
-                      <Text style={[styles.ratingValue, { color: '#0984e3' }]}>4.7</Text>
-                      <Text style={styles.reviewsText}>(1.2M reviews)</Text>
-                    </View>
-                  </View>
-                  <View style={styles.priceContainer}>
-                    <Text style={[styles.priceValue, { color: '#0984e3' }]}>
-                      ₹{getPackagePrice('utensilCleaning').toLocaleString('en-IN')}
-                    </Text>
-                    <Text style={styles.preparationTime}>
-                      {getPriceDisplayText()}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.footerPrice}>
+                  ₹{calculateTotal().toLocaleString('en-IN')}
+                </Text>
+              </View>
+              
+              <View style={styles.footerButtons}>
+                <TouchableOpacity 
+                  style={styles.closeFooterButton}
+                  onPress={handleClose}
+                >
+                  <Text style={styles.closeFooterButtonText}>CLOSE</Text>
+                </TouchableOpacity>
                 
-                <View style={styles.personsControl}>
-                  <Text style={styles.personsLabel}>Persons:</Text>
-                  <View style={styles.personsInput}>
-                    <TouchableOpacity 
-                      style={[
-                        styles.decrementButton,
-                        cartItems.utensilCleaning && styles.selectedIncrementButton
-                      ]}
-                      onPress={() => handlePersonChange('decrement')}
-                    >
-                      <Text style={[
-                        styles.buttonText,
-                        cartItems.utensilCleaning && styles.selectedButtonText
-                      ]}>−</Text>
-                    </TouchableOpacity>
-                    
-                    <Text style={[
-                      styles.personsValue,
-                      cartItems.utensilCleaning && styles.selectedPersonsValue
-                    ]}>
-                      {packageStates.utensilCleaning.persons}
-                    </Text>
-                    
-                    <TouchableOpacity 
-                      style={[
-                        styles.incrementButton,
-                        cartItems.utensilCleaning && styles.selectedIncrementButton
-                      ]}
-                      onPress={() => handlePersonChange('increment')}
-                    >
-                      <Text style={[
-                        styles.buttonText,
-                        cartItems.utensilCleaning && styles.selectedButtonText
-                      ]}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                
-                <View style={styles.descriptionList}>
-                  <View style={styles.descriptionItem}>
-                    <Text style={styles.descriptionBullet}>•</Text>
-                    <Text style={styles.descriptionText}>All kind of daily utensil cleaning</Text>
-                  </View>
-                  <View style={styles.descriptionItem}>
-                    <Text style={styles.descriptionBullet}>•</Text>
-                    <Text style={styles.descriptionText}>Party used type utensil cleaning</Text>
-                  </View>
-                </View>
-
                 <TouchableOpacity
                   style={[
-                    styles.cartButton,
-                    cartItems.utensilCleaning && styles.selectedCartButton,
-                    { borderColor: '#0984e3' }
+                    styles.checkoutButton,
+                    (countSelectedItems() === 0 || loading || isProcessing) && styles.disabledButton
                   ]}
-                  onPress={() => handleAddPackageToCart('utensilCleaning')}
+                  onPress={handleOpenCartDialog}
+                  disabled={countSelectedItems() === 0 || loading || isProcessing}
                 >
-                  {cartItems.utensilCleaning ? (
-                    <Icon name="remove-shopping-cart" size={20} color="#fff" />
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Icon name="add-shopping-cart" size={20} color="#0984e3" />
+                    <>
+                      <Icon name="shopping-cart" size={18} color="#fff" style={styles.checkoutIcon} />
+                      <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
+                    </>
                   )}
-                  <Text style={[
-                    styles.cartButtonText,
-                    cartItems.utensilCleaning && styles.selectedCartButtonText,
-                    { color: cartItems.utensilCleaning ? '#fff' : '#0984e3' }
-                  ]}>
-                    {cartItems.utensilCleaning ? 'ADDED TO CART' : 'ADD TO CART'}
-                  </Text>
                 </TouchableOpacity>
               </View>
-              
-              {/* Sweeping & Mopping Package */}
-              <View style={[
-                styles.packageCard, 
-                cartItems.sweepingMopping && styles.selectedPackage,
-                { borderLeftColor: '#0984e3' }
-              ]}>
-                <View style={styles.packageHeader}>
-                  <View>
-                    <Text style={styles.packageTitle}>Sweeping & Mopping</Text>
-                    <View style={styles.ratingContainer}>
-                      <Text style={[styles.ratingValue, { color: '#0984e3' }]}>4.8</Text>
-                      <Text style={styles.reviewsText}>(1.5M reviews)</Text>
-                    </View>
-                  </View>
-                  <View style={styles.priceContainer}>
-                    <Text style={[styles.priceValue, { color: '#0984e3' }]}>
-                      ₹{getPackagePrice('sweepingMopping').toLocaleString('en-IN')}
-                    </Text>
-                    <Text style={styles.preparationTime}>
-                      {getPriceDisplayText()}
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={styles.personsControl}>
-                  <Text style={styles.personsLabel}>House Size:</Text>
-                  <View style={styles.personsInput}>
-                    <TouchableOpacity 
-                      style={[
-                        styles.decrementButton,
-                        cartItems.sweepingMopping && styles.selectedIncrementButton
-                      ]}
-                      onPress={() => handleHouseSizeChange('decrement')}
-                    >
-                      <Text style={[
-                        styles.buttonText,
-                        cartItems.sweepingMopping && styles.selectedButtonText
-                      ]}>−</Text>
-                    </TouchableOpacity>
-                    
-                    <Text style={[
-                      styles.personsValue,
-                      cartItems.sweepingMopping && styles.selectedPersonsValue
-                    ]}>
-                      {packageStates.sweepingMopping.houseSize}
-                    </Text>
-                    
-                    <TouchableOpacity 
-                      style={[
-                        styles.incrementButton,
-                        cartItems.sweepingMopping && styles.selectedIncrementButton
-                      ]}
-                      onPress={() => handleHouseSizeChange('increment')}
-                    >
-                      <Text style={[
-                        styles.buttonText,
-                        cartItems.sweepingMopping && styles.selectedButtonText
-                      ]}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                
-                <View style={styles.descriptionList}>
-                  <View style={styles.descriptionItem}>
-                    <Text style={styles.descriptionBullet}>•</Text>
-                    <Text style={styles.descriptionText}>Daily sweeping and mopping of 2 rooms, 1 Hall</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.cartButton,
-                    cartItems.sweepingMopping && styles.selectedCartButton,
-                    { borderColor: '#0984e3' }
-                  ]}
-                  onPress={() => handleAddPackageToCart('sweepingMopping')}
-                >
-                  {cartItems.sweepingMopping ? (
-                    <Icon name="remove-shopping-cart" size={20} color="#fff" />
-                  ) : (
-                    <Icon name="add-shopping-cart" size={20} color="#0984e3" />
-                  )}
-                  <Text style={[
-                    styles.cartButtonText,
-                    cartItems.sweepingMopping && styles.selectedCartButtonText,
-                    { color: cartItems.sweepingMopping ? '#fff' : '#0984e3' }
-                  ]}>
-                    {cartItems.sweepingMopping ? 'REMOVE FROM CART' : 'ADD TO CART'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              
-              {/* Bathroom Cleaning Package */}
-              <View style={[
-                styles.packageCard, 
-                cartItems.bathroomCleaning && styles.selectedPackage,
-                { borderLeftColor: '#0984e3' }
-              ]}>
-                <View style={styles.packageHeader}>
-                  <View>
-                    <Text style={styles.packageTitle}>Bathroom Cleaning</Text>
-                    <View style={styles.ratingContainer}>
-                      <Text style={[styles.ratingValue, { color: '#0984e3' }]}>4.6</Text>
-                      <Text style={styles.reviewsText}>(980K reviews)</Text>
-                    </View>
-                  </View>
-                  <View style={styles.priceContainer}>
-                    <Text style={[styles.priceValue, { color: '#0984e3' }]}>
-                      ₹{getPackagePrice('bathroomCleaning').toLocaleString('en-IN')}
-                    </Text>
-                    <Text style={styles.preparationTime}>
-                      {getPriceDisplayText()}
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={styles.personsControl}>
-                  <Text style={styles.personsLabel}>Bathrooms:</Text>
-                  <View style={styles.personsInput}>
-                    <TouchableOpacity 
-                      style={[
-                        styles.decrementButton,
-                        cartItems.bathroomCleaning && styles.selectedIncrementButton
-                      ]}
-                      onPress={() => handleBathroomChange('decrement')}
-                    >
-                      <Text style={[
-                        styles.buttonText,
-                        cartItems.bathroomCleaning && styles.selectedButtonText
-                      ]}>−</Text>
-                    </TouchableOpacity>
-                    
-                    <Text style={[
-                      styles.personsValue,
-                      cartItems.bathroomCleaning && styles.selectedPersonsValue
-                    ]}>
-                      {packageStates.bathroomCleaning.bathrooms}
-                    </Text>
-                    
-                    <TouchableOpacity 
-                      style={[
-                        styles.incrementButton,
-                        cartItems.bathroomCleaning && styles.selectedIncrementButton
-                      ]}
-                      onPress={() => handleBathroomChange('increment')}
-                    >
-                      <Text style={[
-                        styles.buttonText,
-                        cartItems.bathroomCleaning && styles.selectedButtonText
-                      ]}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                
-                <View style={styles.descriptionList}>
-                  <View style={styles.descriptionItem}>
-                    <Text style={styles.descriptionBullet}>•</Text>
-                    <Text style={styles.descriptionText}>Weekly cleaning of bathrooms</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.cartButton,
-                    cartItems.bathroomCleaning && styles.selectedCartButton,
-                    { borderColor: '#0984e3' }
-                  ]}
-                  onPress={() => handleAddPackageToCart('bathroomCleaning')}
-                >
-                  {cartItems.bathroomCleaning ? (
-                    <Icon name="remove-shopping-cart" size={20} color="#fff" />
-                  ) : (
-                    <Icon name="add-shopping-cart" size={20} color="#0984e3" />
-                  )}
-                  <Text style={[
-                    styles.cartButtonText,
-                    cartItems.bathroomCleaning && styles.selectedCartButtonText,
-                    { color: cartItems.bathroomCleaning ? '#fff' : '#0984e3' }
-                  ]}>
-                    {cartItems.bathroomCleaning ? 'REMOVE FROM CART' : 'ADD TO CART'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              
-              {/* Add-ons Section */}
-              <View style={styles.addOnsContainer}>
-                <Text style={styles.addOnsTitle}>Regular Add-on Services</Text>
-                <View style={styles.addOnsGrid}>
-                  {/* Bathroom Deep Cleaning */}
-                  <View style={[
-                    styles.addOnCard, 
-                    cartItems.bathroomDeepCleaning && styles.selectedAddOn,
-                    { borderLeftColor: '#0984e3' }
-                  ]}>
-                    <View style={styles.addOnHeader}>
-                      <Text style={styles.addOnTitle}>Bathroom Deep Cleaning</Text>
-                      <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
-                        +₹{getAddOnPrice('bathroomDeepCleaning').toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                    <Text style={styles.addOnDescription}>
-                      Weekly cleaning of bathrooms, all bathroom walls cleaned
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.addOnButton,
-                        cartItems.bathroomDeepCleaning && styles.selectedAddOnButton,
-                        { borderColor: '#0984e3' }
-                      ]}
-                      onPress={() => handleAddAddOnToCart('bathroomDeepCleaning')}
-                    >
-                      <Icon 
-                        name={cartItems.bathroomDeepCleaning ? "remove-shopping-cart" : "add-shopping-cart"} 
-                        size={16} 
-                        color={cartItems.bathroomDeepCleaning ? '#fff' : '#0984e3'} 
-                        style={styles.addOnButtonIcon}
-                      />
-                      <Text style={[
-                        styles.addOnButtonText,
-                        cartItems.bathroomDeepCleaning && styles.selectedAddOnButtonText,
-                        { color: cartItems.bathroomDeepCleaning ? '#fff' : '#0984e3' }
-                      ]}>
-                        {cartItems.bathroomDeepCleaning ? 'REMOVE' : 'ADD SERVICE'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* Normal Dusting */}
-                  <View style={[
-                    styles.addOnCard, 
-                    cartItems.normalDusting && styles.selectedAddOn,
-                    { borderLeftColor: '#0984e3' }
-                  ]}>
-                    <View style={styles.addOnHeader}>
-                      <Text style={styles.addOnTitle}>Normal Dusting</Text>
-                      <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
-                        +₹{getAddOnPrice('normalDusting').toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                    <Text style={styles.addOnDescription}>
-                      Daily furniture dusting, doors, carpet, bed making
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.addOnButton,
-                        cartItems.normalDusting && styles.selectedAddOnButton,
-                        { borderColor: '#0984e3' }
-                      ]}
-                      onPress={() => handleAddAddOnToCart('normalDusting')}
-                    >
-                      <Icon 
-                        name={cartItems.normalDusting ? "remove-shopping-cart" : "add-shopping-cart"} 
-                        size={16} 
-                        color={cartItems.normalDusting ? '#fff' : '#0984e3'} 
-                        style={styles.addOnButtonIcon}
-                      />
-                      <Text style={[
-                        styles.addOnButtonText,
-                        cartItems.normalDusting && styles.selectedAddOnButtonText,
-                        { color: cartItems.normalDusting ? '#fff' : '#0984e3' }
-                      ]}>
-                        {cartItems.normalDusting ? 'REMOVE' : 'ADD SERVICE'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* Deep Dusting */}
-                  <View style={[
-                    styles.addOnCard, 
-                    cartItems.deepDusting && styles.selectedAddOn,
-                    { borderLeftColor: '#0984e3' }
-                  ]}>
-                    <View style={styles.addOnHeader}>
-                      <Text style={styles.addOnTitle}>Deep Dusting</Text>
-                      <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
-                        +₹{getAddOnPrice('deepDusting').toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                    <Text style={styles.addOnDescription}>
-                      Includes chemical agents cleaning: décor items, furniture
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.addOnButton,
-                        cartItems.deepDusting && styles.selectedAddOnButton,
-                        { borderColor: '#0984e3' }
-                      ]}
-                      onPress={() => handleAddAddOnToCart('deepDusting')}
-                    >
-                      <Icon 
-                        name={cartItems.deepDusting ? "remove-shopping-cart" : "add-shopping-cart"} 
-                        size={16} 
-                        color={cartItems.deepDusting ? '#fff' : '#0984e3'} 
-                        style={styles.addOnButtonIcon}
-                      />
-                      <Text style={[
-                        styles.addOnButtonText,
-                        cartItems.deepDusting && styles.selectedAddOnButtonText,
-                        { color: cartItems.deepDusting ? '#fff' : '#0984e3' }
-                      ]}>
-                        {cartItems.deepDusting ? 'REMOVE' : 'ADD SERVICE'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* Utensil Drying */}
-                  <View style={[
-                    styles.addOnCard, 
-                    cartItems.utensilDrying && styles.selectedAddOn,
-                    { borderLeftColor: '#0984e3' }
-                  ]}>
-                    <View style={styles.addOnHeader}>
-                      <Text style={styles.addOnTitle}>Utensil Drying</Text>
-                      <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
-                        +₹{getAddOnPrice('utensilDrying').toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                    <Text style={styles.addOnDescription}>
-                      Househelp will dry and make proper arrangements
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.addOnButton,
-                        cartItems.utensilDrying && styles.selectedAddOnButton,
-                        { borderColor: '#0984e3' }
-                      ]}
-                      onPress={() => handleAddAddOnToCart('utensilDrying')}
-                    >
-                      <Icon 
-                        name={cartItems.utensilDrying ? "remove-shopping-cart" : "add-shopping-cart"} 
-                        size={16} 
-                        color={cartItems.utensilDrying ? '#fff' : '#0984e3'} 
-                        style={styles.addOnButtonIcon}
-                      />
-                      <Text style={[
-                        styles.addOnButtonText,
-                        cartItems.utensilDrying && styles.selectedAddOnButtonText,
-                        { color: cartItems.utensilDrying ? '#fff' : '#0984e3' }
-                      ]}>
-                        {cartItems.utensilDrying ? 'REMOVE' : 'ADD SERVICE'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {/* Clothes Drying */}
-                  <View style={[
-                    styles.addOnCard, 
-                    cartItems.clothesDrying && styles.selectedAddOn,
-                    { borderLeftColor: '#0984e3' }
-                  ]}>
-                    <View style={styles.addOnHeader}>
-                      <Text style={styles.addOnTitle}>Clothes Drying</Text>
-                      <Text style={[styles.addOnPrice, { color: '#0984e3' }]}>
-                        +₹{getAddOnPrice('clothesDrying').toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                    <Text style={styles.addOnDescription}>
-                      Househelp will get clothes from/to drying place
-                    </Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.addOnButton,
-                        cartItems.clothesDrying && styles.selectedAddOnButton,
-                        { borderColor: '#0984e3' }
-                      ]}
-                      onPress={() => handleAddAddOnToCart('clothesDrying')}
-                    >
-                      <Icon 
-                        name={cartItems.clothesDrying ? "remove-shopping-cart" : "add-shopping-cart"} 
-                        size={16} 
-                        color={cartItems.clothesDrying ? '#fff' : '#0984e3'} 
-                        style={styles.addOnButtonIcon}
-                      />
-                      <Text style={[
-                        styles.addOnButtonText,
-                        cartItems.clothesDrying && styles.selectedAddOnButtonText,
-                        { color: cartItems.clothesDrying ? '#fff' : '#0984e3' }
-                      ]}>
-                        {cartItems.clothesDrying ? 'REMOVE' : 'ADD SERVICE'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-          
-          {/* Footer with Checkout */}
-          <View style={styles.footerContainer}>
-            {/* <View style={styles.voucherContainer}>
-              <TextInput
-                style={styles.voucherInput}
-                placeholder="Enter voucher code"
-                placeholderTextColor="#999"
-                value={voucherCode}
-                onChangeText={setVoucherCode}
-              />
-              <TouchableOpacity 
-                style={styles.voucherButton}
-                onPress={handleApplyVoucher}
-              >
-                <Text style={styles.voucherButtonText}>Apply Voucher</Text>
-              </TouchableOpacity>
-            </View> */}
-          
-            <View style={styles.totalContainer}>
-              <Text style={styles.footerText}>
-                Total for {countSelectedItems()} items
-              </Text>
-              <Text style={styles.footerPrice}>
-                ₹{calculateTotal().toLocaleString('en-IN')}
-              </Text>
-            </View>
-            
-            <View style={styles.footerButtons}>
-              <TouchableOpacity 
-                style={styles.closeFooterButton}
-                onPress={handleClose}
-              >
-                <Text style={styles.closeFooterButtonText}>CLOSE</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.checkoutButton,
-                  (countSelectedItems() === 0 || loading || isProcessing) && styles.disabledButton
-                ]}
-                onPress={handleOpenCartDialog}
-                disabled={countSelectedItems() === 0 || loading || isProcessing}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="shopping-cart" size={18} color="#fff" style={styles.checkoutIcon} />
-                    <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
           </View>
         </View>
-      </View>
+      </Modal>
 
       {/* Cart Dialog */}
       <CartDialog
@@ -1312,7 +1322,16 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
         handleClose={() => setShowCartDialog(false)}
         handleCheckout={handleCheckout}
       />
-    </Modal>
+
+      {/* Booking Success Dialog */}
+      <BookingSuccessDialog
+        visible={successDialogOpen}
+        onClose={handleSuccessDialogClose}
+        bookingDetails={bookingSuccessDetails}
+        message={bookingSuccessDetails?.message}
+        onNavigateToBookings={handleNavigateToBookings}
+      />
+    </>
   );
 };
 

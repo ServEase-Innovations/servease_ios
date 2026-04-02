@@ -22,6 +22,7 @@ import { useAppUser } from '../context/AppUserContext';
 import BookingService from '../services/bookingService';
 import { CartDialog } from '../CartDiaog/CartDialog';
 import LinearGradient from 'react-native-linear-gradient';
+import BookingSuccessDialog from '../common/BookingSuccessDialog';
 
 // Type definitions
 type PackageType = 'day' | 'night' | 'fullTime';
@@ -128,6 +129,10 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [voucherCode, setVoucherCode] = useState('');
   const [showCartDialog, setShowCartDialog] = useState(false);
+  
+  // State for success dialog
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [bookingSuccessDetails, setBookingSuccessDetails] = useState<any>(null);
   
   const { setAppUser, appUser } = useAppUser();
   
@@ -466,6 +471,21 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
     setShowCartDialog(true);
   };
 
+  const handleSuccessDialogClose = () => {
+    setSuccessDialogOpen(false);
+  };
+
+  const handleNavigateToBookings = () => {
+    setSuccessDialogOpen(false);
+    
+    if (sendDataToParent) {
+      sendDataToParent('BOOKINGS');
+    }
+    
+    handleClose();
+    setShowCartDialog(false);
+  };
+
   const formatTimeForBackend = (timeString: string): string => {
     if (!timeString) {
       return '10:00:00';
@@ -590,25 +610,25 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
       // ✅ Single call to BookingService.bookAndPay
       const result = await BookingService.bookAndPay(payload);
 
-      Alert.alert(
-        "Success ✅", 
-        result?.verifyResult?.message || "Booking & Payment Successful!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              dispatch(removeFromCart({ type: 'meal' }));
-              dispatch(removeFromCart({ type: 'maid' }));
-              dispatch(removeFromCart({ type: 'nanny' }));
-              setShowCartDialog(false);
-              handleClose();
-              if (sendDataToParent) {
-                sendDataToParent('BOOKINGS');
-              }
-            }
-          }
-        ]
-      );
+      // ✅ Set success dialog details instead of showing Alert
+      setBookingSuccessDetails({
+        providerName: providerFullName,
+        serviceType: activeTab === 'baby' ? "Baby Care" : "Elderly Care",
+        totalAmount: baseTotal,
+        bookingDate: bookingType?.startDate || new Date().toISOString().split('T')[0],
+        persons: selectedPackages.length,
+        message: result?.verifyResult?.message || "Booking & Payment Successful! ✅"
+      });
+
+      // Clear cart items
+      dispatch(removeFromCart({ type: 'meal' }));
+      dispatch(removeFromCart({ type: 'maid' }));
+      dispatch(removeFromCart({ type: 'nanny' }));
+      
+      // Close cart dialog and main dialog, then show success dialog
+      setShowCartDialog(false);
+      handleClose();
+      setSuccessDialogOpen(true);
 
     } catch (err: any) {
       console.error("Checkout error:", err);
@@ -643,6 +663,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
         }
       }
 
+      // Show error in Alert (keep this for errors)
       Alert.alert("Payment Error", backendMessage);
     } finally {
       setLoading(false);
@@ -810,117 +831,129 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   }, [packages, renderPackage]);
 
   return (    
-    <Modal
-      visible={open}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <View style={styles.modalOver}>
-        <View style={styles.modalContain}>
-          <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.linearGradient}
-          >
-            <View style={styles.headerContainer}>
-              <View style={styles.headerLeft}>
-                {/* Empty view for balance */}
+    <>
+      <Modal
+        visible={open}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleClose}
+      >
+        <View style={styles.modalOver}>
+          <View style={styles.modalContain}>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.linearGradient}
+            >
+              <View style={styles.headerContainer}>
+                <View style={styles.headerLeft}>
+                  {/* Empty view for balance */}
+                </View>
+                
+                <Text style={styles.headtitle}>Caregiver Service</Text>
+                
+                <View style={styles.headerRight}>
+                  <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
+                    <Icon name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </LinearGradient>
+            
+            <View style={styles.tabsContainer}>
+              <TouchableOpacity 
+                style={[styles.tabButton, activeTab === 'baby' && styles.activeTab]}
+                onPress={() => setActiveTab('baby')}
+              >
+                <Text style={[styles.tabText, activeTab === 'baby' && styles.activeTabText]}>
+                  Baby Care
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.tabButton, activeTab === 'elderly' && styles.activeTab]}
+                onPress={() => setActiveTab('elderly')}
+              >
+                <Text style={[styles.tabText, activeTab === 'elderly' && styles.activeTabText]}>
+                  Elderly Care
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.scrollView}>
+              <View style={styles.packagesContainer}>
+                {activeTab === 'baby' ? babyPackages : elderlyPackages}
+              </View>
+            </ScrollView>
+            
+            <View style={styles.footerContainer}>
+              {/* <View style={styles.voucherContainer}>
+                <TextInput
+                  style={styles.voucherInput}
+                  placeholder="Enter voucher code"
+                  placeholderTextColor="#999"
+                  value={voucherCode}
+                  onChangeText={setVoucherCode}
+                />
+                <TouchableOpacity 
+                  style={styles.voucherButton}
+                  onPress={handleApplyVoucher}
+                >
+                  <Text style={styles.voucherButtonText}>APPLY</Text>
+                </TouchableOpacity>
+              </View> */}
+              
+              <View style={styles.totalContainer}>
+                <Text style={styles.footerText}>
+                  Total for {getSelectedPackagesCount} service{getSelectedPackagesCount !== 1 ? 's' : ''}
+                </Text>
+                <Text style={styles.footerPrice}>₹{calculateTotal.toLocaleString()}</Text>
               </View>
               
-              <Text style={styles.headtitle}>Caregiver Service</Text>
-              
-              <View style={styles.headerRight}>
-                <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
-                  <Icon name="close" size={24} color="#fff" />
+              <View style={styles.footerButtons}>
+                <TouchableOpacity 
+                  style={styles.closeFooterButton}
+                  onPress={handleClose}
+                >
+                  <Text style={styles.closeFooterButtonText}>CLOSE</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.checkoutButton,
+                    (getSelectedPackagesCount === 0 || loading || isProcessing) && styles.disabledButton
+                  ]}
+                  onPress={handleOpenCartDialog}
+                  disabled={getSelectedPackagesCount === 0 || loading || isProcessing}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
-          </LinearGradient>
-          
-          <View style={styles.tabsContainer}>
-            <TouchableOpacity 
-              style={[styles.tabButton, activeTab === 'baby' && styles.activeTab]}
-              onPress={() => setActiveTab('baby')}
-            >
-              <Text style={[styles.tabText, activeTab === 'baby' && styles.activeTabText]}>
-                Baby Care
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.tabButton, activeTab === 'elderly' && styles.activeTab]}
-              onPress={() => setActiveTab('elderly')}
-            >
-              <Text style={[styles.tabText, activeTab === 'elderly' && styles.activeTabText]}>
-                Elderly Care
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.scrollView}>
-            <View style={styles.packagesContainer}>
-              {activeTab === 'baby' ? babyPackages : elderlyPackages}
-            </View>
-          </ScrollView>
-          
-          <View style={styles.footerContainer}>
-            {/* <View style={styles.voucherContainer}>
-              <TextInput
-                style={styles.voucherInput}
-                placeholder="Enter voucher code"
-                placeholderTextColor="#999"
-                value={voucherCode}
-                onChangeText={setVoucherCode}
-              />
-              <TouchableOpacity 
-                style={styles.voucherButton}
-                onPress={handleApplyVoucher}
-              >
-                <Text style={styles.voucherButtonText}>APPLY</Text>
-              </TouchableOpacity>
-            </View> */}
-            
-            <View style={styles.totalContainer}>
-              <Text style={styles.footerText}>
-                Total for {getSelectedPackagesCount} service{getSelectedPackagesCount !== 1 ? 's' : ''}
-              </Text>
-              <Text style={styles.footerPrice}>₹{calculateTotal.toLocaleString()}</Text>
-            </View>
-            
-            <View style={styles.footerButtons}>
-              <TouchableOpacity 
-                style={styles.closeFooterButton}
-                onPress={handleClose}
-              >
-                <Text style={styles.closeFooterButtonText}>CLOSE</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.checkoutButton,
-                  (getSelectedPackagesCount === 0 || loading || isProcessing) && styles.disabledButton
-                ]}
-                onPress={handleOpenCartDialog}
-                disabled={getSelectedPackagesCount === 0 || loading || isProcessing}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.checkoutButtonText}>CHECKOUT</Text>
-                )}
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
-      </View>
+      </Modal>
 
+      {/* Cart Dialog */}
       <CartDialog
         open={showCartDialog}
         handleClose={() => setShowCartDialog(false)}
         handleCheckout={handleCheckout}
       />
-    </Modal>
+
+      {/* Booking Success Dialog */}
+      <BookingSuccessDialog
+        visible={successDialogOpen}
+        onClose={handleSuccessDialogClose}
+        bookingDetails={bookingSuccessDetails}
+        message={bookingSuccessDetails?.message}
+        onNavigateToBookings={handleNavigateToBookings}
+      />
+    </>
   );
 };
 
