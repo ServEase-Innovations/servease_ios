@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -62,6 +62,93 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
   const MAX_NAME_LENGTH = 30;
+  
+  // State for DateTimePicker
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(new Date());
+
+  // Calculate minimum age date (18 years ago from today)
+  const getMaxDate = () => {
+    const today = new Date();
+    const eighteenYearsAgo = new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      today.getDate()
+    );
+    return eighteenYearsAgo;
+  };
+
+  // Get the maximum selectable date (18 years ago)
+  const maxDate = getMaxDate();
+  
+  // Get minimum selectable date (100 years ago, reasonable limit)
+  const minDate = new Date();
+  minDate.setFullYear(minDate.getFullYear() - 100);
+
+  // Handle date change from picker
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (selectedDate && event.type !== 'dismissed') {
+      // Validate if selected date is at least 18 years ago
+      const today = new Date();
+      const minAllowedDate = new Date(
+        today.getFullYear() - 18,
+        today.getMonth(),
+        today.getDate()
+      );
+      
+      if (selectedDate > minAllowedDate) {
+        // Show error if user is under 18
+        Alert.alert(
+          "Age Restriction",
+          "You must be at least 18 years old to register. Please select a date on or before " + 
+          moment(minAllowedDate).format('DD MMM YYYY'),
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      
+      // Format the date
+      const formattedDate = moment(selectedDate).format('YYYY-MM-DD');
+      const eventObj = {
+        target: { value: formattedDate, name: 'dob' }
+      };
+      onDobChange(eventObj);
+    }
+    
+    if (Platform.OS === 'ios' && event.type === 'dismissed') {
+      setShowDatePicker(false);
+    }
+  };
+
+  // Handle date picker open
+  const handleDatePress = () => {
+    setShowDatePicker(true);
+    if (formData.dob) {
+      setTempDate(new Date(formData.dob));
+    } else {
+      // Set default to 18 years ago
+      const defaultDate = getMaxDate();
+      setTempDate(defaultDate);
+    }
+  };
+
+  // Format date for display (DD MMM YYYY format - e.g., "15 Jan 1990")
+  const formatDateForDisplay = (dateString: string) => {
+    if (!dateString) return '';
+    return moment(dateString).format('DD MMM YYYY');
+  };
+
+  // Calculate age from date of birth
+  const calculateAge = (dob: string) => {
+    if (!dob) return null;
+    return moment().diff(moment(dob), 'years');
+  };
+
+  const age = calculateAge(formData.dob);
 
   // Get font sizes based on theme
   const getFontSizes = () => {
@@ -101,12 +188,6 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
 
   const handleGenderChange = (gender: string) => {
     handleTextChange('gender', gender);
-  };
-
-  // Format date for display (DD MMM YYYY format - e.g., "15 Jan 1990")
-  const formatDateForDisplay = (dateString: string) => {
-    if (!dateString) return '';
-    return moment(dateString).format('DD MMM YYYY');
   };
 
   const dynamicStyles = StyleSheet.create({
@@ -262,6 +343,20 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
       color: colors.primary,
       fontWeight: '500',
     },
+    restrictionNote: {
+      marginTop: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: colors.warning + '10',
+      borderRadius: 8,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.warning,
+    },
+    restrictionText: {
+      fontSize: fontSizes.helper,
+      color: colors.warning,
+      fontWeight: '500',
+    },
   });
 
   return (
@@ -327,14 +422,14 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Date of Birth - Modern DateTimePicker */}
+        {/* Date of Birth - Modern DateTimePicker with Age Restriction */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.dateOfBirth')} <Text style={dynamicStyles.required}>*</Text>
           </Text>
           
           <TouchableOpacity 
-            onPress={onDatePress}
+            onPress={handleDatePress}
             style={[
               dynamicStyles.datePickerButton,
               errors.dob && dynamicStyles.datePickerButtonError,
@@ -351,26 +446,40 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           </TouchableOpacity>
 
           {/* Age Display Chip */}
-          {formData.dob && (
+          {formData.dob && age !== null && (
             <View style={dynamicStyles.ageChip}>
               <Text style={dynamicStyles.ageText}>
-                {moment().diff(moment(formData.dob), 'years')} years old
+                {age} years old {age >= 18 ? "✓" : "⚠️"}
               </Text>
             </View>
           )}
+
+          {/* Age Restriction Note */}
+          <View style={dynamicStyles.restrictionNote}>
+            <Text style={dynamicStyles.restrictionText}>
+              ⚠️ You must be at least 18 years old to register (born on or before {moment(maxDate).format('DD MMM YYYY')})
+            </Text>
+          </View>
           
           {errors.dob && (
             <HelperText type="error" visible={!!errors.dob} style={{ color: colors.error, fontSize: fontSizes.helper }}>
               {errors.dob}
             </HelperText>
           )}
-          
-          {!errors.dob && !formData.dob && (
-            <HelperText type="info" visible={true} style={{ color: colors.info, fontSize: fontSizes.helper }}>
-              Tap to select your date of birth from the calendar
-            </HelperText>
-          )}
         </View>
+
+        {/* DateTimePicker Modal */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={tempDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onDateChange}
+            maximumDate={maxDate}
+            minimumDate={minDate}
+            locale="en-IN"
+          />
+        )}
         
         {/* Gender */}
         <View style={dynamicStyles.genderContainer}>

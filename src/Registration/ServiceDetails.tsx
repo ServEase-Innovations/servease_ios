@@ -122,6 +122,15 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     "Sanskrit"
   ]);
 
+  // Search state for languages
+  const [languageSearchQuery, setLanguageSearchQuery] = useState("");
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+
+  // Filter languages based on search query
+  const filteredLanguages = availableLanguages.filter(lang =>
+    lang.toLowerCase().includes(languageSearchQuery.toLowerCase())
+  );
+
   // Handler for language changes
   const handleLanguageChange = (language: string) => {
     if (onLanguagesChange) {
@@ -410,21 +419,72 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     slotSection: {
       marginBottom: 24,
     },
-    languageChip: {
-      margin: 4,
-      backgroundColor: colors.card,
-    },
-    selectedLanguageChip: {
-      backgroundColor: colors.primary + '20',
-    },
-    languageChipText: {
-      fontSize: fontSizes.optionText,
-    },
-    selectedLanguageChipText: {
-      color: colors.primary,
-    },
     languageSection: {
-      marginTop: 16,
+      marginTop: 8,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      marginBottom: 12,
+      gap: 8,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: 10,
+      fontSize: fontSizes.input,
+      color: colors.text,
+    },
+    languageDropdown: {
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      backgroundColor: colors.card,
+      overflow: 'hidden',
+    },
+    languageOption: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    languageOptionSelected: {
+      backgroundColor: isDarkMode ? colors.primary + '20' : '#e3f2fd',
+    },
+    languageOptionContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    languageOptionText: {
+      fontSize: fontSizes.optionText,
+      color: colors.text,
+    },
+    languageOptionTextSelected: {
+      color: colors.primary,
+      fontWeight: '500',
+    },
+    noResultsContainer: {
+      padding: 20,
+      alignItems: 'center',
+    },
+    noResultsText: {
+      fontSize: fontSizes.labelHelper,
+      color: colors.textSecondary,
+    },
+    showAllButton: {
+      marginTop: 12,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    showAllButtonText: {
+      fontSize: fontSizes.labelHelper,
+      fontWeight: '500',
     },
     summaryCard: {
       marginTop: 16,
@@ -477,15 +537,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       target: { value: option, name: 'diet' }
     };
     onDietChange(event);
-  };
-
-  const handleAddLanguage = () => {
-    if (availableLanguages.length > 0 && onLanguagesChange) {
-      const nextLanguage = availableLanguages.find(lang => !selectedLanguages.includes(lang));
-      if (nextLanguage) {
-        handleLanguageChange(nextLanguage);
-      }
-    }
   };
 
   // Define marks for time sliders
@@ -766,7 +817,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           </Card.Content>
         </Card>
 
-        {/* Languages Section - 20+ Indian Languages */}
+        {/* Languages Section - 20+ Indian Languages with Search */}
         <Card style={dynamicStyles.card}>
           <Card.Content>
             <View style={dynamicStyles.labelContainer}>
@@ -778,30 +829,27 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             </Text>
             
             <View style={dynamicStyles.languageSection}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
-                {availableLanguages.map((language) => (
-                  <Chip
-                    key={language}
-                    mode="outlined"
-                    selected={selectedLanguages.includes(language)}
-                    onPress={() => handleLanguageChange(language)}
-                    style={[
-                      dynamicStyles.languageChip,
-                      selectedLanguages.includes(language) && dynamicStyles.selectedLanguageChip
-                    ]}
-                    textStyle={[
-                      dynamicStyles.languageChipText,
-                      selectedLanguages.includes(language) && dynamicStyles.selectedLanguageChipText
-                    ]}
-                  >
-                    {language}
-                  </Chip>
-                ))}
+              {/* Search Input */}
+              <View style={dynamicStyles.searchContainer}>
+                <Icon name="search" size={20} color={colors.textSecondary} />
+                <TextInput
+                  style={dynamicStyles.searchInput}
+                  placeholder="Search languages..."
+                  placeholderTextColor={colors.placeholder}
+                  value={languageSearchQuery}
+                  onChangeText={setLanguageSearchQuery}
+                  onFocus={() => setShowLanguageDropdown(true)}
+                />
+                {languageSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setLanguageSearchQuery("")}>
+                    <Icon name="close" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
               </View>
-              
+
               {/* Selected Languages Summary */}
               {selectedLanguages.length > 0 && (
-                <View style={[dynamicStyles.summaryCard, { marginTop: 16, padding: 12 }]}>
+                <View style={[dynamicStyles.summaryCard, { marginTop: 12, padding: 12 }]}>
                   <View style={dynamicStyles.summaryHeader}>
                     <Icon name="check-circle" size={18} color={colors.primary} />
                     <Text style={dynamicStyles.summaryTitle}>
@@ -825,6 +873,62 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                     ))}
                   </View>
                 </View>
+              )}
+
+              {/* Language Options Dropdown */}
+              {(showLanguageDropdown || languageSearchQuery.length > 0) && (
+                <View style={dynamicStyles.languageDropdown}>
+                  <ScrollView 
+                    style={{ maxHeight: 200 }}
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {filteredLanguages.length > 0 ? (
+                      filteredLanguages.map((language) => (
+                        <TouchableOpacity
+                          key={language}
+                          style={[
+                            dynamicStyles.languageOption,
+                            selectedLanguages.includes(language) && dynamicStyles.languageOptionSelected
+                          ]}
+                          onPress={() => {
+                            handleLanguageChange(language);
+                            // Keep dropdown open to allow multiple selections
+                          }}
+                        >
+                          <View style={dynamicStyles.languageOptionContent}>
+                            <Text 
+                              style={[
+                                dynamicStyles.languageOptionText,
+                                selectedLanguages.includes(language) && dynamicStyles.languageOptionTextSelected
+                              ]}
+                            >
+                              {language}
+                            </Text>
+                            {selectedLanguages.includes(language) && (
+                              <Icon name="check" size={18} color={colors.primary} />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={dynamicStyles.noResultsContainer}>
+                        <Text style={dynamicStyles.noResultsText}>No languages found</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Show All Languages Button (when dropdown is closed and no search) */}
+              {!showLanguageDropdown && languageSearchQuery.length === 0 && selectedLanguages.length < availableLanguages.length && (
+                <TouchableOpacity 
+                  style={dynamicStyles.showAllButton}
+                  onPress={() => setShowLanguageDropdown(true)}
+                >
+                  <Text style={[dynamicStyles.showAllButtonText, { color: colors.primary }]}>
+                    + Browse all {availableLanguages.length} languages
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
           </Card.Content>

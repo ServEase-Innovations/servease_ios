@@ -50,24 +50,41 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   const [duplicateErrors, setDuplicateErrors] = useState<{
     [key: string]: boolean;
   }>({});
+  const [localSlots, setLocalSlots] = useState<number[][]>(slots);
+
+  // Update local slots when props change
+  useEffect(() => {
+    setLocalSlots(slots);
+  }, [slots]);
 
   useEffect(() => {
     setDuplicateErrors({});
-  }, [slots]);
+  }, [localSlots]);
 
   const handleSlotChange = (index: number, values: number[]) => {
     const [start, end] = values;
-    const newValue = [start, end];
+    // Ensure start is less than end
+    const newValue = start < end ? [start, end] : [end, start];
     
-    const exists = slots.some(
+    // Check for duplicate
+    const exists = localSlots.some(
       (slot: number[], i: number) =>
         i !== index && slot[0] === newValue[0] && slot[1] === newValue[1]
     );
+    
     if (exists) {
       setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: true }));
       return;
     }
+    
     setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: false }));
+    
+    // Update local state immediately for responsive UI
+    const updatedSlots = [...localSlots];
+    updatedSlots[index] = newValue;
+    setLocalSlots(updatedSlots);
+    
+    // Notify parent
     onSlotChange(index, newValue);
   };
 
@@ -80,6 +97,11 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
         { text: "Clear", onPress: onClearSlots, style: "destructive" }
       ]
     );
+  };
+
+  const handleAddSlot = () => {
+    setDuplicateErrors({});
+    onAddSlot();
   };
 
   const renderMarks = () => {
@@ -98,10 +120,10 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
         <View style={styles.titleContainer}>
           <Icon name="access-time" size={20} color="#1976d2" />
           <Text style={styles.title}>{title}</Text>
-          {slots.length > 0 && (
+          {localSlots.length > 0 && (
             <View style={styles.chip}>
               <Text style={styles.chipText}>
-                {slots.length} {slots.length === 1 ? 'Slot' : 'Slots'}
+                {localSlots.length} {localSlots.length === 1 ? 'Slot' : 'Slots'}
               </Text>
             </View>
           )}
@@ -112,12 +134,12 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity
           style={[styles.button, styles.addButton]}
-          onPress={onAddSlot}
+          onPress={handleAddSlot}
         >
           <Icon name="add" size={18} color="#fff" />
           <Text style={styles.buttonText}>{addButtonLabel}</Text>
         </TouchableOpacity>
-        {slots.length > 0 && (
+        {localSlots.length > 0 && (
           <TouchableOpacity
             style={[styles.button, styles.clearButton]}
             onPress={handleClearSlots}
@@ -129,7 +151,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
       </View>
 
       {/* Content */}
-      {slots.length === 0 ? (
+      {localSlots.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Icon name="schedule" size={32} color="#ccc" />
           <Text style={styles.emptyText}>{notAvailableMessage}</Text>
@@ -137,7 +159,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
         </View>
       ) : (
         <ScrollView style={styles.slotsContainer} showsVerticalScrollIndicator={false}>
-          {slots.map((slot: number[], index: number) => {
+          {localSlots.map((slot: number[], index: number) => {
             const hasError = duplicateErrors[`slot-${index}`];
             return (
               <View key={`slot-${index}`} style={styles.slotCard}>
@@ -148,7 +170,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
                       {slotLabel} {index + 1}
                     </Text>
                   </View>
-                  {slots.length > 1 && (
+                  {localSlots.length > 1 && (
                     <TouchableOpacity
                       onPress={() => onRemoveSlot(index)}
                       style={styles.deleteButton}
@@ -171,7 +193,17 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
                     min={minTime}
                     max={maxTime}
                     step={0.5}
+                    onValuesChangeStart={() => {
+                      // Clear error when user starts sliding
+                      if (duplicateErrors[`slot-${index}`]) {
+                        setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: false }));
+                      }
+                    }}
                     onValuesChange={(values) => handleSlotChange(index, values)}
+                    onValuesChangeFinish={(values) => {
+                      // Final validation on slide end
+                      handleSlotChange(index, values);
+                    }}
                     selectedStyle={{
                       backgroundColor: '#1976d2',
                     }}
