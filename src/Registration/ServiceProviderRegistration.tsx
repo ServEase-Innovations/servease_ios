@@ -2456,6 +2456,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           />
         )}
 
+        {/* Snackbar - Positioned at the top */}
         {snackbarOpen && (
           <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
             <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
@@ -2735,7 +2736,7 @@ const styles = StyleSheet.create({
   },
   snackbar: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -2744,6 +2745,8 @@ const styles = StyleSheet.create({
     padding: 16,
     margin: 16,
     borderRadius: 8,
+    zIndex: 1000,
+    elevation: 5,
   },
   snackbarsuccess: {
     backgroundColor: '#4caf50',
