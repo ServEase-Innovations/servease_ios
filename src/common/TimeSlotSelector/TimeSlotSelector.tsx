@@ -93,34 +93,39 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header with Title and Buttons */}
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Icon name="access-time" size={20} color="#1976d2" />
           <Text style={styles.title}>{title}</Text>
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>
-              {slots.length} {slots.length === 1 ? 'Time Slot' : 'Time Slots'}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.addButton]}
-            onPress={onAddSlot}
-          >
-            <Icon name="add" size={18} color="#fff" />
-            <Text style={styles.buttonText}>{addButtonLabel}</Text>
-          </TouchableOpacity>
           {slots.length > 0 && (
-            <TouchableOpacity
-              style={[styles.button, styles.clearButton]}
-              onPress={handleClearSlots}
-            >
-              <Text style={styles.clearButtonText}>{clearButtonLabel}</Text>
-            </TouchableOpacity>
+            <View style={styles.chip}>
+              <Text style={styles.chipText}>
+                {slots.length} {slots.length === 1 ? 'Slot' : 'Slots'}
+              </Text>
+            </View>
           )}
         </View>
+      </View>
+
+      {/* Action Buttons Row */}
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.button, styles.addButton]}
+          onPress={onAddSlot}
+        >
+          <Icon name="add" size={18} color="#fff" />
+          <Text style={styles.buttonText}>{addButtonLabel}</Text>
+        </TouchableOpacity>
+        {slots.length > 0 && (
+          <TouchableOpacity
+            style={[styles.button, styles.clearButton]}
+            onPress={handleClearSlots}
+          >
+            <Icon name="delete-outline" size={18} color="#f44336" />
+            <Text style={styles.clearButtonText}>{clearButtonLabel}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Content */}
@@ -137,9 +142,12 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
             return (
               <View key={`slot-${index}`} style={styles.slotCard}>
                 <View style={styles.slotHeader}>
-                  <Text style={styles.slotTitle}>
-                    {slotLabel} {index + 1}
-                  </Text>
+                  <View style={styles.slotTitleContainer}>
+                    <Icon name="access-time" size={16} color="#1976d2" />
+                    <Text style={styles.slotTitle}>
+                      {slotLabel} {index + 1}
+                    </Text>
+                  </View>
                   {slots.length > 1 && (
                     <TouchableOpacity
                       onPress={() => onRemoveSlot(index)}
@@ -151,7 +159,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
                 </View>
 
                 <View style={styles.selectedTimeContainer}>
-                  <Icon name="access-time" size={14} color="#666" />
+                  <Icon name="schedule" size={14} color="#666" />
                   <Text style={styles.selectedTime}>
                     Selected: {formatDisplayTime(slot[0])} - {formatDisplayTime(slot[1])}
                   </Text>
@@ -208,7 +216,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   header: {
     flexDirection: 'row',
@@ -219,7 +227,6 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
     gap: 8,
   },
   title: {
@@ -238,17 +245,18 @@ const styles = StyleSheet.create({
     color: '#1976d2',
     fontWeight: '500',
   },
-  buttonContainer: {
+  actionButtonsContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    marginBottom: 16,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 6,
-    gap: 4,
+    gap: 6,
   },
   addButton: {
     backgroundColor: '#1976d2',
@@ -260,12 +268,12 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
   },
   clearButtonText: {
     color: '#f44336',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
   },
   emptyContainer: {
@@ -289,7 +297,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   slotsContainer: {
-    maxHeight: 400,
+    maxHeight: 500,
   },
   slotCard: {
     backgroundColor: '#fff',
@@ -310,8 +318,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  slotTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   slotTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1976d2',
   },
@@ -323,10 +336,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginBottom: 12,
+    backgroundColor: '#f5f5f5',
+    padding: 8,
+    borderRadius: 6,
   },
   selectedTime: {
     fontSize: 12,
-    color: '#757575',
+    color: '#333',
+    fontWeight: '500',
   },
   sliderContainer: {
     marginTop: 8,

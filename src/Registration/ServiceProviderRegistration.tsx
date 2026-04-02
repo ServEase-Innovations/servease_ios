@@ -1825,148 +1825,174 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
   
-  const handleSubmit = async () => {
-    if (activeStep !== steps.length - 1) return;
+ const handleSubmit = async () => {
+  if (activeStep !== steps.length - 1) return;
 
-    if (validateStep(activeStep)) {
-      setIsSubmitting(true);
-      try {
-        let profilePicUrl = "";
+  if (validateStep(activeStep)) {
+    setIsSubmitting(true);
+    try {
+      let profilePicUrl = "";
 
-        // Only upload profile image - same as React version
-        if (image) {
-          const profileFormData = new FormData();
-          profileFormData.append("image", {
-            uri: image.uri,
-            type: image.type || 'image/jpeg',
-            name: image.name || 'profile.jpg'
-          } as any);
+      // Only upload profile image - same as React version
+      if (image) {
+        const profileFormData = new FormData();
+        profileFormData.append("image", {
+          uri: image.uri,
+          type: image.type || 'image/jpeg',
+          name: image.name || 'profile.jpg'
+        } as any);
 
-          const imageResponse = await axiosInstance.post(
-            "http://65.2.153.173:3000/upload",
-            profileFormData,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-              },
-            }
-          );
-
-          if (imageResponse.status === 200) {
-            profilePicUrl = imageResponse.data.imageUrl;
-          }
-        }
-        
-        // NO document image upload here - just like React version
-        // Document image is handled separately in KYCVerification component
-        
-        const primaryRole = formData.housekeepingRole.length > 0 ? formData.housekeepingRole[0] : "";
-        
-        const payload = {
-          firstName: formData.firstName,
-          middleName: formData.middleName,
-          lastName: formData.lastName,
-          mobileNo: parseInt(formData.mobileNo) || 0,
-          alternateNo: parseInt(formData.AlternateNumber) || 0,
-          emailId: formData.emailId,
-          gender: formData.gender,
-          buildingName: formData.buildingName,
-          locality: formData.locality,
-          latitude: currentLocation?.latitude || formData.latitude,
-          longitude: currentLocation?.longitude || formData.longitude,
-          street: formData.street,
-          pincode: parseInt(formData.pincode) || 0,
-          currentLocation: formData.currentLocation,
-          nearbyLocation: formData.nearbyLocation,
-          location: formData.currentLocation,
-          housekeepingRole: primaryRole,
-          serviceTypes: formData.housekeepingRole,
-          diet: formData.diet,
-          languages: selectedLanguages,
-          ...(formData.housekeepingRole.includes("COOK") && {
-            cookingSpeciality: formData.cookingSpeciality
-          }),
-          ...(formData.housekeepingRole.includes("NANNY") && {
-            nannyCareType: formData.nannyCareType
-          }),
-          timeslot: formData.timeslot,
-          expectedSalary: 0,
-          experience: parseInt(formData.experience) || 0,
-          username: formData.emailId,
-          password: formData.password,
-          agentReferralId: formData.agentReferralId,
-          privacy: formData.privacy,
-          keyFacts: formData.keyFacts,
-          permanentAddress: {
-            field1: formData.permanentAddress.apartment,
-            field2: formData.permanentAddress.street,
-            ctarea: formData.permanentAddress.city,
-            pinno: formData.permanentAddress.pincode,
-            state: formData.permanentAddress.state,
-            country: formData.permanentAddress.country
-          },
-          correspondenceAddress: {
-            field1: formData.correspondenceAddress.apartment,
-            field2: formData.correspondenceAddress.street,
-            ctarea: formData.correspondenceAddress.city,
-            pinno: formData.correspondenceAddress.pincode,
-            state: formData.correspondenceAddress.state,
-            country: formData.correspondenceAddress.country
-          },
-          active: true,
-          kycType: formData.kycType,
-          kycNumber: formData.kycNumber,
-          dob: formData.dob,
-          profilePic: profilePicUrl
-          // Note: No kycDocumentUrl here - matches React version
-        };
-
-        const response = await providerInstance.post(
-          "/api/service-providers/serviceprovider/add",
-          payload,
+        const imageResponse = await axiosInstance.post(
+          "http://65.2.153.173:3000/upload",
+          profileFormData,
           {
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "multipart/form-data",
             },
           }
         );
 
-        setSnackbarOpen(true);
-        setSnackbarSeverity("success");
-        setSnackbarMessage("Registration successful!");
+        if (imageResponse.status === 200) {
+          profilePicUrl = imageResponse.data.imageUrl;
+        }
+      }
+      
+      // NO document image upload here - just like React version
+      // Document image is handled separately in KYCVerification component
+      
+      // Get all selected service types (housekeeping roles)
+      const selectedServices = formData.housekeepingRole;
+      
+      // Determine primary role (first selected role, or empty string if none)
+      const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
+      
+      // Calculate age from DOB
+      const calculateAge = (dob: string): number => {
+        if (!dob) return 0;
+        const birthDate = moment(dob, "YYYY-MM-DD");
+        const today = moment();
+        return today.diff(birthDate, "years");
+      };
+      
+      const age = calculateAge(formData.dob);
+      
+      const payload = {
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        lastName: formData.lastName,
+        mobileNo: parseInt(formData.mobileNo) || 0,
+        alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : 0,
+        emailId: formData.emailId,
+        gender: formData.gender,
+        buildingName: formData.buildingName,
+        locality: formData.locality,
+        latitude: currentLocation?.latitude || formData.latitude,
+        longitude: currentLocation?.longitude || formData.longitude,
+        street: formData.street,
+        pincode: parseInt(formData.pincode) || 0,
+        currentLocation: formData.currentLocation,
+        nearbyLocation: formData.nearbyLocation,
+        location: formData.currentLocation,
+        housekeepingRoles: selectedServices, // FIXED: Send array as "housekeepingRoles" (plural)
+        housekeepingRole: primaryRole, // Keep this for backward compatibility if needed
+        serviceTypes: selectedServices, // Keep for compatibility
+        diet: formData.diet,
+        languages: selectedLanguages,
+        age: age, // Add age calculated from DOB
+        ...(selectedServices.includes("COOK") && {
+          cookingSpeciality: formData.cookingSpeciality
+        }),
+        ...(selectedServices.includes("NANNY") && {
+          nannyCareType: formData.nannyCareType
+        }),
+        timeslot: formData.timeslot,
+        expectedSalary: 0,
+        experience: parseInt(formData.experience) || 0,
+        username: formData.emailId,
+        password: formData.password,
+        agentReferralId: formData.agentReferralId || "",
+        privacy: formData.privacy,
+        keyFacts: formData.keyFacts,
+        permanentAddress: {
+          field1: formData.permanentAddress.apartment || "",
+          field2: formData.permanentAddress.street || "",
+          ctarea: formData.permanentAddress.city || "",
+          pinno: formData.permanentAddress.pincode || "",
+          state: formData.permanentAddress.state || "",
+          country: formData.permanentAddress.country || ""
+        },
+        correspondenceAddress: {
+          field1: formData.correspondenceAddress.apartment || "",
+          field2: formData.correspondenceAddress.street || "",
+          ctarea: formData.correspondenceAddress.city || "",
+          pinno: formData.correspondenceAddress.pincode || "",
+          state: formData.correspondenceAddress.state || "",
+          country: formData.correspondenceAddress.country || ""
+        },
+        active: true,
+        kycType: formData.kycType,
+        kycNumber: formData.kycNumber,
+        dob: formData.dob,
+        profilePic: profilePicUrl
+        // Note: No kycDocumentUrl here - matches React version
+      };
 
-        const authPayload = {
-          email: formData.emailId,
-          password: formData.password,
-          name: `${formData.firstName} ${formData.lastName}`,
-        };
+      console.log("Submitting payload:", JSON.stringify(payload, null, 2));
 
-        axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
-          .then((authResponse) => {
-            console.log("AuthO user created successfully:", authResponse.data);
-          }).catch((authError) => {
-            console.error("Error creating AuthO user:", authError);
-          });
+      const response = await providerInstance.post(
+        "/api/service-providers/serviceprovider/add",
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-        setTimeout(() => {
-          setIsSubmitting(false);
-          if (onRegistrationSuccess) {
-            onRegistrationSuccess();
-          } else {
-            onBackToLogin(true);
-          }
-        }, 3000);
-      } catch (error) {
+      setSnackbarOpen(true);
+      setSnackbarSeverity("success");
+      setSnackbarMessage("Registration successful!");
+
+      const authPayload = {
+        email: formData.emailId,
+        password: formData.password,
+        name: `${formData.firstName} ${formData.lastName}`,
+      };
+
+      axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
+        .then((authResponse) => {
+          console.log("AuthO user created successfully:", authResponse.data);
+        }).catch((authError) => {
+          console.error("Error creating AuthO user:", authError);
+        });
+
+      setTimeout(() => {
         setIsSubmitting(false);
-        setSnackbarOpen(true);
-        setSnackbarSeverity("error");
+        if (onRegistrationSuccess) {
+          onRegistrationSuccess();
+        } else {
+          onBackToLogin(true);
+        }
+      }, 3000);
+    } catch (error) {
+      setIsSubmitting(false);
+      setSnackbarOpen(true);
+      setSnackbarSeverity("error");
+      
+      // Better error message
+      if (axios.isAxiosError(error) && error.response) {
+        const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
+        setSnackbarMessage(errorMsg);
+        console.error("Error submitting form:", error.response.data);
+      } else {
         setSnackbarMessage("Registration failed. Please try again.");
         console.error("Error submitting form:", error);
       }
-    } else {
-      setIsSubmitting(false);
     }
-  };
+  } else {
+    setIsSubmitting(false);
+  }
+};
 
   const handleCloseSnackbar = () => {
     setSnackbarOpen(false);
@@ -2280,10 +2306,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             onClearEveningSlots={handleClearEveningSlots}
             onMorningSlotChange={handleMorningSlotChange}
             onEveningSlotChange={handleEveningSlotChange}
-            TimeSliderWithDisabledRanges={TimeSliderWithDisabledRanges}
-            DisabledRangesIndicator={DisabledRangesIndicator}
-            getDisabledRangesForSlot={getDisabledRangesForSlot}
-            formatDisplayTime={formatDisplayTime}
             selectedLanguages={selectedLanguages}
             onLanguagesChange={setSelectedLanguages}
           />
