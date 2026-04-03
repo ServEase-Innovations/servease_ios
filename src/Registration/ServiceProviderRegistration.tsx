@@ -200,6 +200,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error" | "warning" | "info">("success");
+  const [snackbarTimeout, setSnackbarTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isCookSelected, setIsCookSelected] = useState(false);
   const [isNannySelected, setIsNannySelected] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{
@@ -303,6 +304,36 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   useEffect(() => {
     Geocoder.init(keys.api_key);
   }, []);
+
+  // Cleanup snackbar timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (snackbarTimeout) {
+        clearTimeout(snackbarTimeout);
+      }
+    };
+  }, [snackbarTimeout]);
+
+  // Show snackbar with auto-dismiss
+  const showSnackbar = (message: string, severity: "success" | "error" | "warning" | "info") => {
+    // Clear any existing timeout
+    if (snackbarTimeout) {
+      clearTimeout(snackbarTimeout);
+      setSnackbarTimeout(null);
+    }
+    
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+    
+    // Set new timeout to auto-dismiss after 3 seconds
+    const timeout = setTimeout(() => {
+      setSnackbarOpen(false);
+      setSnackbarTimeout(null);
+    }, 3000);
+    
+    setSnackbarTimeout(timeout);
+  };
 
   // Add axios interceptors for debugging
   useEffect(() => {
@@ -501,9 +532,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       if (!hasOverlap) {
         onChange(newValues);
       } else {
-        setSnackbarMessage("Time range overlaps with another selected slot");
-        setSnackbarSeverity("warning");
-        setSnackbarOpen(true);
+        showSnackbar("Time range overlaps with another selected slot", "warning");
       }
     };
 
@@ -664,9 +693,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       // If still no slot found
       if (!foundAvailableSlot) {
-        setSnackbarMessage("No available morning slots to add");
-        setSnackbarSeverity("warning");
-        setSnackbarOpen(true);
+        showSnackbar("No available morning slots to add", "warning");
         return prevSlots;
       }
 
@@ -723,9 +750,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
       // If still no slot found
       if (!foundAvailableSlot) {
-        setSnackbarMessage("No available evening slots to add");
-        setSnackbarSeverity("warning");
-        setSnackbarOpen(true);
+        showSnackbar("No available evening slots to add", "warning");
         return prevSlots;
       }
 
@@ -960,9 +985,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       } catch (error) {
         console.error("Error geocoding address:", error);
-        setSnackbarMessage("Error getting location coordinates");
-        setSnackbarSeverity("warning");
-        setSnackbarOpen(true);
+        showSnackbar("Error getting location coordinates", "warning");
       }
     }
     
@@ -1369,9 +1392,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
 
       setLocationLoading(true);
-      setSnackbarMessage("Fetching your location...");
-      setSnackbarSeverity("info");
-      setSnackbarOpen(true);
+      showSnackbar("Fetching your location...", "info");
 
       // Get current position
       Geolocation.getCurrentPosition(
@@ -1468,32 +1489,24 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               address: address
             });
 
-            setSnackbarMessage("Location fetched successfully!");
-            setSnackbarSeverity("success");
-            setSnackbarOpen(true);
+            showSnackbar("Location fetched successfully!", "success");
           } catch (error) {
             console.error("Geocoding error:", error);
-            setSnackbarMessage("Error getting address from coordinates");
-            setSnackbarSeverity("warning");
-            setSnackbarOpen(true);
+            showSnackbar("Error getting address from coordinates", "warning");
           } finally {
             setLocationLoading(false);
           }
         },
         (error) => {
           console.error("Location error:", error);
-          setSnackbarMessage("Unable to fetch your location. Please check your GPS settings.");
-          setSnackbarSeverity("error");
-          setSnackbarOpen(true);
+          showSnackbar("Unable to fetch your location. Please check your GPS settings.", "error");
           setLocationLoading(false);
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
       );
     } catch (error) {
       console.error("Location fetch error:", error);
-      setSnackbarMessage("Unable to fetch your location. Please try again.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnackbar("Unable to fetch your location. Please try again.", "error");
       setLocationLoading(false);
     }
   };
@@ -1786,34 +1799,27 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const handleNext = () => {
     // Check if next button is disabled
     if (isNextDisabled) {
-      setSnackbarMessage("Please fill all required fields");
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
+      showSnackbar("Please fill all required fields", "warning");
       return;
     }
     
     // For step 0, check if validations are complete before proceeding
     if (activeStep === 0) {
       if (validationResults.email.loading || validationResults.mobile.loading) {
-        setSnackbarMessage("Please wait for email and mobile validation");
-        setSnackbarSeverity("warning");
-        setSnackbarOpen(true);
+        showSnackbar("Please wait for email and mobile validation", "warning");
         return;
       }
     }
     
     // Validate the current step
     if (!validateStep(activeStep)) {
-      setSnackbarMessage("Please fix the errors before proceeding");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      showSnackbar("Please fix the errors before proceeding", "error");
       return;
     }
     
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
     if (activeStep === steps.length - 1) {
-      setSnackbarMessage("Registration form completed!");
-      setSnackbarOpen(true);
+      showSnackbar("Registration form completed!", "success");
     }
   };
 
@@ -1949,9 +1955,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       );
 
-      setSnackbarOpen(true);
-      setSnackbarSeverity("success");
-      setSnackbarMessage("Registration successful!");
+      showSnackbar("Registration successful!", "success");
 
       const authPayload = {
         email: formData.emailId,
@@ -1976,16 +1980,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }, 3000);
     } catch (error) {
       setIsSubmitting(false);
-      setSnackbarOpen(true);
-      setSnackbarSeverity("error");
       
       // Better error message
       if (axios.isAxiosError(error) && error.response) {
         const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
-        setSnackbarMessage(errorMsg);
+        showSnackbar(errorMsg, "error");
         console.error("Error submitting form:", error.response.data);
       } else {
-        setSnackbarMessage("Registration failed. Please try again.");
+        showSnackbar("Registration failed. Please try again.", "error");
         console.error("Error submitting form:", error);
       }
     }
@@ -1995,6 +1997,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 };
 
   const handleCloseSnackbar = () => {
+    if (snackbarTimeout) {
+      clearTimeout(snackbarTimeout);
+      setSnackbarTimeout(null);
+    }
     setSnackbarOpen(false);
   };
 
@@ -2456,7 +2462,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           />
         )}
 
-        {/* Snackbar - Positioned at the top */}
+        {/* Snackbar - Positioned at the top with auto-dismiss */}
         {snackbarOpen && (
           <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
             <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>

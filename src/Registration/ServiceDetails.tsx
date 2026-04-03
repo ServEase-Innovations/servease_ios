@@ -9,19 +9,17 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
-  Alert,
 } from "react-native";
 import {
   Checkbox,
-  Chip,
   Card,
   IconButton,
-  Button,
   HelperText,
 } from "react-native-paper";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
+import LanguageSelector from "../common//LanguageSelector";
 
 interface ServiceDetailsProps {
   formData: any;
@@ -95,52 +93,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onLanguagesChange,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
-
-  // Language selection - 20+ Indian languages
-  const [availableLanguages] = useState<string[]>([
-    "Hindi",
-    "Bengali", 
-    "Telugu",
-    "Marathi",
-    "Tamil",
-    "Urdu",
-    "Gujarati",
-    "Kannada",
-    "Malayalam",
-    "Odia",
-    "Punjabi",
-    "Assamese",
-    "Maithili",
-    "Santali",
-    "Kashmiri",
-    "Nepali",
-    "Sindhi",
-    "Konkani",
-    "Dogri",
-    "Manipuri",
-    "Bodo",
-    "Sanskrit"
-  ]);
-
-  // Search state for languages
-  const [languageSearchQuery, setLanguageSearchQuery] = useState("");
-  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
-
-  // Filter languages based on search query
-  const filteredLanguages = availableLanguages.filter(lang =>
-    lang.toLowerCase().includes(languageSearchQuery.toLowerCase())
-  );
-
-  // Handler for language changes
-  const handleLanguageChange = (language: string) => {
-    if (onLanguagesChange) {
-      if (selectedLanguages.includes(language)) {
-        onLanguagesChange(selectedLanguages.filter(l => l !== language));
-      } else {
-        onLanguagesChange([...selectedLanguages, language]);
-      }
-    }
-  };
 
   const serviceTypes = [
     { value: "COOK", label: "Cook", icon: "restaurant", description: "Professional cooking services" },
@@ -419,73 +371,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     slotSection: {
       marginBottom: 24,
     },
-    languageSection: {
-      marginTop: 8,
-    },
-    searchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      marginBottom: 12,
-      gap: 8,
-    },
-    searchInput: {
-      flex: 1,
-      paddingVertical: 10,
-      fontSize: fontSizes.input,
-      color: colors.text,
-    },
-    languageDropdown: {
-      marginTop: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      backgroundColor: colors.card,
-      overflow: 'hidden',
-    },
-    languageOption: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    languageOptionSelected: {
-      backgroundColor: isDarkMode ? colors.primary + '20' : '#e3f2fd',
-    },
-    languageOptionContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    languageOptionText: {
-      fontSize: fontSizes.optionText,
-      color: colors.text,
-    },
-    languageOptionTextSelected: {
-      color: colors.primary,
-      fontWeight: '500',
-    },
-    noResultsContainer: {
-      padding: 20,
-      alignItems: 'center',
-    },
-    noResultsText: {
-      fontSize: fontSizes.labelHelper,
-      color: colors.textSecondary,
-    },
-    showAllButton: {
-      marginTop: 12,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    showAllButtonText: {
-      fontSize: fontSizes.labelHelper,
-      fontWeight: '500',
-    },
     summaryCard: {
       marginTop: 16,
       backgroundColor: isDarkMode ? colors.primary + '20' : '#e3f2fd',
@@ -539,7 +424,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     onDietChange(event);
   };
 
-  // Define marks for time sliders
   const morningMarks = [
     { value: 6, label: '6 AM' },
     { value: 7, label: '7 AM' },
@@ -817,120 +701,13 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           </Card.Content>
         </Card>
 
-        {/* Languages Section - 20+ Indian Languages with Search */}
+        {/* Languages Section - Using reusable LanguageSelector */}
         <Card style={dynamicStyles.card}>
           <Card.Content>
-            <View style={dynamicStyles.labelContainer}>
-              <Icon name="language" size={20} color={colors.primary} />
-              <Text style={dynamicStyles.label}>Languages Spoken</Text>
-            </View>
-            <Text style={dynamicStyles.labelHelper}>
-              Select the languages you speak (you can select multiple)
-            </Text>
-            
-            <View style={dynamicStyles.languageSection}>
-              {/* Search Input */}
-              <View style={dynamicStyles.searchContainer}>
-                <Icon name="search" size={20} color={colors.textSecondary} />
-                <TextInput
-                  style={dynamicStyles.searchInput}
-                  placeholder="Search languages..."
-                  placeholderTextColor={colors.placeholder}
-                  value={languageSearchQuery}
-                  onChangeText={setLanguageSearchQuery}
-                  onFocus={() => setShowLanguageDropdown(true)}
-                />
-                {languageSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setLanguageSearchQuery("")}>
-                    <Icon name="close" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Selected Languages Summary */}
-              {selectedLanguages.length > 0 && (
-                <View style={[dynamicStyles.summaryCard, { marginTop: 12, padding: 12 }]}>
-                  <View style={dynamicStyles.summaryHeader}>
-                    <Icon name="check-circle" size={18} color={colors.primary} />
-                    <Text style={dynamicStyles.summaryTitle}>
-                      Selected Languages ({selectedLanguages.length}):
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                    {selectedLanguages.map((language, index) => (
-                      <Chip
-                        key={index}
-                        mode="flat"
-                        onClose={() => {
-                          if (onLanguagesChange) {
-                            onLanguagesChange(selectedLanguages.filter((_, i) => i !== index));
-                          }
-                        }}
-                        style={{ backgroundColor: colors.surface }}
-                      >
-                        {language}
-                      </Chip>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Language Options Dropdown */}
-              {(showLanguageDropdown || languageSearchQuery.length > 0) && (
-                <View style={dynamicStyles.languageDropdown}>
-                  <ScrollView 
-                    style={{ maxHeight: 200 }}
-                    showsVerticalScrollIndicator={true}
-                  >
-                    {filteredLanguages.length > 0 ? (
-                      filteredLanguages.map((language) => (
-                        <TouchableOpacity
-                          key={language}
-                          style={[
-                            dynamicStyles.languageOption,
-                            selectedLanguages.includes(language) && dynamicStyles.languageOptionSelected
-                          ]}
-                          onPress={() => {
-                            handleLanguageChange(language);
-                            // Keep dropdown open to allow multiple selections
-                          }}
-                        >
-                          <View style={dynamicStyles.languageOptionContent}>
-                            <Text 
-                              style={[
-                                dynamicStyles.languageOptionText,
-                                selectedLanguages.includes(language) && dynamicStyles.languageOptionTextSelected
-                              ]}
-                            >
-                              {language}
-                            </Text>
-                            {selectedLanguages.includes(language) && (
-                              <Icon name="check" size={18} color={colors.primary} />
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      ))
-                    ) : (
-                      <View style={dynamicStyles.noResultsContainer}>
-                        <Text style={dynamicStyles.noResultsText}>No languages found</Text>
-                      </View>
-                    )}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Show All Languages Button (when dropdown is closed and no search) */}
-              {!showLanguageDropdown && languageSearchQuery.length === 0 && selectedLanguages.length < availableLanguages.length && (
-                <TouchableOpacity 
-                  style={dynamicStyles.showAllButton}
-                  onPress={() => setShowLanguageDropdown(true)}
-                >
-                  <Text style={[dynamicStyles.showAllButtonText, { color: colors.primary }]}>
-                    + Browse all {availableLanguages.length} languages
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <LanguageSelector
+              selectedLanguages={selectedLanguages}
+              onLanguagesChange={onLanguagesChange || (() => {})}
+            />
           </Card.Content>
         </Card>
       
@@ -1039,16 +816,17 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                       maxTime={12}
                       marks={morningMarks}
                       notAvailableMessage="No morning slots added"
-                      addSlotMessage="Click + Add Morning Slots to add your available time slots"
+                      addSlotMessage="Click + to add your available time slots"
                       slotLabel="Morning Slot"
-                      addButtonLabel="+ Add Morning Slots"
-                      clearButtonLabel="Clear All"
+                      addButtonLabel="+"
+                      clearButtonLabel=""
                       duplicateErrorKey="This time slot already exists. Please select a different time range."
                       onAddSlot={onAddMorningSlot}
                       onRemoveSlot={onRemoveMorningSlot}
                       onClearSlots={onClearMorningSlots}
                       onSlotChange={onMorningSlotChange}
                       formatDisplayTime={formatDisplayTimeFn}
+                      existingSlots={morningSlots}
                     />
                   </View>
 
@@ -1061,16 +839,17 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
                       maxTime={20}
                       marks={eveningMarks}
                       notAvailableMessage="No evening slots added"
-                      addSlotMessage="Click + Add Evening Slots to add your available time slots"
+                      addSlotMessage="Click + to add your available time slots"
                       slotLabel="Evening Slot"
-                      addButtonLabel="+ Add Evening Slots"
-                      clearButtonLabel="Clear All"
+                      addButtonLabel="+"
+                      clearButtonLabel=""
                       duplicateErrorKey="This time slot already exists. Please select a different time range."
                       onAddSlot={onAddEveningSlot}
                       onRemoveSlot={onRemoveEveningSlot}
                       onClearSlots={onClearEveningSlots}
                       onSlotChange={onEveningSlotChange}
                       formatDisplayTime={formatDisplayTimeFn}
+                      existingSlots={eveningSlots}
                     />
                   </View>
 
