@@ -14,10 +14,10 @@ import {
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import providerInstance from "../services/providerInstance";
 import { SkeletonLoader } from "../common/SkeletonLoader";
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
+import LanguageSelector from "../common/LanguageSelector";
 
 interface ServiceProviderProfileSectionProps {
   userId: number | null;
@@ -103,6 +103,10 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   const [originalEveningSlots, setOriginalEveningSlots] = useState<number[][]>([]);
   const [originalIsFullTime, setOriginalIsFullTime] = useState<boolean>(true);
   
+  // Language state - store as array for UI, but backend expects string
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [originalLanguages, setOriginalLanguages] = useState<string[]>([]);
+  
   const [userData, setUserData] = useState({
     firstName: "",
     lastName: "",
@@ -117,7 +121,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     nannyCareType: "",
     housekeepingRole: [] as string[],
     experience: 0,
-    languageKnown: "",
+    languageKnown: "", // This will store the comma-separated string for display
     currentLocation: "",
     locality: "",
     street: "",
@@ -156,8 +160,8 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const serviceTypes = [
     { value: "COOK", label: "Cook", icon: "restaurant" },
-    { value: "NANNY", label: "Nanny", icon: "favorite" },
-    { value: "MAID", label: "Maid", icon: "work" },
+    { value: "NANNY", label: "Nanny", icon: "child-care" },
+    { value: "MAID", label: "Maid", icon: "cleaning-services" },
   ];
 
   const dietOptions = [
@@ -209,35 +213,28 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     return hour + (minute / 60);
   };
 
-  // New function to get merged time slots array
   const getMergedTimeSlots = (slots: number[][]): number[][] => {
     if (!slots.length) return [];
-    
     const sorted = [...slots].sort((a, b) => a[0] - b[0]);
     const merged: number[][] = [];
-    
     for (const slot of sorted) {
       if (merged.length === 0) {
         merged.push([slot[0], slot[1]]);
       } else {
         const last = merged[merged.length - 1];
         if (slot[0] <= last[1]) {
-          // Overlapping or adjacent slots, merge them
           last[1] = Math.max(last[1], slot[1]);
         } else {
           merged.push([slot[0], slot[1]]);
         }
       }
     }
-    
     return merged;
   };
 
   const mergeTimeSlots = (slots: number[][]): string => {
     const merged = getMergedTimeSlots(slots);
-    
     if (merged.length === 0) return "";
-    
     return merged
       .map(([start, end]) => `${formatDisplayTime(start)} - ${formatDisplayTime(end)}`)
       .join(", ");
@@ -305,11 +302,23 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       
       setProviderData(data);
 
-      let languageKnown = data.languageKnown;
-      if (Array.isArray(languageKnown)) {
-        languageKnown = languageKnown.join(", ");
+      // Parse languages - convert backend string/array to array for UI
+      let languageArray: string[] = [];
+      let languageString = "";
+      
+      if (data.languageKnown) {
+        if (Array.isArray(data.languageKnown)) {
+          languageArray = data.languageKnown;
+          languageString = languageArray.join(", ");
+        } else if (typeof data.languageKnown === 'string') {
+          languageString = data.languageKnown;
+          languageArray = data.languageKnown.split(',').map((l: string) => l.trim());
+        }
       }
+      setSelectedLanguages(languageArray);
+      setOriginalLanguages(languageArray);
 
+      // Parse housekeeping roles
       let roles: string[] = [];
       if (data.housekeepingRoles && Array.isArray(data.housekeepingRoles)) {
         roles = data.housekeepingRoles;
@@ -323,6 +332,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         roles = data.housekeepingRole;
       }
 
+      // Parse time slots
       let morning: number[][] = [];
       let evening: number[][] = [];
       if (data.timeslot) {
@@ -368,7 +378,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         nannyCareType: data.nannyCareType || "",
         housekeepingRole: roles,
         experience: data.experience || 0,
-        languageKnown: languageKnown || "",
+        languageKnown: languageString, // Store as string for display
         currentLocation: data.currentLocation || "",
         locality: data.locality || "",
         street: data.street || "",
@@ -553,15 +563,16 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         userData.housekeepingRole.join(",") !==
         originalData.housekeepingRole.join(",")
       ) {
-        payload.housekeepingRole = userData.housekeepingRole.join(",");
+        payload.housekeepingRoles = userData.housekeepingRole;
       }
 
       if (userData.experience !== originalData.experience) {
         payload.experience = userData.experience;
       }
 
-      if (userData.languageKnown !== originalData.languageKnown) {
-        payload.languageKnown = userData.languageKnown;
+      // Handle languages - convert array to comma-separated string for backend
+      if (JSON.stringify(selectedLanguages) !== JSON.stringify(originalLanguages)) {
+        payload.languageKnown = selectedLanguages.join(", ");
       }
 
       if (userData.currentLocation !== originalData.currentLocation) {
@@ -588,12 +599,10 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         payload.nearbyLocation = userData.nearbyLocation;
       }
 
-      // Modified timeslot handling to use merged slots
       let timeslotString = '';
       if (!isFullTime) {
         const allSlots = [...morningSlots, ...eveningSlots];
         if (allSlots.length > 0) {
-          // Get merged slots to avoid overlaps in payload
           const mergedSlots = getMergedTimeSlots(allSlots);
           timeslotString = mergedSlots
             .map(slot => `${formatTimeForPayload(slot[0])}-${formatTimeForPayload(slot[1])}`)
@@ -616,6 +625,8 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         return;
       }
 
+      console.log("Saving payload:", payload);
+
       await providerInstance.put(
         `/api/service-providers/serviceprovider/${userId}`,
         payload
@@ -625,9 +636,10 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       setIsEditing(false);
       Alert.alert("Success", "Profile updated successfully");
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save data:", error);
-      Alert.alert("Error", "Failed to save changes");
+      const errorMessage = error?.response?.data?.message || "Failed to save changes";
+      Alert.alert("Error", errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -635,6 +647,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const handleCancel = () => {
     setUserData(originalData);
+    setSelectedLanguages(originalLanguages);
     setIsEditing(false);
     setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
     setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
@@ -649,11 +662,12 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const hasChanges = (): boolean => {
     const userDataChanged = JSON.stringify(userData) !== JSON.stringify(originalData);
+    const languagesChanged = JSON.stringify(selectedLanguages) !== JSON.stringify(originalLanguages);
     const slotsChanged = 
       isFullTime !== originalIsFullTime ||
       JSON.stringify(morningSlots) !== JSON.stringify(originalMorningSlots) ||
       JSON.stringify(eveningSlots) !== JSON.stringify(originalEveningSlots);
-    return userDataChanged || slotsChanged;
+    return userDataChanged || languagesChanged || slotsChanged;
   };
 
   const isFormValid = (): boolean => {
@@ -712,7 +726,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     </TouchableOpacity>
   );
 
-  const InputField = ({ label, value, onChangeText, editable = true, keyboardType = "default", placeholder = "", secureTextEntry = false }: any) => (
+  const InputField = ({ label, value, onChangeText, editable = true, keyboardType = "default", placeholder = "" }: any) => (
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
@@ -722,7 +736,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         editable={editable}
         keyboardType={keyboardType}
         placeholder={placeholder}
-        secureTextEntry={secureTextEntry}
+        placeholderTextColor="#999"
       />
     </View>
   );
@@ -777,6 +791,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                 style={styles.editButton}
                 onPress={() => {
                   setOriginalData({ ...userData });
+                  setOriginalLanguages([...selectedLanguages]);
                   setIsEditing(true);
                 }}
               >
@@ -829,6 +844,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       editable={isEditing}
                       keyboardType="phone-pad"
                       placeholder="Enter 10-digit mobile number"
+                      placeholderTextColor="#999"
                       maxLength={10}
                     />
                     {isEditing && (
@@ -858,6 +874,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       editable={isEditing}
                       keyboardType="phone-pad"
                       placeholder="Enter 10-digit mobile number"
+                      placeholderTextColor="#999"
                       maxLength={10}
                     />
                     {isEditing && (
@@ -884,6 +901,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       <Picker
                         selectedValue={userData.gender}
                         onValueChange={(value) => setUserData(prev => ({ ...prev, gender: value }))}
+                        style={styles.picker}
                       >
                         <Picker.Item label="Select Gender" value="" />
                         {genderOptions.map(option => (
@@ -892,7 +910,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       </Picker>
                     </View>
                   ) : (
-                    <Text style={[styles.input, styles.inputReadOnly]}>
+                    <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
                       {userData.gender ? 
                         (genderOptions.find(g => g.value === userData.gender)?.label || userData.gender) 
                         : "Not specified"}
@@ -960,6 +978,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           <Picker
                             selectedValue={userData.cookingSpeciality}
                             onValueChange={(value) => setUserData(prev => ({ ...prev, cookingSpeciality: value }))}
+                            style={styles.picker}
                           >
                             <Picker.Item label="Select Speciality" value="" />
                             {cookingSpecialityOptions.map(opt => (
@@ -968,7 +987,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           </Picker>
                         </View>
                       ) : (
-                        <Text style={[styles.input, styles.inputReadOnly]}>
+                        <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
                           {userData.cookingSpeciality
                             ? (cookingSpecialityOptions.find(o => o.value === userData.cookingSpeciality)?.label || userData.cookingSpeciality)
                             : "Not specified"}
@@ -985,6 +1004,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           <Picker
                             selectedValue={userData.nannyCareType}
                             onValueChange={(value) => setUserData(prev => ({ ...prev, nannyCareType: value }))}
+                            style={styles.picker}
                           >
                             <Picker.Item label="Select Care Type" value="" />
                             {nannyCareOptions.map(opt => (
@@ -993,7 +1013,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           </Picker>
                         </View>
                       ) : (
-                        <Text style={[styles.input, styles.inputReadOnly]}>
+                        <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
                           {userData.nannyCareType
                             ? (nannyCareOptions.find(o => o.value === userData.nannyCareType)?.label || userData.nannyCareType)
                             : "Not specified"}
@@ -1012,6 +1032,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           <Picker
                             selectedValue={userData.diet}
                             onValueChange={(value) => setUserData(prev => ({ ...prev, diet: value }))}
+                            style={styles.picker}
                           >
                             <Picker.Item label="Select Diet" value="" />
                             {dietOptions.map(opt => (
@@ -1020,7 +1041,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           </Picker>
                         </View>
                       ) : (
-                        <Text style={[styles.input, styles.inputReadOnly]}>
+                        <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
                           {userData.diet
                             ? (dietOptions.find(o => o.value === userData.diet)?.label || userData.diet)
                             : "Not specified"}
@@ -1038,12 +1059,10 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                   keyboardType="numeric"
                 />
 
-                <InputField 
-                  label="Languages Known"
-                  value={userData.languageKnown}
-                  onChangeText={(text: string) => setUserData(prev => ({ ...prev, languageKnown: text }))}
-                  editable={isEditing}
-                  placeholder="e.g., English, Hindi, Tamil"
+                {/* Language Selector */}
+                <LanguageSelector
+                  selectedLanguages={selectedLanguages}
+                  onLanguagesChange={setSelectedLanguages}
                 />
               </View>
             )}
@@ -1084,22 +1103,23 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           minTime={6}
                           maxTime={12}
                           marks={[
-                            { value: 6, label: "6:00 AM" },
-                            { value: 8, label: "8:00 AM" },
-                            { value: 10, label: "10:00 AM" },
-                            { value: 12, label: "12:00 PM" },
+                            { value: 6, label: "6 AM" },
+                            { value: 8, label: "8 AM" },
+                            { value: 10, label: "10 AM" },
+                            { value: 12, label: "12 PM" },
                           ]}
                           notAvailableMessage="Not available in the morning"
-                          addSlotMessage="Add a morning time slot"
+                          addSlotMessage="Click + to add your available time slots"
                           slotLabel="Time Slot"
-                          addButtonLabel="Add Slot"
-                          clearButtonLabel="Clear All"
+                          addButtonLabel="+"
+                          clearButtonLabel=""
                           duplicateErrorKey="This time slot already exists"
                           onAddSlot={handleAddMorningSlot}
                           onRemoveSlot={handleRemoveMorningSlot}
                           onClearSlots={handleClearMorningSlots}
                           onSlotChange={handleMorningSlotChange}
                           formatDisplayTime={formatDisplayTime}
+                          existingSlots={morningSlots}
                         />
 
                         <TimeSlotSelector
@@ -1108,23 +1128,24 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           minTime={12}
                           maxTime={20}
                           marks={[
-                            { value: 12, label: "12:00 PM" },
-                            { value: 14, label: "2:00 PM" },
-                            { value: 16, label: "4:00 PM" },
-                            { value: 18, label: "6:00 PM" },
-                            { value: 20, label: "8:00 PM" },
+                            { value: 12, label: "12 PM" },
+                            { value: 14, label: "2 PM" },
+                            { value: 16, label: "4 PM" },
+                            { value: 18, label: "6 PM" },
+                            { value: 20, label: "8 PM" },
                           ]}
                           notAvailableMessage="Not available in the evening"
-                          addSlotMessage="Add an evening time slot"
+                          addSlotMessage="Click + to add your available time slots"
                           slotLabel="Time Slot"
-                          addButtonLabel="Add Slot"
-                          clearButtonLabel="Clear All"
+                          addButtonLabel="+"
+                          clearButtonLabel=""
                           duplicateErrorKey="This time slot already exists"
                           onAddSlot={handleAddEveningSlot}
                           onRemoveSlot={handleRemoveEveningSlot}
                           onClearSlots={handleClearEveningSlots}
                           onSlotChange={handleEveningSlotChange}
                           formatDisplayTime={formatDisplayTime}
+                          existingSlots={eveningSlots}
                         />
 
                         {mergedTimeSlotsString && (
@@ -1494,7 +1515,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
+    color: '#333',
     marginBottom: 8,
   },
   input: {
@@ -1505,10 +1526,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     backgroundColor: '#fff',
+    color: '#333',
   },
   inputReadOnly: {
     backgroundColor: '#f5f5f5',
-    color: '#999',
+    color: '#333',
+  },
+  displayText: {
+    color: '#333',
   },
   phoneInputContainer: {
     position: 'relative',
@@ -1531,6 +1556,12 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 8,
     backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+    color: '#333',
   },
   divider: {
     height: 1,
