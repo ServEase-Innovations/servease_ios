@@ -31,6 +31,7 @@ interface MaidServiceDialogProps {
   sendDataToParent?: (data: string) => void;
   user?: any;
   bookingType?: any;
+  onBookingSuccess?: () => void; // Add this prop
 }
 
 // Define cart item types
@@ -114,7 +115,8 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
   providerDetails,
   sendDataToParent,
   user,
-  bookingType
+  bookingType,
+  onBookingSuccess // Add this prop
 }) => {
   const [activeTab, setActiveTab] = useState('regular');
   const allCartItems = useSelector(selectCartItems);
@@ -580,15 +582,30 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
     setSuccessDialogOpen(false);
   };
 
+  // FIXED: Navigate to Bookings with proper callback
   const handleNavigateToBookings = () => {
+    console.log("🎯 Maid Service: Navigating to Bookings...");
+    
     setSuccessDialogOpen(false);
-    
-    if (sendDataToParent) {
-      sendDataToParent(BOOKINGS);
-    }
-    
-    handleClose();
     setShowCartDialog(false);
+    handleClose();
+    
+    // Use setTimeout to ensure all dialogs are closed before navigation
+    setTimeout(() => {
+      // Priority 1: Use onBookingSuccess callback if provided
+      if (onBookingSuccess) {
+        console.log("✅ Maid Service: Using onBookingSuccess callback");
+        onBookingSuccess();
+      }
+      // Priority 2: Use sendDataToParent
+      else if (sendDataToParent) {
+        console.log("✅ Maid Service: Using sendDataToParent with BOOKINGS");
+        sendDataToParent(BOOKINGS);
+      }
+      else {
+        console.error("❌ Maid Service: No navigation method available!");
+      }
+    }, 150);
   };
 
   const handleCheckout = async () => {
@@ -659,7 +676,6 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
       // Use provided endTime if available, otherwise use calculated end time
       const endTime = bookingType?.endTime || calculatedEndTime;
 
-      // ✅ UPDATED: Always include end_time (matching NannyServicesDialog pattern)
       const payload: BookingPayload = {
         customerid: customerId,
         serviceproviderid: providerDetails?.serviceproviderid
@@ -668,7 +684,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
         start_date: bookingType?.startDate || new Date().toISOString().split("T")[0],
         end_date: bookingType?.endDate || new Date().toISOString().split("T")[0],
         start_time: startTime,
-        end_time: endTime, // ✅ ALWAYS included (matching NannyServicesDialog)
+        end_time: endTime,
         responsibilities: responsibilities,
         booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
@@ -687,7 +703,7 @@ const MaidServiceDialog: React.FC<MaidServiceDialogProps> = ({
 
       // ✅ Set success dialog details
       setBookingSuccessDetails({
-        providerName: providerFullName,
+        providerName: providerFullName || "Service Provider",
         serviceType: "Maid Service",
         totalAmount: baseTotal,
         bookingDate: bookingType?.startDate || new Date().toISOString().split("T")[0],

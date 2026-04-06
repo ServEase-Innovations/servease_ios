@@ -1,5 +1,5 @@
-// LocationSelector.tsx - Updated with map view in auto detect
-import React, { useState, useEffect, useRef } from "react";
+// LocationSelector.tsx - Full fixed version with proper location propagation
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -44,6 +44,8 @@ interface LocationData {
     };
   };
   address?: any[];
+  lat?: number;
+  lng?: number;
 }
 
 interface LocationSelectorProps {
@@ -165,6 +167,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const fontSizes = getFontSizes();
 
+  // Helper function to validate coordinates
+  const isValidCoordinates = (lat: number | null, lng: number | null): boolean => {
+    return lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
+  };
+
+  // Helper function to create standardized location data
   const createLocationData = (lat: number, lng: number, addr: string): LocationData => {
     return {
       formatted_address: addr,
@@ -184,9 +192,32 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             }
           }
         }
-      ]
+      ],
+      lat: lat,
+      lng: lng
     };
   };
+
+  // CRITICAL: Function to update location in Redux and notify parent
+  const updateLocationInStore = useCallback((lat: number, lng: number, addr: string) => {
+    console.log("📍 Updating location in Redux:", { lat, lng, addr });
+    
+    const locationData = createLocationData(lat, lng, addr);
+    
+    // Update both Redux stores
+    dispatch(add(locationData));
+    locationDispatch(addLocation(locationData));
+    
+    // Store in AsyncStorage or similar for persistence if needed
+    setDataFromMap(locationData);
+    
+    // Notify parent component
+    if (onLocationChange) {
+      onLocationChange(addr, locationData);
+    }
+    
+    return locationData;
+  }, [dispatch, locationDispatch, onLocationChange]);
 
   const searchLocation = async (query: string) => {
     if (!query || query.trim().length < 3) {
@@ -243,9 +274,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setLatitude(latitude);
     setLongitude(longitude);
 
-    const locationData = createLocationData(latitude, longitude, display_name);
-    setDataFromMap(locationData);
-    onLocationChange?.(display_name, locationData);
+    // Update Redux store immediately
+    updateLocationInStore(latitude, longitude, display_name);
   };
 
   const checkLocationPermission = async (): Promise<boolean> => {
@@ -290,7 +320,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
 
     if (hasRequestedPermission) {
-      return checkLocationPermission();
+      getCurrentLocation();
+      return true;
     }
 
     try {
@@ -329,6 +360,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           );
           return false;
         } else {
+          setLoading(false);
+          setShowGPSButton(true);
           return false;
         }
       } else {
@@ -337,88 +370,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       }
     } catch (err) {
       console.warn(err);
+      setLoading(false);
+      setShowGPSButton(true);
       return false;
     }
-  };
-
-  const getCurrentLocation = () => {
-    if (locationWatchId !== null) {
-      Geolocation.clearWatch(locationWatchId);
-    }
-
-    const watchId = Geolocation.watchPosition(
-      async (position) => {
-        if (locationWatchId !== null) {
-          Geolocation.clearWatch(locationWatchId);
-          setLocationWatchId(null);
-        }
-
-        const { latitude, longitude } = position.coords;
-        locationDispatch(addLocation(position.coords));
-        setLatitude(latitude);
-        setLongitude(longitude);
-
-        try {
-          const res = await axios.get(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-            {
-              headers: {
-                "User-Agent": "ReactNativeApp",
-                "Accept-Language": "en",
-              },
-            }
-          );
-
-          if (res.data?.display_name) {
-            const newLocation = res.data.display_name;
-            setLocation(newLocation);
-            setAddress(newLocation);
-            setLocationMethod('auto');
-            
-            const locationData = createLocationData(latitude, longitude, newLocation);
-            setDataFromMap(locationData);
-            onLocationChange?.(newLocation, locationData);
-          }
-        } catch (error) {
-          console.error("Error getting address:", error);
-        } finally {
-          setLoading(false);
-        }
-      },
-      (error) => {
-        console.error("Location error:", error);
-
-        if (locationWatchId !== null) {
-          Geolocation.clearWatch(locationWatchId);
-          setLocationWatchId(null);
-        }
-
-        let errorMessage = t('locationSelector.unableToFetchLocation');
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = t('locationSelector.permissionDeniedMessage');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = t('locationSelector.positionUnavailable');
-            break;
-          case error.TIMEOUT:
-            errorMessage = t('locationSelector.timeoutMessage');
-            break;
-        }
-
-        Alert.alert(t('common.error'), errorMessage);
-        setLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 10000,
-        distanceFilter: 10,
-      }
-    );
-
-    setLocationWatchId(watchId);
   };
 
   const checkLocationAccuracy = async (): Promise<void> => {
@@ -485,6 +440,97 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
+  const getCurrentLocation = useCallback(() => {
+    if (locationWatchId !== null) {
+      Geolocation.clearWatch(locationWatchId);
+    }
+
+    const watchId = Geolocation.watchPosition(
+      async (position) => {
+        if (locationWatchId !== null) {
+          Geolocation.clearWatch(locationWatchId);
+          setLocationWatchId(null);
+        }
+
+        const { latitude, longitude } = position.coords;
+        
+        if (!isValidCoordinates(latitude, longitude)) {
+          console.warn("Invalid coordinates received:", { latitude, longitude });
+          setLoading(false);
+          setShowGPSButton(true);
+          return;
+        }
+        
+        setLatitude(latitude);
+        setLongitude(longitude);
+
+        try {
+          const res = await axios.get(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            {
+              headers: {
+                "User-Agent": "ReactNativeApp",
+                "Accept-Language": "en",
+              },
+            }
+          );
+
+          if (res.data?.display_name) {
+            const newLocation = res.data.display_name;
+            setLocation(newLocation);
+            setAddress(newLocation);
+            setLocationMethod('auto');
+            
+            // CRITICAL: Update Redux store with auto-detected location
+            updateLocationInStore(latitude, longitude, newLocation);
+          }
+        } catch (error) {
+          console.error("Error getting address:", error);
+          // Still update Redux with coordinates even if address lookup fails
+          const fallbackAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          updateLocationInStore(latitude, longitude, fallbackAddress);
+        } finally {
+          setLoading(false);
+          setShowGPSButton(false);
+        }
+      },
+      (error) => {
+        console.error("Location error:", error);
+
+        if (locationWatchId !== null) {
+          Geolocation.clearWatch(locationWatchId);
+          setLocationWatchId(null);
+        }
+
+        let errorMessage = t('locationSelector.unableToFetchLocation');
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = t('locationSelector.permissionDeniedMessage');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = t('locationSelector.positionUnavailable');
+            break;
+          case error.TIMEOUT:
+            errorMessage = t('locationSelector.timeoutMessage');
+            break;
+        }
+
+        Alert.alert(t('common.error'), errorMessage);
+        setLoading(false);
+        setShowGPSButton(true);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 10000,
+        distanceFilter: 10,
+      }
+    );
+
+    setLocationWatchId(watchId);
+  }, [updateLocationInStore]);
+
   const fetchLocation = () => {
     setLoading(true);
     setShowGPSButton(false);
@@ -495,6 +541,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setIsCheckingLocation(true);
     setLoading(true);
     setLocationMethod('auto');
+    setShowGPSButton(false);
 
     try {
       const servicesEnabled = await checkLocationServices();
@@ -552,13 +599,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       const address = await getAddressFromCoords(coordinate.latitude, coordinate.longitude);
       setSelectedPinAddress(address);
       setAddress(address);
-
-      const locationData = createLocationData(coordinate.latitude, coordinate.longitude, address);
-      setDataFromMap(locationData);
-      onLocationChange?.(address, locationData);
+      
+      // CRITICAL: Update Redux store when map is pressed
+      updateLocationInStore(coordinate.latitude, coordinate.longitude, address);
     } catch (error) {
       console.warn("Error getting address for selected pin:", error);
       setSelectedPinAddress(t('locationSelector.addressNotAvailable'));
+      updateLocationInStore(coordinate.latitude, coordinate.longitude, t('locationSelector.addressNotAvailable'));
     }
   };
 
@@ -574,11 +621,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       getAddressFromCoords(latitude, longitude)
         .then((addr) => {
           setAddress(addr);
-          const locationData = createLocationData(latitude, longitude, addr);
-          setDataFromMap(locationData);
-          onLocationChange?.(addr, locationData);
+          // CRITICAL: Update Redux store when using current location
+          updateLocationInStore(latitude, longitude, addr);
         })
         .catch(console.error);
+    } else {
+      fetchLocationWithChecks();
     }
   };
 
@@ -627,25 +675,51 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       
       if (savedLocation?.location) {
         let addressToSet = "";
+        let lat = null;
+        let lng = null;
         let locationData = savedLocation.location;
         
         if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
           addressToSet = locationData.address[0].formatted_address;
+          if (locationData.address[0]?.geometry?.location) {
+            lat = locationData.address[0].geometry.location.lat;
+            lng = locationData.address[0].geometry.location.lng;
+          }
         } else if (locationData.formatted_address) {
           addressToSet = locationData.formatted_address;
+          if (locationData.geometry?.location) {
+            lat = locationData.geometry.location.lat;
+            lng = locationData.geometry.location.lng;
+          }
         } else if (typeof locationData === 'string') {
           addressToSet = locationData;
         }
         
-        if (addressToSet) {
+        if (addressToSet && lat && lng) {
           setLocation(addressToSet);
-          dispatch(add(savedLocation.location));
-          onLocationChange?.(addressToSet, savedLocation.location);
+          setAddress(addressToSet);
+          setLatitude(lat);
+          setLongitude(lng);
           
-          if (savedLocation.location.geometry?.location) {
-            setLatitude(savedLocation.location.geometry.location.lat);
-            setLongitude(savedLocation.location.geometry.location.lng);
-          }
+          // CRITICAL: Update Redux store when saved location is selected
+          updateLocationInStore(lat, lng, addressToSet);
+        } else if (addressToSet) {
+          setLocation(addressToSet);
+          setAddress(addressToSet);
+          // If we have address but no coordinates, try to geocode
+          Geocoder.from(addressToSet)
+            .then(json => {
+              const location = json.results[0].geometry.location;
+              if (location) {
+                setLatitude(location.lat);
+                setLongitude(location.lng);
+                updateLocationInStore(location.lat, location.lng, addressToSet);
+              }
+            })
+            .catch(error => {
+              console.error("Geocoding error:", error);
+              Alert.alert(t('common.error'), t('locationSelector.couldNotRetrieveAddress'));
+            });
         } else {
           Alert.alert(t('common.error'), t('locationSelector.couldNotRetrieveAddress'));
         }
@@ -672,13 +746,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       );
       
       setDataFromMap(locationData);
-      onLocationChange?.(newLocation, locationData);
+      
+      // CRITICAL: Update Redux store when saving location
+      updateLocationInStore(selectedPinLocation.latitude, selectedPinLocation.longitude, selectedPinAddress);
     } else {
       if (address && latitude && longitude) {
         setLocation(address);
         locationData = createLocationData(latitude, longitude, address);
         setDataFromMap(locationData);
-        onLocationChange?.(address, locationData);
+        
+        // CRITICAL: Update Redux store when confirming location
+        updateLocationInStore(latitude, longitude, address);
       }
     }
     
@@ -718,7 +796,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       
     } catch (error: any) {
       console.error("Error saving location:", error);
-      Alert.alert(t('common.error'), t('locationSelector.saveFailed'));
+      Alert.alert(t('common.error'), error.message || t('locationSelector.saveFailed'));
       setIsSaving(false);
     }
   };
@@ -736,13 +814,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       throw new Error(t('locationSelector.enterLocationName'));
     }
 
-    if (!dataFromMap) {
+    if (!dataFromMap && (!latitude || !longitude)) {
       throw new Error(t('locationSelector.selectLocationFirst'));
     }
 
+    const locationToSave = dataFromMap || createLocationData(latitude!, longitude!, address);
+    
     const newLocation = {
       name: locationAs.trim(),
-      location: dataFromMap,
+      location: locationToSave,
     };
 
     let existingLocations: any[] = [];
@@ -811,7 +891,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   useEffect(() => {
-    requestLocationPermission();
+    // Initial location fetch
+    fetchLocationWithChecks();
+    
     return () => {
       if (locationWatchId !== null) {
         Geolocation.clearWatch(locationWatchId);
@@ -1596,7 +1678,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {location || t('locationSelector.searching')}
+          {address || location || t('locationSelector.searching')}
         </Text> 
         <MaterialIcon name="arrow-drop-down" size={18} color={colors.primary} />
       </TouchableOpacity>
