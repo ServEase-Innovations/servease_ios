@@ -348,15 +348,28 @@ const DemoCook = ({
     setSuccessDialogOpen(false);
   };
 
+  // FIXED: Navigate to Bookings and ensure parent dialog closes properly
   const handleNavigateToBookings = () => {
+    console.log("🎯 Navigating to Bookings component...");
+    
+    // Close the success dialog
     setSuccessDialogOpen(false);
     
-    if (sendDataToParent) {
-      sendDataToParent(BOOKINGS);
-    }
-    
-    onClose();
+    // Close the cart dialog if it's open
     setShowCartDialog(false);
+    
+    // Close the main cook dialog
+    onClose();
+    
+    // Use setTimeout to ensure all dialogs are closed before navigation
+    setTimeout(() => {
+      if (sendDataToParent) {
+        console.log("📱 Calling sendDataToParent with BOOKINGS:", BOOKINGS);
+        sendDataToParent(BOOKINGS);
+      } else {
+        console.error("❌ sendDataToParent is undefined!");
+      }
+    }, 100);
   };
 
   // FIX: Helper function to get current date in YYYY-MM-DD format
@@ -481,7 +494,7 @@ const DemoCook = ({
 
       // ✅ Set success dialog details
       setBookingSuccessDetails({
-        providerName: providerFullName,
+        providerName: providerFullName || "Service Provider",
         serviceType: "Home Cook",
         totalAmount: baseTotal,
         bookingDate: startDate,
@@ -489,7 +502,7 @@ const DemoCook = ({
         message: result?.verifyResult?.message || "Booking & Payment Successful ✅"
       });
 
-      // Clear cart and close dialogs
+      // Clear cart
       selectedPackages.forEach(pkg => {
         dispatch(removeFromCart({
           id: pkg.name.toUpperCase(),
@@ -497,9 +510,10 @@ const DemoCook = ({
         }));
       });
 
-      // Close cart dialog and main dialog, then show success dialog
+      // Close cart dialog
       setShowCartDialog(false);
-      onClose();
+      
+      // Show success dialog
       setSuccessDialogOpen(true);
 
     } catch (error: any) {
@@ -755,7 +769,7 @@ const DemoCook = ({
         handleCheckout={handleCheckout}
       />
 
-      {/* Booking Success Dialog */}
+      {/* Booking Success Dialog - Fixed navigation */}
       <BookingSuccessDialog
         visible={successDialogOpen}
         onClose={handleSuccessDialogClose}

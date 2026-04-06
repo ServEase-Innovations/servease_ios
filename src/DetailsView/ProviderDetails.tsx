@@ -23,7 +23,7 @@ import axiosInstance from "../services/axiosInstance";
 import { useAppUser } from "../context/AppUserContext";
 import { ServiceProviderDTO, EnhancedProviderDetails } from "../types/ProviderDetailsType";
 import ProviderAvailabilityDrawer from "./ProviderAvailabilityDrawer";
-import { CONFIRMATION } from "../Constants/pagesConstants";
+import { CONFIRMATION, BOOKINGS } from "../Constants/pagesConstants";
 import { useTheme } from '../Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
 
@@ -406,12 +406,27 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     setOpen(true);
   };
 
-  // Handle booking page
+  // Handle booking page - FIXED to handle both CONFIRMATION and BOOKINGS
   const handleBookingPage = (data: string) => {
+    console.log("📱 handleBookingPage called with:", data);
     setOpen(false);
     
-    if (data === CONFIRMATION && props.sendDataToParent) {
+    // Navigate to the requested page
+    if (props.sendDataToParent) {
+      console.log("🔄 Navigating to:", data);
       props.sendDataToParent(data);
+    }
+  };
+
+  // Handle booking success callback
+  const handleBookingSuccess = () => {
+    console.log("🎉 Booking success callback triggered in ProviderDetails");
+    setOpen(false);
+    
+    // Navigate to Bookings page
+    if (props.sendDataToParent) {
+      console.log("🔄 Navigating to BOOKINGS after successful booking");
+      props.sendDataToParent(BOOKINGS);
     }
   };
 
@@ -467,7 +482,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return props.experience || 1;
   };
 
-  // Render service dialog
+  // Render service dialog - FIXED to pass onBookingSuccess
   const renderServiceDialog = () => {
     const providerId = getProviderId();
     const housekeepingRole = getHousekeepingRole();
@@ -498,10 +513,12 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           <DemoCook 
             visible={open}
             onClose={handleClose}
+            handleClose={handleClose}
             sendDataToParent={handleBookingPage}
             user={user}
             providerDetails={providerDetailsData}
             bookingType={bookingType}
+            onBookingSuccess={handleBookingSuccess}
           />
         );
       case "MAID":
@@ -512,7 +529,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             providerDetails={providerDetailsData}
             sendDataToParent={handleBookingPage}
             user={user}
-            bookingType={bookingType}        
+            bookingType={bookingType}
+            onBookingSuccess={handleBookingSuccess}
           />
         );
       case "NANNY":
@@ -524,6 +542,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             sendDataToParent={handleBookingPage}
             user={user}
             bookingType={bookingType}
+            onBookingSuccess={handleBookingSuccess}
           />
         );
       default:

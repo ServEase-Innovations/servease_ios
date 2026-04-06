@@ -23,6 +23,7 @@ import BookingService from '../services/bookingService';
 import { CartDialog } from '../CartDiaog/CartDialog';
 import LinearGradient from 'react-native-linear-gradient';
 import BookingSuccessDialog from '../common/BookingSuccessDialog';
+import { BOOKINGS } from '../Constants/pagesConstants';
 
 // Type definitions
 type PackageType = 'day' | 'night' | 'fullTime';
@@ -111,6 +112,7 @@ interface NannyServicesDialogProps {
   sendDataToParent?: (data: string) => void;
   user?: any;
   bookingType?: any;
+  onBookingSuccess?: () => void; // Add this prop
 }
 
 const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({ 
@@ -119,7 +121,8 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
   providerDetails,
   sendDataToParent,
   user,
-  bookingType
+  bookingType,
+  onBookingSuccess // Add this prop
 }) => {
   const [activeTab, setActiveTab] = useState<CareType>('baby');
   const [packages, setPackages] = useState<PackagesState>({});
@@ -475,15 +478,30 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
     setSuccessDialogOpen(false);
   };
 
+  // FIXED: Navigate to Bookings with proper callback
   const handleNavigateToBookings = () => {
+    console.log("🎯 Nanny Service: Navigating to Bookings...");
+    
     setSuccessDialogOpen(false);
-    
-    if (sendDataToParent) {
-      sendDataToParent('BOOKINGS');
-    }
-    
-    handleClose();
     setShowCartDialog(false);
+    handleClose();
+    
+    // Use setTimeout to ensure all dialogs are closed before navigation
+    setTimeout(() => {
+      // Priority 1: Use onBookingSuccess callback if provided
+      if (onBookingSuccess) {
+        console.log("✅ Nanny Service: Using onBookingSuccess callback");
+        onBookingSuccess();
+      }
+      // Priority 2: Use sendDataToParent
+      else if (sendDataToParent) {
+        console.log("✅ Nanny Service: Using sendDataToParent with BOOKINGS");
+        sendDataToParent(BOOKINGS);
+      }
+      else {
+        console.error("❌ Nanny Service: No navigation method available!");
+      }
+    }, 150);
   };
 
   const formatTimeForBackend = (timeString: string): string => {
@@ -586,7 +604,6 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
         }
       }
 
-      // ✅ UPDATED: Include end_time in payload with fallback
       const payload = {
         customerid: customerId,
         serviceproviderid: providerDetails?.serviceproviderid
@@ -595,7 +612,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
         start_date: bookingType?.startDate || new Date().toISOString().split('T')[0],
         end_date: bookingType?.endDate || new Date().toISOString().split('T')[0],
         start_time: startTime,
-        end_time: bookingType?.endTime || endTime || "", // ✅ NEW CHANGE - end_time with fallback
+        end_time: bookingType?.endTime || endTime || "",
         responsibilities: { tasks: responsibilities },
         booking_type: currentBookingType,
         taskStatus: "NOT_STARTED",
@@ -612,7 +629,7 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
 
       // ✅ Set success dialog details instead of showing Alert
       setBookingSuccessDetails({
-        providerName: providerFullName,
+        providerName: providerFullName || "Service Provider",
         serviceType: activeTab === 'baby' ? "Baby Care" : "Elderly Care",
         totalAmount: baseTotal,
         bookingDate: bookingType?.startDate || new Date().toISOString().split('T')[0],
@@ -887,22 +904,6 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
             </ScrollView>
             
             <View style={styles.footerContainer}>
-              {/* <View style={styles.voucherContainer}>
-                <TextInput
-                  style={styles.voucherInput}
-                  placeholder="Enter voucher code"
-                  placeholderTextColor="#999"
-                  value={voucherCode}
-                  onChangeText={setVoucherCode}
-                />
-                <TouchableOpacity 
-                  style={styles.voucherButton}
-                  onPress={handleApplyVoucher}
-                >
-                  <Text style={styles.voucherButtonText}>APPLY</Text>
-                </TouchableOpacity>
-              </View> */}
-              
               <View style={styles.totalContainer}>
                 <Text style={styles.footerText}>
                   Total for {getSelectedPackagesCount} service{getSelectedPackagesCount !== 1 ? 's' : ''}

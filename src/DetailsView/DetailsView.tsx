@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import providerInstance from "../services/providerInstance";
-import { CONFIRMATION } from "../Constants/pagesConstants";
+import { CONFIRMATION, BOOKINGS } from "../Constants/pagesConstants";
 import ProviderDetails from "../DetailsView/ProviderDetails";
 import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
@@ -130,10 +130,13 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     toggleDrawer(false);
   };
 
+  // FIXED: Handle selected provider - can navigate to CONFIRMATION or BOOKINGS
   const handleSelectedProvider = useCallback((provider: any) => {
+    console.log("📱 Provider selected in DetailsView:", provider);
     if (selectedProvider) {
       selectedProvider(provider);
     }
+    // Navigate to confirmation by default
     sendDataToParent(CONFIRMATION);
   }, [selectedProvider, sendDataToParent]);
 
@@ -358,13 +361,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     setActiveFilterCount(0);
   };
 
-  const handleProviderSelection = useCallback((provider: any) => {
-    if (selectedProvider) {
-      selectedProvider(provider);
-    }
-    sendDataToParent(CONFIRMATION);
-  }, [selectedProvider, sendDataToParent]);
-
   const renderSkeletonLoader = () => {
     return (
       <View style={styles.skeletonContainer}>
@@ -463,8 +459,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier, paddingTop: 4 * spacingMultiplier }]}>
               <ProviderDetails 
                 {...provider} 
-                selectedProvider={handleProviderSelection}
-                sendDataToParent={sendDataToParent} 
+                selectedProvider={handleSelectedProvider}
+                sendDataToParent={sendDataToParent}
               />
             </View>
           ))}
