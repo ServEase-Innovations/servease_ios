@@ -562,6 +562,9 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const hasLanguages = allLanguages.length > 0;
   const diet = props.diet || "NONVEG";
 
+  // Check if any badge is present
+  const hasBadges = props.bestMatch || props.previouslyBooked;
+
   return (
     <View style={[styles.container, { 
       padding: 12 * spacingMultiplier, 
@@ -577,40 +580,65 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           shadowColor: colors.shadow,
         }
       ]}>
-        {/* Badges Container - Both badges on left side */}
+        {/* Header Section with Badges and Role */}
         <View style={[
-          styles.badgeContainer,
-          isMobile && styles.badgeContainerMobile
+          styles.headerSection,
+          isMobile && styles.headerSectionMobile
         ]}>
-          {/* Best Match Badge */}
-          {props.bestMatch && (
+          {/* Badges Container - Now in header */}
+          {hasBadges && (
             <View style={[
-              styles.bestMatchBadge,
-              isMobile && styles.bestMatchBadgeMobile,
-              { backgroundColor: '#ff9800' }
+              styles.badgeContainer,
+              isMobile && styles.badgeContainerMobile
             ]}>
-              <MaterialCommunityIcons name="fire" size={12} color="#ffffff" />
-              <Text style={[
-                styles.badgeText,
-                isMobile && styles.badgeTextMobile,
-                { fontSize: fontStyles.xSmall }
-              ]}>Best Match</Text>
+              {/* Best Match Badge */}
+              {props.bestMatch && (
+                <View style={[
+                  styles.bestMatchBadge,
+                  isMobile && styles.bestMatchBadgeMobile,
+                  { backgroundColor: '#ff9800' }
+                ]}>
+                  <MaterialCommunityIcons name="fire" size={12} color="#ffffff" />
+                  <Text style={[
+                    styles.badgeText,
+                    isMobile && styles.badgeTextMobile,
+                    { fontSize: fontStyles.xSmall }
+                  ]}>Best Match</Text>
+                </View>
+              )}
+              
+              {/* Previously Booked Badge */}
+              {props.previouslyBooked && (
+                <View style={[
+                  styles.previouslyBookedBadge,
+                  isMobile && styles.previouslyBookedBadgeMobile,
+                  { backgroundColor: '#2196f3' }
+                ]}>
+                  <MaterialCommunityIcons name="history" size={12} color="#ffffff" />
+                  <Text style={[
+                    styles.badgeText,
+                    isMobile && styles.badgeTextMobile,
+                    { fontSize: fontStyles.xSmall }
+                  ]}>Previously Booked</Text>
+                </View>
+              )}
             </View>
           )}
-          
-          {/* Previously Booked Badge */}
-          {props.previouslyBooked && (
+
+          {/* Role Chip - Now in header */}
+          {housekeepingRole && housekeepingRole !== "UNKNOWN" && (
             <View style={[
-              styles.previouslyBookedBadge,
-              isMobile && styles.previouslyBookedBadgeMobile,
-              { backgroundColor: '#2196f3' }
+              styles.headerRoleChip,
+              { 
+                backgroundColor: colors.primary,
+              }
             ]}>
-              <MaterialCommunityIcons name="history" size={12} color="#ffffff" />
               <Text style={[
-                styles.badgeText,
-                isMobile && styles.badgeTextMobile,
-                { fontSize: fontStyles.xSmall }
-              ]}>Previously Booked</Text>
+                styles.headerRoleChipText,
+                { color: '#ffffff', fontSize: fontStyles.smallText, fontWeight: '700' }
+              ]}>
+                {housekeepingRole}
+              </Text>
             </View>
           )}
         </View>
@@ -895,28 +923,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             isMobile && styles.rightSectionMobile,
             { gap: 8, marginTop: isMobile ? 12 : 0 }
           ]}>
-            {/* Role Chip */}
-            {housekeepingRole && housekeepingRole !== "UNKNOWN" && (
-              <View style={[
-                styles.roleChip,
-                { 
-                  backgroundColor: colors.primary,
-                  borderRadius: 20,
-                  paddingHorizontal: 16,
-                  paddingVertical: 6,
-                  alignSelf: isMobile ? 'flex-start' : 'center',
-                  marginBottom: isMobile ? 0 : 8
-                }
-              ]}>
-                <Text style={[
-                  styles.roleChipText,
-                  { color: '#ffffff', fontSize: fontStyles.smallText, fontWeight: '700' }
-                ]}>
-                  {housekeepingRole}
-                </Text>
-              </View>
-            )}
-
             {/* View Details Button */}
             <TouchableOpacity 
               style={[
@@ -999,7 +1005,6 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginBottom: 12,
     borderWidth: 1,
-    position: 'relative',
   },
   cardMobile: {
     borderRadius: 12,
@@ -1010,18 +1015,25 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
   },
+  // New Header Section
+  headerSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  headerSectionMobile: {
+    marginBottom: 12,
+  },
   badgeContainer: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    zIndex: 10,
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
+    flex: 1,
   },
   badgeContainerMobile: {
-    top: 8,
-    left: 8,
     gap: 6,
   },
   bestMatchBadge: {
@@ -1061,6 +1073,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   badgeTextMobile: {},
+  headerRoleChip: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  headerRoleChipText: {},
   mainContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1165,8 +1183,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
-  roleChip: {},
-  roleChipText: {},
   detailsButton: {},
   detailsButtonText: {},
   bookNowButton: {},

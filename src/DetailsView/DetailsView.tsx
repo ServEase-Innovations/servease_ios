@@ -64,6 +64,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [previousLocationKey, setPreviousLocationKey] = useState<string>("");
+  const [isLocationValid, setIsLocationValid] = useState(false);
   
   const getFontSizeStyles = () => {
     switch (fontSize) {
@@ -92,26 +93,63 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
   };
 
+  // Helper function to check if location is valid
+  const isValidLocation = useCallback((loc: any): boolean => {
+    if (!loc) return false;
+    
+    let lat = null;
+    let lng = null;
+    
+    if (loc?.geometry?.location) {
+      lat = loc.geometry.location.lat;
+      lng = loc.geometry.location.lng;
+    } else if (loc?.lat && loc?.lng) {
+      lat = loc.lat;
+      lng = loc.lng;
+    } else if (typeof loc === 'string') {
+      return false;
+    }
+    
+    // Check if coordinates are valid (non-zero)
+    return lat !== null && lng !== null && lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng);
+  }, []);
+
   const getLocationKey = useCallback(() => {
-    if (!location) return "";
-    const lat = location?.geometry?.location?.lat || location?.lat;
-    const lng = location?.geometry?.location?.lng || location?.lng;
-    return `${lat}-${lng}`;
-  }, [location]);
+    if (!location || !isValidLocation(location)) return "";
+    
+    let lat = null;
+    let lng = null;
+    
+    if (location?.geometry?.location) {
+      lat = location.geometry.location.lat;
+      lng = location.geometry.location.lng;
+    } else if (location?.lat && location?.lng) {
+      lat = location.lat;
+      lng = location.lng;
+    }
+    
+    if (lat && lng) {
+      return `${lat.toFixed(4)}-${lng.toFixed(4)}`;
+    }
+    return "";
+  }, [location, isValidLocation]);
 
   useEffect(() => {
     const currentLocationKey = getLocationKey();
+    const locationValid = isValidLocation(location);
     
-    if (location && currentLocationKey !== previousLocationKey) {
+    setIsLocationValid(locationValid);
+    
+    if (locationValid && currentLocationKey !== previousLocationKey) {
       setPreviousLocationKey(currentLocationKey);
       setHasPerformedSearch(false);
       setIsInitialLoad(true);
     }
     
-    if (bookingType && location && !hasPerformedSearch) {
+    if (bookingType && locationValid && !hasPerformedSearch) {
       performSearch();
     }
-  }, [selectedProviderType, location, bookingType, hasPerformedSearch, getLocationKey]);
+  }, [selectedProviderType, location, bookingType, hasPerformedSearch, getLocationKey, isValidLocation]);
 
   useEffect(() => {
     setSelectedProviderType(selected || '');
@@ -130,13 +168,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     toggleDrawer(false);
   };
 
-  // FIXED: Handle selected provider - can navigate to CONFIRMATION or BOOKINGS
   const handleSelectedProvider = useCallback((provider: any) => {
     console.log("📱 Provider selected in DetailsView:", provider);
     if (selectedProvider) {
       selectedProvider(provider);
     }
-    // Navigate to confirmation by default
     sendDataToParent(CONFIRMATION);
   }, [selectedProvider, sendDataToParent]);
 
@@ -183,16 +219,32 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       let latitude = 0;
       let longitude = 0;
 
+      // Extract coordinates from location object
       if (location?.geometry?.location) {
-        latitude = location?.geometry?.location?.lat;
-        longitude = location?.geometry?.location?.lng;
+        latitude = location.geometry.location.lat;
+        longitude = location.geometry.location.lng;
       } else if (location?.lat && location?.lng) {
-        latitude = location?.lat;
-        longitude = location?.lng;
+        latitude = location.lat;
+        longitude = location.lng;
       }
 
-      const startDate = formatDateOnly(bookingType?.startDate) || '2025-04-01';
-      const endDate = formatDateOnly(bookingType?.endDate) || '2025-04-30';
+      // Validate coordinates
+      if (latitude === 0 || longitude === 0 || isNaN(latitude) || isNaN(longitude)) {
+        console.warn("Invalid coordinates detected:", { latitude, longitude });
+        Alert.alert(
+          t('common.locationRequired'),
+          t('common.locationDenied'),
+          [{ text: t('common.ok') }]
+        );
+        setServiceProviderData([]);
+        setFilteredProviders([]);
+        setLoading(false);
+        setIsInitialLoad(false);
+        return;
+      }
+
+      const startDate = formatDateOnly(bookingType?.startDate) || dayjs().format('YYYY-MM-DD');
+      const endDate = formatDateOnly(bookingType?.endDate) || dayjs().add(30, 'days').format('YYYY-MM-DD');
       
       let preferredStartTime = "08:00";
       
@@ -205,18 +257,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       
       preferredStartTime = preferredStartTime.trim();
       const housekeepingRole = bookingType?.housekeepingRole || 'COOK';
-
-      if (latitude === 0 && longitude === 0) {
-        Alert.alert(
-          t('common.locationRequired'),
-          t('common.locationDenied'),
-          [{ text: t('common.ok') }]
-        );
-        setServiceProviderData([]);
-        setFilteredProviders([]);
-        setLoading(false);
-        return;
-      }
 
       try {
         const payload: any = {
@@ -233,6 +273,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         if (appUser?.role === "CUSTOMER" && customerId && customerId !== 0 && customerId !== null && customerId !== undefined) {
           payload.customerID = Number(customerId);
         }
+        
+        console.log("🔍 Searching with payload:", payload);
         
         const response = await providerInstance.post('/api/service-providers/nearby-monthly', payload);
 
@@ -255,12 +297,18 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           setFilteredProviders([]);
         }
       } catch (apiError: any) {
+        console.error("API Error:", apiError);
         const errorMessage = apiError.response?.data?.message || t('errors.generic');
-        Alert.alert(t('common.error'), errorMessage);
+        if (errorMessage.includes("location") || errorMessage.includes("coordinates")) {
+          Alert.alert(t('common.locationError'), t('locationSelector.invalidLocationMessage'));
+        } else {
+          Alert.alert(t('common.error'), errorMessage);
+        }
         setServiceProviderData([]);
         setFilteredProviders([]);
       }
     } catch (error: any) {
+      console.error("Search error:", error);
       Alert.alert(t('common.error'), t('errors.generic'));
       setServiceProviderData([]);
       setFilteredProviders([]);
@@ -504,7 +552,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       return (
         <View style={[styles.centerContainer, { minHeight: 400 }]}>
           <Text style={[styles.initialStateText, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
-            {t('details.initialState')}
+            {!isLocationValid ? t('locationSelector.selectLocationFirst') : t('details.initialState')}
           </Text>
         </View>
       );
