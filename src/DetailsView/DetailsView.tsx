@@ -1,20 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable */
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  Image,
   Platform,
   ActivityIndicator,
   SafeAreaView,
   Alert,
-  Dimensions,
   RefreshControl,
+  FlatList,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import providerInstance from "../services/providerInstance";
@@ -49,21 +47,23 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   
   const customerId = appUser?.role === "CUSTOMER" ? appUser?.customerid : null;
   
-  const [serviceProvidersData, setServiceProvidersData] = useState<any[]>([]);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedProviderType, setSelectedProviderType] = useState("");
-  const [searchData, setSearchData] = useState<any>();
-  const [serviceProviderData, setServiceProviderData] = useState<ServiceProviderDTO[]>([]);
-  const [filteredProviders, setFilteredProviders] = useState<ServiceProviderDTO[]>([]);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [hasPerformedSearch, setHasPerformedSearch] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterCriteria | null>(null);
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [previousLocationKey, setPreviousLocationKey] = useState<string>("");
+  
+  // Infinite scroll state
+  const [loading, setLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [allProviders, setAllProviders] = useState<ServiceProviderDTO[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const flatListRef = useRef<FlatList>(null);
   
   const getFontSizeStyles = () => {
     switch (fontSize) {
@@ -83,14 +83,15 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const bookingType = getBookingType();
   
   const dispatch = useDispatch();
-
   const location = useSelector((state: any) => state?.geoLocation?.value);
 
-  const handleCheckoutData = (data: any) => {
-    if (checkoutItem) {
-      checkoutItem(data);
+  // ✅ Compute filteredProviders synchronously (no flicker) - same as React version
+  const filteredProviders = useMemo(() => {
+    if (activeFilters && allProviders.length > 0) {
+      return applyFilters(allProviders, activeFilters);
     }
-  };
+    return allProviders;
+  }, [allProviders, activeFilters]);
 
   const getLocationKey = useCallback(() => {
     if (!location) return "";
@@ -104,30 +105,33 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     if (location && currentLocationKey !== previousLocationKey) {
       setPreviousLocationKey(currentLocationKey);
-      setHasPerformedSearch(false);
-      setIsInitialLoad(true);
+      // Reset everything when location changes
+      resetAndSearch();
     }
-    
-    if (bookingType && location && !hasPerformedSearch) {
-      performSearch();
+  }, [location, getLocationKey]);
+
+  useEffect(() => {
+    if (bookingType && location) {
+      resetAndSearch();
     }
-  }, [selectedProviderType, location, bookingType, hasPerformedSearch, getLocationKey]);
+  }, [selectedProviderType, location, bookingType]);
 
   useEffect(() => {
     setSelectedProviderType(selected || '');
   }, [selected]);
 
+  const resetAndSearch = () => {
+    setCurrentPage(1);
+    setHasMore(true);
+    setAllProviders([]);
+    setHasFetchedOnce(false);
+    setActiveFilters(null);
+    setActiveFilterCount(0);
+    performSearch(true);
+  };
+
   const handleBackClick = () => {
     sendDataToParent("");
-  };
-
-  const toggleDrawer = (open: boolean) => {
-    setDrawerOpen(open);
-  };
-
-  const handleSearchResults = (data: any[]) => {
-    setSearchResults(data);
-    toggleDrawer(false);
   };
 
   const handleSelectedProvider = useCallback((provider: any) => {
@@ -136,10 +140,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
     sendDataToParent(CONFIRMATION);
   }, [selectedProvider, sendDataToParent]);
-
-  const handleSearch = (formData: { serviceType: string; startTime: string; endTime: string }) => {
-    setSearchData(formData);
-  };
 
   const formatDateOnly = (dateString?: string) => {
     if (!dateString) return "";
@@ -168,24 +168,86 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return "08:00";
   };
 
-  const logProviderDetails = (providers: any[], source: string) => {
-    // Keep for debugging but can be removed in production
+  const calculateDurationInMinutes = (startTime?: string, endTime?: string): number => {
+    if (!startTime || !endTime) return 60;
+
+    try {
+      const startTimeStr = startTime.trim();
+      const endTimeStr = endTime.trim();
+
+      const today = new Date();
+      const startDateTime = new Date(today);
+      const endDateTime = new Date(today);
+
+      const startParts = startTimeStr.match(/(\d+):(\d+)(?:\s*(AM|PM))?/i);
+      const endParts = endTimeStr.match(/(\d+):(\d+)(?:\s*(AM|PM))?/i);
+
+      if (startParts && endParts) {
+        let startHour = parseInt(startParts[1]);
+        let startMinute = parseInt(startParts[2]);
+        let endHour = parseInt(endParts[1]);
+        let endMinute = parseInt(endParts[2]);
+
+        if (startParts[3]) {
+          const startPeriod = startParts[3].toUpperCase();
+          if (startPeriod === 'PM' && startHour !== 12) startHour += 12;
+          if (startPeriod === 'AM' && startHour === 12) startHour = 0;
+        }
+
+        if (endParts[3]) {
+          const endPeriod = endParts[3].toUpperCase();
+          if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+          if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+        }
+
+        startDateTime.setHours(startHour, startMinute, 0, 0);
+        endDateTime.setHours(endHour, endMinute, 0, 0);
+
+        const diffInMilliseconds = endDateTime.getTime() - startDateTime.getTime();
+        const diffInMinutes = Math.round(diffInMilliseconds / (1000 * 60));
+
+        if (diffInMinutes < 0) {
+          return diffInMinutes + (24 * 60);
+        }
+        return diffInMinutes > 0 ? diffInMinutes : 60;
+      }
+    } catch (error) {
+      console.error("Error calculating duration:", error);
+    }
+    return 60;
   };
 
-  const performSearch = async () => {
+  // Core fetch function with pagination - same as React version
+  const fetchProviders = async (page: number, reset: boolean = false) => {
     try {
-      setLoading(true);
-      setHasPerformedSearch(true);
+      if (reset) {
+        setLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
 
       let latitude = 0;
       let longitude = 0;
 
       if (location?.geometry?.location) {
-        latitude = location?.geometry?.location?.lat;
-        longitude = location?.geometry?.location?.lng;
+        latitude = location.geometry.location.lat;
+        longitude = location.geometry.location.lng;
       } else if (location?.lat && location?.lng) {
-        latitude = location?.lat;
-        longitude = location?.lng;
+        latitude = location.lat;
+        longitude = location.lng;
+      }
+
+      if (latitude === 0 && longitude === 0) {
+        Alert.alert(
+          t('common.locationRequired'),
+          t('common.locationDenied'),
+          [{ text: t('common.ok') }]
+        );
+        setAllProviders([]);
+        setHasFetchedOnce(true);
+        setLoading(false);
+        setIsLoadingMore(false);
+        return;
       }
 
       const startDate = formatDateOnly(bookingType?.startDate) || '2025-04-01';
@@ -200,71 +262,87 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         preferredStartTime = formatTimeToHHMM(bookingType.startTime);
       }
       
-      preferredStartTime = preferredStartTime.trim();
       const housekeepingRole = bookingType?.housekeepingRole || 'COOK';
+      const serviceDurationMinutes = calculateDurationInMinutes(
+        bookingType?.startTime,
+        bookingType?.endTime
+      );
 
-      if (latitude === 0 && longitude === 0) {
-        Alert.alert(
-          t('common.locationRequired'),
-          t('common.locationDenied'),
-          [{ text: t('common.ok') }]
-        );
-        setServiceProviderData([]);
-        setFilteredProviders([]);
-        setLoading(false);
-        return;
+      const payload: any = {
+        lat: latitude.toString(),
+        lng: longitude.toString(),
+        radius: 10,
+        startDate: startDate,
+        endDate: endDate,
+        preferredStartTime: preferredStartTime,
+        role: housekeepingRole,
+        serviceDurationMinutes: serviceDurationMinutes
+      };
+
+      if (appUser?.role === "CUSTOMER" && customerId && customerId !== 0 && customerId !== null && customerId !== undefined) {
+        payload.customerID = Number(customerId);
+      }
+      
+      console.log(`Fetching page ${page} with payload:`, payload);
+
+      // ✅ IMPORTANT: Send page and limit as QUERY PARAMETERS
+      const response = await providerInstance.post(
+        `/api/service-providers/nearby-monthly?page=${page}&limit=10`,
+        payload
+      );
+
+      // Small delay to make skeleton visible and avoid flicker
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const newProviders = response.data.providers || [];
+      const total = response.data.count || 0;
+      setTotalCount(total);
+
+      if (reset) {
+        setAllProviders(newProviders);
+        setHasFetchedOnce(true);
+      } else {
+        setAllProviders(prev => [...prev, ...newProviders]);
       }
 
-      try {
-        const payload: any = {
-          lat: latitude.toString(),
-          lng: longitude.toString(),
-          radius: 10,
-          startDate: startDate,
-          endDate: endDate,
-          preferredStartTime: preferredStartTime,
-          role: housekeepingRole,
-          serviceDurationMinutes: 60
-        };
+      const loadedCount = reset ? newProviders.length : allProviders.length + newProviders.length;
+      setHasMore(loadedCount < total);
+      setCurrentPage(page);
 
-        if (appUser?.role === "CUSTOMER" && customerId && customerId !== 0 && customerId !== null && customerId !== undefined) {
-          payload.customerID = Number(customerId);
-        }
-        
-        const response = await providerInstance.post('/api/service-providers/nearby-monthly', payload);
-
-        setTotalCount(response.data.count || 0);
-
-        if (response.data && response.data.providers) {
-          const providers = response.data.providers;
-          if (Array.isArray(providers) && providers.length > 0) {
-            setServiceProviderData(providers);
-            setFilteredProviders(providers);
-          } else {
-            setServiceProviderData([]);
-            setFilteredProviders([]);
-          }
-        } else if (response.data && Array.isArray(response.data)) {
-          setServiceProviderData(response.data);
-          setFilteredProviders(response.data);
-        } else {
-          setServiceProviderData([]);
-          setFilteredProviders([]);
-        }
-      } catch (apiError: any) {
-        const errorMessage = apiError.response?.data?.message || t('errors.generic');
-        Alert.alert(t('common.error'), errorMessage);
-        setServiceProviderData([]);
-        setFilteredProviders([]);
-      }
     } catch (error: any) {
-      Alert.alert(t('common.error'), t('errors.generic'));
-      setServiceProviderData([]);
-      setFilteredProviders([]);
+      console.error("API error:", error.message || error);
+      Alert.alert(t('common.error'), error.response?.data?.message || t('errors.generic'));
+      if (reset) {
+        setAllProviders([]);
+        setTotalCount(0);
+        setHasFetchedOnce(true);
+      }
+      setHasMore(false);
     } finally {
       setLoading(false);
-      setIsInitialLoad(false);
+      setIsLoadingMore(false);
+      setIsRefreshing(false);
     }
+  };
+
+  const performSearch = async (reset: boolean = true) => {
+    if (reset) {
+      setCurrentPage(1);
+      setHasMore(true);
+      setAllProviders([]);
+      setHasFetchedOnce(false);
+    }
+    await fetchProviders(reset ? 1 : currentPage + 1, reset);
+  };
+
+  const fetchMoreData = () => {
+    if (isLoadingMore || !hasMore || loading) return;
+    fetchProviders(currentPage + 1, false);
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    performSearch(true);
   };
 
   const normalizeLanguages = (languages: string | string[] | null | undefined): string[] => {
@@ -337,33 +415,128 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     if (filters.availability.length > 0) count++;
     
     setActiveFilterCount(count);
-    
-    const filtered = applyFilters(serviceProviderData, filters);
-    setFilteredProviders(filtered);
     setFilterOpen(false);
   };
 
-  useEffect(() => {
-    if (activeFilters) {
-      const filtered = applyFilters(serviceProviderData, activeFilters);
-      setFilteredProviders(filtered);
-    } else {
-      setFilteredProviders(serviceProviderData);
-    }
-  }, [serviceProviderData, activeFilters]);
-
   const handleClearFilters = () => {
     setActiveFilters(null);
-    setFilteredProviders(serviceProviderData);
     setActiveFilterCount(0);
   };
 
-  const handleProviderSelection = useCallback((provider: any) => {
-    if (selectedProvider) {
-      selectedProvider(provider);
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    
+    return (
+      <View style={[styles.footerLoader, { paddingVertical: 20 }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingMoreText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+          Loading more providers...
+        </Text>
+      </View>
+    );
+  };
+
+  const renderHeader = () => {
+    if (filteredProviders.length === 0 && !loading) return null;
+    
+    return (
+      <>
+        <View style={[styles.headerContainer, { paddingHorizontal: 16 * spacingMultiplier }]}>
+          <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
+            <Icon name="arrow-back" size={24} color={colors.text} />
+            <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+              {t('common.back')}
+            </Text>
+          </TouchableOpacity>
+          
+          <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
+            <TouchableOpacity
+              style={[styles.filterButton, { 
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                paddingHorizontal: 12 * spacingMultiplier,
+                paddingVertical: 8 * spacingMultiplier,
+              }]}
+              onPress={() => setFilterOpen(true)}
+            >
+              <Icon name="filter-list" size={24} color={colors.text} />
+              <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
+                Filter
+              </Text>
+              {activeFilterCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+                  <Text style={[styles.badgeText, { fontSize: fontStyles.smallText - 2 }]}>{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            {activeFilterCount > 0 && (
+              <TouchableOpacity
+                style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
+                onPress={handleClearFilters}
+              >
+                <Text style={[styles.clearButtonText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
+                  Clear all
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <Text style={[styles.resultsCount, { 
+          color: colors.textSecondary, 
+          fontSize: fontStyles.smallText,
+          backgroundColor: colors.surface,
+          marginHorizontal: 16 * spacingMultiplier,
+          paddingHorizontal: 16 * spacingMultiplier,
+          paddingVertical: 8 * spacingMultiplier,
+        }]}>
+          {activeFilters 
+            ? `Found ${filteredProviders.length} provider${filteredProviders.length !== 1 ? 's' : ''} matching your filters`
+            : `${totalCount} service provider${totalCount !== 1 ? 's' : ''} found near your location`
+          }
+        </Text>
+      </>
+    );
+  };
+
+  const renderEmptyComponent = () => {
+    if (loading && !hasFetchedOnce) {
+      return renderSkeletonLoader();
+    } else if (hasFetchedOnce && filteredProviders.length === 0 && !loading) {
+      return (
+        <View style={[styles.centerContainer, { minHeight: 400 }]}>
+          <Text style={[styles.title, { color: colors.text, fontSize: fontStyles.headingSize }]}>
+            {activeFilters ? 'No Providers Match Your Filters' : 'Service Not Available in Your Area'}
+          </Text>
+          <Text style={[styles.message, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
+            {activeFilters 
+              ? 'Try adjusting your filters to see more providers.'
+              : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
+          </Text>
+          
+          <View style={{ gap: 12 * spacingMultiplier }}>
+            {activeFilters && (
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: colors.primary, width: 200 }]}
+                onPress={handleClearFilters}
+              >
+                <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.secondary, width: 200 }]}
+              onPress={() => sendDataToParent("")}
+            >
+              <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
     }
-    sendDataToParent(CONFIRMATION);
-  }, [selectedProvider, sendDataToParent]);
+    return null;
+  };
 
   const renderSkeletonLoader = () => {
     return (
@@ -397,144 +570,48 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     );
   };
 
-  const renderContent = () => {
-    if (loading && isInitialLoad) {
-      return renderSkeletonLoader();
-    } else if (Array.isArray(filteredProviders) && filteredProviders.length > 0) {
-      return (
-        <>
-          <View style={[styles.headerContainer, { paddingHorizontal: 16 * spacingMultiplier }]}>
-            <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
-              <Icon name="arrow-back" size={24} color={colors.text} />
-              <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                {t('common.back')}
-              </Text>
-            </TouchableOpacity>
-            
-            <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
-              <TouchableOpacity
-                style={[styles.filterButton, { 
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  paddingHorizontal: 12 * spacingMultiplier,
-                  paddingVertical: 8 * spacingMultiplier,
-                }]}
-                onPress={() => setFilterOpen(true)}
-              >
-                <Icon name="filter-list" size={24} color={colors.text} />
-                <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
-                  {t('details.filter.title')}
-                </Text>
-                {activeFilterCount > 0 && (
-                  <View style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
-                    <Text style={[styles.badgeText, { fontSize: fontStyles.smallText - 2 }]}>{activeFilterCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              
-              {activeFilterCount > 0 && (
-                <TouchableOpacity
-                  style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
-                  onPress={handleClearFilters}
-                >
-                  <Text style={[styles.clearButtonText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
-                    {t('details.filter.clearAll')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          <Text style={[styles.resultsCount, { 
-            color: colors.textSecondary, 
-            fontSize: fontStyles.smallText,
-            backgroundColor: colors.surface,
-            marginHorizontal: 16 * spacingMultiplier,
-            paddingHorizontal: 16 * spacingMultiplier,
-            paddingVertical: 8 * spacingMultiplier,
-          }]}>
-            {activeFilters 
-              ? t('details.filter.foundWithFilters', { count: filteredProviders.length }) + (filteredProviders.length !== 1 ? 's' : '')
-              : t('details.found', { count: totalCount }) + (totalCount !== 1 ? 's' : '')
-            }
-          </Text>
-          
-          {filteredProviders.map((provider, index) => (
-            <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier, paddingTop: 4 * spacingMultiplier }]}>
-              <ProviderDetails 
-                {...provider} 
-                selectedProvider={handleProviderSelection}
-                sendDataToParent={sendDataToParent} 
-              />
-            </View>
-          ))}
-        </>
-      );
-    } else if (!loading && hasPerformedSearch) {
-      return (
-        <View style={[styles.centerContainer, { minHeight: 400 }]}>
-          <Text style={[styles.title, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-            {activeFilters ? t('details.noFilters') : t('details.noProviders')}
-          </Text>
-          <Text style={[styles.message, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
-            {activeFilters ? t('details.noFiltersMsg') : t('details.noProvidersMsg')}
-          </Text>
-          
-          {activeFilters && (
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, marginBottom: 12 * spacingMultiplier }]}
-              onPress={handleClearFilters}
-            >
-              <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>{t('details.clearFilters')}</Text>
-            </TouchableOpacity>
-          )}
-          
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: activeFilters ? colors.disabled : colors.primary }]}
-            onPress={() => sendDataToParent("")}
-          >
-            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>{t('details.goBack')}</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.secondary, marginTop: 12 * spacingMultiplier }]}
-            onPress={performSearch}
-          >
-            <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>{t('details.tryAgain')}</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    } else {
-      return (
-        <View style={[styles.centerContainer, { minHeight: 400 }]}>
-          <Text style={[styles.initialStateText, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
-            {t('details.initialState')}
-          </Text>
-        </View>
-      );
-    }
-  };
+  const renderProviderItem = ({ item, index }: { item: ServiceProviderDTO; index: number }) => (
+    <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier, paddingTop: 4 * spacingMultiplier }]}>
+      <ProviderDetails 
+        {...item} 
+        selectedProvider={handleSelectedProvider}
+        sendDataToParent={sendDataToParent} 
+      />
+    </View>
+  );
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <ScrollView 
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={[
-          styles.contentContainer,
-          filteredProviders.length === 0 && !loading && { justifyContent: 'center', flexGrow: 1 }
-        ]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading && !isInitialLoad}
-            onRefresh={performSearch}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {renderContent()}
-      </ScrollView>
+      {loading && !hasFetchedOnce ? (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          {renderSkeletonLoader()}
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={filteredProviders}
+          renderItem={renderProviderItem}
+          keyExtractor={(item, index) => `provider-${item.id || index}`}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.contentContainer,
+            filteredProviders.length === 0 && { flexGrow: 1 }
+          ]}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyComponent}
+          ListFooterComponent={renderFooter}
+          onEndReached={fetchMoreData}
+          onEndReachedThreshold={0.3}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      )}
 
       <ProviderFilter
         open={filterOpen}
@@ -627,7 +704,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
-    width: 200,
   },
   buttonText: {
     fontWeight: '500',
@@ -674,6 +750,14 @@ const styles = StyleSheet.create({
   skeletonCardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  footerLoader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  loadingMoreText: {
     marginTop: 8,
   },
 });
