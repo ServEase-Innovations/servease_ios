@@ -665,7 +665,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
