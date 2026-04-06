@@ -144,19 +144,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     }
   }, [open]);
 
-  /* ---------------- FAQ CLICK ---------------- */
-  const handleQuestionClick = (faq: any, index: number) => {
-    // Toggle accordion expansion
+  /* ---------------- FAQ CLICK - Modified to only toggle accordion ---------------- */
+  const handleQuestionClick = (index: number) => {
+    // Just toggle the accordion expansion without adding to chat
     setExpandedFaq(expandedFaq === index ? null : index);
-    
-    // Add question and answer to chat
-    setMessages((prev) => [
-      ...prev,
-      { content: faq.question, sender: "user" },
-      { content: faq.answer, sender: "bot" }
-    ]);
-    setShowViewAllBtn(true);
-    setShowAccordion(false);
   };
 
   /* ---------------- BACK BUTTON HANDLER ---------------- */
@@ -350,7 +341,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                     <View key={index} style={styles.accordionItem}>
                       <TouchableOpacity
                         style={styles.accordionHeader}
-                        onPress={() => handleQuestionClick(faq, index)}
+                        onPress={() => handleQuestionClick(index)}
                       >
                         <Text style={styles.accordionQuestion}>{faq.question}</Text>
                         <Icon 

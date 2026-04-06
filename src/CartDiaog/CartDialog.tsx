@@ -71,6 +71,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponDialogOpen, setCouponDialogOpen] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const [termsAccepted, setTermsAccepted] = useState({
     keyFacts: false,
@@ -220,18 +221,23 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     }
   };
 
-  const handleCheckoutClick = () => {
-    if (handleCheckout) {
-      handleCheckout();
-      return;
-    }
+  const handleCheckoutClick = async () => {
+    setIsProcessing(true);
     
-    if (mealCartItems.length > 0 && handleCookCheckout) {
-      handleCookCheckout();
-    } else if (maidCartItems.length > 0 && handleMaidCheckout) {
-      handleMaidCheckout();
-    } else if (nannyCartItems.length > 0 && handleNannyCheckout) {
-      handleNannyCheckout();
+    try {
+      if (handleCheckout) {
+        await handleCheckout();
+      } else if (mealCartItems.length > 0 && handleCookCheckout) {
+        await handleCookCheckout();
+      } else if (maidCartItems.length > 0 && handleMaidCheckout) {
+        await handleMaidCheckout();
+      } else if (nannyCartItems.length > 0 && handleNannyCheckout) {
+        await handleNannyCheckout();
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -243,7 +249,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     return true;
   };
 
-  const isCheckoutEnabled = allCartItems.length > 0 && allTermsAccepted && isCheckoutAvailable();
+  const isCheckoutEnabled = allCartItems.length > 0 && allTermsAccepted && isCheckoutAvailable() && !isProcessing;
 
   return (
     <>
@@ -498,13 +504,17 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     onPress={handleCheckoutClick}
                     disabled={!isCheckoutEnabled}
                   >
-                    <Text style={[
-                      styles.checkoutButtonText,
-                      { color: '#fff', fontSize: fontSizes.button },
-                      !isCheckoutEnabled && { color: colors.textTertiary }
-                    ]}>
-                      {t('cart.proceedToPay')} ₹{grandTotal.toFixed(2)}
-                    </Text>
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={[
+                        styles.checkoutButtonText,
+                        { color: '#fff', fontSize: fontSizes.button },
+                        !isCheckoutEnabled && { color: colors.textTertiary }
+                      ]}>
+                        {t('cart.proceedToPay')} ₹{grandTotal.toFixed(2)}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
