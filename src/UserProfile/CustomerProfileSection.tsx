@@ -1,5 +1,5 @@
 // CustomerProfileSection.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,16 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store/userStore';
 import { setHasMobileNumber } from '../features/customerSlice';
 import { useAuth0 } from 'react-native-auth0';
 import { useAppUser } from '../context/AppUserContext';
-import { useTranslation } from 'react-i18next';
+// Remove: import { useTranslation } from 'react-i18next';
 import Icon from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -28,6 +31,11 @@ import axiosInstance from '../services/axiosInstance';
 import providerInstance from '../services/providerInstance';
 import utilsInstance from '../services/utilsInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width } = Dimensions.get('window');
 
@@ -82,11 +90,15 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   isExternalEdit,
   setExternalEdit,
 }) => {
-  const { t } = useTranslation();
+  // Remove: const { t } = useTranslation();
   const dispatch = useDispatch();
   const { user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
   const { colors, fontSize, isDarkMode } = useTheme();
+  
+  // Add refs for scroll handling
+  const scrollViewRef = useRef<ScrollView>(null);
+  const activeInputRef = useRef<View | null>(null);
 
   // Redux state
   const { customerId, hasMobileNumber: reduxHasMobileNumber } = useSelector(
@@ -121,6 +133,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   const [altCountryCode, setAltCountryCode] = useState('+91');
   const [showCountryCodePicker, setShowCountryCodePicker] = useState(false);
   const [showAltCountryCodePicker, setShowAltCountryCodePicker] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   // Validation states
   const [contactValidation, setContactValidation] = useState<ValidationState>({
@@ -143,6 +156,38 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
   // Derive hasMobileNumber from actual userData
   const hasMobileNumber = !!userData.contactNumber;
+
+  // Keyboard listeners to prevent layout shift
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardVisible(true);
+        // Disable LayoutAnimation during keyboard show to prevent glitch
+        LayoutAnimation.configureNext({
+          duration: 0,
+          update: { type: 'linear', property: 'opacity' },
+        });
+      }
+    );
+    
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+        // Disable LayoutAnimation during keyboard hide
+        LayoutAnimation.configureNext({
+          duration: 0,
+          update: { type: 'linear', property: 'opacity' },
+        });
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
 
   // Sync external edit state
   useEffect(() => {
@@ -265,7 +310,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             if (!uniqueAddresses.has(locationKey)) {
               uniqueAddresses.set(locationKey, {
                 id: loc._id || `addr_${idx}`,
-                type: loc.name || t('profile.page.other'),
+                type: loc.name || 'Other',
                 street: primaryAddress.formatted_address,
                 city: getComponent('locality') || '',
                 country: getComponent('country') || '',
@@ -347,8 +392,8 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         isAvailable = !response.data.exists;
         errorMessage = response.data.exists
           ? isAlternate
-            ? t('errors.alternateNumberUnavailable')
-            : t('errors.contactNumberUnavailable')
+            ? 'Alternate number is already registered'
+            : 'Contact number is already registered'
           : '';
       }
 
@@ -367,7 +412,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     } catch (error) {
       setValidation({
         loading: false,
-        error: t('errors.generic'),
+        error: 'Something went wrong. Please try again.',
         isAvailable: false,
         formatError: false,
       });
@@ -397,7 +442,20 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
   const debouncedValidation = useDebouncedValidation();
 
-  // Input handlers
+  // Input handlers with scroll adjustment
+  const handleInputFocus = (event: any, inputRef: View) => {
+    activeInputRef.current = inputRef;
+    // Small delay to ensure keyboard is shown before scrolling
+    setTimeout(() => {
+      if (scrollViewRef.current && inputRef) {
+        // Measure the input position and scroll to it
+        inputRef.measureLayout(scrollViewRef.current as any, (x, y) => {
+          scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
+        });
+      }
+    }, 100);
+  };
+
   const handleContactNumberChange = (value: string) => {
     const cleanedValue = value.replace(/\D/g, '').slice(0, 10);
     setUserData(prev => ({ ...prev, contactNumber: cleanedValue }));
@@ -414,7 +472,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     } else if (cleanedValue) {
       setContactValidation({
         loading: false,
-        error: t('profile.page.exactly10Digits'),
+        error: 'Please enter exactly 10 digits',
         isAvailable: null,
         formatError: true,
       });
@@ -436,7 +494,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       if (cleanedValue === userData.contactNumber) {
         setAltContactValidation({
           loading: false,
-          error: t('profile.page.numbersMustBeDifferent'),
+          error: 'Contact numbers must be different',
           isAvailable: false,
           formatError: false,
         });
@@ -446,7 +504,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     } else if (cleanedValue) {
       setAltContactValidation({
         loading: false,
-        error: t('profile.page.exactly10Digits'),
+        error: 'Please enter exactly 10 digits',
         isAvailable: null,
         formatError: true,
       });
@@ -551,7 +609,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
   const handleAddAddress = async () => {
     if (!newAddress.street || !newAddress.city || !newAddress.country || !newAddress.postalCode) {
-      Alert.alert(t('common.error'), t('profile.page.fillAllAddressFields'));
+      Alert.alert('Error', 'Please fill in all address fields');
       return;
     }
 
@@ -593,7 +651,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         });
       } catch (err) {
         console.error('Failed to save new address:', err);
-        Alert.alert(t('common.error'), t('profile.page.couldNotSaveAddress'));
+        Alert.alert('Error', 'Could not save address');
         setAddresses(addresses);
       }
     }
@@ -611,7 +669,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       } catch (error) {
         console.error('Failed to remove address:', error);
         setAddresses(addresses);
-        Alert.alert(t('common.error'), t('profile.page.couldNotRemoveAddress'));
+        Alert.alert('Error', 'Could not remove address');
       }
     }
   };
@@ -620,18 +678,18 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   const handleSave = async () => {
     // Validate
     if (userData.contactNumber && !validateMobileFormat(userData.contactNumber)) {
-      Alert.alert(t('common.error'), t('profile.page.enterValidContact'));
+      Alert.alert('Error', 'Please enter a valid contact number');
       return;
     }
 
     if (userData.altContactNumber && !validateMobileFormat(userData.altContactNumber)) {
-      Alert.alert(t('common.error'), t('profile.page.enterValidAlternate'));
+      Alert.alert('Error', 'Please enter a valid alternate number');
       return;
     }
 
     if (userData.contactNumber && userData.altContactNumber && 
         userData.contactNumber === userData.altContactNumber) {
-      Alert.alert(t('common.error'), t('profile.page.numbersMustBeDifferent'));
+      Alert.alert('Error', 'Contact numbers must be different');
       return;
     }
 
@@ -674,10 +732,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       setIsEditing(false);
       if (setExternalEdit) setExternalEdit(false);
 
-      Alert.alert(t('common.success'), t('profile.page.updateSuccess'));
+      Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
       console.error('Failed to save data:', error);
-      Alert.alert(t('common.error'), t('profile.page.updateFailed'));
+      Alert.alert('Error', 'Failed to update profile');
     } finally {
       setIsSaving(false);
     }
@@ -690,6 +748,8 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     setAddresses([...originalData.addresses]);
     setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
     setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
+    // Dismiss keyboard when canceling
+    Keyboard.dismiss();
   };
 
   const toggleAddress = (id: string) => {
@@ -775,15 +835,22 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={true}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.mainContent}>
           <View style={[styles.formContainer, { backgroundColor: colors.card }]}>
             {/* Header */}
             <View style={[styles.formHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.formTitle, { color: colors.text, fontSize: fontSizes.formTitle }]}>
-                {t('profile.page.myAccount')}
+                My Account
               </Text>
               {!isEditing && (
                 <TouchableOpacity
@@ -795,7 +862,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 >
                   <Icon name="edit-3" size={16} color="#fff" />
                   <Text style={[styles.editButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                    {t('common.edit')}
+                    Edit
                   </Text>
                 </TouchableOpacity>
               )}
@@ -804,13 +871,13 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             {/* User Information */}
             <View>
               <Text style={[styles.sectionTitle, { color: colors.textSecondary, fontSize: fontSizes.sectionTitle }]}>
-                {t('profile.page.userInformation')}
+                USER INFORMATION
               </Text>
 
               <View style={styles.inputRow}>
                 <View style={styles.inputContainer}>
                   <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                    {t('profile.page.emailAddress')}
+                    Email Address
                   </Text>
                   <TextInput
                     style={[
@@ -823,13 +890,13 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         fontSize: fontSizes.input,
                       },
                     ]}
-                    value={userEmail || t('profile.page.noEmail')}
+                    value={userEmail || 'No email'}
                     editable={false}
                   />
                 </View>
                 <View style={styles.inputContainer}>
                   <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                    {t('profile.page.userId')}
+                    User ID
                   </Text>
                   <TextInput
                     style={[
@@ -851,7 +918,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               <View style={styles.nameRow}>
                 <View style={styles.nameInput}>
                   <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                    {t('profile.page.firstName')}
+                    First Name
                   </Text>
                   <TextInput
                     style={[
@@ -867,13 +934,14 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     value={userData.firstName}
                     onChangeText={value => setUserData(prev => ({ ...prev, firstName: value }))}
                     editable={isEditing}
-                    placeholder={t('profile.page.firstNamePlaceholder')}
+                    placeholder="Enter first name"
                     placeholderTextColor={colors.placeholder}
+                    onFocus={(e) => handleInputFocus(e, e.target as any)}
                   />
                 </View>
                 <View style={styles.nameInput}>
                   <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                    {t('profile.page.lastName')}
+                    Last Name
                   </Text>
                   <TextInput
                     style={[
@@ -889,8 +957,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     value={userData.lastName}
                     onChangeText={value => setUserData(prev => ({ ...prev, lastName: value }))}
                     editable={isEditing}
-                    placeholder={t('profile.page.lastNamePlaceholder')}
+                    placeholder="Enter last name"
                     placeholderTextColor={colors.placeholder}
+                    onFocus={(e) => handleInputFocus(e, e.target as any)}
                   />
                 </View>
               </View>
@@ -900,7 +969,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
             {/* Contact Information */}
             <Text style={[styles.sectionTitle, { color: colors.textSecondary, fontSize: fontSizes.sectionTitle }]}>
-              {t('profile.page.contactInformation')}
+              CONTACT INFORMATION
             </Text>
 
             <View style={styles.inputRow}>
@@ -908,7 +977,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               <View style={styles.inputContainer}>
                 <View style={styles.labelContainer}>
                   <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                    {t('profile.page.contactNumber')}
+                    Contact Number
                   </Text>
                   <Text
                     style={
@@ -917,7 +986,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         : [styles.mobileWarningSmall, { color: colors.error, fontSize: fontSizes.validationText }]
                     }
                   >
-                    {hasMobileNumber ? ` ✓ ${t('common.verified')}` : ` ⚠ ${t('common.required')}`}
+                    {hasMobileNumber ? ` ✓ Verified` : ` ⚠ Required`}
                   </Text>
                 </View>
                 <View style={styles.phoneInputContainer}>
@@ -966,11 +1035,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     ]}
                     value={userData.contactNumber}
                     onChangeText={handleContactNumberChange}
-                    placeholder={t('profile.page.enter10Digit')}
+                    placeholder="Enter 10 digit number"
                     placeholderTextColor={colors.placeholder}
                     editable={isEditing}
                     keyboardType="phone-pad"
                     maxLength={10}
+                    onFocus={(e) => handleInputFocus(e, e.target as any)}
                   />
                   {isEditing && (
                     <View style={styles.validationIcon}>
@@ -993,7 +1063,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 )}
                 {!hasMobileNumber && !isEditing && (
                   <Text style={[styles.mobileRequiredText, { color: colors.error, fontSize: fontSizes.validationText }]}>
-                    {t('profile.page.mobileRequiredDesc')}
+                    Please add your mobile number
                   </Text>
                 )}
               </View>
@@ -1001,7 +1071,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               {/* Alternative Contact Number */}
               <View style={styles.inputContainer}>
                 <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                  {t('profile.page.alternativeContact')}
+                  Alternative Contact
                 </Text>
                 <View style={styles.phoneInputContainer}>
                   {isEditing ? (
@@ -1049,11 +1119,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     ]}
                     value={userData.altContactNumber}
                     onChangeText={handleAltContactNumberChange}
-                    placeholder={t('profile.page.enter10Digit')}
+                    placeholder="Enter 10 digit number"
                     placeholderTextColor={colors.placeholder}
                     editable={isEditing}
                     keyboardType="phone-pad"
                     maxLength={10}
+                    onFocus={(e) => handleInputFocus(e, e.target as any)}
                   />
                   {isEditing && (
                     <View style={styles.validationIcon}>
@@ -1081,7 +1152,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             <View style={styles.addressesSection}>
               <View style={styles.addressesHeader}>
                 <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                  {t('profile.page.addresses')}
+                  Addresses
                 </Text>
                 {isEditing && (
                   <TouchableOpacity
@@ -1090,7 +1161,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   >
                     <Icon name="plus" size={16} color={colors.primary} />
                     <Text style={[styles.addAddressText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
-                      {t('profile.page.addNewAddress')}
+                      Add New Address
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -1108,7 +1179,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 >
                   <View style={styles.addAddressFormHeader}>
                     <Text style={[styles.addAddressFormTitle, { color: colors.primary, fontSize: fontSizes.formTitle }]}>
-                      {t('profile.page.addNewAddress')}
+                      Add New Address
                     </Text>
                     <TouchableOpacity onPress={() => setShowAddAddress(false)}>
                       <Icon name="x" size={20} color={colors.textSecondary} />
@@ -1117,7 +1188,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
                   <View style={styles.addressTypeContainer}>
                     <Text style={[styles.formLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                      {t('profile.page.saveAs')}
+                      Save as
                     </Text>
                     <View style={styles.addressTypeButtons}>
                       {['Home', 'Work', 'Other'].map(type => (
@@ -1158,7 +1229,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                               newAddress.type === type && [styles.addressTypeTextActive, { color: colors.primary }],
                             ]}
                           >
-                            {t(`profile.page.${type.toLowerCase()}`)}
+                            {type}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -1168,7 +1239,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   {newAddress.type === 'Other' && (
                     <View style={styles.formField}>
                       <Text style={[styles.formLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                        {t('profile.page.locationName')}
+                        Location Name
                       </Text>
                       <TextInput
                         style={[
@@ -1180,7 +1251,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                             fontSize: fontSizes.input,
                           },
                         ]}
-                        placeholder={t('profile.page.enterLocationName')}
+                        placeholder="Enter location name"
                         placeholderTextColor={colors.placeholder}
                         value={newAddress.customType}
                         onChangeText={value => setNewAddress(prev => ({ ...prev, customType: value }))}
@@ -1190,7 +1261,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
                   <View style={styles.addressFormInput}>
                     <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                      {t('profile.page.streetAddress')}
+                      Street Address
                     </Text>
                     <TextInput
                       style={[
@@ -1204,7 +1275,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       ]}
                       value={newAddress.street}
                       onChangeText={value => setNewAddress(prev => ({ ...prev, street: value }))}
-                      placeholder={t('profile.page.enterStreetAddress')}
+                      placeholder="Enter street address"
                       placeholderTextColor={colors.placeholder}
                     />
                   </View>
@@ -1212,7 +1283,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   <View style={styles.addressFormRow}>
                     <View style={[styles.addressFormInput, { flex: 1 }]}>
                       <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                        {t('profile.page.city')}
+                        City
                       </Text>
                       <TextInput
                         style={[
@@ -1226,14 +1297,14 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         ]}
                         value={newAddress.city}
                         onChangeText={value => setNewAddress(prev => ({ ...prev, city: value }))}
-                        placeholder={t('profile.page.enterCity')}
+                        placeholder="Enter city"
                         placeholderTextColor={colors.placeholder}
                       />
                     </View>
 
                     <View style={[styles.addressFormInput, { flex: 1 }]}>
                       <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                        {t('profile.page.country')}
+                        Country
                       </Text>
                       <TextInput
                         style={[
@@ -1247,14 +1318,14 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         ]}
                         value={newAddress.country}
                         onChangeText={value => setNewAddress(prev => ({ ...prev, country: value }))}
-                        placeholder={t('profile.page.enterCountry')}
+                        placeholder="Enter country"
                         placeholderTextColor={colors.placeholder}
                       />
                     </View>
 
                     <View style={[styles.addressFormInput, { flex: 1 }]}>
                       <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
-                        {t('profile.page.postalCode')}
+                        Postal Code
                       </Text>
                       <TextInput
                         style={[
@@ -1268,7 +1339,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         ]}
                         value={newAddress.postalCode}
                         onChangeText={value => setNewAddress(prev => ({ ...prev, postalCode: value }))}
-                        placeholder={t('profile.page.enterPostalCode')}
+                        placeholder="Enter postal code"
                         placeholderTextColor={colors.placeholder}
                       />
                     </View>
@@ -1279,7 +1350,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     style={[styles.addAddressSubmitButton, { backgroundColor: colors.primary }]}
                   >
                     <Text style={[styles.addAddressSubmitText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                      {t('profile.page.saveAddress')}
+                      Save Address
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1287,7 +1358,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
               {addresses.length === 0 ? (
                 <Text style={[styles.noAddressText, { color: colors.textSecondary, fontSize: fontSizes.roleText }]}>
-                  {t('profile.page.noAddresses')}
+                  No addresses added yet
                 </Text>
               ) : (
                 <View style={styles.addressesList}>
@@ -1361,7 +1432,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     disabled={isSaving}
                   >
                     <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                      {t('common.cancel')}
+                      Cancel
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -1378,7 +1449,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
                       <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                        {t('profile.page.saveChanges')}
+                        Save Changes
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -1393,11 +1464,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
           visible={showCountryCodePicker}
           transparent={true}
           animationType="slide"
+          onRequestClose={() => setShowCountryCodePicker(false)}
         >
           <View style={[styles.modalContainer, { backgroundColor: colors.overlay }]}>
             <View style={[styles.pickerModal, { backgroundColor: colors.card }]}>
               <Text style={[styles.pickerTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
-                {t('profile.page.selectCountryCode')}
+                Select Country Code
               </Text>
               <Picker
                 selectedValue={countryCode}
@@ -1421,7 +1493,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 onPress={() => setShowCountryCodePicker(false)}
               >
                 <Text style={[styles.pickerButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                  {t('common.done')}
+                  Done
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1432,11 +1504,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
           visible={showAltCountryCodePicker}
           transparent={true}
           animationType="slide"
+          onRequestClose={() => setShowAltCountryCodePicker(false)}
         >
           <View style={[styles.modalContainer, { backgroundColor: colors.overlay }]}>
             <View style={[styles.pickerModal, { backgroundColor: colors.card }]}>
               <Text style={[styles.pickerTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
-                {t('profile.page.selectCountryCode')}
+                Select Country Code
               </Text>
               <Picker
                 selectedValue={altCountryCode}
@@ -1460,7 +1533,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 onPress={() => setShowAltCountryCodePicker(false)}
               >
                 <Text style={[styles.pickerButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                  {t('common.done')}
+                  Done
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1474,6 +1547,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   mainContent: {
     alignItems: 'center',
