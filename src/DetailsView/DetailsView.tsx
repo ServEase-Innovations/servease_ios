@@ -54,6 +54,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [totalCount, setTotalCount] = useState(0);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [previousLocationKey, setPreviousLocationKey] = useState<string>("");
+  const [isLocationValid, setIsLocationValid] = useState(false);
   
   // Infinite scroll state
   const [loading, setLoading] = useState(false);
@@ -85,6 +86,49 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const dispatch = useDispatch();
   const location = useSelector((state: any) => state?.geoLocation?.value);
 
+  // ✅ Helper function to check if location is valid
+  const isValidLocation = useCallback((loc: any): boolean => {
+    if (!loc) return false;
+    
+    let lat = null;
+    let lng = null;
+    
+    if (loc?.geometry?.location) {
+      lat = loc.geometry.location.lat;
+      lng = loc.geometry.location.lng;
+    } else if (loc?.lat && loc?.lng) {
+      lat = loc.lat;
+      lng = loc.lng;
+    } else if (typeof loc === 'string') {
+      return false;
+    }
+    
+    // Check if coordinates are valid (non-zero)
+    return lat !== null && lng !== null && lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng);
+  }, []);
+
+  // ✅ Fixed getLocationKey with validation
+  const getLocationKey = useCallback(() => {
+    if (!location || !isValidLocation(location)) return "";
+    
+    let lat = null;
+    let lng = null;
+    
+    if (location?.geometry?.location) {
+      lat = location.geometry.location.lat;
+      lng = location.geometry.location.lng;
+    } else if (location?.lat && location?.lng) {
+      lat = location.lat;
+      lng = location.lng;
+    }
+    
+    if (lat && lng) {
+      return `${lat.toFixed(4)}-${lng.toFixed(4)}`;
+    }
+    
+    return "";
+  }, [location, isValidLocation]);
+
   // ✅ Compute filteredProviders synchronously (no flicker) - same as React version
   const filteredProviders = useMemo(() => {
     if (activeFilters && allProviders.length > 0) {
@@ -93,25 +137,23 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return allProviders;
   }, [allProviders, activeFilters]);
 
-  const getLocationKey = useCallback(() => {
-    if (!location) return "";
-    const lat = location?.geometry?.location?.lat || location?.lat;
-    const lng = location?.geometry?.location?.lng || location?.lng;
-    return `${lat}-${lng}`;
-  }, [location]);
-
+  // ✅ Fixed useEffect with location validation
   useEffect(() => {
     const currentLocationKey = getLocationKey();
+    const locationValid = isValidLocation(location);
     
-    if (location && currentLocationKey !== previousLocationKey) {
+    setIsLocationValid(locationValid);
+    
+    if (locationValid && currentLocationKey !== previousLocationKey) {
       setPreviousLocationKey(currentLocationKey);
       // Reset everything when location changes
       resetAndSearch();
     }
-  }, [location, getLocationKey]);
+  }, [location, getLocationKey, isValidLocation]);
 
+  // ✅ Fixed second useEffect with location validation
   useEffect(() => {
-    if (bookingType && location) {
+    if (bookingType && isValidLocation(location)) {
       resetAndSearch();
     }
   }, [selectedProviderType, location, bookingType]);
@@ -217,7 +259,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return 60;
   };
 
-  // Core fetch function with pagination - same as React version
+  // Core fetch function with pagination - with improved validation
   const fetchProviders = async (page: number, reset: boolean = false) => {
     try {
       if (reset) {
@@ -237,7 +279,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         longitude = location.lng;
       }
 
-      if (latitude === 0 && longitude === 0) {
+      // ✅ Improved validation
+      if (latitude === 0 || longitude === 0 || isNaN(latitude) || isNaN(longitude)) {
         Alert.alert(
           t('common.locationRequired'),
           t('common.locationDenied'),

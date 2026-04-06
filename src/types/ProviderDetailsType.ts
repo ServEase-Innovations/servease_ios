@@ -35,7 +35,7 @@ export interface PreviousBookingDetails {
 }
 
 export interface ServiceProviderDTO {
-   id?: string | number; // ✅ add this
+   id?: string | number; // add this
   serviceproviderid: string;
   firstName: string;
   lastName: string;
