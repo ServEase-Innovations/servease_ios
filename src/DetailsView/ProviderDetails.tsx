@@ -345,12 +345,42 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return props.lastName || '';
   };
 
-  // Get housekeeping role
-  const getHousekeepingRole = () => {
-    return props.housekeepingRole || "UNKNOWN";
+  // Get housekeeping roles as array
+  const getHousekeepingRoles = (): string[] => {
+    console.log("getHousekeepingRoles called with props:", props.housekeepingRoles);
+    
+    if (props.housekeepingRoles && Array.isArray(props.housekeepingRoles)) {
+      console.log("Returning array:", props.housekeepingRoles);
+      return props.housekeepingRoles;
+    }
+    if (props.housekeepingRoles && typeof props.housekeepingRoles === 'string') {
+      console.log("Converting string to array:", [props.housekeepingRoles]);
+      return [props.housekeepingRoles];
+    }
+    console.log("Returning default UNKNOWN array");
+    return ["UNKNOWN"];
   };
 
-  // Handle Book Now
+  // Get primary role (first in array) for display and logic purposes
+  const getPrimaryHousekeepingRole = (): string => {
+    const roles = getHousekeepingRoles();
+    const primaryRole = roles[0] || "UNKNOWN";
+    console.log("Primary role:", primaryRole);
+    return primaryRole;
+  };
+
+  // Check if provider has a specific role
+  const hasRole = (role: string): boolean => {
+    const roles = getHousekeepingRoles();
+    return roles.includes(role);
+  };
+
+  // Format roles for display
+  const formatRolesDisplay = (roles: string[]): string => {
+    return roles.join(', ');
+  };
+
+  // Handle Book Now - Updated to handle multiple roles
   const handleBookNow = () => {
     const providerId = getProviderId();
     console.log("Book Now clicked for provider ID:", providerId);
@@ -361,15 +391,20 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
       return;
     }
 
-    const housekeepingRole = getHousekeepingRole();
+    const housekeepingRoles = getHousekeepingRoles();
+    const primaryRole = getPrimaryHousekeepingRole();
+    
+    console.log("Housekeeping Roles array:", housekeepingRoles);
+    console.log("Primary Role:", primaryRole);
     
     let booking: BookingType;
 
-    if (housekeepingRole !== "NANNY") {
+    if (primaryRole !== "NANNY") {
       booking = {
         serviceproviderId: providerId,
         eveningSelection: eveningSelectionTime,
         morningSelection: morningSelectionTime,
+        housekeepingRoles: housekeepingRoles,
         ...bookingType
       };
     } else {
@@ -377,11 +412,12 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
         serviceproviderId: providerId,
         timeRange: `${startTime} - ${endTime}`,
         duration: getHoursDifference(startTime, endTime),
+        housekeepingRoles: housekeepingRoles,
         ...bookingType
       };
     }
 
-    console.log("Dispatching booking:", booking);
+    console.log("Dispatching booking with roles array:", housekeepingRoles);
     
     if (bookingType) {
       dispatch(update(booking));
@@ -392,7 +428,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     const providerDetails = {
       ...props,
       selectedMorningTime: morningSelection,
-      selectedEveningTime: eveningSelection
+      selectedEveningTime: eveningSelection,
+      housekeepingRoles: housekeepingRoles
     };
     
     props.selectedProvider(providerDetails);
@@ -406,12 +443,11 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     setOpen(true);
   };
 
-  // Handle booking page - FIXED to handle both CONFIRMATION and BOOKINGS
+  // Handle booking page
   const handleBookingPage = (data: string) => {
     console.log("📱 handleBookingPage called with:", data);
     setOpen(false);
     
-    // Navigate to the requested page
     if (props.sendDataToParent) {
       console.log("🔄 Navigating to:", data);
       props.sendDataToParent(data);
@@ -423,7 +459,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     console.log("🎉 Booking success callback triggered in ProviderDetails");
     setOpen(false);
     
-    // Navigate to Bookings page
     if (props.sendDataToParent) {
       console.log("🔄 Navigating to BOOKINGS after successful booking");
       props.sendDataToParent(BOOKINGS);
@@ -482,12 +517,16 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return props.experience || 1;
   };
 
-  // Render service dialog - FIXED to pass onBookingSuccess
+  // Render service dialog - Updated to handle multiple roles
   const renderServiceDialog = () => {
     const providerId = getProviderId();
-    const housekeepingRole = getHousekeepingRole();
+    const housekeepingRoles = getHousekeepingRoles();
+    const primaryRole = getPrimaryHousekeepingRole();
     const firstName = getFirstName();
     const lastName = getLastName();
+    
+    console.log("Rendering dialog for roles:", housekeepingRoles);
+    console.log("Primary role for dialog:", primaryRole);
     
     const providerDetailsData: any = {
       ...props,
@@ -497,8 +536,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
       firstName: firstName,
       lastname: lastName,
       lastName: lastName,
-      housekeepingrole: housekeepingRole,
-      housekeepingRole: housekeepingRole,
+      housekeepingRoles: housekeepingRoles,
+      housekeepingRole: primaryRole,
       selectedMorningTime: morningSelection,
       selectedEveningTime: eveningSelection,
       matchedMorningSelection,
@@ -507,7 +546,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
       endTime
     };
 
-    switch (housekeepingRole) {
+    switch (primaryRole) {
       case "COOK":
         return (
           <DemoCook 
@@ -555,7 +594,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const firstName = getFirstName();
   const lastName = getLastName();
   const fullName = `${firstName} ${lastName}`.trim();
-  const housekeepingRole = getHousekeepingRole();
+  const housekeepingRoles = getHousekeepingRoles();
+  const primaryRole = getPrimaryHousekeepingRole();
   const providerId = getProviderId();
   const availabilityStyle = getAvailabilityStyle();
   const allLanguages = getAllLanguages();
@@ -564,6 +604,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Check if any badge is present
   const hasBadges = props.bestMatch || props.previouslyBooked;
+
+  console.log("Rendering ProviderDetails with housekeepingRoles:", housekeepingRoles);
 
   return (
     <View style={[styles.container, { 
@@ -580,12 +622,12 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
           shadowColor: colors.shadow,
         }
       ]}>
-        {/* Header Section with Badges and Role */}
+        {/* Header Section with Badges and Roles */}
         <View style={[
           styles.headerSection,
           isMobile && styles.headerSectionMobile
         ]}>
-          {/* Badges Container - Now in header */}
+          {/* Badges Container */}
           {hasBadges && (
             <View style={[
               styles.badgeContainer,
@@ -625,20 +667,25 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             </View>
           )}
 
-          {/* Role Chip - Now in header */}
-          {housekeepingRole && housekeepingRole !== "UNKNOWN" && (
-            <View style={[
-              styles.headerRoleChip,
-              { 
-                backgroundColor: colors.primary,
-              }
-            ]}>
-              <Text style={[
-                styles.headerRoleChipText,
-                { color: '#ffffff', fontSize: fontStyles.smallText, fontWeight: '700' }
-              ]}>
-                {housekeepingRole}
-              </Text>
+          {/* Role Chips - Display multiple roles */}
+          {housekeepingRoles.length > 0 && housekeepingRoles[0] !== "UNKNOWN" && (
+            <View style={styles.rolesContainer}>
+              {housekeepingRoles.map((role, index) => (
+                <View key={index} style={[
+                  styles.headerRoleChip,
+                  { 
+                    backgroundColor: colors.primary,
+                    marginLeft: index > 0 ? 8 : 0
+                  }
+                ]}>
+                  <Text style={[
+                    styles.headerRoleChipText,
+                    { color: '#ffffff', fontSize: fontStyles.smallText, fontWeight: '700' }
+                  ]}>
+                    {role}
+                  </Text>
+                </View>
+              ))}
             </View>
           )}
         </View>
@@ -713,6 +760,19 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 )}
               </View>
             </View>
+
+            {/* Roles Display Line */}
+            {housekeepingRoles.length > 0 && housekeepingRoles[0] !== "UNKNOWN" && (
+              <View style={[styles.rolesDisplayRow, { marginBottom: 8 }]}>
+                <MaterialCommunityIcons name="badge-account" size={14} color={colors.textSecondary} />
+                <Text style={[
+                  styles.rolesDisplayText,
+                  { color: colors.textSecondary, fontSize: fontStyles.smallText, marginLeft: 4 }
+                ]}>
+                  {formatRolesDisplay(housekeepingRoles)}
+                </Text>
+              </View>
+            )}
 
             {/* Availability Section */}
             <View style={[
@@ -981,7 +1041,10 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
       <ProviderAvailabilityDrawer
         open={drawerOpen}
         onClose={handleDrawerClose}
-        provider={props}
+        provider={{
+          ...props,
+          housekeepingRoles: housekeepingRoles
+        }}
       />
 
       {/* Render the dialog */}
@@ -1015,7 +1078,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
   },
-  // New Header Section
+  // Header Section
   headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1073,12 +1136,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   badgeTextMobile: {},
+  rolesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
   headerRoleChip: {
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
   headerRoleChipText: {},
+  rolesDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  rolesDisplayText: {},
   mainContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',

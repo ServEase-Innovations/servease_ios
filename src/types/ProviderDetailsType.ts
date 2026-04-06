@@ -46,6 +46,7 @@ export interface ServiceProviderDTO {
   age: number;
   otherServices: string | null;
   housekeepingRole: string;
+  housekeepingRoles:string[];
   diet: "VEG" | "NONVEG" | "BOTH";
   cookingspeciality: "VEG" | "NONVEG" | "BOTH";
   languageknown: string | string[] | null;
