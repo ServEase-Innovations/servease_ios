@@ -44,40 +44,88 @@ interface ThemeContextType {
   getSpacingMultiplier: () => number;
 }
 
-// Light theme colors - Keep as is, they look good
+// Enhanced Light theme colors - Deeper and more vibrant
 const lightColors = {
-  primary: '#0a2a66',
-  secondary: '#3b82f6',
-  accent: '#6366f1',
-  background: '#ffffff',
-  surface: '#f5f5f5',
-  surface2: '#eaeef5',
-  text: '#111111',
-  textSecondary: '#4b5563',
-  textTertiary: '#6b7280',
-  border: '#e0e0e0',
-  borderLight: '#eef2f6',
-  error: '#ef4444',
+  // Primary brand colors - richer and more professional
+  primary: '#0a2a66', // Deep navy blue
+  primaryLight: '#1a3a7a',
+  primaryDark: '#051a4a',
+  secondary: '#3b82f6', // Vibrant blue
+  secondaryLight: '#60a5fa',
+  secondaryDark: '#2563eb',
+  accent: '#6366f1', // Indigo accent
+  accentLight: '#818cf8',
+  accentDark: '#4f46e5',
+  
+  // Backgrounds - clean and sophisticated
+  background: '#f8fafc', // Very light slate
+  backgroundAlt: '#f1f5f9', // Slightly darker alt background
+  surface: '#ffffff', // Pure white for surfaces
+  surface2: '#f8fafc', // Light slate for cards
+  surface3: '#f1f5f9', // Even lighter for elevated surfaces
+  surfaceElevated: '#ffffff', // White for elevated cards
+  
+  // Text colors - improved contrast and hierarchy
+  text: '#0f172a', // Deep slate for primary text
+  textPrimary: '#0f172a',
+  textSecondary: '#475569', // Medium slate for secondary text
+  textTertiary: '#64748b', // Light slate for tertiary text
+  textDisabled: '#94a3b8',
+  textHint: '#94a3b8',
+  textInverse: '#ffffff', // White text for dark backgrounds
+  
+  // Borders - subtle but distinct
+  border: '#e2e8f0',
+  borderLight: '#f1f5f9',
+  borderDark: '#cbd5e1',
+  
+  // Status colors - vibrant and clear
+  error: '#dc2626',
   errorLight: '#fee2e2',
+  errorDark: '#b91c1c',
   success: '#10b981',
   successLight: '#d1fae5',
+  successDark: '#059669',
   warning: '#f59e0b',
   warningLight: '#fef3c7',
+  warningDark: '#d97706',
   info: '#3b82f6',
   infoLight: '#dbeafe',
+  infoDark: '#2563eb',
+  
+  // Cards and UI Elements
   card: '#ffffff',
-  cardElevated: '#fafafa',
-  notification: '#3b82f6',
+  cardBackground: '#ffffff',
+  cardElevated: '#ffffff',
+  cardBorder: '#e2e8f0',
+  
+  // Navigation and Header
   headerBackground: '#0a2a66',
   headerText: '#ffffff',
+  headerBorder: 'rgba(255,255,255,0.1)',
   footerBackground: '#0a2a66',
   footerText: '#ffffff',
   tabBar: '#0a2a66',
-  tabBarInactive: '#8e98a3',
+  tabBarActive: '#ffffff',
+  tabBarInactive: '#94a3b8',
+  
+  // Effects
   shadow: '#000000',
+  shadowLight: 'rgba(0,0,0,0.05)',
+  shadowMedium: 'rgba(0,0,0,0.1)',
+  shadowHeavy: 'rgba(0,0,0,0.2)',
   overlay: 'rgba(0,0,0,0.5)',
-  disabled: '#cccccc',
-  placeholder: '#999999',
+  overlayLight: 'rgba(0,0,0,0.3)',
+  
+  // Form elements
+  inputBackground: '#ffffff',
+  inputBorder: '#e2e8f0',
+  inputFocus: '#0a2a66',
+  inputError: '#dc2626',
+  disabled: '#e2e8f0',
+  placeholder: '#94a3b8',
+  
+  // Semantic colors
   rating: '#fbbf24',
   veg: '#22c55e',
   nonVeg: '#ef4444',
@@ -85,66 +133,119 @@ const lightColors = {
   partiallyAvailable: '#f59e0b',
   limited: '#f97316',
   unavailable: '#ef4444',
+  
+  // Additional UI colors
+  divider: '#e2e8f0',
+  icon: '#475569',
+  iconActive: '#0a2a66',
+  badge: '#ef4444',
+  badgeText: '#ffffff',
+  chip: '#f1f5f9',
+  chipText: '#475569',
+  chipActive: '#0a2a66',
+  chipActiveText: '#ffffff',
 };
 
-// Enhanced Dark theme colors - More vibrant and eye-catching
+// Enhanced Dark theme colors - Deeper, richer, and more vibrant
 const darkColors = {
   // Primary brand colors - brighter for better visibility
-  primary: '#063792', // Brighter blue
-  secondary: '#0c4daf', // Purple accent
+  primary: '#3b82f6', // Bright blue
+  primaryLight: '#60a5fa',
+  primaryDark: '#2563eb',
+  secondary: '#8b5cf6', // Purple accent
+  secondaryLight: '#a78bfa',
+  secondaryDark: '#7c3aed',
   accent: '#f43f5e', // Pink accent for highlights
+  accentLight: '#fb7185',
+  accentDark: '#e11d48',
   
-  // Backgrounds - deep but with character
+  // Backgrounds - deep and rich
   background: '#0f172a', // Deep slate blue
-  surface: '#1e293b', // Lighter slate
-  surface2: '#334155', // Medium slate for contrast
+  backgroundAlt: '#1e293b', // Slightly lighter slate
+  surface: '#1e293b', // Card background
+  surface2: '#334155', // Elevated surface
+  surface3: '#475569', // Higher elevation
+  surfaceElevated: '#2d3a4f', // Elevated card background
   
-  // Text - improved contrast
+  // Text colors - excellent contrast
   text: '#f8fafc', // Almost white
+  textPrimary: '#f8fafc',
   textSecondary: '#cbd5e1', // Light slate
   textTertiary: '#94a3b8', // Muted slate
+  textDisabled: '#64748b',
+  textHint: '#64748b',
+  textInverse: '#0f172a', // Dark text for light backgrounds
   
   // Borders - subtle but visible
   border: '#334155',
   borderLight: '#475569',
+  borderDark: '#1e293b',
   
   // Status colors - vibrant and visible
   error: '#f87171', // Bright red
   errorLight: '#7f1d1d',
+  errorDark: '#ef4444',
   success: '#4ade80', // Bright green
   successLight: '#14532d',
+  successDark: '#22c55e',
   warning: '#fbbf24', // Amber
   warningLight: '#78350f',
+  warningDark: '#f59e0b',
   info: '#60a5fa',
   infoLight: '#1e3a8a',
+  infoDark: '#3b82f6',
   
-  // Cards - elevated surfaces
+  // Cards and UI Elements
   card: '#1e293b',
+  cardBackground: '#1e293b',
   cardElevated: '#2d3a4f',
+  cardBorder: '#334155',
   
-  // UI Elements
-  notification: '#60a5fa',
+  // Navigation and Header
   headerBackground: '#0f172a',
   headerText: '#f8fafc',
+  headerBorder: 'rgba(255,255,255,0.1)',
   footerBackground: '#0f172a',
   footerText: '#f8fafc',
   tabBar: '#0f172a',
+  tabBarActive: '#3b82f6',
   tabBarInactive: '#64748b',
   
   // Effects
   shadow: '#000000',
+  shadowLight: 'rgba(0,0,0,0.2)',
+  shadowMedium: 'rgba(0,0,0,0.4)',
+  shadowHeavy: 'rgba(0,0,0,0.6)',
   overlay: 'rgba(0,0,0,0.8)',
-  disabled: '#475569',
+  overlayLight: 'rgba(0,0,0,0.6)',
+  
+  // Form elements
+  inputBackground: '#1e293b',
+  inputBorder: '#334155',
+  inputFocus: '#3b82f6',
+  inputError: '#f87171',
+  disabled: '#334155',
   placeholder: '#64748b',
   
   // Semantic colors
-  rating: '#fbbf24', // Gold for stars
-  veg: '#4ade80', // Bright green
-  nonVeg: '#449b0a', // Bright red
+  rating: '#fbbf24',
+  veg: '#4ade80',
+  nonVeg: '#f87171',
   available: '#4ade80',
   partiallyAvailable: '#fbbf24',
   limited: '#fb923c',
   unavailable: '#f87171',
+  
+  // Additional UI colors
+  divider: '#334155',
+  icon: '#94a3b8',
+  iconActive: '#3b82f6',
+  badge: '#ef4444',
+  badgeText: '#ffffff',
+  chip: '#334155',
+  chipText: '#cbd5e1',
+  chipActive: '#3b82f6',
+  chipActiveText: '#ffffff',
 };
 
 // Font size configurations
@@ -183,7 +284,8 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
   
-  const [theme, setThemeState] = useState<ThemeType>('system');
+  // IMPORTANT: Default theme is now 'light' instead of 'system'
+  const [theme, setThemeState] = useState<ThemeType>('light');
   const [fontSize, setFontSizeState] = useState<'small' | 'medium' | 'large'>('medium');
   const [language, setLanguageState] = useState<string>('en');
   const [notifications, setNotificationsState] = useState<boolean>(true);
@@ -212,7 +314,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         AsyncStorage.getItem('compactMode'),
       ]);
 
-      if (savedTheme) setThemeState(savedTheme as ThemeType);
+      // Only apply saved theme if it exists, otherwise keep default 'light'
+      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')) {
+        setThemeState(savedTheme as ThemeType);
+      } else {
+        // Ensure default is 'light' even if no saved preference
+        setThemeState('light');
+        await AsyncStorage.setItem('theme', 'light');
+      }
+      
       if (savedFontSize) setFontSizeState(savedFontSize as 'small' | 'medium' | 'large');
       if (savedLanguage) {
         setLanguageState(savedLanguage);
@@ -221,9 +331,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (savedNotifications) setNotificationsState(savedNotifications === 'true');
       if (savedCompactMode) setCompactModeState(savedCompactMode === 'true');
       
-      console.log('✅ All preferences loaded successfully');
+      console.log('✅ All preferences loaded successfully - Default theme: LIGHT');
     } catch (error) {
       console.error('❌ Error loading preferences:', error);
+      // Ensure fallback to light theme
+      setThemeState('light');
     } finally {
       setIsLoading(false);
     }
@@ -280,6 +392,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Calculate isDarkMode based on theme preference
+  // Default is now light, so isDarkMode will be false by default
   const isDarkMode = theme === 'system' ? systemColorScheme === 'dark' : theme === 'dark';
   const colors = isDarkMode ? darkColors : lightColors;
   

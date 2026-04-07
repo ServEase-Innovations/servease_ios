@@ -1,4 +1,4 @@
-// HomePage.tsx - Updated with theme support and translations
+// HomePage.tsx - Updated with theme support and translations + Promotional Offer
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -29,6 +29,8 @@ import { useAuth0 } from 'react-native-auth0';
 import BookingDialog from '../BookingDialog/BookingDialog';
 import { useTheme } from '../Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import FirstBookingOffer from './FirstBookingOffer';
+import ServiceSelectionDialog from './ServiceSelectionDialog';
 
 // Import local images
 const cookImage = require("../../assets/images/Cooknew.png");
@@ -45,7 +47,7 @@ interface ChildComponentProps {
   providerDetails?: any;
 }
 
-// Popular services data for carousel - Keep gradients as they are for visual appeal
+// Popular services data for carousel
 const popularServices = [
   {
     id: 1,
@@ -94,7 +96,7 @@ const popularServices = [
   },
 ];
 
-// How it works slides - Keep gradients as they are for visual appeal
+// How it works slides
 const howItWorksSlides = [
   {
     icon: "🔍",
@@ -154,6 +156,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentServiceIndex, setCurrentServiceIndex] = useState(0);
   
+  // Promotional offer states
+  const [showOffer, setShowOffer] = useState(true);
+  const [showServiceSelectionDialog, setShowServiceSelectionDialog] = useState(false);
+  
   // Animation values for hero carousel
   const fadeAnim1 = useRef(new Animated.Value(1)).current;
   const fadeAnim2 = useRef(new Animated.Value(0)).current;
@@ -186,9 +192,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
   const fontStyles = getFontSizeStyles();
 
-  // Get spacing multiplier based on compact mode
-  const spacingMultiplier = compactMode ? 0.8 : 1;
-
   // Carousel images array
   const carouselImages = [heroImage1, heroImage2, heroImage3];
 
@@ -196,15 +199,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
   useEffect(() => {
     setIsAuthenticated(!!auth0User);
   }, [auth0User]);
-
-  // Login function
-  const handleLogin = async () => {
-    try {
-      await authorize();
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  };
 
   // Initialize user role from Auth0
   useEffect(() => {
@@ -305,7 +299,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
       serviceInterval = setInterval(() => {
         const nextIndex = (currentServiceIndex + 1) % popularServices.length;
         
-        // Animate out current service
         Animated.parallel([
           Animated.timing(serviceFadeAnim, {
             toValue: 0,
@@ -318,10 +311,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
             useNativeDriver: true,
           }),
         ]).start(() => {
-          // Change to next service
           setCurrentServiceIndex(nextIndex);
-          
-          // Reset position and animate in new service
           serviceSlideAnim.setValue(50);
           Animated.parallel([
             Animated.timing(serviceFadeAnim, {
@@ -356,7 +346,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
       howItWorksInterval = setInterval(() => {
         const nextIndex = (currentSlide + 1) % howItWorksSlides.length;
         
-        // Animate out current slide
         Animated.parallel([
           Animated.timing(howItWorksFadeAnim, {
             toValue: 0,
@@ -369,10 +358,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
             useNativeDriver: true,
           }),
         ]).start(() => {
-          // Change to next slide
           setCurrentSlide(nextIndex);
-          
-          // Reset position and animate in new slide
           howItWorksSlideAnim.setValue(50);
           Animated.parallel([
             Animated.timing(howItWorksFadeAnim, {
@@ -417,7 +403,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const dispatch = useDispatch();
 
   const handleClick = (data: string) => {
-    // Don't open booking dialog for service providers
     if (isServiceDisabled) {
       Alert.alert(
         t('home.serviceProvider.alert.title'),
@@ -446,7 +431,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
     console.log("Booking details received from dialog:", bookingDetails);
     bookingDetails.startTime = bookingDetails.startTime.format("HH:mm");
     bookingDetails.endTime = bookingDetails.endTime.format("HH:mm");
-    console.log("Booking details received from dialog: 2", bookingDetails);
+    
     const formatDate = (value: any) => {
       if (!value) return "";
       const date = new Date(value);
@@ -500,7 +485,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
       housekeepingRole: selectedType,
     };
 
-
     console.log("Formatted booking details to send to parent:", booking);
 
     if (selectedRadioButtonValue === "Date") {
@@ -526,7 +510,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const handleLearnMore = (service: string) => {
-    // Allow service providers to view service details (Learn More) but not book
     switch (service) {
       case "Home Cook":
         setSelectedServiceType("cook");
@@ -570,7 +553,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
     }).start();
   };
 
-  // Navigate to specific service slide
   const goToServiceSlide = (index: number) => {
     if (index === currentServiceIndex) return;
     
@@ -605,7 +587,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
     });
   };
 
-  // Navigate to specific how it works slide
   const goToHowItWorksSlide = (index: number) => {
     if (index === currentSlide) return;
     
@@ -640,59 +621,46 @@ const HomePage: React.FC<ChildComponentProps> = ({
     });
   };
 
+  // Handle promotional offer press - Opens service selection dialog
+  const handlePromotionalOfferPress = () => {
+    setShowServiceSelectionDialog(true);
+  };
+
+  // Handle service selection from dialog - Opens booking dialog directly
+  const handleServiceSelection = (serviceType: string) => {
+    setSelectedtype(serviceType);
+    setOpen(true); // Directly open the booking dialog
+  };
+
   return (
     <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
-      {/* Main Home Page Content */}
       <ScrollView 
         style={styles.container} 
         scrollEnabled={!showRegistration && !showAgentRegistration}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Hero Section with Background Carousel */}
+        {/* Hero Section */}
         <View style={styles.heroSection}>
-          {/* Background Carousel Images with Smooth Crossfade */}
           <View style={StyleSheet.absoluteFillObject}>
-            {/* Image 1 */}
             <Animated.Image
               source={carouselImages[0]}
-              style={[
-                styles.backgroundImage,
-                {
-                  opacity: fadeAnim1,
-                }
-              ]}
+              style={[styles.backgroundImage, { opacity: fadeAnim1 }]}
               resizeMode="cover"
             />
-            
-            {/* Image 2 */}
             <Animated.Image
               source={carouselImages[1]}
-              style={[
-                styles.backgroundImage,
-                {
-                  opacity: fadeAnim2,
-                }
-              ]}
+              style={[styles.backgroundImage, { opacity: fadeAnim2 }]}
               resizeMode="cover"
             />
-            
-            {/* Image 3 */}
             <Animated.Image
               source={carouselImages[2]}
-              style={[
-                styles.backgroundImage,
-                {
-                  opacity: fadeAnim3,
-                }
-              ]}
+              style={[styles.backgroundImage, { opacity: fadeAnim3 }]}
               resizeMode="cover"
             />
           </View>
           
-          {/* Dark Overlay for better text readability */}
           <View style={[styles.overlay, { backgroundColor: 'rgba(10, 42, 102, 0.5)' }]} />
           
-          {/* Hero Content */}
           <View style={styles.heroContent}>
             <Text style={[styles.heroTitle, { fontSize: fontStyles.headingSize }]}>
               {t('home.hero.title')}
@@ -701,7 +669,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
               {t('home.hero.subtitle')}
             </Text>
             
-            {/* Service Selection Header - Show different text for service providers */}
             <Text style={[styles.selectorTitle, { fontSize: fontStyles.headingSize - 2 }]}>
               {isServiceDisabled ? t('home.hero.exploreServices') : t('home.hero.whatService')}
             </Text>
@@ -724,19 +691,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   onPressOut={() => setHoveredService(null)}
                   disabled={isServiceDisabled}
                 >
-                  <Image source={cookImage} style={[
-                    styles.serviceImageRectangular,
-                    isServiceDisabled && styles.disabledService
-                  ]} />
-                  <View style={[
-                    styles.serviceOverlay,
-                    isServiceDisabled && styles.disabledServiceOverlay,
-                    { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
-                  ]}>
+                  <Image source={cookImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
+                  <View style={[styles.serviceOverlay, isServiceDisabled && styles.disabledServiceOverlay, { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }]}>
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.homeCook')}</Text>
-                    {isServiceDisabled && (
-                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>
-                    )}
+                    {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
                   </View>
                 </TouchableOpacity>
               </View>
@@ -755,19 +713,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   onPressOut={() => setHoveredService(null)}
                   disabled={isServiceDisabled}
                 >
-                  <Image source={maidImage} style={[
-                    styles.serviceImageRectangular,
-                    isServiceDisabled && styles.disabledService
-                  ]} />
-                  <View style={[
-                    styles.serviceOverlay,
-                    isServiceDisabled && styles.disabledServiceOverlay,
-                    { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
-                  ]}>
+                  <Image source={maidImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
+                  <View style={[styles.serviceOverlay, isServiceDisabled && styles.disabledServiceOverlay, { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }]}>
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.cleaningHelp')}</Text>
-                    {isServiceDisabled && (
-                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>
-                    )}
+                    {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
                   </View>
                 </TouchableOpacity>
               </View>
@@ -786,26 +735,16 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   onPressOut={() => setHoveredService(null)}
                   disabled={isServiceDisabled}
                 >
-                  <Image source={nannyImage} style={[
-                    styles.serviceImageRectangular,
-                    isServiceDisabled && styles.disabledService
-                  ]} />
-                  <View style={[
-                    styles.serviceOverlay,
-                    isServiceDisabled && styles.disabledServiceOverlay,
-                    { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }
-                  ]}>
+                  <Image source={nannyImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
+                  <View style={[styles.serviceOverlay, isServiceDisabled && styles.disabledServiceOverlay, { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }]}>
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.caregiver')}</Text>
-                    {isServiceDisabled && (
-                      <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>
-                    )}
+                    {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
                   </View>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
           
-          {/* Carousel Indicators */}
           <View style={styles.heroIndicators}>
             {carouselImages.map((_, index) => (
               <View
@@ -820,7 +759,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
           </View>
         </View>
         
-        {/* Services Section - Enhanced Professional Design with Carousel */}
+        {/* First Booking Offer - Promotional Banner */}
+        {showOffer && !isServiceDisabled && (
+          <FirstBookingOffer onPress={handlePromotionalOfferPress} />
+        )}
+        
+        {/* Services Section */}
         <View style={[styles.servicesSection, { backgroundColor: isDarkMode ? colors.surface : '#f8fafc' }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
@@ -842,15 +786,11 @@ const HomePage: React.FC<ChildComponentProps> = ({
               ]}
             >
               <TouchableOpacity 
-                style={[
-                  styles.serviceCard,
-                  isServiceDisabled && styles.disabledServiceCard
-                ]}
+                style={[styles.serviceCard, isServiceDisabled && styles.disabledServiceCard]}
                 onPress={() => handleLearnMore(popularServices[currentServiceIndex].title)}
                 onPressIn={() => handleCardPressIn(currentServiceIndex)}
                 onPressOut={() => handleCardPressOut(currentServiceIndex)}
                 activeOpacity={0.95}
-                disabled={false} // Always allow Learn More for service providers
               >
                 <LinearGradient
                   colors={popularServices[currentServiceIndex].gradient}
@@ -885,7 +825,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
                       <Text style={styles.learnMoreArrow}>→</Text>
                     </View>
 
-                    {/* Decorative elements */}
                     <View style={[styles.decorativeCircle, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
                     <View style={[styles.decorativeCircle2, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
                   </View>
@@ -893,63 +832,36 @@ const HomePage: React.FC<ChildComponentProps> = ({
               </TouchableOpacity>
             </Animated.View>
 
-            {/* Service Carousel Indicators */}
             <View style={styles.serviceDotsContainer}>
               {popularServices.map((_, index) => {
                 const dotScale = index === currentServiceIndex ? 1.3 : 1;
                 const dotWidth = index === currentServiceIndex ? 24 : 10;
                 
                 return (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => goToServiceSlide(index)}
-                    activeOpacity={0.8}
-                  >
+                  <TouchableOpacity key={index} onPress={() => goToServiceSlide(index)} activeOpacity={0.8}>
                     <LinearGradient
-                      colors={index === currentServiceIndex 
-                        ? popularServices[index].gradient 
-                        : [colors.disabled, colors.border]}
+                      colors={index === currentServiceIndex ? popularServices[index].gradient : [colors.disabled, colors.border]}
                       start={{x: 0, y: 0}}
                       end={{x: 1, y: 0}}
-                      style={[
-                        styles.serviceDot,
-                        {
-                          width: dotWidth,
-                          transform: [{ scale: dotScale }],
-                          opacity: index === currentServiceIndex ? 1 : 0.5,
-                        }
-                      ]}
+                      style={[styles.serviceDot, { width: dotWidth, transform: [{ scale: dotScale }], opacity: index === currentServiceIndex ? 1 : 0.5 }]}
                     />
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* Service Navigation Arrows */}
             <View style={styles.serviceNavigationArrows}>
-              <TouchableOpacity 
-                style={[styles.serviceNavArrow, { backgroundColor: colors.surface }]}
-                onPress={() => {
-                  const prevIndex = currentServiceIndex === 0 ? popularServices.length - 1 : currentServiceIndex - 1;
-                  goToServiceSlide(prevIndex);
-                }}
-              >
+              <TouchableOpacity style={[styles.serviceNavArrow, { backgroundColor: colors.surface }]} onPress={() => goToServiceSlide(currentServiceIndex === 0 ? popularServices.length - 1 : currentServiceIndex - 1)}>
                 <Text style={[styles.serviceNavArrowText, { color: colors.text }]}>←</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.serviceNavArrow, { backgroundColor: colors.surface }]}
-                onPress={() => {
-                  const nextIndex = (currentServiceIndex + 1) % popularServices.length;
-                  goToServiceSlide(nextIndex);
-                }}
-              >
+              <TouchableOpacity style={[styles.serviceNavArrow, { backgroundColor: colors.surface }]} onPress={() => goToServiceSlide((currentServiceIndex + 1) % popularServices.length)}>
                 <Text style={[styles.serviceNavArrowText, { color: colors.text }]}>→</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* How it works - Now with same carousel style as Popular Services */}
+        {/* How it works section */}
         <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff' }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
@@ -976,7 +888,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 end={{x: 1, y: 1}}
                 style={styles.gradientContainer}
               >
-                {/* Decorative Elements */}
                 <View style={styles.glowEffect} />
                 <View style={styles.particleContainer}>
                   <Text style={styles.particle}>✦</Text>
@@ -985,16 +896,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 </View>
                 
                 <View style={[styles.illustrationContainer, { backgroundColor: howItWorksSlides[currentSlide].accentColor }]}>
-                  <Text style={styles.illustrationIcon}>
-                    {howItWorksSlides[currentSlide].illustration}
-                  </Text>
+                  <Text style={styles.illustrationIcon}>{howItWorksSlides[currentSlide].illustration}</Text>
                 </View>
                 
                 <View style={styles.iconWrapper}>
                   <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-                    <Text style={[styles.stepIcon, { color: '#fff' }]}>
-                      {howItWorksSlides[currentSlide].icon}
-                    </Text>
+                    <Text style={[styles.stepIcon, { color: '#fff' }]}>{howItWorksSlides[currentSlide].icon}</Text>
                   </View>
                 </View>
                 
@@ -1005,7 +912,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   {t(`home.howItWorks.step${currentSlide + 1}.desc`)}
                 </Text>
 
-                {/* Feature Badges */}
                 <View style={styles.slideFeaturesContainer}>
                   {howItWorksSlides[currentSlide].features.map((feature, idx) => (
                     <View key={idx} style={[styles.slideFeatureBadge, { borderColor: howItWorksSlides[currentSlide].accentColor }]}>
@@ -1016,7 +922,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   ))}
                 </View>
 
-                {/* Progress Indicator */}
                 <View style={[styles.slideProgress, { backgroundColor: howItWorksSlides[currentSlide].accentColor }]}>
                   <Text style={[styles.slideProgressText, { fontSize: fontStyles.smallText - 2 }]}>
                     {currentSlide + 1} / {howItWorksSlides.length}
@@ -1025,63 +930,36 @@ const HomePage: React.FC<ChildComponentProps> = ({
               </LinearGradient>
             </Animated.View>
 
-            {/* How It Works Carousel Indicators */}
             <View style={styles.howItWorksDotsContainer}>
               {howItWorksSlides.map((_, index) => {
                 const dotScale = index === currentSlide ? 1.3 : 1;
                 const dotWidth = index === currentSlide ? 24 : 10;
                 
                 return (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => goToHowItWorksSlide(index)}
-                    activeOpacity={0.8}
-                  >
+                  <TouchableOpacity key={index} onPress={() => goToHowItWorksSlide(index)} activeOpacity={0.8}>
                     <LinearGradient
-                      colors={index === currentSlide 
-                        ? howItWorksSlides[index].gradientColors 
-                        : [colors.disabled, colors.border]}
+                      colors={index === currentSlide ? howItWorksSlides[index].gradientColors : [colors.disabled, colors.border]}
                       start={{x: 0, y: 0}}
                       end={{x: 1, y: 0}}
-                      style={[
-                        styles.howItWorksDot,
-                        {
-                          width: dotWidth,
-                          transform: [{ scale: dotScale }],
-                          opacity: index === currentSlide ? 1 : 0.5,
-                        }
-                      ]}
+                      style={[styles.howItWorksDot, { width: dotWidth, transform: [{ scale: dotScale }], opacity: index === currentSlide ? 1 : 0.5 }]}
                     />
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* How It Works Navigation Arrows */}
             <View style={styles.howItWorksNavigationArrows}>
-              <TouchableOpacity 
-                style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface }]}
-                onPress={() => {
-                  const prevIndex = currentSlide === 0 ? howItWorksSlides.length - 1 : currentSlide - 1;
-                  goToHowItWorksSlide(prevIndex);
-                }}
-              >
+              <TouchableOpacity style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface }]} onPress={() => goToHowItWorksSlide(currentSlide === 0 ? howItWorksSlides.length - 1 : currentSlide - 1)}>
                 <Text style={[styles.howItWorksNavArrowText, { color: colors.text }]}>←</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface }]}
-                onPress={() => {
-                  const nextIndex = (currentSlide + 1) % howItWorksSlides.length;
-                  goToHowItWorksSlide(nextIndex);
-                }}
-              >
+              <TouchableOpacity style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface }]} onPress={() => goToHowItWorksSlide((currentSlide + 1) % howItWorksSlides.length)}>
                 <Text style={[styles.howItWorksNavArrowText, { color: colors.text }]}>→</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
         
-        {/* Booking Dialog - Only render for non-service providers */}
+        {/* Booking Dialog */}
         {!isServiceDisabled && (
           <BookingDialog
             open={open}
@@ -1104,10 +982,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
         {showCookDialog && (
           <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
             <View style={[styles.dialogBox, { backgroundColor: colors.surface }]}>
-              <DemoCook
-                onClose={() => setShowCookDialog(false)}
-                sendDataToParent={sendDataToParent}
-              />
+              <DemoCook onClose={() => setShowCookDialog(false)} sendDataToParent={sendDataToParent} />
             </View>
           </View>
         )}
@@ -1122,18 +997,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 bookingType={{
                   start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
                   start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
-                  end_date: endDate
-                    ? new Date(endDate).toISOString().split("T")[0]
-                    : startDate
-                    ? new Date(startDate).toISOString().split("T")[0]
-                    : "",
+                  end_date: endDate ? new Date(endDate).toISOString().split("T")[0] : startDate ? new Date(startDate).toISOString().split("T")[0] : "",
                   end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-                  timeRange:
-                    startTime
-                      ? `${new Date(startTime).toTimeString().slice(0, 5)}`
-                      : startTime
-                      ? new Date(startTime).toTimeString().slice(0, 5)
-                      : "",
+                  timeRange: startTime ? `${new Date(startTime).toTimeString().slice(0, 5)}` : startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
                   bookingPreference: selectedRadioButtonValue,
                   housekeepingRole: selectedType,
                 }}
@@ -1152,18 +1018,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 bookingType={{
                   start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
                   start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
-                  end_date: endDate
-                    ? new Date(endDate).toISOString().split("T")[0]
-                    : startDate
-                    ? new Date(startDate).toISOString().split("T")[0]
-                    : "",
+                  end_date: endDate ? new Date(endDate).toISOString().split("T")[0] : startDate ? new Date(startDate).toISOString().split("T")[0] : "",
                   end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-                  timeRange:
-                    startTime
-                      ? `${new Date(startTime).toTimeString().slice(0, 5)}`
-                      : startTime
-                      ? new Date(startTime).toTimeString().slice(0, 5)
-                      : "",
+                  timeRange: startTime ? `${new Date(startTime).toTimeString().slice(0, 5)}` : startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
                   bookingPreference: selectedRadioButtonValue,
                   housekeepingRole: selectedType,
                 }}
@@ -1179,19 +1036,21 @@ const HomePage: React.FC<ChildComponentProps> = ({
         />
       </ScrollView>
 
+      {/* Service Selection Dialog for Promotional Offer */}
+      <ServiceSelectionDialog
+        visible={showServiceSelectionDialog}
+        onClose={() => setShowServiceSelectionDialog(false)}
+        onSelectService={handleServiceSelection}
+      />
+
       {/* Agent Registration Modal */}
       <Modal visible={showAgentRegistration} animationType="slide">
-        <AgentRegistrationForm
-          onBackToLogin={() => setShowAgentRegistration(false)}
-          // onRegistrationSuccess={() => setShowAgentRegistration(false)}
-        />
+        <AgentRegistrationForm onBackToLogin={() => setShowAgentRegistration(false)} />
       </Modal>
 
-      {/* Service Provider Registration - rendered conditionally */}
+      {/* Service Provider Registration */}
       {showRegistration && (
-        <ServiceProviderRegistration
-          onBackToLogin={() => setShowRegistration(false)}
-        />
+        <ServiceProviderRegistration onBackToLogin={() => setShowRegistration(false)} />
       )}
     </View>
   );
@@ -1493,8 +1352,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-  
-  // How It Works Section - Now with carousel style matching Popular Services
   howItWorksSection: {
     padding: 20,
     paddingVertical: 40,
@@ -1774,7 +1631,6 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontWeight: '500',
   },
-  
 });
 
 export default HomePage;

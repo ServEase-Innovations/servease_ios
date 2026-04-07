@@ -1,3 +1,4 @@
+// Settings.tsx - Updated to work with light theme default
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -61,18 +62,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     { code: 'en', name: 'English', nativeName: 'English' },
     { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
     { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' },
-    // { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
-    // { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
     { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
-    // { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം' },
-    // { code: 'mr', name: 'Marathi', nativeName: 'मराठी' },
-    // { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
-    // { code: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ' },
-    // { code: 'or', name: 'Odia', nativeName: 'ଓଡ଼ିଆ' },
-    // { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া' },
-    // { code: 'ur', name: 'Urdu', nativeName: 'اردو' },
-    // { code: 'sa', name: 'Sanskrit', nativeName: 'संस्कृतम्' },
-    // { code: 'ne', name: 'Nepali', nativeName: 'नेपाली' },
   ];
 
   // Initialize filteredLanguages state after languages is defined
@@ -136,7 +126,8 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                 'notifications',
                 'compactMode',
               ]);
-              setTheme('system');
+              // Reset to light theme (not system)
+              setTheme('light');
               setFontSize('medium');
               setLanguage('en');
               await changeLanguage('en');
