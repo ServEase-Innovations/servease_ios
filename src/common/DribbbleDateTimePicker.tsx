@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
+  Dimensions,
 } from "react-native";
 import dayjs, { Dayjs } from "dayjs";
 
@@ -15,9 +16,12 @@ const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const generateTimeSlots = () => {
   const slots: string[] = [];
   for (let h = 5; h <= 20; h++) {
-    const hour12 = h % 12 || 12;
-    const ampm = h < 12 ? "AM" : "PM";
-    slots.push(`${hour12}:00 ${ampm}`);
+    for (let m = 0; m < 60; m += 30) {
+      const hour12 = h % 12 || 12;
+      const minute = m === 0 ? "00" : m;
+      const ampm = h < 12 ? "AM" : "PM";
+      slots.push(`${hour12}:${minute} ${ampm}`);
+    }
   }
   return slots;
 };
@@ -95,64 +99,30 @@ export default function DribbbleDateTimePicker(props: Props) {
 
   /* -------------------- Helper Functions -------------------- */
 
-  // Check if a date is today
-  const isToday = (date: Dayjs): boolean => {
-    return date.isSame(now, "day");
-  };
+  const isToday = (date: Dayjs): boolean => date.isSame(now, "day");
+  const isPastDate = (date: Dayjs): boolean => date.isBefore(today, "day");
+  const isPastMonth = (month: Dayjs): boolean => month.isBefore(today, "month");
 
-  // Check if a date is in the past (before today)
-  const isPastDate = (date: Dayjs): boolean => {
-    return date.isBefore(today, "day");
-  };
-
-  // Check if a month is in the past
-  const isPastMonth = (month: Dayjs): boolean => {
-    return month.isBefore(today, "month");
-  };
-
-  // Check if a time slot should be disabled based on selected date
   const isTimeSlotDisabled = (time: string): boolean => {
-    // For range mode, if no dates selected, disable all times
-    if (mode === "range" && (!rangeStart || !rangeEnd)) {
-      return true;
-    }
+    if (mode === "range" && (!rangeStart || !rangeEnd)) return true;
 
-    // Get the selected date(s) to check
     let selectedDateToCheck: Dayjs | null = null;
-    
-    if (mode === "single") {
-      selectedDateToCheck = selectedDate;
-    } else if (mode === "range" && rangeStart) {
-      selectedDateToCheck = rangeStart;
-    }
+    if (mode === "single") selectedDateToCheck = selectedDate;
+    else if (mode === "range" && rangeStart) selectedDateToCheck = rangeStart;
 
-    // If no date selected, disable in range mode
-    if (!selectedDateToCheck) {
-      return mode === "range";
-    }
+    if (!selectedDateToCheck) return mode === "range";
+    if (isPastDate(selectedDateToCheck)) return true;
+    if (!isToday(selectedDateToCheck)) return false;
 
-    // If the selected date is in the past, disable ALL time slots
-    if (isPastDate(selectedDateToCheck)) {
-      return true;
-    }
+    const parsedTime = dayjs(time, "h:mm A");
+    if (!parsedTime.isValid()) return true;
 
-    // Only apply time restrictions if the selected date is today
-    if (!isToday(selectedDateToCheck)) {
-      return false; // Future dates can select any time
-    }
+    const timeDateTime = now
+      .hour(parsedTime.hour())
+      .minute(parsedTime.minute())
+      .second(0)
+      .millisecond(0);
 
-    // Parse the time string
-    const [t, meridian] = time.split(" ");
-    let hour = Number(t.split(":")[0]);
-
-    // Convert to 24-hour format
-    if (meridian === "PM" && hour !== 12) hour += 12;
-    if (meridian === "AM" && hour === 12) hour = 0;
-
-    // Create a datetime object for today with the selected time
-    const timeDateTime = now.hour(hour).minute(0).second(0).millisecond(0);
-
-    // For start times, require at least 30 minutes buffer
     if (mode === "single" || (mode === "range" && rangeStart === selectedDateToCheck)) {
       return timeDateTime.isBefore(now.add(30, "minute"));
     } else {
@@ -174,204 +144,175 @@ export default function DribbbleDateTimePicker(props: Props) {
 
   const isDisabledInRangeMode = (day: number) => {
     const date = currentMonth.date(day);
-
-    // ❌ Disable ALL past dates (including previous months)
-    if (isPastDate(date)) {
-      return true;
-    }
-
-    // ❌ Range mode: disable dates beyond +21 days from start
+    if (isPastDate(date)) return true;
     if (mode === "range" && rangeStart && !rangeEnd) {
-      if (date.isAfter(rangeStart.add(MAX_RANGE_DAYS, "day"), "day")) {
-        return true;
-      }
+      if (date.isAfter(rangeStart.add(MAX_RANGE_DAYS, "day"), "day")) return true;
     }
-
     return false;
   };
 
-  // Get the appropriate message for disabled times
   const getDisabledTimeMessage = () => {
-    if (mode === "range" && (!rangeStart || !rangeEnd)) {
+    if (mode === "range" && (!rangeStart || !rangeEnd))
       return "Select start and end dates first";
-    }
-    
     const selectedDateToCheck = mode === "single" ? selectedDate : rangeStart;
-    
     if (selectedDateToCheck) {
-      if (isPastDate(selectedDateToCheck)) {
-        return "Past dates cannot be booked";
-      }
-      if (isToday(selectedDateToCheck)) {
-        return "Past times are disabled for today";
-      }
+      if (isPastDate(selectedDateToCheck)) return "Past dates cannot be booked";
+      if (isToday(selectedDateToCheck)) return "Past times are disabled for today";
     }
-    
     return null;
   };
 
-  // Determine if time selection should be disabled overall
   const isTimeSelectionDisabled = mode === "range" && (!rangeStart || !rangeEnd);
 
   /* -------------------- Handlers -------------------- */
 
   const selectDate = (day: number) => {
     const date = currentMonth.date(day);
-
-    // Don't allow selecting disabled dates
     if (isDisabledInRangeMode(day)) return;
 
     if (mode === "single") {
       setSelectedDate(date);
-      setSelectedTime(null); // Clear selected time when date changes
-      // Notify parent of date selection
-      const singleProps = props as SingleProps;
-      singleProps.onChange(date.toDate());
+      setSelectedTime(null);
+      (props as SingleProps).onChange(date.toDate());
       return;
     }
 
-    // RANGE MODE
     if (!rangeStart || rangeEnd) {
       setRangeStart(date);
       setRangeEnd(null);
-      setSelectedTime(null); // Clear selected time when date changes
+      setSelectedTime(null);
       return;
     }
 
-    // Prevent selecting same day as range start
-    if (date.isSame(rangeStart, "day")) {
-      return;
-    }
+    if (date.isSame(rangeStart, "day")) return;
 
-    // ⛔ Prevent selecting more than 21 days
     if (date.diff(rangeStart, "day") > MAX_RANGE_DAYS) {
       setShowTimeHint(true);
       setTimeout(() => setShowTimeHint(false), 3000);
       return;
     }
 
-    if (date.isBefore(rangeStart, "day")) {
-      setRangeStart(date);
-    } else {
-      setRangeEnd(date);
-    }
-    setSelectedTime(null); // Clear selected time when date changes
+    if (date.isBefore(rangeStart, "day")) setRangeStart(date);
+    else setRangeEnd(date);
+    setSelectedTime(null);
   };
 
   const selectTime = (time: string) => {
-    // Don't allow selecting disabled times
     if (isTimeSlotDisabled(time)) return;
-
-    // For range mode, require both dates selected
     if (mode === "range" && (!rangeStart || !rangeEnd)) return;
 
     setSelectedTime(time);
 
+    const parsedTime = dayjs(time, "h:mm A");
+    if (!parsedTime.isValid()) return;
+
     if (mode === "single") {
-      const singleProps = props as SingleProps;
-      // Pass both the date and time to the parent
-      singleProps.onChange(selectedDate.toDate(), time);
+      const finalDate = selectedDate
+        .hour(parsedTime.hour())
+        .minute(parsedTime.minute())
+        .second(0)
+        .toDate();
+
+      (props as SingleProps).onChange(finalDate, time);
       return;
     }
 
     if (!rangeStart || !rangeEnd) return;
-
     const rangeProps = props as RangeProps;
     rangeProps.onChange({
-      startDate: rangeStart.toDate(),
-      endDate: rangeEnd.toDate(),
+      startDate: rangeStart
+        .hour(parsedTime.hour())
+        .minute(parsedTime.minute())
+        .toDate(),
+      endDate: rangeEnd
+        .hour(parsedTime.hour())
+        .minute(parsedTime.minute())
+        .toDate(),
       time,
     });
+  };
+
+  const changeMonth = (increment: number) => {
+    const newMonth = currentMonth.add(increment, "month");
+    if (increment === -1 && isPastMonth(newMonth)) return;
+    setCurrentMonth(newMonth);
   };
 
   /* -------------------- Render -------------------- */
 
   return (
     <View style={styles.card}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => setCurrentMonth(m => m.subtract(1, "month"))}
+        <TouchableOpacity
+          onPress={() => changeMonth(-1)}
           disabled={isPastMonth(currentMonth.subtract(1, "month"))}
           style={[
-            styles.arrowButton,
-            isPastMonth(currentMonth.subtract(1, "month")) && styles.disabledArrow
+            styles.monthButton,
+            isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonDisabled,
           ]}
         >
-          <Text style={styles.arrow}>‹</Text>
+          <Text style={[
+            styles.monthButtonText,
+            isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonTextDisabled
+          ]}>‹</Text>
         </TouchableOpacity>
-
-        <Text style={styles.month}>
-          {currentMonth.format("MMMM YYYY")}
-        </Text>
-
-        <TouchableOpacity 
-          onPress={() => setCurrentMonth(m => m.add(1, "month"))}
-          style={styles.arrowButton}
-        >
-          <Text style={styles.arrow}>›</Text>
+        <Text style={styles.monthTitle}>{currentMonth.format("MMMM YYYY")}</Text>
+        <TouchableOpacity onPress={() => changeMonth(1)} style={styles.monthButton}>
+          <Text style={styles.monthButtonText}>›</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Week Days */}
-      <View style={styles.weekRow}>
-        {WEEK_DAYS.map(d => (
-          <Text key={d} style={styles.weekDay}>{d}</Text>
+      <View style={styles.weekHeader}>
+        {WEEK_DAYS.map((d) => (
+          <Text key={d} style={styles.weekDayText}>{d}</Text>
         ))}
       </View>
 
-      {/* Calendar */}
-      <View style={styles.grid}>
+      <View style={styles.calendarGrid}>
         {calendarCells.map((day, i) => {
           const disabled = day ? isDisabledInRangeMode(day) : true;
+          const isActive = day &&
+            mode === "single" &&
+            selectedDate.isSame(currentMonth.date(day), "day");
+          const isRangeStartDay = day && mode === "range" && isRangeStart(day);
+          const isRangeEndDay = day && mode === "range" && isRangeEnd(day);
+          const isInRangeDay = day && mode === "range" && isInRange(day);
 
           return (
             <TouchableOpacity
               key={i}
               style={[
-                styles.day,
+                styles.calendarDay,
+                !day && styles.emptyDay,
                 disabled && styles.disabledDay,
-                day && mode === "single" &&
-                selectedDate.isSame(currentMonth.date(day), "day")
-                  ? styles.singleActive
-                  : {},
-                day && mode === "range" && isRangeStart(day) ? styles.rangeStart : {},
-                day && mode === "range" && isRangeEnd(day) ? styles.rangeEnd : {},
-                day && mode === "range" && isInRange(day) ? styles.rangeMiddle : {},
-                !day ? styles.emptyCell : {},
+                isActive && styles.activeDay,
+                isRangeStartDay && styles.rangeStartDay,
+                isRangeEndDay && styles.rangeEndDay,
+                isInRangeDay && styles.rangeMiddleDay,
               ]}
               onPress={() => !disabled && day && selectDate(day)}
               disabled={disabled}
             >
-              {day && (
-                <Text
-                  style={[
-                    styles.dayText,
-                    (isRangeStart(day) || isRangeEnd(day) || 
-                     (mode === "single" && selectedDate.isSame(currentMonth.date(day), "day"))) 
-                     && styles.activeText,
-                    disabled && styles.disabledText,
-                  ]}
-                >
-                  {day}
-                </Text>
-              )}
+              <Text style={[
+                styles.calendarDayText,
+                isActive && styles.activeDayText,
+                (isRangeStartDay || isRangeEndDay) && styles.rangeEdgeText,
+              ]}>
+                {day}
+              </Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Range hint */}
       {showTimeHint && (
-        <View style={styles.rangeHint}>
-          <Text style={styles.rangeHintText}>
-            Maximum range is {MAX_RANGE_DAYS} days
-          </Text>
+        <View style={styles.hintContainer}>
+          <Text style={styles.hintText}>Maximum range is {MAX_RANGE_DAYS} days</Text>
         </View>
       )}
 
-      {/* Time */}
       <View style={styles.divider} />
+
       <View style={styles.timeHeader}>
         <Text style={styles.timeTitle}>Select Time</Text>
         {getDisabledTimeMessage() && (
@@ -380,32 +321,32 @@ export default function DribbbleDateTimePicker(props: Props) {
       </View>
 
       <ScrollView 
-        horizontal={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.timeGrid}
+        style={styles.timeGrid}
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={styles.timeGridContent}
+        nestedScrollEnabled={true}
       >
-        {TIMES.map(time => {
+        {TIMES.map((time) => {
           const isDisabled = isTimeSlotDisabled(time);
           const isSelected = selectedTime === time;
+          const isSelectionDisabled = isDisabled || isTimeSelectionDisabled;
 
           return (
             <TouchableOpacity
               key={time}
               style={[
-                styles.timeChip,
-                isSelected && styles.timeActive,
-                (isDisabled || isTimeSelectionDisabled) && styles.timeDisabled,
+                styles.timeSlot,
+                isSelected && styles.activeTimeSlot,
+                isSelectionDisabled && styles.disabledTimeSlot,
               ]}
               onPress={() => selectTime(time)}
-              disabled={isDisabled || isTimeSelectionDisabled}
+              disabled={isSelectionDisabled}
             >
-              <Text
-                style={[
-                  styles.timeText,
-                  isSelected && styles.timeTextActive,
-                  (isDisabled || isTimeSelectionDisabled) && styles.timeTextDisabled,
-                ]}
-              >
+              <Text style={[
+                styles.timeSlotText,
+                isSelected && styles.activeTimeSlotText,
+                isSelectionDisabled && styles.disabledTimeSlotText,
+              ]}>
                 {time}
               </Text>
             </TouchableOpacity>
@@ -416,109 +357,121 @@ export default function DribbbleDateTimePicker(props: Props) {
   );
 }
 
-/* -------------------- Styles -------------------- */
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    borderRadius: 18,
+    borderRadius: 12,
     padding: 16,
-    width: "100%",
-    maxWidth: 380,
-    alignSelf: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  arrowButton: {
+  monthButton: {
     padding: 8,
-  },
-  disabledArrow: {
-    opacity: 0.3,
-  },
-  arrow: {
-    fontSize: 22,
-    color: "#3E57D0",
-  },
-  month: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#222",
-  },
-  weekRow: {
-    flexDirection: "row",
-    marginBottom: 4,
-  },
-  weekDay: {
-    flex: 1,
-    textAlign: "center",
-    color: "#999",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  day: {
-    width: "14.28%",
-    height: 40,
-    justifyContent: "center",
+    minWidth: 40,
     alignItems: "center",
   },
-  dayText: {
+  monthButtonDisabled: {
+    opacity: 0.3,
+  },
+  monthButtonText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#007AFF",
+  },
+  monthButtonTextDisabled: {
+    color: "#ccc",
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  weekHeader: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  weekDayText: {
+    flex: 1,
+    textAlign: "center",
     fontSize: 14,
-    color: "#222",
+    fontWeight: "500",
+    color: "#666",
   },
-  emptyCell: {
-    width: "14.28%",
-    height: 40,
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 8,
   },
-  singleActive: {
-    backgroundColor: "#3E57D0",
-    borderRadius: 20,
+  calendarDay: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    backgroundColor: "#fff",
   },
-  rangeStart: {
-    backgroundColor: "#3E57D0",
+  emptyDay: {
+    backgroundColor: "#fafafa",
+  },
+  disabledDay: {
+    backgroundColor: "#f5f5f5",
+    opacity: 0.5,
+  },
+  activeDay: {
+    backgroundColor: "#007AFF",
+    borderColor: "#007AFF",
+  },
+  rangeStartDay: {
+    backgroundColor: "#007AFF",
     borderTopLeftRadius: 20,
     borderBottomLeftRadius: 20,
   },
-  rangeEnd: {
-    backgroundColor: "#3E57D0",
+  rangeEndDay: {
+    backgroundColor: "#007AFF",
     borderTopRightRadius: 20,
     borderBottomRightRadius: 20,
   },
-  rangeMiddle: {
-    backgroundColor: "#3E57D022",
+  rangeMiddleDay: {
+    backgroundColor: "#E3F2FD",
   },
-  activeText: {
+  calendarDayText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  activeDayText: {
     color: "#fff",
-    fontWeight: "700",
+    fontWeight: "600",
   },
-  disabledDay: {
-    opacity: 0.3,
+  rangeEdgeText: {
+    color: "#fff",
+    fontWeight: "600",
   },
-  disabledText: {
-    color: "#999",
-  },
-  rangeHint: {
-    backgroundColor: "#FFE5E5",
+  hintContainer: {
+    backgroundColor: "#FFF3E0",
     padding: 8,
     borderRadius: 8,
-    marginTop: 8,
+    marginVertical: 8,
     alignItems: "center",
   },
-  rangeHintText: {
-    color: "#FF3B30",
+  hintText: {
+    color: "#FF9800",
     fontSize: 12,
-    fontWeight: "500",
   },
   divider: {
     height: 1,
-    backgroundColor: "#eee",
+    backgroundColor: "#e0e0e0",
     marginVertical: 16,
   },
   timeHeader: {
@@ -528,46 +481,52 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   timeTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#222",
+    color: "#333",
   },
   timeHint: {
-    fontSize: 11,
-    color: "#FF3B30",
-    fontStyle: "italic",
+    fontSize: 12,
+    color: "#FF9800",
   },
   timeGrid: {
+    maxHeight: 200,
+  },
+  timeGridContent: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
     paddingBottom: 8,
   },
-  timeChip: {
-    width: "31%",
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: "#F4F6FB",
+  timeSlot: {
+    width: "30%",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginVertical: 4,
+    marginHorizontal: "1.5%",
+    borderRadius: 8,
+    backgroundColor: "#f5f5f5",
     alignItems: "center",
-    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
-  timeActive: {
-    backgroundColor: "#3E57D0",
+  activeTimeSlot: {
+    backgroundColor: "#007AFF",
+    borderColor: "#007AFF",
   },
-  timeDisabled: {
-    backgroundColor: "#f0f0f0",
+  disabledTimeSlot: {
+    backgroundColor: "#fafafa",
     opacity: 0.5,
   },
-  timeText: {
-    fontSize: 13,
+  timeSlotText: {
+    fontSize: 14,
     color: "#333",
-    fontWeight: "500",
   },
-  timeTextActive: {
+  activeTimeSlotText: {
     color: "#fff",
-    fontWeight: "700",
+    fontWeight: "600",
   },
-  timeTextDisabled: {
+  disabledTimeSlotText: {
     color: "#999",
   },
 });

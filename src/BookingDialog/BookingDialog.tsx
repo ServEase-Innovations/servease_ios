@@ -66,6 +66,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [localStartTime, setLocalStartTime] = useState<Dayjs | null>(null);
   const [localEndTime, setLocalEndTime] = useState<Dayjs | null>(null);
   const [tempSelectedTime, setTempSelectedTime] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (appUser) {
@@ -372,13 +373,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setEndDate(endDateValue.format("YYYY-MM-DD"));
       setEndTime(defaultEndTime);
     } else if (selectedOption === t('booking.options.shortTerm')) {
-      // For short term, set the end time to default but keep end date for range
+      // For short term, set the end time to default
       setLocalEndTime(defaultEndTime);
       setEndTime(defaultEndTime);
-      // Only set end date if it's not already set
+      // Set end date if not already set
       if (!localEndDate) {
-        // For short term, end date will be set when range is selected
-        // Don't set it automatically
+        const endDateValue = adjustedDateTime.add(1, "day");
+        setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
+        setEndDate(endDateValue.format("YYYY-MM-DD"));
       }
     }
   };
@@ -490,30 +492,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       
       return false;
     } else if (selectedOption === t('booking.options.shortTerm')) {
-      // For short term, we need both dates and both times
+      // For short term, we need both dates and both times - removed restrictions
       if (!localStartDate || !localEndDate || !localStartTime || !localEndTime) return true;
-      
-      if (isDateDisabled(localStartTime)) {
-        return true;
-      }
-      
-      const now = dayjs();
-      if (localStartTime.isSame(now, "day") && localStartTime.isBefore(now.add(30, "minute"))) {
-        return true;
-      }
-      
-      const startHour = localStartTime.hour();
-      if (startHour < BUSINESS_HOURS.openingHour || startHour >= BUSINESS_HOURS.cutoffHour) {
-        return true;
-      }
-      
-      if (localEndTime.isBefore(localStartTime)) return true;
-      
-      const endHour = localEndTime.hour();
-      if (endHour < BUSINESS_HOURS.openingHour || endHour >= BUSINESS_HOURS.cutoffHour) {
-        return true;
-      }
-      
       return false;
     } else if (selectedOption === t('booking.options.monthly')) {
       if (!localStartDate || !localStartTime) return true;
@@ -602,7 +582,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     // For monthly, if no end time, don't render
     if (selectedOption === t('booking.options.monthly') && !localEndTime) return null;
     
-    // For short term, we need both dates and both times
+    // For short term, we need both dates and both times - removed restrictions to always show once selected
     if (selectedOption === t('booking.options.shortTerm') && (!localStartDate || !localEndDate || !localStartTime || !localEndTime)) return null;
     
     // For on-demand, we need start time
@@ -613,19 +593,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     const canIncreaseDuration = () => {
       if (!localStartTime) return false;
       const newEndTime = localStartTime.add(currentDuration + 1, 'hour');
-      // For short term, also check if new end time would exceed business hours
+      // Check if new end time would exceed business hours
       if (newEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
         return false;
-      }
-      // For short term, also check if the end date would exceed the range limit
-      if (selectedOption === t('booking.options.shortTerm') && localEndDate) {
-        const endDateObj = dayjs(localEndDate);
-        const newEndDate = newEndTime.format('YYYY-MM-DD');
-        // If the new end time pushes to next day, check if it's within range
-        if (newEndDate !== localEndDate) {
-          // For now, allow if within business hours on next day
-          return true;
-        }
       }
       return true;
     };
@@ -1152,7 +1122,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               !isCurrentTimeValid && [styles.disabledButton, { backgroundColor: colors.disabled }],
             ]}
             onPress={handleCustomTimeConfirm}
-            // disabled={!isCurrentTimeValid}
           >
             <Text
               style={[
@@ -1174,8 +1143,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
         <View style={[styles.container, { backgroundColor: colors.card }]}>
           <ScrollView
+            ref={scrollViewRef}
             contentContainerStyle={{ paddingBottom: 20 }}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
           >
             <LinearGradient
               colors={["#0a2a66ff", "#004aadff"]}
@@ -1217,6 +1188,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     setStartTime(null);
                     setEndTime(null);
                     setTempSelectedTime(null);
+                    // Scroll to top when switching options
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                    }, 100);
                   }}
                 >
                   <Text
@@ -1299,19 +1274,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       const startWithTime = start.hour(hour).minute(0);
                       const endWithTime = end.hour(hour).minute(0);
                       
-                      if (start.isBefore(dayjs(), "day")) return;
-                      
-                      if (isDateDisabled(startWithTime)) {
-                        return;
-                      }
-                      
-                      if (end.diff(start, "day") > 21) {
-                        return;
-                      }
-                      
-                      // Mark that date has changed to reset times
-                      setIsDateChanged(true);
-                      
                       setLocalStartDate(startWithTime.format("YYYY-MM-DD"));
                       setLocalStartTime(startWithTime);
                       setStartDate(startWithTime.format("YYYY-MM-DD"));
@@ -1324,11 +1286,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                       const defaultEndTime = startWithTime.add(1, 'hour');
                       setLocalEndTime(defaultEndTime);
                       setEndTime(defaultEndTime);
+                      
+                      // Scroll to confirmation section
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }, 200);
                     }}
                   />
                 </View>
 
-                {/* Show duration selector as soon as both dates and times are selected */}
+                {/* Always show duration selector when dates and times are selected */}
                 {localStartDate && localEndDate && localStartTime && localEndTime && renderDurationSelector()}
               </>
             )}
@@ -1410,10 +1377,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   container: {
-    width: Dimensions.get("window").width * 0.9,
-    maxHeight: Dimensions.get("window").height * 0.85,
+    width: Dimensions.get("window").width * 0.95,
+    maxHeight: Dimensions.get("window").height * 0.9,
     borderRadius: 12,
     overflow: "hidden",
   },
