@@ -26,7 +26,6 @@ import { useTheme } from '../Settings/ThemeContext';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import dayjs, { Dayjs } from 'dayjs';
 import { useAppUser } from '../context/AppUserContext';
-import { useTranslation } from 'react-i18next';
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;
@@ -41,7 +40,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   checkoutItem,
   selectedProvider,
 }) => {
-  const { t } = useTranslation();
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   const { appUser } = useAppUser();
   
@@ -55,6 +53,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [previousLocationKey, setPreviousLocationKey] = useState<string>("");
   const [isLocationValid, setIsLocationValid] = useState(false);
+  
+  // Add a ref to track if initial load has been done
+  const initialLoadDone = useRef(false);
+  const isFetchingRef = useRef(false); // Prevent concurrent fetches
+  const locationKeyRef = useRef<string>(""); // Track location changes
   
   // Infinite scroll state
   const [loading, setLoading] = useState(false);
@@ -86,7 +89,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const dispatch = useDispatch();
   const location = useSelector((state: any) => state?.geoLocation?.value);
 
-  // ✅ Helper function to check if location is valid
+  // Helper function to check if location is valid
   const isValidLocation = useCallback((loc: any): boolean => {
     if (!loc) return false;
     
@@ -103,11 +106,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       return false;
     }
     
-    // Check if coordinates are valid (non-zero)
     return lat !== null && lng !== null && lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng);
   }, []);
 
-  // ✅ Fixed getLocationKey with validation
+  // Fixed getLocationKey with validation
   const getLocationKey = useCallback(() => {
     if (!location || !isValidLocation(location)) return "";
     
@@ -129,7 +131,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return "";
   }, [location, isValidLocation]);
 
-  // ✅ Compute filteredProviders synchronously (no flicker) - same as React version
+  // Compute filteredProviders synchronously
   const filteredProviders = useMemo(() => {
     if (activeFilters && allProviders.length > 0) {
       return applyFilters(allProviders, activeFilters);
@@ -137,29 +139,38 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return allProviders;
   }, [allProviders, activeFilters]);
 
-  // ✅ Fixed useEffect with location validation
+  // ✅ Fixed: Single source of truth for initial load
   useEffect(() => {
     const currentLocationKey = getLocationKey();
     const locationValid = isValidLocation(location);
     
     setIsLocationValid(locationValid);
     
-    if (locationValid && currentLocationKey !== previousLocationKey) {
-      setPreviousLocationKey(currentLocationKey);
-      // Reset everything when location changes
+    // Check if location has actually changed
+    const locationChanged = locationValid && currentLocationKey !== locationKeyRef.current;
+    
+    if (locationValid && bookingType && !initialLoadDone.current) {
+      // Initial load - only once
+      console.log("Initial load triggered");
+      locationKeyRef.current = currentLocationKey;
+      initialLoadDone.current = true;
+      resetAndSearch();
+    } else if (locationValid && locationChanged && initialLoadDone.current) {
+      // Location changed after initial load - reset and search
+      console.log("Location changed, resetting");
+      locationKeyRef.current = currentLocationKey;
       resetAndSearch();
     }
-  }, [location, getLocationKey, isValidLocation]);
+  }, [location, bookingType]); // Only depend on location and bookingType
 
-  // ✅ Fixed second useEffect with location validation
+  // Handle selected provider type changes
   useEffect(() => {
-    if (bookingType && isValidLocation(location)) {
+    if (selected && selected !== selectedProviderType && initialLoadDone.current) {
+      setSelectedProviderType(selected);
       resetAndSearch();
+    } else if (selected && !initialLoadDone.current) {
+      setSelectedProviderType(selected);
     }
-  }, [selectedProviderType, location, bookingType]);
-
-  useEffect(() => {
-    setSelectedProviderType(selected || '');
   }, [selected]);
 
   const resetAndSearch = () => {
@@ -259,9 +270,17 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return 60;
   };
 
-  // Core fetch function with pagination - with improved validation
+  // Core fetch function with pagination - with proper prevention of concurrent calls
   const fetchProviders = async (page: number, reset: boolean = false) => {
+    // Prevent concurrent fetch calls
+    if (isFetchingRef.current) {
+      console.log("Fetch already in progress, skipping...");
+      return;
+    }
+    
     try {
+      isFetchingRef.current = true;
+      
       if (reset) {
         setLoading(true);
       } else {
@@ -279,12 +298,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         longitude = location.lng;
       }
 
-      // ✅ Improved validation
       if (latitude === 0 || longitude === 0 || isNaN(latitude) || isNaN(longitude)) {
         Alert.alert(
-          t('common.locationRequired'),
-          t('common.locationDenied'),
-          [{ text: t('common.ok') }]
+          'Location Required',
+          'Please enable location services to find providers near you.',
+          [{ text: 'OK' }]
         );
         setAllProviders([]);
         setHasFetchedOnce(true);
@@ -328,7 +346,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       
       console.log(`Fetching page ${page} with payload:`, payload);
 
-      // ✅ IMPORTANT: Send page and limit as QUERY PARAMETERS
       const response = await providerInstance.post(
         `/api/service-providers/nearby-monthly?page=${page}&limit=10`,
         payload
@@ -354,7 +371,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
     } catch (error: any) {
       console.error("API error:", error.message || error);
-      Alert.alert(t('common.error'), error.response?.data?.message || t('errors.generic'));
+      Alert.alert('Error', error.response?.data?.message || 'An error occurred. Please try again.');
       if (reset) {
         setAllProviders([]);
         setTotalCount(0);
@@ -365,6 +382,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       setLoading(false);
       setIsLoadingMore(false);
       setIsRefreshing(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -378,10 +396,20 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     await fetchProviders(reset ? 1 : currentPage + 1, reset);
   };
 
-  const fetchMoreData = () => {
-    if (isLoadingMore || !hasMore || loading) return;
-    fetchProviders(currentPage + 1, false);
-  };
+  // ✅ Fixed: Proper infinite scroll - only triggers when needed
+  const fetchMoreData = useCallback(() => {
+    // Check all conditions before fetching more
+    if (isLoadingMore || !hasMore || loading || isFetchingRef.current) {
+      console.log("Skipping fetch more:", { isLoadingMore, hasMore, loading, isFetching: isFetchingRef.current });
+      return;
+    }
+    
+    // Only fetch if we have providers loaded and not at the end
+    if (allProviders.length > 0 && hasMore) {
+      console.log("Fetching more data, next page:", currentPage + 1);
+      fetchProviders(currentPage + 1, false);
+    }
+  }, [isLoadingMore, hasMore, loading, allProviders.length, currentPage]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -488,7 +516,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
             <Icon name="arrow-back" size={24} color={colors.text} />
             <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-              {t('common.back')}
+              Back
             </Text>
           </TouchableOpacity>
           
@@ -665,6 +693,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     </SafeAreaView>
   );
 };
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

@@ -25,7 +25,6 @@ import { ServiceProviderDTO, EnhancedProviderDetails } from "../types/ProviderDe
 import ProviderAvailabilityDrawer from "./ProviderAvailabilityDrawer";
 import { CONFIRMATION, BOOKINGS } from "../Constants/pagesConstants";
 import { useTheme } from '../Settings/ThemeContext';
-import { useTranslation } from 'react-i18next';
 
 interface BookingType {
   serviceproviderId: string;
@@ -45,7 +44,6 @@ interface ProviderDetailsProps extends ServiceProviderDTO {
 const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Get theme values
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
-  const { t } = useTranslation();
   
   const [isExpanded, setIsExpanded] = useState(false);
   const [eveningSelection, setEveningSelection] = useState<number | null>(null);
@@ -387,7 +385,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     
     if (!providerId) {
       console.error("No provider ID found!");
-      Alert.alert(t('common.error'), t('errors.generic'));
+      Alert.alert('Error', 'An error occurred. Please try again.');
       return;
     }
 
