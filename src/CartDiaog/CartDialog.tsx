@@ -7,7 +7,8 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
+  TextInput,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -72,6 +73,10 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   const [couponDialogOpen, setCouponDialogOpen] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
   
   const [termsAccepted, setTermsAccepted] = useState({
     keyFacts: false,
@@ -149,6 +154,63 @@ export const CartDialog: React.FC<CartDialogProps> = ({
 
   const fontSizes = getFontSizes();
 
+  const handleQuickApplyCoupon = async () => {
+    if (!couponCodeInput.trim()) {
+      setCouponError(t('cart.pleaseEnterCouponCode'));
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    setCouponError(null);
+
+    try {
+      const response = await fetch(`https://coupons-o26r.onrender.com/api/coupons`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const now = new Date();
+        const foundCoupon = data.data.find((coupon: Coupon) => 
+          coupon.coupon_code.toLowerCase() === couponCodeInput.toLowerCase() &&
+          coupon.isActive &&
+          (coupon.service_type === getServiceType() || coupon.service_type === 'ALL') &&
+          coupon.city === getUserCity() &&
+          new Date(coupon.start_date) <= now &&
+          new Date(coupon.end_date) >= now
+        );
+
+        if (foundCoupon) {
+          if (foundCoupon.minimum_order_value && totalPrice < foundCoupon.minimum_order_value) {
+            setCouponError(t('cart.minimumOrderRequired', { amount: foundCoupon.minimum_order_value }));
+            setIsValidatingCoupon(false);
+            return;
+          }
+
+          let discount = 0;
+          if (foundCoupon.discount_type === 'PERCENTAGE') {
+            discount = (totalPrice * foundCoupon.discount_value) / 100;
+          } else {
+            discount = foundCoupon.discount_value;
+          }
+          
+          setAppliedCoupon(foundCoupon);
+          setCouponDiscount(discount);
+          setCouponCodeInput('');
+          setCouponError(null);
+          Alert.alert(t('cart.success'), t('cart.couponAppliedSuccessfully'));
+        } else {
+          setCouponError(t('cart.invalidCouponCode'));
+        }
+      } else {
+        setCouponError(t('cart.unableToValidateCoupon'));
+      }
+    } catch (error) {
+      console.error('Error validating coupon:', error);
+      setCouponError(t('cart.errorValidatingCoupon'));
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
   const handleApplyCoupon = (coupon: Coupon) => {
     let discount = 0;
     if (coupon.discount_type === 'PERCENTAGE') {
@@ -159,11 +221,15 @@ export const CartDialog: React.FC<CartDialogProps> = ({
     
     setAppliedCoupon(coupon);
     setCouponDiscount(discount);
+    setCouponCodeInput('');
+    setCouponError(null);
   };
   
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponDiscount(0);
+    setCouponCodeInput('');
+    setCouponError(null);
   };
 
   const handleRemoveItem = (id: string, itemType: CartItem['type']) => {
@@ -182,6 +248,8 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         terms: false,
         privacy: false
       });
+      setCouponCodeInput('');
+      setCouponError(null);
     }
   }, [open]);
 
@@ -349,61 +417,113 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     )}
                   </View>
 
-                  <TouchableOpacity 
-                    style={[styles.couponsSection, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => setCouponDialogOpen(true)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.couponsHeader}>
-                      <View style={styles.couponsHeaderLeft}>
-                        <MaterialCommunityIcons name="tag" size={20} color={colors.primary} />
-                        <Text style={[styles.couponsTitle, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
-                          {appliedCoupon ? t('cart.couponApplied') : t('cart.couponsAndOffers')}
-                        </Text>
-                        {appliedCoupon && (
-                          <View style={[styles.appliedChip, { backgroundColor: colors.success }]}>
-                            <Text style={[styles.appliedChipText, { fontSize: fontSizes.caption }]}>
-                              {appliedCoupon.coupon_code}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.couponsHeaderRight}>
-                        {couponDiscount > 0 && (
-                          <Text style={[styles.discountAmount, { color: colors.success, fontSize: fontSizes.body }]}>
-                            -₹{couponDiscount.toFixed(2)}
-                          </Text>
-                        )}
-                        <Text style={[styles.viewAllLink, { color: colors.primary, fontSize: fontSizes.body }]}>
-                          {t('cart.viewAll')} →
-                        </Text>
-                      </View>
-                    </View>
-                    
-                    {appliedCoupon && (
-                      <View style={styles.appliedCouponDetails}>
-                        <Text style={[styles.couponDescription, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
-                          {appliedCoupon.description}
-                        </Text>
-                        <TouchableOpacity 
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleRemoveCoupon();
+                  {/* Coupon Search Panel */}
+                  <View style={[styles.couponSearchPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.couponSearchTitle, { color: colors.text, fontSize: fontSizes.body, fontWeight: '500' }]}>
+                      {t('cart.haveCouponCode')}
+                    </Text>
+                    <View style={styles.couponInputContainer}>
+                      <View style={[styles.couponInputWrapper, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                        <MaterialCommunityIcons name="tag-outline" size={20} color={colors.primary} />
+                        <TextInput
+                          style={[styles.couponSearchInput, { color: colors.text, fontSize: fontSizes.body }]}
+                          placeholder={t('cart.enterCouponCode')}
+                          placeholderTextColor={colors.textTertiary}
+                          value={couponCodeInput}
+                          onChangeText={(text) => {
+                            setCouponCodeInput(text.toUpperCase());
+                            setCouponError(null);
                           }}
-                        >
-                          <Text style={[styles.removeCouponText, { color: colors.error, fontSize: fontSizes.caption }]}>
-                            {t('cart.remove')}
-                          </Text>
-                        </TouchableOpacity>
+                          autoCapitalize="characters"
+                          editable={!appliedCoupon}
+                        />
+                        {couponCodeInput.length > 0 && !appliedCoupon && (
+                          <TouchableOpacity onPress={() => setCouponCodeInput('')}>
+                            <Icon name="close" size={18} color={colors.textSecondary} />
+                          </TouchableOpacity>
+                        )}
                       </View>
-                    )}
-                    
-                    {!appliedCoupon && totalSaved > 0 && (
-                      <Text style={[styles.savedText, { color: colors.success, fontSize: fontSizes.caption }]}>
-                        ₹{totalSaved.toFixed(2)} {t('cart.savedWithCoupons')}
+                      <TouchableOpacity
+                        style={[
+                          styles.applyCouponButton,
+                          { backgroundColor: colors.primary },
+                          (isValidatingCoupon || !couponCodeInput.trim() || appliedCoupon) && styles.disabledCouponButton
+                        ]}
+                        onPress={handleQuickApplyCoupon}
+                        disabled={isValidatingCoupon || !couponCodeInput.trim() || !!appliedCoupon}
+                      >
+                        {isValidatingCoupon ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={[styles.applyCouponButtonText, { color: '#fff', fontSize: fontSizes.button }]}>
+                            {t('cart.apply')}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                    {couponError && (
+                      <Text style={[styles.couponErrorText, { color: colors.error, fontSize: fontSizes.caption }]}>
+                        {couponError}
                       </Text>
                     )}
-                  </TouchableOpacity>
+                    {!appliedCoupon && (
+                      <TouchableOpacity 
+                        style={styles.viewAllCouponsLink}
+                        onPress={() => setCouponDialogOpen(true)}
+                      >
+                        <Text style={[styles.viewAllCouponsText, { color: colors.primary, fontSize: fontSizes.caption }]}>
+                          {t('cart.viewAllAvailableCoupons')} →
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Applied Coupon Info or More Coupons Section */}
+                  {appliedCoupon ? (
+                    <View style={[styles.appliedCouponInfo, { backgroundColor: colors.success + '20', borderColor: colors.success }]}>
+                      <View style={styles.appliedCouponInfoContent}>
+                        <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+                        <View style={styles.appliedCouponInfoText}>
+                          <Text style={[styles.appliedCouponInfoCode, { color: colors.text, fontSize: fontSizes.body, fontWeight: '500' }]}>
+                            {t('cart.couponApplied')}: {appliedCoupon.coupon_code}
+                          </Text>
+                          <Text style={[styles.appliedCouponInfoDesc, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
+                            {appliedCoupon.description}
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity onPress={handleRemoveCoupon}>
+                        <Text style={[styles.removeAppliedCouponText, { color: colors.error, fontSize: fontSizes.caption }]}>
+                          {t('cart.remove')}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity 
+                      style={[styles.couponsSection, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setCouponDialogOpen(true)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.couponsHeader}>
+                        <View style={styles.couponsHeaderLeft}>
+                          <MaterialCommunityIcons name="tag-multiple" size={20} color={colors.primary} />
+                          <Text style={[styles.couponsTitle, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
+                            {t('cart.moreCouponsAndOffers')}
+                          </Text>
+                        </View>
+                        <View style={styles.couponsHeaderRight}>
+                          {totalSaved > 0 && (
+                            <Text style={[styles.savedAmount, { color: colors.success, fontSize: fontSizes.body }]}>
+                              ₹{totalSaved.toFixed(2)} {t('cart.saved')}
+                            </Text>
+                          )}
+                          <Text style={[styles.viewAllLink, { color: colors.primary, fontSize: fontSizes.body }]}>
+                            {t('cart.viewAll')} →
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  )}
 
                   <View style={[styles.pricingContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.pricingRow}>
@@ -580,7 +700,6 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
   const dispatch = useDispatch();
 
   const getFontSizes = () => {
-    // This would come from theme, using default for now
     return { body: 14, caption: 12, small: 10 };
   };
 
@@ -886,6 +1005,91 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginVertical: 16,
+  },
+  couponSearchPanel: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  couponSearchTitle: {
+    marginBottom: 12,
+  },
+  couponInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  couponInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  couponSearchInput: {
+    flex: 1,
+    padding: 0,
+  },
+  applyCouponButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  applyCouponButtonText: {
+    fontWeight: '600',
+  },
+  disabledCouponButton: {
+    opacity: 0.6,
+  },
+  couponErrorText: {
+    marginTop: 8,
+  },
+  viewAllCouponsLink: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  viewAllCouponsText: {
+    fontWeight: '500',
+  },
+  appliedCouponInfo: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  appliedCouponInfoContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  appliedCouponInfoText: {
+    flex: 1,
+  },
+  appliedCouponInfoCode: {
+    marginBottom: 2,
+  },
+  appliedCouponInfoDesc: {
+    fontSize: 12,
+  },
+  removeAppliedCouponText: {
+    fontWeight: '500',
+    marginLeft: 12,
+  },
+  savedAmount: {
+    fontWeight: '500',
   },
   couponsSection: {
     borderTopWidth: 1,

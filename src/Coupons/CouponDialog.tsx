@@ -16,7 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import LinearGradient from 'react-native-linear-gradient';
-import { useAppUser } from '../context/AppUserContext'; // Import AppUser context
+import { useAppUser } from '../context/AppUserContext';    // Import AppUser context
 
 const { width } = Dimensions.get('window');
 

@@ -1,4 +1,4 @@
-// HomePage.tsx - Updated with theme support and translations + Promotional Offer
+// HomePage.tsx - Complete with Broadcast Message Component
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -16,21 +16,21 @@ import {
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import RadioButton from '../common/RadioButton';
-import ServiceProviderRegistration from '../Registration/ServiceProviderRegistration';
-import ServiceDetailsDialog from './ServiceDetailsDialog';
-import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
-import DemoCook from "../ServiceDialogs/CookServiceDialog";
-import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import LinearGradient from 'react-native-linear-gradient';
-import AgentRegistrationForm from '../Agent/AgentRegistrationForm';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAuth0 } from 'react-native-auth0';
-import BookingDialog from '../BookingDialog/BookingDialog';
 import { useTheme } from '../Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import FirstBookingOffer from './FirstBookingOffer';
 import ServiceSelectionDialog from './ServiceSelectionDialog';
+import BookingDialog from '../BookingDialog/BookingDialog';
+import ServiceDetailsDialog from './ServiceDetailsDialog';
+import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
+import DemoCook from "../ServiceDialogs/CookServiceDialog";
+import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
+import ServiceProviderRegistration from '../Registration/ServiceProviderRegistration';
+import AgentRegistrationForm from '../Agent/AgentRegistrationForm';
+import BroadcastMessage from './BroadcastMessage'; // Import the new component
 
 // Import local images
 const cookImage = require("../../assets/images/Cooknew.png");
@@ -132,7 +132,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   bookingType,
 }) => {
   // Get theme values
-  const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  const { colors, isDarkMode, fontSize } = useTheme();
   const { t } = useTranslation();
   
   const [open, setOpen] = useState(false);
@@ -145,20 +145,18 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [showRegistration, setShowRegistration] = useState(false);
   const [serviceDetailsOpen, setServiceDetailsOpen] = useState(false);
   const [selectedServiceType, setSelectedServiceType] = useState<"cook" | "maid" | "babycare" | null>(null);
-  const [showCookServicesDialog, setShowCookServicesDialog] = useState(false);
   const [showMaidServiceDialog, setShowMaidServiceDialog] = useState(false);
   const [showNannyServicesDialog, setShowNannyServicesDialog] = useState(false);
   const [showCookDialog, setShowCookDialog] = useState(false);
   const [hoveredService, setHoveredService] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentServiceIndex, setCurrentServiceIndex] = useState(0);
   
   // Promotional offer states
   const [showOffer, setShowOffer] = useState(true);
-  const [showServiceSelectionDialog, setShowServiceSelectionDialog] = useState(false);
+  const [showServiceSelection, setShowServiceSelection] = useState(false);
   
   // Animation values for hero carousel
   const fadeAnim1 = useRef(new Animated.Value(1)).current;
@@ -174,7 +172,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const howItWorksSlideAnim = useRef(new Animated.Value(0)).current;
 
   // Auth0 authentication
-  const { user: auth0User, authorize, clearSession } = useAuth0();
+  const { user: auth0User } = useAuth0();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
@@ -206,15 +204,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
       if (isAuthenticated && auth0User) {
         const userRole = auth0User.role || "CUSTOMER";
         setRole(userRole);
-        console.log("User role:", userRole);
       }
     };
     initializeUser();
   }, [isAuthenticated, auth0User]);
-
-  const handleAgentWorkButtonClick = () => {
-    setShowAgentRegistration(true);
-  };
   
   // Smooth carousel with crossfade animation for hero section
   useEffect(() => {
@@ -226,16 +219,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
         
         if (currentImageIndex === 0 && nextIndex === 1) {
           Animated.parallel([
-            Animated.timing(fadeAnim1, {
-              toValue: 0,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(fadeAnim2, {
-              toValue: 1,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
+            Animated.timing(fadeAnim1, { toValue: 0, duration: 1500, useNativeDriver: true }),
+            Animated.timing(fadeAnim2, { toValue: 1, duration: 1500, useNativeDriver: true }),
           ]).start(() => {
             setCurrentImageIndex(nextIndex);
             fadeAnim1.setValue(0);
@@ -244,16 +229,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
           });
         } else if (currentImageIndex === 1 && nextIndex === 2) {
           Animated.parallel([
-            Animated.timing(fadeAnim2, {
-              toValue: 0,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(fadeAnim3, {
-              toValue: 1,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
+            Animated.timing(fadeAnim2, { toValue: 0, duration: 1500, useNativeDriver: true }),
+            Animated.timing(fadeAnim3, { toValue: 1, duration: 1500, useNativeDriver: true }),
           ]).start(() => {
             setCurrentImageIndex(nextIndex);
             fadeAnim1.setValue(0);
@@ -262,16 +239,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
           });
         } else if (currentImageIndex === 2 && nextIndex === 0) {
           Animated.parallel([
-            Animated.timing(fadeAnim3, {
-              toValue: 0,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(fadeAnim1, {
-              toValue: 1,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
+            Animated.timing(fadeAnim3, { toValue: 0, duration: 1500, useNativeDriver: true }),
+            Animated.timing(fadeAnim1, { toValue: 1, duration: 1500, useNativeDriver: true }),
           ]).start(() => {
             setCurrentImageIndex(nextIndex);
             fadeAnim1.setValue(1);
@@ -283,12 +252,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
     };
     
     startCarousel();
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [currentImageIndex]);
 
   // Services carousel with smooth transitions
@@ -300,42 +264,21 @@ const HomePage: React.FC<ChildComponentProps> = ({
         const nextIndex = (currentServiceIndex + 1) % popularServices.length;
         
         Animated.parallel([
-          Animated.timing(serviceFadeAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(serviceSlideAnim, {
-            toValue: -50,
-            duration: 400,
-            useNativeDriver: true,
-          }),
+          Animated.timing(serviceFadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+          Animated.timing(serviceSlideAnim, { toValue: -50, duration: 400, useNativeDriver: true }),
         ]).start(() => {
           setCurrentServiceIndex(nextIndex);
           serviceSlideAnim.setValue(50);
           Animated.parallel([
-            Animated.timing(serviceFadeAnim, {
-              toValue: 1,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(serviceSlideAnim, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-            }),
+            Animated.timing(serviceFadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+            Animated.timing(serviceSlideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
           ]).start();
         });
       }, 5000);
     };
     
     startServiceCarousel();
-    
-    return () => {
-      if (serviceInterval) {
-        clearInterval(serviceInterval);
-      }
-    };
+    return () => { if (serviceInterval) clearInterval(serviceInterval); };
   }, [currentServiceIndex]);
 
   // How It Works carousel with smooth transitions
@@ -347,42 +290,21 @@ const HomePage: React.FC<ChildComponentProps> = ({
         const nextIndex = (currentSlide + 1) % howItWorksSlides.length;
         
         Animated.parallel([
-          Animated.timing(howItWorksFadeAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(howItWorksSlideAnim, {
-            toValue: -50,
-            duration: 400,
-            useNativeDriver: true,
-          }),
+          Animated.timing(howItWorksFadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+          Animated.timing(howItWorksSlideAnim, { toValue: -50, duration: 400, useNativeDriver: true }),
         ]).start(() => {
           setCurrentSlide(nextIndex);
           howItWorksSlideAnim.setValue(50);
           Animated.parallel([
-            Animated.timing(howItWorksFadeAnim, {
-              toValue: 1,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(howItWorksSlideAnim, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-            }),
+            Animated.timing(howItWorksFadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+            Animated.timing(howItWorksSlideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
           ]).start();
         });
       }, 5000);
     };
     
     startHowItWorksCarousel();
-    
-    return () => {
-      if (howItWorksInterval) {
-        clearInterval(howItWorksInterval);
-      }
-    };
+    return () => { if (howItWorksInterval) clearInterval(howItWorksInterval); };
   }, [currentSlide]);
 
   // Initialize animation values
@@ -395,10 +317,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
     howItWorksFadeAnim.setValue(1);
     howItWorksSlideAnim.setValue(0);
   }, []);
-
-  const handleWorkButtonClick = () => {
-    setShowRegistration(true);
-  };
 
   const dispatch = useDispatch();
 
@@ -428,7 +346,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const handleSave = (bookingDetails: any) => {
-    console.log("Booking details received from dialog:", bookingDetails);
     bookingDetails.startTime = bookingDetails.startTime.format("HH:mm");
     bookingDetails.endTime = bookingDetails.endTime.format("HH:mm");
     
@@ -441,34 +358,23 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
     const formatTime = (value: any) => {
       if (!value) return "";
-      
       if (value && typeof value === 'object' && value.format) {
         return value.format("HH:mm");
       }
-      
       if (value instanceof Date) {
         return value.toTimeString().slice(0, 5);
       }
-      
       if (typeof value === 'string') {
         let timeStr = value.trim();
-        
         if (timeStr.includes('AM') || timeStr.includes('PM')) {
           const [timePart, period] = timeStr.split(/\s+/);
           let [hours, minutes] = timePart.split(':').map(Number);
-          
-          if (period === 'PM' && hours < 12) {
-            hours += 12;
-          } else if (period === 'AM' && hours === 12) {
-            hours = 0;
-          }
-          
+          if (period === 'PM' && hours < 12) hours += 12;
+          else if (period === 'AM' && hours === 12) hours = 0;
           return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         }
-        
         return timeStr.replace(/\s+/g, '');
       }
-      
       return "";
     };
 
@@ -477,15 +383,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
       start_time: formatTime(bookingDetails.startTime),
       end_date: formatDate(bookingDetails.endDate || bookingDetails.startDate),
       end_time: bookingDetails.endTime,
-      timeRange:
-        bookingDetails.startTime && bookingDetails.endTime
-          ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
-          : formatTime(bookingDetails.startTime) || "",
+      timeRange: bookingDetails.startTime && bookingDetails.endTime
+        ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
+        : formatTime(bookingDetails.startTime) || "",
       bookingPreference: selectedRadioButtonValue,
       housekeepingRole: selectedType,
     };
-
-    console.log("Formatted booking details to send to parent:", booking);
 
     if (selectedRadioButtonValue === "Date") {
       switch (selectedType) {
@@ -528,13 +431,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
   const isServiceDisabled = role === "SERVICE_PROVIDER";
 
-  // Animation for service cards
-  const scaleAnimations = useRef([
-    new Animated.Value(1),
-    new Animated.Value(1),
-    new Animated.Value(1)
-  ]).current;
-
   const handleCardPressIn = (index: number) => {
     Animated.spring(scaleAnimations[index], {
       toValue: 0.98,
@@ -553,83 +449,62 @@ const HomePage: React.FC<ChildComponentProps> = ({
     }).start();
   };
 
+  const scaleAnimations = useRef([
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1)
+  ]).current;
+
   const goToServiceSlide = (index: number) => {
     if (index === currentServiceIndex) return;
-    
     const direction = index > currentServiceIndex ? -50 : 50;
     
     Animated.parallel([
-      Animated.timing(serviceFadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(serviceSlideAnim, {
-        toValue: direction,
-        duration: 300,
-        useNativeDriver: true,
-      }),
+      Animated.timing(serviceFadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.timing(serviceSlideAnim, { toValue: direction, duration: 300, useNativeDriver: true }),
     ]).start(() => {
       setCurrentServiceIndex(index);
       serviceSlideAnim.setValue(direction * -1);
       Animated.parallel([
-        Animated.timing(serviceFadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(serviceSlideAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
+        Animated.timing(serviceFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(serviceSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
       ]).start();
     });
   };
 
   const goToHowItWorksSlide = (index: number) => {
     if (index === currentSlide) return;
-    
     const direction = index > currentSlide ? -50 : 50;
     
     Animated.parallel([
-      Animated.timing(howItWorksFadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(howItWorksSlideAnim, {
-        toValue: direction,
-        duration: 300,
-        useNativeDriver: true,
-      }),
+      Animated.timing(howItWorksFadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.timing(howItWorksSlideAnim, { toValue: direction, duration: 300, useNativeDriver: true }),
     ]).start(() => {
       setCurrentSlide(index);
       howItWorksSlideAnim.setValue(direction * -1);
       Animated.parallel([
-        Animated.timing(howItWorksFadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(howItWorksSlideAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
+        Animated.timing(howItWorksFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(howItWorksSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
       ]).start();
     });
   };
 
-  // Handle promotional offer press - Opens service selection dialog
+  // Handle promotional offer press - opens service selection dialog
   const handlePromotionalOfferPress = () => {
-    setShowServiceSelectionDialog(true);
+    setShowServiceSelection(true);
   };
 
-  // Handle service selection from dialog - Opens booking dialog directly
-  const handleServiceSelection = (serviceType: string) => {
+  // Handle service selection from dialog
+  const handleServiceSelectedFromOffer = (serviceType: string) => {
     setSelectedtype(serviceType);
-    setOpen(true); // Directly open the booking dialog
+    setOpen(true);
+  };
+
+  // Handle coupon application from broadcast message
+  const handleCouponApplied = (couponCode: string) => {
+    console.log('Coupon applied:', couponCode);
+    // You can store the coupon in Redux or Context for use during checkout
+    // For example: dispatch(setCouponCode(couponCode));
   };
 
   return (
@@ -638,8 +513,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
         style={styles.container} 
         scrollEnabled={!showRegistration && !showAgentRegistration}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Hero Section */}
+        {/* Hero Section with Blue Gradient Overlay */}
         <View style={styles.heroSection}>
           <View style={StyleSheet.absoluteFillObject}>
             <Animated.Image
@@ -659,7 +535,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
             />
           </View>
           
-          <View style={[styles.overlay, { backgroundColor: 'rgba(10, 42, 102, 0.5)' }]} />
+          {/* Blue Gradient Overlay */}
+          <LinearGradient
+            colors={["rgba(10, 42, 102, 0.7)", "rgba(0, 74, 173, 0.6)", "rgba(10, 42, 102, 0.8)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientOverlay}
+          />
           
           <View style={styles.heroContent}>
             <Text style={[styles.heroTitle, { fontSize: fontStyles.headingSize }]}>
@@ -684,7 +566,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceIconContainerRectangular,
                     hoveredService === "COOK" && styles.serviceIconContainerRectangularHover,
                     isServiceDisabled && styles.disabledServiceContainer,
-                    { borderColor: isServiceDisabled ? colors.border : 'rgba(255, 255, 255, 0.8)' }
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("COOK")}
                   onPressIn={() => setHoveredService("COOK")}
@@ -692,10 +573,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   disabled={isServiceDisabled}
                 >
                   <Image source={cookImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
-                  <View style={[styles.serviceOverlay, isServiceDisabled && styles.disabledServiceOverlay, { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }]}>
+                  <LinearGradient
+                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    style={styles.serviceOverlay}
+                  >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.homeCook')}</Text>
                     {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
-                  </View>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
 
@@ -706,7 +590,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceIconContainerRectangular,
                     hoveredService === "MAID" && styles.serviceIconContainerRectangularHover,
                     isServiceDisabled && styles.disabledServiceContainer,
-                    { borderColor: isServiceDisabled ? colors.border : 'rgba(255, 255, 255, 0.8)' }
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("MAID")}
                   onPressIn={() => setHoveredService("MAID")}
@@ -714,10 +597,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   disabled={isServiceDisabled}
                 >
                   <Image source={maidImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
-                  <View style={[styles.serviceOverlay, isServiceDisabled && styles.disabledServiceOverlay, { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }]}>
+                  <LinearGradient
+                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    style={styles.serviceOverlay}
+                  >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.cleaningHelp')}</Text>
                     {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
-                  </View>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
 
@@ -728,7 +614,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     styles.serviceIconContainerRectangular,
                     hoveredService === "NANNY" && styles.serviceIconContainerRectangularHover,
                     isServiceDisabled && styles.disabledServiceContainer,
-                    { borderColor: isServiceDisabled ? colors.border : 'rgba(255, 255, 255, 0.8)' }
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("NANNY")}
                   onPressIn={() => setHoveredService("NANNY")}
@@ -736,10 +621,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   disabled={isServiceDisabled}
                 >
                   <Image source={nannyImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
-                  <View style={[styles.serviceOverlay, isServiceDisabled && styles.disabledServiceOverlay, { backgroundColor: isServiceDisabled ? colors.overlay : 'rgba(0, 0, 0, 0.7)' }]}>
+                  <LinearGradient
+                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    style={styles.serviceOverlay}
+                  >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.caregiver')}</Text>
                     {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
-                  </View>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
             </View>
@@ -752,24 +640,40 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 style={[
                   styles.heroIndicator,
                   index === currentImageIndex && styles.heroIndicatorActive,
-                  { backgroundColor: index === currentImageIndex ? '#fff' : 'rgba(255, 255, 255, 0.5)' }
                 ]}
               />
             ))}
           </View>
+          
+          {/* PROMOTIONAL SECTION - Now includes both FirstBookingOffer and BroadcastMessage */}
+          <View style={styles.promotionalSection}>
+            {showOffer && !isServiceDisabled && (
+              <>
+                <View style={styles.offerWrapper}>
+                  <FirstBookingOffer onPress={handlePromotionalOfferPress} />
+                </View>
+                {/* Broadcast Message Component */}
+              <View style={styles.broadcastWrapper}>
+                  <BroadcastMessage onCouponApplied={handleCouponApplied} />
+               </View>
+              </>
+            )}
+          </View>
         </View>
         
-        {/* First Booking Offer - Promotional Banner */}
-        {showOffer && !isServiceDisabled && (
-          <FirstBookingOffer onPress={handlePromotionalOfferPress} />
-        )}
-        
-        {/* Services Section */}
+        {/* Popular Services Section */}
         <View style={[styles.servicesSection, { backgroundColor: isDarkMode ? colors.surface : '#f8fafc' }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
-              {t('home.services.title')}
-            </Text>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.sectionTitleGradient}
+            >
+              <Text style={[styles.sectionTitle, { fontSize: fontStyles.headingSize }]}>
+                {t('home.services.title')}
+              </Text>
+            </LinearGradient>
             <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
               {t('home.services.subtitle')}
             </Text>
@@ -779,10 +683,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
             <Animated.View
               style={[
                 styles.serviceCarouselSlide,
-                {
-                  opacity: serviceFadeAnim,
-                  transform: [{ translateX: serviceSlideAnim }],
-                },
+                { opacity: serviceFadeAnim, transform: [{ translateX: serviceSlideAnim }] },
               ]}
             >
               <TouchableOpacity 
@@ -836,7 +737,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
               {popularServices.map((_, index) => {
                 const dotScale = index === currentServiceIndex ? 1.3 : 1;
                 const dotWidth = index === currentServiceIndex ? 24 : 10;
-                
                 return (
                   <TouchableOpacity key={index} onPress={() => goToServiceSlide(index)} activeOpacity={0.8}>
                     <LinearGradient
@@ -864,9 +764,16 @@ const HomePage: React.FC<ChildComponentProps> = ({
         {/* How it works section */}
         <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff' }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: isDarkMode ? colors.text : '#1a2b4c', fontSize: fontStyles.headingSize }]}>
-              {t('home.howItWorks.title')}
-            </Text>
+            <LinearGradient
+              colors={["#0a2a66ff", "#004aadff"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.sectionTitleGradient}
+            >
+              <Text style={[styles.sectionTitle, { fontSize: fontStyles.headingSize }]}>
+                {t('home.howItWorks.title')}
+              </Text>
+            </LinearGradient>
             <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
               {t('home.howItWorks.subtitle')}
             </Text>
@@ -876,10 +783,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
             <Animated.View
               style={[
                 styles.howItWorksCarouselSlide,
-                {
-                  opacity: howItWorksFadeAnim,
-                  transform: [{ translateX: howItWorksSlideAnim }],
-                },
+                { opacity: howItWorksFadeAnim, transform: [{ translateX: howItWorksSlideAnim }] },
               ]}
             >
               <LinearGradient
@@ -934,7 +838,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
               {howItWorksSlides.map((_, index) => {
                 const dotScale = index === currentSlide ? 1.3 : 1;
                 const dotWidth = index === currentSlide ? 24 : 10;
-                
                 return (
                   <TouchableOpacity key={index} onPress={() => goToHowItWorksSlide(index)} activeOpacity={0.8}>
                     <LinearGradient
@@ -999,7 +902,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
                   end_date: endDate ? new Date(endDate).toISOString().split("T")[0] : startDate ? new Date(startDate).toISOString().split("T")[0] : "",
                   end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-                  timeRange: startTime ? `${new Date(startTime).toTimeString().slice(0, 5)}` : startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
+                  timeRange: startTime ? `${new Date(startTime).toTimeString().slice(0, 5)}` : "",
                   bookingPreference: selectedRadioButtonValue,
                   housekeepingRole: selectedType,
                 }}
@@ -1020,7 +923,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
                   end_date: endDate ? new Date(endDate).toISOString().split("T")[0] : startDate ? new Date(startDate).toISOString().split("T")[0] : "",
                   end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-                  timeRange: startTime ? `${new Date(startTime).toTimeString().slice(0, 5)}` : startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
+                  timeRange: startTime ? `${new Date(startTime).toTimeString().slice(0, 5)}` : "",
                   bookingPreference: selectedRadioButtonValue,
                   housekeepingRole: selectedType,
                 }}
@@ -1038,9 +941,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
       {/* Service Selection Dialog for Promotional Offer */}
       <ServiceSelectionDialog
-        visible={showServiceSelectionDialog}
-        onClose={() => setShowServiceSelectionDialog(false)}
-        onSelectService={handleServiceSelection}
+        visible={showServiceSelection}
+        onClose={() => setShowServiceSelection(false)}
+        onSelectService={handleServiceSelectedFromOffer}
       />
 
       {/* Agent Registration Modal */}
@@ -1056,7 +959,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   );
 };
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   mainContainer: {
@@ -1081,7 +984,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  overlay: {
+  gradientOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
   heroContent: {
@@ -1095,17 +998,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: "center",
     color: "#ffffff",
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 5, height: 5 },
-    textShadowRadius: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
   heroSubtitle: {
     color: "#ffffff",
     marginBottom: 24,
     textAlign: "center",
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 5, height: 5 },
-    textShadowRadius: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
     lineHeight: 22,
     fontWeight: '500',
   },
@@ -1115,18 +1018,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 5, height: 5 },
-    textShadowRadius: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
     letterSpacing: 0.5,
   },
   selectorSubtitle: {
     color: '#ffffff',
     textAlign: 'center',
     marginBottom: 24,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 6,
+    textShadowRadius: 3,
     fontWeight: '500',
   },
   serviceIconsContainer: {
@@ -1154,17 +1057,33 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginHorizontal: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   heroIndicatorActive: {
     width: 20,
+    backgroundColor: '#fff',
+  },
+  promotionalSection: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    zIndex: 5,
+    paddingBottom: 10,
+  },
+  offerWrapper: {
+    marginBottom: 8,
+  },
+  broadcastWrapper: {
+    marginTop: 4,
+    marginBottom: 4,
   },
   servicesSection: {
     padding: 20,
-    paddingTop: 50,
+    paddingTop: 30,
     paddingBottom: 40,
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    marginTop: -40,
+    marginTop: 10,
     zIndex: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -10 },
@@ -1174,11 +1093,19 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: 30,
+    alignItems: 'center',
+  },
+  sectionTitleGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 25,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontWeight: "700",
     textAlign: "center",
     letterSpacing: -0.5,
+    color: '#fff',
   },
   sectionSubtitle: {
     textAlign: "center",
@@ -1583,6 +1510,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -1592,7 +1520,7 @@ const styles = StyleSheet.create({
   },
   serviceIconContainerRectangularHover: {
     transform: [{ scale: 1.05 }],
-    shadowColor: "#1976d2",
+    shadowColor: "#004aad",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -1615,9 +1543,6 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 10,
     alignItems: 'center',
-  },
-  disabledServiceOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   serviceLabelRectangular: {
     color: '#fff',

@@ -8,12 +8,20 @@ import {
   Modal,
   Dimensions,
   Animated,
+  ScrollView,
+  BackHandler,
+  Clipboard,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import Snackbar from 'react-native-snackbar';
 import { useTheme } from '../Settings/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
+
+// Fixed dialog dimensions - consistent across all devices
+const DIALOG_WIDTH = Math.min(width * 0.9, 400);
+const DIALOG_MAX_HEIGHT = Math.min(height * 0.85, 600);
 
 interface ServiceSelectionDialogProps {
   visible: boolean;
@@ -30,7 +38,19 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
 
   // Animation values
   const pricePulse = useRef(new Animated.Value(1)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  // Handle back button press
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (visible) {
+        onClose();
+        return true;
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [visible, onClose]);
 
   useEffect(() => {
     if (visible) {
@@ -49,32 +69,14 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
           }),
         ])
       ).start();
-
-      // Shimmer animation
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(shimmerAnim, {
-            toValue: 1,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shimmerAnim, {
-            toValue: 0,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
     } else {
       pricePulse.setValue(1);
-      shimmerAnim.setValue(0);
     }
 
     return () => {
       pricePulse.stopAnimation();
-      shimmerAnim.stopAnimation();
     };
-  }, [visible, pricePulse, shimmerAnim]);
+  }, [visible, pricePulse]);
 
   const services = [
     {
@@ -82,21 +84,21 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
       title: 'Home Cook',
       icon: '👩‍🍳',
       description: 'Professional chefs for delicious home-cooked meals',
-      gradient: ['#0f2027', '#203a43', '#2c5364'],
+      gradient: ['#0f2027', '#203a43', '#2c5364'] as const,
     },
     {
       id: 'MAID',
       title: 'Cleaning Help',
       icon: '🧹',
       description: 'Professional cleaning services for your home',
-      gradient: ['#0b3b5c', '#1c5985', '#2a7a9e'],
+      gradient: ['#0b3b5c', '#1c5985', '#2a7a9e'] as const,
     },
     {
       id: 'NANNY',
       title: 'Caregiver',
       icon: '👶',
       description: 'Experienced caregivers for your loved ones',
-      gradient: ['#42275a', '#734b6d', '#b4869f'],
+      gradient: ['#42275a', '#734b6d', '#b4869f'] as const,
     },
   ];
 
@@ -105,11 +107,30 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
     onClose();
   };
 
-  // Shimmer transform
-  const shimmerTranslate = shimmerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-width * 0.9, width * 0.9],
-  });
+  const copyCouponToClipboard = async (couponCode: string) => {
+    try {
+      await Clipboard.setString(couponCode);
+      
+      Snackbar.show({
+        text: `🎉 Coupon "${couponCode}" copied! Get your first service at just ₹99`,
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: '#4caf50',
+        textColor: '#ffffff',
+        action: {
+          text: 'USE NOW',
+          textColor: '#FFD700',
+          onPress: () => {},
+        },
+      });
+    } catch (error) {
+      Snackbar.show({
+        text: '❌ Failed to copy coupon. Please try again!',
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: '#f44336',
+        textColor: '#ffffff',
+      });
+    }
+  };
 
   return (
     <Modal
@@ -118,8 +139,15 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.container, { backgroundColor: isDarkMode ? colors.surface : '#fff' }]}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.6)' }]}>
+        <View style={[
+          styles.container, 
+          { 
+            backgroundColor: isDarkMode ? colors.surface : '#fff',
+            width: DIALOG_WIDTH,
+            maxHeight: DIALOG_MAX_HEIGHT,
+          }
+        ]}>
           {/* Header with Linear Gradient */}
           <LinearGradient
             colors={["#0a2a66ff", "#004aadff"]}
@@ -132,116 +160,120 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
                 <Icon name="close" size={24} color="#fff" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Select Service</Text>
-              <View style={styles.placeholder} />
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon name="arrow-back" size={24} color="#fff" />
+              </TouchableOpacity>
             </View>
           </LinearGradient>
 
-          <View style={styles.content}>
-            {/* HIGHLIGHTED PRICE SECTION WITH ANIMATIONS */}
-            <View style={styles.priceHighlightContainer}>
-              <LinearGradient
-                colors={['#FFD700', '#FFA500', '#FF8C00']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.priceGradientBorder}
-              >
-                <View style={styles.priceHighlightInner}>
-                  {/* Shimmer effect overlay */}
-                  <Animated.View
-                    style={[
-                      styles.shimmerOverlay,
-                      {
-                        transform: [{ translateX: shimmerTranslate }],
-                      },
-                    ]}
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <View style={styles.content}>
+              {/* SIMPLE OFFER TEXT - Compact */}
+              <View style={styles.offerWrapper}>
+                <Text style={[styles.offerText, { color: isDarkMode ? colors.textPrimary : '#333' }]}>
+                  Book any service at just 
+                  <Animated.Text style={[styles.priceText, { transform: [{ scale: pricePulse }] }]}>
+                    {' '}₹99{' '}
+                  </Animated.Text>
+                  only!
+                </Text>
+                
+                <View style={styles.couponRow}>
+                  <Text style={[styles.useCouponText, { color: isDarkMode ? colors.textSecondary : '#666' }]}>
+                    Use coupon
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => copyCouponToClipboard('NEWUSER')}
+                    activeOpacity={0.8}
                   >
-                    <LinearGradient
-                      colors={['transparent', 'rgba(255,255,255,0.3)', 'transparent']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.shimmerGradient}
-                    />
-                  </Animated.View>
-
-                  <Text style={styles.highlightLabel}>⚡ LIMITED TIME OFFER ⚡</Text>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.pricePrefix}>Book any service at just</Text>
-                    <Animated.View
-                      style={[
-                        styles.priceBadge,
-                        {
-                          transform: [{ scale: pricePulse }],
-                        },
-                      ]}
-                    >
-                      <LinearGradient
-                        colors={['#FF4444', '#CC0000']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.priceBadgeGradient}
-                      >
-                        <Text style={styles.rupeeSymbol}>₹</Text>
-                        <Text style={styles.priceAmount}>99</Text>
-                      </LinearGradient>
-                    </Animated.View>
-                    <Text style={styles.priceSuffix}>only!</Text>
-                  </View>
-                  <View style={styles.couponRow}>
-                    <Text style={styles.couponLabel}>Use coupon:</Text>
                     <LinearGradient
                       colors={['#FFD700', '#FFA500']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      style={styles.couponCodeBadge}
+                      style={styles.couponButton}
                     >
                       <Text style={styles.couponCodeText}>NEWUSER</Text>
+                      <Icon name="content-copy" size={14} color="#fff" />
                     </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* CHOOSE YOUR SERVICE SECTION */}
+              <View style={styles.servicesSection}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="handyman" size={18} color="#0a2a66ff" />
+                  <Text style={styles.sectionTitle}>Choose your service</Text>
+                </View>
+                
+                {services.map((service) => (
+                  <TouchableOpacity
+                    key={service.id}
+                    style={[styles.serviceCard, { backgroundColor: isDarkMode ? colors.card : '#f8f9fa' }]}
+                    onPress={() => handleSelectService(service.id)}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={[...service.gradient]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.serviceGradient}
+                    >
+                      <View style={styles.serviceIconContainer}>
+                        <Text style={styles.serviceIcon}>{service.icon}</Text>
+                      </View>
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceTitle}>{service.title}</Text>
+                        <Text style={styles.serviceDescription}>{service.description}</Text>
+                      </View>
+                      <View style={styles.arrowContainer}>
+                        <Icon name="chevron-right" size={24} color="#fff" />
+                      </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* HOW TO BOOK SECTION - Compact */}
+              <View style={styles.howToBookContainer}>
+                <View style={styles.howToBookHeader}>
+                  <Icon name="help-outline" size={18} color="#0a2a66ff" />
+                  <Text style={styles.howToBookTitle}>How to book your service?</Text>
+                </View>
+                
+                <View style={styles.stepsList}>
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepDot} />
+                    <Text style={styles.stepText}>Tap on NEWUSER coupon to copy</Text>
+                  </View>
+                  
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepDot} />
+                    <Text style={styles.stepText}>Select your preferred service below</Text>
+                  </View>
+                  
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepDot} />
+                    <Text style={styles.stepText}>Proceed to booking & apply coupon</Text>
                   </View>
                 </View>
-              </LinearGradient>
-            </View>
+              </View>
 
-            {services.map((service) => (
-              <TouchableOpacity
-                key={service.id}
-                style={[styles.serviceCard, { backgroundColor: isDarkMode ? colors.card : '#f8f9fa' }]}
-                onPress={() => handleSelectService(service.id)}
-                activeOpacity={0.8}
-              >
-                <LinearGradient
-                  colors={service.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.serviceGradient}
-                >
-                  <View style={styles.serviceIconContainer}>
-                    <Text style={styles.serviceIcon}>{service.icon}</Text>
-                  </View>
-                  <View style={styles.serviceInfo}>
-                    <Text style={styles.serviceTitle}>{service.title}</Text>
-                    <Text style={styles.serviceDescription}>{service.description}</Text>
-                  </View>
-                  <View style={styles.arrowContainer}>
-                    <Icon name="chevron-right" size={24} color="#fff" />
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
-
-            <View style={styles.promoInfoContainer}>
-              <LinearGradient
-                colors={['#FFD700', '#FFA500']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.promoBadge}
-              >
-                <Text style={styles.promoText}>✨ First Booking Special ✨</Text>
-              </LinearGradient>
-              <Text style={[styles.promoTerms, { color: colors.textSecondary }]}>
-                Get your first service at just ₹99. T&C applied.
-              </Text>
+              {/* POPULAR SERVICES SECTION */}
+              <View style={styles.popularSection}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="stars" size={18} color="#FFA500" />
+                  <Text style={styles.popularTitle}>Popular Services</Text>
+                </View>
+                <Text style={[styles.popularDescription, { color: isDarkMode ? colors.textSecondary : '#666' }]}>
+                  Choose from our trusted professional services.
+                </Text>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -255,8 +287,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   container: {
-    width: width * 0.9,
-    maxHeight: height * 0.85,
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -266,7 +296,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   headerContainer: {
-    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
@@ -283,114 +315,63 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  placeholder: {
-    width: 34,
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     padding: 20,
   },
-  // HIGHLIGHTED PRICE SECTION STYLES
-  priceHighlightContainer: {
-    borderRadius: 16,
-    marginBottom: 20,
-    shadowColor: '#FFA500',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  priceGradientBorder: {
-    borderRadius: 16,
-    padding: 2,
-  },
-  priceHighlightInner: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
+  // Simple Offer Wrapper - Compact
+  offerWrapper: {
+    marginBottom: 24,
     alignItems: 'center',
-    overflow: 'hidden',
-    position: 'relative',
   },
-  shimmerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  shimmerGradient: {
-    width: '100%',
-    height: '100%',
-  },
-  highlightLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFA500',
-    marginBottom: 8,
-    letterSpacing: 1,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+  offerText: {
+    fontSize: 16,
+    fontWeight: '500',
     marginBottom: 12,
   },
-  pricePrefix: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 8,
-  },
-  priceBadge: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginHorizontal: 4,
-  },
-  priceBadgeGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  rupeeSymbol: {
+  priceText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
-    marginRight: 2,
-  },
-  priceAmount: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  priceSuffix: {
-    fontSize: 14,
-    fontWeight: '600',
     color: '#FF4444',
-    marginLeft: 4,
   },
   couponRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
+    gap: 10,
   },
-  couponLabel: {
-    fontSize: 12,
-    color: '#999',
-    marginRight: 8,
+  useCouponText: {
+    fontSize: 14,
   },
-  couponCodeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
+  couponButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
   },
   couponCodeText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#fff',
     letterSpacing: 1,
+  },
+  // Services Section
+  servicesSection: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0a2a66ff',
   },
   serviceCard: {
     borderRadius: 12,
@@ -405,55 +386,89 @@ const styles = StyleSheet.create({
   serviceGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
   },
   serviceIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 12,
   },
   serviceIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   serviceInfo: {
     flex: 1,
   },
   serviceTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   serviceDescription: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.8)',
   },
   arrowContainer: {
     width: 30,
     alignItems: 'flex-end',
   },
-  promoInfoContainer: {
-    marginTop: 20,
+  // How to Book - Compact
+  howToBookContainer: {
+    marginBottom: 24,
+    padding: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+  },
+  howToBookHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 6,
+  },
+  howToBookTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0a2a66ff',
+  },
+  stepsList: {
+    gap: 8,
+  },
+  stepItem: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  promoBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 10,
+  stepDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#FFA500',
+    marginRight: 10,
   },
-  promoText: {
+  stepText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
+    color: '#555',
+    flex: 1,
   },
-  promoTerms: {
-    fontSize: 11,
-    textAlign: 'center',
+  // Popular Services Section
+  popularSection: {
+    marginBottom: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  popularTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFA500',
+  },
+  popularDescription: {
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 
