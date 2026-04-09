@@ -99,6 +99,20 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [use24HourFormat, setUse24HourFormat] = useState<boolean>(false);
   const [isDateChanged, setIsDateChanged] = useState<boolean>(false);
 
+  // Helper function to parse time string
+  const parseTimeFromString = (time: string): { hour: number; minute: number } => {
+    const [timeStr, meridian] = time.split(" ");
+    const [hourStr, minuteStr] = timeStr.split(":");
+    
+    let hour = Number(hourStr);
+    const minute = Number(minuteStr);
+    
+    if (meridian === "PM" && hour !== 12) hour += 12;
+    if (meridian === "AM" && hour === 12) hour = 0;
+    
+    return { hour, minute };
+  };
+
   // Business hours and cutoff configuration
   const BUSINESS_HOURS = {
     openingHour: 5,      // 5 AM
@@ -413,14 +427,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       
       // Parse time if provided
       if (time) {
-        const [t, meridian] = time.split(" ");
-        let hour = Number(t.split(":")[0]);
+        const { hour, minute } = parseTimeFromString(time);
         
-        if (meridian === "PM" && hour !== 12) hour += 12;
-        if (meridian === "AM" && hour === 12) hour = 0;
-        
-        const startWithTime = start.hour(hour).minute(0);
-        const endWithTime = end.hour(hour).minute(0);
+        const startWithTime = start.hour(hour).minute(minute);
+        const endWithTime = end.hour(hour).minute(minute);
         
         if (!isDateDisabled(startWithTime)) {
           setLocalStartDate(startWithTime.format("YYYY-MM-DD"));
@@ -445,20 +455,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const handleTimeSelection = (time: string, dateObj?: Date) => {
-    const [t, meridian] = time.split(" ");
-    let hour = Number(t.split(":")[0]);
-    
-    if (meridian === "PM" && hour !== 12) hour += 12;
-    if (meridian === "AM" && hour === 12) hour = 0;
+    const { hour, minute } = parseTimeFromString(time);
     
     let selectedDateTime: Dayjs;
     
     if (dateObj) {
-      selectedDateTime = dayjs(dateObj).hour(hour).minute(0);
+      selectedDateTime = dayjs(dateObj).hour(hour).minute(minute);
     } else if (localStartDate) {
-      selectedDateTime = dayjs(localStartDate).hour(hour).minute(0);
+      selectedDateTime = dayjs(localStartDate).hour(hour).minute(minute);
     } else {
-      selectedDateTime = dayjs().hour(hour).minute(0);
+      selectedDateTime = dayjs().hour(hour).minute(minute);
     }
     
     if (!isDateDisabled(selectedDateTime)) {
@@ -1262,17 +1268,10 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     onChange={(payload: { startDate: Date; endDate: Date; time: string }) => {
                       const start = dayjs(payload.startDate);
                       const end = dayjs(payload.endDate);
-                      const time = payload.time;
+                      const { hour, minute } = parseTimeFromString(payload.time);
                       
-                      // Parse time
-                      const [t, meridian] = time.split(" ");
-                      let hour = Number(t.split(":")[0]);
-                      
-                      if (meridian === "PM" && hour !== 12) hour += 12;
-                      if (meridian === "AM" && hour === 12) hour = 0;
-                      
-                      const startWithTime = start.hour(hour).minute(0);
-                      const endWithTime = end.hour(hour).minute(0);
+                      const startWithTime = start.hour(hour).minute(minute);
+                      const endWithTime = end.hour(hour).minute(minute);
                       
                       setLocalStartDate(startWithTime.format("YYYY-MM-DD"));
                       setLocalStartTime(startWithTime);

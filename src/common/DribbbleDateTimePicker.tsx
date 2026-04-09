@@ -8,6 +8,10 @@ import {
   Dimensions,
 } from "react-native";
 import dayjs, { Dayjs } from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+// ✅ Enable customParseFormat plugin for proper time parsing
+dayjs.extend(customParseFormat);
 
 /* -------------------- Constants -------------------- */
 
@@ -15,12 +19,12 @@ const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 const generateTimeSlots = () => {
   const slots: string[] = [];
-  // Generate from 5:00 AM to 1:30 PM (next day) as shown in the image
-  // But to keep practical, we'll go from 5:00 AM to 8:00 PM
+  // Generate from 5:00 AM to 8:00 PM
   for (let h = 5; h <= 20; h++) {
     for (let m = 0; m < 60; m += 30) {
       const hour12 = h % 12 || 12;
-      const minute = m === 0 ? "00" : m;
+      // ✅ FIXED: Always use 2-digit minutes with padStart
+      const minute = String(m).padStart(2, "0");
       const ampm = h < 12 ? "AM" : "PM";
       slots.push(`${hour12}:${minute} ${ampm}`);
     }
@@ -29,7 +33,6 @@ const generateTimeSlots = () => {
 };
 
 const TIMES = generateTimeSlots();
-const MAX_RANGE_DAYS = 21;
 
 /* -------------------- Types -------------------- */
 
@@ -38,52 +41,53 @@ type RangeValue = {
   endDate?: Date;
 };
 
-type SingleProps = {
+type SingleModeProps = {
   mode?: "single";
   value?: Date;
   onChange: (date: Date, time?: string) => void;
 };
 
-type RangeProps = {
+type RangeModeProps = {
   mode: "range";
   value?: RangeValue;
-  onChange: (payload: {
-    startDate: Date;
-    endDate: Date;
-    time: string;
-  }) => void;
+  onChange: (range: { startDate: Date; endDate: Date; time: string }) => void;
 };
 
-type Props = SingleProps | RangeProps;
+type Props = SingleModeProps | RangeModeProps;
 
 /* -------------------- Component -------------------- */
 
 export default function DribbbleDateTimePicker(props: Props) {
   const mode = props.mode ?? "single";
-  const value = props.value;
-
+  
   const [currentMonth, setCurrentMonth] = useState(dayjs());
-  const [selectedTime, setSelectedTime] = useState<string | null>("7:00 AM"); // Default as shown in image
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showTimeHint, setShowTimeHint] = useState(false);
 
-  /* ---------- Single Date ---------- */
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(
-    mode === "single" && value instanceof Date ? dayjs(value) : dayjs("2026-04-10")
-  );
+  /* ---------- Single Date Only ---------- */
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(() => {
+    if (mode === "single" && props.value instanceof Date) {
+      return dayjs(props.value);
+    }
+    return dayjs();
+  });
 
-  /* ---------- Range ---------- */
-  const rangeValue =
-    mode === "range" && value && typeof value === "object" && "startDate" in value
-      ? value
-      : undefined;
+  /* ---------- Range Date ---------- */
+  const [rangeStart, setRangeStart] = useState<Dayjs | null>(() => {
+    if (mode === "range" && props.value && 'startDate' in props.value && props.value.startDate) {
+      return dayjs(props.value.startDate);
+    }
+    return null;
+  });
+  
+  const [rangeEnd, setRangeEnd] = useState<Dayjs | null>(() => {
+    if (mode === "range" && props.value && 'endDate' in props.value && props.value.endDate) {
+      return dayjs(props.value.endDate);
+    }
+    return null;
+  });
 
-  const [rangeStart, setRangeStart] = useState<Dayjs | null>(
-    rangeValue?.startDate ? dayjs(rangeValue.startDate) : null
-  );
-
-  const [rangeEnd, setRangeEnd] = useState<Dayjs | null>(
-    rangeValue?.endDate ? dayjs(rangeValue.endDate) : null
-  );
+  const [isSelectingEnd, setIsSelectingEnd] = useState(false);
 
   /* -------------------- Calendar Setup -------------------- */
 
@@ -106,132 +110,171 @@ export default function DribbbleDateTimePicker(props: Props) {
   const isPastMonth = (month: Dayjs): boolean => month.isBefore(today, "month");
 
   const isTimeSlotDisabled = (time: string): boolean => {
-    if (mode === "range" && (!rangeStart || !rangeEnd)) return true;
+    const effectiveDate = mode === "range" ? rangeStart : selectedDate;
+    if (!effectiveDate) return true;
+    if (isPastDate(effectiveDate)) return true;
+    if (!isToday(effectiveDate)) return false;
 
-    let selectedDateToCheck: Dayjs | null = null;
-    if (mode === "single") selectedDateToCheck = selectedDate;
-    else if (mode === "range" && rangeStart) selectedDateToCheck = rangeStart;
+    // ✅ Strict parsing with validation
+    const parsedTime = dayjs(time, "h:mm A", true);
+    if (!parsedTime.isValid()) {
+      console.log("Invalid time format:", time);
+      return true;
+    }
 
-    if (!selectedDateToCheck) return mode === "range";
-    if (isPastDate(selectedDateToCheck)) return true;
-    if (!isToday(selectedDateToCheck)) return false;
-
-    const parsedTime = dayjs(time, "h:mm A");
-    if (!parsedTime.isValid()) return true;
-
-    const timeDateTime = now
+    // ✅ Build time using effectiveDate
+    const timeDateTime = effectiveDate
       .hour(parsedTime.hour())
       .minute(parsedTime.minute())
       .second(0)
       .millisecond(0);
 
-    if (mode === "single" || (mode === "range" && rangeStart === selectedDateToCheck)) {
-      return timeDateTime.isBefore(now.add(30, "minute"));
-    } else {
-      return timeDateTime.isBefore(now);
-    }
+    const isDisabled = timeDateTime.isBefore(now.add(30, "minute"));
+    
+    // Debug log
+    console.log(`Time: ${time}, Hour: ${parsedTime.hour()}, Minute: ${parsedTime.minute()}, Disabled: ${isDisabled}`);
+    
+    return isDisabled;
   };
 
-  const isRangeStart = (day: number) =>
-    rangeStart && currentMonth.date(day).isSame(rangeStart, "day");
-
-  const isRangeEnd = (day: number) =>
-    rangeEnd && currentMonth.date(day).isSame(rangeEnd, "day");
+  const isDisabledDate = (day: number) => {
+    const date = currentMonth.date(day);
+    return isPastDate(date);
+  };
 
   const isInRange = (day: number) => {
+    if (mode !== "range") return false;
     if (!rangeStart || !rangeEnd) return false;
-    const d = currentMonth.date(day);
-    return d.isAfter(rangeStart, "day") && d.isBefore(rangeEnd, "day");
+    
+    const date = currentMonth.date(day);
+    return date.isAfter(rangeStart) && date.isBefore(rangeEnd);
   };
 
-  const isDisabledInRangeMode = (day: number) => {
-    const date = currentMonth.date(day);
-    if (isPastDate(date)) return true;
-    if (mode === "range" && rangeStart && !rangeEnd) {
-      if (date.isAfter(rangeStart.add(MAX_RANGE_DAYS, "day"), "day")) return true;
-    }
-    return false;
+  const isRangeStart = (day: number) => {
+    if (mode !== "range") return false;
+    if (!rangeStart) return false;
+    return currentMonth.date(day).isSame(rangeStart, "day");
+  };
+
+  const isRangeEnd = (day: number) => {
+    if (mode !== "range") return false;
+    if (!rangeEnd) return false;
+    return currentMonth.date(day).isSame(rangeEnd, "day");
   };
 
   const getDisabledTimeMessage = () => {
-    if (mode === "range" && (!rangeStart || !rangeEnd))
-      return "Select start and end dates first";
-    const selectedDateToCheck = mode === "single" ? selectedDate : rangeStart;
-    if (selectedDateToCheck) {
-      if (isPastDate(selectedDateToCheck)) return "Past dates cannot be booked";
-      if (isToday(selectedDateToCheck)) return "Past times are disabled for today";
-    }
+    const effectiveDate = mode === "range" ? rangeStart : selectedDate;
+    if (!effectiveDate) return "Select a date first";
+    if (isPastDate(effectiveDate)) return "Past dates cannot be booked";
+    if (isToday(effectiveDate)) return "Past times are disabled for today";
     return null;
   };
-
-  const isTimeSelectionDisabled = mode === "range" && (!rangeStart || !rangeEnd);
 
   /* -------------------- Handlers -------------------- */
 
   const selectDate = (day: number) => {
     const date = currentMonth.date(day);
-    if (isDisabledInRangeMode(day)) return;
+    if (isDisabledDate(day)) return;
 
     if (mode === "single") {
       setSelectedDate(date);
       setSelectedTime(null);
-      (props as SingleProps).onChange(date.toDate());
-      return;
+    } else if (mode === "range") {
+      if (!isSelectingEnd || !rangeStart) {
+        // Start selecting range
+        setRangeStart(date);
+        setRangeEnd(null);
+        setIsSelectingEnd(true);
+        setSelectedTime(null);
+      } else {
+        // Complete the range
+        let start = rangeStart;
+        let end = date;
+        
+        if (date.isBefore(rangeStart)) {
+          start = date;
+          end = rangeStart;
+        }
+        
+        setRangeStart(start);
+        setRangeEnd(end);
+        setIsSelectingEnd(false);
+        setSelectedTime(null);
+        
+        // For range mode, if we have a time selected, trigger onChange with range object
+        if (start && end && selectedTime) {
+          const parsedTime = dayjs(selectedTime, "h:mm A", true);
+          if (parsedTime.isValid()) {
+            const startDate = start
+              .hour(parsedTime.hour())
+              .minute(parsedTime.minute())
+              .second(0)
+              .millisecond(0)
+              .toDate();
+            
+            const endDate = end
+              .hour(parsedTime.hour())
+              .minute(parsedTime.minute())
+              .second(0)
+              .millisecond(0)
+              .toDate();
+            
+            // Type-safe call for range mode
+            (props as RangeModeProps).onChange({ startDate, endDate, time: selectedTime });
+          }
+        }
+      }
     }
-
-    if (!rangeStart || rangeEnd) {
-      setRangeStart(date);
-      setRangeEnd(null);
-      setSelectedTime(null);
-      return;
-    }
-
-    if (date.isSame(rangeStart, "day")) return;
-
-    if (date.diff(rangeStart, "day") > MAX_RANGE_DAYS) {
-      setShowTimeHint(true);
-      setTimeout(() => setShowTimeHint(false), 3000);
-      return;
-    }
-
-    if (date.isBefore(rangeStart, "day")) setRangeStart(date);
-    else setRangeEnd(date);
-    setSelectedTime(null);
   };
 
   const selectTime = (time: string) => {
     if (isTimeSlotDisabled(time)) return;
-    if (mode === "range" && (!rangeStart || !rangeEnd)) return;
+    
+    const effectiveDate = mode === "range" ? rangeStart : selectedDate;
+    if (!effectiveDate) return;
 
     setSelectedTime(time);
 
-    const parsedTime = dayjs(time, "h:mm A");
-    if (!parsedTime.isValid()) return;
-
-    if (mode === "single") {
-      const finalDate = selectedDate
-        .hour(parsedTime.hour())
-        .minute(parsedTime.minute())
-        .second(0)
-        .toDate();
-
-      (props as SingleProps).onChange(finalDate, time);
+    // ✅ Strict parsing with validation
+    const parsedTime = dayjs(time, "h:mm A", true);
+    if (!parsedTime.isValid()) {
+      console.error("Failed to parse time:", time);
       return;
     }
 
-    if (!rangeStart || !rangeEnd) return;
-    const rangeProps = props as RangeProps;
-    rangeProps.onChange({
-      startDate: rangeStart
-        .hour(parsedTime.hour())
-        .minute(parsedTime.minute())
-        .toDate(),
-      endDate: rangeEnd
-        .hour(parsedTime.hour())
-        .minute(parsedTime.minute())
-        .toDate(),
-      time,
-    });
+    // Debug log to verify parsing
+    console.log(`Selected time: ${time}`);
+    console.log(`Parsed - Hour: ${parsedTime.hour()}, Minute: ${parsedTime.minute()}`);
+    
+    // ✅ Build final date
+    const finalDate = effectiveDate
+      .hour(parsedTime.hour())
+      .minute(parsedTime.minute())
+      .second(0)
+      .millisecond(0)
+      .toDate();
+
+    // Debug log to verify final date
+    console.log(`Final date: ${finalDate}`);
+    console.log(`Formatted time: ${dayjs(finalDate).format("h:mm A")}`);
+
+    if (mode === "range") {
+      if (rangeStart && rangeEnd) {
+        // Both dates selected, trigger onChange with range object
+        (props as RangeModeProps).onChange({ 
+          startDate: rangeStart.toDate(), 
+          endDate: rangeEnd.toDate(), 
+          time 
+        });
+      } else if (rangeStart && !rangeEnd) {
+        // Only start date selected, store time but don't trigger onChange yet
+        // Wait for end date selection
+        return;
+      }
+    } else {
+      // Single mode
+      (props as SingleModeProps).onChange(finalDate, time);
+    }
   };
 
   const changeMonth = (increment: number) => {
@@ -247,7 +290,6 @@ export default function DribbbleDateTimePicker(props: Props) {
       {/* Book by - Header Section */}
       <View style={styles.bookByContainer}>
         <Text style={styles.bookByTitle}>Book by</Text>
-
       </View>
 
       {/* Month and Year Header */}
@@ -257,13 +299,19 @@ export default function DribbbleDateTimePicker(props: Props) {
           disabled={isPastMonth(currentMonth.subtract(1, "month"))}
           style={[
             styles.monthButton,
-            isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonDisabled,
+            isPastMonth(currentMonth.subtract(1, "month")) &&
+              styles.monthButtonDisabled,
           ]}
         >
-          <Text style={[
-            styles.monthButtonText,
-            isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonTextDisabled
-          ]}>‹</Text>
+          <Text
+            style={[
+              styles.monthButtonText,
+              isPastMonth(currentMonth.subtract(1, "month")) &&
+                styles.monthButtonTextDisabled,
+            ]}
+          >
+            ‹
+          </Text>
         </TouchableOpacity>
         <Text style={styles.monthTitle}>{currentMonth.format("MMMM YYYY")}</Text>
         <TouchableOpacity onPress={() => changeMonth(1)} style={styles.monthButton}>
@@ -271,27 +319,39 @@ export default function DribbbleDateTimePicker(props: Props) {
         </TouchableOpacity>
       </View>
 
+      {/* Range Selection Hint */}
+      {mode === "range" && (
+        <View style={styles.rangeHint}>
+          <Text style={styles.rangeHintText}>
+            {!rangeStart 
+              ? "Select start date" 
+              : !rangeEnd 
+              ? "Select end date" 
+              : "Range selected"}
+          </Text>
+        </View>
+      )}
+
       {/* Week Header */}
       <View style={styles.weekHeader}>
         {WEEK_DAYS.map((d) => (
-          <Text key={d} style={styles.weekDayText}>{d}</Text>
+          <Text key={d} style={styles.weekDayText}>
+            {d}
+          </Text>
         ))}
       </View>
 
       {/* Calendar Grid */}
       <View style={styles.calendarGrid}>
         {calendarCells.map((day, i) => {
-          const disabled = day ? isDisabledInRangeMode(day) : true;
-          const isActive = day &&
-            mode === "single" &&
-            selectedDate.isSame(currentMonth.date(day), "day");
-          const isRangeStartDay = day && mode === "range" && isRangeStart(day);
-          const isRangeEndDay = day && mode === "range" && isRangeEnd(day);
-          const isInRangeDay = day && mode === "range" && isInRange(day);
+          const disabled = day ? isDisabledDate(day) : true;
+          const isSelected = mode === "single" 
+            ? day && selectedDate.isSame(currentMonth.date(day), "day")
+            : false;
           
-          // For April 2026 specific styling (as in image)
-          const isApril10 = day === 10 && currentMonth.format("MMMM YYYY") === "April 2026";
-          const isAprilSelected = isApril10 && mode === "single";
+          const isInRangeValue = day ? isInRange(day) : false;
+          const isStart = day ? isRangeStart(day) : false;
+          const isEnd = day ? isRangeEnd(day) : false;
 
           return (
             <TouchableOpacity
@@ -300,32 +360,26 @@ export default function DribbbleDateTimePicker(props: Props) {
                 styles.calendarDay,
                 !day && styles.emptyDay,
                 disabled && styles.disabledDay,
-                (isActive || isAprilSelected) && styles.activeDay,
-                isRangeStartDay && styles.rangeStartDay,
-                isRangeEndDay && styles.rangeEndDay,
-                isInRangeDay && styles.rangeMiddleDay,
+                isSelected && styles.selectedDay,
+                isInRangeValue && styles.inRangeDay,
+                isStart && styles.rangeStartDay,
+                isEnd && styles.rangeEndDay,
               ]}
               onPress={() => !disabled && day && selectDate(day)}
               disabled={disabled}
             >
-              <Text style={[
-                styles.calendarDayText,
-                (isActive || isAprilSelected) && styles.activeDayText,
-                (isRangeStartDay || isRangeEndDay) && styles.rangeEdgeText,
-              ]}>
+              <Text
+                style={[
+                  styles.calendarDayText,
+                  (isSelected || isStart || isEnd) && styles.selectedDayText,
+                ]}
+              >
                 {day}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
-
-      {/* Hint for range max days */}
-      {showTimeHint && (
-        <View style={styles.hintContainer}>
-          <Text style={styles.hintText}>Maximum range is {MAX_RANGE_DAYS} days</Text>
-        </View>
-      )}
 
       {/* Divider */}
       <View style={styles.divider} />
@@ -339,7 +393,7 @@ export default function DribbbleDateTimePicker(props: Props) {
       </View>
 
       {/* Time Grid */}
-      <ScrollView 
+      <ScrollView
         style={styles.timeGrid}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.timeGridContent}
@@ -348,26 +402,25 @@ export default function DribbbleDateTimePicker(props: Props) {
         {TIMES.map((time) => {
           const isDisabled = isTimeSlotDisabled(time);
           const isSelected = selectedTime === time;
-          const isSelectionDisabled = isDisabled || isTimeSelectionDisabled;
-          // Highlight 7:00 AM as in the image
-          const isDefaultSelected = time === "7:00 AM" && selectedTime === null;
 
           return (
             <TouchableOpacity
               key={time}
               style={[
                 styles.timeSlot,
-                (isSelected || isDefaultSelected) && styles.activeTimeSlot,
-                isSelectionDisabled && styles.disabledTimeSlot,
+                isSelected && styles.activeTimeSlot,
+                isDisabled && styles.disabledTimeSlot,
               ]}
               onPress={() => selectTime(time)}
-              disabled={isSelectionDisabled}
+              disabled={isDisabled}
             >
-              <Text style={[
-                styles.timeSlotText,
-                (isSelected || isDefaultSelected) && styles.activeTimeSlotText,
-                isSelectionDisabled && styles.disabledTimeSlotText,
-              ]}>
+              <Text
+                style={[
+                  styles.timeSlotText,
+                  isSelected && styles.activeTimeSlotText,
+                  isDisabled && styles.disabledTimeSlotText,
+                ]}
+              >
                 {time}
               </Text>
             </TouchableOpacity>
@@ -394,27 +447,14 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: "center",
   },
-  // Book by styles
   bookByContainer: {
-    marginBottom: 24,
+    marginBottom: 0,
   },
   bookByTitle: {
     fontSize: 20,
     fontWeight: "600",
     color: "#000",
     marginBottom: 12,
-  },
-  bookByOptions: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  bookByOption: {
-    paddingVertical: 6,
-  },
-  bookByOptionText: {
-    fontSize: 15,
-    color: "#666",
-    fontWeight: "500",
   },
   header: {
     flexDirection: "row",
@@ -442,6 +482,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#000",
+  },
+  rangeHint: {
+    backgroundColor: "#E3F2FD",
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  rangeHintText: {
+    fontSize: 12,
+    color: "#007AFF",
+    fontWeight: "500",
   },
   weekHeader: {
     flexDirection: "row",
@@ -474,50 +526,30 @@ const styles = StyleSheet.create({
   disabledDay: {
     opacity: 0.3,
   },
-  activeDay: {
+  selectedDay: {
     backgroundColor: "#007AFF",
+  },
+  inRangeDay: {
+    backgroundColor: "#E3F2FD",
   },
   rangeStartDay: {
     backgroundColor: "#007AFF",
     borderTopLeftRadius: 30,
     borderBottomLeftRadius: 30,
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
   },
   rangeEndDay: {
     backgroundColor: "#007AFF",
     borderTopRightRadius: 30,
     borderBottomRightRadius: 30,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-  },
-  rangeMiddleDay: {
-    backgroundColor: "#E3F2FD",
-    borderRadius: 0,
   },
   calendarDayText: {
     fontSize: 15,
     color: "#000",
     fontWeight: "500",
   },
-  activeDayText: {
+  selectedDayText: {
     color: "#fff",
     fontWeight: "600",
-  },
-  rangeEdgeText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  hintContainer: {
-    backgroundColor: "#FFF3E0",
-    padding: 8,
-    borderRadius: 8,
-    marginVertical: 8,
-    alignItems: "center",
-  },
-  hintText: {
-    color: "#FF9800",
-    fontSize: 12,
   },
   divider: {
     height: 1,
