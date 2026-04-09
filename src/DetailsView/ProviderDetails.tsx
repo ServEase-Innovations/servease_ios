@@ -665,27 +665,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             </View>
           )}
 
-          {/* Role Chips - Display multiple roles */}
-          {housekeepingRoles.length > 0 && housekeepingRoles[0] !== "UNKNOWN" && (
-            <View style={styles.rolesContainer}>
-              {housekeepingRoles.map((role, index) => (
-                <View key={index} style={[
-                  styles.headerRoleChip,
-                  { 
-                    backgroundColor: colors.primary,
-                    marginLeft: index > 0 ? 8 : 0
-                  }
-                ]}>
-                  <Text style={[
-                    styles.headerRoleChipText,
-                    { color: '#ffffff', fontSize: fontStyles.smallText, fontWeight: '700' }
-                  ]}>
-                    {role}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
+          
         </View>
 
         {/* Main Content */}
