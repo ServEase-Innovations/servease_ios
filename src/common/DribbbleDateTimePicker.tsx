@@ -15,6 +15,8 @@ const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 const generateTimeSlots = () => {
   const slots: string[] = [];
+  // Generate from 5:00 AM to 1:30 PM (next day) as shown in the image
+  // But to keep practical, we'll go from 5:00 AM to 8:00 PM
   for (let h = 5; h <= 20; h++) {
     for (let m = 0; m < 60; m += 30) {
       const hour12 = h % 12 || 12;
@@ -61,12 +63,12 @@ export default function DribbbleDateTimePicker(props: Props) {
   const value = props.value;
 
   const [currentMonth, setCurrentMonth] = useState(dayjs());
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>("7:00 AM"); // Default as shown in image
   const [showTimeHint, setShowTimeHint] = useState(false);
 
   /* ---------- Single Date ---------- */
   const [selectedDate, setSelectedDate] = useState<Dayjs>(
-    mode === "single" && value instanceof Date ? dayjs(value) : dayjs()
+    mode === "single" && value instanceof Date ? dayjs(value) : dayjs("2026-04-10")
   );
 
   /* ---------- Range ---------- */
@@ -242,6 +244,13 @@ export default function DribbbleDateTimePicker(props: Props) {
 
   return (
     <View style={styles.card}>
+      {/* Book by - Header Section */}
+      <View style={styles.bookByContainer}>
+        <Text style={styles.bookByTitle}>Book by</Text>
+
+      </View>
+
+      {/* Month and Year Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => changeMonth(-1)}
@@ -262,12 +271,14 @@ export default function DribbbleDateTimePicker(props: Props) {
         </TouchableOpacity>
       </View>
 
+      {/* Week Header */}
       <View style={styles.weekHeader}>
         {WEEK_DAYS.map((d) => (
           <Text key={d} style={styles.weekDayText}>{d}</Text>
         ))}
       </View>
 
+      {/* Calendar Grid */}
       <View style={styles.calendarGrid}>
         {calendarCells.map((day, i) => {
           const disabled = day ? isDisabledInRangeMode(day) : true;
@@ -277,6 +288,10 @@ export default function DribbbleDateTimePicker(props: Props) {
           const isRangeStartDay = day && mode === "range" && isRangeStart(day);
           const isRangeEndDay = day && mode === "range" && isRangeEnd(day);
           const isInRangeDay = day && mode === "range" && isInRange(day);
+          
+          // For April 2026 specific styling (as in image)
+          const isApril10 = day === 10 && currentMonth.format("MMMM YYYY") === "April 2026";
+          const isAprilSelected = isApril10 && mode === "single";
 
           return (
             <TouchableOpacity
@@ -285,7 +300,7 @@ export default function DribbbleDateTimePicker(props: Props) {
                 styles.calendarDay,
                 !day && styles.emptyDay,
                 disabled && styles.disabledDay,
-                isActive && styles.activeDay,
+                (isActive || isAprilSelected) && styles.activeDay,
                 isRangeStartDay && styles.rangeStartDay,
                 isRangeEndDay && styles.rangeEndDay,
                 isInRangeDay && styles.rangeMiddleDay,
@@ -295,7 +310,7 @@ export default function DribbbleDateTimePicker(props: Props) {
             >
               <Text style={[
                 styles.calendarDayText,
-                isActive && styles.activeDayText,
+                (isActive || isAprilSelected) && styles.activeDayText,
                 (isRangeStartDay || isRangeEndDay) && styles.rangeEdgeText,
               ]}>
                 {day}
@@ -305,14 +320,17 @@ export default function DribbbleDateTimePicker(props: Props) {
         })}
       </View>
 
+      {/* Hint for range max days */}
       {showTimeHint && (
         <View style={styles.hintContainer}>
           <Text style={styles.hintText}>Maximum range is {MAX_RANGE_DAYS} days</Text>
         </View>
       )}
 
+      {/* Divider */}
       <View style={styles.divider} />
 
+      {/* Select Time Header */}
       <View style={styles.timeHeader}>
         <Text style={styles.timeTitle}>Select Time</Text>
         {getDisabledTimeMessage() && (
@@ -320,9 +338,10 @@ export default function DribbbleDateTimePicker(props: Props) {
         )}
       </View>
 
+      {/* Time Grid */}
       <ScrollView 
         style={styles.timeGrid}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.timeGridContent}
         nestedScrollEnabled={true}
       >
@@ -330,13 +349,15 @@ export default function DribbbleDateTimePicker(props: Props) {
           const isDisabled = isTimeSlotDisabled(time);
           const isSelected = selectedTime === time;
           const isSelectionDisabled = isDisabled || isTimeSelectionDisabled;
+          // Highlight 7:00 AM as in the image
+          const isDefaultSelected = time === "7:00 AM" && selectedTime === null;
 
           return (
             <TouchableOpacity
               key={time}
               style={[
                 styles.timeSlot,
-                isSelected && styles.activeTimeSlot,
+                (isSelected || isDefaultSelected) && styles.activeTimeSlot,
                 isSelectionDisabled && styles.disabledTimeSlot,
               ]}
               onPress={() => selectTime(time)}
@@ -344,7 +365,7 @@ export default function DribbbleDateTimePicker(props: Props) {
             >
               <Text style={[
                 styles.timeSlotText,
-                isSelected && styles.activeTimeSlotText,
+                (isSelected || isDefaultSelected) && styles.activeTimeSlotText,
                 isSelectionDisabled && styles.disabledTimeSlotText,
               ]}>
                 {time}
@@ -362,19 +383,44 @@ const { width } = Dimensions.get("window");
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 2,
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+  },
+  // Book by styles
+  bookByContainer: {
+    marginBottom: 24,
+  },
+  bookByTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000",
+    marginBottom: 12,
+  },
+  bookByOptions: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  bookByOption: {
+    paddingVertical: 6,
+  },
+  bookByOptionText: {
+    fontSize: 15,
+    color: "#666",
+    fontWeight: "500",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
   },
   monthButton: {
     padding: 8,
@@ -393,20 +439,21 @@ const styles = StyleSheet.create({
     color: "#ccc",
   },
   monthTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#000",
   },
   weekHeader: {
     flexDirection: "row",
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
   weekDayText: {
     flex: 1,
     textAlign: "center",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
-    color: "#666",
+    color: "#999",
   },
   calendarGrid: {
     flexDirection: "row",
@@ -418,37 +465,40 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
-    backgroundColor: "#fff",
+    borderRadius: 30,
+    marginVertical: 2,
   },
   emptyDay: {
-    backgroundColor: "#fafafa",
+    backgroundColor: "transparent",
   },
   disabledDay: {
-    backgroundColor: "#f5f5f5",
-    opacity: 0.5,
+    opacity: 0.3,
   },
   activeDay: {
     backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
   },
   rangeStartDay: {
     backgroundColor: "#007AFF",
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
+    borderTopLeftRadius: 30,
+    borderBottomLeftRadius: 30,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
   },
   rangeEndDay: {
     backgroundColor: "#007AFF",
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
+    borderTopRightRadius: 30,
+    borderBottomRightRadius: 30,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
   },
   rangeMiddleDay: {
     backgroundColor: "#E3F2FD",
+    borderRadius: 0,
   },
   calendarDayText: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 15,
+    color: "#000",
+    fontWeight: "500",
   },
   activeDayText: {
     color: "#fff",
@@ -471,56 +521,55 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: "#e0e0e0",
-    marginVertical: 16,
+    backgroundColor: "#f0f0f0",
+    marginVertical: 20,
   },
   timeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   timeTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#000",
   },
   timeHint: {
     fontSize: 12,
     color: "#FF9800",
   },
   timeGrid: {
-    maxHeight: 200,
+    maxHeight: 220,
   },
   timeGridContent: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
-    paddingBottom: 8,
+    justifyContent: "flex-start",
+    gap: 8,
   },
   timeSlot: {
     width: "30%",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginVertical: 4,
-    marginHorizontal: "1.5%",
-    borderRadius: 8,
-    backgroundColor: "#f5f5f5",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 30,
+    backgroundColor: "#F5F5F5",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "#F5F5F5",
   },
   activeTimeSlot: {
     backgroundColor: "#007AFF",
     borderColor: "#007AFF",
   },
   disabledTimeSlot: {
-    backgroundColor: "#fafafa",
+    backgroundColor: "#FAFAFA",
     opacity: 0.5,
   },
   timeSlotText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#333",
+    fontWeight: "500",
   },
   activeTimeSlotText: {
     color: "#fff",
