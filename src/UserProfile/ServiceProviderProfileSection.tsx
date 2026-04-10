@@ -14,10 +14,10 @@ import {
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import providerInstance from "../services/providerInstance";
 import { SkeletonLoader } from "../common/SkeletonLoader";
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
-import LanguageSelector from "../common/LanguageSelector";
 
 interface ServiceProviderProfileSectionProps {
   userId: number | null;
@@ -45,8 +45,7 @@ interface ServiceProviderData {
   experience: number;
   firstName: string;
   gender: string;
-  housekeepingRole: string | string[];
-  housekeepingRoles?: string[];
+  housekeepingRoles: string | string[]; // Changed from housekeepingRole
   lastName: string;
   latitude: number;
   locality: string;
@@ -103,10 +102,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   const [originalEveningSlots, setOriginalEveningSlots] = useState<number[][]>([]);
   const [originalIsFullTime, setOriginalIsFullTime] = useState<boolean>(true);
   
-  // Language state - store as array for UI, but backend expects string
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  const [originalLanguages, setOriginalLanguages] = useState<string[]>([]);
-  
   const [userData, setUserData] = useState({
     firstName: "",
     lastName: "",
@@ -119,9 +114,9 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     diet: "",
     cookingSpeciality: "",
     nannyCareType: "",
-    housekeepingRole: [] as string[],
+    housekeepingRoles: [] as string[], // Changed to array
     experience: 0,
-    languageKnown: "", // This will store the comma-separated string for display
+    languageKnown: "",
     currentLocation: "",
     locality: "",
     street: "",
@@ -160,8 +155,8 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const serviceTypes = [
     { value: "COOK", label: "Cook", icon: "restaurant" },
-    { value: "NANNY", label: "Nanny", icon: "child-care" },
-    { value: "MAID", label: "Maid", icon: "cleaning-services" },
+    { value: "NANNY", label: "Nanny", icon: "favorite" },
+    { value: "MAID", label: "Maid", icon: "work" },
   ];
 
   const dietOptions = [
@@ -213,28 +208,35 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     return hour + (minute / 60);
   };
 
+  // New function to get merged time slots array
   const getMergedTimeSlots = (slots: number[][]): number[][] => {
     if (!slots.length) return [];
+    
     const sorted = [...slots].sort((a, b) => a[0] - b[0]);
     const merged: number[][] = [];
+    
     for (const slot of sorted) {
       if (merged.length === 0) {
         merged.push([slot[0], slot[1]]);
       } else {
         const last = merged[merged.length - 1];
         if (slot[0] <= last[1]) {
+          // Overlapping or adjacent slots, merge them
           last[1] = Math.max(last[1], slot[1]);
         } else {
           merged.push([slot[0], slot[1]]);
         }
       }
     }
+    
     return merged;
   };
 
   const mergeTimeSlots = (slots: number[][]): string => {
     const merged = getMergedTimeSlots(slots);
+    
     if (merged.length === 0) return "";
+    
     return merged
       .map(([start, end]) => `${formatDisplayTime(start)} - ${formatDisplayTime(end)}`)
       .join(", ");
@@ -302,37 +304,23 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       
       setProviderData(data);
 
-      // Parse languages - convert backend string/array to array for UI
-      let languageArray: string[] = [];
-      let languageString = "";
-      
-      if (data.languageKnown) {
-        if (Array.isArray(data.languageKnown)) {
-          languageArray = data.languageKnown;
-          languageString = languageArray.join(", ");
-        } else if (typeof data.languageKnown === 'string') {
-          languageString = data.languageKnown;
-          languageArray = data.languageKnown.split(',').map((l: string) => l.trim());
-        }
+      let languageKnown = data.languageKnown;
+      if (Array.isArray(languageKnown)) {
+        languageKnown = languageKnown.join(", ");
       }
-      setSelectedLanguages(languageArray);
-      setOriginalLanguages(languageArray);
 
-      // Parse housekeeping roles
+      // Updated to handle housekeepingRoles (array) instead of housekeepingRole
       let roles: string[] = [];
       if (data.housekeepingRoles && Array.isArray(data.housekeepingRoles)) {
         roles = data.housekeepingRoles;
-      } else if (typeof data.housekeepingRole === 'string') {
-        if (data.housekeepingRole.includes(',')) {
-          roles = data.housekeepingRole.split(',').map((r: string) => r.trim());
+      } else if (typeof data.housekeepingRoles === 'string') {
+        if (data.housekeepingRoles.includes(',')) {
+          roles = data.housekeepingRoles.split(',').map((r: string) => r.trim());
         } else {
-          roles = [data.housekeepingRole];
+          roles = [data.housekeepingRoles];
         }
-      } else if (Array.isArray(data.housekeepingRole)) {
-        roles = data.housekeepingRole;
       }
 
-      // Parse time slots
       let morning: number[][] = [];
       let evening: number[][] = [];
       if (data.timeslot) {
@@ -376,9 +364,9 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         diet: data.diet || "",
         cookingSpeciality: data.cookingSpeciality || "",
         nannyCareType: data.nannyCareType || "",
-        housekeepingRole: roles,
+        housekeepingRoles: roles, // Now using array
         experience: data.experience || 0,
-        languageKnown: languageString, // Store as string for display
+        languageKnown: languageKnown || "",
         currentLocation: data.currentLocation || "",
         locality: data.locality || "",
         street: data.street || "",
@@ -502,9 +490,9 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   const handleRoleToggle = (role: string) => {
     setUserData(prev => ({
       ...prev,
-      housekeepingRole: prev.housekeepingRole.includes(role)
-        ? prev.housekeepingRole.filter(r => r !== role)
-        : [...prev.housekeepingRole, role]
+      housekeepingRoles: prev.housekeepingRoles.includes(role)
+        ? prev.housekeepingRoles.filter(r => r !== role)
+        : [...prev.housekeepingRoles, role]
     }));
   };
 
@@ -559,20 +547,20 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         payload.nannyCareType = userData.nannyCareType;
       }
 
+      // ✅ Send housekeepingRoles as an array (like the web version)
       if (
-        userData.housekeepingRole.join(",") !==
-        originalData.housekeepingRole.join(",")
+        userData.housekeepingRoles.join(",") !==
+        originalData.housekeepingRoles.join(",")
       ) {
-        payload.housekeepingRoles = userData.housekeepingRole;
+        payload.housekeepingRoles = userData.housekeepingRoles; // Send as array
       }
 
       if (userData.experience !== originalData.experience) {
         payload.experience = userData.experience;
       }
 
-      // Handle languages - convert array to comma-separated string for backend
-      if (JSON.stringify(selectedLanguages) !== JSON.stringify(originalLanguages)) {
-        payload.languageKnown = selectedLanguages.join(", ");
+      if (userData.languageKnown !== originalData.languageKnown) {
+        payload.languageKnown = userData.languageKnown;
       }
 
       if (userData.currentLocation !== originalData.currentLocation) {
@@ -599,10 +587,12 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         payload.nearbyLocation = userData.nearbyLocation;
       }
 
+      // Modified timeslot handling to use merged slots
       let timeslotString = '';
       if (!isFullTime) {
         const allSlots = [...morningSlots, ...eveningSlots];
         if (allSlots.length > 0) {
+          // Get merged slots to avoid overlaps in payload
           const mergedSlots = getMergedTimeSlots(allSlots);
           timeslotString = mergedSlots
             .map(slot => `${formatTimeForPayload(slot[0])}-${formatTimeForPayload(slot[1])}`)
@@ -625,8 +615,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         return;
       }
 
-      console.log("Saving payload:", payload);
-
       await providerInstance.put(
         `/api/service-providers/serviceprovider/${userId}`,
         payload
@@ -636,10 +624,9 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       setIsEditing(false);
       Alert.alert("Success", "Profile updated successfully");
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to save data:", error);
-      const errorMessage = error?.response?.data?.message || "Failed to save changes";
-      Alert.alert("Error", errorMessage);
+      Alert.alert("Error", "Failed to save changes");
     } finally {
       setIsSaving(false);
     }
@@ -647,7 +634,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const handleCancel = () => {
     setUserData(originalData);
-    setSelectedLanguages(originalLanguages);
     setIsEditing(false);
     setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
     setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
@@ -662,12 +648,11 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const hasChanges = (): boolean => {
     const userDataChanged = JSON.stringify(userData) !== JSON.stringify(originalData);
-    const languagesChanged = JSON.stringify(selectedLanguages) !== JSON.stringify(originalLanguages);
     const slotsChanged = 
       isFullTime !== originalIsFullTime ||
       JSON.stringify(morningSlots) !== JSON.stringify(originalMorningSlots) ||
       JSON.stringify(eveningSlots) !== JSON.stringify(originalEveningSlots);
-    return userDataChanged || languagesChanged || slotsChanged;
+    return userDataChanged || slotsChanged;
   };
 
   const isFormValid = (): boolean => {
@@ -726,7 +711,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     </TouchableOpacity>
   );
 
-  const InputField = ({ label, value, onChangeText, editable = true, keyboardType = "default", placeholder = "" }: any) => (
+  const InputField = ({ label, value, onChangeText, editable = true, keyboardType = "default", placeholder = "", secureTextEntry = false }: any) => (
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
@@ -736,7 +721,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         editable={editable}
         keyboardType={keyboardType}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        secureTextEntry={secureTextEntry}
       />
     </View>
   );
@@ -791,7 +776,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                 style={styles.editButton}
                 onPress={() => {
                   setOriginalData({ ...userData });
-                  setOriginalLanguages([...selectedLanguages]);
                   setIsEditing(true);
                 }}
               >
@@ -844,7 +828,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       editable={isEditing}
                       keyboardType="phone-pad"
                       placeholder="Enter 10-digit mobile number"
-                      placeholderTextColor="#999"
                       maxLength={10}
                     />
                     {isEditing && (
@@ -874,7 +857,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       editable={isEditing}
                       keyboardType="phone-pad"
                       placeholder="Enter 10-digit mobile number"
-                      placeholderTextColor="#999"
                       maxLength={10}
                     />
                     {isEditing && (
@@ -901,7 +883,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       <Picker
                         selectedValue={userData.gender}
                         onValueChange={(value) => setUserData(prev => ({ ...prev, gender: value }))}
-                        style={styles.picker}
                       >
                         <Picker.Item label="Select Gender" value="" />
                         {genderOptions.map(option => (
@@ -910,7 +891,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                       </Picker>
                     </View>
                   ) : (
-                    <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
+                    <Text style={[styles.input, styles.inputReadOnly]}>
                       {userData.gender ? 
                         (genderOptions.find(g => g.value === userData.gender)?.label || userData.gender) 
                         : "Not specified"}
@@ -942,7 +923,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                 <Text style={styles.subsectionLabel}>Service Types</Text>
                 <View style={styles.serviceTypesContainer}>
                   {serviceTypes.map(service => {
-                    const isSelected = userData.housekeepingRole.includes(service.value);
+                    const isSelected = userData.housekeepingRoles.includes(service.value);
                     return (
                       <TouchableOpacity
                         key={service.value}
@@ -970,7 +951,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
                 {/* Service-specific fields */}
                 <View style={styles.serviceFieldsContainer}>
-                  {userData.housekeepingRole.includes('COOK') && (
+                  {userData.housekeepingRoles.includes('COOK') && (
                     <View style={styles.inputContainer}>
                       <Text style={styles.inputLabel}>Cooking Speciality</Text>
                       {isEditing ? (
@@ -978,7 +959,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           <Picker
                             selectedValue={userData.cookingSpeciality}
                             onValueChange={(value) => setUserData(prev => ({ ...prev, cookingSpeciality: value }))}
-                            style={styles.picker}
                           >
                             <Picker.Item label="Select Speciality" value="" />
                             {cookingSpecialityOptions.map(opt => (
@@ -987,7 +967,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           </Picker>
                         </View>
                       ) : (
-                        <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
+                        <Text style={[styles.input, styles.inputReadOnly]}>
                           {userData.cookingSpeciality
                             ? (cookingSpecialityOptions.find(o => o.value === userData.cookingSpeciality)?.label || userData.cookingSpeciality)
                             : "Not specified"}
@@ -996,7 +976,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                     </View>
                   )}
 
-                  {userData.housekeepingRole.includes('NANNY') && (
+                  {userData.housekeepingRoles.includes('NANNY') && (
                     <View style={styles.inputContainer}>
                       <Text style={styles.inputLabel}>Care Type</Text>
                       {isEditing ? (
@@ -1004,7 +984,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           <Picker
                             selectedValue={userData.nannyCareType}
                             onValueChange={(value) => setUserData(prev => ({ ...prev, nannyCareType: value }))}
-                            style={styles.picker}
                           >
                             <Picker.Item label="Select Care Type" value="" />
                             {nannyCareOptions.map(opt => (
@@ -1013,7 +992,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           </Picker>
                         </View>
                       ) : (
-                        <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
+                        <Text style={[styles.input, styles.inputReadOnly]}>
                           {userData.nannyCareType
                             ? (nannyCareOptions.find(o => o.value === userData.nannyCareType)?.label || userData.nannyCareType)
                             : "Not specified"}
@@ -1022,9 +1001,9 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                     </View>
                   )}
 
-                  {(userData.housekeepingRole.includes('COOK') ||
-                    userData.housekeepingRole.includes('NANNY') ||
-                    userData.housekeepingRole.includes('MAID')) && (
+                  {(userData.housekeepingRoles.includes('COOK') ||
+                    userData.housekeepingRoles.includes('NANNY') ||
+                    userData.housekeepingRoles.includes('MAID')) && (
                     <View style={styles.inputContainer}>
                       <Text style={styles.inputLabel}>Diet Preference</Text>
                       {isEditing ? (
@@ -1032,7 +1011,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           <Picker
                             selectedValue={userData.diet}
                             onValueChange={(value) => setUserData(prev => ({ ...prev, diet: value }))}
-                            style={styles.picker}
                           >
                             <Picker.Item label="Select Diet" value="" />
                             {dietOptions.map(opt => (
@@ -1041,7 +1019,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           </Picker>
                         </View>
                       ) : (
-                        <Text style={[styles.input, styles.inputReadOnly, styles.displayText]}>
+                        <Text style={[styles.input, styles.inputReadOnly]}>
                           {userData.diet
                             ? (dietOptions.find(o => o.value === userData.diet)?.label || userData.diet)
                             : "Not specified"}
@@ -1059,10 +1037,12 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                   keyboardType="numeric"
                 />
 
-                {/* Language Selector */}
-                <LanguageSelector
-                  selectedLanguages={selectedLanguages}
-                  onLanguagesChange={setSelectedLanguages}
+                <InputField 
+                  label="Languages Known"
+                  value={userData.languageKnown}
+                  onChangeText={(text: string) => setUserData(prev => ({ ...prev, languageKnown: text }))}
+                  editable={isEditing}
+                  placeholder="e.g., English, Hindi, Tamil"
                 />
               </View>
             )}
@@ -1103,23 +1083,22 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           minTime={6}
                           maxTime={12}
                           marks={[
-                            { value: 6, label: "6 AM" },
-                            { value: 8, label: "8 AM" },
-                            { value: 10, label: "10 AM" },
-                            { value: 12, label: "12 PM" },
+                            { value: 6, label: "6:00 AM" },
+                            { value: 8, label: "8:00 AM" },
+                            { value: 10, label: "10:00 AM" },
+                            { value: 12, label: "12:00 PM" },
                           ]}
                           notAvailableMessage="Not available in the morning"
-                          addSlotMessage="Click + to add your available time slots"
+                          addSlotMessage="Add a morning time slot"
                           slotLabel="Time Slot"
-                          addButtonLabel="+"
-                          clearButtonLabel=""
+                          addButtonLabel="Add Slot"
+                          clearButtonLabel="Clear All"
                           duplicateErrorKey="This time slot already exists"
                           onAddSlot={handleAddMorningSlot}
                           onRemoveSlot={handleRemoveMorningSlot}
                           onClearSlots={handleClearMorningSlots}
                           onSlotChange={handleMorningSlotChange}
                           formatDisplayTime={formatDisplayTime}
-                          existingSlots={morningSlots}
                         />
 
                         <TimeSlotSelector
@@ -1128,24 +1107,23 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           minTime={12}
                           maxTime={20}
                           marks={[
-                            { value: 12, label: "12 PM" },
-                            { value: 14, label: "2 PM" },
-                            { value: 16, label: "4 PM" },
-                            { value: 18, label: "6 PM" },
-                            { value: 20, label: "8 PM" },
+                            { value: 12, label: "12:00 PM" },
+                            { value: 14, label: "2:00 PM" },
+                            { value: 16, label: "4:00 PM" },
+                            { value: 18, label: "6:00 PM" },
+                            { value: 20, label: "8:00 PM" },
                           ]}
                           notAvailableMessage="Not available in the evening"
-                          addSlotMessage="Click + to add your available time slots"
+                          addSlotMessage="Add an evening time slot"
                           slotLabel="Time Slot"
-                          addButtonLabel="+"
-                          clearButtonLabel=""
+                          addButtonLabel="Add Slot"
+                          clearButtonLabel="Clear All"
                           duplicateErrorKey="This time slot already exists"
                           onAddSlot={handleAddEveningSlot}
                           onRemoveSlot={handleRemoveEveningSlot}
                           onClearSlots={handleClearEveningSlots}
                           onSlotChange={handleEveningSlotChange}
                           formatDisplayTime={formatDisplayTime}
-                          existingSlots={eveningSlots}
                         />
 
                         {mergedTimeSlotsString && (
@@ -1354,6 +1332,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   );
 };
 
+// Styles remain the same as your original code
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1515,7 +1494,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: '#666',
     marginBottom: 8,
   },
   input: {
@@ -1526,14 +1505,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     backgroundColor: '#fff',
-    color: '#333',
   },
   inputReadOnly: {
     backgroundColor: '#f5f5f5',
-    color: '#333',
-  },
-  displayText: {
-    color: '#333',
+    color: '#999',
   },
   phoneInputContainer: {
     position: 'relative',
@@ -1556,12 +1531,6 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     borderRadius: 8,
     backgroundColor: '#fff',
-    overflow: 'hidden',
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    color: '#333',
   },
   divider: {
     height: 1,
