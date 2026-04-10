@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Dimensions,
 } from "react-native";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 interface TimeSlotSelectorProps {
   title: string;
@@ -19,7 +22,6 @@ interface TimeSlotSelectorProps {
   notAvailableMessage: string;
   addSlotMessage: string;
   slotLabel: string;
-  addButtonLabel: string;
   clearButtonLabel: string;
   duplicateErrorKey: string;
   onAddSlot: () => void;
@@ -38,7 +40,6 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   notAvailableMessage,
   addSlotMessage,
   slotLabel,
-  addButtonLabel,
   clearButtonLabel,
   duplicateErrorKey,
   onAddSlot,
@@ -57,6 +58,9 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
   const handleSlotChange = (index: number, values: number[]) => {
     const [start, end] = values;
+    // Ensure start is less than end and minimum 1 hour difference
+    if (end - start < 0.5) return;
+    
     const newValue = [start, end];
     
     const exists = slots.some(
@@ -82,15 +86,6 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
     );
   };
 
-  const renderMarks = () => {
-    return marks.map((mark: { value: number; label: string }, index: number) => (
-      <View key={index} style={styles.markContainer}>
-        <View style={styles.markLine} />
-        <Text style={styles.markLabel}>{mark.label}</Text>
-      </View>
-    ));
-  };
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -98,11 +93,6 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
         <View style={styles.titleContainer}>
           <Icon name="access-time" size={20} color="#1976d2" />
           <Text style={styles.title}>{title}</Text>
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>
-              {slots.length} {slots.length === 1 ? 'Time Slot' : 'Time Slots'}
-            </Text>
-          </View>
         </View>
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -110,14 +100,13 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
             onPress={onAddSlot}
           >
             <Icon name="add" size={18} color="#fff" />
-            <Text style={styles.buttonText}>{addButtonLabel}</Text>
           </TouchableOpacity>
           {slots.length > 0 && (
             <TouchableOpacity
               style={[styles.button, styles.clearButton]}
               onPress={handleClearSlots}
             >
-              <Text style={styles.clearButtonText}>{clearButtonLabel}</Text>
+              <Icon name="delete" size={18} color="#f44336" />
             </TouchableOpacity>
           )}
         </View>
@@ -157,37 +146,62 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
                   </Text>
                 </View>
 
-                <View style={styles.sliderContainer}>
-                  <MultiSlider
-                    values={[slot[0], slot[1]]}
-                    min={minTime}
-                    max={maxTime}
-                    step={0.5}
-                    onValuesChange={(values) => handleSlotChange(index, values)}
-                    selectedStyle={{
-                      backgroundColor: '#1976d2',
-                    }}
-                    unselectedStyle={{
-                      backgroundColor: '#bdbdbd',
-                    }}
-                    trackStyle={{
-                      height: 4,
-                    }}
-                    markerStyle={{
-                      height: 20,
-                      width: 20,
-                      borderRadius: 10,
-                      backgroundColor: '#1976d2',
-                      borderWidth: 2,
-                      borderColor: '#fff',
-                    }}
-                    containerStyle={{
-                      height: 40,
-                    }}
-                  />
+                <View style={styles.sliderWrapper}>
+                  <View style={styles.sliderContainer}>
+                    <MultiSlider
+                      values={[slot[0], slot[1]]}
+                      min={minTime}
+                      max={maxTime}
+                      step={0.5}
+                      onValuesChange={(values) => handleSlotChange(index, values)}
+                      selectedStyle={{
+                        backgroundColor: '#1976d2',
+                        height: 4,
+                      }}
+                      unselectedStyle={{
+                        backgroundColor: '#e0e0e0',
+                        height: 4,
+                      }}
+                      trackStyle={{
+                        height: 4,
+                        borderRadius: 2,
+                      }}
+                      markerStyle={{
+                        height: 22,
+                        width: 22,
+                        borderRadius: 11,
+                        backgroundColor: '#fff',
+                        borderWidth: 2,
+                        borderColor: '#1976d2',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 2,
+                        elevation: 2,
+                      }}
+                      pressedMarkerStyle={{
+                        height: 24,
+                        width: 24,
+                        borderRadius: 12,
+                        backgroundColor: '#fff',
+                        borderWidth: 2,
+                        borderColor: '#1565c0',
+                      }}
+                      containerStyle={{
+                        height: 40,
+                        paddingHorizontal: 8,
+                      }}
+                    />
+                  </View>
                   
-                  <View style={styles.marksContainer}>
-                    {renderMarks()}
+                  {/* Marks Container - Fixed positioning */}
+                  <View style={styles.marksWrapper}>
+                    {marks.map((mark: { value: number; label: string }, index: number) => (
+                      <View key={index} style={[styles.markContainer, { left: `${((mark.value - minTime) / (maxTime - minTime)) * 100}%` }]}>
+                        <View style={styles.markLine} />
+                        <Text style={styles.markLabel}>{mark.label}</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
 
@@ -208,13 +222,18 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -227,17 +246,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1976d2',
   },
-  chip: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  chipText: {
-    fontSize: 11,
-    color: '#1976d2',
-    fontWeight: '500',
-  },
   buttonContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -245,7 +253,8 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
     gap: 4,
@@ -269,23 +278,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   emptyContainer: {
-    padding: 24,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    padding: 32,
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e8e8e8',
     borderStyle: 'dashed',
     alignItems: 'center',
     gap: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#757575',
+    color: '#999',
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 12,
-    color: '#9e9e9e',
+    color: '#bbb',
     textAlign: 'center',
   },
   slotsContainer: {
@@ -293,11 +302,11 @@ const styles = StyleSheet.create({
   },
   slotCard: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e8e8e8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -308,10 +317,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   slotTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1976d2',
   },
@@ -321,45 +330,55 @@ const styles = StyleSheet.create({
   selectedTimeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   selectedTime: {
-    fontSize: 12,
-    color: '#757575',
+    fontSize: 13,
+    color: '#666',
+  },
+  sliderWrapper: {
+    marginTop: 8,
+    marginBottom: 8,
+    position: 'relative',
   },
   sliderContainer: {
-    marginTop: 8,
-    paddingHorizontal: 8,
+    width: '100%',
   },
-  marksContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    marginTop: 16,
+  marksWrapper: {
+    position: 'relative',
+    width: '100%',
+    height: 30,
+    marginTop: 4,
   },
   markContainer: {
+    position: 'absolute',
     alignItems: 'center',
-    flex: 1,
+    transform: [{ translateX: -12 }],
+    width: 24,
   },
   markLine: {
     width: 1,
-    height: 6,
+    height: 8,
     backgroundColor: '#bdbdbd',
     marginBottom: 4,
   },
   markLabel: {
     fontSize: 9,
-    color: '#9e9e9e',
+    color: '#999',
+    textAlign: 'center',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffebee',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 10,
-    gap: 6,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
   },
   errorText: {
     fontSize: 11,

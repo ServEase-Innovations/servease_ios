@@ -1083,15 +1083,14 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           minTime={6}
                           maxTime={12}
                           marks={[
-                            { value: 6, label: "6:00 AM" },
-                            { value: 8, label: "8:00 AM" },
-                            { value: 10, label: "10:00 AM" },
-                            { value: 12, label: "12:00 PM" },
-                          ]}
+  { value: 6, label: "6:00 AM" },
+  { value: 8, label: "8:00 AM" },
+  { value: 10, label: "10:00 AM" },
+  { value: 12, label: "12:00 PM" },
+]}
                           notAvailableMessage="Not available in the morning"
                           addSlotMessage="Add a morning time slot"
                           slotLabel="Time Slot"
-                          addButtonLabel="Add Slot"
                           clearButtonLabel="Clear All"
                           duplicateErrorKey="This time slot already exists"
                           onAddSlot={handleAddMorningSlot}
@@ -1107,16 +1106,15 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                           minTime={12}
                           maxTime={20}
                           marks={[
-                            { value: 12, label: "12:00 PM" },
-                            { value: 14, label: "2:00 PM" },
-                            { value: 16, label: "4:00 PM" },
-                            { value: 18, label: "6:00 PM" },
-                            { value: 20, label: "8:00 PM" },
-                          ]}
+  { value: 12, label: "12:00 PM" },
+  { value: 14, label: "2:00 PM" },
+  { value: 16, label: "4:00 PM" },
+  { value: 18, label: "6:00 PM" },
+  { value: 20, label: "8:00 PM" },
+]}
                           notAvailableMessage="Not available in the evening"
                           addSlotMessage="Add an evening time slot"
                           slotLabel="Time Slot"
-                          addButtonLabel="Add Slot"
                           clearButtonLabel="Clear All"
                           duplicateErrorKey="This time slot already exists"
                           onAddSlot={handleAddEveningSlot}
