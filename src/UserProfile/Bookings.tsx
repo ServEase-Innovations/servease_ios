@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Pressable,
   ViewStyle,
   TextStyle,
@@ -48,119 +47,16 @@ import EngagementDetailsDrawer from './EngagementDetailsDrawer';
 import LinearGradient from 'react-native-linear-gradient';
 import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
-// Add this import at the top with other dialog imports
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 
-// Helper function to log ALL booking data in detail
-const logBookingData = (data: any, source: string) => {
-  console.log(`\n\n📋 ===== BOOKING DATA DEBUG - ${source} =====`);
-  console.log(`📊 Data Type: ${Array.isArray(data) ? 'Array' : typeof data}`);
-  console.log(`📊 Data Length: ${Array.isArray(data) ? data.length : 'N/A (not array)'}`);
-  
-  if (Array.isArray(data) && data.length > 0) {
-    console.log(`\n🔍 First Item Structure:`);
-    console.log(JSON.stringify(data[0], null, 2));
-    
-    console.log(`\n🔍 All Items Provider Info:`);
-    data.forEach((item, index) => {
-      console.log(`\n--- Item ${index + 1} ---`);
-      console.log(`📌 ID: ${item.engagement_id || item.id || 'N/A'}`);
-      console.log(`📌 Service Type: ${item.service_type || item.serviceType || 'N/A'}`);
-      
-      // Log provider object details
-      console.log(`👤 Provider Object Keys:`, item.provider ? Object.keys(item.provider) : 'No provider object');
-      
-      if (item.provider) {
-        console.log(`👤 Provider Details:`);
-        console.log(`   - firstName: ${item.provider.firstName}`);
-        console.log(`   - firstname: ${item.provider.firstname}`);
-        console.log(`   - FirstName: ${item.provider.FirstName}`);
-        console.log(`   - lastName: ${item.provider.lastName}`);
-        console.log(`   - lastname: ${item.provider.lastname}`);
-        console.log(`   - LastName: ${item.provider.LastName}`);
-        console.log(`   - rating: ${item.provider.rating}`);
-        console.log(`   - Full provider object:`, JSON.stringify(item.provider, null, 2));
-      }
-      
-      // Log service_provider object details
-      if (item.service_provider) {
-        console.log(`👤 Service Provider Object:`);
-        console.log(`   - firstName: ${item.service_provider.firstName}`);
-        console.log(`   - firstname: ${item.service_provider.firstname}`);
-        console.log(`   - Full service_provider object:`, JSON.stringify(item.service_provider, null, 2));
-      }
-      
-      // Log other important fields
-      console.log(`📌 assignment_status: ${item.assignment_status}`);
-      console.log(`📌 serviceProviderName: ${item.serviceProviderName}`);
-      console.log(`📌 provider_name: ${item.provider_name}`);
-      console.log(`📌 task_status: ${item.task_status}`);
-      console.log(`📌 booking_type: ${item.booking_type}`);
-      console.log(`📌 start_date: ${item.start_date}`);
-      console.log(`📌 end_date: ${item.end_date}`);
-      console.log(`📌 start_time: ${item.start_time}`);
-      console.log(`📌 end_time: ${item.end_time}`);
-      console.log(`📌 start_epoch: ${item.start_epoch}`);
-      
-      // Log payment details
-      if (item.payment) {
-        console.log(`💰 Payment Details:`, JSON.stringify(item.payment, null, 2));
-      }
-      
-      // Log vacation details
-      if (item.vacation) {
-        console.log(`🏖️ Vacation Details:`, JSON.stringify(item.vacation, null, 2));
-      }
-      
-      // Log modifications
-      if (item.modifications && item.modifications.length > 0) {
-        console.log(`🔄 Modifications:`, JSON.stringify(item.modifications, null, 2));
-      }
-      
-      // Log responsibilities
-      if (item.responsibilities) {
-        console.log(`📋 Responsibilities:`, JSON.stringify(item.responsibilities, null, 2));
-      }
-    });
-  } else if (data && typeof data === 'object') {
-    console.log(`\n🔍 Single Object Structure:`);
-    console.log(JSON.stringify(data, null, 2));
-  } else {
-    console.log(`\n⚠️ No data to display`);
+// Helper function to log ONLY critical data (minimal)
+const logError = (message: string, error?: any) => {
+  if (__DEV__) {
+    console.error(`❌ ${message}`, error || '');
   }
-  
-  console.log(`\n📋 ===== END DEBUG =====\n\n`);
 };
 
-// Helper function to log the final mapped booking data
-const logMappedBooking = (booking: any, index: number) => {
-  console.log(`\n🎯 ===== MAPPED BOOKING ${index + 1} =====`);
-  console.log(`📌 Final ID: ${booking.id}`);
-  console.log(`📌 Final Service Provider Name: "${booking.serviceProviderName}"`);
-  console.log(`📌 Provider Rating: ${booking.providerRating}`);
-  console.log(`📌 Assignment Status: ${booking.assignmentStatus}`);
-  console.log(`📌 Task Status: ${booking.taskStatus}`);
-  console.log(`📌 Booking Type: ${booking.bookingType}`);
-  console.log(`📌 Service Type: ${booking.serviceType}`);
-  console.log(`📌 Amount: ${booking.monthlyAmount}`);
-  console.log(`📌 Payment Status: ${booking.payment?.status || 'N/A'}`);
-  console.log(`📌 Address: ${booking.address}`);
-  console.log(`📌 Start Date: ${booking.startDate}`);
-  console.log(`📌 End Date: ${booking.endDate}`);
-  console.log(`📌 Start Time: ${booking.start_time}`);
-  console.log(`📌 End Time: ${booking.end_time}`);
-  console.log(`📌 Start Epoch: ${booking.start_epoch}`);
-  console.log(`📌 Has Vacation: ${booking.hasVacation}`);
-  if (booking.vacationDetails) {
-    console.log(`🏖️ Vacation Details:`, booking.vacationDetails);
-  }
-  if (booking.modifications && booking.modifications.length > 0) {
-    console.log(`🔄 Modification Count: ${booking.modifications.length}`);
-  }
-  console.log(`🎯 ===== END MAPPED BOOKING =====\n`);
-};
-
-// Implement Card component
+// Card component
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
   const { colors } = useTheme();
   const Container = onPress ? TouchableOpacity : View;
@@ -175,7 +71,7 @@ const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; 
   );
 };
 
-// Implement Button component
+// Button component
 const Button: React.FC<{
   children: React.ReactNode;
   onPress?: () => void;
@@ -194,7 +90,7 @@ const Button: React.FC<{
   );
 };
 
-// Implement Badge component
+// Badge component
 const Badge: React.FC<{
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -207,7 +103,7 @@ const Badge: React.FC<{
   );
 };
 
-// Implement Separator component
+// Separator component
 const Separator: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => {
   const { colors } = useTheme();
   return (
@@ -219,7 +115,6 @@ const Separator: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => {
 const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
   return (
     <Card style={[styles.bookingCard, { borderColor: colors.border }]}>
-      {/* Header Skeleton */}
       <View style={styles.cardHeader}>
         <View style={styles.serviceInfoContainer}>
           <SkeletonLoader width={32} height={32} variant="circular" />
@@ -227,8 +122,6 @@ const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
         </View>
         <SkeletonLoader width={80} height={28} variant="rectangular" />
       </View>
-
-      {/* Date and Time Skeleton */}
       <View style={styles.dateTimeRow}>
         <View style={styles.infoItem}>
           <SkeletonLoader width={16} height={16} variant="circular" />
@@ -239,17 +132,12 @@ const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
           <SkeletonLoader width={100} height={16} style={{ marginLeft: 6 }} />
         </View>
       </View>
-
       <Separator style={styles.separator} />
-
-      {/* Action Buttons Skeleton */}
       <View style={styles.actionButtonsRow}>
         <SkeletonLoader width={100} height={40} variant="rectangular" />
         <SkeletonLoader width={100} height={40} variant="rectangular" />
         <SkeletonLoader width={100} height={40} variant="rectangular" />
       </View>
-
-      {/* View Details Indicator Skeleton */}
       <View style={styles.viewDetailsIndicator}>
         <SkeletonLoader width={120} height={14} variant="rectangular" />
       </View>
@@ -257,7 +145,6 @@ const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
   );
 };
 
-// Skeleton Loader for Section Header
 const SectionHeaderSkeleton: React.FC<{ colors: any }> = ({ colors }) => {
   return (
     <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
@@ -271,7 +158,6 @@ const SectionHeaderSkeleton: React.FC<{ colors: any }> = ({ colors }) => {
   );
 };
 
-// Skeleton Loader for Status Tabs
 const StatusTabsSkeleton: React.FC = () => {
   return (
     <View style={styles.statusFilterContainer}>
@@ -290,17 +176,11 @@ const StatusTabsSkeleton: React.FC = () => {
   );
 };
 
-// Main Skeleton Loader Component for Booking Page
 const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header Skeleton */}
       <LinearGradient
-        colors={[
-          colors.primary + '40',
-          colors.primary + '20',
-          colors.background
-        ]}
+        colors={[colors.primary + '40', colors.primary + '20', colors.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.header}
@@ -312,7 +192,6 @@ const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
             <SkeletonLoader width={250} height={16} style={{ marginTop: 8 }} />
           </View>
         </View>
-        
         <View style={styles.headerRight}>
           <View style={styles.searchContainer}>
             <SkeletonLoader width="100%" height={48} variant="rectangular" />
@@ -320,20 +199,14 @@ const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
           <SkeletonLoader width={70} height={70} variant="rectangular" style={{ marginLeft: 12 }} />
         </View>
       </LinearGradient>
-
       <ScrollView>
-        {/* Upcoming Bookings Section Skeleton */}
         <View style={styles.section}>
           <SectionHeaderSkeleton colors={colors} />
           <StatusTabsSkeleton />
-          
-          {/* Booking Cards Skeletons */}
           {[1, 2, 3].map((item) => (
             <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
           ))}
         </View>
-
-        {/* Past Bookings Section Skeleton */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
             <SkeletonLoader width={24} height={24} variant="circular" />
@@ -343,8 +216,6 @@ const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
             </View>
             <SkeletonLoader width={40} height={32} variant="rectangular" />
           </View>
-          
-          {/* Past Booking Cards Skeletons */}
           {[1, 2].map((item) => (
             <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
           ))}
@@ -354,17 +225,7 @@ const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
   );
 };
 
-interface CustomerHoliday {
-  id: number;
-  engagementId: number;
-  customerId: number;
-  applyHolidayDate: string;
-  startDate: string;
-  endDate: string;
-  serviceType: string;
-  active: boolean;
-}
-
+// Interfaces
 interface TodayService {
   service_day_id: string;
   status: string;
@@ -438,7 +299,6 @@ interface Booking {
   mealType: string;
   modifiedDate: string;
   responsibilities: Responsibilities;
-  customerHolidays?: CustomerHoliday[];
   hasVacation?: boolean;
   assignmentStatus: string;
   start_epoch?: number;
@@ -463,30 +323,25 @@ interface Booking {
   };
   modifications: Modification[];
   today_service?: TodayService;
-  payment?: Payment; // Added payment interface
+  payment?: Payment;
 }
 
 interface BookingProps {
-  onBackToHome?: () => void; // Add this prop for back navigation
+  onBackToHome?: () => void;
 }
 
+// Utility functions
 const getServiceIcon = (type: string) => {
   const serviceType = type || 'other';
   switch (serviceType) {
-    case 'maid':
-      return 'broom';
-    case 'cleaning':
-      return 'broom';
-    case 'nanny':
-      return 'heart';
-    case 'cook':
-      return 'chef-hat';
-    default:
-      return 'chef-hat';
+    case 'maid': return 'broom';
+    case 'cleaning': return 'broom';
+    case 'nanny': return 'heart';
+    case 'cook': return 'chef-hat';
+    default: return 'chef-hat';
   }
 };
 
-// FIXED: These functions now accept colors and fontSizes as parameters instead of using hooks
 const getStatusBadge = (status: string, colors: any, fontSizes: any, t: any) => {
   switch (status) {
     case 'ACTIVE':
@@ -524,8 +379,7 @@ const getStatusBadge = (status: string, colors: any, fontSizes: any, t: any) => 
           <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{t('booking.status.notStarted')}</Text>
         </Badge>
       );
-    default:
-      return null;
+    default: return null;
   }
 };
 
@@ -561,40 +415,27 @@ const getBookingTypeBadge = (type: string, colors: any, fontSizes: any, t: any) 
 const getServiceTitle = (type: string, t: any) => {
   const serviceType = type || 'other';
   switch (serviceType) {
-    case 'cook':
-      return t('booking.cards.homeCook');
-    case 'maid':
-      return t('booking.cards.maidService');
-    case 'nanny':
-      return t('booking.cards.caregiver');
-    case 'cleaning':
-      return t('booking.cards.cleaningService');
-    default:
-      return t('booking.cards.homeService');
+    case 'cook': return t('booking.cards.homeCook');
+    case 'maid': return t('booking.cards.maidService');
+    case 'nanny': return t('booking.cards.caregiver');
+    case 'cleaning': return t('booking.cards.cleaningService');
+    default: return t('booking.cards.homeService');
   }
 };
 
 const hasVacation = (booking: Booking): boolean => {
-  return booking.hasVacation || 
-         (booking.vacationDetails && 
-          (booking.vacationDetails.total_days || 0) > 0) || 
-         false;
+  return booking.hasVacation || (booking.vacationDetails && (booking.vacationDetails.total_days || 0) > 0) || false;
 };
 
-// UPDATED: Modification restriction functions to use start_epoch
 const isModificationTimeAllowed = (startEpoch: any): boolean => {
-  console.log("Start epoch ", startEpoch);
   if (!startEpoch) return false;
-  
-  const now = dayjs().unix(); // current time in seconds
-  const cutoff = startEpoch - 30 * 60; // 30 minutes before booking start
-
+  const now = dayjs().unix();
+  const cutoff = startEpoch - 30 * 60;
   return now < cutoff;
 };
 
 const isBookingAlreadyModified = (booking: Booking | null): boolean => {
   if (!booking) return false;
-  
   const hasExplicitModifications = booking.modifications && 
     booking.modifications.length > 0 && 
     booking.modifications.some(mod => 
@@ -602,39 +443,20 @@ const isBookingAlreadyModified = (booking: Booking | null): boolean => {
       mod.action === "Time Rescheduled" ||
       mod.action === "Modified" || 
       mod.action?.includes("Modified") ||
-      mod.action?.includes("modified") ||
       mod.action === "Rescheduled" ||
       mod.action?.includes("Reschedule")
     );
-  
   return !!hasExplicitModifications;
 };
 
 const isModificationDisabled = (booking: Booking | null): boolean => {
   if (!booking) return true;
-  
-  return !isModificationTimeAllowed(booking.start_epoch) || 
-         isBookingAlreadyModified(booking);
+  return !isModificationTimeAllowed(booking.start_epoch) || isBookingAlreadyModified(booking);
 };
 
-const getModificationTooltip = (booking: Booking | null, t: any): string => {
-  if (!booking) return "";
-  
-  if (isBookingAlreadyModified(booking)) {
-    return t('booking.modification.alreadyModified');
-  }
-  if (!isModificationTimeAllowed(booking.start_epoch)) {
-    return t('booking.modification.notAllowed');
-  }
-  return t('booking.modification.modifyBooking');
-};
-
-// NEW: Get detailed modification information for display
 const getModificationDetails = (booking: Booking, t: any): string => {
   if (!booking.modifications || booking.modifications.length === 0) return "";
-  
   const lastMod = booking.modifications[booking.modifications.length - 1];
-  
   if (lastMod.action === "Date Rescheduled" && lastMod.changes) {
     if (lastMod.changes.new_start_date && lastMod.changes.new_end_date) {
       return `Date rescheduled to ${lastMod.changes.new_start_date}`;
@@ -648,28 +470,21 @@ const getModificationDetails = (booking: Booking, t: any): string => {
       return `Time changed from ${lastMod.changes.start_time.from} to ${lastMod.changes.start_time.to}`;
     }
   }
-  
   return t('booking.modification.lastModified', { action: lastMod.action });
 };
 
-// NEW: Time formatting utilities from React code
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
-  
   try {
-    // Handle both "HH:mm:ss" and "HH:mm" formats
     const [hours, minutes] = timeString.split(':');
     const hour = parseInt(hours, 10);
     const minute = parseInt(minutes, 10);
-    
     const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12; // Convert 0 to 12, 13 to 1, etc.
+    const displayHour = hour % 12 || 12;
     const displayMinute = minute.toString().padStart(2, '0');
-    
     return `${displayHour}:${displayMinute} ${period}`;
   } catch (error) {
-    console.error('Error formatting time:', error);
-    return timeString; // Return original if parsing fails
+    return timeString;
   }
 };
 
@@ -677,22 +492,11 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
   return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
 };
 
-const formatDateForDisplay = (dateString: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
-};
-
 const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
   
-  // STATE VARIABLES
+  // State variables
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [futureBookings, setFutureBookings] = useState<Booking[]>([]);
@@ -709,16 +513,14 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
   const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
   const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = useState(false);
   const [selectedBookingForVacationManagement, setSelectedBookingForVacationManagement] = useState<Booking | null>(null);
-  // Add this state variable with other state declarations
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
-  
-  // NEW: Engagement Details Drawer state
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
 
   // Loading states
@@ -733,8 +535,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [uniqueMissingSlots, setUniqueMissingSlots] = useState<string[]>([]);
   const [showAllHistory, setShowAllHistory] = useState(false);
-
-  // Review dialog state
   const [reviewDialogVisible, setReviewDialogVisible] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
 
@@ -755,77 +555,44 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     severity: 'info'
   });
 
-  // Vacation dialog state
-  const [vacationDialogOpen, setVacationDialogOpen] = useState(false);
-  const [selectedBookingForVacation, setSelectedBookingForVacation] = useState<Booking | null>(null);
-
-  // AUTH & INITIALIZATION
+  // Auth
   const { user: auth0User } = useAuth0();
   const isAuthenticated = auth0User !== undefined && auth0User !== null;
   const { appUser } = useAppUser();
 
-  // Refs for preventing multiple loads and deep link processing
+  // Refs
   const initialLoadDone = useRef(false);
   const isFetchingRef = useRef(false);
   const processedDeepLink = useRef(false);
 
-  // Get font sizes based on theme
+  // Font sizes
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
         return {
-          headerTitle: 24,
-          headerSubtitle: 14,
-          sectionTitle: 20,
-          sectionSubtitle: 13,
-          serviceTitle: 15,
-          infoText: 13,
-          viewDetailsText: 11,
-          buttonText: 11,
-          badgeText: 11,
-          emptyStateTitle: 18,
-          emptyStateText: 15,
-          searchInput: 14,
+          headerTitle: 24, headerSubtitle: 14, sectionTitle: 20, sectionSubtitle: 13,
+          serviceTitle: 15, infoText: 13, viewDetailsText: 11, buttonText: 11,
+          badgeText: 11, emptyStateTitle: 18, emptyStateText: 15, searchInput: 14,
         };
       case 'large':
         return {
-          headerTitle: 32,
-          headerSubtitle: 18,
-          sectionTitle: 24,
-          sectionSubtitle: 16,
-          serviceTitle: 18,
-          infoText: 16,
-          viewDetailsText: 14,
-          buttonText: 14,
-          badgeText: 14,
-          emptyStateTitle: 22,
-          emptyStateText: 18,
-          searchInput: 18,
+          headerTitle: 32, headerSubtitle: 18, sectionTitle: 24, sectionSubtitle: 16,
+          serviceTitle: 18, infoText: 16, viewDetailsText: 14, buttonText: 14,
+          badgeText: 14, emptyStateTitle: 22, emptyStateText: 18, searchInput: 18,
         };
       default:
         return {
-          headerTitle: 28,
-          headerSubtitle: 16,
-          sectionTitle: 22,
-          sectionSubtitle: 14,
-          serviceTitle: 16,
-          infoText: 14,
-          viewDetailsText: 12,
-          buttonText: 12,
-          badgeText: 12,
-          emptyStateTitle: 20,
-          emptyStateText: 16,
-          searchInput: 16,
+          headerTitle: 28, headerSubtitle: 16, sectionTitle: 22, sectionSubtitle: 14,
+          serviceTitle: 16, infoText: 14, viewDetailsText: 12, buttonText: 12,
+          badgeText: 12, emptyStateTitle: 20, emptyStateText: 16, searchInput: 16,
         };
     }
   };
-
   const fontSizes = getFontSizes();
 
-  // Helper function to convert Booking for child components
+  // Helper to convert booking for child components
   const convertBookingForChildComponents = (booking: Booking | null): any => {
     if (!booking) return null;
-    
     return {
       ...booking,
       serviceType: booking.serviceType || booking.service_type,
@@ -837,438 +604,172 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     };
   };
 
-  // NEW: Handle view details to open drawer
-  const handleViewDetails = (booking: Booking) => {
-    console.log(`📋 View details for booking ${booking.id}`);
-    setSelectedBooking(booking);
-    setDetailsDrawerOpen(true);
-  };
-
-  // NEW: Handle deep linking
-  const processDeepLink = async (url: string | null) => {
-    if (!url) return;
-    
-    console.log('🔗 Deep link received:', url);
-    
-    // Parse the URL
-    const parsedUrl = new URL(url);
-    const params = new URLSearchParams(parsedUrl.search);
-    
-    const deepLinkCustomerId = params.get('customerId');
-    const deepLinkBookingId = params.get('bookingId');
-    const deepLinkAction = params.get('action');
-    
-    // If no deep link data or already processed, return
-    if ((!deepLinkCustomerId && !deepLinkBookingId) || processedDeepLink.current) {
-      return;
-    }
-
-    console.log('🎯 Deep link data:', {
-      customerId: deepLinkCustomerId,
-      bookingId: deepLinkBookingId,
-      action: deepLinkAction
-    });
-
-    // Mark as processed immediately to prevent multiple executions
-    processedDeepLink.current = true;
-
-    // CASE 1: View ALL bookings for a specific customer
-    if (deepLinkCustomerId && !deepLinkBookingId) {
-      console.log(`📋 VIEWING ALL BOOKINGS FOR CUSTOMER #${deepLinkCustomerId}`);
-      
-      const loggedInCustomerId = appUser?.customerid?.toString();
-      
-      if (loggedInCustomerId !== deepLinkCustomerId) {
-        console.log('👑 Admin view - fetching customer bookings');
-        await refreshBookings(deepLinkCustomerId);
-      }
-      
-    // CASE 2: View specific booking
-    } else if (deepLinkBookingId) {
-      console.log(`🎯 OPENING SPECIFIC BOOKING #${deepLinkBookingId}`);
-      
-      // Helper function to find and highlight booking
-      const findAndHighlightBooking = (bookingId: string) => {
-        const allBookings = [...currentBookings, ...futureBookings, ...pastBookings];
-        const targetBooking = allBookings.find(b => b.id.toString() === bookingId);
-        
-        if (targetBooking) {
-          console.log('✅ Found booking:', targetBooking.id);
-          setSelectedBooking(targetBooking);
-          
-          // Open drawer by default (matching React behavior)
-          const shouldOpenDrawer = deepLinkAction === 'drawer' || !deepLinkAction || deepLinkAction === 'open';
-          
-          if (shouldOpenDrawer) {
-            console.log('📂 Opening details drawer automatically');
-            setTimeout(() => {
-              setDetailsDrawerOpen(true);
-            }, 500);
-          }
-          
-          return true;
-        }
-        return false;
-      };
-      
-      // Try to find booking immediately
-      const found = findAndHighlightBooking(deepLinkBookingId);
-      
-      // If not found, try a few more times as bookings load
-      if (!found) {
-        console.log('⏳ Booking not found yet, waiting for data to load...');
-        let attempts = 0;
-        const maxAttempts = 20; // Try for 20 seconds
-        
-        const checkInterval = setInterval(() => {
-          attempts++;
-          const allBookings = [...currentBookings, ...futureBookings, ...pastBookings];
-          const found = allBookings.find(b => b.id.toString() === deepLinkBookingId);
-          
-          if (found) {
-            console.log(`✅ Found booking after ${attempts} attempts`);
-            clearInterval(checkInterval);
-            
-            setSelectedBooking(found);
-            
-            setTimeout(() => {
-              const shouldOpenDrawer = deepLinkAction === 'drawer' || !deepLinkAction || deepLinkAction === 'open';
-              
-              if (shouldOpenDrawer) {
-                console.log('📂 Opening details drawer automatically (delayed)');
-                setTimeout(() => {
-                  setDetailsDrawerOpen(true);
-                }, 500);
-              }
-            }, 500);
-            
-          } else if (attempts >= maxAttempts) {
-            clearInterval(checkInterval);
-            console.log('❌ Could not find booking after multiple attempts');
-            Alert.alert(t('common.error'), t('errors.notFound', { id: deepLinkBookingId }));
-          }
-        }, 1000);
-      }
-    }
-  };
-
-  // NEW: Set up deep linking listener
-  useEffect(() => {
-    // Handle initial URL if app was opened via deep link
-    const getInitialUrl = async () => {
-      const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        await processDeepLink(initialUrl);
-      }
-    };
-    
-    getInitialUrl();
-    
-    // Add event listener for deep links when app is already open
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      processDeepLink(url);
-    });
-    
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  // DATA FETCHING FUNCTIONS
-  useEffect(() => {
-    if (isAuthenticated && appUser?.customerid) {
-      console.log('🔑 User authenticated with customerid:', appUser.customerid);
-      setIsLoading(true);
-      setCustomerId(appUser.customerid);
-      fetchBookings(appUser.customerid);
-    } else {
-      console.log('🔑 User not authenticated or no customerid');
-      setIsLoading(false);
-    }
-  }, [appUser, isAuthenticated]);
-
-  // Refresh function from React code
+  // Data fetching
   const refreshBookings = async (id?: string) => {
     const effectiveId = id || customerId;
-    if (effectiveId !== null && effectiveId !== undefined) {
-      console.log("🔄 Fetching bookings for customerId:", effectiveId);
-
-      try {
-        const response = await PaymentInstance.get(
-          `/api/customers/${effectiveId}/engagements`
-        );
-
-        console.log('📡 API Response Status:', response.status);
-        console.log('📡 API Response Headers:', response.headers);
-        
-        const responseData = response.data || {};
-        console.log('📡 Raw API Response Data Structure:', Object.keys(responseData));
-        
-        const { past = [], ongoing = [], upcoming = [], cancelled = [] } = responseData;
-        
-        console.log(`📊 Booking Counts - Past: ${past.length}, Ongoing: ${ongoing.length}, Upcoming: ${upcoming.length}, Cancelled: ${cancelled.length}`);
-        
-        // Log detailed data for each category
-        if (past.length > 0) {
-          logBookingData(past, 'PAST BOOKINGS');
-        }
-        if (ongoing.length > 0) {
-          logBookingData(ongoing, 'ONGOING BOOKINGS');
-        }
-        if (upcoming.length > 0) {
-          logBookingData(upcoming, 'UPCOMING BOOKINGS');
-        }
-        if (cancelled.length > 0) {
-          logBookingData(cancelled, 'CANCELLED BOOKINGS');
-        }
-
-        setPastBookings(mapBookingData(past));
-        setCurrentBookings(mapBookingData(ongoing));
-        setFutureBookings(mapBookingData(upcoming));
-        
-      } catch (error: any) {
-        console.error('❌ Error fetching bookings:', error);
-        console.error('❌ Error response:', error.response?.data);
-        console.error('❌ Error status:', error.response?.status);
-      }
+    if (!effectiveId) return;
+    try {
+      const response = await PaymentInstance.get(`/api/customers/${effectiveId}/engagements`);
+      const { past = [], ongoing = [], upcoming = [], cancelled = [] } = response.data || {};
+      setPastBookings(mapBookingData(past));
+      setCurrentBookings(mapBookingData(ongoing));
+      setFutureBookings(mapBookingData(upcoming));
+    } catch (error: any) {
+      logError('Error fetching bookings:', error);
     }
+  };
+
+  const mapBookingData = (data: any[]) => {
+    return Array.isArray(data) ? data.map((item) => {
+      const hasVacationFlag = item?.vacation?.leave_days > 0;
+      const serviceType = item.service_type?.toLowerCase() || item.serviceType?.toLowerCase() || 'other';
+      const modifications = item.modifications || [];
+      const hasModifications = modifications.length > 0;
+
+      let serviceProviderName = t('booking.cards.notAssigned');
+      let providerRating = 0;
+      if (item.provider) {
+        const firstName = item.provider.firstname || '';
+        const lastName = item.provider.lastname || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        if (fullName && fullName !== ' ') {
+          serviceProviderName = fullName;
+          providerRating = item.provider.rating || 0;
+        }
+      } else if (item.service_provider) {
+        const firstName = item.service_provider.firstname || '';
+        const lastName = item.service_provider.lastname || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        if (fullName && fullName !== ' ') {
+          serviceProviderName = fullName;
+          providerRating = item.service_provider.rating || 0;
+        }
+      } else if (item.assignment_status === "UNASSIGNED") {
+        serviceProviderName = t('booking.cards.awaitingAssignment');
+      } else if (item.serviceProviderName && item.serviceProviderName !== "undefined undefined") {
+        serviceProviderName = item.serviceProviderName;
+      } else if (item.provider_name) {
+        serviceProviderName = item.provider_name;
+      }
+
+      const amount = item.base_amount || item.monthlyAmount || item.total_amount || 0;
+      const startEpoch = item.start_epoch || 0;
+
+      return {
+        id: item.engagement_id,
+        customerId: item.customerId,
+        serviceProviderId: item.serviceproviderid || item.serviceProviderId,
+        name: item.customerName,
+        timeSlot: item.start_time,
+        date: item.start_date,
+        startDate: item.start_date,
+        endDate: item.end_date,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        bookingType: item.booking_type,
+        monthlyAmount: amount,
+        paymentMode: item.paymentMode,
+        address: item.address || t('common.address'),
+        customerName: item.customerName,
+        serviceProviderName: serviceProviderName,
+        providerRating: providerRating,
+        taskStatus: item.task_status,
+        engagements: item.engagements,
+        bookingDate: item.created_at,
+        service_type: serviceType,
+        serviceType: serviceType,
+        childAge: item.childAge,
+        experience: item.experience,
+        noOfPersons: item.noOfPersons,
+        mealType: item.mealType,
+        modifiedDate: hasModifications ? modifications[modifications.length - 1]?.date || item.created_at : item.created_at,
+        responsibilities: item.responsibilities,
+        hasVacation: hasVacationFlag,
+        assignmentStatus: item.assignment_status || "ASSIGNED",
+        start_epoch: startEpoch,
+        vacation: item.vacation || null,
+        vacationDetails: hasVacationFlag && item.vacation?.leave_days > 0 ? {
+          ...item.vacation,
+          leave_start_date: item.vacation.start_date || item.vacation.leave_start_date,
+          leave_end_date: item.vacation.end_date || item.vacation.leave_end_date,
+          total_days: item.vacation.leave_days || item.vacation.total_days,
+        } : null,
+        modifications: modifications,
+        today_service: item.today_service,
+        payment: item.payment
+      };
+    }) : [];
   };
 
   const fetchBookings = async (id: string) => {
     try {
       await refreshBookings(id);
     } catch (error) {
-      console.error("❌ Error fetching booking details:", error);
+      logError('Error fetching booking details:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // UPDATED: Improved mapBookingData function with provider info and base_amount and payment
-const mapBookingData = (data: any[]) => {
-  console.log(`\n🗺️ ===== MAPPING BOOKING DATA =====`);
-  console.log(`📊 Input data length: ${data.length}`);
-  
-  const result = Array.isArray(data)
-    ? data.map((item, index) => {
-        console.log(`\n📦 Processing item ${index + 1}:`);
-        console.log(`📌 Raw item keys:`, Object.keys(item));
-        
-        const hasVacation = item?.vacation?.leave_days > 0;
-        const serviceType = item.service_type?.toLowerCase() || item.serviceType?.toLowerCase() || 'other';
-        const modifications = item.modifications || [];
-        const hasModifications = modifications.length > 0;
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (customerId) await refreshBookings();
+    } catch (error) {
+      logError('Error refreshing bookings:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-        // Get provider information from the provider object - MATCHING REACT CODE
-        let serviceProviderName = t('booking.cards.notAssigned');
-        let providerRating = 0;
-        
-        console.log(`🔍 Looking for provider name...`);
-        
-        // DIRECT PROPERTY ACCESS - Like in React code (lowercase firstname/lastname)
-        if (item.provider) {
-          console.log(`✅ Found provider object:`, item.provider);
-          const firstName = item.provider.firstname || '';
-          const lastName = item.provider.lastname || '';
-          const fullName = `${firstName} ${lastName}`.trim();
-          
-          if (fullName && fullName !== ' ') {
-            serviceProviderName = fullName;
-            providerRating = item.provider.rating || 0;
-            console.log(`✅ Using provider name: "${serviceProviderName}"`);
-          } else {
-            console.log(`❌ Provider name is empty in provider object`);
-          }
-        } 
-        // Check service_provider object (fallback)
-        else if (item.service_provider) {
-          console.log(`✅ Found service_provider object:`, item.service_provider);
-          const firstName = item.service_provider.firstname || '';
-          const lastName = item.service_provider.lastname || '';
-          const fullName = `${firstName} ${lastName}`.trim();
-          
-          if (fullName && fullName !== ' ') {
-            serviceProviderName = fullName;
-            providerRating = item.service_provider.rating || 0;
-            console.log(`✅ Using service_provider name: "${serviceProviderName}"`);
-          }
-        }
-        // Check if assignment status is UNASSIGNED
-        else if (item.assignment_status === "UNASSIGNED") {
-          serviceProviderName = t('booking.cards.awaitingAssignment');
-          console.log(`✅ Using "Awaiting Assignment" (UNASSIGNED status)`);
-        } 
-        // Check other possible fields (fallbacks)
-        else if (item.serviceProviderName && item.serviceProviderName !== "undefined undefined") {
-          serviceProviderName = item.serviceProviderName;
-          console.log(`✅ Using serviceProviderName field: "${serviceProviderName}"`);
-        } else if (item.provider_name) {
-          serviceProviderName = item.provider_name;
-          console.log(`✅ Using provider_name field: "${serviceProviderName}"`);
-        } else {
-          console.log(`❌ No provider name found in any field`);
-        }
+  // Effect to load bookings
+  useEffect(() => {
+    if (isAuthenticated && appUser?.customerid) {
+      setIsLoading(true);
+      setCustomerId(appUser.customerid);
+      fetchBookings(appUser.customerid);
+    } else {
+      setIsLoading(false);
+    }
+  }, [appUser, isAuthenticated]);
 
-        // Use the current dates from API (which should reflect modifications)
-        const effectiveStartDate = item.start_date;
-        const effectiveEndDate = item.end_date;
-
-        // Get amount - check multiple possible fields
-        const amount = item.base_amount || item.monthlyAmount || item.total_amount || 0;
-
-        // Get start_epoch for modification checks
-        const startEpoch = item.start_epoch || 0;
-
-        // Get payment data
-        const payment = item.payment || null;
-
-        const mappedBooking = {
-          id: item.engagement_id,
-          customerId: item.customerId,
-          serviceProviderId: item.serviceproviderid || item.serviceProviderId,
-          name: item.customerName,
-          timeSlot: item.start_time,
-          date: effectiveStartDate,
-          startDate: effectiveStartDate,
-          endDate: effectiveEndDate,
-          start_time: item.start_time,
-          end_time: item.end_time,
-          bookingType: item.booking_type,
-          monthlyAmount: amount,
-          paymentMode: item.paymentMode,
-          address: item.address || t('common.address'),
-          customerName: item.customerName,
-          serviceProviderName: serviceProviderName,
-          providerRating: providerRating,
-          taskStatus: item.task_status,
-          engagements: item.engagements,
-          bookingDate: item.created_at,
-          service_type: serviceType,
-          serviceType: serviceType,
-          childAge: item.childAge,
-          experience: item.experience,
-          noOfPersons: item.noOfPersons,
-          mealType: item.mealType,
-          modifiedDate: hasModifications
-            ? modifications[modifications.length - 1]?.date || item.created_at
-            : item.created_at,
-          responsibilities: item.responsibilities,
-          customerHolidays: item.customerHolidays || [],
-          hasVacation: hasVacation,
-          assignmentStatus: item.assignment_status || "ASSIGNED",
-          start_epoch: startEpoch,
-          // ADD VACATION PROPERTIES HERE:
-          vacation: item.vacation || null,
-          vacationDetails: hasVacation && item.vacation?.leave_days > 0 
-            ? {
-                ...item.vacation,
-                leave_start_date: item.vacation.start_date || item.vacation.leave_start_date,
-                leave_end_date: item.vacation.end_date || item.vacation.leave_end_date,
-                total_days: item.vacation.leave_days || item.vacation.total_days,
-              }
-            : null,
-          modifications: modifications,
-          today_service: item.today_service,
-          payment: payment // Added payment data
-        };
-
-        // Log the mapped booking
-        logMappedBooking(mappedBooking, index);
-        
-        return mappedBooking;
-      })
-    : [];
-  
-  console.log(`\n🗺️ ===== MAPPING COMPLETE =====`);
-  console.log(`📊 Mapped ${result.length} bookings`);
-  
-  return result;
-};
-
-  // OTP Generation Function
+  // OTP Generation
   const handleGenerateOTP = async (booking: Booking) => {
     if (!booking.today_service?.service_day_id) {
-      console.error('Service day ID not found for OTP generation');
       Alert.alert(t('common.error'), t('booking.otp.failed'));
       return;
     }
-
     try {
       setOtpLoading(booking.id);
-      
-      const response = await PaymentInstance.post(
-       `/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`
-      );
-
+      const response = await PaymentInstance.post(`/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`);
       if (response.status === 200 || response.status === 201) {
         const otp = response.data.otp || response.data.data?.otp || '123456';
-        
-        setGeneratedOTPs(prev => ({
-          ...prev,
-          [booking.id]: otp
-        }));
-
-        // Update the booking state
-        setCurrentBookings(prev => prev.map(b => 
-          b.id === booking.id ? {
-            ...b,
-            today_service: b.today_service ? {
-              ...b.today_service,
-              otp_active: true,
-              can_generate_otp: false
-            } : b.today_service
-          } : b
-        ));
-
-        setFutureBookings(prev => prev.map(b => 
-          b.id === booking.id ? {
-            ...b,
-            today_service: b.today_service ? {
-              ...b.today_service,
-              otp_active: true,
-              can_generate_otp: false
-            } : b.today_service
-          } : b
-        ));
-
+        setGeneratedOTPs(prev => ({ ...prev, [booking.id]: otp }));
+        setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
+        setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
         Alert.alert(t('common.success'), t('booking.otp.generated'));
       }
     } catch (error: any) {
-      console.error('Error generating OTP:', error);
-      const errorMessage = error.response?.data?.message || t('booking.otp.failed');
-      Alert.alert(t('common.error'), errorMessage);
+      logError('Error generating OTP:', error);
+      Alert.alert(t('common.error'), error.response?.data?.message || t('booking.otp.failed'));
     } finally {
       setOtpLoading(null);
     }
   };
 
-  // PAYMENT COMPLETION FUNCTION
+  // Payment
   const handleCompletePayment = async (booking: Booking) => {
     if (!booking.payment?.engagement_id) {
       Alert.alert(t('common.error'), t('booking.payment.resumeFailed'));
       return;
     }
-
     try {
       setPaymentLoading(booking.id);
-      
-      // 1️⃣ Call resume-payment API
-      const resumeRes = await PaymentInstance.get(
-        `/api/payments/${booking.payment.engagement_id}/resume`
-      );
-
-      const {
-        razorpay_order_id,
-        amount,
-        currency,
-        engagement_id,
-        customer
-      } = resumeRes.data;
-
-      // 2️⃣ Open Razorpay Checkout
+      const resumeRes = await PaymentInstance.get(`/api/payments/${booking.payment.engagement_id}/resume`);
+      const { razorpay_order_id, amount, currency, engagement_id, customer } = resumeRes.data;
       const options = {
-        key: "rzp_test_lTdgjtSRlEwreA", // Use your test/live key
-        amount: amount * 100, // paise
+        key: "rzp_test_lTdgjtSRlEwreA",
+        amount: amount * 100,
         currency,
         order_id: razorpay_order_id,
         name: "Serveaso",
@@ -1278,13 +779,9 @@ const mapBookingData = (data: any[]) => {
           contact: customer?.contact || '9999999999',
           email: customer?.email || auth0User?.email || '',
         },
-        theme: {
-          color: colors.primary,
-        },
+        theme: { color: colors.primary },
       };
-
       RazorpayCheckout.open(options).then(async (data: any) => {
-        // 3️⃣ Verify payment
         try {
           await PaymentInstance.post("/api/payments/verify", {
             engagementId: engagement_id,
@@ -1292,65 +789,160 @@ const mapBookingData = (data: any[]) => {
             razorpay_payment_id: data.razorpay_payment_id,
             razorpay_signature: data.razorpay_signature,
           });
-          
           Alert.alert(t('common.success'), t('booking.payment.completed'));
-          // Refresh bookings to update status
-          if (customerId) {
-            await refreshBookings();
-          }
+          if (customerId) await refreshBookings();
         } catch (verifyError: any) {
-          console.error("Payment verification error:", verifyError);
+          logError('Payment verification error:', verifyError);
           Alert.alert(t('common.error'), t('booking.payment.verificationFailed'));
         }
       }).catch((error: any) => {
-        console.error("Payment error:", error);
-        if (error.code !== 2) { // Code 2 is user cancellation
-          Alert.alert(t('common.error'), t('booking.payment.failed'));
-        }
+        if (error.code !== 2) Alert.alert(t('common.error'), t('booking.payment.failed'));
       });
-
     } catch (err: any) {
-      console.error("Complete payment error:", err);
+      logError('Complete payment error:', err);
       Alert.alert(t('common.error'), t('booking.payment.resumeFailed'));
     } finally {
       setPaymentLoading(null);
     }
   };
 
-  // Handle payment button click
-  const handlePaymentClick = (booking: Booking) => {
-    showConfirmation(
-      'payment',
-      booking,
-      t('booking.confirmation.paymentTitle'),
-      t('booking.confirmation.paymentMessage', { 
-        amount: booking.monthlyAmount, 
-        service: getServiceTitle(booking.service_type, t) 
-      }),
-      'info'
-    );
+  // Cancel booking
+  const handleCancelBooking = async (booking: Booking) => {
+    try {
+      setActionLoading(true);
+      await PaymentInstance.put(`/api/engagements/${booking.id}`, { task_status: "CANCELLED" });
+      await refreshBookings();
+      setSnackbarMessage(t('booking.messages.cancelSuccess'));
+      setOpenSnackbar(true);
+    } catch (error: any) {
+      logError('Error cancelling engagement:', error);
+      setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
+      setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  // FILTER & SORT FUNCTIONS
+  // Vacation submit (corrected endpoint)
+  const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
+    if (!selectedBookingForLeave || !customerId) {
+      throw new Error(t('errors.generic'));
+    }
+    try {
+      setIsRefreshing(true);
+      await PaymentInstance.post(`/api/v2/engagements/${selectedBookingForLeave.id}/vacation`, {
+        customerid: customerId,
+        vacation_start_date: startDate,
+        vacation_end_date: endDate,
+        leave_type: "VACATION",
+        modified_by_id: selectedBookingForLeave.id,
+        modified_by_role: "CUSTOMER"
+      });
+      setBookingsWithVacation(prev => [...prev, selectedBookingForLeave.id]);
+      await refreshBookings();  // This will reload all bookings and update the UI
+      setSnackbarMessage(t('userHoliday.success'));
+      setOpenSnackbar(true);
+      setHolidayDialogOpen(false);
+    } catch (error) {
+      logError('Error applying leave:', error);
+      throw error;
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleVacationSuccess = async () => {
+    setSnackbarMessage(t('booking.messages.vacationUpdated'));
+    setOpenSnackbar(true);
+    await refreshBookings();
+  };
+
+  // Action handlers
+  const showConfirmation = (type: 'cancel' | 'modify' | 'vacation' | 'payment', booking: Booking, title: string, message: string, severity: 'info' | 'warning' | 'error' | 'success' = 'info') => {
+    setConfirmationDialog({ open: true, type, booking, message, title, severity });
+  };
+
+  const handleConfirmAction = async () => {
+    const { type, booking } = confirmationDialog;
+    if (!booking) return;
+    setActionLoading(true);
+    try {
+      switch (type) {
+        case 'cancel': await handleCancelBooking(booking); break;
+        case 'modify': setModifyDialogOpen(true); setSelectedBooking(booking); break;
+        case 'vacation': setSelectedBookingForLeave(booking); setHolidayDialogOpen(true); break;
+        case 'payment': await handleCompletePayment(booking); break;
+      }
+    } catch (error) {
+      logError('Error performing action:', error);
+    } finally {
+      setActionLoading(false);
+      setConfirmationDialog(prev => ({ ...prev, open: false }));
+    }
+  };
+
+  const handleCancelClick = (booking: Booking) => {
+    showConfirmation('cancel', booking, t('booking.confirmation.cancelTitle'), t('booking.confirmation.cancelMessage', { service: getServiceTitle(booking.service_type, t) }), 'warning');
+  };
+
+  const handlePaymentClick = (booking: Booking) => {
+    showConfirmation('payment', booking, t('booking.confirmation.paymentTitle'), t('booking.confirmation.paymentMessage', { amount: booking.monthlyAmount, service: getServiceTitle(booking.service_type, t) }), 'info');
+  };
+
+  const handleModifyClick = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setModifyDialogOpen(true);
+  };
+
+  const handleVacationClick = (booking: Booking) => {
+    setSelectedBookingForLeave(booking);
+    setHolidayDialogOpen(true);
+  };
+
+  const handleModifyVacationClick = (booking: Booking) => {
+    setSelectedBookingForVacationManagement(booking);
+    setVacationManagementDialogOpen(true);
+  };
+
+  const handleLeaveReviewClick = (booking: Booking) => {
+    setSelectedReviewBooking(booking);
+    setReviewDialogVisible(true);
+  };
+
+  const closeReviewDialog = () => {
+    setReviewDialogVisible(false);
+    setSelectedReviewBooking(null);
+  };
+
+  const handleReviewSubmitted = (bookingId: number) => {
+    setReviewedBookings(prev => [...prev, bookingId]);
+    onRefresh();
+  };
+
+  const hasReview = (booking: Booking): boolean => reviewedBookings.includes(booking.id);
+
+  const handleViewDetails = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setDetailsDrawerOpen(true);
+  };
+
+  const handleSaveModifiedBooking = async (updatedData: any) => {
+    setModifyDialogOpen(false);
+  };
+
+  // Filtering
   const filterBookings = (bookings: Booking[], term: string) => {
     if (!term) return bookings;
-    
     return bookings.filter(booking => 
-      getServiceTitle(booking?.service_type, t).toLowerCase().includes(term?.toLowerCase()) ||
-      booking.serviceProviderName?.toLowerCase().includes(term?.toLowerCase()) ||
-      booking.address?.toLowerCase().includes(term?.toLowerCase()) ||
-      booking.bookingType?.toLowerCase().includes(term?.toLowerCase())
+      getServiceTitle(booking.service_type, t).toLowerCase().includes(term.toLowerCase()) ||
+      booking.serviceProviderName.toLowerCase().includes(term.toLowerCase()) ||
+      booking.address.toLowerCase().includes(term.toLowerCase()) ||
+      booking.bookingType.toLowerCase().includes(term.toLowerCase())
     );
   };
 
   const sortUpcomingBookings = (bookings: Booking[]): Booking[] => {
-    const statusOrder: Record<string, number> = {
-      'NOT_STARTED': 2,
-      'IN_PROGRESS': 1,
-      'COMPLETED': 3,
-      'CANCELLED': 4
-    };
-
+    const statusOrder: Record<string, number> = { 'NOT_STARTED': 2, 'IN_PROGRESS': 1, 'COMPLETED': 3, 'CANCELLED': 4 };
     return [...bookings].sort((a, b) => {
       const statusComparison = statusOrder[a.taskStatus] - statusOrder[b.taskStatus];
       if (statusComparison !== 0) return statusComparison;
@@ -1358,239 +950,23 @@ const mapBookingData = (data: any[]) => {
     });
   };
 
-  // Improved refresh function
-  const onRefresh = async () => {
-    console.log('🔄 Manual refresh triggered');
-    setIsRefreshing(true);
-    try {
-      if (customerId !== null) {
-        await refreshBookings();
-      }
-    } catch (error) {
-      console.error("❌ Error refreshing bookings:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  const upcomingBookings = sortUpcomingBookings([...currentBookings, ...futureBookings]);
+  const filteredByStatus = statusFilter === 'ALL' ? upcomingBookings : upcomingBookings.filter(booking => booking.taskStatus === statusFilter);
+  const filteredUpcomingBookings = filterBookings(filteredByStatus, searchTerm);
+  const filteredPastBookings = filterBookings(pastBookings, searchTerm);
 
-  // NEW: Vacation success handler from React code
-  const handleVacationSuccess = async () => {
-    console.log('✅ Vacation applied successfully');
-    setOpenSnackbar(true);
-    await refreshBookings();
-  };
+  const statusTabs = [
+    { value: 'ALL', label: t('common.all'), count: upcomingBookings.length },
+    { value: 'NOT_STARTED', label: t('booking.status.notStarted'), count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
+    { value: 'IN_PROGRESS', label: t('booking.status.inProgress'), count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
+    { value: 'COMPLETED', label: t('booking.status.completed'), count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
+    { value: 'CANCELLED', label: t('booking.status.cancelled'), count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
+  ];
 
-  // NEW: Handle modify vacation click from React code
-  const handleModifyVacationClick = (booking: Booking) => {
-    console.log('📅 Modify vacation clicked for booking:', booking.id);
-    setSelectedBookingForVacationManagement(booking);
-    setVacationManagementDialogOpen(true);
-  };
-
-  // ACTION HANDLERS - CONFIRMATION DIALOG
-  const showConfirmation = (
-    type: 'cancel' | 'modify' | 'vacation' | 'payment',
-    booking: Booking,
-    title: string,
-    message: string,
-    severity: 'info' | 'warning' | 'error' | 'success' = 'info'
-  ) => {
-    console.log(`⚠️ Showing confirmation dialog: ${title}`);
-    setConfirmationDialog({
-      open: true,
-      type,
-      booking,
-      message,
-      title,
-      severity
-    });
-  };
-
-  const handleConfirmAction = async () => {
-    const { type, booking } = confirmationDialog;
-    if (!booking) return;
-
-    console.log(`✅ Confirming action: ${type} for booking ${booking.id}`);
-    setActionLoading(true);
-
-    try {
-      switch (type) {
-        case 'cancel':
-          await handleCancelBooking(booking);
-          break;
-        case 'modify':
-          setModifyDialogOpen(true);
-          setSelectedBooking(booking);
-          break;
-        case 'vacation':
-          setSelectedBookingForLeave(booking);
-          setHolidayDialogOpen(true);
-          break;
-        case 'payment':
-          await handleCompletePayment(booking);
-          break;
-      }
-    } catch (error) {
-      console.error("❌ Error performing action:", error);
-    } finally {
-      setActionLoading(false);
-      setConfirmationDialog(prev => ({ ...prev, open: false }));
-    }
-  };
-
-  // ACTION HANDLERS - BUTTON CLICKS
-  const handleCancelClick = (booking: Booking) => {
-    console.log(`❌ Cancel clicked for booking ${booking.id}`);
-    showConfirmation(
-      'cancel',
-      booking,
-      t('booking.confirmation.cancelTitle'),
-      t('booking.confirmation.cancelMessage', { service: getServiceTitle(booking.service_type, t) }),
-      'warning'
-    );
-  };
-
-  const handleLeaveReviewClick = (booking: Booking) => {
-    console.log(`⭐ Leave review clicked for booking ${booking.id}`);
-    setSelectedReviewBooking(booking);
-    setReviewDialogVisible(true);
-  };
-
-  const closeReviewDialog = () => {
-    console.log(`❌ Closing review dialog`);
-    setReviewDialogVisible(false);
-    setSelectedReviewBooking(null);
-  };
-
-  const handleReviewSubmitted = (bookingId: number) => {
-    console.log(`✅ Review submitted for booking ${bookingId}`);
-    setReviewedBookings(prev => [...prev, bookingId]);
-    if (customerId !== null) {
-      onRefresh();
-    }
-  };
-
-  const hasReview = (booking: Booking): boolean => {
-    return reviewedBookings.includes(booking.id);
-  };
-
-  const handleModifyClick = (booking: Booking) => {
-    console.log(`✏️ Modify clicked for booking ${booking.id}`);
-    setSelectedBooking(booking);
-    setModifyDialogOpen(true);
-  };
-
-  const handleVacationClick = (booking: Booking) => {
-    console.log(`🏖️ Vacation clicked for booking ${booking.id}`);
-    setSelectedBookingForLeave(booking);
-    setHolidayDialogOpen(true);
-  };
-
-  const handleApplyLeaveClick = (booking: Booking) => {
-    console.log(`📅 Apply leave clicked for booking ${booking.id}`);
-    setSelectedBookingForLeave(booking);
-    setHolidayDialogOpen(true);
-  };
-  
-
-  // Improved cancel booking with PaymentInstance
-  const handleCancelBooking = async (booking: Booking) => {
-    console.log(`🚫 Cancelling booking ${booking.id}`);
-    try {
-      setActionLoading(true);
-      
-      const response = await PaymentInstance.put(
-        `/api/engagements/${booking.id}`,
-        {
-          task_status: "CANCELLED"
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log(`✅ Booking ${booking.id} cancelled successfully`);
-      
-      // Refresh bookings after cancellation
-      await refreshBookings();
-      setOpenSnackbar(true);
-      
-    } catch (error: any) {
-      console.error("❌ Error cancelling engagement:", error);
-      // Fallback update local state
-      setCurrentBookings((prev) =>
-        prev.map((b) =>
-          b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b
-        )
-      );
-      setFutureBookings((prev) =>
-        prev.map((b) =>
-          b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b
-        )
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Improved modify booking handling
-  const handleSaveModifiedBooking = async (updatedData: {
-    startDate: string;
-    endDate: string;
-    timeSlot: string;
-  }) => {
-    console.log(`💾 Saving modified booking:`, updatedData);
-    setModifyDialogOpen(false);
-  };
-
-  // Improved leave submit with PaymentInstance
-  const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
-    if (!selectedBookingForLeave || !customerId) {
-      console.error('❌ Missing required information for leave application');
-      throw new Error(t('errors.generic'));
-    }
-
-    console.log(`📅 Applying leave for booking ${selectedBookingForLeave.id}: ${startDate} to ${endDate}`);
-    
-    try {
-      setIsRefreshing(true);
-      
-      await PaymentInstance.put(
-        `api/engagements/${selectedBookingForLeave.id}`,
-        {
-          modified_by_role: appUser?.role || 'CUSTOMER',
-          vacation_start_date: startDate,
-          vacation_end_date: endDate,
-          modified_by_id: customerId,
-        }
-      );
-
-      setBookingsWithVacation(prev => [...prev, selectedBookingForLeave.id]);
-
-      // Refresh bookings after applying leave
-      await refreshBookings();
-      setOpenSnackbar(true);
-      setHolidayDialogOpen(false);
-    } catch (error) {
-      console.error("❌ Error applying leave:", error);
-      throw error;
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  // NEW: renderScheduledMessage function from React code
+  // Render scheduled message
   const renderScheduledMessage = (booking: Booking) => {
-    if (!booking.today_service) {
-      console.log(`📅 No today_service for booking ${booking.id}`);
-      return null;
-    }
-
+    if (!booking.today_service) return null;
     const { status, can_generate_otp, otp_active } = booking.today_service;
-    console.log(`📅 Today service status for booking ${booking.id}: ${status}`);
-
     switch (status) {
       case "SCHEDULED":
         return (
@@ -1599,21 +975,16 @@ const mapBookingData = (data: any[]) => {
               <View style={styles.scheduledMessageHeader}>
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    {t('booking.messages.scheduled')}
-                  </Text>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.messages.scheduled')}</Text>
                   <Badge style={[styles.scheduledBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
                     <Text style={[styles.scheduledBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.scheduled')}</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                {t('booking.messages.scheduledDesc', { time: formatTimeToAMPM(booking.start_time) })}
-              </Text>
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.messages.scheduledDesc', { time: formatTimeToAMPM(booking.start_time) })}</Text>
             </View>
           </View>
         );
-
       case "IN_PROGRESS":
         return (
           <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
@@ -1621,59 +992,33 @@ const mapBookingData = (data: any[]) => {
               <View style={styles.scheduledMessageHeader}>
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    {t('booking.messages.inProgress')}
-                  </Text>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.messages.inProgress')}</Text>
                   <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
                     <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>{t('booking.status.inProgress')}</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                {t('booking.messages.inProgressDesc')}
-              </Text>
-              
-              {/* OTP Generation Button */}
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.messages.inProgressDesc')}</Text>
               <View style={styles.otpButtonContainer}>
-                <Button
-                  style={[styles.otpButton, { backgroundColor: colors.primary, borderColor: colors.primary }, otpLoading === booking.id && styles.disabledButton]}
-                  onPress={() => handleGenerateOTP(booking)}
-                  disabled={otpLoading === booking.id || !booking.today_service?.can_generate_otp}
-                >
+                <Button style={[styles.otpButton, { backgroundColor: colors.primary, borderColor: colors.primary }, otpLoading === booking.id && styles.disabledButton]} onPress={() => handleGenerateOTP(booking)} disabled={otpLoading === booking.id || !booking.today_service?.can_generate_otp}>
                   {otpLoading === booking.id ? (
-                    <>
-                      <ActivityIndicator size="small" color="#fff" />
-                      <Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('common.loading')}</Text>
-                    </>
+                    <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('common.loading')}</Text></>
                   ) : (
-                    <>
-                      <Icon name="check-circle" size={16} color="#fff" />
-                      <Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                        {booking.today_service.otp_active ? t('booking.cards.otpGenerated') : t('booking.cards.generateOTP')}
-                      </Text>
-                    </>
+                    <><Icon name="check-circle" size={16} color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{booking.today_service.otp_active ? t('booking.cards.otpGenerated') : t('booking.cards.generateOTP')}</Text></>
                   )}
                 </Button>
-                
                 {booking.today_service.otp_active && (
                   <Badge style={[styles.otpActiveBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
                     <Text style={[styles.otpActiveBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.cards.otpActive')}</Text>
                   </Badge>
                 )}
               </View>
-              
-              {/* OTP Display Section (if OTP is generated) */}
               {booking.today_service.otp_active && generatedOTPs[booking.id] && (
                 <View style={[styles.otpDisplayContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Text style={[styles.otpDisplayLabel, { color: colors.text, fontSize: fontSizes.infoText }]}>{t('booking.cards.shareOTP')}</Text>
                   <View style={styles.otpDisplay}>
                     <Text style={[styles.otpCode, { color: colors.text, fontSize: fontSizes.headerTitle }]}>{generatedOTPs[booking.id]}</Text>
-                    <Button
-                      style={[styles.copyOtpButton, { borderColor: colors.border }]}
-                      onPress={() => {
-                        Alert.alert(t('common.success'), t('booking.otp.copied'));
-                      }}
-                    >
+                    <Button style={[styles.copyOtpButton, { borderColor: colors.border }]} onPress={() => Alert.alert(t('common.success'), t('booking.otp.copied'))}>
                       <Text style={[styles.copyOtpButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.copy')}</Text>
                     </Button>
                   </View>
@@ -1683,7 +1028,6 @@ const mapBookingData = (data: any[]) => {
             </View>
           </View>
         );
-
       case "COMPLETED":
         return (
           <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
@@ -1691,35 +1035,19 @@ const mapBookingData = (data: any[]) => {
               <View style={styles.scheduledMessageHeader}>
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    {t('booking.messages.completed')}
-                  </Text>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.messages.completed')}</Text>
                   <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
                     <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.completed')}</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                {t('booking.messages.completedDesc', { 
-                  service: getServiceTitle(booking.service_type, t), 
-                  time: formatTimeToAMPM(booking.end_time) 
-                })}
-              </Text>
-              
-              {/* Review Prompt Section */}
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.messages.completedDesc', { service: getServiceTitle(booking.service_type, t), time: formatTimeToAMPM(booking.end_time) })}</Text>
               <View style={[styles.reviewPromptContainer, { borderTopColor: colors.success }]}>
                 <View style={styles.reviewPromptContent}>
-                  <Text style={[styles.reviewPromptTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                    {t('booking.cards.howWasExperience')}
-                  </Text>
-                  <Text style={[styles.reviewPromptSubtitle, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>
-                    {t('booking.cards.helpUsImprove')}
-                  </Text>
+                  <Text style={[styles.reviewPromptTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.cards.howWasExperience')}</Text>
+                  <Text style={[styles.reviewPromptSubtitle, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.cards.helpUsImprove')}</Text>
                 </View>
-                <Button
-                  style={[styles.leaveReviewButton, { borderColor: colors.border }]}
-                  onPress={() => handleLeaveReviewClick(booking)}
-                >
+                <Button style={[styles.leaveReviewButton, { borderColor: colors.border }]} onPress={() => handleLeaveReviewClick(booking)}>
                   <Icon name="message-text" size={16} color={colors.text} />
                   <Text style={[styles.leaveReviewButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>{t('booking.cards.leaveReview')}</Text>
                 </Button>
@@ -1727,56 +1055,28 @@ const mapBookingData = (data: any[]) => {
             </View>
           </View>
         );
-
-      default:
-        console.log(`📅 Unknown status for booking ${booking.id}: ${status}`);
-        return null;
+      default: return null;
     }
   };
 
-  // COMPLETE renderActionButtons function with payment integration
+  // Action buttons for each booking card
   const renderActionButtons = (booking: Booking) => {
     const modificationDisabled = isModificationDisabled(booking);
     const hasExistingVacation = hasVacation(booking);
-    
-    // Check if payment is pending
     const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
     const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
 
-    console.log(`🔘 Rendering action buttons for booking ${booking.id}:`);
-    console.log(`   - Status: ${booking.taskStatus}`);
-    console.log(`   - Modification disabled: ${modificationDisabled}`);
-    console.log(`   - Has vacation: ${hasExistingVacation}`);
-    console.log(`   - Payment pending: ${isPaymentPending}`);
-    console.log(`   - Can show payment button: ${canShowPaymentButton}`);
-
-    // If payment is pending, show payment button as primary action
     if (canShowPaymentButton) {
       return (
         <View style={styles.paymentActionContainer}>
-          <Button
-            style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.error, borderColor: colors.error }]}
-            onPress={() => handlePaymentClick(booking)}
-            disabled={paymentLoading === booking.id}
-          >
+          <Button style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handlePaymentClick(booking)} disabled={paymentLoading === booking.id}>
             {paymentLoading === booking.id ? (
-              <>
-                <ActivityIndicator size="small" color="#fff" />
-                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.processing')}</Text>
-              </>
+              <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.processing')}</Text></>
             ) : (
-              <>
-                <Icon name="credit-card" size={16} color="#fff" />
-                <Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.completePayment')}</Text>
-              </>
+              <><Icon name="credit-card" size={16} color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.completePayment')}</Text></>
             )}
           </Button>
-          
-          {/* Optionally show cancel button even when payment is pending */}
-          <Button 
-            style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]}
-            onPress={() => handleCancelClick(booking)}
-          >
+          <Button style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handleCancelClick(booking)}>
             <Icon name="close-circle" size={16} color="#fff" />
             <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.cancel')}</Text>
           </Button>
@@ -1784,108 +1084,25 @@ const mapBookingData = (data: any[]) => {
       );
     }
 
-    // Regular action buttons based on task status
     switch (booking.taskStatus) {
-   case 'NOT_STARTED':
-  return (
-    <View style={styles.compactActionRow}>
-      {booking.bookingType === "MONTHLY" && (
-        <Button
-          style={[
-            styles.compactActionButton, 
-            styles.modifyButton,
-            { borderColor: colors.primary, backgroundColor: colors.card },
-            modificationDisabled && styles.disabledButton
-          ]}
-          onPress={() => handleModifyClick(booking)}
-          disabled={modificationDisabled}
-        >
-          <Icon name="pencil" size={16} color={modificationDisabled ? colors.textSecondary : colors.primary} />
-          <Text style={[
-            styles.modifyButtonText,
-            { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.buttonText },
-            modificationDisabled && { color: colors.textSecondary }
-          ]}>
-            {t('booking.cards.modify')}
-          </Text>
-        </Button>
-      )}
-
-      {booking.bookingType === "MONTHLY" && (
-        <>
-          {hasExistingVacation ? (
-            <Button
-              style={[styles.compactActionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]}
-              onPress={() => handleModifyVacationClick(booking)}
-              disabled={isRefreshing}
-            >
-              <Icon name="pencil" size={16} color={colors.primary} />
-              <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modifyVacation')}</Text>
-            </Button>
-          ) : (
-            <Button
-              style={[styles.compactActionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
-              onPress={() => handleVacationClick(booking)}
-              disabled={isRefreshing}
-            >
-              <Icon name="calendar" size={16} color={colors.primary} />
-              <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.addVacation')}</Text>
-            </Button>
-          )}
-        </>
-      )}
-    </View>
-  );
-      case 'IN_PROGRESS':
+      case 'NOT_STARTED':
         return (
-          <View style={styles.actionButtonsRow}>
-            <Button 
-              style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
-              onPress={() => {
-                console.log(`📞 Call provider for booking ${booking.id}`);
-                Alert.alert(t('booking.cards.call'), `${t('booking.cards.call')} ${getServiceTitle(booking.service_type, t)}`);
-              }}
-            >
-              <Icon name="phone" size={16} color="#fff" />
-              <Text style={[styles.callButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.call')}</Text>
-            </Button>
-
-            <Button 
-              style={[styles.actionButton, styles.messageButton, { backgroundColor: colors.success, borderColor: colors.success }]}
-              onPress={() => {
-                console.log(`💬 Message provider for booking ${booking.id}`);
-                Alert.alert(t('booking.cards.message'), `${t('booking.cards.message')} ${getServiceTitle(booking.service_type, t)}`);
-              }}
-            >
-              <Icon name="message-text" size={16} color="#fff" />
-              <Text style={[styles.messageButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.message')}</Text>
-            </Button>
-
-            <Button 
-              style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]}
-              onPress={() => handleCancelClick(booking)}
-            >
-              <Icon name="close-circle" size={16} color="#fff" />
-              <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.cancel')}</Text>
-            </Button>
-
+          <View style={styles.compactActionRow}>
+            {booking.bookingType === "MONTHLY" && (
+              <Button style={[styles.compactActionButton, styles.modifyButton, { borderColor: colors.primary, backgroundColor: colors.card }, modificationDisabled && styles.disabledButton]} onPress={() => handleModifyClick(booking)} disabled={modificationDisabled}>
+                <Icon name="pencil" size={16} color={modificationDisabled ? colors.textSecondary : colors.primary} />
+                <Text style={[styles.modifyButtonText, { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modify')}</Text>
+              </Button>
+            )}
             {booking.bookingType === "MONTHLY" && (
               <>
                 {hasExistingVacation ? (
-                  <Button
-                    style={[styles.actionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]}
-                    onPress={() => handleModifyVacationClick(booking)}
-                    disabled={isRefreshing}
-                  >
+                  <Button style={[styles.compactActionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]} onPress={() => handleModifyVacationClick(booking)} disabled={isRefreshing}>
                     <Icon name="pencil" size={16} color={colors.primary} />
                     <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modifyVacation')}</Text>
                   </Button>
                 ) : (
-                  <Button
-                    style={[styles.actionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
-                    onPress={() => handleVacationClick(booking)}
-                    disabled={isRefreshing}
-                  >
+                  <Button style={[styles.compactActionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleVacationClick(booking)} disabled={isRefreshing}>
                     <Icon name="calendar" size={16} color={colors.primary} />
                     <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.addVacation')}</Text>
                   </Button>
@@ -1894,144 +1111,86 @@ const mapBookingData = (data: any[]) => {
             )}
           </View>
         );
-
+      case 'IN_PROGRESS':
+        return (
+          <View style={styles.actionButtonsRow}>
+            <Button style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => Alert.alert(t('booking.cards.call'), `${t('booking.cards.call')} ${getServiceTitle(booking.service_type, t)}`)}>
+              <Icon name="phone" size={16} color="#fff" />
+              <Text style={[styles.callButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.call')}</Text>
+            </Button>
+            <Button style={[styles.actionButton, styles.messageButton, { backgroundColor: colors.success, borderColor: colors.success }]} onPress={() => Alert.alert(t('booking.cards.message'), `${t('booking.cards.message')} ${getServiceTitle(booking.service_type, t)}`)}>
+              <Icon name="message-text" size={16} color="#fff" />
+              <Text style={[styles.messageButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.message')}</Text>
+            </Button>
+            <Button style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handleCancelClick(booking)}>
+              <Icon name="close-circle" size={16} color="#fff" />
+              <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.cancel')}</Text>
+            </Button>
+            {booking.bookingType === "MONTHLY" && (
+              <>
+                {hasExistingVacation ? (
+                  <Button style={[styles.actionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]} onPress={() => handleModifyVacationClick(booking)} disabled={isRefreshing}>
+                    <Icon name="pencil" size={16} color={colors.primary} />
+                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modifyVacation')}</Text>
+                  </Button>
+                ) : (
+                  <Button style={[styles.actionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleVacationClick(booking)} disabled={isRefreshing}>
+                    <Icon name="calendar" size={16} color={colors.primary} />
+                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.addVacation')}</Text>
+                  </Button>
+                )}
+              </>
+            )}
+          </View>
+        );
       case 'COMPLETED':
         return (
           <View style={styles.actionButtonsRow}>
             {hasReview(booking) ? (
-              <Button
-                style={[styles.actionButton, styles.reviewSubmittedButton, { backgroundColor: colors.successLight, borderColor: colors.success }]}
-                disabled={true}
-              >
+              <Button style={[styles.actionButton, styles.reviewSubmittedButton, { backgroundColor: colors.successLight, borderColor: colors.success }]} disabled={true}>
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <Text style={[styles.reviewSubmittedText, { color: colors.success, fontSize: fontSizes.buttonText }]}>{t('booking.cards.reviewed')}</Text>
               </Button>
             ) : (
-              <Button
-                style={[styles.actionButton, styles.reviewButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
-                onPress={() => handleLeaveReviewClick(booking)}
-              >
+              <Button style={[styles.actionButton, styles.reviewButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleLeaveReviewClick(booking)}>
                 <Icon name="message-text" size={16} color={colors.primary} />
                 <Text style={[styles.reviewButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.review')}</Text>
               </Button>
             )}
-
-            <Button 
-              style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
-              onPress={() => {
-                console.log(`📅 Book again for service ${booking.serviceType}`);
-                setServicesDialogOpen(true);
-              }}
-            >
+            <Button style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => setServicesDialogOpen(true)}>
               <Icon name="calendar-plus" size={16} color={colors.primary} />
               <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.bookAgain')}</Text>
             </Button>
           </View>
         );
-
       case 'CANCELLED':
         return (
           <View style={styles.actionButtonsRow}>
-            <Button 
-              style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]}
-              onPress={() => {
-                console.log(`📅 Book again for cancelled service ${booking.serviceType}`);
-                setServicesDialogOpen(true);
-              }}
-            >
+            <Button style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => setServicesDialogOpen(true)}>
               <Icon name="calendar-plus" size={16} color={colors.primary} />
               <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.bookAgain')}</Text>
             </Button>
           </View>
         );
-
       default:
-        return (
-          <View style={styles.actionButtonsRow}>
-            {/* No buttons for default case */}
-          </View>
-        );
+        return null;
     }
   };
 
-  // DATA PROCESSING
-  const upcomingBookings = sortUpcomingBookings([...currentBookings, ...futureBookings]);
-  const filteredByStatus = statusFilter === 'ALL' 
-    ? upcomingBookings 
-    : upcomingBookings.filter(booking => booking.taskStatus === statusFilter);
-  const filteredUpcomingBookings = filterBookings(filteredByStatus, searchTerm);
-  const filteredPastBookings = filterBookings(pastBookings, searchTerm);
-
-  // Log final state
-  useEffect(() => {
-    console.log('\n📊 ===== FINAL BOOKING STATE =====');
-    console.log(`📌 Current Bookings: ${currentBookings.length}`);
-    console.log(`📌 Future Bookings: ${futureBookings.length}`);
-    console.log(`📌 Past Bookings: ${pastBookings.length}`);
-    console.log(`📌 Upcoming Bookings: ${upcomingBookings.length}`);
-    console.log(`📌 Filtered Upcoming: ${filteredUpcomingBookings.length}`);
-    console.log(`📌 Filtered Past: ${filteredPastBookings.length}`);
-    console.log(`📌 Status Filter: ${statusFilter}`);
-    console.log(`📌 Search Term: "${searchTerm}"`);
-    console.log(`📌 Customer ID: ${customerId}`);
-    console.log(`📌 Loading: ${isLoading}, Refreshing: ${isRefreshing}`);
-    console.log('📊 ===== END STATE =====\n');
-  }, [currentBookings, futureBookings, pastBookings, upcomingBookings, filteredUpcomingBookings, filteredPastBookings, statusFilter, searchTerm, customerId, isLoading, isRefreshing]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  // Define status options for tabs - UPDATED to match React version
-  const statusTabs = [
-    { value: 'ALL', label: t('common.all'), count: upcomingBookings.length },
-    { value: 'NOT_STARTED', label: t('booking.status.notStarted'), count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
-    { value: 'IN_PROGRESS', label: t('booking.status.inProgress'), count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
-    { value: 'COMPLETED', label: t('booking.status.completed'), count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
-    { value: 'CANCELLED', label: t('booking.status.cancelled'), count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
-  ];
-
-  // UPDATED: REDESIGNED renderBookingItem with clean, minimal design matching the image
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const serviceType = item.serviceType || item.service_type;
     const isPaymentPending = item.payment && item.payment.status === "PENDING";
-    
-    console.log(`\n🖼️ Rendering booking item ${item.id}:`);
-    console.log(`   - Service Provider: "${item.serviceProviderName}"`);
-    console.log(`   - Task Status: ${item.taskStatus}`);
-    console.log(`   - Payment Pending: ${isPaymentPending}`);
-    
     return (
-      <Card 
-        style={[styles.bookingCard, { borderColor: colors.border }]}
-        onPress={() => handleViewDetails(item)}
-      >
-        {/* Header with Service Title and Status - Clean minimal design */}
+      <Card style={[styles.bookingCard, { borderColor: colors.border }]} onPress={() => handleViewDetails(item)}>
         <View style={styles.cardHeader}>
           <View style={styles.serviceInfoContainer}>
             <View style={[styles.serviceIconContainer, { backgroundColor: colors.primary + '15' }]}>
-              <Icon 
-                name={getServiceIcon(serviceType)} 
-                size={20} 
-                color={colors.primary}
-              />
+              <Icon name={getServiceIcon(serviceType)} size={20} color={colors.primary} />
             </View>
             <Text style={[styles.serviceTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{getServiceTitle(serviceType, t)}</Text>
           </View>
-          
-          <View style={styles.statusContainer}>
-            {/* Pass colors and fontSizes to the badge functions */}
-            {getBookingTypeBadge(item.bookingType, colors, fontSizes, t)}
-          </View>
+          <View style={styles.statusContainer}>{getBookingTypeBadge(item.bookingType, colors, fontSizes, t)}</View>
         </View>
-
-        {/* Payment Pending Badge - Placed after service title */}
         {isPaymentPending && item.taskStatus !== 'CANCELLED' && (
           <View style={styles.paymentPendingRow}>
             <Badge style={[styles.paymentPendingBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
@@ -2040,8 +1199,6 @@ const mapBookingData = (data: any[]) => {
             </Badge>
           </View>
         )}
-
-        {/* Awaiting Assignment Badge (if applicable) */}
         {item.assignmentStatus === "UNASSIGNED" && !isPaymentPending && (
           <View style={styles.awaitingRow}>
             <Badge style={[styles.awaitingBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
@@ -2050,8 +1207,6 @@ const mapBookingData = (data: any[]) => {
             </Badge>
           </View>
         )}
-
-        {/* Date and Time - Clean row */}
         <View style={styles.dateTimeRow}>
           <View style={styles.infoItem}>
             <Icon name="calendar" size={16} color={colors.textSecondary} />
@@ -2062,20 +1217,9 @@ const mapBookingData = (data: any[]) => {
             <Text style={[styles.infoText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{formatTimeRange(item.start_time, item.end_time)}</Text>
           </View>
         </View>
-
-        {/* Scheduled Message Section */}
-        <View style={styles.scheduledMessageSection}>
-          {renderScheduledMessage(item)}
-        </View>
-
+        <View style={styles.scheduledMessageSection}>{renderScheduledMessage(item)}</View>
         <Separator style={styles.separator} />
-
-        {/* Action Buttons - Details button removed, now using card click */}
-        <View style={styles.actionButtonsContainer}>
-          {renderActionButtons(item)}
-        </View>
-
-        {/* View Details Indicator - Subtle arrow at bottom right like Flipkart */}
+        <View style={styles.actionButtonsContainer}>{renderActionButtons(item)}</View>
         <View style={styles.viewDetailsIndicator}>
           <Text style={[styles.viewDetailsText, { color: colors.textSecondary, fontSize: fontSizes.viewDetailsText }]}>{t('booking.page.tapToViewDetails')}</Text>
           <Icon name="chevron-right" size={16} color={colors.textSecondary} />
@@ -2084,121 +1228,47 @@ const mapBookingData = (data: any[]) => {
     );
   };
 
-  // ============= BACK BUTTON AND HARDWARE BACK HANDLING =============
-  
-  // Handle back button press
+  // Back button handling
   const handleBackPress = () => {
-    console.log('⬅️ Back button pressed in Booking component');
-    
-    // Close any open dialogs first
-    if (detailsDrawerOpen) {
-      console.log('📂 Closing details drawer');
-      setDetailsDrawerOpen(false);
-      return true; // Prevent default back behavior
-    }
-    
-    if (modifyDialogOpen) {
-      console.log('❌ Closing modify dialog');
-      setModifyDialogOpen(false);
-      return true;
-    }
-    
-    if (holidayDialogOpen) {
-      console.log('❌ Closing holiday dialog');
-      setHolidayDialogOpen(false);
-      return true;
-    }
-    
-    if (vacationManagementDialogOpen) {
-      console.log('❌ Closing vacation management dialog');
-      setVacationManagementDialogOpen(false);
-      return true;
-    }
-    
-    if (reviewDialogVisible) {
-      console.log('❌ Closing review dialog');
-      setReviewDialogVisible(false);
-      return true;
-    }
-    
-    if (servicesDialogOpen) {
-      console.log('❌ Closing services dialog');
-      setServicesDialogOpen(false);
-      return true;
-    }
-    
-    if (walletDialogOpen) {
-      console.log('💰 Closing wallet dialog');
-      setWalletDialogOpen(false);
-      return true;
-    }
-    
-    if (confirmationDialog.open) {
-      console.log('❌ Closing confirmation dialog');
-      setConfirmationDialog(prev => ({ ...prev, open: false }));
-      return true;
-    }
-    
-    // If no dialogs are open, navigate back to home
-    if (onBackToHome) {
-      console.log('🏠 Navigating back to HomePage');
-      onBackToHome();
-      return true; // Prevent default back behavior
-    }
-    
-    return false; // Let default back behavior happen
+    if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
+    if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
+    if (holidayDialogOpen) { setHolidayDialogOpen(false); return true; }
+    if (vacationManagementDialogOpen) { setVacationManagementDialogOpen(false); return true; }
+    if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
+    if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
+    if (walletDialogOpen) { setWalletDialogOpen(false); return true; }
+    if (confirmationDialog.open) { setConfirmationDialog(prev => ({ ...prev, open: false })); return true; }
+    if (onBackToHome) { onBackToHome(); return true; }
+    return false;
   };
 
-  // Set up hardware back button listener
   useEffect(() => {
-    console.log('🎯 Setting up back button handler for Booking component');
-    
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      handleBackPress
-    );
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => backHandler.remove();
+  }, [detailsDrawerOpen, modifyDialogOpen, holidayDialogOpen, vacationManagementDialogOpen, reviewDialogVisible, servicesDialogOpen, walletDialogOpen, confirmationDialog.open, onBackToHome]);
 
-    // Clean up listener on unmount
-    return () => {
-      console.log('🧹 Cleaning up back button handler for Booking component');
-      backHandler.remove();
+  // Deep linking (simplified)
+  useEffect(() => {
+    const getInitialUrl = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        // process deep link (keep your existing logic)
+      }
     };
-  }, [
-    onBackToHome,
-    detailsDrawerOpen,
-    modifyDialogOpen,
-    holidayDialogOpen,
-    vacationManagementDialogOpen,
-    reviewDialogVisible,
-    servicesDialogOpen,
-    walletDialogOpen,
-    confirmationDialog.open
-  ]);
+    getInitialUrl();
+    const subscription = Linking.addEventListener('url', ({ url }) => {});
+    return () => subscription.remove();
+  }, []);
 
-  // REPLACED: Loading screen with SkeletonLoader instead of boring loading screen
   if (isLoading) {
-    console.log('⏳ Loading state active - showing skeleton loader');
     return <BookingPageSkeleton colors={colors} fontSizes={fontSizes} />;
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header with Back Button */}
-      <LinearGradient
-        colors={[
-          isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)',
-          isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)',
-          isDarkMode ? colors.background : 'rgba(255,255,255,1)'
-        ]}
-        start={{x: 0, y: 0}}
-        end={{x: 0, y: 1}} // Vertical fade
-        style={styles.header}
-      >
+      <LinearGradient colors={[isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)', isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)', isDarkMode ? colors.background : 'rgba(255,255,255,1)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.header}>
         <View style={styles.headerTopRow}>
-          <TouchableOpacity 
-            style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]}
-            onPress={handleBackPress}
-          >
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]} onPress={handleBackPress}>
             <Icon name="arrow-left" size={24} color={colors.primary} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
@@ -2206,96 +1276,35 @@ const mapBookingData = (data: any[]) => {
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>{t('booking.page.subtitle')}</Text>
           </View>
         </View>
-        
         <View style={styles.headerRight}>
           <View style={styles.searchContainer}>
-            <TextInput
-              style={[styles.searchInput, { 
-                backgroundColor: colors.card, 
-                borderColor: colors.border, 
-                color: colors.text,
-                fontSize: fontSizes.searchInput
-              }]}
-              placeholder={t('booking.page.searchPlaceholder')}
-              placeholderTextColor={colors.placeholder}
-              value={searchTerm}
-              onChangeText={(text) => {
-                console.log(`🔍 Search term changed: "${text}"`);
-                setSearchTerm(text);
-              }}
-            />
-            {searchTerm && (
-              <TouchableOpacity 
-                style={styles.clearSearchButton}
-                onPress={() => {
-                  console.log('❌ Clearing search term');
-                  setSearchTerm('');
-                }}
-              >
-                <Icon name="close-circle" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
+            <TextInput style={[styles.searchInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text, fontSize: fontSizes.searchInput }]} placeholder={t('booking.page.searchPlaceholder')} placeholderTextColor={colors.placeholder} value={searchTerm} onChangeText={setSearchTerm} />
+            {searchTerm && <TouchableOpacity style={styles.clearSearchButton} onPress={() => setSearchTerm('')}><Icon name="close-circle" size={20} color={colors.textSecondary} /></TouchableOpacity>}
           </View>
-          <TouchableOpacity 
-            style={[styles.walletButton, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              console.log('💰 Opening wallet dialog');
-              setWalletDialogOpen(true);
-            }}
-          >
+          <TouchableOpacity style={[styles.walletButton, { backgroundColor: colors.primary }]} onPress={() => setWalletDialogOpen(true)}>
             <Icon name="wallet" size={24} color="#fff" />
             <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>{t('navigation.wallet')}</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <ScrollView
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Upcoming Bookings */}
+      <ScrollView refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         <View style={styles.section}>
           <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
             <Icon name="alert-circle" size={24} color={colors.primary} />
             <View style={styles.sectionHeaderContent}>
               <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.page.upcoming')}</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? t('booking.page.upcomingCount', { count: filteredUpcomingBookings.length }) : t('booking.page.upcomingCount_plural', { count: filteredUpcomingBookings.length })}
-              </Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>{filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? t('booking.page.upcomingCount', { count: filteredUpcomingBookings.length }) : t('booking.page.upcomingCount_plural', { count: filteredUpcomingBookings.length })}</Text>
             </View>
             <Badge style={[styles.sectionBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
               <Text style={[styles.sectionBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{upcomingBookings.length}</Text>
             </Badge>
           </View>
-
-          {/* Status Filter Tabs */}
           <View style={styles.statusFilterContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {statusTabs.map((tab) => (
-                <TouchableOpacity
-                  key={tab.value}
-                  style={[
-                    styles.statusTab,
-                    { backgroundColor: colors.surface },
-                    statusFilter === tab.value && { backgroundColor: colors.primary }
-                  ]}
-                  onPress={() => {
-                    console.log(`📊 Status filter changed to: ${tab.value}`);
-                    setStatusFilter(tab.value);
-                  }}
-                >
-                  <Text style={[
-                    styles.statusTabText,
-                    { color: colors.textSecondary, fontSize: fontSizes.badgeText },
-                    statusFilter === tab.value && { color: '#fff' }
-                  ]}>
-                    {tab.label}
-                  </Text>
+                <TouchableOpacity key={tab.value} style={[styles.statusTab, { backgroundColor: colors.surface }, statusFilter === tab.value && { backgroundColor: colors.primary }]} onPress={() => setStatusFilter(tab.value)}>
+                  <Text style={[styles.statusTabText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }, statusFilter === tab.value && { color: '#fff' }]}>{tab.label}</Text>
                   <View style={[styles.statusTabCount, { backgroundColor: colors.border }]}>
                     <Text style={[styles.statusTabCountText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{tab.count}</Text>
                   </View>
@@ -2303,55 +1312,33 @@ const mapBookingData = (data: any[]) => {
               ))}
             </ScrollView>
           </View>
-
           {filteredUpcomingBookings.length > 0 ? (
-            <FlatList
-              data={filteredUpcomingBookings}
-              renderItem={renderBookingItem}
-              keyExtractor={(item) => item.id.toString()}
-              scrollEnabled={false}
-            />
+            <FlatList data={filteredUpcomingBookings} renderItem={renderBookingItem} keyExtractor={(item) => item.id.toString()} scrollEnabled={false} />
           ) : (
             <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Icon name="calendar" size={48} color={colors.textSecondary} />
               <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>{t('booking.page.noUpcoming')}</Text>
               <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>{t('booking.page.noUpcomingDesc')}</Text>
-              {/* Update the empty state button in the upcoming bookings section */}
-              <Button 
-                style={[styles.emptyStateButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                onPress={() => {
-                  console.log('📅 Opening services dialog from empty state');
-                  setServicesDialogOpen(true);
-                }}
-              >
+              <Button style={[styles.emptyStateButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setServicesDialogOpen(true)}>
                 <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>{t('booking.page.bookService')}</Text>
               </Button>
             </Card>
           )}
         </View>
 
-        {/* Past Bookings */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
             <Icon name="history" size={24} color={colors.textSecondary} />
             <View style={styles.sectionHeaderContent}>
               <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.page.past')}</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredPastBookings.length} {filteredPastBookings.length === 1 ? t('booking.page.pastCount', { count: filteredPastBookings.length }) : t('booking.page.pastCount_plural', { count: filteredPastBookings.length })}
-              </Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>{filteredPastBookings.length} {filteredPastBookings.length === 1 ? t('booking.page.pastCount', { count: filteredPastBookings.length }) : t('booking.page.pastCount_plural', { count: filteredPastBookings.length })}</Text>
             </View>
             <Badge style={[styles.sectionBadge, styles.pastBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
               <Text style={[styles.sectionBadgeText, styles.pastBadge, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{pastBookings.length}</Text>
             </Badge>
           </View>
-
           {filteredPastBookings.length > 0 ? (
-            <FlatList
-              data={filteredPastBookings}
-              renderItem={renderBookingItem}
-              keyExtractor={(item) => item.id.toString()}
-              scrollEnabled={false}
-            />
+            <FlatList data={filteredPastBookings} renderItem={renderBookingItem} keyExtractor={(item) => item.id.toString()} scrollEnabled={false} />
           ) : (
             <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Icon name="clock" size={48} color={colors.textSecondary} />
@@ -2363,793 +1350,158 @@ const mapBookingData = (data: any[]) => {
       </ScrollView>
 
       {/* Dialogs */}
-      <UserHoliday 
-        open={holidayDialogOpen}
-        onClose={() => {
-          console.log('❌ Closing holiday dialog');
-          setHolidayDialogOpen(false);
-        }}
-        booking={convertBookingForChildComponents(selectedBookingForLeave)}
-        onLeaveSubmit={handleLeaveSubmit}
-      />
-      
-      <VacationManagementDialog
-        open={vacationManagementDialogOpen}
-        onClose={() => {
-          console.log('❌ Closing vacation management dialog');
-          setVacationManagementDialogOpen(false);
-          setSelectedBookingForVacationManagement(null);
-        }}
-        booking={convertBookingForChildComponents(selectedBookingForVacationManagement)}
-        customerId={customerId}
-        onSuccess={handleVacationSuccess}
-      />
+      <UserHoliday open={holidayDialogOpen} onClose={() => setHolidayDialogOpen(false)} booking={convertBookingForChildComponents(selectedBookingForLeave)} onLeaveSubmit={handleLeaveSubmit} />
+      <VacationManagementDialog open={vacationManagementDialogOpen} onClose={() => { setVacationManagementDialogOpen(false); setSelectedBookingForVacationManagement(null); }} booking={convertBookingForChildComponents(selectedBookingForVacationManagement)} customerId={customerId} onSuccess={handleVacationSuccess} />
+      <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
+      <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? t('booking.confirmation.confirm') : t('booking.confirmation.confirmPayment')} loading={actionLoading} severity={confirmationDialog.severity} />
+      <AddReviewDialog visible={reviewDialogVisible} onClose={closeReviewDialog} booking={convertBookingForChildComponents(selectedReviewBooking)} onReviewSubmitted={handleReviewSubmitted} />
+      <WalletDialog open={walletDialogOpen} onClose={() => setWalletDialogOpen(false)} />
+      <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={(serviceType) => {}} />
+      <EngagementDetailsDrawer isOpen={detailsDrawerOpen} onClose={() => { setDetailsDrawerOpen(false); setSelectedBooking(null); }} booking={selectedBooking} />
 
-      <ModifyBookingDialog
-        open={modifyDialogOpen}
-        onClose={() => {
-          console.log('❌ Closing modify dialog');
-          setModifyDialogOpen(false);
-        }}
-        booking={convertBookingForChildComponents(selectedBooking)}
-        timeSlots={timeSlots}
-        onSave={handleSaveModifiedBooking}
-        customerId={customerId}
-        refreshBookings={refreshBookings}
-        setOpenSnackbar={setOpenSnackbar}
-      />
-
-      <ConfirmationDialog
-        open={confirmationDialog.open}
-        onClose={() => {
-          console.log('❌ Closing confirmation dialog');
-          setConfirmationDialog(prev => ({ ...prev, open: false }));
-        }}
-        onConfirm={handleConfirmAction}
-        title={confirmationDialog.title}
-        message={confirmationDialog.message}
-        confirmText={confirmationDialog.type === 'cancel' ? t('booking.confirmation.confirm') : t('booking.confirmation.confirmPayment')}
-        loading={actionLoading}
-        severity={confirmationDialog.severity}
-      />
-
-      <AddReviewDialog
-        visible={reviewDialogVisible}
-        onClose={closeReviewDialog}
-        booking={convertBookingForChildComponents(selectedReviewBooking)}
-        onReviewSubmitted={handleReviewSubmitted}
-      />
-
-      <WalletDialog 
-        open={walletDialogOpen}
-        onClose={() => {
-          console.log('❌ Closing wallet dialog');
-          setWalletDialogOpen(false);
-        }}
-      />
-
-      {/* Add the ServicesDialog component with other dialog components at the bottom */}
-      <ServicesDialog
-        open={servicesDialogOpen}
-        onClose={() => {
-          console.log('❌ Closing services dialog');
-          setServicesDialogOpen(false);
-        }}
-        onServiceSelect={(serviceType) => {
-          console.log('✅ Service selected:', serviceType);
-          // Handle service selection
-          // Example: navigation.navigate('BookingForm', { serviceType });
-        }}
-      />
-
-      {/* NEW: Engagement Details Drawer */}
-      <EngagementDetailsDrawer
-        isOpen={detailsDrawerOpen}
-        onClose={() => {
-          console.log('❌ Closing details drawer');
-          setDetailsDrawerOpen(false);
-          setSelectedBooking(null);
-        }}
-        booking={selectedBooking}
-      />
-
-      {/* Snackbar for notifications */}
       {openSnackbar && (
         <View style={[styles.snackbar, { backgroundColor: colors.success }]}>
-          <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.infoText }]}>{t('booking.page.operationSuccess')}</Text>
-          <TouchableOpacity onPress={() => {
-            console.log('❌ Closing snackbar');
-            setOpenSnackbar(false);
-          }}>
-            <Icon name="close" size={20} color="#fff" />
-          </TouchableOpacity>
+          <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.infoText }]}>{snackbarMessage}</Text>
+          <TouchableOpacity onPress={() => setOpenSnackbar(false)}><Icon name="close" size={20} color="#fff" /></TouchableOpacity>
         </View>
       )}
     </View>
   );
 };
 
-// UPDATED: REDESIGNED Styles with clean, minimal design
 const styles = StyleSheet.create({
-  // Basic Components
-  card: {
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    marginBottom: 16,
-    padding: 16,
-  },
-  button: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    borderWidth: 1,
-    minHeight: 40,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  badgeBase: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  separatorBase: {
-    height: 1,
-    marginVertical: 16,
-  },
-
-  // Container
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
-
-  // Header
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingTop: 50,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  searchContainer: {
-    flex: 1,
-    position: 'relative',
-    marginRight: 12,
-  },
-  searchInput: {
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-  },
-  clearSearchButton: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
-  },
-  walletButton: {
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 70,
-  },
-  walletText: {
-    marginTop: 4,
-    fontWeight: '500',
-  },
-
-  // Sections
-  section: {
-    padding: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-  },
-  pastSectionHeader: {
-    borderLeftColor: 'rgba(156, 163, 175, 0.4)',
-  },
-  sectionHeaderContent: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  sectionTitle: {
-    fontWeight: '700',
-  },
-  sectionSubtitle: {
-    marginTop: 4,
-  },
-  sectionBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  pastBadge: {
-    backgroundColor: 'rgba(156, 163, 175, 0.15)',
-    borderColor: 'rgba(156, 163, 175, 0.4)',
-  },
-  sectionBadgeText: {
-    fontWeight: '700',
-  },
-
-  // Status Filter Tabs
-  statusFilterContainer: {
-    marginBottom: 20,
-  },
-  statusTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  statusTabActive: {
-    backgroundColor: '#3b82f6',
-  },
-  statusTabText: {
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  statusTabCount: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    minWidth: 24,
-    alignItems: 'center',
-  },
-  statusTabCountText: {
-    fontWeight: '600',
-  },
-
-  // REDESIGNED: Booking Card Layout - Clean and minimal
-  bookingCard: {
-    marginBottom: 20,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-  },
-
-  // Card Header - Service title and status
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  serviceInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  serviceIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  serviceTitle: {
-    fontWeight: '600',
-  },
-  statusContainer: {
-    flexDirection: 'row',
-  },
-
-  // Payment Pending Row - Now placed right after header
-  paymentPendingRow: {
-    marginBottom: 8,
-  },
-  awaitingRow: {
-    marginBottom: 8,
-  },
-
-  // Info rows - Clean minimal layout
-  dateTimeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoText: {
-    marginLeft: 6,
-  },
-
-  // Action Buttons Styles
-  actionButtonsContainer: {
-    width: '100%',
-    marginBottom: 8,
-  },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  actionButton: {
-    flex: 1,
-    minWidth: '22%', // This was causing the extra space
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  callButton: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
-  },
-  callButtonText: {
-    color: '#fff',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  messageButton: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
-  },
-  messageButtonText: {
-    color: '#fff',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    backgroundColor: '#ef4444',
-    borderColor: '#ef4444',
-  },
-  cancelButtonText: {
-    color: '#fff',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  modifyButton: {
-    backgroundColor: '#fff',
-    borderColor: '#1e40af',
-  },
-  // Add these to your existing styles object
-compactActionRow: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 8,
-  width: '100%',
-  justifyContent: 'flex-start',
-  marginTop: 4,
-  marginBottom: 4,
-},
-
-compactActionButton: {
-  flex: 0, // Don't allow flex growth
-  minWidth: 'auto', // Remove minWidth constraint
-  paddingVertical: 8,
-  paddingHorizontal: 16,
-  backgroundColor: '#fff',
-  borderWidth: 1,
-  borderRadius: 8,
-  alignItems: 'center',
-  justifyContent: 'center',
-  flexDirection: 'row',
-  marginRight: 8, // Add spacing between buttons
-  alignSelf: 'flex-start', // Don't stretch
-},
-  modifyButtonText: {
-    color: '#1e40af',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  vacationButton: {
-    backgroundColor: '#fff',
-    borderColor: '#1e40af',
-  },
-  vacationButtonText: {
-    color: '#1e40af',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  vacationModifiedButton: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#93c5fd',
-  },
-  vacationModifiedText: {
-    color: '#1e40af',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  reviewButton: {
-    backgroundColor: '#fff',
-    borderColor: '#1e40af',
-  },
-  reviewButtonText: {
-    color: '#1e40af',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  reviewSubmittedButton: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#86efac',
-  },
-  reviewSubmittedText: {
-    color: '#10b981',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  bookAgainButton: {
-    backgroundColor: '#fff',
-    borderColor: '#3b82f6',
-  },
-  bookAgainText: {
-    color: '#3b82f6',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  disabledButtonText: {
-    color: '#9ca3af',
-  },
-
-  // View Details Indicator - Flipkart style
-  viewDetailsIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 4,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  viewDetailsText: {
-    marginRight: 4,
-  },
-
-  // Payment Button
-  paymentActionContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    width: '100%',
-    marginBottom: 8,
-  },
-  paymentButton: {
-    backgroundColor: '#dc2626',
-    borderColor: '#dc2626',
-    flex: 1,
-    minWidth: '45%',
-  },
-  paymentButtonText: {
-    color: '#fff',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-
-  // Badge Styles
-  activeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  activeBadgeText: {
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  completedBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  completedBadgeText: {
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  cancelledBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  cancelledBadgeText: {
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  inProgressBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  inProgressBadgeText: {
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  notStartedBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  notStartedBadgeText: {
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  onDemandBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  onDemandBadgeText: {
-    fontWeight: '600',
-  },
-  monthlyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  monthlyBadgeText: {
-    fontWeight: '600',
-  },
-  shortTermBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  shortTermBadgeText: {
-    fontWeight: '600',
-  },
-  defaultBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  defaultBadgeText: {
-    fontWeight: '600',
-  },
-  awaitingBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  awaitingBadgeText: {
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  paymentPendingBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  paymentPendingBadgeText: {
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-
-  // Scheduled Message Section Styles
-  scheduledMessageSection: {
-    marginTop: 12,
-  },
-  scheduledMessageContainer: {
-    marginTop: 12,
-    width: '100%',
-  },
-  scheduledMessageCard: {
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  inProgressMessageCard: {
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  completedMessageCard: {
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  scheduledMessageHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  scheduledMessageTitleContainer: {
-    flex: 1,
-    marginLeft: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  scheduledMessageTitle: {
-    fontWeight: '600',
-    flex: 1,
-  },
-  scheduledMessageText: {
-    marginBottom: 12,
-    lineHeight: 18,
-    fontWeight: '400',
-  },
-  scheduledBadge: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  scheduledBadgeText: {
-    fontWeight: '600',
-  },
-  otpButtonContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  otpButton: {
-    minWidth: 160,
-    flex: 1,
-    paddingVertical: 10,
-  },
-  otpButtonText: {
-    marginLeft: 8,
-    fontWeight: '600',
-  },
-  otpActiveBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  otpActiveBadgeText: {
-    fontWeight: '600',
-  },
-  otpDisplayContainer: {
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    borderWidth: 1,
-  },
-  otpDisplayLabel: {
-    fontWeight: '500',
-    marginBottom: 6,
-  },
-  otpDisplay: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  otpCode: {
-    fontWeight: 'bold',
-    letterSpacing: 4,
-  },
-  copyOtpButton: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  copyOtpButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  otpExpiryText: {
-    fontStyle: 'italic',
-  },
-  reviewPromptContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    paddingTop: 12,
-    marginTop: 12,
-  },
-  reviewPromptContent: {
-    flex: 1,
-  },
-  reviewPromptTitle: {
-    fontWeight: '600',
-  },
-  reviewPromptSubtitle: {
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  leaveReviewButton: {
-    backgroundColor: 'transparent',
-    marginLeft: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  leaveReviewButtonText: {
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-
-  // Empty State
-  emptyStateCard: {
-    alignItems: 'center',
-    padding: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  emptyStateTitle: {
-    fontWeight: '700',
-    marginTop: 20,
-  },
-  emptyStateText: {
-    marginTop: 8,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  emptyStateButton: {
-    marginTop: 24,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-  },
-
-  // Snackbar
-  snackbar: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    padding: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  snackbarText: {
-    fontWeight: '600',
-    flex: 1,
-  },
-  separator: {
-    height: 1,
-    marginVertical: 12,
-  },
+  card: { borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, marginBottom: 16, padding: 16 },
+  button: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderWidth: 1, minHeight: 40 },
+  disabledButton: { opacity: 0.6 },
+  badgeBase: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', marginHorizontal: 4 },
+  separatorBase: { height: 1, marginVertical: 16 },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 16, fontSize: 16 },
+  header: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingTop: 50 },
+  headerTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  backButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  headerContent: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontWeight: 'bold' },
+  headerSubtitle: { marginTop: 8, textAlign: 'center' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  searchContainer: { flex: 1, position: 'relative', marginRight: 12 },
+  searchInput: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1 },
+  clearSearchButton: { position: 'absolute', right: 12, top: 12 },
+  walletButton: { padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', width: 70 },
+  walletText: { marginTop: 4, fontWeight: '500' },
+  section: { padding: 20 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, padding: 16, borderRadius: 12, borderLeftWidth: 4 },
+  pastSectionHeader: { borderLeftColor: 'rgba(156, 163, 175, 0.4)' },
+  sectionHeaderContent: { flex: 1, marginLeft: 16 },
+  sectionTitle: { fontWeight: '700' },
+  sectionSubtitle: { marginTop: 4 },
+  sectionBadge: { paddingHorizontal: 12, paddingVertical: 8 },
+  pastBadge: { backgroundColor: 'rgba(156, 163, 175, 0.15)', borderColor: 'rgba(156, 163, 175, 0.4)' },
+  sectionBadgeText: { fontWeight: '700' },
+  statusFilterContainer: { marginBottom: 20 },
+  statusTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10 },
+  statusTabActive: { backgroundColor: '#3b82f6' },
+  statusTabText: { fontWeight: '600', marginRight: 8 },
+  statusTabCount: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, minWidth: 24, alignItems: 'center' },
+  statusTabCountText: { fontWeight: '600' },
+  bookingCard: { marginBottom: 20, borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  serviceInfoContainer: { flexDirection: 'row', alignItems: 'center' },
+  serviceIconContainer: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  serviceTitle: { fontWeight: '600' },
+  statusContainer: { flexDirection: 'row' },
+  paymentPendingRow: { marginBottom: 8 },
+  awaitingRow: { marginBottom: 8 },
+  dateTimeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  infoItem: { flexDirection: 'row', alignItems: 'center' },
+  infoText: { marginLeft: 6 },
+  actionButtonsContainer: { width: '100%', marginBottom: 8 },
+  actionButtonsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  actionButton: { flex: 1, minWidth: '22%', justifyContent: 'center', backgroundColor: '#fff', borderWidth: 1, paddingVertical: 8, paddingHorizontal: 4 },
+  callButton: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
+  callButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
+  messageButton: { backgroundColor: '#10b981', borderColor: '#10b981' },
+  messageButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
+  cancelButton: { backgroundColor: '#ef4444', borderColor: '#ef4444' },
+  cancelButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
+  modifyButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
+  compactActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', justifyContent: 'flex-start', marginTop: 4, marginBottom: 4 },
+  compactActionButton: { flex: 0, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#fff', borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginRight: 8, alignSelf: 'flex-start' },
+  modifyButtonText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
+  vacationButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
+  vacationButtonText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
+  vacationModifiedButton: { backgroundColor: '#dbeafe', borderColor: '#93c5fd' },
+  vacationModifiedText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
+  reviewButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
+  reviewButtonText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
+  reviewSubmittedButton: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
+  reviewSubmittedText: { color: '#10b981', marginLeft: 6, fontWeight: '600' },
+  bookAgainButton: { backgroundColor: '#fff', borderColor: '#3b82f6' },
+  bookAgainText: { color: '#3b82f6', marginLeft: 6, fontWeight: '600' },
+  viewDetailsIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
+  viewDetailsText: { marginRight: 4 },
+  paymentActionContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginBottom: 8 },
+  paymentButton: { backgroundColor: '#dc2626', borderColor: '#dc2626', flex: 1, minWidth: '45%' },
+  paymentButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
+  activeBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  activeBadgeText: { marginLeft: 4, fontWeight: '600' },
+  completedBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  completedBadgeText: { marginLeft: 4, fontWeight: '600' },
+  cancelledBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  cancelledBadgeText: { marginLeft: 4, fontWeight: '600' },
+  inProgressBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  inProgressBadgeText: { marginLeft: 4, fontWeight: '600' },
+  notStartedBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  notStartedBadgeText: { marginLeft: 4, fontWeight: '600' },
+  onDemandBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  onDemandBadgeText: { fontWeight: '600' },
+  monthlyBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  monthlyBadgeText: { fontWeight: '600' },
+  shortTermBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  shortTermBadgeText: { fontWeight: '600' },
+  defaultBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  defaultBadgeText: { fontWeight: '600' },
+  awaitingBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  awaitingBadgeText: { marginLeft: 4, fontWeight: '600' },
+  paymentPendingBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  paymentPendingBadgeText: { marginLeft: 4, fontWeight: '600' },
+  scheduledMessageSection: { marginTop: 12 },
+  scheduledMessageContainer: { marginTop: 12, width: '100%' },
+  scheduledMessageCard: { padding: 12, borderWidth: 1, borderRadius: 8 },
+  inProgressMessageCard: { padding: 12, borderWidth: 1, borderRadius: 8 },
+  completedMessageCard: { padding: 12, borderWidth: 1, borderRadius: 8 },
+  scheduledMessageHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+  scheduledMessageTitleContainer: { flex: 1, marginLeft: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' },
+  scheduledMessageTitle: { fontWeight: '600', flex: 1 },
+  scheduledMessageText: { marginBottom: 12, lineHeight: 18, fontWeight: '400' },
+  scheduledBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  scheduledBadgeText: { fontWeight: '600' },
+  otpButtonContainer: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  otpButton: { minWidth: 160, flex: 1, paddingVertical: 10 },
+  otpButtonText: { marginLeft: 8, fontWeight: '600' },
+  otpActiveBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  otpActiveBadgeText: { fontWeight: '600' },
+  otpDisplayContainer: { padding: 12, borderRadius: 8, marginTop: 8, borderWidth: 1 },
+  otpDisplayLabel: { fontWeight: '500', marginBottom: 6 },
+  otpDisplay: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  otpCode: { fontWeight: 'bold', letterSpacing: 4 },
+  copyOtpButton: { backgroundColor: 'transparent', paddingHorizontal: 12, paddingVertical: 6 },
+  copyOtpButtonText: { fontSize: 12, fontWeight: '600' },
+  otpExpiryText: { fontStyle: 'italic' },
+  reviewPromptContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, paddingTop: 12, marginTop: 12 },
+  reviewPromptContent: { flex: 1 },
+  reviewPromptTitle: { fontWeight: '600' },
+  reviewPromptSubtitle: { marginTop: 2, lineHeight: 16 },
+  leaveReviewButton: { backgroundColor: 'transparent', marginLeft: 12, paddingVertical: 8, paddingHorizontal: 12 },
+  leaveReviewButtonText: { marginLeft: 6, fontWeight: '600' },
+  emptyStateCard: { alignItems: 'center', padding: 40, borderRadius: 12, borderWidth: 1 },
+  emptyStateTitle: { fontWeight: '700', marginTop: 20 },
+  emptyStateText: { marginTop: 8, textAlign: 'center', lineHeight: 24 },
+  emptyStateButton: { marginTop: 24, paddingVertical: 16, paddingHorizontal: 32 },
+  snackbar: { position: 'absolute', bottom: 20, left: 20, right: 20, padding: 16, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 },
+  snackbarText: { fontWeight: '600', flex: 1 },
+  separator: { height: 1, marginVertical: 12 },
 });
 
 export default Booking;
