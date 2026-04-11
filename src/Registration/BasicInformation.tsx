@@ -67,6 +67,11 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
 
+  // Helper function to remove ALL spaces from any string
+  const removeAllSpaces = (text: string) => {
+    return text.replace(/\s/g, '');
+  };
+
   // Calculate minimum age date (18 years ago from today)
   const getMaxDate = () => {
     const today = new Date();
@@ -183,7 +188,39 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   const fontSizes = getFontSizes();
 
   const handleTextChange = (fieldName: string, text: string) => {
-    onFieldChange({ target: { name: fieldName, value: text } });
+    // Remove ALL spaces from the input automatically
+    let processedText = removeAllSpaces(text);
+    
+    // Additional field-specific processing
+    switch (fieldName) {
+      case 'firstName':
+      case 'middleName':
+      case 'lastName':
+        // For names, also capitalize first letter of each word (optional)
+        processedText = processedText.replace(/\b\w/g, char => char.toUpperCase());
+        break;
+        
+      case 'emailId':
+        // Convert to lowercase for email
+        processedText = processedText.toLowerCase();
+        break;
+        
+      case 'mobileNo':
+      case 'AlternateNumber':
+        // For phone numbers, only allow digits
+        processedText = processedText.replace(/[^0-9]/g, '');
+        break;
+        
+      case 'password':
+      case 'confirmPassword':
+        // For passwords, just remove spaces (no other processing)
+        break;
+        
+      default:
+        break;
+    }
+    
+    onFieldChange({ target: { name: fieldName, value: processedText } });
   };
 
   const handleGenderChange = (gender: string) => {
@@ -548,6 +585,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               onFocus={() => onFieldFocus('emailId')}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
             />
             <View style={dynamicStyles.inputAdornment}>
               {validationResults.email.loading ? (
@@ -592,6 +630,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               value={formData.password}
               onChangeText={(text) => handleTextChange('password', text)}
               onFocus={() => onFieldFocus('password')}
+              autoCapitalize="none"
             />
             <TouchableOpacity 
               style={dynamicStyles.inputAdornment}
@@ -625,6 +664,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
               value={formData.confirmPassword}
               onChangeText={(text) => handleTextChange('confirmPassword', text)}
               onFocus={() => onFieldFocus('confirmPassword')}
+              autoCapitalize="none"
             />
             <TouchableOpacity 
               style={dynamicStyles.inputAdornment}

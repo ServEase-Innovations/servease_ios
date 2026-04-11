@@ -316,7 +316,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   // Show snackbar with auto-dismiss
   const showSnackbar = (message: string, severity: "success" | "error" | "warning" | "info") => {
-    // Clear any existing timeout
     if (snackbarTimeout) {
       clearTimeout(snackbarTimeout);
       setSnackbarTimeout(null);
@@ -326,7 +325,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
     
-    // Set new timeout to auto-dismiss after 3 seconds
     const timeout = setTimeout(() => {
       setSnackbarOpen(false);
       setSnackbarTimeout(null);
@@ -335,9 +333,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setSnackbarTimeout(timeout);
   };
 
-  // Add axios interceptors for debugging
   useEffect(() => {
-    // Request interceptor
     const requestInterceptor = axiosInstance.interceptors.request.use(
       (config) => {
         console.log('Request:', {
@@ -354,7 +350,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
     );
 
-    // Response interceptor
     const responseInterceptor = axiosInstance.interceptors.response.use(
       (response) => {
         console.log('Response:', {
@@ -378,7 +373,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
     );
 
-    // Cleanup interceptors
     return () => {
       axiosInstance.interceptors.request.eject(requestInterceptor);
       axiosInstance.interceptors.response.eject(responseInterceptor);
@@ -387,7 +381,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const { validationResults, validateField, resetValidation } = useFieldValidation();
 
-  // Check if current step is complete
   const checkStepCompletion = useCallback(() => {
     let isComplete = false;
     
@@ -459,7 +452,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setIsNextDisabled(!isComplete);
   }, [activeStep, formData, errors, validationResults, isSameAddress]);
 
-  // Check step completion whenever relevant data changes
   useEffect(() => {
     checkStepCompletion();
   }, [activeStep, formData, errors, validationResults, isSameAddress, checkStepCompletion]);
@@ -482,17 +474,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
 
-  // Helper function to check if two time ranges overlap
   const isRangeOverlapping = (range1: number[], range2: number[]): boolean => {
     return !(range1[1] <= range2[0] || range1[0] >= range2[1]);
   };
 
-  // Get disabled ranges for a specific slot (all other slots)
-  const getDisabledRangesForSlot = (slots: number[][], currentIndex: number): number[][] => {
-    return slots.filter((_, index) => index !== currentIndex);
-  };
-
-  // Helper function to format time display
   const formatDisplayTime = (value: number): string => {
     const hour = Math.floor(value);
     const minute = Math.round((value - hour) * 60);
@@ -503,7 +488,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     return `${displayHourFormatted}:${minuteFormatted} ${period}`;
   };
 
-  // Helper function to format time for storage (24-hour format)
   const formatTimeForStorage = (value: number): string => {
     const hour = Math.floor(value);
     const minute = value % 1 === 0.5 ? "30" : "00";
@@ -511,99 +495,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     return `${formattedHour}:${minute}`;
   };
 
-  // Custom Slider component with disabled ranges
-  const TimeSliderWithDisabledRanges: React.FC<{
-    value: number[];
-    onChange: (newValue: number[]) => void;
-    min: number;
-    max: number;
-    marks?: Array<{ value: number; label: string }>;
-    disabledRanges: number[][];
-  }> = ({ value, onChange, min, max, marks, disabledRanges }) => {
-    
-    const handleSliderChange = (newValues: number[]) => {
-      const [start, end] = newValues;
-      
-      // Check if the new range overlaps with any disabled ranges
-      const hasOverlap = disabledRanges.some(disabledRange => 
-        isRangeOverlapping([start, end], disabledRange)
-      );
-      
-      if (!hasOverlap) {
-        onChange(newValues);
-      } else {
-        showSnackbar("Time range overlaps with another selected slot", "warning");
-      }
-    };
-
-    return (
-      <View style={[styles.sliderContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.sliderWrapper}>
-          <Slider
-            value={value[0]}
-            minimumValue={min}
-            maximumValue={max}
-            step={0.5}
-            onValueChange={(val) => handleSliderChange([val, value[1]])}
-            minimumTrackTintColor={colors.primary}
-            maximumTrackTintColor={colors.border}
-          />
-          <Slider
-            value={value[1]}
-            minimumValue={min}
-            maximumValue={max}
-            step={0.5}
-            onValueChange={(val) => handleSliderChange([value[0], val])}
-            minimumTrackTintColor={colors.primary}
-            maximumTrackTintColor={colors.border}
-            style={styles.sliderOverlay}
-          />
-        </View>
-        <View style={styles.sliderLabels}>
-          <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>{formatDisplayTime(value[0])}</Text>
-          <Text style={[styles.sliderLabel, { color: colors.textSecondary }]}>{formatDisplayTime(value[1])}</Text>
-        </View>
-      </View>
-    );
-  };
-
-  // Component to visually show disabled ranges
-  const DisabledRangesIndicator: React.FC<{
-    ranges: number[][];
-    min: number;
-    max: number;
-  }> = ({ ranges, min, max }) => {
-    if (ranges.length === 0) return null;
-
-    const totalWidth = max - min;
-    
-    return (
-      <View style={styles.disabledRangesContainer}>
-        <View style={[styles.disabledRangesTrack, { backgroundColor: colors.border }]} />
-        {ranges.map((range, index) => {
-          const startPercent = ((range[0] - min) / totalWidth) * 100;
-          const widthPercent = ((range[1] - range[0]) / totalWidth) * 100;
-          
-          return (
-            <View
-              key={index}
-              style={[
-                styles.disabledRange,
-                {
-                  left: `${startPercent}%`,
-                  width: `${widthPercent}%`,
-                  backgroundColor: colors.warning,
-                  opacity: 0.5,
-                }
-              ]}
-            />
-          );
-        })}
-      </View>
-    );
-  };
-
-  // Update selected time slots summary
   const updateSelectedTimeSlots = useCallback(() => {
     if (isFullTime) {
       setSelectedTimeSlots("Full Day (6:00 AM - 8:00 PM)");
@@ -622,7 +513,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     let displaySlots: string[] = [];
     let storageSlots: string[] = [];
 
-    // Format for display (with AM/PM)
     morningSlots.forEach(([start, end]) => {
       displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
     });
@@ -631,7 +521,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
     });
 
-    // Format for storage (24-hour format)
     morningSlotStrings.forEach(slot => storageSlots.push(slot));
     eveningSlotStrings.forEach(slot => storageSlots.push(slot));
 
@@ -644,20 +533,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   }, [isFullTime, morningSlots, eveningSlots]);
 
-  // Update slots when they change
   useEffect(() => {
     updateSelectedTimeSlots();
   }, [morningSlots, eveningSlots, isFullTime, updateSelectedTimeSlots]);
 
   const handleAddMorningSlot = () => {
     setMorningSlots(prevSlots => {
-      // Find an available time range that doesn't conflict with existing slots
       const existingRanges = prevSlots;
       let newStart = 6;
       let newEnd = 6.5;
       let foundAvailableSlot = false;
 
-      // Try to find an available 30-minute slot
       for (let time = 6; time < 12; time += 0.5) {
         const potentialEnd = time + 0.5;
         const hasConflict = existingRanges.some(range => 
@@ -672,7 +558,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       }
 
-      // If no 30-minute slot available, try to find any non-overlapping range
       if (!foundAvailableSlot) {
         for (let time = 6; time < 12; time += 0.5) {
           for (let endTime = time + 0.5; endTime <= 12; endTime += 0.5) {
@@ -691,7 +576,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       }
 
-      // If still no slot found
       if (!foundAvailableSlot) {
         showSnackbar("No available morning slots to add", "warning");
         return prevSlots;
@@ -708,13 +592,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const handleAddEveningSlot = () => {
     setEveningSlots(prevSlots => {
-      // Find an available time range that doesn't conflict with existing slots
       const existingRanges = prevSlots;
       let newStart = 12;
       let newEnd = 12.5;
       let foundAvailableSlot = false;
 
-      // Try to find an available 30-minute slot
       for (let time = 12; time < 20; time += 0.5) {
         const potentialEnd = time + 0.5;
         const hasConflict = existingRanges.some(range => 
@@ -729,7 +611,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       }
 
-      // If no 30-minute slot available, try to find any non-overlapping range
       if (!foundAvailableSlot) {
         for (let time = 12; time < 20; time += 0.5) {
           for (let endTime = time + 0.5; endTime <= 20; endTime += 0.5) {
@@ -748,7 +629,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       }
 
-      // If still no slot found
       if (!foundAvailableSlot) {
         showSnackbar("No available evening slots to add", "warning");
         return prevSlots;
@@ -775,7 +655,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     const updatedSlots = [...morningSlots];
     const otherSlots = updatedSlots.filter((_, i) => i !== index);
     
-    // Check if new range overlaps with any other slots
     const hasOverlap = otherSlots.some(slot => 
       isRangeOverlapping(newValue, slot)
     );
@@ -790,7 +669,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     const updatedSlots = [...eveningSlots];
     const otherSlots = updatedSlots.filter((_, i) => i !== index);
     
-    // Check if new range overlaps with any other slots
     const hasOverlap = otherSlots.some(slot => 
       isRangeOverlapping(newValue, slot)
     );
@@ -839,7 +717,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       [name]: value,
     }));
     
-    // Clear error for this field when user types
     if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({
         ...prev,
@@ -848,12 +725,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
 
-  // Handler for KYC type change
   const handleKycTypeChange = (kycType: string) => {
     setFormData(prev => ({ 
       ...prev, 
       kycType,
-      kycNumber: "" // Clear the number when type changes
+      kycNumber: ""
     }));
     setErrors(prev => ({ 
       ...prev, 
@@ -862,16 +738,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }));
   };
 
-  // Handler for agent referral ID change
-  const handleAgentReferralIdChange = (e: any) => {
-    const value = e.target.value;
+  const handleAgentReferralIdChange = (text: string) => {
     setFormData(prev => ({
       ...prev,
-      agentReferralId: value
+      agentReferralId: text
     }));
   };
 
-  // Helper function to get KYC label
   const getKycLabel = (kycType: string): string => {
     const labels: Record<string, string> = {
       "AADHAR": "Aadhaar",
@@ -883,7 +756,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     return labels[kycType] || "KYC";
   };
 
-  // Date Picker Handlers
   const handleDatePress = () => {
     setShowDatePicker(true);
   };
@@ -896,7 +768,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       const formattedDate = moment(date).format("YYYY-MM-DD");
       setFormData((prev) => ({ ...prev, dob: formattedDate }));
 
-      // Validate age
       const { isValid, message } = validateAge(formattedDate);
       setIsDobValid(isValid);
 
@@ -908,7 +779,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         setErrors(prev => ({ ...prev, dob: "" }));
       }
       
-      // Trigger step completion check
       checkStepCompletion();
     }
   };
@@ -919,14 +789,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       [type === 'permanent' ? 'permanentAddress' : 'correspondenceAddress']: data
     };
     
-    // If isSameAddress is true and we're updating permanent address, also update correspondence address
     if (isSameAddress && type === 'permanent') {
       newFormData.correspondenceAddress = data;
     }
     
     setFormData(newFormData);
 
-    // Clear address errors when address is being filled
     if (type === 'permanent') {
       setErrors(prev => ({
         ...prev,
@@ -939,7 +807,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }));
     }
 
-    // If permanent address is updated and isSameAddress is true, also clear correspondence errors
     if (type === 'permanent' && isSameAddress) {
       setErrors(prev => ({
         ...prev,
@@ -947,7 +814,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }));
     }
 
-    // Try to geocode for coordinates if we have enough data
     if (data.apartment && data.street && data.city && data.state && data.pincode) {
       try {
         const fullAddress = `${data.apartment}, ${data.street}, ${data.city}, ${data.state}, ${data.pincode}, ${data.country}`;
@@ -989,7 +855,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
     }
     
-    // Trigger step completion check
     checkStepCompletion();
   };
 
@@ -997,24 +862,20 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setIsSameAddress(checked);
     
     if (checked) {
-      // Copy permanent address to correspondence address
       setFormData(prev => ({
         ...prev,
         correspondenceAddress: { ...prev.permanentAddress }
       }));
       
-      // Clear correspondence address errors
       setErrors(prev => ({
         ...prev,
         correspondenceAddress: undefined
       }));
     }
     
-    // Trigger step completion check
     checkStepCompletion();
   };
 
-  // Add debounced validation functions
   const debouncedEmailValidation = useCallback(
     debounce((email: string) => {
       validateField('email', email);
@@ -1054,10 +915,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     resetValidation('alternate');
   };
 
+  // Fixed handleRealTimeValidation - accepts event object with target
   const handleRealTimeValidation = (e: any) => {
     const { name, value } = e.target;
-
-    // Clear error for this field when user starts typing
+    
     if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({
         ...prev,
@@ -1113,6 +974,14 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           lastName: "",
         }));
       }
+    }
+
+    if (name === "middleName") {
+      setFormData((prevData) => ({
+        ...prevData,
+        [name]: value,
+      }));
+      return;
     }
 
     if (name === "password") {
@@ -1227,7 +1096,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       const mobilePattern = /^[0-9]{10}$/;
       const trimmedValue = value.trim();
       
-      // Check if alternate number is same as primary mobile number
       if (trimmedValue === formData.mobileNo) {
         setErrors((prevErrors) => ({
           ...prevErrors,
@@ -1251,9 +1119,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     if (name === "kycNumber") {
       const trimmedValue = value.trim();
-      setFormData(prev => ({ ...prev, kycNumber: trimmedValue }));
       
-      // Validate based on kycType
       if (trimmedValue) {
         let isValid = true;
         let errorMessage = "";
@@ -1291,24 +1157,16 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
     }
 
-    if (name === "pincode") {
-      const numericValue = value.replace(/\D/g, "");
+    if (name === "gender") {
       setFormData((prevData) => ({
         ...prevData,
-        [name]: numericValue.slice(0, 6),
+        [name]: value,
       }));
-
-      if (numericValue.length !== 6) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          pincode: "Pincode must be 6 digits",
-        }));
-      } else {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          pincode: "",
-        }));
+      if (errors.gender) {
+        setErrors(prev => ({ ...prev, gender: "" }));
       }
+      checkStepCompletion();
+      return;
     }
 
     setFormData((prevData) => ({
@@ -1316,7 +1174,33 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       [name]: value,
     }));
     
-    // Trigger step completion check
+    checkStepCompletion();
+  };
+
+  // Service type handlers for React Native (receive string directly)
+  const handleServiceTypeChange = (value: string) => {
+    let updatedRoles: string[];
+    
+    if (formData.housekeepingRole.includes(value)) {
+      updatedRoles = formData.housekeepingRole.filter(role => role !== value);
+      if (value === "COOK") {
+        setFormData(prev => ({ ...prev, cookingSpeciality: "" }));
+      }
+      if (value === "NANNY") {
+        setFormData(prev => ({ ...prev, nannyCareType: "" }));
+      }
+    } else {
+      updatedRoles = [...formData.housekeepingRole, value];
+    }
+    
+    setFormData(prev => ({ ...prev, housekeepingRole: updatedRoles }));
+    setIsCookSelected(updatedRoles.includes("COOK"));
+    setIsNannySelected(updatedRoles.includes("NANNY"));
+    
+    if (updatedRoles.length > 0) {
+      setErrors(prev => ({ ...prev, housekeepingRole: "" }));
+    }
+    
     checkStepCompletion();
   };
 
@@ -1326,55 +1210,57 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     checkStepCompletion();
   };
 
-  // Handler for nanny care type
   const handleNannyCareTypeChange = (value: string) => {
     setFormData(prev => ({ ...prev, nannyCareType: value }));
     setErrors(prev => ({ ...prev, nannyCareType: "" }));
     checkStepCompletion();
   };
 
-  // Helper function to parse address components
-  const parseAddressComponents = (addressComponents: any[]) => {
-    const result = {
-      apartment: '',
-      street: '',
-      city: '',
-      state: '',
-      country: '',
-      pincode: ''
-    };
+  const handleDietChange = (value: string) => {
+    setFormData((prevData) => ({ ...prevData, diet: value }));
+    setErrors(prevErrors => ({ ...prevErrors, diet: "" }));
+    checkStepCompletion();
+  };
 
-    addressComponents.forEach((component: any) => {
-      const types = component.types;
-      const longName = component.long_name;
+  const handleExperienceChange = (text: string) => {
+    setFormData(prev => ({ ...prev, experience: text }));
+    setErrors(prev => ({ ...prev, experience: "" }));
+    checkStepCompletion();
+  };
 
-      if (types.includes('street_number')) {
-        result.apartment = longName;
-      } else if (types.includes('route')) {
-        result.street = longName;
-      } else if (types.includes('locality')) {
-        result.city = longName;
-      } else if (types.includes('administrative_area_level_2')) {
-        // District - use as city if city not found
-        if (!result.city) result.city = longName;
-      } else if (types.includes('administrative_area_level_1')) {
-        result.state = longName;
-      } else if (types.includes('country')) {
-        result.country = longName;
-      } else if (types.includes('postal_code')) {
-        result.pincode = longName;
-      } else if (types.includes('sublocality_level_1') || types.includes('neighborhood')) {
-        // Use as street if street not found
-        if (!result.street) result.street = longName;
+  const handleDescriptionChange = (text: string) => {
+    setFormData(prev => ({ ...prev, description: text }));
+  };
+
+  const handleReferralCodeChange = (text: string) => {
+    setFormData(prev => ({ ...prev, referralCode: text }));
+  };
+
+  const handleDocumentUpload = (file: RNFile | null) => {
+    setFormData(prev => ({ ...prev, documentImage: file }));
+    checkStepCompletion();
+  };
+
+  // Handle DOB change for BasicInformation
+  const handleDobChange = (e: any) => {
+    const { value } = e.target;
+    setFormData(prev => ({ ...prev, dob: value }));
+    
+    if (value) {
+      const { isValid, message } = validateAge(value);
+      setIsDobValid(isValid);
+      if (!isValid) {
+        setErrors(prev => ({ ...prev, dob: message }));
+      } else {
+        setErrors(prev => ({ ...prev, dob: "" }));
       }
-    });
-
-    return result;
+    }
+    
+    checkStepCompletion();
   };
 
   const fetchLocationData = async () => {
     try {
-      // Request location permission
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
         Alert.alert(
@@ -1394,40 +1280,29 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       setLocationLoading(true);
       showSnackbar("Fetching your location...", "info");
 
-      // Get current position
       Geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
 
           try {
-            // Reverse geocode to get address
             const res = await Geocoder.from(latitude, longitude);
             const address = res.results[0]?.formatted_address || "";
 
-            // Parse address components using helper function
             const parsedAddress = parseAddressComponents(res.results[0]?.address_components || []);
 
-            // If we couldn't extract enough details, try to parse from formatted address
             if (!parsedAddress.city || !parsedAddress.street) {
               const addressParts = address.split(',').map(part => part.trim());
 
-              // Try to intelligently parse the address
               if (addressParts.length > 0) {
-                // First part is usually apartment/street number
                 if (!parsedAddress.apartment) {
                   parsedAddress.apartment = addressParts[0];
                 }
-
-                // Second part is often street
                 if (!parsedAddress.street && addressParts.length > 1) {
                   parsedAddress.street = addressParts[1];
                 }
-
-                // Look for city (usually one of the middle parts)
                 if (!parsedAddress.city) {
                   for (let i = 1; i < addressParts.length - 2; i++) {
                     if (addressParts[i].match(/\d{6}/)) {
-                      // Skip pincodes
                       continue;
                     }
                     parsedAddress.city = addressParts[i];
@@ -1437,7 +1312,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               }
             }
 
-            // Ensure we have default values
             if (!parsedAddress.country) {
               parsedAddress.country = "India";
             }
@@ -1448,7 +1322,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               parsedAddress.city = "Unknown";
             }
 
-            // Create address data object
             const addressData = {
               apartment: parsedAddress.apartment || "Current Location",
               street: parsedAddress.street || "Current Location",
@@ -1458,18 +1331,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               pincode: parsedAddress.pincode || "",
             };
 
-            // Update the permanent address in formData
             const newPermanentAddress = {
               ...formData.permanentAddress,
               ...addressData
             };
 
-            // Also update the correspondence address if "Same as Permanent" is checked
             const newCorrespondenceAddress = isSameAddress ?
               newPermanentAddress :
               formData.correspondenceAddress;
 
-            // Update form data
             setFormData(prev => ({
               ...prev,
               latitude: latitude,
@@ -1509,6 +1379,42 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       showSnackbar("Unable to fetch your location. Please try again.", "error");
       setLocationLoading(false);
     }
+  };
+
+  const parseAddressComponents = (addressComponents: any[]) => {
+    const result = {
+      apartment: '',
+      street: '',
+      city: '',
+      state: '',
+      country: '',
+      pincode: ''
+    };
+
+    addressComponents.forEach((component: any) => {
+      const types = component.types;
+      const longName = component.long_name;
+
+      if (types.includes('street_number')) {
+        result.apartment = longName;
+      } else if (types.includes('route')) {
+        result.street = longName;
+      } else if (types.includes('locality')) {
+        result.city = longName;
+      } else if (types.includes('administrative_area_level_2')) {
+        if (!result.city) result.city = longName;
+      } else if (types.includes('administrative_area_level_1')) {
+        result.state = longName;
+      } else if (types.includes('country')) {
+        result.country = longName;
+      } else if (types.includes('postal_code')) {
+        result.pincode = longName;
+      } else if (types.includes('sublocality_level_1') || types.includes('neighborhood')) {
+        if (!result.street) result.street = longName;
+      }
+    });
+
+    return result;
   };
 
   const requestLocationPermission = async (): Promise<boolean> => {
@@ -1603,7 +1509,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         isValid = false;
       }
       
-      // Validate alternate number if provided
       if (formData.AlternateNumber.trim()) {
         if (!phoneRegex.test(formData.AlternateNumber)) {
           tempErrors.AlternateNumber = "Please enter a valid 10-digit number";
@@ -1617,7 +1522,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       }
 
-      // Validate DOB
       if (!formData.dob.trim()) {
         tempErrors.dob = "Date of birth is required";
         isValid = false;
@@ -1664,7 +1568,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         tempErrors.permanentAddress = permanentErrors;
       }
 
-      // Only validate correspondence address if not same as permanent
       if (!isSameAddress) {
         const correspondenceErrors: any = {};
         if (!formData.correspondenceAddress.apartment?.trim()) {
@@ -1736,7 +1639,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         tempErrors.kycNumber = `${getKycLabel(formData.kycType)} number is required`;
         isValid = false;
       } else {
-        // Add specific validation based on KYC type
         switch(formData.kycType) {
           case "AADHAR":
             if (!aadhaarRegex.test(formData.kycNumber)) {
@@ -1797,13 +1699,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   };
 
   const handleNext = () => {
-    // Check if next button is disabled
     if (isNextDisabled) {
       showSnackbar("Please fill all required fields", "warning");
       return;
     }
     
-    // For step 0, check if validations are complete before proceeding
     if (activeStep === 0) {
       if (validationResults.email.loading || validationResults.mobile.loading) {
         showSnackbar("Please wait for email and mobile validation", "warning");
@@ -1811,7 +1711,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
     }
     
-    // Validate the current step
     if (!validateStep(activeStep)) {
       showSnackbar("Please fix the errors before proceeding", "error");
       return;
@@ -1831,170 +1730,160 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
   
- const handleSubmit = async () => {
-  if (activeStep !== steps.length - 1) return;
+  const handleSubmit = async () => {
+    if (activeStep !== steps.length - 1) return;
 
-  if (validateStep(activeStep)) {
-    setIsSubmitting(true);
-    try {
-      let profilePicUrl = "";
+    if (validateStep(activeStep)) {
+      setIsSubmitting(true);
+      try {
+        let profilePicUrl = "";
 
-      // Only upload profile image - same as React version
-      if (image) {
-        const profileFormData = new FormData();
-        profileFormData.append("image", {
-          uri: image.uri,
-          type: image.type || 'image/jpeg',
-          name: image.name || 'profile.jpg'
-        } as any);
+        if (image) {
+          const profileFormData = new FormData();
+          profileFormData.append("image", {
+            uri: image.uri,
+            type: image.type || 'image/jpeg',
+            name: image.name || 'profile.jpg'
+          } as any);
 
-        const imageResponse = await axiosInstance.post(
-          "http://65.2.153.173:3000/upload",
-          profileFormData,
+          const imageResponse = await axiosInstance.post(
+            "http://65.2.153.173:3000/upload",
+            profileFormData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+
+          if (imageResponse.status === 200) {
+            profilePicUrl = imageResponse.data.imageUrl;
+          }
+        }
+        
+        const selectedServices = formData.housekeepingRole;
+        const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
+        
+        const calculateAge = (dob: string): number => {
+          if (!dob) return 0;
+          const birthDate = moment(dob, "YYYY-MM-DD");
+          const today = moment();
+          return today.diff(birthDate, "years");
+        };
+        
+        const age = calculateAge(formData.dob);
+        
+        const payload = {
+          firstName: formData.firstName,
+          middleName: formData.middleName,
+          lastName: formData.lastName,
+          mobileNo: parseInt(formData.mobileNo) || 0,
+          alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : 0,
+          emailId: formData.emailId,
+          gender: formData.gender,
+          buildingName: formData.buildingName,
+          locality: formData.locality,
+          latitude: currentLocation?.latitude || formData.latitude,
+          longitude: currentLocation?.longitude || formData.longitude,
+          street: formData.street,
+          pincode: parseInt(formData.pincode) || 0,
+          currentLocation: formData.currentLocation,
+          nearbyLocation: formData.nearbyLocation,
+          location: formData.currentLocation,
+          housekeepingRoles: selectedServices,
+          housekeepingRole: primaryRole,
+          serviceTypes: selectedServices,
+          diet: formData.diet,
+          languages: selectedLanguages,
+          age: age,
+          ...(selectedServices.includes("COOK") && {
+            cookingSpeciality: formData.cookingSpeciality
+          }),
+          ...(selectedServices.includes("NANNY") && {
+            nannyCareType: formData.nannyCareType
+          }),
+          timeslot: formData.timeslot,
+          expectedSalary: 0,
+          experience: parseInt(formData.experience) || 0,
+          username: formData.emailId,
+          password: formData.password,
+          agentReferralId: formData.agentReferralId || "",
+          privacy: formData.privacy,
+          keyFacts: formData.keyFacts,
+          permanentAddress: {
+            field1: formData.permanentAddress.apartment || "",
+            field2: formData.permanentAddress.street || "",
+            ctarea: formData.permanentAddress.city || "",
+            pinno: formData.permanentAddress.pincode || "",
+            state: formData.permanentAddress.state || "",
+            country: formData.permanentAddress.country || ""
+          },
+          correspondenceAddress: {
+            field1: formData.correspondenceAddress.apartment || "",
+            field2: formData.correspondenceAddress.street || "",
+            ctarea: formData.correspondenceAddress.city || "",
+            pinno: formData.correspondenceAddress.pincode || "",
+            state: formData.correspondenceAddress.state || "",
+            country: formData.correspondenceAddress.country || ""
+          },
+          active: true,
+          kycType: formData.kycType,
+          kycNumber: formData.kycNumber,
+          dob: formData.dob,
+          profilePic: profilePicUrl
+        };
+
+        console.log("Submitting payload:", JSON.stringify(payload, null, 2));
+
+        const response = await providerInstance.post(
+          "/api/service-providers/serviceprovider/add",
+          payload,
           {
             headers: {
-              "Content-Type": "multipart/form-data",
+              "Content-Type": "application/json",
             },
           }
         );
 
-        if (imageResponse.status === 200) {
-          profilePicUrl = imageResponse.data.imageUrl;
-        }
-      }
-      
-      // NO document image upload here - just like React version
-      // Document image is handled separately in KYCVerification component
-      
-      // Get all selected service types (housekeeping roles)
-      const selectedServices = formData.housekeepingRole;
-      
-      // Determine primary role (first selected role, or empty string if none)
-      const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
-      
-      // Calculate age from DOB
-      const calculateAge = (dob: string): number => {
-        if (!dob) return 0;
-        const birthDate = moment(dob, "YYYY-MM-DD");
-        const today = moment();
-        return today.diff(birthDate, "years");
-      };
-      
-      const age = calculateAge(formData.dob);
-      
-      const payload = {
-        firstName: formData.firstName,
-        middleName: formData.middleName,
-        lastName: formData.lastName,
-        mobileNo: parseInt(formData.mobileNo) || 0,
-        alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : 0,
-        emailId: formData.emailId,
-        gender: formData.gender,
-        buildingName: formData.buildingName,
-        locality: formData.locality,
-        latitude: currentLocation?.latitude || formData.latitude,
-        longitude: currentLocation?.longitude || formData.longitude,
-        street: formData.street,
-        pincode: parseInt(formData.pincode) || 0,
-        currentLocation: formData.currentLocation,
-        nearbyLocation: formData.nearbyLocation,
-        location: formData.currentLocation,
-        housekeepingRoles: selectedServices, // FIXED: Send array as "housekeepingRoles" (plural)
-        housekeepingRole: primaryRole, // Keep this for backward compatibility if needed
-        serviceTypes: selectedServices, // Keep for compatibility
-        diet: formData.diet,
-        languages: selectedLanguages,
-        age: age, // Add age calculated from DOB
-        ...(selectedServices.includes("COOK") && {
-          cookingSpeciality: formData.cookingSpeciality
-        }),
-        ...(selectedServices.includes("NANNY") && {
-          nannyCareType: formData.nannyCareType
-        }),
-        timeslot: formData.timeslot,
-        expectedSalary: 0,
-        experience: parseInt(formData.experience) || 0,
-        username: formData.emailId,
-        password: formData.password,
-        agentReferralId: formData.agentReferralId || "",
-        privacy: formData.privacy,
-        keyFacts: formData.keyFacts,
-        permanentAddress: {
-          field1: formData.permanentAddress.apartment || "",
-          field2: formData.permanentAddress.street || "",
-          ctarea: formData.permanentAddress.city || "",
-          pinno: formData.permanentAddress.pincode || "",
-          state: formData.permanentAddress.state || "",
-          country: formData.permanentAddress.country || ""
-        },
-        correspondenceAddress: {
-          field1: formData.correspondenceAddress.apartment || "",
-          field2: formData.correspondenceAddress.street || "",
-          ctarea: formData.correspondenceAddress.city || "",
-          pinno: formData.correspondenceAddress.pincode || "",
-          state: formData.correspondenceAddress.state || "",
-          country: formData.correspondenceAddress.country || ""
-        },
-        active: true,
-        kycType: formData.kycType,
-        kycNumber: formData.kycNumber,
-        dob: formData.dob,
-        profilePic: profilePicUrl
-        // Note: No kycDocumentUrl here - matches React version
-      };
+        showSnackbar("Registration successful!", "success");
 
-      console.log("Submitting payload:", JSON.stringify(payload, null, 2));
+        const authPayload = {
+          email: formData.emailId,
+          password: formData.password,
+          name: `${formData.firstName} ${formData.lastName}`,
+        };
 
-      const response = await providerInstance.post(
-        "/api/service-providers/serviceprovider/add",
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+        axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
+          .then((authResponse) => {
+            console.log("AuthO user created successfully:", authResponse.data);
+          }).catch((authError) => {
+            console.error("Error creating AuthO user:", authError);
+          });
 
-      showSnackbar("Registration successful!", "success");
-
-      const authPayload = {
-        email: formData.emailId,
-        password: formData.password,
-        name: `${formData.firstName} ${formData.lastName}`,
-      };
-
-      axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
-        .then((authResponse) => {
-          console.log("AuthO user created successfully:", authResponse.data);
-        }).catch((authError) => {
-          console.error("Error creating AuthO user:", authError);
-        });
-
-      setTimeout(() => {
+        setTimeout(() => {
+          setIsSubmitting(false);
+          if (onRegistrationSuccess) {
+            onRegistrationSuccess();
+          } else {
+            onBackToLogin(true);
+          }
+        }, 3000);
+      } catch (error) {
         setIsSubmitting(false);
-        if (onRegistrationSuccess) {
-          onRegistrationSuccess();
+        
+        if (axios.isAxiosError(error) && error.response) {
+          const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
+          showSnackbar(errorMsg, "error");
+          console.error("Error submitting form:", error.response.data);
         } else {
-          onBackToLogin(true);
+          showSnackbar("Registration failed. Please try again.", "error");
+          console.error("Error submitting form:", error);
         }
-      }, 3000);
-    } catch (error) {
-      setIsSubmitting(false);
-      
-      // Better error message
-      if (axios.isAxiosError(error) && error.response) {
-        const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
-        showSnackbar(errorMsg, "error");
-        console.error("Error submitting form:", error.response.data);
-      } else {
-        showSnackbar("Registration failed. Please try again.", "error");
-        console.error("Error submitting form:", error);
       }
+    } else {
+      setIsSubmitting(false);
     }
-  } else {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   const handleCloseSnackbar = () => {
     if (snackbarTimeout) {
@@ -2020,7 +1909,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     return { isValid: true, message: "" };
   };
 
-  // Handle terms change from TermsCheckboxes component
   const handleTermsChange = useCallback((allAccepted: boolean) => {
     setFormData(prev => ({
       ...prev,
@@ -2031,7 +1919,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     checkStepCompletion();
   }, [checkStepCompletion]);
 
-  // Handle individual terms updates
   const handleTermsUpdate = useCallback((updatedTerms: { keyFacts: boolean; terms: boolean; privacy: boolean }) => {
     setFormData(prev => ({
       ...prev,
@@ -2042,73 +1929,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     checkStepCompletion();
   }, [checkStepCompletion]);
 
-  // Handler for service type change (updated for multi-select)
-  const handleServiceTypeChange = (e: any) => {
-    const value = e.target.value;
-    let updatedRoles: string[];
-    
-    if (formData.housekeepingRole.includes(value)) {
-      // Remove if already selected
-      updatedRoles = formData.housekeepingRole.filter(role => role !== value);
-      // Clear related fields when service is deselected
-      if (value === "COOK") {
-        setFormData(prev => ({ ...prev, cookingSpeciality: "" }));
-      }
-      if (value === "NANNY") {
-        setFormData(prev => ({ ...prev, nannyCareType: "" }));
-      }
-    } else {
-      // Add if not selected
-      updatedRoles = [...formData.housekeepingRole, value];
-    }
-    
-    setFormData(prev => ({ ...prev, housekeepingRole: updatedRoles }));
-    setIsCookSelected(updatedRoles.includes("COOK"));
-    setIsNannySelected(updatedRoles.includes("NANNY"));
-    
-    // Clear error if at least one role is selected
-    if (updatedRoles.length > 0) {
-      setErrors(prev => ({ ...prev, housekeepingRole: "" }));
-    }
-    
-    checkStepCompletion();
-  };
-
-  // Handle diet change
-  const handledietChange = (e: any) => {
-    const { value } = e.target;
-    setFormData((prevData) => ({ ...prevData, diet: value }));
-    setErrors(prevErrors => ({ ...prevErrors, diet: "" }));
-    checkStepCompletion();
-  };
-
-  // Handle experience change
-  const handleExperienceChange = (e: any) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, experience: value }));
-    setErrors(prev => ({ ...prev, experience: "" }));
-    checkStepCompletion();
-  };
-
-  // Handle description change
-  const handleDescriptionChange = (e: any) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, description: value }));
-  };
-
-  // Handle referral code change
-  const handleReferralCodeChange = (e: any) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, referralCode: value }));
-  };
-
-  // Handle document upload
-  const handleDocumentUpload = (file: RNFile | null) => {
-    setFormData(prev => ({ ...prev, documentImage: file }));
-    checkStepCompletion();
-  };
-
-  // Get font sizes based on theme
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
@@ -2146,7 +1966,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const fontSizes = getFontSizes();
 
-  // Updated stepper component with better styling
   const renderStepper = () => {
     return (
       <View style={styles.stepperWrapper}>
@@ -2194,42 +2013,23 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       case 0:
         return (
           <BasicInformation
-  formData={formData}
-  errors={errors}
-  validationResults={validationResults}
-  showPassword={showPassword}
-  showConfirmPassword={showConfirmPassword}
-  isDobValid={isDobValid}
-  onImageSelect={handleImageSelect}
-  onFieldChange={handleRealTimeValidation}
-  onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
-  onDobChange={(e) => {
-    // e.target.value contains the date in YYYY-MM-DD format
-    const formattedDate = e.target.value;
-    
-    // Update formData with the selected date
-    setFormData(prev => ({ ...prev, dob: formattedDate }));
-    
-    // Validate age
-    if (formattedDate) {
-      const { isValid, message } = validateAge(formattedDate);
-      setIsDobValid(isValid);
-      if (!isValid) {
-        setErrors(prev => ({ ...prev, dob: message }));
-      } else {
-        setErrors(prev => ({ ...prev, dob: "" }));
-      }
-    }
-    
-    checkStepCompletion();
-  }}
-  onDatePress={handleDatePress}
-  onTogglePasswordVisibility={handleTogglePasswordVisibility}
-  onToggleConfirmPasswordVisibility={handleToggleConfirmPasswordVisibility}
-  onClearEmail={handleClearEmail}
-  onClearMobile={handleClearMobile}
-  onClearAlternate={handleClearAlternate}
-/>
+            formData={formData}
+            errors={errors}
+            validationResults={validationResults}
+            showPassword={showPassword}
+            showConfirmPassword={showConfirmPassword}
+            isDobValid={isDobValid}
+            onImageSelect={handleImageSelect}
+            onFieldChange={handleRealTimeValidation}
+            onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
+            onDobChange={handleDobChange}
+            onDatePress={handleDatePress}
+            onTogglePasswordVisibility={handleTogglePasswordVisibility}
+            onToggleConfirmPasswordVisibility={handleToggleConfirmPasswordVisibility}
+            onClearEmail={handleClearEmail}
+            onClearMobile={handleClearMobile}
+            onClearAlternate={handleClearAlternate}
+          />
         );
       
       case 1:
@@ -2296,9 +2096,9 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             isFullTime={isFullTime}
             selectedTimeSlots={selectedTimeSlots}
             onServiceTypeChange={handleServiceTypeChange}
-            onCookingSpecialityChange={(e) => handleCookingSpecialityChange(e.target.value)}
-            onNannyCareTypeChange={(e) => handleNannyCareTypeChange(e.target.value)}
-            onDietChange={handledietChange}
+            onCookingSpecialityChange={handleCookingSpecialityChange}
+            onNannyCareTypeChange={handleNannyCareTypeChange}
+            onDietChange={handleDietChange}
             onExperienceChange={handleExperienceChange}
             onDescriptionChange={handleDescriptionChange}
             onReferralCodeChange={handleReferralCodeChange}
@@ -2312,6 +2112,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             onClearEveningSlots={handleClearEveningSlots}
             onMorningSlotChange={handleMorningSlotChange}
             onEveningSlotChange={handleEveningSlotChange}
+            formatDisplayTime={formatDisplayTime}
             selectedLanguages={selectedLanguages}
             onLanguagesChange={setSelectedLanguages}
           />
@@ -2364,7 +2165,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       transparent={false}
     >
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Updated Header with Linear Gradient */}
         <LinearGradient
           colors={["#0a2a66ff", "#004aadff"]}
           start={{ x: 0, y: 0 }}
@@ -2419,7 +2219,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           </View>
         </ScrollView>
 
-        {/* Policy Modal - Updated with Linear Gradient Header */}
         <Modal
           visible={policyModalVisible}
           animationType="slide"
@@ -2451,7 +2250,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           </View>
         </Modal>
 
-        {/* Date Picker Modal */}
         {showDatePicker && (
           <DateTimePicker
             value={selectedDate || new Date()}
@@ -2462,7 +2260,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           />
         )}
 
-        {/* Snackbar - Positioned at the top with auto-dismiss */}
         {snackbarOpen && (
           <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
             <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>

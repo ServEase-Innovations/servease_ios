@@ -21,7 +21,6 @@ import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { CouponDialog, Coupon } from '../Coupons/CouponDialog';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface CartDialogProps {
@@ -63,7 +62,6 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   handleMaidCheckout,
   handleNannyCheckout
 }) => {
-  const { t } = useTranslation();
   const { colors, fontSize, isDarkMode } = useTheme();
   
   const dispatch = useDispatch();
@@ -156,7 +154,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
 
   const handleQuickApplyCoupon = async () => {
     if (!couponCodeInput.trim()) {
-      setCouponError(t('cart.pleaseEnterCouponCode'));
+      setCouponError('Please enter a coupon code');
       return;
     }
 
@@ -180,7 +178,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
 
         if (foundCoupon) {
           if (foundCoupon.minimum_order_value && totalPrice < foundCoupon.minimum_order_value) {
-            setCouponError(t('cart.minimumOrderRequired', { amount: foundCoupon.minimum_order_value }));
+            setCouponError(`Minimum order amount of ₹${foundCoupon.minimum_order_value} required`);
             setIsValidatingCoupon(false);
             return;
           }
@@ -196,16 +194,16 @@ export const CartDialog: React.FC<CartDialogProps> = ({
           setCouponDiscount(discount);
           setCouponCodeInput('');
           setCouponError(null);
-          Alert.alert(t('cart.success'), t('cart.couponAppliedSuccessfully'));
+          Alert.alert('Success', 'Coupon applied successfully');
         } else {
-          setCouponError(t('cart.invalidCouponCode'));
+          setCouponError('Invalid or expired coupon code');
         }
       } else {
-        setCouponError(t('cart.unableToValidateCoupon'));
+        setCouponError('Unable to validate coupon');
       }
     } catch (error) {
       console.error('Error validating coupon:', error);
-      setCouponError(t('cart.errorValidatingCoupon'));
+      setCouponError('Error validating coupon');
     } finally {
       setIsValidatingCoupon(false);
     }
@@ -337,7 +335,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
             >
               <View style={styles.headerContent}>
                 <Text style={[styles.dialogTitle, { fontSize: fontSizes.title }]}>
-                  {t('cart.yourOrderSummary')}
+                  Your Order Summary
                 </Text>
                 <TouchableOpacity
                   style={styles.closeButton}
@@ -352,14 +350,14 @@ export const CartDialog: React.FC<CartDialogProps> = ({
               {allCartItems.length === 0 ? (
                 <View style={styles.emptyCartContainer}>
                   <Text style={[styles.emptyCartText, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
-                    {t('cart.yourCartIsEmpty')}
+                    Your cart is empty
                   </Text>
                   <TouchableOpacity 
                     style={[styles.browseButton, { backgroundColor: colors.primary }]}
                     onPress={handleClose}
                   >
                     <Text style={[styles.browseButtonText, { color: '#fff', fontSize: fontSizes.button }]}>
-                      {t('cart.browseServices')}
+                      Browse Services
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -369,7 +367,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     {mealCartItems.length > 0 && (
                       <>
                         <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
-                          {t('cart.mealServices')}
+                          Meal Services
                         </Text>
                         {mealCartItems.map((item, index) => (
                           <CartItemCard 
@@ -386,7 +384,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     {maidCartItems.length > 0 && (
                       <>
                         <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
-                          {t('cart.maidServices')}
+                          Maid Services
                         </Text>
                         {maidCartItems.map((item, index) => (
                           <CartItemCard 
@@ -403,7 +401,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     {nannyCartItems.length > 0 && (
                       <>
                         <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
-                          {t('cart.nannyServices')}
+                          Nanny Services
                         </Text>
                         {nannyCartItems.map((item, index) => (
                           <CartItemCard 
@@ -420,14 +418,14 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                   {/* Coupon Search Panel */}
                   <View style={[styles.couponSearchPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <Text style={[styles.couponSearchTitle, { color: colors.text, fontSize: fontSizes.body, fontWeight: '500' }]}>
-                      {t('cart.haveCouponCode')}
+                      Have a coupon code?
                     </Text>
                     <View style={styles.couponInputContainer}>
                       <View style={[styles.couponInputWrapper, { borderColor: colors.border, backgroundColor: colors.card }]}>
                         <MaterialCommunityIcons name="tag-outline" size={20} color={colors.primary} />
                         <TextInput
                           style={[styles.couponSearchInput, { color: colors.text, fontSize: fontSizes.body }]}
-                          placeholder={t('cart.enterCouponCode')}
+                          placeholder="Enter coupon code"
                           placeholderTextColor={colors.textTertiary}
                           value={couponCodeInput}
                           onChangeText={(text) => {
@@ -456,7 +454,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                           <ActivityIndicator size="small" color="#fff" />
                         ) : (
                           <Text style={[styles.applyCouponButtonText, { color: '#fff', fontSize: fontSizes.button }]}>
-                            {t('cart.apply')}
+                            Apply
                           </Text>
                         )}
                       </TouchableOpacity>
@@ -472,7 +470,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                         onPress={() => setCouponDialogOpen(true)}
                       >
                         <Text style={[styles.viewAllCouponsText, { color: colors.primary, fontSize: fontSizes.caption }]}>
-                          {t('cart.viewAllAvailableCoupons')} →
+                          View all available coupons →
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -485,7 +483,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                         <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
                         <View style={styles.appliedCouponInfoText}>
                           <Text style={[styles.appliedCouponInfoCode, { color: colors.text, fontSize: fontSizes.body, fontWeight: '500' }]}>
-                            {t('cart.couponApplied')}: {appliedCoupon.coupon_code}
+                            Coupon Applied: {appliedCoupon.coupon_code}
                           </Text>
                           <Text style={[styles.appliedCouponInfoDesc, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
                             {appliedCoupon.description}
@@ -494,7 +492,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                       </View>
                       <TouchableOpacity onPress={handleRemoveCoupon}>
                         <Text style={[styles.removeAppliedCouponText, { color: colors.error, fontSize: fontSizes.caption }]}>
-                          {t('cart.remove')}
+                          Remove
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -508,17 +506,17 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                         <View style={styles.couponsHeaderLeft}>
                           <MaterialCommunityIcons name="tag-multiple" size={20} color={colors.primary} />
                           <Text style={[styles.couponsTitle, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
-                            {t('cart.moreCouponsAndOffers')}
+                            More coupons & offers
                           </Text>
                         </View>
                         <View style={styles.couponsHeaderRight}>
                           {totalSaved > 0 && (
                             <Text style={[styles.savedAmount, { color: colors.success, fontSize: fontSizes.body }]}>
-                              ₹{totalSaved.toFixed(2)} {t('cart.saved')}
+                              ₹{totalSaved.toFixed(2)} saved
                             </Text>
                           )}
                           <Text style={[styles.viewAllLink, { color: colors.primary, fontSize: fontSizes.body }]}>
-                            {t('cart.viewAll')} →
+                            View all →
                           </Text>
                         </View>
                       </View>
@@ -528,7 +526,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                   <View style={[styles.pricingContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={styles.pricingRow}>
                       <Text style={[styles.pricingLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
-                        {t('cart.subtotal')}:
+                        Subtotal:
                       </Text>
                       <Text style={[styles.pricingValue, { color: colors.text, fontSize: fontSizes.body }]}>
                         ₹{totalPrice.toFixed(2)}
@@ -538,7 +536,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     {couponDiscount > 0 && (
                       <View style={styles.pricingRow}>
                         <Text style={[styles.couponDiscountLabel, { color: colors.success, fontSize: fontSizes.body }]}>
-                          {t('cart.couponDiscount')} ({appliedCoupon?.coupon_code}):
+                          Coupon Discount ({appliedCoupon?.coupon_code}):
                         </Text>
                         <Text style={[styles.couponDiscountValue, { color: colors.success, fontSize: fontSizes.body }]}>
                           -₹{couponDiscount.toFixed(2)}
@@ -548,7 +546,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     
                     <View style={styles.pricingRow}>
                       <Text style={[styles.pricingLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
-                        {t('cart.tax')} (18%):
+                        Tax (18%):
                       </Text>
                       <Text style={[styles.pricingValue, { color: colors.text, fontSize: fontSizes.body }]}>
                         ₹{tax.toFixed(2)}
@@ -556,7 +554,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     </View>
                     <View style={styles.pricingRow}>
                       <Text style={[styles.pricingLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
-                        {t('cart.platformFee')} (6%):
+                        Platform Fee (6%):
                       </Text>
                       <Text style={[styles.pricingValue, { color: colors.text, fontSize: fontSizes.body }]}>
                         ₹{platformFee.toFixed(2)}
@@ -567,7 +565,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     
                     <View style={styles.pricingRow}>
                       <Text style={[styles.totalLabel, { color: colors.text, fontSize: fontSizes.heading, fontWeight: 'bold' }]}>
-                        {t('cart.total')}:
+                        Total:
                       </Text>
                       <Text style={[styles.totalValue, { color: colors.primary, fontSize: fontSizes.heading, fontWeight: 'bold' }]}>
                         ₹{grandTotal.toFixed(2)}
@@ -577,7 +575,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     {totalSaved > 0 && (
                       <View style={styles.totalSavingsRow}>
                         <Text style={[styles.totalSavingsText, { color: colors.success, fontSize: fontSizes.caption }]}>
-                          {t('cart.totalSavings')}: ₹{totalSaved.toFixed(2)}
+                          Total Savings: ₹{totalSaved.toFixed(2)}
                         </Text>
                       </View>
                     )}
@@ -601,7 +599,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
               <View style={[styles.dialogFooter, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.footerTopRow}>
                   <Text style={[styles.itemCountText, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
-                    {allCartItems.length} {t('cart.itemsSelected', { count: allCartItems.length })}
+                    {allCartItems.length} item{allCartItems.length !== 1 ? 's' : ''} selected
                   </Text>
                 </View>
                 
@@ -611,7 +609,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                     onPress={handleClose}
                   >
                     <Text style={[styles.modifyButtonText, { color: colors.primary, fontSize: fontSizes.button }]}>
-                      {t('cart.modifyBooking')}
+                      Modify Booking
                     </Text>
                   </TouchableOpacity>
                   
@@ -632,7 +630,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
                         { color: '#fff', fontSize: fontSizes.button },
                         !isCheckoutEnabled && { color: colors.textTertiary }
                       ]}>
-                        {t('cart.proceedToPay')} ₹{grandTotal.toFixed(2)}
+                        Proceed to Pay ₹{grandTotal.toFixed(2)}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -668,9 +666,9 @@ export const CartDialog: React.FC<CartDialogProps> = ({
             style={styles.policyModalHeader}
           >
             <Text style={[styles.policyModalTitle, { fontSize: fontSizes.title }]}>
-              {activePolicy === 'terms' && t('tnc.title')}
-              {activePolicy === 'privacy' && t('privacy.title')}
-              {activePolicy === 'keyfacts' && t('registration.confirmation.keyFacts')}
+              {activePolicy === 'terms' && 'Terms and Conditions'}
+              {activePolicy === 'privacy' && 'Privacy Policy'}
+              {activePolicy === 'keyfacts' && 'Key Facts Statement'}
             </Text>
             <TouchableOpacity
               style={styles.policyModalClose}
@@ -695,7 +693,6 @@ interface CartItemCardProps {
 }
 
 const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
-  const { t } = useTranslation();
   const { colors } = useTheme();
   const dispatch = useDispatch();
 
@@ -853,12 +850,12 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
 
   const getItemType = () => {
     if (isNannyCartItem(item)) {
-      return t('cart.nannyService');
+      return 'Nanny Service';
     }
     if (isMaidCartItem(item)) {
-      return item.serviceType === 'package' ? t('cart.package') : t('cart.addOn');
+      return item.serviceType === 'package' ? 'Package' : 'Add-On';
     }
-    return t('cart.mealPackage');
+    return 'Meal Package';
   };
 
   const getItemName = () => {
@@ -866,7 +863,7 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
       return item.name.replace(/([A-Z])/g, ' $1').trim();
     }
     if (isNannyCartItem(item)) {
-      const careType = item.careType === 'baby' ? t('profile.page.babyCare') : t('profile.page.elderlyCare');
+      const careType = item.careType === 'baby' ? 'Baby Care' : 'Elderly Care';
       const packageType = item.packageType.charAt(0).toUpperCase() + item.packageType.slice(1);
       return `${careType} - ${packageType}`;
     }
@@ -910,20 +907,20 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
         </Text>
       </View>
       
-      {isMealCartItem(item) && renderCounter('persons', t('cart.persons'))}
+      {isMealCartItem(item) && renderCounter('persons', 'Persons')}
       
       {isMaidCartItem(item) && (
         <>
-          {item.details?.persons !== undefined && renderCounter('persons', t('cart.persons'))}
-          {item.details?.houseSize !== undefined && renderCounter('houseSize', t('cart.houseSize'))}
-          {item.details?.bathrooms !== undefined && renderCounter('bathrooms', t('cart.bathrooms'))}
+          {item.details?.persons !== undefined && renderCounter('persons', 'Persons')}
+          {item.details?.houseSize !== undefined && renderCounter('houseSize', 'House Size')}
+          {item.details?.bathrooms !== undefined && renderCounter('bathrooms', 'Bathrooms')}
         </>
       )}
       
-      {isNannyCartItem(item) && renderCounter('age', t('cart.age'))}
+      {isNannyCartItem(item) && renderCounter('age', 'Age')}
       
       <Text style={[styles.includesLabel, { color: colors.textSecondary, fontSize: fontSizes.caption }]}>
-        {t('cart.includes')}:
+        Includes:
       </Text>
       
       <View style={styles.descriptionList}>
@@ -932,7 +929,7 @@ const CartItemCard = ({ item, onRemove, itemType }: CartItemCardProps) => {
       
       <View style={styles.priceContainer}>
         <Text style={[styles.priceLabel, { color: colors.textSecondary, fontSize: fontSizes.body }]}>
-          {t('cart.price')}:
+          Price:
         </Text>
         <Text style={[styles.priceValue, { color: colors.text, fontSize: fontSizes.body, fontWeight: 'bold' }]}>
           ₹{getCurrentPrice().toFixed(2)}

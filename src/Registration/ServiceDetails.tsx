@@ -1,25 +1,21 @@
-/* eslint-disable */
-
-// components/Registration/ServiceDetails.tsx
-import React, { useState } from "react";
+// components/Registration/ServiceDetails.tsx (Fully Responsive Version)
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
   TextInput,
+  Switch,
+  Modal,
+  FlatList,
+  Dimensions,
 } from "react-native";
-import {
-  Checkbox,
-  Card,
-  IconButton,
-  HelperText,
-} from "react-native-paper";
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useTheme } from "../../src/Settings/ThemeContext";
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
-import LanguageSelector from "../common//LanguageSelector";
+
+const { width: screenWidth } = Dimensions.get('window');
 
 interface ServiceDetailsProps {
   formData: any;
@@ -30,14 +26,14 @@ interface ServiceDetailsProps {
   eveningSlots: number[][];
   isFullTime: boolean;
   selectedTimeSlots: string;
-  onServiceTypeChange: (e: any) => void;
-  onCookingSpecialityChange: (e: any) => void;
-  onNannyCareTypeChange: (e: any) => void;
-  onDietChange: (e: any) => void;
-  onExperienceChange: (e: any) => void;
-  onDescriptionChange: (e: any) => void;
-  onReferralCodeChange: (e: any) => void;
-  onAgentReferralIdChange: (e: any) => void;
+  onServiceTypeChange: (value: string) => void;
+  onCookingSpecialityChange: (value: string) => void;
+  onNannyCareTypeChange: (value: string) => void;
+  onDietChange: (value: string) => void;
+  onExperienceChange: (text: string) => void;
+  onDescriptionChange: (text: string) => void;
+  onReferralCodeChange: (text: string) => void;
+  onAgentReferralIdChange: (text: string) => void;
   onFullTimeToggle: (checked: boolean) => void;
   onAddMorningSlot: () => void;
   onRemoveMorningSlot: (index: number) => void;
@@ -51,16 +47,6 @@ interface ServiceDetailsProps {
   selectedLanguages?: string[];
   onLanguagesChange?: (languages: string[]) => void;
 }
-
-// Helper function to format display time
-const formatDisplayTime = (value: number): string => {
-  const hour = Math.floor(value);
-  const minute = value % 1 === 0.5 ? "30" : "00";
-  const period = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour > 12 ? hour - 12 : hour;
-  const displayHourFormatted = displayHour === 0 ? 12 : displayHour;
-  return `${displayHourFormatted}:${minute} ${period}`;
-};
 
 const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   formData,
@@ -78,7 +64,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onExperienceChange,
   onDescriptionChange,
   onReferralCodeChange,
-  onAgentReferralIdChange,
   onFullTimeToggle,
   onAddMorningSlot,
   onRemoveMorningSlot,
@@ -88,795 +73,684 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onClearEveningSlots,
   onMorningSlotChange,
   onEveningSlotChange,
-  formatDisplayTime: formatDisplayTimeFn = formatDisplayTime,
+  onAgentReferralIdChange,
+  formatDisplayTime,
   selectedLanguages = [],
   onLanguagesChange,
 }) => {
-  const { colors, fontSize, isDarkMode } = useTheme();
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  
+  const defaultFormatDisplayTime = (value: number): string => {
+    const hours = Math.floor(value);
+    const minutes = Math.round((value % 1) * 60);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes > 0 ? `:${minutes.toString().padStart(2, '0')}` : '';
+    return `${displayHours}${displayMinutes} ${period}`;
+  };
+
+  const safeFormatDisplayTime = formatDisplayTime || defaultFormatDisplayTime;
+  
+  const availableLanguages = [
+    "Assamese", "Bengali", "Gujarati", "Hindi", "Kannada",
+    "Kashmiri", "Marathi", "Malayalam", "Oriya", "Punjabi",
+    "Sanskrit", "Tamil", "Telugu", "Urdu", "Sindhi",
+    "Konkani", "Nepali", "Manipuri", "Bodo", "Dogri",
+    "Maithili", "Santhali", "English"
+  ];
+
+  const mergeTimeSlots = (
+    slots: number[][],
+    format: (value: number) => string
+  ): string => {
+    if (!slots.length) return "";
+
+    const sorted = [...slots].sort((a, b) => a[0] - b[0]);
+    const merged: number[][] = [];
+
+    for (const slot of sorted) {
+      if (merged.length === 0) {
+        merged.push([slot[0], slot[1]]);
+      } else {
+        const last = merged[merged.length - 1];
+        if (slot[0] <= last[1]) {
+          last[1] = Math.max(last[1], slot[1]);
+        } else {
+          merged.push([slot[0], slot[1]]);
+        }
+      }
+    }
+
+    return merged
+      .map(([start, end]) => `${format(start)} - ${format(end)}`)
+      .join(", ");
+  };
+
+  const mergedTimeSlotsString = useMemo(() => {
+    const allSlots = [...morningSlots, ...eveningSlots];
+    return mergeTimeSlots(allSlots, safeFormatDisplayTime);
+  }, [morningSlots, eveningSlots, safeFormatDisplayTime]);
 
   const serviceTypes = [
-    { value: "COOK", label: "Cook", icon: "restaurant", description: "Professional cooking services" },
-    { value: "NANNY", label: "Nanny", icon: "child-care", description: "Child care services" },
-    { value: "MAID", label: "Maid", icon: "cleaning-services", description: "Household cleaning services" },
+    { value: "COOK", label: "Cook", icon: "restaurant" },
+    { value: "NANNY", label: "Nanny", icon: "child-care" },
+    { value: "MAID", label: "Maid", icon: "cleaning-services" },
   ];
 
   const dietOptions = [
-    { value: "VEG", label: "Vegetarian", icon: "leaf", description: "Only vegetarian food" },
-    { value: "NONVEG", label: "Non-Vegetarian", icon: "restaurant-menu", description: "Includes meat dishes" },
-    { value: "BOTH", label: "Both", icon: "restaurant", description: "Both vegetarian and non-vegetarian" },
-  ];
-
-  const cookingSpecialityOptions = [
-    { value: "VEG", label: "Vegetarian", icon: "leaf", description: "Specialize in vegetarian cuisine" },
-    { value: "NONVEG", label: "Non-Vegetarian", icon: "restaurant-menu", description: "Specialize in non-vegetarian cuisine" },
-    { value: "BOTH", label: "Both", icon: "restaurant", description: "Expertise in both cuisines" },
+    { value: "VEG", label: "Veg" },
+    { value: "NONVEG", label: "Non-Veg" },
+    { value: "BOTH", label: "Both" },
   ];
 
   const nannyCareOptions = [
-    { value: "BABY_CARE", label: "Baby Care", icon: "child-care", description: "Infant and toddler care" },
-    { value: "ELDERLY_CARE", label: "Elderly Care", icon: "elderly", description: "Senior citizen care" },
-    { value: "BOTH", label: "Both", icon: "favorite", description: "Both baby and elderly care" },
+    { value: "BABY_CARE", label: "Baby Care" },
+    { value: "ELDERLY_CARE", label: "Elderly Care" },
+    { value: "BOTH", label: "Both" },
   ];
 
-  const getDietLabel = (option: string) => {
-    switch(option) {
-      case "VEG": return "Vegetarian";
-      case "NONVEG": return "Non-Vegetarian";
-      case "BOTH": return "Both";
-      default: return option;
+  const handleLanguageSelect = (language: string) => {
+    if (selectedLanguages.includes(language)) {
+      const newLanguages = selectedLanguages.filter(l => l !== language);
+      if (onLanguagesChange) onLanguagesChange(newLanguages);
+    } else {
+      if (onLanguagesChange) onLanguagesChange([...selectedLanguages, language]);
     }
   };
 
-  const getFontSizes = () => {
-    switch (fontSize) {
-      case 'small':
-        return {
-          headerTitle: 16,
-          label: 13,
-          labelHelper: 11,
-          optionText: 14,
-          optionDescription: 11,
-          fullTimeTitle: 14,
-          fullTimeSubtitle: 11,
-          slotTitle: 14,
-          slotButtonLabel: 11,
-          slotChipText: 10,
-          emptySlotTitle: 14,
-          emptySlotSubtitle: 12,
-          slotItemTitle: 13,
-          summaryTitle: 13,
-          summaryText: 13,
-          input: 13,
-          errorText: 11,
-        };
-      case 'large':
-        return {
-          headerTitle: 20,
-          label: 16,
-          labelHelper: 14,
-          optionText: 17,
-          optionDescription: 14,
-          fullTimeTitle: 17,
-          fullTimeSubtitle: 14,
-          slotTitle: 17,
-          slotButtonLabel: 14,
-          slotChipText: 13,
-          emptySlotTitle: 17,
-          emptySlotSubtitle: 15,
-          slotItemTitle: 16,
-          summaryTitle: 16,
-          summaryText: 16,
-          input: 16,
-          errorText: 14,
-        };
-      default:
-        return {
-          headerTitle: 18,
-          label: 14,
-          labelHelper: 12,
-          optionText: 15,
-          optionDescription: 12,
-          fullTimeTitle: 15,
-          fullTimeSubtitle: 12,
-          slotTitle: 15,
-          slotButtonLabel: 12,
-          slotChipText: 11,
-          emptySlotTitle: 15,
-          emptySlotSubtitle: 13,
-          slotItemTitle: 14,
-          summaryTitle: 14,
-          summaryText: 14,
-          input: 14,
-          errorText: 12,
-        };
-    }
-  };
-
-  const fontSizes = getFontSizes();
-
-  const dynamicStyles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    spacing: {
-      marginBottom: 16,
-    },
-    card: {
-      marginHorizontal: 16,
-      marginVertical: 8,
-      borderRadius: 8,
-      backgroundColor: colors.surface,
-      elevation: 2,
-    },
-    headerContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    headerTitle: {
-      fontSize: fontSizes.headerTitle,
-      fontWeight: 'bold',
-      color: colors.primary,
-      marginLeft: 8,
-    },
-    sectionSpacing: {
-      gap: 24,
-    },
-    subSection: {
-      marginTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingTop: 16,
-    },
-    labelContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    label: {
-      fontSize: fontSizes.label,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginLeft: 6,
-    },
-    labelHelper: {
-      fontSize: fontSizes.labelHelper,
-      color: colors.textSecondary,
-      marginBottom: 12,
-      marginLeft: 26,
-    },
-    asterisk: {
-      color: colors.error,
-      fontSize: fontSizes.label,
-    },
-    optionsContainer: {
-      marginTop: 8,
-    },
-    optionCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 12,
-      marginBottom: 8,
-      borderRadius: 8,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    selectedOption: {
-      backgroundColor: isDarkMode ? colors.primary + '20' : '#e3f2fd',
-      borderColor: colors.primary,
-    },
-    optionIconContainer: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.surface,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 12,
-    },
-    optionTextContainer: {
-      flex: 1,
-    },
-    optionText: {
-      fontSize: fontSizes.optionText,
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: 2,
-    },
-    selectedOptionText: {
-      color: colors.primary,
-    },
-    optionDescription: {
-      fontSize: fontSizes.optionDescription,
-      color: colors.textSecondary,
-    },
-    errorAlert: {
-      marginTop: 8,
-      padding: 10,
-      backgroundColor: colors.errorLight,
-      borderRadius: 8,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    errorText: {
-      color: colors.error,
-      fontSize: fontSizes.errorText,
-      flex: 1,
-    },
-    textArea: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: fontSizes.input,
-      minHeight: 100,
-      textAlignVertical: 'top',
-      backgroundColor: colors.card,
-      color: colors.text,
-      marginTop: 8,
-    },
-    rowContainer: {
-      flexDirection: 'row',
-      gap: 16,
-    },
-    halfWidth: {
-      flex: 1,
-    },
-    input: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: fontSizes.input,
-      backgroundColor: colors.card,
-      color: colors.text,
-      marginTop: 4,
-    },
-    inputError: {
-      borderColor: colors.error,
-    },
-    fullTimeCard: {
-      padding: 16,
-      marginBottom: 16,
-      backgroundColor: colors.card,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    fullTimeSelected: {
-      backgroundColor: isDarkMode ? colors.primary + '20' : '#e3f2fd',
-      borderColor: colors.primary,
-    },
-    checkboxContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    fullTimeTextContainer: {
-      marginLeft: 8,
-      flex: 1,
-    },
-    fullTimeTitle: {
-      fontSize: fontSizes.fullTimeTitle,
-      fontWeight: 'bold',
-      color: colors.text,
-    },
-    fullTimeSubtitle: {
-      fontSize: fontSizes.fullTimeSubtitle,
-      color: colors.textSecondary,
-      marginTop: 2,
-    },
-    slotSection: {
-      marginBottom: 24,
-    },
-    summaryCard: {
-      marginTop: 16,
-      backgroundColor: isDarkMode ? colors.primary + '20' : '#e3f2fd',
-      borderWidth: 1,
-      borderColor: isDarkMode ? colors.primary + '40' : '#90caf9',
-      borderRadius: 8,
-    },
-    summaryHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 8,
-      gap: 6,
-    },
-    summaryTitle: {
-      fontSize: fontSizes.summaryTitle,
-      fontWeight: 'bold',
-      color: colors.primary,
-    },
-    summaryText: {
-      fontSize: fontSizes.summaryText,
-      color: colors.text,
-      lineHeight: 20,
-    },
-  });
-
-  const handleServiceTypePress = (serviceValue: string) => {
-    const event = {
-      target: { value: serviceValue }
-    };
-    onServiceTypeChange(event);
-  };
-
-  const handleCookingSpecialityPress = (option: string) => {
-    const event = {
-      target: { value: option, name: 'cookingSpeciality' }
-    };
-    onCookingSpecialityChange(event);
-  };
-
-  const handleNannyCareTypePress = (option: any) => {
-    const event = {
-      target: { value: option.value, name: 'nannyCareType' }
-    };
-    onNannyCareTypeChange(event);
-  };
-
-  const handleDietPress = (option: string) => {
-    const event = {
-      target: { value: option, name: 'diet' }
-    };
-    onDietChange(event);
-  };
-
-  const morningMarks = [
-    { value: 6, label: '6 AM' },
-    { value: 7, label: '7 AM' },
-    { value: 8, label: '8 AM' },
-    { value: 9, label: '9 AM' },
-    { value: 10, label: '10 AM' },
-    { value: 11, label: '11 AM' },
-    { value: 12, label: '12 PM' },
-  ];
-
-  const eveningMarks = [
-    { value: 12, label: '12 PM' },
-    { value: 13, label: '1 PM' },
-    { value: 14, label: '2 PM' },
-    { value: 15, label: '3 PM' },
-    { value: 16, label: '4 PM' },
-    { value: 17, label: '5 PM' },
-    { value: 18, label: '6 PM' },
-    { value: 19, label: '7 PM' },
-    { value: 20, label: '8 PM' },
-  ];
+  const ServiceTypeCard = ({ service, isSelected, onPress }: any) => (
+    <TouchableOpacity
+      style={[
+        styles.serviceCard,
+        isSelected && styles.serviceCardSelected
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Icon name={service.icon} size={24} color={isSelected ? "#1976d2" : "#666"} />
+      <Text style={[
+        styles.serviceCardText,
+        isSelected && styles.serviceCardTextSelected
+      ]}>
+        {service.label}
+      </Text>
+      {isSelected && (
+        <Icon name="check-circle" size={18} color="#1976d2" style={styles.checkIcon} />
+      )}
+    </TouchableOpacity>
+  );
 
   return (
-    <ScrollView style={dynamicStyles.container}>
-      <View style={dynamicStyles.spacing}>
-        {/* Combined Services Card */}
-        <Card style={dynamicStyles.card}>
-          <Card.Content>
-            <View style={dynamicStyles.headerContainer}>
-              <Icon name="home" size={24} color={colors.primary} />
-              <Text style={dynamicStyles.headerTitle}>Service Details</Text>
-            </View>
-            
-            <View style={dynamicStyles.sectionSpacing}>
-              {/* Service Type Selection */}
-              <View>
-                <View style={dynamicStyles.labelContainer}>
-                  <Icon name="work" size={20} color={colors.primary} />
-                  <Text style={dynamicStyles.label}>
-                    Select Service Type <Text style={dynamicStyles.asterisk}>*</Text>
-                  </Text>
-                </View>
-                <Text style={dynamicStyles.labelHelper}>
-                  Choose the type of service you provide
-                </Text>
-                
-                <View style={dynamicStyles.optionsContainer}>
-                  {serviceTypes.map((service) => (
-                    <TouchableOpacity
-                      key={service.value}
-                      style={[
-                        dynamicStyles.optionCard,
-                        formData.housekeepingRole.includes(service.value) && dynamicStyles.selectedOption,
-                      ]}
-                      onPress={() => handleServiceTypePress(service.value)}
-                    >
-                      <View style={dynamicStyles.optionIconContainer}>
-                        <Icon 
-                          name={service.icon} 
-                          size={24} 
-                          color={formData.housekeepingRole.includes(service.value) ? colors.primary : colors.textSecondary} 
-                        />
-                      </View>
-                      <View style={dynamicStyles.optionTextContainer}>
-                        <Text
-                          style={[
-                            dynamicStyles.optionText,
-                            formData.housekeepingRole.includes(service.value) && dynamicStyles.selectedOptionText,
-                          ]}
-                        >
-                          {service.label}
-                        </Text>
-                        <Text style={dynamicStyles.optionDescription}>
-                          {service.description}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                
-                {errors.housekeepingRole && (
-                  <View style={dynamicStyles.errorAlert}>
-                    <Icon name="error" size={16} color={colors.error} />
-                    <Text style={dynamicStyles.errorText}>{errors.housekeepingRole}</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Cooking Speciality - Only show when Cook is selected */}
-              {isCookSelected && (
-                <View style={dynamicStyles.subSection}>
-                  <View style={dynamicStyles.labelContainer}>
-                    <Icon name="restaurant" size={20} color={colors.primary} />
-                    <Text style={dynamicStyles.label}>
-                      Cooking Speciality <Text style={dynamicStyles.asterisk}>*</Text>
-                    </Text>
-                  </View>
-                  <Text style={dynamicStyles.labelHelper}>
-                    What type of cuisine do you specialize in?
-                  </Text>
-                  
-                  <View style={dynamicStyles.optionsContainer}>
-                    {cookingSpecialityOptions.map((option) => (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={[
-                          dynamicStyles.optionCard,
-                          formData.cookingSpeciality === option.value && dynamicStyles.selectedOption,
-                        ]}
-                        onPress={() => handleCookingSpecialityPress(option.value)}
-                      >
-                        <View style={dynamicStyles.optionIconContainer}>
-                          <Icon 
-                            name={option.icon} 
-                            size={24} 
-                            color={formData.cookingSpeciality === option.value ? colors.primary : colors.textSecondary} 
-                          />
-                        </View>
-                        <View style={dynamicStyles.optionTextContainer}>
-                          <Text
-                            style={[
-                              dynamicStyles.optionText,
-                              formData.cookingSpeciality === option.value && dynamicStyles.selectedOptionText,
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                          <Text style={dynamicStyles.optionDescription}>
-                            {option.description}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  
-                  {errors.cookingSpeciality && (
-                    <HelperText type="error" visible={!!errors.cookingSpeciality} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
-                      {errors.cookingSpeciality}
-                    </HelperText>
-                  )}
-                </View>
-              )}
-
-              {/* Nanny Care Type - Only show when Nanny is selected */}
-              {isNannySelected && (
-                <View style={dynamicStyles.subSection}>
-                  <View style={dynamicStyles.labelContainer}>
-                    <Icon name="child-care" size={20} color={colors.primary} />
-                    <Text style={dynamicStyles.label}>
-                      Care Type <Text style={dynamicStyles.asterisk}>*</Text>
-                    </Text>
-                  </View>
-                  <Text style={dynamicStyles.labelHelper}>
-                    What type of care do you provide?
-                  </Text>
-                  
-                  <View style={dynamicStyles.optionsContainer}>
-                    {nannyCareOptions.map((option) => (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={[
-                          dynamicStyles.optionCard,
-                          formData.nannyCareType === option.value && dynamicStyles.selectedOption,
-                        ]}
-                        onPress={() => handleNannyCareTypePress(option)}
-                      >
-                        <View style={dynamicStyles.optionIconContainer}>
-                          <Icon 
-                            name={option.icon} 
-                            size={24} 
-                            color={formData.nannyCareType === option.value ? colors.primary : colors.textSecondary} 
-                          />
-                        </View>
-                        <View style={dynamicStyles.optionTextContainer}>
-                          <Text
-                            style={[
-                              dynamicStyles.optionText,
-                              formData.nannyCareType === option.value && dynamicStyles.selectedOptionText,
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                          <Text style={dynamicStyles.optionDescription}>
-                            {option.description}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  
-                  {errors.nannyCareType && (
-                    <HelperText type="error" visible={!!errors.nannyCareType} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
-                      {errors.nannyCareType}
-                    </HelperText>
-                  )}
-                </View>
-              )}
-
-              {/* Diet Section */}
-              <View style={dynamicStyles.subSection}>
-                <View style={dynamicStyles.labelContainer}>
-                  <Icon name="restaurant" size={20} color={colors.primary} />
-                  <Text style={dynamicStyles.label}>
-                    Diet Preference <Text style={dynamicStyles.asterisk}>*</Text>
-                  </Text>
-                </View>
-                <Text style={dynamicStyles.labelHelper}>
-                  What type of food do you prefer to cook?
-                </Text>
-                
-                <View style={dynamicStyles.optionsContainer}>
-                  {dietOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        dynamicStyles.optionCard,
-                        formData.diet === option.value && dynamicStyles.selectedOption,
-                      ]}
-                      onPress={() => handleDietPress(option.value)}
-                    >
-                      <View style={dynamicStyles.optionIconContainer}>
-                        <Icon 
-                          name={option.icon} 
-                          size={24} 
-                          color={formData.diet === option.value ? colors.primary : colors.textSecondary} 
-                        />
-                      </View>
-                      <View style={dynamicStyles.optionTextContainer}>
-                        <Text
-                          style={[
-                            dynamicStyles.optionText,
-                            formData.diet === option.value && dynamicStyles.selectedOptionText,
-                          ]}
-                        >
-                          {getDietLabel(option.value)}
-                        </Text>
-                        <Text style={dynamicStyles.optionDescription}>
-                          {option.description}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                
-                {errors.diet && (
-                  <HelperText type="error" visible={!!errors.diet} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
-                    {errors.diet}
-                  </HelperText>
-                )}
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-      
-        {/* Description Section */}
-        <Card style={dynamicStyles.card}>
-          <Card.Content>
-            <View style={dynamicStyles.labelContainer}>
-              <Icon name="description" size={20} color={colors.primary} />
-              <Text style={dynamicStyles.label}>Description</Text>
-            </View>
-            <Text style={dynamicStyles.labelHelper}>
-              Tell us more about your experience and skills
-            </Text>
-            <TextInput
-              style={dynamicStyles.textArea}
-              placeholder="Describe your experience, skills, and what makes you unique..."
-              placeholderTextColor={colors.placeholder}
-              value={formData.description}
-              onChangeText={(text) => onDescriptionChange({ target: { value: text } })}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.contentContainer}
+    >
+      {/* Service Type Selection */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Select Service Type *</Text>
+        <View style={styles.serviceTypesContainer}>
+          {serviceTypes.map((service) => (
+            <ServiceTypeCard
+              key={service.value}
+              service={service}
+              isSelected={formData.housekeepingRole?.includes(service.value)}
+              onPress={() => onServiceTypeChange(service.value)}
             />
-          </Card.Content>
-        </Card>
+          ))}
+        </View>
+        {errors.housekeepingRole && (
+          <Text style={styles.errorText}>{errors.housekeepingRole}</Text>
+        )}
+      </View>
 
-        {/* Languages Section - Using reusable LanguageSelector */}
-        <Card style={dynamicStyles.card}>
-          <Card.Content>
-            <LanguageSelector
-              selectedLanguages={selectedLanguages}
-              onLanguagesChange={onLanguagesChange || (() => {})}
-            />
-          </Card.Content>
-        </Card>
-      
-        {/* Experience and Referral Section */}
-        <Card style={dynamicStyles.card}>
-          <Card.Content>
-            <View style={dynamicStyles.rowContainer}>
-              <View style={dynamicStyles.halfWidth}>
-                <View style={dynamicStyles.labelContainer}>
-                  <Icon name="work" size={18} color={colors.primary} />
-                  <Text style={dynamicStyles.label}>
-                    Years of Experience <Text style={dynamicStyles.asterisk}>*</Text>
-                  </Text>
-                </View>
-                <Text style={dynamicStyles.labelHelper}>How many years of experience do you have?</Text>
-                <TextInput
-                  style={[dynamicStyles.input, errors.experience && dynamicStyles.inputError]}
-                  placeholder="e.g., 5"
-                  placeholderTextColor={colors.placeholder}
-                  value={formData.experience}
-                  onChangeText={(text) => onExperienceChange({ target: { value: text } })}
-                  keyboardType="numeric"
-                />
-                {errors.experience && (
-                  <HelperText type="error" visible={!!errors.experience} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
-                    {errors.experience}
-                  </HelperText>
-                )}
-              </View>
-              
-              <View style={dynamicStyles.halfWidth}>
-                <View style={dynamicStyles.labelContainer}>
-                  <Icon name="card-giftcard" size={18} color={colors.primary} />
-                  <Text style={dynamicStyles.label}>Referral Code</Text>
-                </View>
-                <Text style={dynamicStyles.labelHelper}>Enter referral code if you have one</Text>
-                <TextInput
-                  style={dynamicStyles.input}
-                  placeholder="Enter referral code"
-                  placeholderTextColor={colors.placeholder}
-                  value={formData.referralCode || ""}
-                  onChangeText={(text) => onReferralCodeChange({ target: { value: text } })}
-                />
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Agent Referral ID */}
-        <Card style={dynamicStyles.card}>
-          <Card.Content>
-            <View style={dynamicStyles.labelContainer}>
-              <Icon name="person" size={18} color={colors.primary} />
-              <Text style={dynamicStyles.label}>Agent Referral ID (Optional)</Text>
-            </View>
-            <Text style={dynamicStyles.labelHelper}>
-              If you were referred by an agent, please enter their referral ID
-            </Text>
-            <TextInput
-              style={dynamicStyles.input}
-              placeholder="Enter Agent Referral ID"
-              placeholderTextColor={colors.placeholder}
-              value={formData.agentReferralId || ""}
-              onChangeText={(text) => onAgentReferralIdChange({ target: { value: text } })}
-            />
-          </Card.Content>
-        </Card>
-      
-        {/* Time slot section */}
-        <Card style={dynamicStyles.card}>
-          <Card.Content>
-            <View style={dynamicStyles.headerContainer}>
-              <Icon name="access-time" size={24} color={colors.primary} />
-              <Text style={dynamicStyles.headerTitle}>Select Your Available Time Slots</Text>
-            </View>
-            <Text style={dynamicStyles.labelHelper}>
-              Choose when you are available to work (6:00 AM to 8:00 PM)
-            </Text>
-            
-            <View>
+      {/* Cooking Speciality */}
+      {isCookSelected && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Cooking Speciality *</Text>
+          <View style={styles.optionsContainer}>
+            {dietOptions.map((option) => (
               <TouchableOpacity
-                style={[dynamicStyles.fullTimeCard, isFullTime && dynamicStyles.fullTimeSelected]}
-                onPress={() => onFullTimeToggle(!isFullTime)}
+                key={option.value}
+                style={[
+                  styles.optionButton,
+                  formData.cookingSpeciality === option.value && styles.optionButtonSelected
+                ]}
+                onPress={() => onCookingSpecialityChange(option.value)}
               >
-                <View style={dynamicStyles.checkboxContainer}>
-                  <Checkbox
-                    status={isFullTime ? 'checked' : 'unchecked'}
-                    onPress={() => onFullTimeToggle(!isFullTime)}
-                    color={colors.primary}
-                  />
-                  <View style={dynamicStyles.fullTimeTextContainer}>
-                    <Text style={dynamicStyles.fullTimeTitle}>Full Time Availability</Text>
-                    <Text style={dynamicStyles.fullTimeSubtitle}>6:00 AM - 8:00 PM (All slots covered)</Text>
-                  </View>
-                </View>
+                <Text style={[
+                  styles.optionButtonText,
+                  formData.cookingSpeciality === option.value && styles.optionButtonTextSelected
+                ]}>
+                  {option.label}
+                </Text>
               </TouchableOpacity>
+            ))}
+          </View>
+          {errors.cookingSpeciality && (
+            <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>
+          )}
+        </View>
+      )}
 
-              {!isFullTime && (
-                <View>
-                  {/* Morning Slots Section */}
-                  <View style={dynamicStyles.slotSection}>
-                    <TimeSlotSelector
-                      title="Morning Slots"
-                      slots={morningSlots}
-                      minTime={6}
-                      maxTime={12}
-                      marks={morningMarks}
-                      notAvailableMessage="No morning slots added"
-                      addSlotMessage="Click + to add your available time slots"
-                      slotLabel="Morning Slot"
-                      addButtonLabel="+"
-                      clearButtonLabel=""
-                      duplicateErrorKey="This time slot already exists. Please select a different time range."
-                      onAddSlot={onAddMorningSlot}
-                      onRemoveSlot={onRemoveMorningSlot}
-                      onClearSlots={onClearMorningSlots}
-                      onSlotChange={onMorningSlotChange}
-                      formatDisplayTime={formatDisplayTimeFn}
-                      existingSlots={morningSlots}
-                    />
-                  </View>
+      {/* Nanny Care Type */}
+      {isNannySelected && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Care Type *</Text>
+          <View style={styles.optionsContainer}>
+            {nannyCareOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.optionButton,
+                  formData.nannyCareType === option.value && styles.optionButtonSelected
+                ]}
+                onPress={() => onNannyCareTypeChange(option.value)}
+              >
+                <Text style={[
+                  styles.optionButtonText,
+                  formData.nannyCareType === option.value && styles.optionButtonTextSelected
+                ]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {errors.nannyCareType && (
+            <Text style={styles.errorText}>{errors.nannyCareType}</Text>
+          )}
+        </View>
+      )}
 
-                  {/* Evening Slots Section */}
-                  <View style={dynamicStyles.slotSection}>
-                    <TimeSlotSelector
-                      title="Evening Slots"
-                      slots={eveningSlots}
-                      minTime={12}
-                      maxTime={20}
-                      marks={eveningMarks}
-                      notAvailableMessage="No evening slots added"
-                      addSlotMessage="Click + to add your available time slots"
-                      slotLabel="Evening Slot"
-                      addButtonLabel="+"
-                      clearButtonLabel=""
-                      duplicateErrorKey="This time slot already exists. Please select a different time range."
-                      onAddSlot={onAddEveningSlot}
-                      onRemoveSlot={onRemoveEveningSlot}
-                      onClearSlots={onClearEveningSlots}
-                      onSlotChange={onEveningSlotChange}
-                      formatDisplayTime={formatDisplayTimeFn}
-                      existingSlots={eveningSlots}
-                    />
-                  </View>
+      {/* Diet Preference */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Diet Preference *</Text>
+        <View style={styles.optionsContainer}>
+          {dietOptions.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.optionButton,
+                formData.diet === option.value && styles.optionButtonSelected
+              ]}
+              onPress={() => onDietChange(option.value)}
+            >
+              <Text style={[
+                styles.optionButtonText,
+                formData.diet === option.value && styles.optionButtonTextSelected
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {errors.diet && (
+          <Text style={styles.errorText}>{errors.diet}</Text>
+        )}
+      </View>
 
-                  {/* Summary Card */}
-                  {selectedTimeSlots && (
-                    <Card style={dynamicStyles.summaryCard}>
-                      <Card.Content>
-                        <View style={dynamicStyles.summaryHeader}>
-                          <Icon name="schedule" size={20} color={colors.primary} />
-                          <Text style={dynamicStyles.summaryTitle}>
-                            Your Selected Time Slots
-                          </Text>
-                        </View>
-                        <Text style={dynamicStyles.summaryText}>
-                          {selectedTimeSlots}
-                        </Text>
-                      </Card.Content>
-                    </Card>
-                  )}
-                </View>
-              )}
+      {/* Description */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Description</Text>
+        <TextInput
+          style={styles.textArea}
+          placeholder="Tell us about your skills and experience..."
+          placeholderTextColor="#999"
+          value={formData.description}
+          onChangeText={onDescriptionChange}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+      </View>
+
+      {/* Languages */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Languages Spoken</Text>
+        
+        <TouchableOpacity
+          style={styles.languageSelector}
+          onPress={() => setLanguageModalVisible(true)}
+        >
+          <Text style={styles.languageSelectorText}>
+            {selectedLanguages.length > 0 
+              ? `${selectedLanguages.length} language${selectedLanguages.length > 1 ? 's' : ''} selected`
+              : "Select languages you speak"}
+          </Text>
+          <Icon name="arrow-drop-down" size={24} color="#666" />
+        </TouchableOpacity>
+
+        {selectedLanguages.length > 0 && (
+          <View style={styles.languageChipsContainer}>
+            {selectedLanguages.map((language, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.languageChip}
+                onPress={() => handleLanguageSelect(language)}
+              >
+                <Text style={styles.languageChipText}>{language}</Text>
+                <Icon name="close" size={14} color="#999" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <Modal
+          visible={languageModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setLanguageModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Languages</Text>
+                <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
+                  <Icon name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={availableLanguages}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.languageItem,
+                      selectedLanguages.includes(item) && styles.languageItemSelected
+                    ]}
+                    onPress={() => handleLanguageSelect(item)}
+                  >
+                    <Text style={[
+                      styles.languageItemText,
+                      selectedLanguages.includes(item) && styles.languageItemTextSelected
+                    ]}>
+                      {item}
+                    </Text>
+                    {selectedLanguages.includes(item) && (
+                      <Icon name="check" size={20} color="#1976d2" />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
             </View>
-          </Card.Content>
-        </Card>
+          </View>
+        </Modal>
+      </View>
+
+      {/* Experience and Referral Row */}
+      <View style={styles.rowContainer}>
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.sectionTitle}>Experience (years)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Years"
+            placeholderTextColor="#999"
+            value={formData.experience}
+            onChangeText={onExperienceChange}
+            keyboardType="numeric"
+          />
+          {errors.experience && (
+            <Text style={styles.errorText}>{errors.experience}</Text>
+          )}
+        </View>
+
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.sectionTitle}>Referral Code</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter code"
+            placeholderTextColor="#999"
+            value={formData.referralCode || ""}
+            onChangeText={onReferralCodeChange}
+          />
+        </View>
+      </View>
+
+      {/* Agent Referral ID */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Agent Referral ID (Optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter agent referral ID"
+          placeholderTextColor="#999"
+          value={formData.agentReferralId || ""}
+          onChangeText={onAgentReferralIdChange}
+        />
+      </View>
+
+      {/* Time Slots Section - REDUCED PADDING FOR MORE SPACE */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Available Time Slots</Text>
+
+        {/* Full Time Switch */}
+        <View style={styles.switchContainer}>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Full Time Availability</Text>
+            <Switch
+              value={isFullTime}
+              onValueChange={onFullTimeToggle}
+              trackColor={{ false: "#767577", true: "#1976d2" }}
+              thumbColor={isFullTime ? "#fff" : "#f4f3f4"}
+            />
+          </View>
+          <Text style={styles.switchHelper}>Enable if you're available for full-time work</Text>
+        </View>
+
+        {!isFullTime && (
+          <>
+            {/* Morning Slots - COMPACT BUT READABLE */}
+            <View style={styles.timeSlotSection}>
+              <Text style={styles.timeSlotTitle}>Morning Availability</Text>
+              <TimeSlotSelector
+                title=""
+                slots={morningSlots}
+                minTime={6}
+                maxTime={12}
+                marks={[
+                  { value: 6, label: "6" },
+                  { value: 8, label: "8" },
+                  { value: 10, label: "10" },
+                  { value: 12, label: "12" },
+                ]}
+                notAvailableMessage="Not available in mornings"
+                addSlotMessage="+ Add Morning Slot"
+                slotLabel="Slot"
+                clearButtonLabel="Clear All"
+                duplicateErrorKey="Duplicate time slot"
+                onAddSlot={onAddMorningSlot}
+                onRemoveSlot={onRemoveMorningSlot}
+                onClearSlots={onClearMorningSlots}
+                onSlotChange={onMorningSlotChange}
+                formatDisplayTime={safeFormatDisplayTime}
+              />
+            </View>
+
+            {/* Evening Slots - COMPACT BUT READABLE */}
+            <View style={styles.timeSlotSection}>
+              <Text style={styles.timeSlotTitle}>Evening Availability</Text>
+              <TimeSlotSelector
+                title=""
+                slots={eveningSlots}
+                minTime={12}
+                maxTime={20}
+                marks={[
+                  { value: 12, label: "12" },
+                  { value: 14, label: "14" },
+                  { value: 16, label: "16" },
+                  { value: 18, label: "18" },
+                  { value: 20, label: "20" },
+                ]}
+                notAvailableMessage="Not available in evenings"
+                addSlotMessage="+ Add Evening Slot"
+                slotLabel="Slot"
+                clearButtonLabel="Clear All"
+                duplicateErrorKey="Duplicate time slot"
+                onAddSlot={onAddEveningSlot}
+                onRemoveSlot={onRemoveEveningSlot}
+                onClearSlots={onClearEveningSlots}
+                onSlotChange={onEveningSlotChange}
+                formatDisplayTime={safeFormatDisplayTime}
+              />
+            </View>
+          </>
+        )}
+
+        {/* Summary */}
+        {!isFullTime && mergedTimeSlotsString && (
+          <View style={styles.summaryBox}>
+            <Text style={styles.summaryLabel}>Selected Time Slots:</Text>
+            <Text style={styles.summaryValue}>{mergedTimeSlotsString}</Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  contentContainer: {
+    paddingBottom: 30,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  serviceTypesContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  serviceCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    position: 'relative',
+  },
+  serviceCardSelected: {
+    borderColor: '#1976d2',
+    backgroundColor: '#e3f2fd',
+  },
+  serviceCardText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  serviceCardTextSelected: {
+    color: '#1976d2',
+  },
+  checkIcon: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  optionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  optionButtonSelected: {
+    borderColor: '#1976d2',
+    backgroundColor: '#e3f2fd',
+  },
+  optionButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  optionButtonTextSelected: {
+    color: '#1976d2',
+    fontWeight: '600',
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#333',
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#333',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#f44336',
+    marginTop: 6,
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    gap: 12,
+  },
+  halfCard: {
+    flex: 1,
+    marginHorizontal: 0,
+  },
+  languageSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+  },
+  languageSelectorText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  languageChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  languageChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    gap: 4,
+  },
+  languageChipText: {
+    fontSize: 12,
+    color: '#1976d2',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  languageItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  languageItemSelected: {
+    backgroundColor: '#e3f2fd',
+  },
+  languageItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  languageItemTextSelected: {
+    color: '#1976d2',
+    fontWeight: '500',
+  },
+  switchContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  switchLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+  },
+  switchHelper: {
+    fontSize: 12,
+    color: '#999',
+  },
+  timeSlotSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  timeSlotTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 12,
+  },
+  summaryBox: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1976d2',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 13,
+    color: '#1976d2',
+  },
+});
 
 export default ServiceDetails;

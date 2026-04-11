@@ -1,3 +1,4 @@
+// components/Registration/TimeSlotSelector.tsx (Fully Optimized)
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -28,7 +29,9 @@ interface TimeSlotSelectorProps {
   onRemoveSlot: (index: number) => void;
   onClearSlots: () => void;
   onSlotChange: (index: number, newValue: number[]) => void;
-  formatDisplayTime: (value: number) => string;
+  formatDisplayTime?: (value: number) => string;
+  containerStyle?: any;
+  slotContainerStyle?: any;
 }
 
 const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
@@ -47,6 +50,8 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   onClearSlots,
   onSlotChange,
   formatDisplayTime,
+  containerStyle,
+  slotContainerStyle,
 }) => {
   const [duplicateErrors, setDuplicateErrors] = useState<{
     [key: string]: boolean;
@@ -56,10 +61,30 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
     setDuplicateErrors({});
   }, [slots]);
 
+  const defaultFormatDisplayTime = (value: number): string => {
+    const hours = Math.floor(value);
+    const minutes = Math.round((value % 1) * 60);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes > 0 ? `:${minutes.toString().padStart(2, '0')}` : '';
+    return `${displayHours}${displayMinutes} ${period}`;
+  };
+
+  const formatTime = formatDisplayTime || defaultFormatDisplayTime;
+
   const handleSlotChange = (index: number, values: number[]) => {
-    const [start, end] = values;
-    // Ensure start is less than end and minimum 1 hour difference
-    if (end - start < 0.5) return;
+    let [start, end] = values;
+    
+    // Ensure minimum 1 hour difference for better usability
+    if (end - start < 1) {
+      if (end + 1 <= maxTime) {
+        end = start + 1;
+      } else if (start - 1 >= minTime) {
+        start = end - 1;
+      } else {
+        return;
+      }
+    }
     
     const newValue = [start, end];
     
@@ -69,6 +94,9 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
     );
     if (exists) {
       setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: true }));
+      setTimeout(() => {
+        setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: false }));
+      }, 3000);
       return;
     }
     setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: false }));
@@ -78,7 +106,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   const handleClearSlots = () => {
     Alert.alert(
       "Clear Slots",
-      `Are you sure you want to clear all ${slotLabel}s?`,
+      `Are you sure you want to clear all ${slotLabel.toLowerCase()} slots?`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Clear", onPress: onClearSlots, style: "destructive" }
@@ -86,27 +114,39 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
     );
   };
 
+  const getMarkerLabel = (value: number) => {
+    const hour = Math.floor(value);
+    const minute = value % 1 === 0.5 ? "30" : "00";
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minute} ${period}`;
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Icon name="access-time" size={20} color="#1976d2" />
+          <Icon name="access-time" size={18} color="#1976d2" />
           <Text style={styles.title}>{title}</Text>
         </View>
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.button, styles.addButton]}
+            style={styles.addButton}
             onPress={onAddSlot}
+            activeOpacity={0.7}
           >
-            <Icon name="add" size={18} color="#fff" />
+            <Icon name="add" size={18} color="#1976d2" />
+            <Text style={styles.addButtonText}>Add</Text>
           </TouchableOpacity>
           {slots.length > 0 && (
             <TouchableOpacity
-              style={[styles.button, styles.clearButton]}
+              style={styles.clearButton}
               onPress={handleClearSlots}
+              activeOpacity={0.7}
             >
-              <Icon name="delete" size={18} color="#f44336" />
+              <Icon name="delete-outline" size={18} color="#f44336" />
+              <Text style={styles.clearButtonText}>Clear</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -114,36 +154,62 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
       {/* Content */}
       {slots.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon name="schedule" size={32} color="#ccc" />
+        <TouchableOpacity 
+          style={styles.emptyContainer}
+          onPress={onAddSlot}
+          activeOpacity={0.6}
+        >
+          <View style={styles.emptyIconContainer}>
+            <Icon name="access-time" size={32} color="#1976d2" />
+          </View>
           <Text style={styles.emptyText}>{notAvailableMessage}</Text>
-          <Text style={styles.emptySubtext}>{addSlotMessage}</Text>
-        </View>
+          <Text style={styles.emptySubtext}>Tap here to {addSlotMessage.toLowerCase()}</Text>
+        </TouchableOpacity>
       ) : (
-        <ScrollView style={styles.slotsContainer} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.slotsContainer} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.slotsContentContainer}
+        >
           {slots.map((slot: number[], index: number) => {
             const hasError = duplicateErrors[`slot-${index}`];
             return (
-              <View key={`slot-${index}`} style={styles.slotCard}>
+              <View 
+                key={`slot-${index}`} 
+                style={[styles.slotCard, slotContainerStyle, hasError && styles.slotCardError]}
+              >
                 <View style={styles.slotHeader}>
-                  <Text style={styles.slotTitle}>
-                    {slotLabel} {index + 1}
-                  </Text>
+                  <View style={styles.slotTitleContainer}>
+                    <Icon name="schedule" size={16} color="#1976d2" />
+                    <Text style={styles.slotTitle}>
+                      {slotLabel} {index + 1}
+                    </Text>
+                  </View>
                   {slots.length > 1 && (
                     <TouchableOpacity
                       onPress={() => onRemoveSlot(index)}
-                      style={styles.deleteButton}
+                      style={styles.removeButton}
+                      activeOpacity={0.7}
                     >
-                      <Icon name="delete" size={20} color="#f44336" />
+                      <Icon name="close" size={18} color="#f44336" />
                     </TouchableOpacity>
                   )}
                 </View>
 
                 <View style={styles.selectedTimeContainer}>
-                  <Icon name="access-time" size={14} color="#666" />
-                  <Text style={styles.selectedTime}>
-                    Selected: {formatDisplayTime(slot[0])} - {formatDisplayTime(slot[1])}
-                  </Text>
+                  <View style={styles.timeBadge}>
+                    <Icon name="access-time" size={12} color="#fff" />
+                    <Text style={styles.selectedTime}>
+                      {formatTime(slot[0])}
+                    </Text>
+                  </View>
+                  <Icon name="arrow-forward" size={14} color="#999" />
+                  <View style={styles.timeBadge}>
+                    <Icon name="access-time" size={12} color="#fff" />
+                    <Text style={styles.selectedTime}>
+                      {formatTime(slot[1])}
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.sliderWrapper}>
@@ -156,48 +222,54 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
                       onValuesChange={(values) => handleSlotChange(index, values)}
                       selectedStyle={{
                         backgroundColor: '#1976d2',
-                        height: 4,
+                        height: 3,
                       }}
                       unselectedStyle={{
                         backgroundColor: '#e0e0e0',
-                        height: 4,
+                        height: 3,
                       }}
                       trackStyle={{
-                        height: 4,
-                        borderRadius: 2,
+                        height: 3,
+                        borderRadius: 1.5,
                       }}
                       markerStyle={{
-                        height: 22,
-                        width: 22,
-                        borderRadius: 11,
+                        height: 20,
+                        width: 20,
+                        borderRadius: 10,
                         backgroundColor: '#fff',
                         borderWidth: 2,
                         borderColor: '#1976d2',
                         shadowColor: '#000',
                         shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.2,
+                        shadowOpacity: 0.15,
                         shadowRadius: 2,
                         elevation: 2,
                       }}
                       pressedMarkerStyle={{
-                        height: 24,
-                        width: 24,
-                        borderRadius: 12,
+                        height: 22,
+                        width: 22,
+                        borderRadius: 11,
                         backgroundColor: '#fff',
-                        borderWidth: 2,
+                        borderWidth: 2.5,
                         borderColor: '#1565c0',
                       }}
                       containerStyle={{
-                        height: 40,
-                        paddingHorizontal: 8,
+                        height: 30,
+                        paddingHorizontal: 4,
                       }}
                     />
                   </View>
                   
-                  {/* Marks Container - Fixed positioning */}
+                  {/* Marks */}
                   <View style={styles.marksWrapper}>
-                    {marks.map((mark: { value: number; label: string }, index: number) => (
-                      <View key={index} style={[styles.markContainer, { left: `${((mark.value - minTime) / (maxTime - minTime)) * 100}%` }]}>
+                    {marks.map((mark: { value: number; label: string }, idx: number) => (
+                      <View 
+                        key={idx} 
+                        style={[
+                          styles.markContainer, 
+                          { left: `${((mark.value - minTime) / (maxTime - minTime)) * 100}%` }
+                        ]}
+                      >
                         <View style={styles.markLine} />
                         <Text style={styles.markLabel}>{mark.label}</Text>
                       </View>
@@ -207,7 +279,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
                 {hasError && (
                   <View style={styles.errorContainer}>
-                    <Icon name="error" size={16} color="#f44336" />
+                    <Icon name="error-outline" size={14} color="#f44336" />
                     <Text style={styles.errorText}>{duplicateErrorKey}</Text>
                   </View>
                 )}
@@ -222,10 +294,10 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: 12,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#e8e8e8',
   },
@@ -233,16 +305,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    gap: 8,
+    gap: 6,
   },
   title: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1976d2',
   },
@@ -250,124 +321,159 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  button: {
+  addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6,
+    backgroundColor: '#e3f2fd',
     gap: 4,
   },
-  addButton: {
-    backgroundColor: '#1976d2',
+  addButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1976d2',
   },
   clearButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#f44336',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '500',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#ffebee',
+    gap: 4,
   },
   clearButtonText: {
-    color: '#f44336',
     fontSize: 12,
     fontWeight: '500',
+    color: '#f44336',
   },
   emptyContainer: {
-    padding: 32,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
     backgroundColor: '#fafafa',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e8e8e8',
     borderStyle: 'dashed',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+  },
+  emptyIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#e3f2fd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 13,
+    color: '#666',
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 12,
-    color: '#bbb',
+    fontSize: 11,
+    color: '#1976d2',
     textAlign: 'center',
   },
   slotsContainer: {
-    maxHeight: 400,
+    maxHeight: 380,
+  },
+  slotsContentContainer: {
+    paddingBottom: 4,
   },
   slotCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e8e8e8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.03,
     shadowRadius: 2,
     elevation: 1,
+  },
+  slotCardError: {
+    borderColor: '#f44336',
+    backgroundColor: '#ffebee',
   },
   slotHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  slotTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   slotTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#1976d2',
   },
-  deleteButton: {
+  removeButton: {
     padding: 4,
   },
   selectedTimeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 14,
+    paddingVertical: 8,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  timeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1976d2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    gap: 4,
   },
   selectedTime: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#fff',
   },
   sliderWrapper: {
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: 4,
+    marginBottom: 4,
     position: 'relative',
   },
   sliderContainer: {
     width: '100%',
+    paddingHorizontal: 4,
   },
   marksWrapper: {
     position: 'relative',
     width: '100%',
-    height: 30,
-    marginTop: 4,
+    height: 28,
+    marginTop: 2,
   },
   markContainer: {
     position: 'absolute',
     alignItems: 'center',
-    transform: [{ translateX: -12 }],
-    width: 24,
+    transform: [{ translateX: -10 }],
+    width: 20,
   },
   markLine: {
     width: 1,
-    height: 8,
+    height: 6,
     backgroundColor: '#bdbdbd',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   markLabel: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#999',
     textAlign: 'center',
   },
@@ -375,10 +481,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffebee',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 12,
-    gap: 8,
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 10,
+    gap: 6,
   },
   errorText: {
     fontSize: 11,
