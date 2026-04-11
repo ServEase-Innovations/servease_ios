@@ -16,30 +16,20 @@ import {
   ViewStyle,
   TextStyle,
   StyleProp,
-  Modal,
   RefreshControl,
-  Dimensions,
   Linking,
   BackHandler,
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import axiosInstance from '../services/axiosInstance';
 import dayjs from 'dayjs';
-import axios from 'axios';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useTheme } from '../../src/Settings/ThemeContext';
-import { useTranslation } from 'react-i18next';
-
-// Import SkeletonLoader
+// Removed: import { useTranslation } from 'react-i18next';
 import { SkeletonLoader } from '../common/SkeletonLoader';
-
-// Import existing components
 import UserHoliday from './UserHoliday';
 import ModifyBookingDialog from './ModifyBookingDialog';
 import VacationManagementDialog from './VacationManagement';
-
-// Import new components
 import ConfirmationDialog from './ConfirmationDialog';
 import AddReviewDialog from './AddReviewDialog';
 import WalletDialog from './WalletDialog';
@@ -49,20 +39,13 @@ import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 
-// Helper function to log ONLY critical data (minimal)
-const logError = (message: string, error?: any) => {
-  if (__DEV__) {
-    console.error(`❌ ${message}`, error || '');
-  }
-};
-
-// Card component
+// ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
   const { colors } = useTheme();
   const Container = onPress ? TouchableOpacity : View;
   return (
-    <Container 
-      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]} 
+    <Container
+      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -71,7 +54,6 @@ const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; 
   );
 };
 
-// Button component
 const Button: React.FC<{
   children: React.ReactNode;
   onPress?: () => void;
@@ -90,28 +72,17 @@ const Button: React.FC<{
   );
 };
 
-// Badge component
-const Badge: React.FC<{
-  children: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
-}> = ({ children, style }) => {
+const Badge: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle> }> = ({ children, style }) => {
   const { colors } = useTheme();
-  return (
-    <View style={[styles.badgeBase, { borderColor: colors.border }, style]}>
-      {children}
-    </View>
-  );
+  return <View style={[styles.badgeBase, { borderColor: colors.border }, style]}>{children}</View>;
 };
 
-// Separator component
 const Separator: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => {
   const { colors } = useTheme();
-  return (
-    <View style={[styles.separatorBase, { backgroundColor: colors.border }, style]} />
-  );
+  return <View style={[styles.separatorBase, { backgroundColor: colors.border }, style]} />;
 };
 
-// Skeleton Loader Component for Booking Cards
+// ---------- Skeleton Loaders ----------
 const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
   return (
     <Card style={[styles.bookingCard, { borderColor: colors.border }]}>
@@ -163,13 +134,7 @@ const StatusTabsSkeleton: React.FC = () => {
     <View style={styles.statusFilterContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {[1, 2, 3, 4, 5].map((item) => (
-          <SkeletonLoader
-            key={item}
-            width={80}
-            height={36}
-            variant="rectangular"
-            style={{ marginRight: 10 }}
-          />
+          <SkeletonLoader key={item} width={80} height={36} variant="rectangular" style={{ marginRight: 10 }} />
         ))}
       </ScrollView>
     </View>
@@ -225,7 +190,7 @@ const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
   );
 };
 
-// Interfaces
+// ---------- Interfaces ----------
 interface TodayService {
   service_day_id: string;
   status: string;
@@ -248,14 +213,7 @@ interface Responsibilities {
 interface Modification {
   date: string;
   action: string;
-  changes?: {
-    new_start_date?: string;
-    new_end_date?: string;
-    new_start_time?: string;
-    start_date?: { from: string; to: string };
-    end_date?: { from: string; to: string };
-    start_time?: { from: string; to: string };
-  };
+  changes?: any;
   refund?: number;
   penalty?: number;
 }
@@ -269,10 +227,12 @@ interface Payment {
   payment_mode: string;
   status: string;
   created_at: string;
+  transaction_id?: string;
 }
 
 interface Booking {
   id: number;
+  customerId?: number;
   name: string;
   serviceProviderId: number;
   timeSlot: string;
@@ -302,16 +262,7 @@ interface Booking {
   hasVacation?: boolean;
   assignmentStatus: string;
   start_epoch?: number;
-  vacation?: {
-    start_date?: string;
-    end_date?: string;
-    leave_days?: number;
-    leave_start_date?: string;
-    leave_end_date?: string;
-    total_days?: number;
-    refund_amount?: number;
-    leave_type?: string;
-  };
+  vacation?: any;
   vacationDetails?: {
     leave_type?: string;
     total_days?: number;
@@ -324,13 +275,15 @@ interface Booking {
   modifications: Modification[];
   today_service?: TodayService;
   payment?: Payment;
+  leave_days?: number;
+  provider?: any;
 }
 
 interface BookingProps {
   onBackToHome?: () => void;
 }
 
-// Utility functions
+// ---------- Utility Functions ----------
 const getServiceIcon = (type: string) => {
   const serviceType = type || 'other';
   switch (serviceType) {
@@ -342,65 +295,65 @@ const getServiceIcon = (type: string) => {
   }
 };
 
-const getStatusBadge = (status: string, colors: any, fontSizes: any, t: any) => {
+const getStatusBadge = (status: string, colors: any, fontSizes: any) => {
   switch (status) {
     case 'ACTIVE':
       return (
         <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
           <Icon name="alert-circle" size={14} color={colors.primary} />
-          <Text style={[styles.activeBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{t('booking.status.active')}</Text>
+          <Text style={[styles.activeBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>Active</Text>
         </Badge>
       );
     case 'COMPLETED':
       return (
         <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
           <Icon name="check-circle" size={14} color={colors.success} />
-          <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.completed')}</Text>
+          <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
         </Badge>
       );
     case 'CANCELLED':
       return (
         <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
           <Icon name="close-circle" size={14} color={colors.error} />
-          <Text style={[styles.cancelledBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>{t('booking.status.cancelled')}</Text>
+          <Text style={[styles.cancelledBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Cancelled</Text>
         </Badge>
       );
     case 'IN_PROGRESS':
       return (
         <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
           <Icon name="clock" size={14} color={colors.warning} />
-          <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>{t('booking.status.inProgress')}</Text>
+          <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
         </Badge>
       );
     case 'NOT_STARTED':
       return (
         <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
           <Icon name="clock" size={14} color={colors.textSecondary} />
-          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{t('booking.status.notStarted')}</Text>
+          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>Not Started</Text>
         </Badge>
       );
     default: return null;
   }
 };
 
-const getBookingTypeBadge = (type: string, colors: any, fontSizes: any, t: any) => {
+const getBookingTypeBadge = (type: string, colors: any, fontSizes: any) => {
   switch (type) {
     case 'ON_DEMAND':
       return (
         <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-          <Text style={[styles.onDemandBadgeText, { color: colors.info, fontSize: fontSizes.badgeText }]}>{t('booking.options.onDemand')}</Text>
+          <Text style={[styles.onDemandBadgeText, { color: colors.info, fontSize: fontSizes.badgeText }]}>On Demand</Text>
         </Badge>
       );
     case 'MONTHLY':
       return (
         <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-          <Text style={[styles.monthlyBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{t('booking.options.monthly')}</Text>
+          <Text style={[styles.monthlyBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>Monthly</Text>
         </Badge>
       );
     case 'SHORT_TERM':
       return (
         <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-          <Text style={[styles.shortTermBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.options.shortTerm')}</Text>
+          <Text style={[styles.shortTermBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Short Term</Text>
         </Badge>
       );
     default:
@@ -412,14 +365,14 @@ const getBookingTypeBadge = (type: string, colors: any, fontSizes: any, t: any) 
   }
 };
 
-const getServiceTitle = (type: string, t: any) => {
+const getServiceTitle = (type: string) => {
   const serviceType = type || 'other';
   switch (serviceType) {
-    case 'cook': return t('booking.cards.homeCook');
-    case 'maid': return t('booking.cards.maidService');
-    case 'nanny': return t('booking.cards.caregiver');
-    case 'cleaning': return t('booking.cards.cleaningService');
-    default: return t('booking.cards.homeService');
+    case 'cook': return 'Home Cook';
+    case 'maid': return 'Maid Service';
+    case 'nanny': return 'Caregiver';
+    case 'cleaning': return 'Cleaning Service';
+    default: return 'Home Service';
   }
 };
 
@@ -436,41 +389,17 @@ const isModificationTimeAllowed = (startEpoch: any): boolean => {
 
 const isBookingAlreadyModified = (booking: Booking | null): boolean => {
   if (!booking) return false;
-  const hasExplicitModifications = booking.modifications && 
-    booking.modifications.length > 0 && 
-    booking.modifications.some(mod => 
-      mod.action === "Date Rescheduled" || 
-      mod.action === "Time Rescheduled" ||
-      mod.action === "Modified" || 
-      mod.action?.includes("Modified") ||
-      mod.action === "Rescheduled" ||
-      mod.action?.includes("Reschedule")
-    );
-  return !!hasExplicitModifications;
+  return !!(booking.modifications?.some(mod =>
+    mod.action === "Date Rescheduled" ||
+    mod.action === "Time Rescheduled" ||
+    mod.action === "Modified" ||
+    mod.action?.includes("Reschedule")
+  ));
 };
 
 const isModificationDisabled = (booking: Booking | null): boolean => {
   if (!booking) return true;
   return !isModificationTimeAllowed(booking.start_epoch) || isBookingAlreadyModified(booking);
-};
-
-const getModificationDetails = (booking: Booking, t: any): string => {
-  if (!booking.modifications || booking.modifications.length === 0) return "";
-  const lastMod = booking.modifications[booking.modifications.length - 1];
-  if (lastMod.action === "Date Rescheduled" && lastMod.changes) {
-    if (lastMod.changes.new_start_date && lastMod.changes.new_end_date) {
-      return `Date rescheduled to ${lastMod.changes.new_start_date}`;
-    } else if (lastMod.changes.start_date) {
-      return `Date changed from ${dayjs(lastMod.changes.start_date.from).format('MMM D, YYYY')} to ${dayjs(lastMod.changes.start_date.to).format('MMM D, YYYY')}`;
-    }
-  } else if (lastMod.action === "Time Rescheduled" && lastMod.changes) {
-    if (lastMod.changes.new_start_time) {
-      return `Time rescheduled to ${lastMod.changes.new_start_time}`;
-    } else if (lastMod.changes.start_time) {
-      return `Time changed from ${lastMod.changes.start_time.from} to ${lastMod.changes.start_time.to}`;
-    }
-  }
-  return t('booking.modification.lastModified', { action: lastMod.action });
 };
 
 const formatTimeToAMPM = (timeString: string): string => {
@@ -483,7 +412,7 @@ const formatTimeToAMPM = (timeString: string): string => {
     const displayHour = hour % 12 || 12;
     const displayMinute = minute.toString().padStart(2, '0');
     return `${displayHour}:${displayMinute} ${period}`;
-  } catch (error) {
+  } catch {
     return timeString;
   }
 };
@@ -492,10 +421,11 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
   return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
 };
 
+// ---------- Main Booking Component ----------
 const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
-  const { t } = useTranslation();
-  
+  // Removed: const { t } = useTranslation();
+
   // State variables
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -504,17 +434,11 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const [selectedBookingForLeave, setSelectedBookingForLeave] = useState<Booking | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [modifiedBookings, setModifiedBookings] = useState<number[]>([]);
-  const [bookingsWithVacation, setBookingsWithVacation] = useState<number[]>([]);
   const [generatedOTPs, setGeneratedOTPs] = useState<Record<number, string>>({});
-  
-  // Dialog states
-  const [openDialog, setOpenDialog] = useState(false);
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
   const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
@@ -522,23 +446,15 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const [selectedBookingForVacationManagement, setSelectedBookingForVacationManagement] = useState<Booking | null>(null);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
-
-  // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState<number | null>(null);
   const [paymentLoading, setPaymentLoading] = useState<number | null>(null);
-  
-  // Other states
-  const [timeSlots, setTimeSlots] = useState<string[]>([]);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
-  const [uniqueMissingSlots, setUniqueMissingSlots] = useState<string[]>([]);
-  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [timeSlots] = useState<string[]>([]);
   const [reviewDialogVisible, setReviewDialogVisible] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
 
-  // Confirmation dialog state
   const [confirmationDialog, setConfirmationDialog] = useState<{
     open: boolean;
     type: 'cancel' | 'modify' | 'vacation' | 'payment' | null;
@@ -552,40 +468,22 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     booking: null,
     message: '',
     title: '',
-    severity: 'info'
+    severity: 'info',
   });
 
-  // Auth
   const { user: auth0User } = useAuth0();
   const isAuthenticated = auth0User !== undefined && auth0User !== null;
   const { appUser } = useAppUser();
-
-  // Refs
-  const initialLoadDone = useRef(false);
-  const isFetchingRef = useRef(false);
-  const processedDeepLink = useRef(false);
 
   // Font sizes
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
-        return {
-          headerTitle: 24, headerSubtitle: 14, sectionTitle: 20, sectionSubtitle: 13,
-          serviceTitle: 15, infoText: 13, viewDetailsText: 11, buttonText: 11,
-          badgeText: 11, emptyStateTitle: 18, emptyStateText: 15, searchInput: 14,
-        };
+        return { headerTitle: 24, headerSubtitle: 14, sectionTitle: 20, sectionSubtitle: 13, serviceTitle: 15, infoText: 13, viewDetailsText: 11, buttonText: 11, badgeText: 11, emptyStateTitle: 18, emptyStateText: 15, searchInput: 14 };
       case 'large':
-        return {
-          headerTitle: 32, headerSubtitle: 18, sectionTitle: 24, sectionSubtitle: 16,
-          serviceTitle: 18, infoText: 16, viewDetailsText: 14, buttonText: 14,
-          badgeText: 14, emptyStateTitle: 22, emptyStateText: 18, searchInput: 18,
-        };
+        return { headerTitle: 32, headerSubtitle: 18, sectionTitle: 24, sectionSubtitle: 16, serviceTitle: 18, infoText: 16, viewDetailsText: 14, buttonText: 14, badgeText: 14, emptyStateTitle: 22, emptyStateText: 18, searchInput: 18 };
       default:
-        return {
-          headerTitle: 28, headerSubtitle: 16, sectionTitle: 22, sectionSubtitle: 14,
-          serviceTitle: 16, infoText: 14, viewDetailsText: 12, buttonText: 12,
-          badgeText: 12, emptyStateTitle: 20, emptyStateText: 16, searchInput: 16,
-        };
+        return { headerTitle: 28, headerSubtitle: 16, sectionTitle: 22, sectionSubtitle: 14, serviceTitle: 16, infoText: 14, viewDetailsText: 12, buttonText: 12, badgeText: 12, emptyStateTitle: 20, emptyStateText: 16, searchInput: 16 };
     }
   };
   const fontSizes = getFontSizes();
@@ -600,11 +498,123 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         ...booking.vacationDetails,
         leave_start_date: booking.vacationDetails.leave_start_date || booking.vacationDetails.start_date,
         leave_end_date: booking.vacationDetails.leave_end_date || booking.vacationDetails.end_date,
-      } : null
+      } : null,
     };
   };
 
-  // Data fetching
+  // ---------- Core Data Mapping (FIXED) ----------
+  const mapBookingData = (data: any[]): Booking[] => {
+    if (!Array.isArray(data)) return [];
+
+    return data.map((item): Booking => {
+      // Detect vacation from root leave_days OR vacations array
+      const hasVacationFlag = (item.leave_days && item.leave_days > 0) ||
+                              (item.vacations && Array.isArray(item.vacations) && item.vacations.length > 0);
+
+      let vacationDetails = undefined;
+      if (hasVacationFlag) {
+        if (item.vacations && item.vacations.length > 0) {
+          const latestVacation = item.vacations[0];
+          vacationDetails = {
+            leave_type: "VACATION",
+            total_days: latestVacation.leave_days || item.leave_days,
+            refund_amount: latestVacation.refund,
+            leave_start_date: latestVacation.start_date,
+            leave_end_date: latestVacation.end_date,
+            start_date: latestVacation.start_date,
+            end_date: latestVacation.end_date,
+          };
+        } else if (item.vacation_start_date && item.vacation_end_date) {
+          vacationDetails = {
+            leave_type: "VACATION",
+            total_days: item.leave_days,
+            refund_amount: item.refund,
+            leave_start_date: item.vacation_start_date,
+            leave_end_date: item.vacation_end_date,
+            start_date: item.vacation_start_date,
+            end_date: item.vacation_end_date,
+          };
+        }
+      }
+
+      const serviceType = item.service_type?.toLowerCase() || item.serviceType?.toLowerCase() || 'other';
+      const modifications = item.modifications || [];
+      const hasModifications = modifications.length > 0;
+
+      // Extract provider name
+      let serviceProviderName = 'Not Assigned';
+      let providerRating = 0;
+
+      if (item.provider) {
+        const firstName = item.provider.firstName || item.provider.firstname || '';
+        const lastName = item.provider.lastName || item.provider.lastname || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        if (fullName && fullName !== ' ') {
+          serviceProviderName = fullName;
+          providerRating = item.provider.rating || 0;
+        }
+      } else if (item.service_provider) {
+        const firstName = item.service_provider.firstName || item.service_provider.firstname || '';
+        const lastName = item.service_provider.lastName || item.service_provider.lastname || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        if (fullName && fullName !== ' ') {
+          serviceProviderName = fullName;
+          providerRating = item.service_provider.rating || 0;
+        }
+      } else if (item.assignment_status === "UNASSIGNED") {
+        serviceProviderName = 'Awaiting Assignment';
+      } else if (item.serviceProviderName && item.serviceProviderName !== "undefined undefined") {
+        serviceProviderName = item.serviceProviderName;
+      } else if (item.provider_name) {
+        serviceProviderName = item.provider_name;
+      }
+
+      const amount = item.base_amount || item.monthlyAmount || item.total_amount || 0;
+      const startEpoch = item.start_epoch ? Number(item.start_epoch) : 0;
+
+      return {
+        id: Number(item.engagement_id),
+        customerId: item.customerid ? Number(item.customerid) : undefined,
+        name: item.customerName || '',
+        serviceProviderId: item.serviceproviderid ? Number(item.serviceproviderid) : 0,
+        timeSlot: item.start_time || '',
+        date: item.start_date || '',
+        startDate: item.start_date || '',
+        endDate: item.end_date || '',
+        start_time: item.start_time || '',
+        end_time: item.end_time || '',
+        bookingType: item.booking_type || '',
+        monthlyAmount: Number(amount),
+        paymentMode: item.paymentMode || '',
+        address: item.address || 'Address',
+        customerName: item.customerName || '',
+        serviceProviderName: serviceProviderName,
+        providerRating: providerRating,
+        taskStatus: item.task_status || '',
+        engagements: item.engagements || '',
+        bookingDate: item.created_at || new Date().toISOString(),
+        service_type: serviceType,
+        serviceType: serviceType,
+        childAge: item.childAge || '',
+        experience: item.experience || '',
+        noOfPersons: item.noOfPersons || '',
+        mealType: item.mealType || '',
+        modifiedDate: hasModifications ? modifications[modifications.length - 1]?.date || item.created_at : item.created_at,
+        responsibilities: item.responsibilities || { tasks: [] },
+        hasVacation: hasVacationFlag,
+        assignmentStatus: item.assignment_status || "ASSIGNED",
+        start_epoch: startEpoch,
+        vacation: item.vacation || null,
+        vacationDetails: vacationDetails,
+        modifications: modifications,
+        today_service: item.today_service,
+        payment: item.payment,
+        leave_days: item.leave_days || 0,
+        provider: item.provider,
+      };
+    });
+  };
+
   const refreshBookings = async (id?: string) => {
     const effectiveId = id || customerId;
     if (!effectiveId) return;
@@ -614,98 +624,16 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       setPastBookings(mapBookingData(past));
       setCurrentBookings(mapBookingData(ongoing));
       setFutureBookings(mapBookingData(upcoming));
-    } catch (error: any) {
-      logError('Error fetching bookings:', error);
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
     }
-  };
-
-  const mapBookingData = (data: any[]) => {
-    return Array.isArray(data) ? data.map((item) => {
-      const hasVacationFlag = item?.vacation?.leave_days > 0;
-      const serviceType = item.service_type?.toLowerCase() || item.serviceType?.toLowerCase() || 'other';
-      const modifications = item.modifications || [];
-      const hasModifications = modifications.length > 0;
-
-      let serviceProviderName = t('booking.cards.notAssigned');
-      let providerRating = 0;
-      if (item.provider) {
-        const firstName = item.provider.firstname || '';
-        const lastName = item.provider.lastname || '';
-        const fullName = `${firstName} ${lastName}`.trim();
-        if (fullName && fullName !== ' ') {
-          serviceProviderName = fullName;
-          providerRating = item.provider.rating || 0;
-        }
-      } else if (item.service_provider) {
-        const firstName = item.service_provider.firstname || '';
-        const lastName = item.service_provider.lastname || '';
-        const fullName = `${firstName} ${lastName}`.trim();
-        if (fullName && fullName !== ' ') {
-          serviceProviderName = fullName;
-          providerRating = item.service_provider.rating || 0;
-        }
-      } else if (item.assignment_status === "UNASSIGNED") {
-        serviceProviderName = t('booking.cards.awaitingAssignment');
-      } else if (item.serviceProviderName && item.serviceProviderName !== "undefined undefined") {
-        serviceProviderName = item.serviceProviderName;
-      } else if (item.provider_name) {
-        serviceProviderName = item.provider_name;
-      }
-
-      const amount = item.base_amount || item.monthlyAmount || item.total_amount || 0;
-      const startEpoch = item.start_epoch || 0;
-
-      return {
-        id: item.engagement_id,
-        customerId: item.customerId,
-        serviceProviderId: item.serviceproviderid || item.serviceProviderId,
-        name: item.customerName,
-        timeSlot: item.start_time,
-        date: item.start_date,
-        startDate: item.start_date,
-        endDate: item.end_date,
-        start_time: item.start_time,
-        end_time: item.end_time,
-        bookingType: item.booking_type,
-        monthlyAmount: amount,
-        paymentMode: item.paymentMode,
-        address: item.address || t('common.address'),
-        customerName: item.customerName,
-        serviceProviderName: serviceProviderName,
-        providerRating: providerRating,
-        taskStatus: item.task_status,
-        engagements: item.engagements,
-        bookingDate: item.created_at,
-        service_type: serviceType,
-        serviceType: serviceType,
-        childAge: item.childAge,
-        experience: item.experience,
-        noOfPersons: item.noOfPersons,
-        mealType: item.mealType,
-        modifiedDate: hasModifications ? modifications[modifications.length - 1]?.date || item.created_at : item.created_at,
-        responsibilities: item.responsibilities,
-        hasVacation: hasVacationFlag,
-        assignmentStatus: item.assignment_status || "ASSIGNED",
-        start_epoch: startEpoch,
-        vacation: item.vacation || null,
-        vacationDetails: hasVacationFlag && item.vacation?.leave_days > 0 ? {
-          ...item.vacation,
-          leave_start_date: item.vacation.start_date || item.vacation.leave_start_date,
-          leave_end_date: item.vacation.end_date || item.vacation.leave_end_date,
-          total_days: item.vacation.leave_days || item.vacation.total_days,
-        } : null,
-        modifications: modifications,
-        today_service: item.today_service,
-        payment: item.payment
-      };
-    }) : [];
   };
 
   const fetchBookings = async (id: string) => {
     try {
       await refreshBookings(id);
     } catch (error) {
-      logError('Error fetching booking details:', error);
+      console.error('Error fetching booking details:', error);
     } finally {
       setIsLoading(false);
     }
@@ -716,13 +644,12 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     try {
       if (customerId) await refreshBookings();
     } catch (error) {
-      logError('Error refreshing bookings:', error);
+      console.error('Error refreshing bookings:', error);
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  // Effect to load bookings
   useEffect(() => {
     if (isAuthenticated && appUser?.customerid) {
       setIsLoading(true);
@@ -733,10 +660,10 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   }, [appUser, isAuthenticated]);
 
-  // OTP Generation
+  // ---------- OTP & Payment Handlers ----------
   const handleGenerateOTP = async (booking: Booking) => {
     if (!booking.today_service?.service_day_id) {
-      Alert.alert(t('common.error'), t('booking.otp.failed'));
+      Alert.alert('Error', 'Failed to generate OTP');
       return;
     }
     try {
@@ -747,20 +674,19 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         setGeneratedOTPs(prev => ({ ...prev, [booking.id]: otp }));
         setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
         setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
-        Alert.alert(t('common.success'), t('booking.otp.generated'));
+        Alert.alert('Success', 'OTP generated successfully');
       }
     } catch (error: any) {
-      logError('Error generating OTP:', error);
-      Alert.alert(t('common.error'), error.response?.data?.message || t('booking.otp.failed'));
+      console.error('Error generating OTP:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to generate OTP');
     } finally {
       setOtpLoading(null);
     }
   };
 
-  // Payment
   const handleCompletePayment = async (booking: Booking) => {
     if (!booking.payment?.engagement_id) {
-      Alert.alert(t('common.error'), t('booking.payment.resumeFailed'));
+      Alert.alert('Error', 'Failed to resume payment');
       return;
     }
     try {
@@ -773,7 +699,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         currency,
         order_id: razorpay_order_id,
         name: "Serveaso",
-        description: `${t('booking.payment.description')} ${getServiceTitle(booking.service_type, t)}`,
+        description: `Payment for ${getServiceTitle(booking.service_type)}`,
         prefill: {
           name: customer?.firstname || booking.customerName,
           contact: customer?.contact || '9999999999',
@@ -781,41 +707,42 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         },
         theme: { color: colors.primary },
       };
-      RazorpayCheckout.open(options).then(async (data: any) => {
-        try {
-          await PaymentInstance.post("/api/payments/verify", {
-            engagementId: engagement_id,
-            razorpay_order_id: data.razorpay_order_id,
-            razorpay_payment_id: data.razorpay_payment_id,
-            razorpay_signature: data.razorpay_signature,
-          });
-          Alert.alert(t('common.success'), t('booking.payment.completed'));
-          if (customerId) await refreshBookings();
-        } catch (verifyError: any) {
-          logError('Payment verification error:', verifyError);
-          Alert.alert(t('common.error'), t('booking.payment.verificationFailed'));
-        }
-      }).catch((error: any) => {
-        if (error.code !== 2) Alert.alert(t('common.error'), t('booking.payment.failed'));
-      });
-    } catch (err: any) {
-      logError('Complete payment error:', err);
-      Alert.alert(t('common.error'), t('booking.payment.resumeFailed'));
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          try {
+            await PaymentInstance.post("/api/payments/verify", {
+              engagementId: engagement_id,
+              razorpay_order_id: data.razorpay_order_id,
+              razorpay_payment_id: data.razorpay_payment_id,
+              razorpay_signature: data.razorpay_signature,
+            });
+            Alert.alert('Success', 'Payment completed successfully');
+            if (customerId) await refreshBookings();
+          } catch (verifyError) {
+            console.error('Payment verification error:', verifyError);
+            Alert.alert('Error', 'Payment verification failed');
+          }
+        })
+        .catch((error: any) => {
+          if (error.code !== 2) Alert.alert('Error', 'Payment failed');
+        });
+    } catch (err) {
+      console.error('Complete payment error:', err);
+      Alert.alert('Error', 'Failed to resume payment');
     } finally {
       setPaymentLoading(null);
     }
   };
 
-  // Cancel booking
   const handleCancelBooking = async (booking: Booking) => {
     try {
       setActionLoading(true);
       await PaymentInstance.put(`/api/engagements/${booking.id}`, { task_status: "CANCELLED" });
       await refreshBookings();
-      setSnackbarMessage(t('booking.messages.cancelSuccess'));
+      setSnackbarMessage('Booking cancelled successfully');
       setOpenSnackbar(true);
-    } catch (error: any) {
-      logError('Error cancelling engagement:', error);
+    } catch (error) {
+      console.error('Error cancelling engagement:', error);
       setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
       setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
     } finally {
@@ -823,28 +750,47 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   };
 
-  // Vacation submit (corrected endpoint)
+  // ---------- Vacation Submit (Optimistic Update) ----------
   const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
     if (!selectedBookingForLeave || !customerId) {
-      throw new Error(t('errors.generic'));
+      throw new Error('Something went wrong');
     }
     try {
       setIsRefreshing(true);
+
+      // Optimistic update
+      const bookingId = selectedBookingForLeave.id;
+      const totalDays = Math.floor((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const optimisticVacationDetails = {
+        leave_type: "VACATION",
+        total_days: totalDays,
+        leave_start_date: startDate,
+        leave_end_date: endDate,
+        start_date: startDate,
+        end_date: endDate,
+      };
+
+      setCurrentBookings(prev => prev.map(b => b.id === bookingId ? { ...b, hasVacation: true, vacationDetails: optimisticVacationDetails } : b));
+      setFutureBookings(prev => prev.map(b => b.id === bookingId ? { ...b, hasVacation: true, vacationDetails: optimisticVacationDetails } : b));
+      setPastBookings(prev => prev.map(b => b.id === bookingId ? { ...b, hasVacation: true, vacationDetails: optimisticVacationDetails } : b));
+
+      // API call
       await PaymentInstance.post(`/api/v2/engagements/${selectedBookingForLeave.id}/vacation`, {
         customerid: customerId,
         vacation_start_date: startDate,
         vacation_end_date: endDate,
         leave_type: "VACATION",
         modified_by_id: selectedBookingForLeave.id,
-        modified_by_role: "CUSTOMER"
+        modified_by_role: "CUSTOMER",
       });
-      setBookingsWithVacation(prev => [...prev, selectedBookingForLeave.id]);
-      await refreshBookings();  // This will reload all bookings and update the UI
-      setSnackbarMessage(t('userHoliday.success'));
+
+      await refreshBookings();
+      setSnackbarMessage('Vacation applied successfully');
       setOpenSnackbar(true);
       setHolidayDialogOpen(false);
     } catch (error) {
-      logError('Error applying leave:', error);
+      console.error('Error applying leave:', error);
+      await refreshBookings();
       throw error;
     } finally {
       setIsRefreshing(false);
@@ -852,12 +798,12 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   };
 
   const handleVacationSuccess = async () => {
-    setSnackbarMessage(t('booking.messages.vacationUpdated'));
+    setSnackbarMessage('Vacation updated successfully');
     setOpenSnackbar(true);
     await refreshBookings();
   };
 
-  // Action handlers
+  // ---------- Action Handlers ----------
   const showConfirmation = (type: 'cancel' | 'modify' | 'vacation' | 'payment', booking: Booking, title: string, message: string, severity: 'info' | 'warning' | 'error' | 'success' = 'info') => {
     setConfirmationDialog({ open: true, type, booking, message, title, severity });
   };
@@ -874,7 +820,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         case 'payment': await handleCompletePayment(booking); break;
       }
     } catch (error) {
-      logError('Error performing action:', error);
+      console.error('Error performing action:', error);
     } finally {
       setActionLoading(false);
       setConfirmationDialog(prev => ({ ...prev, open: false }));
@@ -882,11 +828,11 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   };
 
   const handleCancelClick = (booking: Booking) => {
-    showConfirmation('cancel', booking, t('booking.confirmation.cancelTitle'), t('booking.confirmation.cancelMessage', { service: getServiceTitle(booking.service_type, t) }), 'warning');
+    showConfirmation('cancel', booking, 'Cancel Booking', `Are you sure you want to cancel your ${getServiceTitle(booking.service_type)} booking?`, 'warning');
   };
 
   const handlePaymentClick = (booking: Booking) => {
-    showConfirmation('payment', booking, t('booking.confirmation.paymentTitle'), t('booking.confirmation.paymentMessage', { amount: booking.monthlyAmount, service: getServiceTitle(booking.service_type, t) }), 'info');
+    showConfirmation('payment', booking, 'Complete Payment', `Complete payment of ₹${booking.monthlyAmount} for ${getServiceTitle(booking.service_type)}?`, 'info');
   };
 
   const handleModifyClick = (booking: Booking) => {
@@ -926,15 +872,15 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     setDetailsDrawerOpen(true);
   };
 
-  const handleSaveModifiedBooking = async (updatedData: any) => {
+  const handleSaveModifiedBooking = async () => {
     setModifyDialogOpen(false);
   };
 
-  // Filtering
+  // ---------- Filtering & Sorting ----------
   const filterBookings = (bookings: Booking[], term: string) => {
     if (!term) return bookings;
-    return bookings.filter(booking => 
-      getServiceTitle(booking.service_type, t).toLowerCase().includes(term.toLowerCase()) ||
+    return bookings.filter(booking =>
+      getServiceTitle(booking.service_type).toLowerCase().includes(term.toLowerCase()) ||
       booking.serviceProviderName.toLowerCase().includes(term.toLowerCase()) ||
       booking.address.toLowerCase().includes(term.toLowerCase()) ||
       booking.bookingType.toLowerCase().includes(term.toLowerCase())
@@ -956,17 +902,17 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const filteredPastBookings = filterBookings(pastBookings, searchTerm);
 
   const statusTabs = [
-    { value: 'ALL', label: t('common.all'), count: upcomingBookings.length },
-    { value: 'NOT_STARTED', label: t('booking.status.notStarted'), count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
-    { value: 'IN_PROGRESS', label: t('booking.status.inProgress'), count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
-    { value: 'COMPLETED', label: t('booking.status.completed'), count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
-    { value: 'CANCELLED', label: t('booking.status.cancelled'), count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
+    { value: 'ALL', label: 'All', count: upcomingBookings.length },
+    { value: 'NOT_STARTED', label: 'Not Started', count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
+    { value: 'IN_PROGRESS', label: 'In Progress', count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
+    { value: 'COMPLETED', label: 'Completed', count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
+    { value: 'CANCELLED', label: 'Cancelled', count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
   ];
 
-  // Render scheduled message
+  // ---------- Render Helpers ----------
   const renderScheduledMessage = (booking: Booking) => {
     if (!booking.today_service) return null;
-    const { status, can_generate_otp, otp_active } = booking.today_service;
+    const { status } = booking.today_service;
     switch (status) {
       case "SCHEDULED":
         return (
@@ -975,13 +921,13 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
               <View style={styles.scheduledMessageHeader}>
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.messages.scheduled')}</Text>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>Service Scheduled</Text>
                   <Badge style={[styles.scheduledBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.scheduledBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.scheduled')}</Text>
+                    <Text style={[styles.scheduledBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Scheduled</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.messages.scheduledDesc', { time: formatTimeToAMPM(booking.start_time) })}</Text>
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your service is scheduled for {formatTimeToAMPM(booking.start_time)}</Text>
             </View>
           </View>
         );
@@ -992,37 +938,37 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
               <View style={styles.scheduledMessageHeader}>
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.messages.inProgress')}</Text>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>Service In Progress</Text>
                   <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
-                    <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>{t('booking.status.inProgress')}</Text>
+                    <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.messages.inProgressDesc')}</Text>
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your service provider is currently providing the service</Text>
               <View style={styles.otpButtonContainer}>
                 <Button style={[styles.otpButton, { backgroundColor: colors.primary, borderColor: colors.primary }, otpLoading === booking.id && styles.disabledButton]} onPress={() => handleGenerateOTP(booking)} disabled={otpLoading === booking.id || !booking.today_service?.can_generate_otp}>
                   {otpLoading === booking.id ? (
-                    <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('common.loading')}</Text></>
+                    <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Loading...</Text></>
                   ) : (
-                    <><Icon name="check-circle" size={16} color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{booking.today_service.otp_active ? t('booking.cards.otpGenerated') : t('booking.cards.generateOTP')}</Text></>
+                    <><Icon name="check-circle" size={16} color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{booking.today_service.otp_active ? 'OTP Generated' : 'Generate OTP'}</Text></>
                   )}
                 </Button>
                 {booking.today_service.otp_active && (
                   <Badge style={[styles.otpActiveBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.otpActiveBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.cards.otpActive')}</Text>
+                    <Text style={[styles.otpActiveBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>OTP Active</Text>
                   </Badge>
                 )}
               </View>
               {booking.today_service.otp_active && generatedOTPs[booking.id] && (
                 <View style={[styles.otpDisplayContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Text style={[styles.otpDisplayLabel, { color: colors.text, fontSize: fontSizes.infoText }]}>{t('booking.cards.shareOTP')}</Text>
+                  <Text style={[styles.otpDisplayLabel, { color: colors.text, fontSize: fontSizes.infoText }]}>Share this OTP with provider:</Text>
                   <View style={styles.otpDisplay}>
                     <Text style={[styles.otpCode, { color: colors.text, fontSize: fontSizes.headerTitle }]}>{generatedOTPs[booking.id]}</Text>
-                    <Button style={[styles.copyOtpButton, { borderColor: colors.border }]} onPress={() => Alert.alert(t('common.success'), t('booking.otp.copied'))}>
-                      <Text style={[styles.copyOtpButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.copy')}</Text>
+                    <Button style={[styles.copyOtpButton, { borderColor: colors.border }]} onPress={() => Alert.alert('Success', 'OTP copied to clipboard')}>
+                      <Text style={[styles.copyOtpButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Copy</Text>
                     </Button>
                   </View>
-                  <Text style={[styles.otpExpiryText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.cards.validFor')}</Text>
+                  <Text style={[styles.otpExpiryText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Valid for 10 minutes</Text>
                 </View>
               )}
             </View>
@@ -1035,21 +981,21 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
               <View style={styles.scheduledMessageHeader}>
                 <Icon name="check-circle" size={16} color={colors.success} />
                 <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.messages.completed')}</Text>
+                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>Service Completed</Text>
                   <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>{t('booking.status.completed')}</Text>
+                    <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
                   </Badge>
                 </View>
               </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.messages.completedDesc', { service: getServiceTitle(booking.service_type, t), time: formatTimeToAMPM(booking.end_time) })}</Text>
+              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your {getServiceTitle(booking.service_type)} service was completed at {formatTimeToAMPM(booking.end_time)}</Text>
               <View style={[styles.reviewPromptContainer, { borderTopColor: colors.success }]}>
                 <View style={styles.reviewPromptContent}>
-                  <Text style={[styles.reviewPromptTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{t('booking.cards.howWasExperience')}</Text>
-                  <Text style={[styles.reviewPromptSubtitle, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{t('booking.cards.helpUsImprove')}</Text>
+                  <Text style={[styles.reviewPromptTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>How was your experience?</Text>
+                  <Text style={[styles.reviewPromptSubtitle, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your feedback helps us improve</Text>
                 </View>
                 <Button style={[styles.leaveReviewButton, { borderColor: colors.border }]} onPress={() => handleLeaveReviewClick(booking)}>
                   <Icon name="message-text" size={16} color={colors.text} />
-                  <Text style={[styles.leaveReviewButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>{t('booking.cards.leaveReview')}</Text>
+                  <Text style={[styles.leaveReviewButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Leave Review</Text>
                 </Button>
               </View>
             </View>
@@ -1059,7 +1005,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   };
 
-  // Action buttons for each booking card
   const renderActionButtons = (booking: Booking) => {
     const modificationDisabled = isModificationDisabled(booking);
     const hasExistingVacation = hasVacation(booking);
@@ -1071,14 +1016,14 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         <View style={styles.paymentActionContainer}>
           <Button style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handlePaymentClick(booking)} disabled={paymentLoading === booking.id}>
             {paymentLoading === booking.id ? (
-              <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.processing')}</Text></>
+              <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Processing...</Text></>
             ) : (
-              <><Icon name="credit-card" size={16} color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.completePayment')}</Text></>
+              <><Icon name="credit-card" size={16} color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Complete Payment</Text></>
             )}
           </Button>
           <Button style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handleCancelClick(booking)}>
             <Icon name="close-circle" size={16} color="#fff" />
-            <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.cancel')}</Text>
+            <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel</Text>
           </Button>
         </View>
       );
@@ -1091,7 +1036,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
             {booking.bookingType === "MONTHLY" && (
               <Button style={[styles.compactActionButton, styles.modifyButton, { borderColor: colors.primary, backgroundColor: colors.card }, modificationDisabled && styles.disabledButton]} onPress={() => handleModifyClick(booking)} disabled={modificationDisabled}>
                 <Icon name="pencil" size={16} color={modificationDisabled ? colors.textSecondary : colors.primary} />
-                <Text style={[styles.modifyButtonText, { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modify')}</Text>
+                <Text style={[styles.modifyButtonText, { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.buttonText }]}>Modify</Text>
               </Button>
             )}
             {booking.bookingType === "MONTHLY" && (
@@ -1099,12 +1044,12 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
                 {hasExistingVacation ? (
                   <Button style={[styles.compactActionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]} onPress={() => handleModifyVacationClick(booking)} disabled={isRefreshing}>
                     <Icon name="pencil" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modifyVacation')}</Text>
+                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
                   </Button>
                 ) : (
                   <Button style={[styles.compactActionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleVacationClick(booking)} disabled={isRefreshing}>
                     <Icon name="calendar" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.addVacation')}</Text>
+                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
                   </Button>
                 )}
               </>
@@ -1114,29 +1059,29 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       case 'IN_PROGRESS':
         return (
           <View style={styles.actionButtonsRow}>
-            <Button style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => Alert.alert(t('booking.cards.call'), `${t('booking.cards.call')} ${getServiceTitle(booking.service_type, t)}`)}>
+            <Button style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => Alert.alert('Call', `Call ${getServiceTitle(booking.service_type)}`)}>
               <Icon name="phone" size={16} color="#fff" />
-              <Text style={[styles.callButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.call')}</Text>
+              <Text style={[styles.callButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Call</Text>
             </Button>
-            <Button style={[styles.actionButton, styles.messageButton, { backgroundColor: colors.success, borderColor: colors.success }]} onPress={() => Alert.alert(t('booking.cards.message'), `${t('booking.cards.message')} ${getServiceTitle(booking.service_type, t)}`)}>
+            <Button style={[styles.actionButton, styles.messageButton, { backgroundColor: colors.success, borderColor: colors.success }]} onPress={() => Alert.alert('Message', `Message ${getServiceTitle(booking.service_type)}`)}>
               <Icon name="message-text" size={16} color="#fff" />
-              <Text style={[styles.messageButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.message')}</Text>
+              <Text style={[styles.messageButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Message</Text>
             </Button>
             <Button style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handleCancelClick(booking)}>
               <Icon name="close-circle" size={16} color="#fff" />
-              <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{t('booking.cards.cancel')}</Text>
+              <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel</Text>
             </Button>
             {booking.bookingType === "MONTHLY" && (
               <>
                 {hasExistingVacation ? (
                   <Button style={[styles.actionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]} onPress={() => handleModifyVacationClick(booking)} disabled={isRefreshing}>
                     <Icon name="pencil" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.modifyVacation')}</Text>
+                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
                   </Button>
                 ) : (
                   <Button style={[styles.actionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleVacationClick(booking)} disabled={isRefreshing}>
                     <Icon name="calendar" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.addVacation')}</Text>
+                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
                   </Button>
                 )}
               </>
@@ -1149,17 +1094,17 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
             {hasReview(booking) ? (
               <Button style={[styles.actionButton, styles.reviewSubmittedButton, { backgroundColor: colors.successLight, borderColor: colors.success }]} disabled={true}>
                 <Icon name="check-circle" size={16} color={colors.success} />
-                <Text style={[styles.reviewSubmittedText, { color: colors.success, fontSize: fontSizes.buttonText }]}>{t('booking.cards.reviewed')}</Text>
+                <Text style={[styles.reviewSubmittedText, { color: colors.success, fontSize: fontSizes.buttonText }]}>Reviewed</Text>
               </Button>
             ) : (
               <Button style={[styles.actionButton, styles.reviewButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleLeaveReviewClick(booking)}>
                 <Icon name="message-text" size={16} color={colors.primary} />
-                <Text style={[styles.reviewButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.review')}</Text>
+                <Text style={[styles.reviewButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Review</Text>
               </Button>
             )}
             <Button style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => setServicesDialogOpen(true)}>
               <Icon name="calendar-plus" size={16} color={colors.primary} />
-              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.bookAgain')}</Text>
+              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </Button>
           </View>
         );
@@ -1168,12 +1113,11 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
           <View style={styles.actionButtonsRow}>
             <Button style={[styles.actionButton, styles.bookAgainButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => setServicesDialogOpen(true)}>
               <Icon name="calendar-plus" size={16} color={colors.primary} />
-              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>{t('booking.cards.bookAgain')}</Text>
+              <Text style={[styles.bookAgainText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </Button>
           </View>
         );
-      default:
-        return null;
+      default: return null;
     }
   };
 
@@ -1187,15 +1131,15 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
             <View style={[styles.serviceIconContainer, { backgroundColor: colors.primary + '15' }]}>
               <Icon name={getServiceIcon(serviceType)} size={20} color={colors.primary} />
             </View>
-            <Text style={[styles.serviceTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{getServiceTitle(serviceType, t)}</Text>
+            <Text style={[styles.serviceTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>{getServiceTitle(serviceType)}</Text>
           </View>
-          <View style={styles.statusContainer}>{getBookingTypeBadge(item.bookingType, colors, fontSizes, t)}</View>
+          <View style={styles.statusContainer}>{getBookingTypeBadge(item.bookingType, colors, fontSizes)}</View>
         </View>
         {isPaymentPending && item.taskStatus !== 'CANCELLED' && (
           <View style={styles.paymentPendingRow}>
             <Badge style={[styles.paymentPendingBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
               <Icon name="alert-circle" size={14} color={colors.error} />
-              <Text style={[styles.paymentPendingBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>{t('booking.cards.paymentRequired')}</Text>
+              <Text style={[styles.paymentPendingBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Payment Required</Text>
             </Badge>
           </View>
         )}
@@ -1203,7 +1147,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
           <View style={styles.awaitingRow}>
             <Badge style={[styles.awaitingBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
               <Icon name="clock" size={14} color={colors.warning} />
-              <Text style={[styles.awaitingBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>{t('booking.cards.awaitingAssignment')}</Text>
+              <Text style={[styles.awaitingBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>Awaiting Assignment</Text>
             </Badge>
           </View>
         )}
@@ -1221,14 +1165,14 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         <Separator style={styles.separator} />
         <View style={styles.actionButtonsContainer}>{renderActionButtons(item)}</View>
         <View style={styles.viewDetailsIndicator}>
-          <Text style={[styles.viewDetailsText, { color: colors.textSecondary, fontSize: fontSizes.viewDetailsText }]}>{t('booking.page.tapToViewDetails')}</Text>
+          <Text style={[styles.viewDetailsText, { color: colors.textSecondary, fontSize: fontSizes.viewDetailsText }]}>Tap to view details</Text>
           <Icon name="chevron-right" size={16} color={colors.textSecondary} />
         </View>
       </Card>
     );
   };
 
-  // Back button handling
+  // ---------- Back Button Handling ----------
   const handleBackPress = () => {
     if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
     if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
@@ -1251,9 +1195,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   useEffect(() => {
     const getInitialUrl = async () => {
       const initialUrl = await Linking.getInitialURL();
-      if (initialUrl) {
-        // process deep link (keep your existing logic)
-      }
+      // process if needed
     };
     getInitialUrl();
     const subscription = Linking.addEventListener('url', ({ url }) => {});
@@ -1266,44 +1208,67 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient colors={[isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)', isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)', isDarkMode ? colors.background : 'rgba(255,255,255,1)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.header}>
+      <LinearGradient
+        colors={[isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)', isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)', isDarkMode ? colors.background : 'rgba(255,255,255,1)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]} onPress={handleBackPress}>
             <Icon name="arrow-left" size={24} color={colors.primary} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>{t('booking.page.title')}</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>{t('booking.page.subtitle')}</Text>
+            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>Manage your service bookings</Text>
           </View>
         </View>
         <View style={styles.headerRight}>
           <View style={styles.searchContainer}>
-            <TextInput style={[styles.searchInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text, fontSize: fontSizes.searchInput }]} placeholder={t('booking.page.searchPlaceholder')} placeholderTextColor={colors.placeholder} value={searchTerm} onChangeText={setSearchTerm} />
-            {searchTerm && <TouchableOpacity style={styles.clearSearchButton} onPress={() => setSearchTerm('')}><Icon name="close-circle" size={20} color={colors.textSecondary} /></TouchableOpacity>}
+            <TextInput
+              style={[styles.searchInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text, fontSize: fontSizes.searchInput }]}
+              placeholder="Search bookings..."
+              placeholderTextColor={colors.placeholder}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+            {searchTerm && (
+              <TouchableOpacity style={styles.clearSearchButton} onPress={() => setSearchTerm('')}>
+                <Icon name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
           <TouchableOpacity style={[styles.walletButton, { backgroundColor: colors.primary }]} onPress={() => setWalletDialogOpen(true)}>
             <Icon name="wallet" size={24} color="#fff" />
-            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>{t('navigation.wallet')}</Text>
+            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>Wallet</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
       <ScrollView refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+        {/* Upcoming Bookings Section */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
             <Icon name="alert-circle" size={24} color={colors.primary} />
             <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.page.upcoming')}</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>{filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? t('booking.page.upcomingCount', { count: filteredUpcomingBookings.length }) : t('booking.page.upcomingCount_plural', { count: filteredUpcomingBookings.length })}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Upcoming Bookings</Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
+                {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? 'upcoming booking' : 'upcoming bookings'}
+              </Text>
             </View>
             <Badge style={[styles.sectionBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
               <Text style={[styles.sectionBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{upcomingBookings.length}</Text>
             </Badge>
           </View>
+
           <View style={styles.statusFilterContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {statusTabs.map((tab) => (
-                <TouchableOpacity key={tab.value} style={[styles.statusTab, { backgroundColor: colors.surface }, statusFilter === tab.value && { backgroundColor: colors.primary }]} onPress={() => setStatusFilter(tab.value)}>
+                <TouchableOpacity
+                  key={tab.value}
+                  style={[styles.statusTab, { backgroundColor: colors.surface }, statusFilter === tab.value && { backgroundColor: colors.primary }]}
+                  onPress={() => setStatusFilter(tab.value)}
+                >
                   <Text style={[styles.statusTabText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }, statusFilter === tab.value && { color: '#fff' }]}>{tab.label}</Text>
                   <View style={[styles.statusTabCount, { backgroundColor: colors.border }]}>
                     <Text style={[styles.statusTabCountText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{tab.count}</Text>
@@ -1312,38 +1277,43 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
               ))}
             </ScrollView>
           </View>
+
           {filteredUpcomingBookings.length > 0 ? (
             <FlatList data={filteredUpcomingBookings} renderItem={renderBookingItem} keyExtractor={(item) => item.id.toString()} scrollEnabled={false} />
           ) : (
             <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Icon name="calendar" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>{t('booking.page.noUpcoming')}</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>{t('booking.page.noUpcomingDesc')}</Text>
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Upcoming Bookings</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>You don't have any upcoming service bookings</Text>
               <Button style={[styles.emptyStateButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setServicesDialogOpen(true)}>
-                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>{t('booking.page.bookService')}</Text>
+                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>Book a Service</Text>
               </Button>
             </Card>
           )}
         </View>
 
+        {/* Past Bookings Section */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
             <Icon name="history" size={24} color={colors.textSecondary} />
             <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>{t('booking.page.past')}</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>{filteredPastBookings.length} {filteredPastBookings.length === 1 ? t('booking.page.pastCount', { count: filteredPastBookings.length }) : t('booking.page.pastCount_plural', { count: filteredPastBookings.length })}</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Past Bookings</Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
+                {filteredPastBookings.length} {filteredPastBookings.length === 1 ? 'past booking' : 'past bookings'}
+              </Text>
             </View>
             <Badge style={[styles.sectionBadge, styles.pastBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
               <Text style={[styles.sectionBadgeText, styles.pastBadge, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{pastBookings.length}</Text>
             </Badge>
           </View>
+
           {filteredPastBookings.length > 0 ? (
             <FlatList data={filteredPastBookings} renderItem={renderBookingItem} keyExtractor={(item) => item.id.toString()} scrollEnabled={false} />
           ) : (
             <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Icon name="clock" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>{t('booking.page.noPast')}</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>{t('booking.page.noPastDesc')}</Text>
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Past Bookings</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>Your completed bookings will appear here</Text>
             </Card>
           )}
         </View>
@@ -1353,11 +1323,11 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       <UserHoliday open={holidayDialogOpen} onClose={() => setHolidayDialogOpen(false)} booking={convertBookingForChildComponents(selectedBookingForLeave)} onLeaveSubmit={handleLeaveSubmit} />
       <VacationManagementDialog open={vacationManagementDialogOpen} onClose={() => { setVacationManagementDialogOpen(false); setSelectedBookingForVacationManagement(null); }} booking={convertBookingForChildComponents(selectedBookingForVacationManagement)} customerId={customerId} onSuccess={handleVacationSuccess} />
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
-      <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? t('booking.confirmation.confirm') : t('booking.confirmation.confirmPayment')} loading={actionLoading} severity={confirmationDialog.severity} />
+      <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? 'Confirm' : 'Pay Now'} loading={actionLoading} severity={confirmationDialog.severity} />
       <AddReviewDialog visible={reviewDialogVisible} onClose={closeReviewDialog} booking={convertBookingForChildComponents(selectedReviewBooking)} onReviewSubmitted={handleReviewSubmitted} />
       <WalletDialog open={walletDialogOpen} onClose={() => setWalletDialogOpen(false)} />
-      <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={(serviceType) => {}} />
-      <EngagementDetailsDrawer isOpen={detailsDrawerOpen} onClose={() => { setDetailsDrawerOpen(false); setSelectedBooking(null); }} booking={selectedBooking} />
+      <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
+      <EngagementDetailsDrawer isOpen={detailsDrawerOpen} onClose={() => { setDetailsDrawerOpen(false); setSelectedBooking(null); }} booking={selectedBooking} onPaymentComplete={refreshBookings} />
 
       {openSnackbar && (
         <View style={[styles.snackbar, { backgroundColor: colors.success }]}>
@@ -1369,6 +1339,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   );
 };
 
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   card: { borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, marginBottom: 16, padding: 16 },
   button: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderWidth: 1, minHeight: 40 },
@@ -1376,8 +1347,6 @@ const styles = StyleSheet.create({
   badgeBase: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', marginHorizontal: 4 },
   separatorBase: { height: 1, marginVertical: 16 },
   container: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 16, fontSize: 16 },
   header: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingTop: 50 },
   headerTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   backButton: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
@@ -1401,7 +1370,6 @@ const styles = StyleSheet.create({
   sectionBadgeText: { fontWeight: '700' },
   statusFilterContainer: { marginBottom: 20 },
   statusTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10 },
-  statusTabActive: { backgroundColor: '#3b82f6' },
   statusTabText: { fontWeight: '600', marginRight: 8 },
   statusTabCount: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, minWidth: 24, alignItems: 'center' },
   statusTabCountText: { fontWeight: '600' },
