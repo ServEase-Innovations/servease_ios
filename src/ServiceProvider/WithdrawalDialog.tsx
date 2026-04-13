@@ -11,7 +11,8 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-// import { useToast } from "../hooks/use-toast"; // You'll need to adapt this hook for React Native
+import LinearGradient from "react-native-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import PaymentInstance from "../services/paymentInstance";
 import { useToast } from "../hooks/useToast";
 import { useTranslation } from 'react-i18next';
@@ -32,7 +33,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
   onWithdrawalSuccess,
 }) => {
   const { t } = useTranslation();
-  const { toast } = useToast(); // Replace with React Native toast/showAlert
+  const { toast } = useToast();
   const [amount, setAmount] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -61,7 +62,6 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
 
   const handleConfirmWithdrawal = async () => {
     if (!serviceProviderId) {
-      // Use Alert.alert or your toast implementation
       Alert.alert(t('common.error'), t('withdrawal.error.missingId'));
       return;
     }
@@ -90,12 +90,10 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
           t('withdrawal.success', { amount: numericAmount.toLocaleString("en-IN") })
         );
 
-        // Call success callback if provided
         if (onWithdrawalSuccess) {
           onWithdrawalSuccess();
         }
 
-        // Close modal
         handleClose();
       } else {
         throw new Error(t('withdrawal.error.generic'));
@@ -137,26 +135,33 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.headerIcon}>💰</Text>
+          {/* Header with Gradient - Same as History Dialog */}
+          <LinearGradient
+            colors={['#0a2a66ff', '#004aadff']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientHeader}
+          >
+            <View style={styles.header}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Icon name="close" size={24} color="#ffffff" />
+              </TouchableOpacity>
               <Text style={styles.headerTitle}>{t('withdrawal.title')}</Text>
+              <View style={styles.headerRight} />
             </View>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Text style={styles.closeIcon}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.content}>
-            <Text style={styles.subtitle}>
+            <Text style={styles.headerSubtitle}>
               {t('withdrawal.subtitle')}
             </Text>
+          </LinearGradient>
 
+          <ScrollView 
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Available Balance Card */}
             <View style={styles.balanceCard}>
               <View style={styles.balanceRow}>
-                <View>
+                <View style={styles.balanceLeft}>
                   <Text style={styles.balanceLabel}>{t('withdrawal.availableBalance')}</Text>
                   <View style={styles.balanceAmountContainer}>
                     <Text style={styles.rupeeIcon}>{t('common.currency')}</Text>
@@ -200,7 +205,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
               {/* Validation Messages */}
               {amount && !isValidAmount && (
                 <View style={styles.errorContainer}>
-                  <Text style={styles.errorIcon}>⚠️</Text>
+                  <Icon name="alert-circle" size={16} color="#DC2626" />
                   <Text style={styles.errorText}>
                     {numericAmount > availableBalance
                       ? t('withdrawal.amountExceeds', { balance: availableBalance.toLocaleString("en-IN") })
@@ -240,7 +245,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
             <View style={styles.payoutCard}>
               <View style={styles.payoutRow}>
                 <View style={styles.payoutIconContainer}>
-                  <Text style={styles.payoutIcon}>🏦</Text>
+                  <Icon name="bank" size={24} color="#1E40AF" />
                 </View>
                 <View style={styles.payoutInfo}>
                   <Text style={styles.payoutTitle}>{t('withdrawal.payoutMethod')}</Text>
@@ -294,44 +299,42 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "90%",
+    overflow: "hidden",
+  },
+  gradientHeader: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  headerIcon: {
-    fontSize: 20,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
+    marginBottom: 8,
   },
   closeButton: {
     padding: 4,
   },
-  closeIcon: {
-    fontSize: 24,
-    color: "#6B7280",
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#ffffff",
+    textAlign: "center",
+    flex: 1,
+  },
+  headerRight: {
+    width: 32,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
+    textAlign: "center",
   },
   content: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 16,
+    paddingVertical: 20,
   },
   balanceCard: {
     backgroundColor: "#EFF6FF",
@@ -345,6 +348,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  balanceLeft: {
+    flex: 1,
   },
   balanceLabel: {
     fontSize: 14,
@@ -398,6 +404,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 56,
     marginBottom: 8,
+    backgroundColor: "#FFFFFF",
   },
   currencySymbol: {
     fontSize: 28,
@@ -437,9 +444,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     gap: 8,
-  },
-  errorIcon: {
-    fontSize: 16,
   },
   errorText: {
     fontSize: 14,
@@ -515,9 +519,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
-  payoutIcon: {
-    fontSize: 20,
-  },
   payoutInfo: {
     flex: 1,
   },
@@ -540,13 +541,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
   },
   button: {
-    paddingHorizontal: 32,
+    flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    minWidth: 100,
     alignItems: "center",
+    marginHorizontal: 6,
   },
   cancelButton: {
     borderWidth: 1,

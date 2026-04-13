@@ -11,7 +11,8 @@ import {
   Alert,
   DimensionValue,
   Linking,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from "react-native";
 import { Calendar, MapPin, X, Phone, Clock, Loader2, CheckCircle } from "lucide-react-native";
 import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from "./../common/BookingUtils";
@@ -22,7 +23,6 @@ import axios from "axios";
 import { OtpVerificationDialog } from "./OtpVerificationDialog";
 import TrackAddress from "./TrackAddress";
 import LinearGradient from "react-native-linear-gradient";
-import { useTranslation } from 'react-i18next';
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
@@ -57,15 +57,15 @@ const formatTimeToAMPM = (timeString: string): string => {
 };
 
 // Function to handle calling customer
-const handleCallCustomer = (phoneNumber: string, clientName: string, t: any) => {
+const handleCallCustomer = (phoneNumber: string, clientName: string) => {
   if (!phoneNumber || phoneNumber === "Contact info not available") {
-    Alert.alert(t('bookingCard.noContactInfo'), t('bookingCard.noContactInfo'));
+    Alert.alert("No Contact Info", "Contact information is not available for this customer.");
     return;
   }
   
   const telLink = `tel:${phoneNumber}`;
   Linking.openURL(telLink).catch(() => {
-    Alert.alert(t('common.error'), t('bookingCard.callError'));
+    Alert.alert("Error", "Unable to make the call. Please try again.");
   });
 };
 
@@ -77,7 +77,6 @@ export function AllBookingsDialog({
   onClose, 
   onContactClient 
 }: AllBookingsDialogProps) {
-  const { t } = useTranslation();
   const [tab, setTab] = useState<"ongoing" | "future" | "past">("ongoing");
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
   const [data, setData] = useState<Booking[]>([]);
@@ -147,7 +146,7 @@ export function AllBookingsDialog({
       ? `${apiBooking.firstname} ${apiBooking.lastname}`.trim()
       : apiBooking.firstname 
         ? apiBooking.firstname
-        : apiBooking.email || t('bookingCard.clientName');
+        : apiBooking.email || "Client";
 
     const bookingId = apiBooking.engagement_id || apiBooking.id;
 
@@ -192,13 +191,13 @@ export function AllBookingsDialog({
       service: apiBooking.service_type || apiBooking.serviceType || "",
       date: date,
       time: timeRange,
-      location: apiBooking.address || t('allBookings.bookingCard.address'),
+      location: apiBooking.address || "Address not available",
       status: apiBooking.task_status || apiBooking.taskStatus || "",
       amount: amount,
       bookingData: {
         ...apiBooking,
         mobileno: apiBooking.mobileno || "",
-        contact: apiBooking.mobileno || t('bookingCard.noContactInfo'),
+        contact: apiBooking.mobileno || "No contact info",
         today_service: apiBooking.today_service || null
       }
     };
@@ -222,7 +221,7 @@ export function AllBookingsDialog({
       return res.data;
     } catch (err) {
       console.error("Error fetching bookings:", err);
-      Alert.alert(t('common.error'), t('errors.failedToLoadBookings'));
+      Alert.alert("Error", "Failed to load bookings. Please try again.");
       return { current: [], upcoming: [], past: [] };
     } finally {
       setLoading(false);
@@ -265,7 +264,7 @@ export function AllBookingsDialog({
 
     const serviceDayId = bookingData.today_service?.service_day_id;
     if (!serviceDayId) {
-      Alert.alert(t('common.error'), t('errors.serviceDayIdNotFound'));
+      Alert.alert("Error", "Service day ID not found. Please contact support.");
       return;
     }
 
@@ -286,18 +285,18 @@ export function AllBookingsDialog({
         }
       );
 
-      Alert.alert(t('common.success'), t('allBookings.bookingCard.taskStarted'));
+      Alert.alert("Success", "Task started successfully!");
 
       await fetchDataForTab(tab, selectedMonth);
     } catch (err) {
       setTaskStatus(prev => ({ ...prev, [bookingId]: previousStatus }));
       
-      let errorMessage = t('errors.failedToStartService');
+      let errorMessage = "Failed to start service. Please try again.";
       if (axios.isAxiosError(err)) {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
       
-      Alert.alert(t('common.error'), errorMessage);
+      Alert.alert("Error", errorMessage);
     } finally {
       setTaskStatusUpdating(prev => ({ ...prev, [bookingId]: false }));
     }
@@ -313,7 +312,7 @@ export function AllBookingsDialog({
 
     const serviceDayId = currentBooking.bookingData.today_service?.service_day_id;
     if (!serviceDayId) {
-      Alert.alert(t('common.error'), t('errors.serviceDayIdNotFound'));
+      Alert.alert("Error", "Service day ID not found. Please contact support.");
       return;
     }
 
@@ -330,7 +329,7 @@ export function AllBookingsDialog({
         }
       );
 
-      Alert.alert(t('common.success'), t('otpVerification.success'));
+      Alert.alert("Success", "Task completed successfully!");
 
       setTaskStatus(prev => ({ ...prev, [currentBooking.bookingId]: "COMPLETED" }));
       
@@ -338,12 +337,12 @@ export function AllBookingsDialog({
       
       return Promise.resolve();
     } catch (err) {
-      let errorMessage = t('errors.failedToCompleteService');
+      let errorMessage = "Failed to complete service. Please try again.";
       if (axios.isAxiosError(err)) {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
       
-      Alert.alert(t('common.error'), errorMessage);
+      Alert.alert("Error", errorMessage);
       return Promise.reject(err);
     } finally {
       setVerifyingOtp(false);
@@ -494,6 +493,7 @@ export function AllBookingsDialog({
         style={[styles.button, getVariantStyle(), getSizeStyle()]}
         onPress={onPress}
         disabled={disabled || loading}
+        activeOpacity={0.7}
       >
         <View style={styles.buttonContent}>
           {loading ? (
@@ -521,6 +521,7 @@ export function AllBookingsDialog({
     <TouchableOpacity 
       style={[styles.tabButton, isActive && styles.tabButtonActive]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
       <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
         {label}
@@ -561,6 +562,7 @@ export function AllBookingsDialog({
             }
           }}
           disabled={!canGoPrev()}
+          activeOpacity={0.7}
         >
           <Text style={[
             styles.monthNavText,
@@ -587,6 +589,7 @@ export function AllBookingsDialog({
             }
           }}
           disabled={!canGoNext()}
+          activeOpacity={0.7}
         >
           <Text style={[
             styles.monthNavText,
@@ -607,7 +610,7 @@ export function AllBookingsDialog({
     <View style={[styles.skeleton, { width, height }, style]} />
   );
 
-  // FIXED: Render responsibilities section properly matching the working Booking.tsx
+  // Render responsibilities section properly
   const renderResponsibilities = (booking: Booking) => {
     if (!booking.responsibilities) return null;
 
@@ -621,11 +624,11 @@ export function AllBookingsDialog({
 
     return (
       <View style={styles.responsibilitiesSection}>
-        <Text style={styles.responsibilitiesTitle}>{t('allBookings.bookingCard.responsibilities')}</Text>
+        <Text style={styles.responsibilitiesTitle}>Responsibilities</Text>
         <View style={styles.responsibilitiesList}>
           {/* Render tasks */}
           {hasTasks && responsibilities.tasks?.map((task: any, index: number) => {
-            const taskLabel = task.persons ? `${task.persons} ${t('allBookings.bookingCard.persons')}` : "";
+            const taskLabel = task.persons ? `${task.persons} Persons` : "";
             const taskType = task.taskType || task.type || '';
             
             return (
@@ -653,7 +656,7 @@ export function AllBookingsDialog({
               <View key={`addon-${index}`} style={styles.responsibilityItem}>
                 <View style={[styles.responsibilityBadge, styles.addonBadge]}>
                   <Text style={styles.responsibilityBadgeText}>
-                    {t('allBookings.bookingCard.addOn')}: {addonText}
+                    Add-on: {addonText}
                   </Text>
                 </View>
               </View>
@@ -667,33 +670,33 @@ export function AllBookingsDialog({
   const getTabLabel = (tabType: "ongoing" | "future" | "past") => {
     const count = tab === tabType ? totalBookings : 0;
     if (tabType === "ongoing") {
-      return t('allBookings.tabs.ongoing', { count });
+      return `Ongoing (${count})`;
     } else if (tabType === "future") {
-      return t('allBookings.tabs.future', { count });
+      return `Upcoming (${count})`;
     } else {
-      return t('allBookings.tabs.past', { count });
+      return `Past (${count})`;
     }
   };
 
   const getEmptyStateMessage = () => {
     const monthName = getMonthName(selectedMonth);
     if (tab === "ongoing") {
-      return t('allBookings.noCurrentBookingsDesc');
+      return `No current bookings found for ${monthName}.`;
     } else if (tab === "future") {
-      return t('allBookings.noUpcomingBookingsDesc');
+      return `No upcoming bookings found for ${monthName}.`;
     } else {
-      return t('allBookings.noPastBookingsDesc');
+      return `No past bookings found for ${monthName}.`;
     }
   };
 
   const getEmptyTitle = () => {
     const monthName = getMonthName(selectedMonth);
     if (tab === "ongoing") {
-      return t('allBookings.noCurrentBookings', { month: monthName });
+      return `No Current Bookings in ${monthName}`;
     } else if (tab === "future") {
-      return t('allBookings.noUpcomingBookings', { month: monthName });
+      return `No Upcoming Bookings in ${monthName}`;
     } else {
-      return t('allBookings.noPastBookings', { month: monthName });
+      return `No Past Bookings in ${monthName}`;
     }
   };
 
@@ -724,12 +727,13 @@ export function AllBookingsDialog({
               style={styles.modalHeader}
             >
               <Text style={styles.modalTitle}>
-                {t('allBookings.title')}
+                All Bookings
               </Text>
               <TouchableOpacity 
                 onPress={handleClose}
                 style={styles.closeButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
               >
                 <X size={24} color="#ffffff" />
               </TouchableOpacity>
@@ -760,10 +764,7 @@ export function AllBookingsDialog({
                   {loading ? (
                     <SkeletonLoader width={120} height={16} />
                   ) : (
-                    t('allBookings.bookingCount', { 
-                      count: totalBookings, 
-                      month: getMonthName(selectedMonth) 
-                    })
+                    `${totalBookings} booking${totalBookings !== 1 ? 's' : ''} in ${getMonthName(selectedMonth)}`
                   )}
                 </Text>
               </View>
@@ -772,6 +773,7 @@ export function AllBookingsDialog({
             <ScrollView 
               style={styles.modalBody}
               showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
             >
               {loading && initialLoad ? (
                 <View style={styles.loadingContainer}>
@@ -844,7 +846,7 @@ export function AllBookingsDialog({
                         <View style={styles.cardHeader}>
                           <View style={styles.cardHeaderTop}>
                             <Text style={styles.bookingId}>
-                              {t('allBookings.bookingCard.bookingId', { id: booking.id })}
+                              Booking ID: {booking.id}
                             </Text>
                             <View style={styles.headerBadges}>
                               {getBookingTypeBadge(booking.booking_type || "")}
@@ -869,17 +871,17 @@ export function AllBookingsDialog({
                           {/* Date, Time and Amount with Phone Icon */}
                           <View style={styles.infoGrid}>
                             <View style={styles.dateTimeSection}>
-                              <Text style={styles.infoLabel}>{t('allBookings.bookingCard.dateTime')}</Text>
+                              <Text style={styles.infoLabel}>Date & Time</Text>
                               <View style={styles.infoRow}>
                                 <Calendar size={14} color="#6b7280" />
                                 <Text style={styles.infoText}>
-                                  {booking.date} {t('allBookings.bookingCard.at')} {booking.time}
+                                  {booking.date} at {booking.time}
                                 </Text>
                               </View>
                             </View>
                             <View style={styles.amountSection}>
                               <View style={styles.amountInfo}>
-                                <Text style={styles.amountLabel}>{t('allBookings.bookingCard.amount')}</Text>
+                                <Text style={styles.amountLabel}>Amount</Text>
                                 <Text style={styles.amountText}>
                                   {booking.amount}
                                 </Text>
@@ -887,7 +889,8 @@ export function AllBookingsDialog({
                               {booking.bookingData?.mobileno && (
                                 <TouchableOpacity
                                   style={styles.phoneButton}
-                                  onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName, t)}
+                                  onPress={() => handleCallCustomer(booking.bookingData.mobileno, booking.clientName)}
+                                  activeOpacity={0.7}
                                 >
                                   <Phone size={16} color="#374151" />
                                 </TouchableOpacity>
@@ -895,30 +898,31 @@ export function AllBookingsDialog({
                             </View>
                           </View>
 
-                          {/* FIXED: Responsibilities Section - Now properly displayed */}
+                          {/* Responsibilities Section - Now properly displayed */}
                           {renderResponsibilities(booking)}
 
                           {/* Location with Track Address Button */}
                           <View style={styles.locationSection}>
                             <View style={styles.locationHeader}>
-                              <Text style={styles.locationLabel}>{t('allBookings.bookingCard.address')}</Text>
+                              <Text style={styles.locationLabel}>Address</Text>
                               <TouchableOpacity
                                 style={styles.trackButton}
                                 onPress={() => handleTrackAddress(booking)}
+                                activeOpacity={0.7}
                               >
                                 <MapPin size={14} color="#374151" />
-                                <Text style={styles.trackButtonText}>{t('allBookings.bookingCard.trackAddress')}</Text>
+                                <Text style={styles.trackButtonText}>Track Address</Text>
                               </TouchableOpacity>
                             </View>
                             <Text style={styles.locationText} numberOfLines={2}>
-                              {booking.location || t('allBookings.bookingCard.address')}
+                              {booking.location || "Address not available"}
                             </Text>
                           </View>
 
                           {/* Today's Service Status Badge */}
                           {todayServiceStatus && (
                             <View style={styles.todayServiceSection}>
-                              <Text style={styles.todayServiceLabel}>{t('allBookings.bookingCard.todaysService')}</Text>
+                              <Text style={styles.todayServiceLabel}>Today's Service</Text>
                               <View style={[
                                 styles.todayServiceBadge,
                                 todayServiceStatus === 'SCHEDULED' && styles.scheduledBadge,
@@ -941,12 +945,12 @@ export function AllBookingsDialog({
                           <View style={styles.taskActionsSection}>
                             <Text style={styles.taskStatusLabel}>
                               {isInProgress 
-                                ? t('allBookings.bookingCard.taskInProgress')
+                                ? "Task In Progress"
                                 : isCompleted 
-                                  ? t('allBookings.bookingCard.taskCompleted')
+                                  ? "Task Completed"
                                   : isNotStarted
-                                    ? t('allBookings.bookingCard.notStarted')
-                                    : t('allBookings.bookingCard.upcoming')
+                                    ? "Not Started"
+                                    : "Upcoming"
                               }
                             </Text>
                             <View style={styles.taskButtons}>
@@ -960,7 +964,7 @@ export function AllBookingsDialog({
                                   size="sm"
                                   onPress={() => handleStopTask(booking.id.toString(), booking.bookingData)}
                                 >
-                                  {t('allBookings.bookingCard.completeTask')}
+                                  Complete Task
                                 </Button>
                               ) : showCompletedButton ? (
                                 <Button 
@@ -969,7 +973,7 @@ export function AllBookingsDialog({
                                   disabled
                                   icon={<CheckCircle size={14} color="#10b981" />}
                                 >
-                                  {t('allBookings.bookingCard.completed')}
+                                  Completed
                                 </Button>
                               ) : showStartButton ? (
                                 <Button 
@@ -977,7 +981,7 @@ export function AllBookingsDialog({
                                   size="sm"
                                   onPress={() => handleStartTask(booking.id.toString(), booking.bookingData)}
                                 >
-                                  {t('allBookings.bookingCard.startTask')}
+                                  Start Task
                                 </Button>
                               ) : (
                                 <Button 
@@ -985,7 +989,7 @@ export function AllBookingsDialog({
                                   size="sm"
                                   disabled
                                 >
-                                  {t('allBookings.bookingCard.cannotStartYet')}
+                                  Cannot Start Yet
                                 </Button>
                               )}
                             </View>
@@ -1101,6 +1105,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   monthSelector: {
     flexDirection: 'row',
@@ -1123,6 +1129,7 @@ const styles = StyleSheet.create({
   },
   monthNavButtonDisabled: {
     backgroundColor: '#f9fafb',
+    opacity: 0.5,
   },
   monthNavText: {
     fontSize: 20,
@@ -1149,6 +1156,8 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
   },
   loadingContainer: {
@@ -1233,12 +1242,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 2,
     overflow: 'hidden',
-    marginBottom: 16,
   },
   cardHeader: {
     padding: 16,
@@ -1251,6 +1259,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   bookingId: {
     fontSize: 12,
@@ -1298,10 +1308,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 16,
     flexWrap: 'wrap',
+    gap: 12,
   },
   dateTimeSection: {
     flex: 1,
-    marginRight: 12,
     minWidth: 150,
   },
   infoLabel: {
@@ -1347,7 +1357,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f3f4f6',
   },
-  // FIXED: Responsibilities section styles - matching Booking.tsx
   responsibilitiesSection: {
     marginBottom: 16,
     padding: 12,
@@ -1386,15 +1395,6 @@ const styles = StyleSheet.create({
   addonBadge: {
     backgroundColor: '#fdf2f8',
     borderColor: '#fbcfe8',
-  },
-  addonBadgeText: {
-    color: '#be185d',
-  },
-  noResponsibilitiesText: {
-    fontSize: 12,
-    color: '#9ca3af',
-    fontStyle: 'italic',
-    paddingVertical: 4,
   },
   locationSection: {
     marginBottom: 16,
@@ -1499,7 +1499,6 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
   },
-  // Badge styles
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1532,11 +1531,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d5db',
   },
-  // Button styles
   button: {
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#d1d5db',
+    overflow: 'hidden',
   },
   buttonContent: {
     flexDirection: 'row',

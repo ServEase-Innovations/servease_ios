@@ -1,27 +1,27 @@
-/* eslint-disable */
-import { useState, useEffect } from "react";
+// WithdrawalHistoryDialog.tsx
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   Modal,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
   ActivityIndicator,
-  StyleSheet,
-  FlatList,
+  RefreshControl,
   Alert,
-} from "react-native";
-// import { useToast } from "../hooks/use-toast"; // You'll need to adapt this for React Native
-import PaymentInstance from "../services/paymentInstance";
-import { useToast } from "../hooks/useToast";
-import { useTranslation } from 'react-i18next';
+  Dimensions,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import PaymentInstance from '../services/paymentInstance';
 
+// Types
 interface LedgerEntry {
   ledger_id: string;
   engagement_id: string | null;
   amount: number;
-  direction: "CREDIT" | "DEBIT";
-  reason: "DAILY_EARNED" | "WITHDRAWAL" | "SERVICE_FEE" | "SECURITY_DEPOSIT" | "REFUND" | "OTHER";
+  direction: 'CREDIT' | 'DEBIT';
+  reason: 'DAILY_EARNED' | 'WITHDRAWAL' | 'SERVICE_FEE' | 'SECURITY_DEPOSIT' | 'REFUND' | 'OTHER';
   reference_type: string;
   reference_id: string;
   created_at: string;
@@ -53,27 +53,225 @@ interface PayoutHistoryResponse {
 }
 
 interface WithdrawalHistoryDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  visible: boolean;
+  onClose: () => void;
   serviceProviderId: number | null;
 }
 
-export function WithdrawalHistoryDialog({
-  open,
-  onOpenChange,
+const { width: screenWidth } = Dimensions.get('window');
+
+// Common Badge Component
+const Badge: React.FC<{
+  children: React.ReactNode;
+  variant?: 'success' | 'warning' | 'danger' | 'default';
+}> = ({ children, variant = 'default' }) => {
+  const getBadgeStyle = () => {
+    switch (variant) {
+      case 'success':
+        return { backgroundColor: '#d1fae5', color: '#065f46' };
+      case 'warning':
+        return { backgroundColor: '#fef3c7', color: '#92400e' };
+      case 'danger':
+        return { backgroundColor: '#fee2e2', color: '#991b1b' };
+      default:
+        return { backgroundColor: '#e5e7eb', color: '#374151' };
+    }
+  };
+
+  const badgeStyle = getBadgeStyle();
+  
+  return (
+    <View
+      style={{
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: badgeStyle.backgroundColor,
+      }}>
+      <Text style={{ fontSize: 12, fontWeight: '500', color: badgeStyle.color }}>
+        {children}
+      </Text>
+    </View>
+  );
+};
+
+// Common Button Component
+const Button: React.FC<{
+  title: string;
+  onPress: () => void;
+  variant?: 'primary' | 'outline' | 'secondary';
+  size?: 'sm' | 'md' | 'lg';
+  disabled?: boolean;
+  loading?: boolean;
+  containerStyle?: any;
+}> = ({ title, onPress, variant = 'primary', size = 'md', disabled = false, loading = false, containerStyle }) => {
+  const getButtonStyle = () => {
+    let backgroundColor = '#004aad';
+    let borderColor = '#004aad';
+    let textColor = '#ffffff';
+
+    if (variant === 'outline') {
+      backgroundColor = 'transparent';
+      borderColor = '#004aad';
+      textColor = '#004aad';
+    } else if (variant === 'secondary') {
+      backgroundColor = '#6c757d';
+      borderColor = '#6c757d';
+      textColor = '#ffffff';
+    }
+
+    let paddingVertical = 8;
+    let paddingHorizontal = 16;
+    
+    if (size === 'sm') {
+      paddingVertical = 6;
+      paddingHorizontal = 12;
+    } else if (size === 'lg') {
+      paddingVertical = 12;
+      paddingHorizontal = 24;
+    }
+
+    return {
+      backgroundColor,
+      borderColor,
+      textColor,
+      paddingVertical,
+      paddingHorizontal,
+    };
+  };
+
+  const styleObj = getButtonStyle();
+
+  return (
+    <View style={containerStyle}>
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={disabled || loading}
+        style={{
+          backgroundColor: styleObj.backgroundColor,
+          borderWidth: variant === 'outline' ? 1 : 0,
+          borderColor: styleObj.borderColor,
+          paddingVertical: styleObj.paddingVertical,
+          paddingHorizontal: styleObj.paddingHorizontal,
+          borderRadius: 8,
+          opacity: disabled ? 0.5 : 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        {loading && (
+          <ActivityIndicator
+            size="small"
+            color={styleObj.textColor}
+            style={{ marginRight: 8 }}
+          />
+        )}
+        <Text style={{ color: styleObj.textColor, fontWeight: '600', fontSize: 14 }}>
+          {title}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+// Common Filter Button Component
+const FilterButton: React.FC<{
+  title: string;
+  active: boolean;
+  onPress: () => void;
+  icon?: string;
+  iconColor?: string;
+}> = ({ title, active, onPress, icon, iconColor }) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: active ? '#004aad' : '#f3f4f6',
+        marginRight: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}>
+      {icon && (
+        <Icon
+          name={icon}
+          size={16}
+          color={active ? '#ffffff' : iconColor || '#6b7280'}
+          style={{ marginRight: 6 }}
+        />
+      )}
+      <Text
+        style={{
+          color: active ? '#ffffff' : '#374151',
+          fontWeight: active ? '600' : '500',
+          fontSize: 13,
+        }}>
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+// Summary Card Component
+const SummaryCard: React.FC<{
+  title: string;
+  amount: number;
+  gradientColors: string[];
+}> = ({ title, amount, gradientColors }) => {
+  const formatAmount = (amount: number) => {
+    return `₹${amount.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  return (
+    <LinearGradient
+      colors={gradientColors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={{
+        borderRadius: 12,
+        padding: 16,
+        flex: 1,
+        marginHorizontal: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      }}>
+      <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginBottom: 4 }}>
+        {title}
+      </Text>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#ffffff' }}>
+        {formatAmount(amount)}
+      </Text>
+    </LinearGradient>
+  );
+};
+
+export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = ({
+  visible,
+  onClose,
   serviceProviderId,
-}: WithdrawalHistoryDialogProps) {
-  const { t } = useTranslation();
+}) => {
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [historyData, setHistoryData] = useState<PayoutHistoryResponse | null>(null);
-  const { toast } = useToast(); // Replace with React Native alert/toast
-  const [selectedFilter, setSelectedFilter] = useState<"all" | "credit" | "debit">("all");
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'credit' | 'debit'>('all');
 
   useEffect(() => {
-    if (open && serviceProviderId) {
+    if (visible && serviceProviderId) {
       fetchWithdrawalHistory();
     }
-  }, [open, serviceProviderId]);
+  }, [visible, serviceProviderId]);
+
+  const showError = (message: string) => {
+    Alert.alert('Error', message);
+  };
 
   const fetchWithdrawalHistory = async () => {
     if (!serviceProviderId) return;
@@ -84,648 +282,431 @@ export function WithdrawalHistoryDialog({
         `/api/service-providers/${serviceProviderId}/payouts?detailed=true&include_ledger=true`
       );
 
-      if (response.status === 200) {
+      if (response.status === 200 && response.data) {
         setHistoryData(response.data);
       } else {
         throw new Error(`Failed to fetch history: ${response.status}`);
       }
     } catch (error) {
-      console.error("Error fetching withdrawal history:", error);
-      // Use Alert.alert or your toast implementation
-      Alert.alert(t('common.error'), t('errors.failedToLoadHistory'));
+      console.error('Error fetching withdrawal history:', error);
+      showError('Failed to load withdrawal history. Please try again.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchWithdrawalHistory();
   };
 
   const getStatusBadge = (status: string) => {
-    let backgroundColor, textColor, borderColor, label;
-    
     switch (status) {
-      case "completed":
-      case "SUCCESS":
-        backgroundColor = "#DCFCE7";
-        textColor = "#166534";
-        borderColor = "#86EFAC";
-        label = t('withdrawalHistory.status.completed');
-        break;
-      case "pending":
-      case "PENDING":
-        backgroundColor = "#FEF9C3";
-        textColor = "#854D0E";
-        borderColor = "#FDE047";
-        label = t('withdrawalHistory.status.pending');
-        break;
-      case "failed":
-      case "FAILED":
-        backgroundColor = "#FEE2E2";
-        textColor = "#991B1B";
-        borderColor = "#FCA5A5";
-        label = t('withdrawalHistory.status.failed');
-        break;
+      case 'completed':
+      case 'SUCCESS':
+        return <Badge variant="success">Completed</Badge>;
+      case 'pending':
+      case 'PENDING':
+        return <Badge variant="warning">Pending</Badge>;
+      case 'failed':
+      case 'FAILED':
+        return <Badge variant="danger">Failed</Badge>;
       default:
-        backgroundColor = "#F3F4F6";
-        textColor = "#374151";
-        borderColor = "#D1D5DB";
-        label = status;
+        return <Badge>{status}</Badge>;
     }
-
-    return (
-      <View style={[styles.badge, { backgroundColor, borderColor }]}>
-        <Text style={[styles.badgeText, { color: textColor }]}>{label}</Text>
-      </View>
-    );
   };
 
-  const getReasonText = (reason: LedgerEntry["reason"]) => {
+  const getReasonText = (reason: LedgerEntry['reason']) => {
     switch (reason) {
-      case "DAILY_EARNED":
-        return t('withdrawalHistory.transactionTypes.DAILY_EARNED');
-      case "WITHDRAWAL":
-        return t('withdrawalHistory.transactionTypes.WITHDRAWAL');
-      case "SERVICE_FEE":
-        return t('withdrawalHistory.transactionTypes.SERVICE_FEE');
-      case "SECURITY_DEPOSIT":
-        return t('withdrawalHistory.transactionTypes.SECURITY_DEPOSIT');
-      case "REFUND":
-        return t('withdrawalHistory.transactionTypes.REFUND');
+      case 'DAILY_EARNED':
+        return 'Service Payment';
+      case 'WITHDRAWAL':
+        return 'Withdrawal';
+      case 'SERVICE_FEE':
+        return 'Service Fee';
+      case 'SECURITY_DEPOSIT':
+        return 'Security Deposit';
+      case 'REFUND':
+        return 'Refund';
       default:
-        return t('withdrawalHistory.transactionTypes.OTHER');
+        return 'Transaction';
     }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
   const formatAmount = (amount: number) => {
-    return `${t('common.currency')}${amount.toLocaleString("en-IN", {
+    return `₹${amount.toLocaleString('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
   };
 
   const filteredLedger = historyData?.ledger?.filter((entry) => {
-    if (selectedFilter === "all") return true;
-    if (selectedFilter === "credit") return entry.direction === "CREDIT";
-    if (selectedFilter === "debit") return entry.direction === "DEBIT";
+    if (selectedFilter === 'all') return true;
+    if (selectedFilter === 'credit') return entry.direction === 'CREDIT';
+    if (selectedFilter === 'debit') return entry.direction === 'DEBIT';
     return true;
   });
 
-  const handleClose = () => {
-    onOpenChange(false);
-  };
-
-  const renderTransactionItem = ({ item }: { item: LedgerEntry }) => (
-    <View style={styles.transactionItem}>
-      <View style={styles.transactionContent}>
-        <View style={styles.transactionLeft}>
-          <View style={[
-            styles.transactionIconContainer,
-            item.direction === "CREDIT" 
-              ? styles.creditIcon 
-              : styles.debitIcon
-          ]}>
-            <Text style={styles.transactionIcon}>
-              {item.direction === "CREDIT" ? "↑" : "↓"}
-            </Text>
-          </View>
-          <View style={styles.transactionInfo}>
-            <Text style={styles.transactionTitle}>
-              {getReasonText(item.reason)}
-            </Text>
-            <Text style={styles.transactionDate}>
-              {formatDate(item.created_at)}
-              {item.engagement_id && (
-                <Text style={styles.engagementId}>
-                  • {t('withdrawalHistory.engagement', { id: item.engagement_id })}
-                </Text>
-              )}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.transactionRight}>
-          <Text style={[
-            styles.transactionAmount,
-            item.direction === "CREDIT" 
-              ? styles.creditAmount 
-              : styles.debitAmount
-          ]}>
-            {item.direction === "CREDIT" ? "+" : "-"}
-            {formatAmount(item.amount)}
-          </Text>
-          <Text style={styles.transactionDirection}>
-            {item.direction === "CREDIT" 
-              ? t('withdrawalHistory.credit') 
-              : t('withdrawalHistory.debit')}
-          </Text>
-        </View>
-      </View>
-      {item.reference_type && (
-        <Text style={styles.referenceText}>
-          {t('withdrawalHistory.ref', { 
-            type: item.reference_type, 
-            id: item.reference_id 
-          })}
-        </Text>
-      )}
-    </View>
-  );
-
-  const renderPayoutItem = ({ item }: { item: any }) => (
-    <View style={styles.payoutItem}>
-      <View style={styles.payoutContent}>
-        <View>
-          <Text style={styles.payoutTitle}>
-            {t('withdrawalHistory.payoutId', { id: item.payout_id })}
-          </Text>
-          <Text style={styles.payoutDate}>{formatDate(item.created_at)}</Text>
-        </View>
-        <View style={styles.payoutRight}>
-          <Text style={styles.payoutAmount}>{formatAmount(item.net_amount)}</Text>
-          {getStatusBadge(item.status)}
-        </View>
-      </View>
-      {item.engagement_id && (
-        <Text style={styles.engagementText}>
-          {t('withdrawalHistory.engagementId', { id: item.engagement_id })}
-        </Text>
-      )}
-    </View>
-  );
-
   return (
     <Modal
-      visible={open}
+      visible={visible}
       animationType="slide"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>{t('withdrawalHistory.title')}</Text>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Text style={styles.closeIcon}>✕</Text>
-              </TouchableOpacity>
+      transparent={false}
+      onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+        {/* Header with Gradient */}
+        <LinearGradient
+          colors={['#0a2a66ff', '#004aadff']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            paddingTop: 48,
+            paddingBottom: 16,
+            paddingHorizontal: 20,
+            borderBottomLeftRadius: 20,
+            borderBottomRightRadius: 20,
+          }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+              <Icon name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                color: '#ffffff',
+                textAlign: 'center',
+                flex: 1,
+              }}>
+              Withdrawal History
+            </Text>
+            <View style={{ width: 32 }} />
+          </View>
+          <Text
+            style={{
+              fontSize: 14,
+              color: 'rgba(255,255,255,0.9)',
+              textAlign: 'center',
+              marginTop: 8,
+            }}>
+            View your earnings, withdrawals, and transaction history
+          </Text>
+        </LinearGradient>
+
+        {/* Content */}
+        {loading && !refreshing ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#004aad" />
+          </View>
+        ) : !historyData ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Icon name="receipt" size={48} color="#d1d5db" />
+            <Text style={{ fontSize: 16, color: '#6b7280', marginTop: 12 }}>
+              No history data available
+            </Text>
+            <View style={{ marginTop: 16 }}>
+              <Button
+                title="Retry"
+                onPress={fetchWithdrawalHistory}
+                variant="outline"
+              />
             </View>
           </View>
-
-          <View style={styles.contentContainer}>
-            <Text style={styles.subtitle}>
-              {t('withdrawalHistory.subtitle')}
-            </Text>
-
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#3B82F6" />
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            showsVerticalScrollIndicator={false}>
+            <View style={{ padding: 16 }}>
+              {/* Summary Cards */}
+              <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+                <SummaryCard
+                  title="Total Earned"
+                  amount={historyData.summary.total_earned}
+                  gradientColors={['#3b82f6', '#2563eb']}
+                />
+                <SummaryCard
+                  title="Available Balance"
+                  amount={historyData.summary.available_to_withdraw}
+                  gradientColors={['#10b981', '#059669']}
+                />
+                <SummaryCard
+                  title="Total Withdrawn"
+                  amount={historyData.summary.total_withdrawn}
+                  gradientColors={['#f59e0b', '#d97706']}
+                />
               </View>
-            ) : !historyData ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>{t('withdrawalHistory.noData')}</Text>
-                <TouchableOpacity
-                  style={styles.retryButton}
-                  onPress={fetchWithdrawalHistory}
-                >
-                  <Text style={styles.retryButtonText}>{t('withdrawalHistory.retry')}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <ScrollView style={styles.scrollContainer}>
-                {/* Summary Cards */}
-                <View style={styles.summaryGrid}>
-                  <View style={styles.summaryCard}>
-                    <Text style={styles.summaryLabel}>{t('withdrawalHistory.summary.totalEarned')}</Text>
-                    <Text style={styles.summaryValue}>
-                      {formatAmount(historyData.summary.total_earned)}
-                    </Text>
-                  </View>
-                  <View style={[styles.summaryCard, styles.summaryCardGreen]}>
-                    <Text style={styles.summaryLabelGreen}>{t('withdrawalHistory.summary.availableBalance')}</Text>
-                    <Text style={styles.summaryValueGreen}>
-                      {formatAmount(historyData.summary.available_to_withdraw)}
-                    </Text>
-                  </View>
-                  <View style={[styles.summaryCard, styles.summaryCardOrange]}>
-                    <Text style={styles.summaryLabelOrange}>{t('withdrawalHistory.summary.totalWithdrawn')}</Text>
-                    <Text style={styles.summaryValueOrange}>
-                      {formatAmount(historyData.summary.total_withdrawn)}
-                    </Text>
-                  </View>
-                </View>
 
-                {/* Filters */}
-                <View style={styles.filterContainer}>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterButton,
-                      selectedFilter === "all" && styles.filterButtonActive,
-                    ]}
-                    onPress={() => setSelectedFilter("all")}
-                  >
-                    <Text style={[
-                      styles.filterButtonText,
-                      selectedFilter === "all" && styles.filterButtonTextActive,
-                    ]}>
-                      {t('withdrawalHistory.filters.all')}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterButton,
-                      selectedFilter === "credit" && styles.filterButtonActive,
-                    ]}
-                    onPress={() => setSelectedFilter("credit")}
-                  >
-                    <Text style={[styles.creditIconSmall, { marginRight: 4 }]}>↑</Text>
-                    <Text style={[
-                      styles.filterButtonText,
-                      selectedFilter === "credit" && styles.filterButtonTextActive,
-                    ]}>
-                      {t('withdrawalHistory.filters.earnings')}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterButton,
-                      selectedFilter === "debit" && styles.filterButtonActive,
-                    ]}
-                    onPress={() => setSelectedFilter("debit")}
-                  >
-                    <Text style={[styles.debitIconSmall, { marginRight: 4 }]}>↓</Text>
-                    <Text style={[
-                      styles.filterButtonText,
-                      selectedFilter === "debit" && styles.filterButtonTextActive,
-                    ]}>
-                      {t('withdrawalHistory.filters.withdrawals')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+              {/* Filters */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginBottom: 16 }}>
+                <FilterButton
+                  title="All Transactions"
+                  active={selectedFilter === 'all'}
+                  onPress={() => setSelectedFilter('all')}
+                />
+                <FilterButton
+                  title="Earnings"
+                  active={selectedFilter === 'credit'}
+                  onPress={() => setSelectedFilter('credit')}
+                  icon="arrow-up"
+                  iconColor="#10b981"
+                />
+                <FilterButton
+                  title="Withdrawals"
+                  active={selectedFilter === 'debit'}
+                  onPress={() => setSelectedFilter('debit')}
+                  icon="arrow-down"
+                  iconColor="#ef4444"
+                />
+              </ScrollView>
 
-                {/* Transaction History */}
-                <View style={styles.transactionListContainer}>
-                  {filteredLedger && filteredLedger.length > 0 ? (
-                    <FlatList
-                      data={filteredLedger}
-                      renderItem={renderTransactionItem}
-                      keyExtractor={(item) => item.ledger_id}
-                      scrollEnabled={false}
-                      ItemSeparatorComponent={() => <View style={styles.separator} />}
-                    />
-                  ) : (
-                    <View style={styles.emptyTransactionContainer}>
-                      <Text style={styles.emptyTransactionIcon}>🧾</Text>
-                      <Text style={styles.emptyTransactionTitle}>
-                        {t('withdrawalHistory.empty.title')}
-                      </Text>
-                      <Text style={styles.emptyTransactionSubtitle}>
-                        {selectedFilter !== "all"
-                          ? (selectedFilter === "credit" 
-                              ? t('withdrawalHistory.empty.noCredit')
-                              : t('withdrawalHistory.empty.noDebit'))
-                          : t('withdrawalHistory.empty.description')}
-                      </Text>
+              {/* Transaction History */}
+              <View
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
+                  overflow: 'hidden',
+                  marginBottom: 20,
+                }}>
+                {filteredLedger && filteredLedger.length > 0 ? (
+                  filteredLedger.map((entry) => (
+                    <View
+                      key={entry.ledger_id}
+                      style={{
+                        padding: 16,
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#f3f4f6',
+                      }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                        }}>
+                        <View style={{ flexDirection: 'row', flex: 1 }}>
+                          <View
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 20,
+                              backgroundColor:
+                                entry.direction === 'CREDIT'
+                                  ? '#d1fae5'
+                                  : '#fee2e2',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              marginRight: 12,
+                            }}>
+                            <Icon
+                              name={
+                                entry.direction === 'CREDIT'
+                                  ? 'arrow-up'
+                                  : 'arrow-down'
+                              }
+                              size={20}
+                              color={
+                                entry.direction === 'CREDIT'
+                                  ? '#059669'
+                                  : '#dc2626'
+                              }
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={{
+                                fontSize: 16,
+                                fontWeight: '600',
+                                color: '#111827',
+                              }}>
+                              {getReasonText(entry.reason)}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: '#6b7280',
+                                marginTop: 2,
+                              }}>
+                              {formatDate(entry.created_at)}
+                              {entry.engagement_id && (
+                                <Text> • Engagement #{entry.engagement_id}</Text>
+                              )}
+                            </Text>
+                            {entry.reference_type && (
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  color: '#9ca3af',
+                                  marginTop: 4,
+                                }}>
+                                Ref: {entry.reference_type} #{entry.reference_id}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 'bold',
+                              color:
+                                entry.direction === 'CREDIT'
+                                  ? '#059669'
+                                  : '#dc2626',
+                            }}>
+                            {entry.direction === 'CREDIT' ? '+' : '-'}
+                            {formatAmount(entry.amount)}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              color: '#6b7280',
+                              marginTop: 2,
+                            }}>
+                            {entry.direction === 'CREDIT' ? 'Credit' : 'Debit'}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                  )}
-                </View>
-
-                {/* Payout History Section */}
-                {historyData.payouts && historyData.payouts.length > 0 && (
-                  <View style={styles.payoutSection}>
-                    <Text style={styles.payoutSectionTitle}>{t('withdrawalHistory.payoutSection')}</Text>
-                    <View style={styles.payoutListContainer}>
-                      <FlatList
-                        data={historyData.payouts}
-                        renderItem={renderPayoutItem}
-                        keyExtractor={(item) => item.payout_id}
-                        scrollEnabled={false}
-                        ItemSeparatorComponent={() => <View style={styles.separator} />}
-                      />
-                    </View>
+                  ))
+                ) : (
+                  <View
+                    style={{
+                      padding: 40,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <Icon name="receipt" size={48} color="#d1d5db" />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: '#6b7280',
+                        marginTop: 12,
+                      }}>
+                      No transactions found
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: '#9ca3af',
+                        marginTop: 4,
+                      }}>
+                      {selectedFilter !== 'all'
+                        ? `No ${selectedFilter} transactions`
+                        : 'Start providing services to see transactions'}
+                    </Text>
                   </View>
                 )}
-              </ScrollView>
-            )}
-          </View>
-        </View>
+              </View>
+
+              {/* Payout History Section */}
+              {historyData.payouts && historyData.payouts.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#111827',
+                      marginBottom: 12,
+                    }}>
+                    Payout Requests
+                  </Text>
+                  <View
+                    style={{
+                      backgroundColor: '#ffffff',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#e5e7eb',
+                      overflow: 'hidden',
+                    }}>
+                    {historyData.payouts.map((payout) => (
+                      <View
+                        key={payout.payout_id}
+                        style={{
+                          padding: 16,
+                          borderBottomWidth: 1,
+                          borderBottomColor: '#f3f4f6',
+                        }}>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                          }}>
+                          <View>
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                fontWeight: '600',
+                                color: '#111827',
+                              }}>
+                              Payout #{payout.payout_id}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: '#6b7280',
+                                marginTop: 2,
+                              }}>
+                              {formatDate(payout.created_at)}
+                            </Text>
+                            {payout.engagement_id && (
+                              <Text
+                                style={{
+                                  fontSize: 12,
+                                  color: '#6b7280',
+                                  marginTop: 4,
+                                }}>
+                                Engagement #{payout.engagement_id}
+                              </Text>
+                            )}
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 'bold',
+                                color: '#111827',
+                              }}>
+                              {formatAmount(payout.net_amount)}
+                            </Text>
+                            <View style={{ marginTop: 4 }}>
+                              {getStatusBadge(payout.status)}
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        )}
       </View>
     </Modal>
   );
-}
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "90%",
-  },
-  header: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeIcon: {
-    fontSize: 24,
-    color: "#6B7280",
-  },
-  contentContainer: {
-    padding: 20,
-    flex: 1,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 20,
-  },
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 48,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    paddingVertical: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#9CA3AF",
-    marginBottom: 16,
-  },
-  retryButton: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  retryButtonText: {
-    fontSize: 14,
-    color: "#374151",
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 24,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 4,
-  },
-  summaryCardGreen: {
-    backgroundColor: "#DCFCE7",
-    borderColor: "#86EFAC",
-  },
-  summaryCardOrange: {
-    backgroundColor: "#FFEDD5",
-    borderColor: "#FDBA74",
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#1E40AF",
-    marginBottom: 4,
-  },
-  summaryLabelGreen: {
-    color: "#166534",
-  },
-  summaryLabelOrange: {
-    color: "#9A3412",
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1E40AF",
-  },
-  summaryValueGreen: {
-    color: "#166534",
-  },
-  summaryValueOrange: {
-    color: "#9A3412",
-  },
-  filterContainer: {
-    flexDirection: "row",
-    marginBottom: 20,
-  },
-  filterButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginHorizontal: 4,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  filterButtonActive: {
-    backgroundColor: "#3B82F6",
-    borderColor: "#3B82F6",
-  },
-  filterButtonText: {
-    fontSize: 12,
-    color: "#374151",
-  },
-  filterButtonTextActive: {
-    color: "#FFFFFF",
-  },
-  creditIconSmall: {
-    color: "#16A34A",
-    fontSize: 14,
-  },
-  debitIconSmall: {
-    color: "#DC2626",
-    fontSize: 14,
-  },
-  transactionListContainer: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  transactionItem: {
-    padding: 16,
-  },
-  transactionContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  transactionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  transactionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  creditIcon: {
-    backgroundColor: "#DCFCE7",
-  },
-  debitIcon: {
-    backgroundColor: "#FEE2E2",
-  },
-  transactionIcon: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#111827",
-    marginBottom: 2,
-  },
-  transactionDate: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  engagementId: {
-    color: "#9CA3AF",
-  },
-  transactionRight: {
-    alignItems: "flex-end",
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  creditAmount: {
-    color: "#16A34A",
-  },
-  debitAmount: {
-    color: "#DC2626",
-  },
-  transactionDirection: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  referenceText: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    marginTop: 8,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "#F3F4F6",
-  },
-  emptyTransactionContainer: {
-    alignItems: "center",
-    paddingVertical: 32,
-    paddingHorizontal: 20,
-  },
-  emptyTransactionIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTransactionTitle: {
-    fontSize: 16,
-    color: "#6B7280",
-    marginBottom: 4,
-  },
-  emptyTransactionSubtitle: {
-    fontSize: 14,
-    color: "#9CA3AF",
-  },
-  payoutSection: {
-    marginTop: 8,
-  },
-  payoutSectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 12,
-  },
-  payoutListContainer: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-  },
-  payoutItem: {
-    padding: 16,
-  },
-  payoutContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  payoutTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#111827",
-    marginBottom: 2,
-  },
-  payoutDate: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  payoutRight: {
-    alignItems: "flex-end",
-  },
-  payoutAmount: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  engagementText: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-});
+};
