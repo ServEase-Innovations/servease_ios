@@ -1,6 +1,6 @@
-// Footer.tsx - Updated with ThemeContext integration
+// Footer.tsx - Updated with ThemeContext integration and Full Responsiveness
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, StyleSheet, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, StyleSheet, Image, Modal, useWindowDimensions, Platform } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import LinearGradient from 'react-native-linear-gradient';
@@ -11,7 +11,13 @@ import { useTranslation } from 'react-i18next';
 const Footer = () => {
   const { t } = useTranslation();
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
   const [showTnC, setShowTnC] = useState(false);
+
+  // Responsive breakpoints
+  const isSmallScreen = screenWidth < 375;
+  const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
+  const isLargeScreen = screenWidth >= 768;
 
   const openLink = (url: string) => {
     Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
@@ -29,15 +35,33 @@ const Footer = () => {
     setShowTnC(false);
   };
 
-  // Get font size styles based on settings
+  // Get font size styles based on settings and screen size
   const getFontSizeStyles = () => {
+    let baseSize = 14;
+    let headingSize = 16;
+    let smallText = 12;
+    
+    if (isSmallScreen) {
+      baseSize = 12;
+      headingSize = 14;
+      smallText = 10;
+    } else if (isMediumScreen) {
+      baseSize = 14;
+      headingSize = 16;
+      smallText = 12;
+    } else if (isLargeScreen) {
+      baseSize = 16;
+      headingSize = 18;
+      smallText = 14;
+    }
+    
     switch (fontSize) {
       case 'small':
-        return { textSize: 12, headingSize: 14, smallText: 10 };
+        return { textSize: baseSize - 2, headingSize: headingSize - 2, smallText: smallText - 2 };
       case 'large':
-        return { textSize: 16, headingSize: 18, smallText: 14 };
+        return { textSize: baseSize + 2, headingSize: headingSize + 2, smallText: smallText + 2 };
       default:
-        return { textSize: 14, headingSize: 16, smallText: 12 };
+        return { textSize: baseSize, headingSize: headingSize, smallText: smallText };
     }
   };
 
@@ -60,6 +84,30 @@ const Footer = () => {
     }
   };
 
+  // Responsive logo size
+  const getLogoSize = () => {
+    if (isSmallScreen) return 40;
+    if (isMediumScreen) return 50;
+    return 60;
+  };
+
+  // Responsive button width
+  const getContactButtonWidth = () => {
+    if (isSmallScreen) return 180;
+    if (isMediumScreen) return 200;
+    return 220;
+  };
+
+  // Responsive icon size
+  const getIconSize = () => {
+    if (isSmallScreen) return 14;
+    if (isMediumScreen) return 16;
+    return 18;
+  };
+
+  // Check if layout should be column on very small screens
+  const shouldUseColumnLayout = isSmallScreen;
+
   return (
     <>
       <LinearGradient
@@ -71,9 +119,16 @@ const Footer = () => {
           { borderTopColor: isDarkMode ? colors.border : '#a0c8ff' }
         ]}
       >
-        <View style={styles.footer}>
+        <View style={[
+          styles.footer,
+          shouldUseColumnLayout && styles.footerColumn
+        ]}>
           {/* Left side - Logo and Brand Info */}
-          <View style={styles.leftSection}>
+          <View style={[
+            styles.leftSection,
+            shouldUseColumnLayout && styles.leftSectionColumn,
+            { marginRight: shouldUseColumnLayout ? 0 : 20 }
+          ]}>
             <View style={styles.logoContainer}>
               {/* Logo Image */}
               <Image 
@@ -81,8 +136,11 @@ const Footer = () => {
                 style={[
                   styles.logoImage,
                   { 
+                    width: getLogoSize(),
+                    height: getLogoSize(),
                     backgroundColor: isDarkMode ? colors.primary : '#0a3d62',
-                    shadowColor: colors.shadow 
+                    shadowColor: colors.shadow,
+                    borderRadius: isSmallScreen ? 8 : 12,
                   }
                 ]}
                 resizeMode="contain"
@@ -103,7 +161,8 @@ const Footer = () => {
                 styles.infoText, 
                 { 
                   color: isDarkMode ? colors.textSecondary : '#0a3d62',
-                  fontSize: fontStyles.smallText 
+                  fontSize: fontStyles.smallText,
+                  lineHeight: fontStyles.smallText + 4
                 }
               ]}>
                 Est. 2024
@@ -113,7 +172,9 @@ const Footer = () => {
                   styles.tncText, 
                   { 
                     color: isDarkMode ? colors.primary : '#0a3d62',
-                    fontSize: fontStyles.smallText 
+                    fontSize: fontStyles.smallText,
+                    lineHeight: fontStyles.smallText + 4,
+                    marginTop: isSmallScreen ? 8 : 15
                   }
                 ]}>
                   Terms and Conditions
@@ -123,29 +184,42 @@ const Footer = () => {
           </View>
 
           {/* Right side - Contact Us Section */}
-          <View style={styles.rightSection}>
+          <View style={[
+            styles.rightSection,
+            shouldUseColumnLayout && styles.rightSectionColumn,
+            { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-start' }
+          ]}>
             <Text style={[
               styles.contactTitle, 
               { 
                 color: isDarkMode ? colors.text : '#0a3d62',
-                fontSize: fontStyles.textSize 
+                fontSize: fontStyles.textSize,
+                marginBottom: isSmallScreen ? 8 : 12,
+                textAlign: shouldUseColumnLayout ? 'left' : 'right'
               }
             ]}>
               Contact us:
             </Text>
-            <View style={styles.contactButtonsContainer}>
+            <View style={[
+              styles.contactButtonsContainer,
+              shouldUseColumnLayout && styles.contactButtonsContainerColumn,
+              { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-end' }
+            ]}>
               <TouchableOpacity 
                 style={[
                   styles.contactButton,
                   { 
                     backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
                     borderColor: isDarkMode ? colors.border : '#0a3d62',
-                    shadowColor: colors.shadow
+                    shadowColor: colors.shadow,
+                    width: getContactButtonWidth(),
+                    padding: isSmallScreen ? 8 : 12,
+                    marginBottom: isSmallScreen ? 6 : 10,
                   }
                 ]}
                 onPress={() => makePhoneCall('+918792827744')}
               >
-                <FontAwesome name="phone" size={16} color={isDarkMode ? colors.primary : '#0a3d62'} style={styles.phoneIcon} />
+                <FontAwesome name="phone" size={getIconSize()} color={isDarkMode ? colors.primary : '#0a3d62'} style={styles.phoneIcon} />
                 <Text style={[
                   styles.contactText, 
                   { 
@@ -162,12 +236,15 @@ const Footer = () => {
                   { 
                     backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
                     borderColor: isDarkMode ? colors.border : '#0a3d62',
-                    shadowColor: colors.shadow
+                    shadowColor: colors.shadow,
+                    width: getContactButtonWidth(),
+                    padding: isSmallScreen ? 8 : 12,
+                    marginBottom: isSmallScreen ? 0 : 0,
                   }
                 ]}
                 onPress={() => makePhoneCall('+918792827754')}
               >
-                <FontAwesome name="phone" size={16} color={isDarkMode ? colors.primary : '#0a3d62'} style={styles.phoneIcon} />
+                <FontAwesome name="phone" size={getIconSize()} color={isDarkMode ? colors.primary : '#0a3d62'} style={styles.phoneIcon} />
                 <Text style={[
                   styles.contactText, 
                   { 
@@ -186,26 +263,42 @@ const Footer = () => {
         <View style={[
           styles.followSection,
           { 
-            borderTopColor: isDarkMode ? colors.border : '#a0c8ff'
+            borderTopColor: isDarkMode ? colors.border : '#a0c8ff',
+            paddingHorizontal: isSmallScreen ? 10 : 15,
+            paddingVertical: isSmallScreen ? 8 : 10,
+            marginHorizontal: isSmallScreen ? 10 : 15,
+            paddingRight: isSmallScreen ? 20 : 42,
+            flexDirection: isSmallScreen ? 'column' : 'row',
+            alignItems: isSmallScreen ? 'center' : 'center',
           }
         ]}>
           <Text style={[
             styles.followText, 
             { 
               color: isDarkMode ? colors.text : '#0a3d62',
-              fontSize: fontStyles.textSize 
+              fontSize: fontStyles.textSize,
+              marginRight: isSmallScreen ? 0 : 12,
+              marginBottom: isSmallScreen ? 8 : 0,
             }
           ]}>
             Follow us on:
           </Text>
-          <View style={styles.socialMedia}>
+          <View style={[
+            styles.socialMedia,
+            { flexWrap: isSmallScreen ? 'wrap' : 'nowrap' }
+          ]}>
             <TouchableOpacity 
               style={[
                 styles.iconButton,
                 { 
                   backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
                   borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow
+                  shadowColor: colors.shadow,
+                  padding: isSmallScreen ? 6 : 8,
+                  marginHorizontal: isSmallScreen ? 3 : 4,
+                  minWidth: isSmallScreen ? 28 : 32,
+                  minHeight: isSmallScreen ? 28 : 32,
+                  borderRadius: isSmallScreen ? 18 : 20,
                 }
               ]}
               onPress={() => openLink('https://x.com/ServEaso')}
@@ -213,7 +306,10 @@ const Footer = () => {
               <View style={styles.xIconContainer}>
                 <Text style={[
                   styles.xIcon, 
-                  { color: isDarkMode ? colors.text : '#0a3d62' }
+                  { 
+                    color: isDarkMode ? colors.text : '#0a3d62',
+                    fontSize: isSmallScreen ? 10 : 12,
+                  }
                 ]}>X</Text>
               </View>
             </TouchableOpacity>
@@ -224,12 +320,17 @@ const Footer = () => {
                 { 
                   backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
                   borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow
+                  shadowColor: colors.shadow,
+                  padding: isSmallScreen ? 6 : 8,
+                  marginHorizontal: isSmallScreen ? 3 : 4,
+                  minWidth: isSmallScreen ? 28 : 32,
+                  minHeight: isSmallScreen ? 28 : 32,
+                  borderRadius: isSmallScreen ? 18 : 20,
                 }
               ]}
               onPress={() => openLink('https://www.instagram.com/serveaso?igsh=cHQxdmdubnZocjRn')}
             >
-              <Ionicons name="logo-instagram" size={16} color={isDarkMode ? colors.text : '#0a3d62'} />
+              <Ionicons name="logo-instagram" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -238,12 +339,17 @@ const Footer = () => {
                 { 
                   backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
                   borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow
+                  shadowColor: colors.shadow,
+                  padding: isSmallScreen ? 6 : 8,
+                  marginHorizontal: isSmallScreen ? 3 : 4,
+                  minWidth: isSmallScreen ? 28 : 32,
+                  minHeight: isSmallScreen ? 28 : 32,
+                  borderRadius: isSmallScreen ? 18 : 20,
                 }
               ]}
               onPress={() => openLink('https://www.youtube.com/@ServEaso')}
             >
-              <Ionicons name="logo-youtube" size={16} color={isDarkMode ? colors.text : '#0a3d62'} />
+              <Ionicons name="logo-youtube" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -252,12 +358,17 @@ const Footer = () => {
                 { 
                   backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
                   borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow
+                  shadowColor: colors.shadow,
+                  padding: isSmallScreen ? 6 : 8,
+                  marginHorizontal: isSmallScreen ? 3 : 4,
+                  minWidth: isSmallScreen ? 28 : 32,
+                  minHeight: isSmallScreen ? 28 : 32,
+                  borderRadius: isSmallScreen ? 18 : 20,
                 }
               ]}
               onPress={() => openLink('https://www.linkedin.com/in/serveaso-media-7b7719381/')}
             >
-              <Ionicons name="logo-linkedin" size={16} color={isDarkMode ? colors.text : '#0a3d62'} />
+              <Ionicons name="logo-linkedin" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -266,12 +377,17 @@ const Footer = () => {
                 { 
                   backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
                   borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow
+                  shadowColor: colors.shadow,
+                  padding: isSmallScreen ? 6 : 8,
+                  marginHorizontal: isSmallScreen ? 3 : 4,
+                  minWidth: isSmallScreen ? 28 : 32,
+                  minHeight: isSmallScreen ? 28 : 32,
+                  borderRadius: isSmallScreen ? 18 : 20,
                 }
               ]}
               onPress={() => openLink('https://www.facebook.com/profile.php?id=61572701168852')}
             >
-              <Ionicons name="logo-facebook" size={16} color={isDarkMode ? colors.text : '#0a3d62'} />
+              <Ionicons name="logo-facebook" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
             </TouchableOpacity>
           </View>
         </View>
@@ -289,7 +405,10 @@ const Footer = () => {
             colors={isDarkMode ? [colors.primaryDark, colors.primary] : ["#0a2a66ff", "#004aadff"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
+            style={[
+              styles.modalHeader,
+              { paddingTop: Platform.OS === 'ios' ? 50 : 16 }
+            ]}
           >
             <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
               Terms and Conditions
@@ -318,13 +437,27 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     minHeight: 180,
   },
+  footerColumn: {
+    flexDirection: 'column',
+    minHeight: 'auto',
+    paddingBottom: 10,
+  },
   leftSection: {
     flex: 1,
     marginRight: 20,
   },
+  leftSectionColumn: {
+    marginRight: 0,
+    marginBottom: 20,
+    width: '100%',
+  },
   rightSection: {
     alignItems: 'flex-start',
     minWidth: 200,
+  },
+  rightSectionColumn: {
+    width: '100%',
+    minWidth: 'auto',
   },
   logoContainer: {
     flexDirection: 'column',
@@ -332,10 +465,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   logoImage: {
-    width: 50,
-    height: 50,
     marginBottom: 8,
-    borderRadius: 12,
     padding: 10,
   },
   brandSubtitle: {
@@ -347,28 +477,25 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   infoText: {
-    lineHeight: 16,
     fontWeight: '500',
   },
   tncText: {
-    lineHeight: 16,
     fontWeight: '600',
     textDecorationLine: 'underline',
-    marginTop: 15,
   },
   contactTitle: {
     fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'right',
   },
   contactButtonsContainer: {
     width: '100%',
     alignItems: 'flex-end',
   },
+  contactButtonsContainerColumn: {
+    alignItems: 'flex-start',
+  },
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     shadowOffset: {
@@ -378,8 +505,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
-    marginBottom: 10,
-    width: 200,
     justifyContent: 'flex-start',
   },
   phoneIcon: {
@@ -391,28 +516,18 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   followSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
     borderTopWidth: 1,
-    marginHorizontal: 15,
-    paddingRight: 42,
+    justifyContent: 'center',
   },
   followText: {
     fontWeight: '600',
-    marginRight: 12,
   },
   socialMedia: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'nowrap',
+    justifyContent: 'center',
   },
   iconButton: {
-    padding: 8,
-    marginHorizontal: 4,
-    borderRadius: 20,
     borderWidth: 1,
     shadowOffset: {
       width: 0,
@@ -421,19 +536,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
-    minWidth: 32,
-    minHeight: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },
   xIconContainer: {
-    width: 16,
-    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   xIcon: {
-    fontSize: 12,
     fontWeight: 'bold',
   },
   modalContainer: {
@@ -444,7 +554,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    paddingTop: 50,
   },
   modalTitle: {
     fontWeight: 'bold',

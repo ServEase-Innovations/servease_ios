@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import moment from "moment";
 import {
   View,
@@ -13,6 +13,9 @@ import {
   ActivityIndicator,
   Platform,
   Linking,
+  Dimensions,
+  KeyboardAvoidingView,
+  SafeAreaView,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -41,7 +44,10 @@ import { useTheme } from "../../src/Settings/ThemeContext";
 import BasicInformation from "./BasicInformation";
 import ServiceDetails from "./ServiceDetails";
 import KYCVerification from "./KYCVerification";
+import BankDetails, { BankDetailsData, BankDetailsErrors } from "./BankDetails";
 import providerInstance from "../services/providerInstance";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -177,12 +183,13 @@ const voterIdRegex = /^[A-Z]{3}[0-9]{7}$/;
 const passportRegex = /^[A-Z]{1}[0-9]{7}$/;
 const MAX_NAME_LENGTH = 30;
 
-// Steps without extra spaces
+// Steps with Bank Details added
 const steps = [
-  "Basic Information",
-  "Address Information",
-  "Additional Details",
-  "KYC Verification",
+  "Basic\nInfo",
+  "Address\nInfo",
+  "Additional\nDetails",
+  "KYC\nVerification",
+  "Bank\nDetails",
   "Confirmation",
 ];
 
@@ -216,6 +223,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [locationLoading, setLocationLoading] = useState(false);
   const [isSameAddress, setIsSameAddress] = useState(false);
   const [isDobValid, setIsDobValid] = useState(true);
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // Add selectedLanguages state
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
@@ -236,6 +244,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   
   // State to track if next button should be disabled
   const [isNextDisabled, setIsNextDisabled] = useState(true);
+
+  // Bank Details State
+  const [bankDetails, setBankDetails] = useState<BankDetailsData>({
+    bankName: "",
+    ifscCode: "",
+    accountHolderName: "",
+    accountNumber: "",
+    accountType: "",
+    upiId: "",
+  });
+  const [bankDetailsErrors, setBankDetailsErrors] = useState<BankDetailsErrors>({});
 
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -442,6 +461,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         break;
         
       case 4:
+        // Bank Details - Optional step, always complete
+        isComplete = true;
+        break;
+        
+      case 5:
         isComplete = formData.keyFacts && formData.terms && formData.privacy;
         break;
         
@@ -873,6 +897,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }));
     }
     
+    checkStepCompletion();
+  };
+
+  const handleBankDetailsChange = (data: BankDetailsData) => {
+    setBankDetails(data);
     checkStepCompletion();
   };
 
@@ -1679,6 +1708,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
 
     else if (step === 4) {
+      // Bank details are optional, always valid
+      isValid = true;
+    }
+
+    else if (step === 5) {
       if (!formData.keyFacts) {
         tempErrors.keyFacts = "You must agree to the Key Facts Statement";
         isValid = false;
@@ -1717,6 +1751,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
     
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
+    // Scroll to top when step changes
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     if (activeStep === steps.length - 1) {
       showSnackbar("Registration form completed!", "success");
     }
@@ -1727,6 +1763,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       onBackToLogin(true);
     } else {
       setActiveStep((prevActiveStep) => prevActiveStep - 1);
+      // Scroll to top when step changes
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     }
   };
   
@@ -1830,7 +1868,16 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           kycType: formData.kycType,
           kycNumber: formData.kycNumber,
           dob: formData.dob,
-          profilePic: profilePicUrl
+          profilePic: profilePicUrl,
+          // Add bank details to payload
+          bankDetails: {
+            bankName: bankDetails.bankName || "",
+            ifscCode: bankDetails.ifscCode || "",
+            accountHolderName: bankDetails.accountHolderName || "",
+            accountNumber: bankDetails.accountNumber || "",
+            accountType: bankDetails.accountType || "",
+            upiId: bankDetails.upiId || "",
+          }
         };
 
         console.log("Submitting payload:", JSON.stringify(payload, null, 2));
@@ -1967,47 +2014,50 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const fontSizes = getFontSizes();
 
   const renderStepper = () => {
-    return (
-      <View style={styles.stepperWrapper}>
-        {steps.map((step, index) => (
-          <View key={index} style={styles.stepperItem}>
-            <View
-              style={[
-                styles.stepperCircle,
-                index < activeStep && styles.stepperCircleCompleted,
-                index === activeStep && styles.stepperCircleActive,
-                index > activeStep && styles.stepperCircleInactive,
-              ]}
-            >
-              {index < activeStep ? (
-                <Icon name="check" size={16} color="#fff" />
-              ) : (
-                <Text style={[styles.stepperNumber, { fontSize: fontSizes.small }]}>{index + 1}</Text>
-              )}
-            </View>
-            <Text
-              style={[
-                styles.stepperLabel,
-                { fontSize: fontSizes.small },
-                index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
-              ]}
-            >
-              {step}
-            </Text>
-            {index < steps.length - 1 && (
-              <View
-                style={[
-                  styles.stepperLine,
-                  index < activeStep && styles.stepperLineActive,
-                ]}
-              />
+  return (
+    <View style={styles.stepperWrapper}>
+      {steps.map((step, index) => (
+        <View key={index} style={styles.stepperItem}>
+          <View
+            style={[
+              styles.stepperCircle,
+              index < activeStep && styles.stepperCircleCompleted,
+              index === activeStep && styles.stepperCircleActive,
+              index > activeStep && styles.stepperCircleInactive,
+            ]}
+          >
+            {index < activeStep ? (
+              <Icon name="check" size={SCREEN_WIDTH < 380 ? 12 : 16} color="#fff" />
+            ) : (
+              <Text style={[styles.stepperNumber, { fontSize: SCREEN_WIDTH < 380 ? 10 : 12 }]}>{index + 1}</Text>
             )}
           </View>
-        ))}
-      </View>
-    );
-  };
-
+          <Text
+            style={[
+              styles.stepperLabel,
+              { 
+                fontSize: SCREEN_WIDTH < 380 ? 9 : (SCREEN_WIDTH < 480 ? 10 : 11),
+                textAlign: 'center'
+              },
+              index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
+            ]}
+            numberOfLines={2}
+          >
+            {step}
+          </Text>
+          {index < steps.length - 1 && (
+            <View
+              style={[
+                styles.stepperLine,
+                index < activeStep && styles.stepperLineActive,
+              ]}
+            />
+          )}
+        </View>
+      ))}
+    </View>
+  );
+};
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -2034,7 +2084,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       
       case 1:
         return (
-          <ScrollView style={[styles.formContainer, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
+          <View style={styles.stepContainer}>
             <AddressComponent
               onAddressChange={handleAddressChange}
               permanentAddress={formData.permanentAddress}
@@ -2049,7 +2099,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
             <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
-                <Icon name="location-on" size={24} color={colors.primary} />
+                <Icon name="location-on" size={22} color={colors.primary} />
                 <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>Current Location</Text>
               </View>
               <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
@@ -2065,74 +2115,87 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Icon name="my-location" size={20} color="#fff" />
+                    <Icon name="my-location" size={18} color="#fff" />
                     <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>Fetch Current Location</Text>
                   </>
                 )}
               </TouchableOpacity>
 
               {(formData.latitude !== 0 || formData.longitude !== 0) && (
-                <>
-                  <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
-                    <Text style={[styles.alertText, { color: colors.success, fontSize: fontSizes.small }]}>
-                      <Text style={{ fontWeight: 'bold' }}>Detected:</Text> {formData.currentLocation || "No address available"}
-                    </Text>
-                  </View>
-                </>
+                <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
+                  <Text style={[styles.alertText, { color: colors.success, fontSize: fontSizes.small }]}>
+                    <Text style={{ fontWeight: 'bold' }}>Detected:</Text> {formData.currentLocation || "No address available"}
+                  </Text>
+                </View>
               )}
             </View>
-          </ScrollView>
+          </View>
         );
 
       case 2:
         return (
-          <ServiceDetails
-            formData={formData}
-            errors={errors}
-            isCookSelected={isCookSelected}
-            isNannySelected={isNannySelected}
-            morningSlots={morningSlots}
-            eveningSlots={eveningSlots}
-            isFullTime={isFullTime}
-            selectedTimeSlots={selectedTimeSlots}
-            onServiceTypeChange={handleServiceTypeChange}
-            onCookingSpecialityChange={handleCookingSpecialityChange}
-            onNannyCareTypeChange={handleNannyCareTypeChange}
-            onDietChange={handleDietChange}
-            onExperienceChange={handleExperienceChange}
-            onDescriptionChange={handleDescriptionChange}
-            onReferralCodeChange={handleReferralCodeChange}
-            onAgentReferralIdChange={handleAgentReferralIdChange}
-            onFullTimeToggle={handleFullTimeToggle}
-            onAddMorningSlot={handleAddMorningSlot}
-            onRemoveMorningSlot={handleRemoveMorningSlot}
-            onClearMorningSlots={handleClearMorningSlots}
-            onAddEveningSlot={handleAddEveningSlot}
-            onRemoveEveningSlot={handleRemoveEveningSlot}
-            onClearEveningSlots={handleClearEveningSlots}
-            onMorningSlotChange={handleMorningSlotChange}
-            onEveningSlotChange={handleEveningSlotChange}
-            formatDisplayTime={formatDisplayTime}
-            selectedLanguages={selectedLanguages}
-            onLanguagesChange={setSelectedLanguages}
-          />
+          <View style={styles.stepContainer}>
+            <ServiceDetails
+              formData={formData}
+              errors={errors}
+              isCookSelected={isCookSelected}
+              isNannySelected={isNannySelected}
+              morningSlots={morningSlots}
+              eveningSlots={eveningSlots}
+              isFullTime={isFullTime}
+              selectedTimeSlots={selectedTimeSlots}
+              onServiceTypeChange={handleServiceTypeChange}
+              onCookingSpecialityChange={handleCookingSpecialityChange}
+              onNannyCareTypeChange={handleNannyCareTypeChange}
+              onDietChange={handleDietChange}
+              onExperienceChange={handleExperienceChange}
+              onDescriptionChange={handleDescriptionChange}
+              onReferralCodeChange={handleReferralCodeChange}
+              onAgentReferralIdChange={handleAgentReferralIdChange}
+              onFullTimeToggle={handleFullTimeToggle}
+              onAddMorningSlot={handleAddMorningSlot}
+              onRemoveMorningSlot={handleRemoveMorningSlot}
+              onClearMorningSlots={handleClearMorningSlots}
+              onAddEveningSlot={handleAddEveningSlot}
+              onRemoveEveningSlot={handleRemoveEveningSlot}
+              onClearEveningSlots={handleClearEveningSlots}
+              onMorningSlotChange={handleMorningSlotChange}
+              onEveningSlotChange={handleEveningSlotChange}
+              formatDisplayTime={formatDisplayTime}
+              selectedLanguages={selectedLanguages}
+              onLanguagesChange={setSelectedLanguages}
+            />
+          </View>
         );
 
       case 3:
         return (
-          <KYCVerification
-            formData={formData}
-            errors={errors}
-            onFieldChange={handleRealTimeValidation}
-            onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
-            onDocumentUpload={handleDocumentUpload}
-            onKycTypeChange={handleKycTypeChange}
-          />
+          <View style={styles.stepContainer}>
+            <KYCVerification
+              formData={formData}
+              errors={errors}
+              onFieldChange={handleRealTimeValidation}
+              onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
+              onDocumentUpload={handleDocumentUpload}
+              onKycTypeChange={handleKycTypeChange}
+            />
+          </View>
         );
 
       case 4:
         return (
-          <ScrollView style={[styles.formContainer, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
+          <View style={styles.stepContainer}>
+            <BankDetails
+              onBankDetailsChange={handleBankDetailsChange}
+              initialData={bankDetails}
+              errors={bankDetailsErrors}
+            />
+          </View>
+        );
+
+      case 5:
+        return (
+          <View style={styles.stepContainer}>
             <Text style={[styles.confirmationText, { color: colors.text, fontSize: fontSizes.text }]}>
               Please review your information and agree to the terms to complete your registration.
             </Text>
@@ -2150,7 +2213,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             {errors.keyFacts && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.keyFacts}</Text>}
             {errors.terms && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.terms}</Text>}
             {errors.privacy && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.privacy}</Text>}
-          </ScrollView>
+          </View>
         );
 
       default:
@@ -2164,162 +2227,189 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       animationType="slide"
       transparent={false}
     >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LinearGradient
-          colors={["#0a2a66ff", "#004aadff"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerContainer}
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
         >
-          <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => onBackToLogin(true)}
-          >
-            <Icon name="close" size={24} color="#fff" />
-          </TouchableOpacity>
-        </LinearGradient>
-
-        <ScrollView style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
-          {renderStepper()}
-          {renderStepContent(activeStep)}
-
-          <View style={styles.buttonContainer}>
-            <Button
-              variant="outline"
-              size="medium"
-              onPress={handleBack}
-              disabled={isSubmitting}
-              startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}
-            >
-              Back
-            </Button>
-
-            {activeStep === steps.length - 1 ? (
-              <Button
-                variant="primary"
-                size="medium"
-                onPress={handleSubmit}
-                disabled={isNextDisabled || isSubmitting}
-                loading={isSubmitting}
-              >
-                Submit
-              </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="medium"
-                onPress={handleNext}
-                disabled={isNextDisabled || isSubmitting}
-                endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
-              >
-                Next
-              </Button>
-            )}
-          </View>
-        </ScrollView>
-
-        <Modal
-          visible={policyModalVisible}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={() => setPolicyModalVisible(false)}
-        >
-          <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.container, { backgroundColor: colors.background }]}>
             <LinearGradient
               colors={["#0a2a66ff", "#004aadff"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.policyModalHeader}
+              style={styles.headerContainer}
             >
-              <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>
-                {activePolicy === 'terms' && "Terms and Conditions"}
-                {activePolicy === 'privacy' && "Privacy Policy"}
-                {activePolicy === 'keyfacts' && "Key Facts Statement"}
-              </Text>
+              <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
               <TouchableOpacity
-                style={styles.policyModalClose}
-                onPress={() => setPolicyModalVisible(false)}
+                style={styles.closeButton}
+                onPress={() => onBackToLogin(true)}
               >
                 <Icon name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </LinearGradient>
-            <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>
-              {renderPolicyContent()}
+
+            <ScrollView 
+              ref={scrollViewRef}
+              style={[styles.content, { backgroundColor: colors.background }]} 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.contentContainer}
+              keyboardShouldPersistTaps="handled"
+            >
+              {renderStepper()}
+              {renderStepContent(activeStep)}
+
+              <View style={styles.buttonContainer}>
+                <Button
+                  variant="outline"
+                  size="medium"
+                  onPress={handleBack}
+                  disabled={isSubmitting}
+                  startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}
+                >
+                  Back
+                </Button>
+
+                {activeStep === steps.length - 1 ? (
+                  <Button
+                    variant="primary"
+                    size="medium"
+                    onPress={handleSubmit}
+                    disabled={isNextDisabled || isSubmitting}
+                    loading={isSubmitting}
+                  >
+                    Submit
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="medium"
+                    onPress={handleNext}
+                    disabled={isNextDisabled || isSubmitting}
+                    endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
+                  >
+                    Next
+                  </Button>
+                )}
+              </View>
             </ScrollView>
-          </View>
-        </Modal>
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-            maximumDate={new Date()}
-          />
-        )}
+            <Modal
+              visible={policyModalVisible}
+              animationType="slide"
+              transparent={false}
+              onRequestClose={() => setPolicyModalVisible(false)}
+            >
+              <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
+                <LinearGradient
+                  colors={["#0a2a66ff", "#004aadff"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.policyModalHeader}
+                >
+                  <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>
+                    {activePolicy === 'terms' && "Terms and Conditions"}
+                    {activePolicy === 'privacy' && "Privacy Policy"}
+                    {activePolicy === 'keyfacts' && "Key Facts Statement"}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.policyModalClose}
+                    onPress={() => setPolicyModalVisible(false)}
+                  >
+                    <Icon name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </LinearGradient>
+                <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>
+                  {renderPolicyContent()}
+                </ScrollView>
+              </View>
+            </Modal>
 
-        {snackbarOpen && (
-          <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
-            <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
-            <TouchableOpacity onPress={handleCloseSnackbar}>
-              <Icon name="close" size={20} color="white" />
-            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate || new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+              />
+            )}
+
+            {snackbarOpen && (
+              <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
+                <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
+                <TouchableOpacity onPress={handleCloseSnackbar}>
+                  <Icon name="close" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-        )}
-      </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  keyboardView: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
   headerContainer: {
-    padding: 20,
+    paddingTop: Platform.OS === "ios" ? 12 : 16,
+    paddingBottom: Platform.OS === "ios" ? 12 : 16,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
   },
   title: {
     color: '#fff',
-    fontSize: 20,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   closeButton: {
     position: 'absolute',
     right: 16,
-    top: 16,
+    top: Platform.OS === "ios" ? 12 : 16,
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 16,
+    paddingBottom: 32,
+  },
+  stepContainer: {
+    marginBottom: 20,
   },
   stepperWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 32,
-    paddingHorizontal: 8,
-    position: 'relative',
+    marginBottom: 24,
+    paddingHorizontal: 4,
+    flexWrap: 'wrap',
   },
   stepperItem: {
     flex: 1,
     alignItems: 'center',
     position: 'relative',
+    minWidth: SCREEN_WIDTH < 480 ? 50 : 60,
   },
   stepperCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: SCREEN_WIDTH < 380 ? 32 : (SCREEN_WIDTH < 480 ? 36 : 40),
+    height: SCREEN_WIDTH < 380 ? 32 : (SCREEN_WIDTH < 480 ? 36 : 40),
+    borderRadius: SCREEN_WIDTH < 380 ? 16 : (SCREEN_WIDTH < 480 ? 18 : 20),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
     zIndex: 2,
     elevation: 3,
     shadowColor: '#000',
@@ -2332,7 +2422,7 @@ const styles = StyleSheet.create({
   },
   stepperCircleActive: {
     backgroundColor: '#1976d2',
-    transform: [{ scale: 1.05 }],
+    transform: [{ scale: 1.02 }],
   },
   stepperCircleInactive: {
     backgroundColor: '#e0e0e0',
@@ -2340,14 +2430,11 @@ const styles = StyleSheet.create({
   stepperNumber: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 14,
   },
   stepperLabel: {
-    fontSize: 11,
-    textAlign: 'center',
-    fontWeight: '500',
-    width: '100%',
-  },
+  fontWeight: '500',
+  lineHeight: 14,
+},
   stepperLabelActive: {
     color: '#1976d2',
     fontWeight: 'bold',
@@ -2357,7 +2444,7 @@ const styles = StyleSheet.create({
   },
   stepperLine: {
     position: 'absolute',
-    top: 20,
+    top: SCREEN_WIDTH < 380 ? 16 : (SCREEN_WIDTH < 480 ? 18 : 20),
     left: '50%',
     right: '-50%',
     height: 2,
@@ -2367,73 +2454,16 @@ const styles = StyleSheet.create({
   stepperLineActive: {
     backgroundColor: '#1976d2',
   },
-  formContainer: {
-    flex: 1,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#333',
-  },
-  inputError: {
-    borderColor: '#f44336',
-  },
-  errorText: {
-    color: '#f44336',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  radioGroup: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  radioCircle: {
-    height: 24,
-    width: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#1976d2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  selectedRb: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#1976d2',
-  },
-  radioLabel: {
-    fontSize: 16,
-    color: '#333',
-  },
   card: {
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     marginTop: 16,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -2441,25 +2471,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardTitle: {
-    fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
   },
   cardSubtitle: {
-    fontSize: 14,
     marginBottom: 16,
+    lineHeight: 20,
   },
   locationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 16,
   },
   buttonText: {
     color: 'white',
-    fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -2473,83 +2501,36 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   alertText: {
-    fontSize: 14,
-  },
-  dropdown: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 20,
-    width: '80%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-  },
-  modalOption: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalOptionText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  modalCloseButton: {
-    marginTop: 16,
-    padding: 12,
-    alignItems: 'center',
-  },
-  modalCloseText: {
-    color: '#1976d2',
-    fontSize: 16,
+    lineHeight: 18,
   },
   confirmationText: {
-    fontSize: 16,
-    marginBottom: 16,
+    marginBottom: 20,
+    lineHeight: 22,
+    textAlign: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 24,
     marginBottom: 20,
+    gap: 12,
   },
   snackbar: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: Platform.OS === "ios" ? 50 : 20,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    margin: 16,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 10,
     zIndex: 1000,
     elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   snackbarsuccess: {
     backgroundColor: '#4caf50',
@@ -2565,129 +2546,21 @@ const styles = StyleSheet.create({
   },
   snackbarText: {
     color: 'white',
-    fontSize: 14,
     flex: 1,
+    marginRight: 12,
+    lineHeight: 20,
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  checkboxBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#1976d2',
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#1976d2',
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-  },
-  sliderContainer: {
-    marginBottom: 20,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  sliderWrapper: {
-    height: 40,
-    position: 'relative',
-  },
-  sliderOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sliderTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
-    textAlign: 'center',
-    color: '#333',
-  },
-  sliderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sliderTimeLabel: {
-    width: 60,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1976d2',
-    textAlign: 'center',
-  },
-  slider: {
-    flex: 1,
-    height: 40,
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  errorText: {
     marginTop: 4,
-  },
-  sliderLabel: {
-    fontSize: 12,
-  },
-  sliderValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginTop: 8,
-    color: '#1976d2',
-  },
-  timeSlotDisplay: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#e8f4fd',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#bbdefb',
-  },
-  timeSlotTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-    color: '#1976d2',
-  },
-  timeSlotValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  datePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fff',
-  },
-  datePickerText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  datePickerPlaceholder: {
-    fontSize: 16,
-    color: '#999',
+    marginBottom: 8,
   },
   policyModalContainer: {
     flex: 1,
   },
   policyModalHeader: {
-    padding: 20,
+    paddingTop: Platform.OS === "ios" ? 50 : 20,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2695,56 +2568,17 @@ const styles = StyleSheet.create({
   },
   policyModalTitle: {
     color: '#fff',
-    fontSize: 20,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   policyModalClose: {
     position: 'absolute',
     right: 16,
-    top: 16,
+    top: Platform.OS === "ios" ? 50 : 20,
   },
   policyModalContent: {
     flex: 1,
     padding: 16,
-  },
-  disabledRangesContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 4,
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  disabledRangesTrack: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 2,
-  },
-  disabledRange: {
-    position: 'absolute',
-    height: '100%',
-    opacity: 0.5,
-    borderRadius: 2,
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-  },
-  inputFlex: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    paddingVertical: 12,
-  },
-  profileImageContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
   },
 });
 
