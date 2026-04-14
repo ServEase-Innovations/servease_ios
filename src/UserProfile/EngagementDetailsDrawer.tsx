@@ -1,3 +1,4 @@
+// EngagementDetailsDrawer.tsx
 /* eslint-disable */
 import React from 'react';
 import {
@@ -10,18 +11,25 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import { getServiceTitle, getBookingTypeBadge, getStatusBadge } from '../common/BookingUtils';
 import dayjs from 'dayjs';
-import PaymentInstance from '../services/paymentInstance';
 import LinearGradient from 'react-native-linear-gradient';
-import { useTheme } from '../../src/Settings/ThemeContext';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import Snackbar from 'react-native-snackbar';
 import RazorpayCheckout from 'react-native-razorpay';
 
+// Import your existing utilities and services
+import { getServiceTitle, getBookingTypeBadge, getStatusBadge } from '../common/BookingUtils';
+import PaymentInstance from '../services/paymentInstance';
+import { useTheme } from '../../src/Settings/ThemeContext';
+import Invoice from '../Invoice/Invoice'; // Import your existing Invoice component
+
 const { width } = Dimensions.get('window');
 
+// ==================== Types ====================
 interface EngagementDetailsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -29,7 +37,12 @@ interface EngagementDetailsDrawerProps {
   onPaymentComplete?: () => void;
 }
 
-const Badge: React.FC<{ children: React.ReactNode; variant?: 'default' | 'outline'; style?: any }> = ({ children, variant = 'default', style }) => {
+// ==================== Helper Components ====================
+const Badge: React.FC<{ children: React.ReactNode; variant?: 'default' | 'outline'; style?: any }> = ({ 
+  children, 
+  variant = 'default', 
+  style 
+}) => {
   const { colors } = useTheme();
   return (
     <View style={[styles.badge, variant === 'outline' && styles.badgeOutline, style]}>
@@ -43,6 +56,7 @@ const Separator: React.FC<{ style?: any }> = ({ style }) => {
   return <View style={[styles.separator, { backgroundColor: colors.border }, style]} />;
 };
 
+// ==================== Cancel Dialog Component ====================
 const CancelDialog: React.FC<{
   visible: boolean;
   onClose: () => void;
@@ -51,6 +65,7 @@ const CancelDialog: React.FC<{
   isLoading: boolean;
 }> = ({ visible, onClose, onConfirm, serviceName, isLoading }) => {
   const { colors, fontSize } = useTheme();
+  
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small': return { title: 20, message: 14, buttonText: 14 };
@@ -58,14 +73,21 @@ const CancelDialog: React.FC<{
       default: return { title: 20, message: 14, buttonText: 14 };
     }
   };
+  
   const fontSizes = getFontSizes();
+  
   if (!visible) return null;
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={cancelDialogStyles.overlay}>
         <View style={[cancelDialogStyles.dialogContainer, { backgroundColor: colors.card }]}>
-          <LinearGradient colors={["#0a2a66ff", "#004aadff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={cancelDialogStyles.header}>
+          <LinearGradient 
+            colors={["#0a2a66ff", "#004aadff"]} 
+            start={{ x: 0, y: 0 }} 
+            end={{ x: 1, y: 0 }} 
+            style={cancelDialogStyles.header}
+          >
             <View style={cancelDialogStyles.headerContent}>
               <Icon name="alert-triangle" size={24} color="#FFFFFF" />
               <Text style={[cancelDialogStyles.headerTitle, { fontSize: fontSizes.title }]}>Cancel Booking</Text>
@@ -81,14 +103,22 @@ const CancelDialog: React.FC<{
                 onPress={onClose}
                 disabled={isLoading}
               >
-                <Text style={[cancelDialogStyles.buttonText, { fontSize: fontSizes.buttonText, color: colors.textSecondary }]}>No, Keep It</Text>
+                <Text style={[cancelDialogStyles.buttonText, { fontSize: fontSizes.buttonText, color: colors.textSecondary }]}>
+                  No, Keep It
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[cancelDialogStyles.button, cancelDialogStyles.confirmButton, { backgroundColor: colors.error }]}
                 onPress={onConfirm}
                 disabled={isLoading}
               >
-                {isLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={[cancelDialogStyles.buttonText, { fontSize: fontSizes.buttonText, color: '#FFFFFF' }]}>Yes, Cancel Booking</Text>}
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={[cancelDialogStyles.buttonText, { fontSize: fontSizes.buttonText, color: '#FFFFFF' }]}>
+                    Yes, Cancel Booking
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -98,6 +128,7 @@ const CancelDialog: React.FC<{
   );
 };
 
+// ==================== Helper Functions ====================
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
   try {
@@ -115,38 +146,61 @@ const formatTimeToAMPM = (timeString: string): string => {
 
 const formatDate = (dateString: string) => dayjs(dateString).format('MMMM D, YYYY');
 
-const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpen, onClose, booking, onPaymentComplete }) => {
+// ==================== Main Component ====================
+const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ 
+  isOpen, 
+  onClose, 
+  booking, 
+  onPaymentComplete 
+}) => {
   const { colors, fontSize } = useTheme();
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isMessageLoading, setIsMessageLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = React.useState(false);
 
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
-        return { headerTitle: 18, bookingIdText: 16, serviceTitle: 18, sectionTitle: 15, scheduleValue: 13, providerName: 15, paymentValue: 13, paymentTotalValue: 16, actionButtonText: 13, badgeText: 11, additionalInfoValue: 11, labelText: 11 };
+        return { 
+          headerTitle: 18, bookingIdText: 16, serviceTitle: 18, sectionTitle: 15, 
+          scheduleValue: 13, providerName: 15, paymentValue: 13, paymentTotalValue: 16, 
+          actionButtonText: 13, badgeText: 11, additionalInfoValue: 11, labelText: 11 
+        };
       case 'large':
-        return { headerTitle: 24, bookingIdText: 20, serviceTitle: 22, sectionTitle: 18, scheduleValue: 16, providerName: 18, paymentValue: 16, paymentTotalValue: 20, actionButtonText: 16, badgeText: 14, additionalInfoValue: 14, labelText: 14 };
+        return { 
+          headerTitle: 24, bookingIdText: 20, serviceTitle: 22, sectionTitle: 18, 
+          scheduleValue: 16, providerName: 18, paymentValue: 16, paymentTotalValue: 20, 
+          actionButtonText: 16, badgeText: 14, additionalInfoValue: 14, labelText: 14 
+        };
       default:
-        return { headerTitle: 20, bookingIdText: 18, serviceTitle: 20, sectionTitle: 16, scheduleValue: 14, providerName: 16, paymentValue: 14, paymentTotalValue: 18, actionButtonText: 14, badgeText: 12, additionalInfoValue: 12, labelText: 12 };
+        return { 
+          headerTitle: 20, bookingIdText: 18, serviceTitle: 20, sectionTitle: 16, 
+          scheduleValue: 14, providerName: 16, paymentValue: 14, paymentTotalValue: 18, 
+          actionButtonText: 14, badgeText: 12, additionalInfoValue: 12, labelText: 12 
+        };
     }
   };
+  
   const fontSizes = getFontSizes();
 
   if (!isOpen || !booking) return null;
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case 'SUCCESS': return [styles.paymentSuccess, { backgroundColor: colors.successLight, color: colors.success }];
-      case 'PENDING': return [styles.paymentPending, { backgroundColor: colors.warningLight, color: colors.warning }];
-      case 'FAILED': return [styles.paymentFailed, { backgroundColor: colors.errorLight, color: colors.error }];
-      default: return [styles.paymentDefault, { backgroundColor: colors.surface, color: colors.textSecondary }];
+      case 'SUCCESS': 
+        return { backgroundColor: colors.successLight, color: colors.success };
+      case 'PENDING': 
+        return { backgroundColor: colors.warningLight, color: colors.warning };
+      case 'FAILED': 
+        return { backgroundColor: colors.errorLight, color: colors.error };
+      default: 
+        return { backgroundColor: colors.surface, color: colors.textSecondary };
     }
   };
 
-  // ✅ Detect if a provider is assigned (hardcoded "Not Assigned")
   const isProviderAssigned = () => {
     const notAssignedString = 'Not Assigned';
     return !!(
@@ -157,15 +211,22 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
     );
   };
 
+  const handleDownloadInvoice = () => {
+    // Open the Invoice component in a modal
+    setShowInvoiceModal(true);
+  };
+
   const handleCompletePayment = async () => {
     if (!booking.payment?.engagement_id) {
       Alert.alert('Error', 'Unable to resume payment');
       return;
     }
+    
     try {
       setIsProcessingPayment(true);
       const resumeRes = await PaymentInstance.get(`/api/payments/${booking.payment.engagement_id}/resume`);
       const { razorpay_order_id, amount, currency, engagement_id, customer } = resumeRes.data;
+      
       const options = {
         key: "rzp_test_lTdgjtSRlEwreA",
         amount: amount * 100,
@@ -180,6 +241,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
         },
         theme: { color: colors.primary },
       };
+      
       RazorpayCheckout.open(options)
         .then(async (data: any) => {
           try {
@@ -224,6 +286,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
   };
 
   const handleCancelBooking = () => setShowCancelDialog(true);
+  
   const confirmCancelBooking = async () => {
     setIsCancelLoading(true);
     try {
@@ -260,28 +323,75 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
 
   const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(booking.taskStatus);
 
+  // ==================== Styles ====================
   const dynamicStyles = StyleSheet.create({
     modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
     overlayTouchable: { flex: 1 },
-    drawerContainer: { backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '90%', width: '100%' },
+    drawerContainer: { 
+      backgroundColor: colors.card, 
+      borderTopLeftRadius: 20, 
+      borderTopRightRadius: 20, 
+      height: '90%', 
+      width: '100%' 
+    },
     header: { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, width: '100%' },
+    headerContent: { 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      justifyContent: 'space-between', 
+      paddingHorizontal: 16, 
+      paddingVertical: 12, 
+      width: '100%' 
+    },
     headerLeftPlaceholder: { width: 40 },
-    headerTitle: { fontSize: fontSizes.headerTitle, fontWeight: '600', color: '#FFFFFF', textAlign: 'center', flex: 1 },
+    headerTitle: { 
+      fontSize: fontSizes.headerTitle, 
+      fontWeight: '600', 
+      color: '#FFFFFF', 
+      textAlign: 'center', 
+      flex: 1 
+    },
     closeButton: { padding: 8, width: 40, alignItems: 'center', justifyContent: 'center' },
     content: { flex: 1, padding: 20 },
-    bookingIdContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    bookingIdContainer: { 
+      flexDirection: 'row', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: 20 
+    },
     labelText: { fontSize: fontSizes.labelText, color: colors.textSecondary },
     bookingIdText: { fontSize: fontSizes.bookingIdText, fontWeight: '500', color: colors.text },
     statusContainer: { flexDirection: 'row', gap: 8 },
-    serviceTypeContainer: { backgroundColor: colors.primary + '15', padding: 16, borderRadius: 8, marginBottom: 20, flexDirection: 'row', alignItems: 'center' },
+    serviceTypeContainer: { 
+      backgroundColor: colors.primary + '15', 
+      padding: 16, 
+      borderRadius: 8, 
+      marginBottom: 20, 
+      flexDirection: 'row', 
+      alignItems: 'center' 
+    },
     serviceIconContainer: { padding: 8, backgroundColor: colors.card, borderRadius: 8, marginRight: 12 },
     serviceIcon: { fontSize: 24 },
     serviceTextContainer: { flex: 1 },
     serviceLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary },
     serviceTitle: { fontSize: fontSizes.serviceTitle, fontWeight: '700', color: colors.text },
-    actionButtonsContainer: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 20 },
-    actionButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8, gap: 6, minHeight: 44 },
+    actionButtonsContainer: { 
+      flexDirection: 'row', 
+      justifyContent: 'space-between', 
+      gap: 10, 
+      marginBottom: 20 
+    },
+    actionButton: { 
+      flex: 1, 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      paddingVertical: 12, 
+      paddingHorizontal: 8, 
+      borderRadius: 8, 
+      gap: 6, 
+      minHeight: 44 
+    },
     actionButtonText: { color: '#FFFFFF', fontSize: fontSizes.actionButtonText, fontWeight: '600' },
     callButton: { backgroundColor: colors.primary },
     messageButton: { backgroundColor: colors.primary },
@@ -295,7 +405,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
     scheduleValue: { fontSize: fontSizes.scheduleValue, fontWeight: '500', color: colors.text },
     timeSlotContainer: { backgroundColor: colors.surface, padding: 12, borderRadius: 8 },
     timeSlotValueContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    providerContainer: { backgroundColor: colors.surface, padding: 16, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    providerContainer: { 
+      backgroundColor: colors.surface, 
+      padding: 16, 
+      borderRadius: 8, 
+      flexDirection: 'row', 
+      justifyContent: 'space-between', 
+      alignItems: 'center' 
+    },
     providerInfo: { flex: 1 },
     providerName: { fontSize: fontSizes.providerName, fontWeight: '500', color: colors.text },
     ratingBadge: { backgroundColor: colors.warningLight },
@@ -316,9 +433,31 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
     paymentStatusBadge: { paddingHorizontal: 8, paddingVertical: 4 },
     paymentModeValue: { fontSize: fontSizes.paymentValue, fontWeight: '500', color: colors.text, textTransform: 'capitalize' },
     completePaymentContainer: { marginTop: 16 },
-    completePaymentButton: { backgroundColor: colors.error, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 8, gap: 8 },
+    completePaymentButton: { 
+      backgroundColor: colors.error, 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      padding: 16, 
+      borderRadius: 8, 
+      gap: 8 
+    },
     completePaymentText: { color: '#FFFFFF', fontSize: fontSizes.sectionTitle, fontWeight: '600' },
     completePaymentNote: { fontSize: fontSizes.labelText, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
+    invoiceButtonContainer: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
+    invoiceButton: { 
+      backgroundColor: 'transparent', 
+      borderWidth: 1, 
+      borderColor: colors.primary, 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      padding: 16, 
+      borderRadius: 8, 
+      gap: 8 
+    },
+    invoiceButtonText: { color: colors.primary, fontSize: fontSizes.sectionTitle, fontWeight: '600' },
+    invoiceNote: { fontSize: fontSizes.labelText, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
     modificationsContainer: { gap: 8 },
     modificationItem: { backgroundColor: colors.warningLight, padding: 12, borderRadius: 8 },
     modificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
@@ -332,13 +471,19 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
     additionalInfoValue: { fontSize: fontSizes.additionalInfoValue, fontWeight: '500', color: colors.text, textTransform: 'capitalize' },
   });
 
+  // ==================== Render ====================
   return (
     <>
       <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
         <View style={dynamicStyles.modalOverlay}>
           <TouchableOpacity style={dynamicStyles.overlayTouchable} onPress={onClose} />
           <View style={dynamicStyles.drawerContainer}>
-            <LinearGradient colors={["#0a2a66ff", "#004aadff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dynamicStyles.header}>
+            <LinearGradient 
+              colors={["#0a2a66ff", "#004aadff"]} 
+              start={{ x: 0, y: 0 }} 
+              end={{ x: 1, y: 0 }} 
+              style={dynamicStyles.header}
+            >
               <View style={dynamicStyles.headerContent}>
                 <View style={dynamicStyles.headerLeftPlaceholder} />
                 <Text style={dynamicStyles.headerTitle}>Booking Details</Text>
@@ -347,6 +492,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
                 </TouchableOpacity>
               </View>
             </LinearGradient>
+            
             <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
               {/* Booking ID and Status */}
               <View style={dynamicStyles.bookingIdContainer}>
@@ -373,15 +519,38 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
 
               {/* Action Buttons */}
               <View style={dynamicStyles.actionButtonsContainer}>
-                <TouchableOpacity style={[dynamicStyles.actionButton, dynamicStyles.callButton]} onPress={handleCallProvider} disabled={isCallLoading}>
-                  {isCallLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Icon name="phone" size={18} color="#FFFFFF" />}
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.callButton]} 
+                  onPress={handleCallProvider} 
+                  disabled={isCallLoading}
+                >
+                  {isCallLoading ? 
+                    <ActivityIndicator size="small" color="#FFFFFF" /> : 
+                    <Icon name="phone" size={18} color="#FFFFFF" />
+                  }
                 </TouchableOpacity>
-                <TouchableOpacity style={[dynamicStyles.actionButton, dynamicStyles.messageButton]} onPress={handleMessageProvider} disabled={isMessageLoading}>
-                  {isMessageLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Icon name="message-square" size={18} color="#FFFFFF" />}
+                
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.messageButton]} 
+                  onPress={handleMessageProvider} 
+                  disabled={isMessageLoading}
+                >
+                  {isMessageLoading ? 
+                    <ActivityIndicator size="small" color="#FFFFFF" /> : 
+                    <Icon name="message-square" size={18} color="#FFFFFF" />
+                  }
                 </TouchableOpacity>
+                
                 {isCancellable() && (
-                  <TouchableOpacity style={[dynamicStyles.actionButton, dynamicStyles.cancelButton]} onPress={handleCancelBooking} disabled={isCancelLoading}>
-                    {isCancelLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Icon name="x-circle" size={18} color="#FFFFFF" />}
+                  <TouchableOpacity 
+                    style={[dynamicStyles.actionButton, dynamicStyles.cancelButton]} 
+                    onPress={handleCancelBooking} 
+                    disabled={isCancelLoading}
+                  >
+                    {isCancelLoading ? 
+                      <ActivityIndicator size="small" color="#FFFFFF" /> : 
+                      <Icon name="x-circle" size={18} color="#FFFFFF" />
+                    }
                   </TouchableOpacity>
                 )}
               </View>
@@ -500,7 +669,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
                     </View>
                     <View style={dynamicStyles.paymentStatusRow}>
                       <Text style={dynamicStyles.paymentLabel}>Payment Status</Text>
-                      <Badge style={[dynamicStyles.paymentStatusBadge, ...getPaymentStatusColor(booking.payment.status)]}>
+                      <Badge style={[dynamicStyles.paymentStatusBadge, getPaymentStatusColor(booking.payment.status)]}>
                         {booking.payment.status}
                       </Badge>
                     </View>
@@ -514,10 +683,16 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
                         <Text style={dynamicStyles.paymentValue}>{booking.payment.transaction_id}</Text>
                       </View>
                     )}
+                    
                     {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
                       <View style={dynamicStyles.completePaymentContainer}>
-                        <TouchableOpacity style={dynamicStyles.completePaymentButton} onPress={handleCompletePayment} disabled={isProcessingPayment}>
-                          {isProcessingPayment ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
+                        <TouchableOpacity 
+                          style={dynamicStyles.completePaymentButton} 
+                          onPress={handleCompletePayment} 
+                          disabled={isProcessingPayment}
+                        >
+                          {isProcessingPayment ? 
+                            <ActivityIndicator size="small" color="#FFFFFF" /> : (
                             <>
                               <Icon name="credit-card" size={20} color="#FFFFFF" />
                               <Text style={dynamicStyles.completePaymentText}>Complete Payment Now</Text>
@@ -525,6 +700,19 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
                           )}
                         </TouchableOpacity>
                         <Text style={dynamicStyles.completePaymentNote}>Complete payment to confirm your booking</Text>
+                      </View>
+                    )}
+                    
+                    {booking.payment.status === 'SUCCESS' && (
+                      <View style={dynamicStyles.invoiceButtonContainer}>
+                        <TouchableOpacity 
+                          style={dynamicStyles.invoiceButton} 
+                          onPress={handleDownloadInvoice}
+                        >
+                          <Icon name="file-text" size={20} color={colors.primary} />
+                          <Text style={dynamicStyles.invoiceButtonText}>View & Download Invoice</Text>
+                        </TouchableOpacity>
+                        <Text style={dynamicStyles.invoiceNote}>Click to view full invoice and download PDF</Text>
                       </View>
                     )}
                   </View>
@@ -543,7 +731,9 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
                       <View key={index} style={dynamicStyles.modificationItem}>
                         <View style={dynamicStyles.modificationHeader}>
                           <Badge style={dynamicStyles.modificationBadge}>{mod.action}</Badge>
-                          <Text style={dynamicStyles.modificationDate}>{dayjs(mod.date).format('MMM D, YYYY h:mm A')}</Text>
+                          <Text style={dynamicStyles.modificationDate}>
+                            {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
+                          </Text>
                         </View>
                         {mod.refund && <Text style={dynamicStyles.refundText}>Refund: ₹{mod.refund}</Text>}
                         {mod.penalty && <Text style={dynamicStyles.penaltyText}>Penalty: ₹{mod.penalty}</Text>}
@@ -562,7 +752,9 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
                 <View style={dynamicStyles.additionalInfoGrid}>
                   <View style={dynamicStyles.additionalInfoItem}>
                     <Text style={dynamicStyles.additionalInfoLabel}>Booking Date</Text>
-                    <Text style={dynamicStyles.additionalInfoValue}>{dayjs(booking.bookingDate).format('MMM D, YYYY')}</Text>
+                    <Text style={dynamicStyles.additionalInfoValue}>
+                      {dayjs(booking.bookingDate).format('MMM D, YYYY')}
+                    </Text>
                   </View>
                   <View style={dynamicStyles.additionalInfoItem}>
                     <Text style={dynamicStyles.additionalInfoLabel}>Assignment Status</Text>
@@ -581,6 +773,28 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
         </View>
       </Modal>
 
+      {/* Invoice Modal */}
+      <Modal
+        visible={showInvoiceModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowInvoiceModal(false)}
+      >
+        <View style={{ flex: 1 }}>
+          <View style={styles.invoiceHeader}>
+            <TouchableOpacity 
+              onPress={() => setShowInvoiceModal(false)} 
+              style={styles.invoiceCloseButton}
+            >
+              <Icon name="arrow-left" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.invoiceHeaderTitle}>Invoice</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <Invoice booking={booking} onClose={() => setShowInvoiceModal(false)} />
+        </View>
+      </Modal>
+
       <CancelDialog
         visible={showCancelDialog}
         onClose={() => setShowCancelDialog(false)}
@@ -592,28 +806,108 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ isOpe
   );
 };
 
+// ==================== Global Styles ====================
 const styles = StyleSheet.create({
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start' },
-  badgeOutline: { backgroundColor: 'transparent', borderWidth: 1 },
-  badgeText: { fontWeight: '500' },
-  badgeOutlineText: { fontWeight: '500' },
-  separator: { height: 1 },
-  paymentSuccess: {}, paymentPending: {}, paymentFailed: {}, paymentDefault: {},
+  badge: { 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 4, 
+    alignSelf: 'flex-start' 
+  },
+  badgeOutline: { 
+    backgroundColor: 'transparent', 
+    borderWidth: 1 
+  },
+  badgeText: { 
+    fontWeight: '500' 
+  },
+  badgeOutlineText: { 
+    fontWeight: '500' 
+  },
+  separator: { 
+    height: 1 
+  },
+  invoiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    marginTop: Platform.OS === 'ios' ? 40 : 0,
+  },
+  invoiceCloseButton: {
+    padding: 8,
+  },
+  invoiceHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
 });
 
 const cancelDialogStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
-  dialogContainer: { width: width - 48, borderRadius: 12, overflow: 'hidden', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-  header: { paddingVertical: 16, paddingHorizontal: 20 },
-  headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerTitle: { fontWeight: '600', color: '#FFFFFF' },
-  content: { padding: 20 },
-  message: { lineHeight: 20, marginBottom: 24, textAlign: 'center' },
-  buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  button: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  cancelButton: { borderWidth: 1, backgroundColor: 'transparent' },
-  confirmButton: { backgroundColor: '#FF3B30' },
-  buttonText: { fontWeight: '600' },
+  overlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  dialogContainer: { 
+    width: width - 48, 
+    borderRadius: 12, 
+    overflow: 'hidden', 
+    elevation: 5, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.25, 
+    shadowRadius: 3.84 
+  },
+  header: { 
+    paddingVertical: 16, 
+    paddingHorizontal: 20 
+  },
+  headerContent: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 12 
+  },
+  headerTitle: { 
+    fontWeight: '600', 
+    color: '#FFFFFF' 
+  },
+  content: { 
+    padding: 20 
+  },
+  message: { 
+    lineHeight: 20, 
+    marginBottom: 24, 
+    textAlign: 'center' 
+  },
+  buttonContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    gap: 12 
+  },
+  button: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    borderRadius: 8, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  cancelButton: { 
+    borderWidth: 1, 
+    backgroundColor: 'transparent' 
+  },
+  confirmButton: { 
+    backgroundColor: '#FF3B30' 
+  },
+  buttonText: { 
+    fontWeight: '600' 
+  },
 });
 
 export default EngagementDetailsDrawer;
