@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Picker } from '@react-native-picker/picker';
@@ -18,6 +19,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import providerInstance from "../services/providerInstance";
 import { SkeletonLoader } from "../common/SkeletonLoader";
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
+
+const { height } = Dimensions.get('window');
 
 interface ServiceProviderProfileSectionProps {
   userId: number | null;
@@ -45,7 +48,7 @@ interface ServiceProviderData {
   experience: number;
   firstName: string;
   gender: string;
-  housekeepingRoles: string | string[]; // Changed from housekeepingRole
+  housekeepingRoles: string | string[];
   lastName: string;
   latitude: number;
   locality: string;
@@ -79,6 +82,13 @@ interface ServiceProviderData {
   };
 }
 
+interface TimeSlot {
+  id: string;
+  start: number;
+  end: number;
+  type: 'morning' | 'evening';
+}
+
 const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps> = ({ 
   userId, 
   userEmail 
@@ -93,13 +103,13 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   const altContactDebounceRef = useRef<NodeJS.Timeout | null>(null);
   
   // Time slots state
-  const [morningSlots, setMorningSlots] = useState<number[][]>([]);
-  const [eveningSlots, setEveningSlots] = useState<number[][]>([]);
+  const [morningSlots, setMorningSlots] = useState<TimeSlot[]>([]);
+  const [eveningSlots, setEveningSlots] = useState<TimeSlot[]>([]);
   const [isFullTime, setIsFullTime] = useState(false);
   
   // Original time slots for change detection
-  const [originalMorningSlots, setOriginalMorningSlots] = useState<number[][]>([]);
-  const [originalEveningSlots, setOriginalEveningSlots] = useState<number[][]>([]);
+  const [originalMorningSlots, setOriginalMorningSlots] = useState<TimeSlot[]>([]);
+  const [originalEveningSlots, setOriginalEveningSlots] = useState<TimeSlot[]>([]);
   const [originalIsFullTime, setOriginalIsFullTime] = useState<boolean>(true);
   
   const [userData, setUserData] = useState({
@@ -114,7 +124,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     diet: "",
     cookingSpeciality: "",
     nannyCareType: "",
-    housekeepingRoles: [] as string[], // Changed to array
+    housekeepingRoles: [] as string[],
     experience: 0,
     languageKnown: "",
     currentLocation: "",
@@ -189,7 +199,8 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     const minute = (value % 1) * 60;
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-    return `${displayHour}:${minute === 0 ? '00' : minute} ${ampm}`;
+    const displayMinute = minute === 0 ? '00' : minute.toString().padStart(2, '0');
+    return `${displayHour}:${displayMinute} ${ampm}`;
   };
 
   const formatTimeForPayload = (value: number): string => {
@@ -208,11 +219,14 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     return hour + (minute / 60);
   };
 
+  const generateId = () => Math.random().toString(36).substr(2, 9);
+
   // New function to get merged time slots array
-  const getMergedTimeSlots = (slots: number[][]): number[][] => {
+  const getMergedTimeSlots = (slots: TimeSlot[]): number[][] => {
     if (!slots.length) return [];
     
-    const sorted = [...slots].sort((a, b) => a[0] - b[0]);
+    const slotRanges = slots.map(slot => [slot.start, slot.end]);
+    const sorted = [...slotRanges].sort((a, b) => a[0] - b[0]);
     const merged: number[][] = [];
     
     for (const slot of sorted) {
@@ -221,7 +235,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       } else {
         const last = merged[merged.length - 1];
         if (slot[0] <= last[1]) {
-          // Overlapping or adjacent slots, merge them
           last[1] = Math.max(last[1], slot[1]);
         } else {
           merged.push([slot[0], slot[1]]);
@@ -232,7 +245,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     return merged;
   };
 
-  const mergeTimeSlots = (slots: number[][]): string => {
+  const mergeTimeSlots = (slots: TimeSlot[]): string => {
     const merged = getMergedTimeSlots(slots);
     
     if (merged.length === 0) return "";
@@ -309,7 +322,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         languageKnown = languageKnown.join(", ");
       }
 
-      // Updated to handle housekeepingRoles (array) instead of housekeepingRole
       let roles: string[] = [];
       if (data.housekeepingRoles && Array.isArray(data.housekeepingRoles)) {
         roles = data.housekeepingRoles;
@@ -321,8 +333,8 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         }
       }
 
-      let morning: number[][] = [];
-      let evening: number[][] = [];
+      let morning: TimeSlot[] = [];
+      let evening: TimeSlot[] = [];
       if (data.timeslot) {
         const slots = data.timeslot.split(',').map((slot: string) => slot.trim());
         
@@ -333,10 +345,17 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
               const start = parseTimeToNumber(startStr);
               const end = parseTimeToNumber(endStr);
               
+              const newSlot: TimeSlot = {
+                id: generateId(),
+                start,
+                end,
+                type: start < 12 ? 'morning' : 'evening'
+              };
+              
               if (start < 12) {
-                morning.push([start, end]);
+                morning.push(newSlot);
               } else {
-                evening.push([start, end]);
+                evening.push(newSlot);
               }
             } catch (error) {
               console.error("Error parsing time slot:", slot);
@@ -364,7 +383,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         diet: data.diet || "",
         cookingSpeciality: data.cookingSpeciality || "",
         nannyCareType: data.nannyCareType || "",
-        housekeepingRoles: roles, // Now using array
+        housekeepingRoles: roles,
         experience: data.experience || 0,
         languageKnown: languageKnown || "",
         currentLocation: data.currentLocation || "",
@@ -390,55 +409,53 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     }
   };
 
+  // Time slot handlers
   const handleAddMorningSlot = () => {
-    if (morningSlots.length < 12) {
-      setMorningSlots([...morningSlots, [6, 12]]);
-    } else {
-      Alert.alert("Error", "Maximum morning slots reached");
-    }
-  };
-
-  const handleRemoveMorningSlot = (index: number) => {
-    setMorningSlots(morningSlots.filter((_, i) => i !== index));
-  };
-
-  const handleClearMorningSlots = () => {
-    setMorningSlots([]);
+    const newSlot: TimeSlot = {
+      id: generateId(),
+      start: 6,
+      end: 12,
+      type: 'morning'
+    };
+    setMorningSlots([...morningSlots, newSlot]);
   };
 
   const handleAddEveningSlot = () => {
-    if (eveningSlots.length < 16) {
-      setEveningSlots([...eveningSlots, [12, 20]]);
+    const newSlot: TimeSlot = {
+      id: generateId(),
+      start: 12,
+      end: 20,
+      type: 'evening'
+    };
+    setEveningSlots([...eveningSlots, newSlot]);
+  };
+
+  const handleRemoveSlot = (id: string, type: 'morning' | 'evening') => {
+    if (type === 'morning') {
+      setMorningSlots(morningSlots.filter(slot => slot.id !== id));
     } else {
-      Alert.alert("Error", "Maximum evening slots reached");
+      setEveningSlots(eveningSlots.filter(slot => slot.id !== id));
     }
   };
 
-  const handleRemoveEveningSlot = (index: number) => {
-    setEveningSlots(eveningSlots.filter((_, i) => i !== index));
-  };
-
-  const handleClearEveningSlots = () => {
-    setEveningSlots([]);
-  };
-
-  const handleMorningSlotChange = (index: number, newValue: number[]) => {
-    const updatedSlots = [...morningSlots];
-    updatedSlots[index] = newValue;
-    setMorningSlots(updatedSlots);
-  };
-
-  const handleEveningSlotChange = (index: number, newValue: number[]) => {
-    const updatedSlots = [...eveningSlots];
-    updatedSlots[index] = newValue;
-    setEveningSlots(updatedSlots);
-  };
-
-  const handleFullTimeToggle = (checked: boolean) => {
-    setIsFullTime(checked);
-    if (checked) {
+  const handleClearSlots = (type: 'morning' | 'evening') => {
+    if (type === 'morning') {
       setMorningSlots([]);
+    } else {
       setEveningSlots([]);
+    }
+  };
+
+  const handleSlotChange = (id: string, newValue: number[], type: 'morning' | 'evening') => {
+    const [start, end] = newValue;
+    if (type === 'morning') {
+      setMorningSlots(morningSlots.map(slot => 
+        slot.id === id ? { ...slot, start, end } : slot
+      ));
+    } else {
+      setEveningSlots(eveningSlots.map(slot => 
+        slot.id === id ? { ...slot, start, end } : slot
+      ));
     }
   };
 
@@ -547,12 +564,11 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         payload.nannyCareType = userData.nannyCareType;
       }
 
-      // ✅ Send housekeepingRoles as an array (like the web version)
       if (
         userData.housekeepingRoles.join(",") !==
         originalData.housekeepingRoles.join(",")
       ) {
-        payload.housekeepingRoles = userData.housekeepingRoles; // Send as array
+        payload.housekeepingRoles = userData.housekeepingRoles;
       }
 
       if (userData.experience !== originalData.experience) {
@@ -587,21 +603,17 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         payload.nearbyLocation = userData.nearbyLocation;
       }
 
-      // Modified timeslot handling to use merged slots
+      // Handle timeslot with merged slots
       let timeslotString = '';
-      if (!isFullTime) {
-        const allSlots = [...morningSlots, ...eveningSlots];
-        if (allSlots.length > 0) {
-          // Get merged slots to avoid overlaps in payload
-          const mergedSlots = getMergedTimeSlots(allSlots);
-          timeslotString = mergedSlots
-            .map(slot => `${formatTimeForPayload(slot[0])}-${formatTimeForPayload(slot[1])}`)
-            .join(',');
-        }
+      const allSlots = [...morningSlots, ...eveningSlots];
+      if (allSlots.length > 0) {
+        const mergedSlots = getMergedTimeSlots(allSlots);
+        timeslotString = mergedSlots
+          .map(slot => `${formatTimeForPayload(slot[0])}-${formatTimeForPayload(slot[1])}`)
+          .join(',');
       }
 
       const slotsChanged = 
-        isFullTime !== originalIsFullTime ||
         JSON.stringify(morningSlots) !== JSON.stringify(originalMorningSlots) ||
         JSON.stringify(eveningSlots) !== JSON.stringify(originalEveningSlots);
 
@@ -639,7 +651,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
     setMorningSlots(originalMorningSlots);
     setEveningSlots(originalEveningSlots);
-    setIsFullTime(originalIsFullTime);
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -649,7 +660,6 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   const hasChanges = (): boolean => {
     const userDataChanged = JSON.stringify(userData) !== JSON.stringify(originalData);
     const slotsChanged = 
-      isFullTime !== originalIsFullTime ||
       JSON.stringify(morningSlots) !== JSON.stringify(originalMorningSlots) ||
       JSON.stringify(eveningSlots) !== JSON.stringify(originalEveningSlots);
     return userDataChanged || slotsChanged;
@@ -726,6 +736,22 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     </View>
   );
 
+  // Time marks configuration
+  const morningMarks = [
+    { value: 6, label: '6AM' },
+    { value: 8, label: '8AM' },
+    { value: 10, label: '10AM' },
+    { value: 12, label: '12PM' },
+  ];
+
+  const eveningMarks = [
+    { value: 12, label: '12PM' },
+    { value: 14, label: '2PM' },
+    { value: 16, label: '4PM' },
+    { value: 18, label: '6PM' },
+    { value: 20, label: '8PM' },
+  ];
+
   if (isLoading) {
     return (
       <ScrollView style={styles.container}>
@@ -746,7 +772,11 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
         <View style={styles.contentContainer}>
           {/* Header */}
           <View style={styles.header}>
@@ -776,6 +806,8 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                 style={styles.editButton}
                 onPress={() => {
                   setOriginalData({ ...userData });
+                  setOriginalMorningSlots([...morningSlots]);
+                  setOriginalEveningSlots([...eveningSlots]);
                   setIsEditing(true);
                 }}
               >
@@ -1050,7 +1082,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
           <View style={styles.divider} />
 
-          {/* Availability Section */}
+          {/* Availability Section with TimeSlotSelector */}
           <View style={styles.section}>
             <SectionHeader 
               title="AVAILABILITY" 
@@ -1061,77 +1093,27 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
             {expandedSections.availability && (
               <View style={styles.sectionContent}>
                 {isEditing ? (
-                  <View>
-                    <View style={styles.fullTimeContainer}>
-                      <View style={styles.fullTimeTextContainer}>
-                        <Text style={styles.fullTimeTitle}>Full Time Availability</Text>
-                        <Text style={styles.fullTimeDescription}>Available for full day shifts</Text>
-                      </View>
-                      <Switch
-                        value={isFullTime}
-                        onValueChange={handleFullTimeToggle}
-                        trackColor={{ false: "#767577", true: "#1976d2" }}
-                        thumbColor={isFullTime ? "#fff" : "#f4f3f4"}
-                      />
-                    </View>
-
-                    {!isFullTime && (
-                      <View>
-                        <TimeSlotSelector
-                          title="Morning Availability"
-                          slots={morningSlots}
-                          minTime={6}
-                          maxTime={12}
-                          marks={[
-  { value: 6, label: "6:00 AM" },
-  { value: 8, label: "8:00 AM" },
-  { value: 10, label: "10:00 AM" },
-  { value: 12, label: "12:00 PM" },
-]}
-                          notAvailableMessage="Not available in the morning"
-                          addSlotMessage="Add a morning time slot"
-                          slotLabel="Time Slot"
-                          clearButtonLabel="Clear All"
-                          duplicateErrorKey="This time slot already exists"
-                          onAddSlot={handleAddMorningSlot}
-                          onRemoveSlot={handleRemoveMorningSlot}
-                          onClearSlots={handleClearMorningSlots}
-                          onSlotChange={handleMorningSlotChange}
-                          formatDisplayTime={formatDisplayTime}
-                        />
-
-                        <TimeSlotSelector
-                          title="Evening Availability"
-                          slots={eveningSlots}
-                          minTime={12}
-                          maxTime={20}
-                          marks={[
-  { value: 12, label: "12:00 PM" },
-  { value: 14, label: "2:00 PM" },
-  { value: 16, label: "4:00 PM" },
-  { value: 18, label: "6:00 PM" },
-  { value: 20, label: "8:00 PM" },
-]}
-                          notAvailableMessage="Not available in the evening"
-                          addSlotMessage="Add an evening time slot"
-                          slotLabel="Time Slot"
-                          clearButtonLabel="Clear All"
-                          duplicateErrorKey="This time slot already exists"
-                          onAddSlot={handleAddEveningSlot}
-                          onRemoveSlot={handleRemoveEveningSlot}
-                          onClearSlots={handleClearEveningSlots}
-                          onSlotChange={handleEveningSlotChange}
-                          formatDisplayTime={formatDisplayTime}
-                        />
-
-                        {mergedTimeSlotsString && (
-                          <View style={styles.summaryCard}>
-                            <Text style={styles.summaryTitle}>Your Selected Time Slots</Text>
-                            <Text style={styles.summaryText}>{mergedTimeSlotsString}</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
+                  <View style={styles.timeSlotEditorContainer}>
+                    <TimeSlotSelector
+                      morningSlots={morningSlots}
+                      eveningSlots={eveningSlots}
+                      minTime={6}
+                      maxTime={20}
+                      morningMarks={morningMarks}
+                      eveningMarks={eveningMarks}
+                      notAvailableMessage="No time slots added yet"
+                      addSlotMessage="Click the + button below to add your preferred time slots"
+                      slotLabel="Time Slot"
+                      addButtonLabel="Add Slot"
+                      clearButtonLabel="Clear All"
+                      duplicateErrorKey="This time slot already exists. Please select a different time range."
+                      onAddMorningSlot={handleAddMorningSlot}
+                      onAddEveningSlot={handleAddEveningSlot}
+                      onRemoveSlot={handleRemoveSlot}
+                      onClearSlots={handleClearSlots}
+                      onSlotChange={handleSlotChange}
+                      formatDisplayTime={formatDisplayTime}
+                    />
                   </View>
                 ) : (
                   <View>
@@ -1330,14 +1312,17 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   );
 };
 
-// Styles remain the same as your original code
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  scrollContentContainer: {
+    flexGrow: 1,
+  },
   contentContainer: {
     padding: 16,
+    paddingBottom: 40,
   },
   loadingContainer: {
     padding: 16,
@@ -1535,46 +1520,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     marginVertical: 16,
   },
-  fullTimeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  fullTimeTextContainer: {
-    flex: 1,
-    marginRight: 16,
-  },
-  fullTimeTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  fullTimeDescription: {
-    fontSize: 12,
-    color: '#666',
-  },
-  summaryCard: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#90caf9',
-  },
-  summaryTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1976d2',
-    marginBottom: 8,
-  },
-  summaryText: {
-    fontSize: 14,
-    color: '#1976d2',
+  timeSlotEditorContainer: {
+    minHeight: 500,
   },
   timeSlotsContainer: {
     flexDirection: 'row',

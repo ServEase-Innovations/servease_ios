@@ -1,495 +1,645 @@
-// components/Registration/TimeSlotSelector.tsx (Fully Optimized)
 import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Alert,
-  Dimensions,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
 import MultiSlider from "@ptomasroos/react-native-multi-slider";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-const { width: screenWidth } = Dimensions.get('window');
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+interface TimeSlot {
+  id: string;
+  start: number;
+  end: number;
+  type: 'morning' | 'evening';
+}
 
 interface TimeSlotSelectorProps {
-  title: string;
-  slots: number[][];
+  title?: string;
+  morningSlots: TimeSlot[];
+  eveningSlots: TimeSlot[];
   minTime: number;
   maxTime: number;
-  marks: { value: number; label: string }[];
+  morningMarks: { value: number; label: string }[];
+  eveningMarks: { value: number; label: string }[];
   notAvailableMessage: string;
   addSlotMessage: string;
   slotLabel: string;
+  addButtonLabel: string;
   clearButtonLabel: string;
   duplicateErrorKey: string;
-  onAddSlot: () => void;
-  onRemoveSlot: (index: number) => void;
-  onClearSlots: () => void;
-  onSlotChange: (index: number, newValue: number[]) => void;
-  formatDisplayTime?: (value: number) => string;
-  containerStyle?: any;
-  slotContainerStyle?: any;
+  onAddMorningSlot: () => void;
+  onAddEveningSlot: () => void;
+  onRemoveSlot: (id: string, type: 'morning' | 'evening') => void;
+  onClearSlots: (type: 'morning' | 'evening') => void;
+  onSlotChange: (id: string, newValue: number[], type: 'morning' | 'evening') => void;
+  formatDisplayTime: (value: number) => string;
 }
 
 const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
-  title,
-  slots,
+  title = "Time Slots",
+  morningSlots,
+  eveningSlots,
   minTime,
   maxTime,
-  marks,
+  morningMarks,
+  eveningMarks,
   notAvailableMessage,
   addSlotMessage,
   slotLabel,
+  addButtonLabel,
   clearButtonLabel,
   duplicateErrorKey,
-  onAddSlot,
+  onAddMorningSlot,
+  onAddEveningSlot,
   onRemoveSlot,
   onClearSlots,
   onSlotChange,
   formatDisplayTime,
-  containerStyle,
-  slotContainerStyle,
 }) => {
   const [duplicateErrors, setDuplicateErrors] = useState<{
     [key: string]: boolean;
   }>({});
+  const [isFullAvailability, setIsFullAvailability] = useState(false);
 
   useEffect(() => {
     setDuplicateErrors({});
-  }, [slots]);
+  }, [morningSlots, eveningSlots]);
 
-  const defaultFormatDisplayTime = (value: number): string => {
-    const hours = Math.floor(value);
-    const minutes = Math.round((value % 1) * 60);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes > 0 ? `:${minutes.toString().padStart(2, '0')}` : '';
-    return `${displayHours}${displayMinutes} ${period}`;
-  };
+  // Animate when slots change
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [morningSlots.length, eveningSlots.length]);
 
-  const formatTime = formatDisplayTime || defaultFormatDisplayTime;
-
-  const handleSlotChange = (index: number, values: number[]) => {
-    let [start, end] = values;
-    
-    // Ensure minimum 1 hour difference for better usability
-    if (end - start < 1) {
-      if (end + 1 <= maxTime) {
-        end = start + 1;
-      } else if (start - 1 >= minTime) {
-        start = end - 1;
-      } else {
-        return;
-      }
-    }
-    
+  const handleSlotChange = (id: string, values: number[], type: 'morning' | 'evening') => {
+    const [start, end] = values;
     const newValue = [start, end];
     
+    const slots = type === 'morning' ? morningSlots : eveningSlots;
     const exists = slots.some(
-      (slot: number[], i: number) =>
-        i !== index && slot[0] === newValue[0] && slot[1] === newValue[1]
+      (slot: TimeSlot) =>
+        slot.id !== id && slot.start === newValue[0] && slot.end === newValue[1]
     );
+    
     if (exists) {
-      setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: true }));
-      setTimeout(() => {
-        setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: false }));
-      }, 3000);
+      setDuplicateErrors((prev) => ({ ...prev, [`${type}-${id}`]: true }));
       return;
     }
-    setDuplicateErrors((prev) => ({ ...prev, [`slot-${index}`]: false }));
-    onSlotChange(index, newValue);
+    setDuplicateErrors((prev) => ({ ...prev, [`${type}-${id}`]: false }));
+    onSlotChange(id, newValue, type);
   };
 
-  const handleClearSlots = () => {
+  const handleClearSlots = (type: 'morning' | 'evening') => {
     Alert.alert(
       "Clear Slots",
-      `Are you sure you want to clear all ${slotLabel.toLowerCase()} slots?`,
+      `Are you sure you want to clear all ${type} ${slotLabel}s?`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Clear", onPress: onClearSlots, style: "destructive" }
+        { text: "Clear", onPress: () => onClearSlots(type), style: "destructive" }
       ]
     );
   };
 
-  const getMarkerLabel = (value: number) => {
-    const hour = Math.floor(value);
-    const minute = value % 1 === 0.5 ? "30" : "00";
-    const period = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minute} ${period}`;
+  const handleFullAvailabilityToggle = () => {
+    if (!isFullAvailability) {
+      Alert.alert(
+        "Full Time Availability",
+        "This will select all time slots from 6:00 AM to 8:00 PM. Do you want to continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Confirm", 
+            onPress: () => {
+              setIsFullAvailability(true);
+              onClearSlots('morning');
+              onClearSlots('evening');
+            }
+          }
+        ]
+      );
+    } else {
+      setIsFullAvailability(false);
+    }
+  };
+
+  const renderMarks = (marks: { value: number; label: string }[], min: number, max: number) => {
+    return marks.map((mark: { value: number; label: string }, index: number) => {
+      const position = ((mark.value - min) / (max - min)) * 100;
+      return (
+        <View key={index} style={[styles.markContainer, { left: `${position}%` }]}>
+          <View style={styles.markLine} />
+          <Text style={styles.markLabel}>{mark.label}</Text>
+        </View>
+      );
+    });
+  };
+
+  // Function to merge overlapping time ranges
+  const mergeOverlappingRanges = (slots: TimeSlot[]): string => {
+    if (slots.length === 0) return '';
+    
+    const sortedSlots = [...slots].sort((a, b) => a.start - b.start);
+    const merged: { start: number; end: number }[] = [];
+    let current = { start: sortedSlots[0].start, end: sortedSlots[0].end };
+    
+    for (let i = 1; i < sortedSlots.length; i++) {
+      if (sortedSlots[i].start <= current.end) {
+        current.end = Math.max(current.end, sortedSlots[i].end);
+      } else {
+        merged.push(current);
+        current = { start: sortedSlots[i].start, end: sortedSlots[i].end };
+      }
+    }
+    merged.push(current);
+    
+    return merged.map(range => 
+      `${formatDisplayTime(range.start)} - ${formatDisplayTime(range.end)}`
+    ).join(', ');
+  };
+
+  const renderSlotSection = (
+    type: 'morning' | 'evening',
+    slots: TimeSlot[],
+    marks: { value: number; label: string }[],
+    sectionTitle: string,
+    primaryColor: string,
+    onAddSlot: () => void
+  ) => {
+    const sectionMinTime = type === 'morning' ? 6 : 12;
+    const sectionMaxTime = type === 'morning' ? 12 : 20;
+
+    return (
+      <View style={styles.sectionContainer}>
+        {/* Section Header */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <Icon name="access-time" size={20} color={primaryColor} />
+            <Text style={[styles.sectionTitle, { color: primaryColor }]}>{sectionTitle}</Text>
+            <View style={[styles.sectionChip, { backgroundColor: primaryColor + '15' }]}>
+              <Text style={[styles.sectionChipText, { color: primaryColor }]}>
+                {slots.length} {slots.length === 1 ? 'Time Slot' : 'Time Slots'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: primaryColor }]}
+              onPress={onAddSlot}
+            >
+              <Icon name="add" size={18} color="#fff" />
+              <Text style={styles.buttonText}>{addButtonLabel}</Text>
+            </TouchableOpacity>
+            {slots.length > 0 && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={() => handleClearSlots(type)}
+              >
+                <Text style={styles.clearButtonText}>{clearButtonLabel}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Section Content - No ScrollView, just render all slots */}
+        {slots.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Icon name="schedule" size={32} color="#ccc" />
+            <Text style={styles.emptyText}>{notAvailableMessage}</Text>
+            <Text style={styles.emptySubtext}>{addSlotMessage}</Text>
+          </View>
+        ) : (
+          <View style={styles.slotsContainer}>
+            {slots.map((slot: TimeSlot, index: number) => {
+              const hasError = duplicateErrors[`${type}-${slot.id}`];
+              return (
+                <View key={slot.id} style={styles.slotCard}>
+                  <View style={styles.slotHeader}>
+                    <Text style={[styles.slotTitle, { backgroundColor: primaryColor + '10', color: primaryColor }]}>
+                      {slotLabel} {index + 1}
+                    </Text>
+                    {slots.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => onRemoveSlot(slot.id, type)}
+                        style={styles.deleteButton}
+                      >
+                        <Icon name="delete" size={20} color="#f44336" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.selectedTimeContainer}>
+                    <Icon name="access-time" size={14} color={primaryColor} />
+                    <Text style={styles.selectedTime}>
+                      Selected: {formatDisplayTime(slot.start)} - {formatDisplayTime(slot.end)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.sliderWrapper}>
+                    <View style={styles.sliderContainer}>
+                      <MultiSlider
+                        values={[slot.start, slot.end]}
+                        min={sectionMinTime}
+                        max={sectionMaxTime}
+                        step={0.5}
+                        onValuesChange={(values) => handleSlotChange(slot.id, values, type)}
+                        selectedStyle={{
+                          backgroundColor: primaryColor,
+                        }}
+                        unselectedStyle={{
+                          backgroundColor: '#e0e0e0',
+                        }}
+                        trackStyle={{
+                          height: 4,
+                          borderRadius: 2,
+                        }}
+                        markerStyle={{
+                          height: 24,
+                          width: 24,
+                          borderRadius: 12,
+                          backgroundColor: primaryColor,
+                          borderWidth: 3,
+                          borderColor: '#fff',
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 1 },
+                          shadowOpacity: 0.2,
+                          shadowRadius: 2,
+                          elevation: 3,
+                        }}
+                        containerStyle={{
+                          height: 40,
+                        }}
+                      />
+                      <View style={styles.marksContainer}>
+                        {renderMarks(marks, sectionMinTime, sectionMaxTime)}
+                      </View>
+                    </View>
+                  </View>
+
+                  {hasError && (
+                    <View style={styles.errorContainer}>
+                      <Icon name="error" size={16} color="#f44336" />
+                      <Text style={styles.errorText}>{duplicateErrorKey}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // Get merged selected time slots for display
+  const getMergedSelectedSlots = () => {
+    if (isFullAvailability) {
+      return `${formatDisplayTime(6)} - ${formatDisplayTime(20)}`;
+    }
+    const allSlots = [...morningSlots, ...eveningSlots];
+    if (allSlots.length === 0) return '';
+    return mergeOverlappingRanges(allSlots);
   };
 
   return (
-    <View style={[styles.container, containerStyle]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Icon name="access-time" size={18} color="#1976d2" />
-          <Text style={styles.title}>{title}</Text>
-        </View>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={onAddSlot}
-            activeOpacity={0.7}
-          >
-            <Icon name="add" size={18} color="#1976d2" />
-            <Text style={styles.addButtonText}>Add</Text>
-          </TouchableOpacity>
-          {slots.length > 0 && (
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={handleClearSlots}
-              activeOpacity={0.7}
-            >
-              <Icon name="delete-outline" size={18} color="#f44336" />
-              <Text style={styles.clearButtonText}>Clear</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+    <View style={styles.mainContainer}>
+      {/* AVAILABILITY Title */}
+      <Text style={styles.mainTitle}>AVAILABILITY</Text>
 
-      {/* Content */}
-      {slots.length === 0 ? (
-        <TouchableOpacity 
-          style={styles.emptyContainer}
-          onPress={onAddSlot}
-          activeOpacity={0.6}
-        >
-          <View style={styles.emptyIconContainer}>
-            <Icon name="access-time" size={32} color="#1976d2" />
+      {/* Full Time Availability Card */}
+      <TouchableOpacity 
+        style={[styles.fullAvailabilityCard, isFullAvailability && styles.fullAvailabilityCardActive]}
+        onPress={handleFullAvailabilityToggle}
+        activeOpacity={0.7}
+      >
+        <View style={styles.fullAvailabilityHeader}>
+          <View style={styles.radioContainer}>
+            <View style={[styles.radioOuter, isFullAvailability && styles.radioOuterSelected]}>
+              {isFullAvailability && <View style={styles.radioInner} />}
+            </View>
+            <Icon name="schedule" size={24} color="#2196f3" />
+            <Text style={styles.fullAvailabilityTitle}>Full Time Availability</Text>
           </View>
-          <Text style={styles.emptyText}>{notAvailableMessage}</Text>
-          <Text style={styles.emptySubtext}>Tap here to {addSlotMessage.toLowerCase()}</Text>
-        </TouchableOpacity>
-      ) : (
-        <ScrollView 
-          style={styles.slotsContainer} 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.slotsContentContainer}
-        >
-          {slots.map((slot: number[], index: number) => {
-            const hasError = duplicateErrors[`slot-${index}`];
-            return (
-              <View 
-                key={`slot-${index}`} 
-                style={[styles.slotCard, slotContainerStyle, hasError && styles.slotCardError]}
-              >
-                <View style={styles.slotHeader}>
-                  <View style={styles.slotTitleContainer}>
-                    <Icon name="schedule" size={16} color="#1976d2" />
-                    <Text style={styles.slotTitle}>
-                      {slotLabel} {index + 1}
-                    </Text>
-                  </View>
-                  {slots.length > 1 && (
-                    <TouchableOpacity
-                      onPress={() => onRemoveSlot(index)}
-                      style={styles.removeButton}
-                      activeOpacity={0.7}
-                    >
-                      <Icon name="close" size={18} color="#f44336" />
-                    </TouchableOpacity>
-                  )}
-                </View>
+        </View>
+        {isFullAvailability && (
+          <Text style={styles.fullAvailabilityText}>
+            {formatDisplayTime(6)} - {formatDisplayTime(20)} (All slots covered)
+          </Text>
+        )}
+      </TouchableOpacity>
 
-                <View style={styles.selectedTimeContainer}>
-                  <View style={styles.timeBadge}>
-                    <Icon name="access-time" size={12} color="#fff" />
-                    <Text style={styles.selectedTime}>
-                      {formatTime(slot[0])}
-                    </Text>
-                  </View>
-                  <Icon name="arrow-forward" size={14} color="#999" />
-                  <View style={styles.timeBadge}>
-                    <Icon name="access-time" size={12} color="#fff" />
-                    <Text style={styles.selectedTime}>
-                      {formatTime(slot[1])}
-                    </Text>
-                  </View>
-                </View>
+      {/* Show Morning and Evening sections only if full availability is NOT selected */}
+      {!isFullAvailability && (
+        <>
+          {/* Morning Section */}
+          {renderSlotSection(
+            'morning',
+            morningSlots,
+            morningMarks,
+            'Morning Availability',
+            '#2196f3',
+            onAddMorningSlot
+          )}
 
-                <View style={styles.sliderWrapper}>
-                  <View style={styles.sliderContainer}>
-                    <MultiSlider
-                      values={[slot[0], slot[1]]}
-                      min={minTime}
-                      max={maxTime}
-                      step={0.5}
-                      onValuesChange={(values) => handleSlotChange(index, values)}
-                      selectedStyle={{
-                        backgroundColor: '#1976d2',
-                        height: 3,
-                      }}
-                      unselectedStyle={{
-                        backgroundColor: '#e0e0e0',
-                        height: 3,
-                      }}
-                      trackStyle={{
-                        height: 3,
-                        borderRadius: 1.5,
-                      }}
-                      markerStyle={{
-                        height: 20,
-                        width: 20,
-                        borderRadius: 10,
-                        backgroundColor: '#fff',
-                        borderWidth: 2,
-                        borderColor: '#1976d2',
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.15,
-                        shadowRadius: 2,
-                        elevation: 2,
-                      }}
-                      pressedMarkerStyle={{
-                        height: 22,
-                        width: 22,
-                        borderRadius: 11,
-                        backgroundColor: '#fff',
-                        borderWidth: 2.5,
-                        borderColor: '#1565c0',
-                      }}
-                      containerStyle={{
-                        height: 30,
-                        paddingHorizontal: 4,
-                      }}
-                    />
-                  </View>
-                  
-                  {/* Marks */}
-                  <View style={styles.marksWrapper}>
-                    {marks.map((mark: { value: number; label: string }, idx: number) => (
-                      <View 
-                        key={idx} 
-                        style={[
-                          styles.markContainer, 
-                          { left: `${((mark.value - minTime) / (maxTime - minTime)) * 100}%` }
-                        ]}
-                      >
-                        <View style={styles.markLine} />
-                        <Text style={styles.markLabel}>{mark.label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
+          {/* Evening Section */}
+          {renderSlotSection(
+            'evening',
+            eveningSlots,
+            eveningMarks,
+            'Evening Availability',
+            '#2196f3',
+            onAddEveningSlot
+          )}
+        </>
+      )}
 
-                {hasError && (
-                  <View style={styles.errorContainer}>
-                    <Icon name="error-outline" size={14} color="#f44336" />
-                    <Text style={styles.errorText}>{duplicateErrorKey}</Text>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </ScrollView>
+      {/* Selected Time Slots Summary - Shows merged ranges */}
+      {(morningSlots.length > 0 || eveningSlots.length > 0 || isFullAvailability) && (
+        <View style={styles.selectedSummaryContainer}>
+          <Text style={styles.selectedSummaryTitle}>Your Selected Time Slots:</Text>
+          <Text style={styles.selectedSummaryText}>
+            {getMergedSelectedSlots()}
+          </Text>
+        </View>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 12,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
+  mainContainer: {
+    marginBottom: 16,
+  },
+  mainTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2196f3',
+    marginBottom: 16,
+    letterSpacing: 1,
+  },
+  fullAvailabilityCard: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#e8e8e8',
+    borderColor: '#bbdef5',
   },
-  header: {
+  fullAvailabilityCardActive: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#2196f3',
+  },
+  fullAvailabilityHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
   },
-  titleContainer: {
+  radioContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 12,
   },
-  title: {
-    fontSize: 14,
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#2196f3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: '#2196f3',
+  },
+  radioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#2196f3',
+  },
+  fullAvailabilityTitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#1976d2',
   },
+  fullAvailabilityText: {
+    fontSize: 14,
+    color: '#1565c0',
+    fontWeight: '500',
+    marginTop: 12,
+    marginLeft: 34,
+  },
+  sectionContainer: {
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  sectionChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  sectionChipText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
   buttonContainer: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 8,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#e3f2fd',
     gap: 4,
-  },
-  addButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#1976d2',
   },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#ffebee',
     gap: 4,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#f44336',
   },
-  clearButtonText: {
+  buttonText: {
+    color: '#fff',
     fontSize: 12,
     fontWeight: '500',
+  },
+  clearButtonText: {
     color: '#f44336',
+    fontSize: 12,
+    fontWeight: '500',
   },
   emptyContainer: {
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    padding: 32,
     backgroundColor: '#fafafa',
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e8e8e8',
     borderStyle: 'dashed',
     alignItems: 'center',
-    gap: 6,
-  },
-  emptyIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e3f2fd',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
+    gap: 8,
   },
   emptyText: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 14,
+    color: '#757575',
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 11,
-    color: '#1976d2',
+    fontSize: 12,
+    color: '#9e9e9e',
     textAlign: 'center',
   },
   slotsContainer: {
-    maxHeight: 380,
-  },
-  slotsContentContainer: {
-    paddingBottom: 4,
+    width: '100%',
   },
   slotCard: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e8e8e8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 1,
-  },
-  slotCardError: {
-    borderColor: '#f44336',
-    backgroundColor: '#ffebee',
   },
   slotHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  slotTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    marginBottom: 12,
   },
   slotTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1976d2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  removeButton: {
-    padding: 4,
+  deleteButton: {
+    padding: 6,
+    backgroundColor: '#fff5f5',
+    borderRadius: 20,
   },
   selectedTimeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 16,
+    backgroundColor: '#f5f7fa',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  timeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1976d2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
-    gap: 4,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
   },
   selectedTime: {
-    fontSize: 12,
+    fontSize: 13,
+    color: '#333',
     fontWeight: '500',
-    color: '#fff',
   },
   sliderWrapper: {
-    marginTop: 4,
-    marginBottom: 4,
-    position: 'relative',
+    marginTop: 8,
+    marginBottom: 8,
   },
   sliderContainer: {
-    width: '100%',
+    position: 'relative',
     paddingHorizontal: 4,
   },
-  marksWrapper: {
+  marksContainer: {
     position: 'relative',
     width: '100%',
-    height: 28,
-    marginTop: 2,
+    height: 30,
+    marginTop: 8,
   },
   markContainer: {
     position: 'absolute',
     alignItems: 'center',
-    transform: [{ translateX: -10 }],
-    width: 20,
+    transform: [{ translateX: -12 }],
   },
   markLine: {
     width: 1,
-    height: 6,
+    height: 8,
     backgroundColor: '#bdbdbd',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   markLabel: {
-    fontSize: 8,
-    color: '#999',
-    textAlign: 'center',
+    fontSize: 10,
+    color: '#9e9e9e',
+    fontWeight: '500',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffebee',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 10,
-    gap: 6,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
   },
   errorText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#f44336',
     flex: 1,
+  },
+  selectedSummaryContainer: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  selectedSummaryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  selectedSummaryText: {
+    fontSize: 13,
+    color: '#1565c0',
+    lineHeight: 20,
   },
 });
 
