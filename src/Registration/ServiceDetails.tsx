@@ -1,4 +1,4 @@
-// components/Registration/ServiceDetails.tsx (Fully Responsive Version)
+// components/Registration/ServiceDetails.tsx
 import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
@@ -7,25 +7,25 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Switch,
   Modal,
   FlatList,
-  Dimensions,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
 
-const { width: screenWidth } = Dimensions.get('window');
+// Define TimeSlot interface (must match the one in TimeSlotSelector)
+interface TimeSlot {
+  id: string;
+  start: number;
+  end: number;
+  type: 'morning' | 'evening';
+}
 
 interface ServiceDetailsProps {
   formData: any;
   errors: any;
   isCookSelected: boolean;
   isNannySelected: boolean;
-  morningSlots: number[][];
-  eveningSlots: number[][];
-  isFullTime: boolean;
-  selectedTimeSlots: string;
   onServiceTypeChange: (value: string) => void;
   onCookingSpecialityChange: (value: string) => void;
   onNannyCareTypeChange: (value: string) => void;
@@ -34,18 +34,10 @@ interface ServiceDetailsProps {
   onDescriptionChange: (text: string) => void;
   onReferralCodeChange: (text: string) => void;
   onAgentReferralIdChange: (text: string) => void;
-  onFullTimeToggle: (checked: boolean) => void;
-  onAddMorningSlot: () => void;
-  onRemoveMorningSlot: (index: number) => void;
-  onClearMorningSlots: () => void;
-  onAddEveningSlot: () => void;
-  onRemoveEveningSlot: (index: number) => void;
-  onClearEveningSlots: () => void;
-  onMorningSlotChange: (index: number, newValue: number[]) => void;
-  onEveningSlotChange: (index: number, newValue: number[]) => void;
-  formatDisplayTime?: (value: number) => string;
   selectedLanguages?: string[];
   onLanguagesChange?: (languages: string[]) => void;
+  // NEW: callback to notify parent when time slots change
+  onTimeSlotsChange?: (timeslotString: string) => void;
 }
 
 const ServiceDetails: React.FC<ServiceDetailsProps> = ({
@@ -53,10 +45,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   errors,
   isCookSelected,
   isNannySelected,
-  morningSlots,
-  eveningSlots,
-  isFullTime,
-  selectedTimeSlots,
   onServiceTypeChange,
   onCookingSpecialityChange,
   onNannyCareTypeChange,
@@ -64,23 +52,19 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onExperienceChange,
   onDescriptionChange,
   onReferralCodeChange,
-  onFullTimeToggle,
-  onAddMorningSlot,
-  onRemoveMorningSlot,
-  onClearMorningSlots,
-  onAddEveningSlot,
-  onRemoveEveningSlot,
-  onClearEveningSlots,
-  onMorningSlotChange,
-  onEveningSlotChange,
   onAgentReferralIdChange,
-  formatDisplayTime,
   selectedLanguages = [],
   onLanguagesChange,
+  onTimeSlotsChange,
 }) => {
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   
-  const defaultFormatDisplayTime = (value: number): string => {
+  // Internal time slot state
+  const [morningSlots, setMorningSlots] = useState<TimeSlot[]>([]);
+  const [eveningSlots, setEveningSlots] = useState<TimeSlot[]>([]);
+  const [isFullTime, setIsFullTime] = useState(false);
+  
+  const formatDisplayTime = (value: number): string => {
     const hours = Math.floor(value);
     const minutes = Math.round((value % 1) * 60);
     const period = hours >= 12 ? 'PM' : 'AM';
@@ -89,8 +73,81 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     return `${displayHours}${displayMinutes} ${period}`;
   };
 
-  const safeFormatDisplayTime = formatDisplayTime || defaultFormatDisplayTime;
-  
+  // Time slot handlers
+  const handleAddMorningSlot = () => {
+    const newId = Date.now().toString() + Math.random();
+    const newSlot: TimeSlot = { id: newId, start: 9, end: 10, type: 'morning' };
+    setMorningSlots([...morningSlots, newSlot]);
+  };
+  const handleAddEveningSlot = () => {
+    const newId = Date.now().toString() + Math.random();
+    const newSlot: TimeSlot = { id: newId, start: 14, end: 15, type: 'evening' };
+    setEveningSlots([...eveningSlots, newSlot]);
+  };
+  const handleRemoveSlot = (id: string, type: 'morning' | 'evening') => {
+    if (type === 'morning') setMorningSlots(morningSlots.filter(s => s.id !== id));
+    else setEveningSlots(eveningSlots.filter(s => s.id !== id));
+  };
+  const handleClearSlots = (type: 'morning' | 'evening') => {
+    if (type === 'morning') setMorningSlots([]);
+    else setEveningSlots([]);
+  };
+  const handleSlotChange = (id: string, newValue: number[], type: 'morning' | 'evening') => {
+    const [start, end] = newValue;
+    if (type === 'morning') {
+      setMorningSlots(morningSlots.map(slot => slot.id === id ? { ...slot, start, end } : slot));
+    } else {
+      setEveningSlots(eveningSlots.map(slot => slot.id === id ? { ...slot, start, end } : slot));
+    }
+  };
+  const handleFullTimeToggle = (checked: boolean) => {
+    setIsFullTime(checked);
+    if (checked) {
+      setMorningSlots([]);
+      setEveningSlots([]);
+    }
+  };
+
+  // Compute merged time slots string and notify parent
+  const mergeTimeSlots = (slots: TimeSlot[]): string => {
+    if (slots.length === 0) return "";
+    const sorted = [...slots].sort((a, b) => a.start - b.start);
+    const merged: { start: number; end: number }[] = [];
+    let current = { start: sorted[0].start, end: sorted[0].end };
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].start <= current.end) {
+        current.end = Math.max(current.end, sorted[i].end);
+      } else {
+        merged.push(current);
+        current = { start: sorted[i].start, end: sorted[i].end };
+      }
+    }
+    merged.push(current);
+    return merged.map(r => `${formatDisplayTime(r.start)} - ${formatDisplayTime(r.end)}`).join(", ");
+  };
+
+  useEffect(() => {
+    let timeslotString = "";
+    if (isFullTime) {
+      timeslotString = `${formatDisplayTime(6)} - ${formatDisplayTime(20)}`;
+    } else {
+      const allSlots = [...morningSlots, ...eveningSlots];
+      timeslotString = mergeTimeSlots(allSlots);
+    }
+    // Also produce a storage-friendly format (e.g., "06:00-12:00,14:00-18:00")
+    const storageString = isFullTime ? "06:00-20:00" : [...morningSlots, ...eveningSlots].map(slot => {
+      const startHour = Math.floor(slot.start);
+      const startMin = slot.start % 1 === 0.5 ? "30" : "00";
+      const endHour = Math.floor(slot.end);
+      const endMin = slot.end % 1 === 0.5 ? "30" : "00";
+      return `${startHour.toString().padStart(2,'0')}:${startMin}-${endHour.toString().padStart(2,'0')}:${endMin}`;
+    }).join(",");
+    if (onTimeSlotsChange) {
+      onTimeSlotsChange(storageString);
+    }
+  }, [morningSlots, eveningSlots, isFullTime]);
+
+  // Available languages list
   const availableLanguages = [
     "Assamese", "Bengali", "Gujarati", "Hindi", "Kannada",
     "Kashmiri", "Marathi", "Malayalam", "Oriya", "Punjabi",
@@ -99,37 +156,14 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     "Maithili", "Santhali", "English"
   ];
 
-  const mergeTimeSlots = (
-    slots: number[][],
-    format: (value: number) => string
-  ): string => {
-    if (!slots.length) return "";
-
-    const sorted = [...slots].sort((a, b) => a[0] - b[0]);
-    const merged: number[][] = [];
-
-    for (const slot of sorted) {
-      if (merged.length === 0) {
-        merged.push([slot[0], slot[1]]);
-      } else {
-        const last = merged[merged.length - 1];
-        if (slot[0] <= last[1]) {
-          last[1] = Math.max(last[1], slot[1]);
-        } else {
-          merged.push([slot[0], slot[1]]);
-        }
-      }
+  const handleLanguageSelect = (language: string) => {
+    if (selectedLanguages.includes(language)) {
+      const newLanguages = selectedLanguages.filter(l => l !== language);
+      if (onLanguagesChange) onLanguagesChange(newLanguages);
+    } else {
+      if (onLanguagesChange) onLanguagesChange([...selectedLanguages, language]);
     }
-
-    return merged
-      .map(([start, end]) => `${format(start)} - ${format(end)}`)
-      .join(", ");
   };
-
-  const mergedTimeSlotsString = useMemo(() => {
-    const allSlots = [...morningSlots, ...eveningSlots];
-    return mergeTimeSlots(allSlots, safeFormatDisplayTime);
-  }, [morningSlots, eveningSlots, safeFormatDisplayTime]);
 
   const serviceTypes = [
     { value: "COOK", label: "Cook", icon: "restaurant" },
@@ -149,43 +183,22 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     { value: "BOTH", label: "Both" },
   ];
 
-  const handleLanguageSelect = (language: string) => {
-    if (selectedLanguages.includes(language)) {
-      const newLanguages = selectedLanguages.filter(l => l !== language);
-      if (onLanguagesChange) onLanguagesChange(newLanguages);
-    } else {
-      if (onLanguagesChange) onLanguagesChange([...selectedLanguages, language]);
-    }
-  };
-
   const ServiceTypeCard = ({ service, isSelected, onPress }: any) => (
     <TouchableOpacity
-      style={[
-        styles.serviceCard,
-        isSelected && styles.serviceCardSelected
-      ]}
+      style={[styles.serviceCard, isSelected && styles.serviceCardSelected]}
       onPress={onPress}
       activeOpacity={0.8}
     >
       <Icon name={service.icon} size={24} color={isSelected ? "#1976d2" : "#666"} />
-      <Text style={[
-        styles.serviceCardText,
-        isSelected && styles.serviceCardTextSelected
-      ]}>
+      <Text style={[styles.serviceCardText, isSelected && styles.serviceCardTextSelected]}>
         {service.label}
       </Text>
-      {isSelected && (
-        <Icon name="check-circle" size={18} color="#1976d2" style={styles.checkIcon} />
-      )}
+      {isSelected && <Icon name="check-circle" size={18} color="#1976d2" style={styles.checkIcon} />}
     </TouchableOpacity>
   );
 
   return (
-    <ScrollView 
-      style={styles.container} 
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.contentContainer}
-    >
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
       {/* Service Type Selection */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Select Service Type *</Text>
@@ -199,9 +212,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             />
           ))}
         </View>
-        {errors.housekeepingRole && (
-          <Text style={styles.errorText}>{errors.housekeepingRole}</Text>
-        )}
+        {errors.housekeepingRole && <Text style={styles.errorText}>{errors.housekeepingRole}</Text>}
       </View>
 
       {/* Cooking Speciality */}
@@ -212,24 +223,16 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             {dietOptions.map((option) => (
               <TouchableOpacity
                 key={option.value}
-                style={[
-                  styles.optionButton,
-                  formData.cookingSpeciality === option.value && styles.optionButtonSelected
-                ]}
+                style={[styles.optionButton, formData.cookingSpeciality === option.value && styles.optionButtonSelected]}
                 onPress={() => onCookingSpecialityChange(option.value)}
               >
-                <Text style={[
-                  styles.optionButtonText,
-                  formData.cookingSpeciality === option.value && styles.optionButtonTextSelected
-                ]}>
+                <Text style={[styles.optionButtonText, formData.cookingSpeciality === option.value && styles.optionButtonTextSelected]}>
                   {option.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          {errors.cookingSpeciality && (
-            <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>
-          )}
+          {errors.cookingSpeciality && <Text style={styles.errorText}>{errors.cookingSpeciality}</Text>}
         </View>
       )}
 
@@ -241,24 +244,16 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             {nannyCareOptions.map((option) => (
               <TouchableOpacity
                 key={option.value}
-                style={[
-                  styles.optionButton,
-                  formData.nannyCareType === option.value && styles.optionButtonSelected
-                ]}
+                style={[styles.optionButton, formData.nannyCareType === option.value && styles.optionButtonSelected]}
                 onPress={() => onNannyCareTypeChange(option.value)}
               >
-                <Text style={[
-                  styles.optionButtonText,
-                  formData.nannyCareType === option.value && styles.optionButtonTextSelected
-                ]}>
+                <Text style={[styles.optionButtonText, formData.nannyCareType === option.value && styles.optionButtonTextSelected]}>
                   {option.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          {errors.nannyCareType && (
-            <Text style={styles.errorText}>{errors.nannyCareType}</Text>
-          )}
+          {errors.nannyCareType && <Text style={styles.errorText}>{errors.nannyCareType}</Text>}
         </View>
       )}
 
@@ -269,24 +264,16 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           {dietOptions.map((option) => (
             <TouchableOpacity
               key={option.value}
-              style={[
-                styles.optionButton,
-                formData.diet === option.value && styles.optionButtonSelected
-              ]}
+              style={[styles.optionButton, formData.diet === option.value && styles.optionButtonSelected]}
               onPress={() => onDietChange(option.value)}
             >
-              <Text style={[
-                styles.optionButtonText,
-                formData.diet === option.value && styles.optionButtonTextSelected
-              ]}>
+              <Text style={[styles.optionButtonText, formData.diet === option.value && styles.optionButtonTextSelected]}>
                 {option.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-        {errors.diet && (
-          <Text style={styles.errorText}>{errors.diet}</Text>
-        )}
+        {errors.diet && <Text style={styles.errorText}>{errors.diet}</Text>}
       </View>
 
       {/* Description */}
@@ -307,11 +294,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       {/* Languages */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Languages Spoken</Text>
-        
-        <TouchableOpacity
-          style={styles.languageSelector}
-          onPress={() => setLanguageModalVisible(true)}
-        >
+        <TouchableOpacity style={styles.languageSelector} onPress={() => setLanguageModalVisible(true)}>
           <Text style={styles.languageSelectorText}>
             {selectedLanguages.length > 0 
               ? `${selectedLanguages.length} language${selectedLanguages.length > 1 ? 's' : ''} selected`
@@ -319,56 +302,33 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           </Text>
           <Icon name="arrow-drop-down" size={24} color="#666" />
         </TouchableOpacity>
-
         {selectedLanguages.length > 0 && (
           <View style={styles.languageChipsContainer}>
             {selectedLanguages.map((language, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.languageChip}
-                onPress={() => handleLanguageSelect(language)}
-              >
+              <TouchableOpacity key={index} style={styles.languageChip} onPress={() => handleLanguageSelect(language)}>
                 <Text style={styles.languageChipText}>{language}</Text>
                 <Icon name="close" size={14} color="#999" />
               </TouchableOpacity>
             ))}
           </View>
         )}
-
-        <Modal
-          visible={languageModalVisible}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setLanguageModalVisible(false)}
-        >
+        <Modal visible={languageModalVisible} animationType="slide" transparent={true} onRequestClose={() => setLanguageModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Select Languages</Text>
-                <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
-                  <Icon name="close" size={24} color="#666" />
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setLanguageModalVisible(false)}><Icon name="close" size={24} color="#666" /></TouchableOpacity>
               </View>
               <FlatList
                 data={availableLanguages}
                 keyExtractor={(item) => item}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={[
-                      styles.languageItem,
-                      selectedLanguages.includes(item) && styles.languageItemSelected
-                    ]}
+                    style={[styles.languageItem, selectedLanguages.includes(item) && styles.languageItemSelected]}
                     onPress={() => handleLanguageSelect(item)}
                   >
-                    <Text style={[
-                      styles.languageItemText,
-                      selectedLanguages.includes(item) && styles.languageItemTextSelected
-                    ]}>
-                      {item}
-                    </Text>
-                    {selectedLanguages.includes(item) && (
-                      <Icon name="check" size={20} color="#1976d2" />
-                    )}
+                    <Text style={[styles.languageItemText, selectedLanguages.includes(item) && styles.languageItemTextSelected]}>{item}</Text>
+                    {selectedLanguages.includes(item) && <Icon name="check" size={20} color="#1976d2" />}
                   </TouchableOpacity>
                 )}
               />
@@ -389,11 +349,8 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             onChangeText={onExperienceChange}
             keyboardType="numeric"
           />
-          {errors.experience && (
-            <Text style={styles.errorText}>{errors.experience}</Text>
-          )}
+          {errors.experience && <Text style={styles.errorText}>{errors.experience}</Text>}
         </View>
-
         <View style={[styles.card, styles.halfCard]}>
           <Text style={styles.sectionTitle}>Referral Code</Text>
           <TextInput
@@ -418,339 +375,85 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
         />
       </View>
 
-      {/* Time Slots Section - REDUCED PADDING FOR MORE SPACE */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Available Time Slots</Text>
-
-        {/* Full Time Switch */}
-        <View style={styles.switchContainer}>
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Full Time Availability</Text>
-            <Switch
-              value={isFullTime}
-              onValueChange={onFullTimeToggle}
-              trackColor={{ false: "#767577", true: "#1976d2" }}
-              thumbColor={isFullTime ? "#fff" : "#f4f3f4"}
-            />
-          </View>
-          <Text style={styles.switchHelper}>Enable if you're available for full-time work</Text>
-        </View>
-
-        {!isFullTime && (
-          <>
-            {/* Morning Slots - COMPACT BUT READABLE */}
-            <View style={styles.timeSlotSection}>
-              <Text style={styles.timeSlotTitle}>Morning Availability</Text>
-              <TimeSlotSelector
-                title=""
-                slots={morningSlots}
-                minTime={6}
-                maxTime={12}
-                marks={[
-                  { value: 6, label: "6" },
-                  { value: 8, label: "8" },
-                  { value: 10, label: "10" },
-                  { value: 12, label: "12" },
-                ]}
-                notAvailableMessage="Not available in mornings"
-                addSlotMessage="+ Add Morning Slot"
-                slotLabel="Slot"
-                clearButtonLabel="Clear All"
-                duplicateErrorKey="Duplicate time slot"
-                onAddSlot={onAddMorningSlot}
-                onRemoveSlot={onRemoveMorningSlot}
-                onClearSlots={onClearMorningSlots}
-                onSlotChange={onMorningSlotChange}
-                formatDisplayTime={safeFormatDisplayTime}
-              />
-            </View>
-
-            {/* Evening Slots - COMPACT BUT READABLE */}
-            <View style={styles.timeSlotSection}>
-              <Text style={styles.timeSlotTitle}>Evening Availability</Text>
-              <TimeSlotSelector
-                title=""
-                slots={eveningSlots}
-                minTime={12}
-                maxTime={20}
-                marks={[
-                  { value: 12, label: "12" },
-                  { value: 14, label: "14" },
-                  { value: 16, label: "16" },
-                  { value: 18, label: "18" },
-                  { value: 20, label: "20" },
-                ]}
-                notAvailableMessage="Not available in evenings"
-                addSlotMessage="+ Add Evening Slot"
-                slotLabel="Slot"
-                clearButtonLabel="Clear All"
-                duplicateErrorKey="Duplicate time slot"
-                onAddSlot={onAddEveningSlot}
-                onRemoveSlot={onRemoveEveningSlot}
-                onClearSlots={onClearEveningSlots}
-                onSlotChange={onEveningSlotChange}
-                formatDisplayTime={safeFormatDisplayTime}
-              />
-            </View>
-          </>
-        )}
-
-        {/* Summary */}
-        {!isFullTime && mergedTimeSlotsString && (
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>Selected Time Slots:</Text>
-            <Text style={styles.summaryValue}>{mergedTimeSlotsString}</Text>
-          </View>
-        )}
-      </View>
+      {/* Time Slot Selector */}
+      <TimeSlotSelector
+        title="Availability"
+        morningSlots={morningSlots}
+        eveningSlots={eveningSlots}
+        minTime={6}
+        maxTime={20}
+        morningMarks={[
+          { value: 6, label: "6" },
+          { value: 8, label: "8" },
+          { value: 10, label: "10" },
+          { value: 12, label: "12" },
+        ]}
+        eveningMarks={[
+          { value: 12, label: "12" },
+          { value: 14, label: "14" },
+          { value: 16, label: "16" },
+          { value: 18, label: "18" },
+          { value: 20, label: "20" },
+        ]}
+        notAvailableMessage="No time slots added"
+        addSlotMessage="Tap + Add Slot to set your availability"
+        slotLabel="Slot"
+        addButtonLabel="Add"
+        clearButtonLabel="Clear"
+        duplicateErrorKey="Duplicate time slot"
+        onAddMorningSlot={handleAddMorningSlot}
+        onAddEveningSlot={handleAddEveningSlot}
+        onRemoveSlot={handleRemoveSlot}
+        onClearSlots={handleClearSlots}
+        onSlotChange={handleSlotChange}
+        formatDisplayTime={formatDisplayTime}
+      />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  contentContainer: {
-    paddingBottom: 30,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  contentContainer: { paddingBottom: 30 },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 6,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#fff', borderRadius: 12, marginHorizontal: 16, marginVertical: 6,
+    padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 2, elevation: 2,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  serviceTypesContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 12 },
+  serviceTypesContainer: { flexDirection: 'row', gap: 12 },
   serviceCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
-    position: 'relative',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 10,
+    borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff', position: 'relative',
   },
-  serviceCardSelected: {
-    borderColor: '#1976d2',
-    backgroundColor: '#e3f2fd',
-  },
-  serviceCardText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-  },
-  serviceCardTextSelected: {
-    color: '#1976d2',
-  },
-  checkIcon: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-  },
-  optionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  optionButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-  },
-  optionButtonSelected: {
-    borderColor: '#1976d2',
-    backgroundColor: '#e3f2fd',
-  },
-  optionButtonText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  optionButtonTextSelected: {
-    color: '#1976d2',
-    fontWeight: '600',
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: '#333',
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: '#333',
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#f44336',
-    marginTop: 6,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    gap: 12,
-  },
-  halfCard: {
-    flex: 1,
-    marginHorizontal: 0,
-  },
-  languageSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-  },
-  languageSelectorText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  languageChipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-  },
-  languageChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    gap: 4,
-  },
-  languageChipText: {
-    fontSize: 12,
-    color: '#1976d2',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  languageItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  languageItemSelected: {
-    backgroundColor: '#e3f2fd',
-  },
-  languageItemText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  languageItemTextSelected: {
-    color: '#1976d2',
-    fontWeight: '500',
-  },
-  switchContainer: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  switchLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-  },
-  switchHelper: {
-    fontSize: 12,
-    color: '#999',
-  },
-  timeSlotSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  timeSlotTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#555',
-    marginBottom: 12,
-  },
-  summaryBox: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1976d2',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 13,
-    color: '#1976d2',
-  },
+  serviceCardSelected: { borderColor: '#1976d2', backgroundColor: '#e3f2fd' },
+  serviceCardText: { fontSize: 14, fontWeight: '500', color: '#666' },
+  serviceCardTextSelected: { color: '#1976d2' },
+  checkIcon: { position: 'absolute', top: 4, right: 4 },
+  optionsContainer: { flexDirection: 'row', gap: 12 },
+  optionButton: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff', alignItems: 'center' },
+  optionButtonSelected: { borderColor: '#1976d2', backgroundColor: '#e3f2fd' },
+  optionButtonText: { fontSize: 14, color: '#666' },
+  optionButtonTextSelected: { color: '#1976d2', fontWeight: '600' },
+  textArea: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333', minHeight: 100, textAlignVertical: 'top' },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, color: '#333' },
+  errorText: { fontSize: 12, color: '#f44336', marginTop: 6 },
+  rowContainer: { flexDirection: 'row', marginHorizontal: 16, gap: 12 },
+  halfCard: { flex: 1, marginHorizontal: 0 },
+  languageSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12 },
+  languageSelectorText: { fontSize: 14, color: '#666' },
+  languageChipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  languageChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e3f2fd', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 4 },
+  languageChipText: { fontSize: 12, color: '#1976d2' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
+  languageItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  languageItemSelected: { backgroundColor: '#e3f2fd' },
+  languageItemText: { fontSize: 16, color: '#333' },
+  languageItemTextSelected: { color: '#1976d2', fontWeight: '500' },
 });
 
 export default ServiceDetails;
