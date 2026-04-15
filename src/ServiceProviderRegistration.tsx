@@ -893,6 +893,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setErrors(tempErrors);
     return isValid;
   };
+  
 
   const handleNext = () => {
     if (isNextDisabled) { showSnackbar("Please fill all required fields", "warning"); return; }

@@ -374,6 +374,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
           onChangeText={onAgentReferralIdChange}
         />
       </View>
+      
 
       {/* Time Slot Selector */}
       <TimeSlotSelector
