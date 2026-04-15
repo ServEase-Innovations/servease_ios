@@ -773,26 +773,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
         </View>
       </Modal>
 
-      {/* Invoice Modal */}
+      {/* Invoice Modal - Removed the custom header */}
       <Modal
         visible={showInvoiceModal}
         animationType="slide"
         transparent={false}
         onRequestClose={() => setShowInvoiceModal(false)}
       >
-        <View style={{ flex: 1 }}>
-          <View style={styles.invoiceHeader}>
-            <TouchableOpacity 
-              onPress={() => setShowInvoiceModal(false)} 
-              style={styles.invoiceCloseButton}
-            >
-              <Icon name="arrow-left" size={24} color="#333" />
-            </TouchableOpacity>
-            <Text style={styles.invoiceHeaderTitle}>Invoice</Text>
-            <View style={{ width: 40 }} />
-          </View>
-          <Invoice booking={booking} onClose={() => setShowInvoiceModal(false)} />
-        </View>
+        <Invoice booking={booking} onClose={() => setShowInvoiceModal(false)} />
       </Modal>
 
       <CancelDialog
@@ -826,25 +814,6 @@ const styles = StyleSheet.create({
   },
   separator: { 
     height: 1 
-  },
-  invoiceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    marginTop: Platform.OS === 'ios' ? 40 : 0,
-  },
-  invoiceCloseButton: {
-    padding: 8,
-  },
-  invoiceHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
   },
 });
 

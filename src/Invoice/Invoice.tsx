@@ -12,6 +12,7 @@ import {
   PermissionsAndroid,
   Linking,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
 import dayjs from 'dayjs';
@@ -532,31 +533,38 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        {/* Header with Close Button */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            {onClose && (
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Icon name="arrow-left" size={24} color="#333" />
-              </TouchableOpacity>
-            )}
-            <Text style={styles.headerTitle}>Invoice</Text>
+        {/* Header with Linear Gradient */}
+        <LinearGradient
+          colors={["#0a2a66ff", "#004aadff"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              {onClose && (
+                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                  <Icon name="arrow-left" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+              <Text style={styles.headerTitle}>Invoice</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.downloadButton} 
+              onPress={handleDownload}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Icon name="download" size={18} color="#FFFFFF" />
+                  <Text style={styles.downloadButtonText}>Download</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity 
-            style={styles.downloadButton} 
-            onPress={handleDownload}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Icon name="download" size={18} color="#FFFFFF" />
-                <Text style={styles.downloadButtonText}>Download</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+        </LinearGradient>
 
         {/* Invoice Summary Preview */}
         <View style={styles.previewCard}>
@@ -683,13 +691,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   content: {
-    padding: 16,
+    flex: 1,
+  },
+  headerGradient: {
+    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
   headerLeft: {
     flex: 1,
@@ -703,10 +717,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
   },
   downloadButton: {
-    backgroundColor: '#0A7CFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
@@ -723,6 +737,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
+    margin: 16,
+    marginTop: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -757,6 +773,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
+    marginHorizontal: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -838,6 +855,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
     padding: 12,
+    marginHorizontal: 16,
     marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
