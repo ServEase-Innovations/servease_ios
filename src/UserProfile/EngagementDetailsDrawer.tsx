@@ -1,4 +1,3 @@
-// EngagementDetailsDrawer.tsx
 /* eslint-disable */
 import React from 'react';
 import {
@@ -16,16 +15,15 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import dayjs from 'dayjs';
 import LinearGradient from 'react-native-linear-gradient';
-import RNFS from 'react-native-fs';
-import Share from 'react-native-share';
 import Snackbar from 'react-native-snackbar';
 import RazorpayCheckout from 'react-native-razorpay';
 
 // Import your existing utilities and services
-import { getServiceTitle, getBookingTypeBadge, getStatusBadge } from '../common/BookingUtils';
 import PaymentInstance from '../services/paymentInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
-import Invoice from '../Invoice/Invoice'; // Import your existing Invoice component
+import Invoice from '../Invoice/Invoice';
+import UserHoliday from './UserHoliday';
+import VacationManagementDialog from './VacationManagement';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +33,8 @@ interface EngagementDetailsDrawerProps {
   onClose: () => void;
   booking: any;
   onPaymentComplete?: () => void;
+  refreshBookings?: () => void;
+  customerId?: number | null;
 }
 
 // ==================== Helper Components ====================
@@ -146,20 +146,142 @@ const formatTimeToAMPM = (timeString: string): string => {
 
 const formatDate = (dateString: string) => dayjs(dateString).format('MMMM D, YYYY');
 
+// Helper function to check if booking has vacation
+const hasVacation = (booking: any): boolean => {
+  return booking.hasVacation || (booking.vacationDetails && (booking.vacationDetails.total_days || 0) > 0) || false;
+};
+
+// Helper function to check modification time allowance
+const isModificationTimeAllowed = (startEpoch: any): boolean => {
+  if (!startEpoch) return false;
+  const now = dayjs().unix();
+  const cutoff = startEpoch - 30 * 60;
+  return now < cutoff;
+};
+
+// Helper function to check if booking is already modified
+const isBookingAlreadyModified = (booking: any | null): boolean => {
+  if (!booking) return false;
+  return !!(booking.modifications?.some((mod: any) =>
+    mod.action === "Date Rescheduled" ||
+    mod.action === "Time Rescheduled" ||
+    mod.action === "Modified" ||
+    mod.action?.includes("Reschedule")
+  ));
+};
+
+// Helper function to check if modification is disabled
+const isModificationDisabled = (booking: any | null): boolean => {
+  if (!booking) return true;
+  return !isModificationTimeAllowed(booking.start_epoch) || isBookingAlreadyModified(booking);
+};
+
+// Helper function to get service title
+const getServiceTitle = (type: string) => {
+  const serviceType = type || 'other';
+  switch (serviceType) {
+    case 'cook': return 'Home Cook';
+    case 'maid': return 'Maid Service';
+    case 'nanny': return 'Caregiver';
+    case 'cleaning': return 'Cleaning Service';
+    default: return 'Home Service';
+  }
+};
+
+// Helper function to get booking type badge
+const getBookingTypeBadge = (type: string) => {
+  const { colors } = useTheme();
+  switch (type) {
+    case 'ON_DEMAND':
+      return (
+        <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
+          <Text style={[styles.onDemandBadgeText, { color: colors.info }]}>On Demand</Text>
+        </Badge>
+      );
+    case 'MONTHLY':
+      return (
+        <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+          <Text style={[styles.monthlyBadgeText, { color: colors.primary }]}>Monthly</Text>
+        </Badge>
+      );
+    case 'SHORT_TERM':
+      return (
+        <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+          <Text style={[styles.shortTermBadgeText, { color: colors.success }]}>Short Term</Text>
+        </Badge>
+      );
+    default:
+      return (
+        <Badge style={[styles.defaultBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+          <Text style={[styles.defaultBadgeText, { color: colors.textSecondary }]}>{type}</Text>
+        </Badge>
+      );
+  }
+};
+
+// Helper function to get status badge
+const getStatusBadge = (status: string) => {
+  const { colors } = useTheme();
+  switch (status) {
+    case 'ACTIVE':
+      return (
+        <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+          <Icon name="alert-circle" size={14} color={colors.primary} />
+          <Text style={[styles.activeBadgeText, { color: colors.primary }]}>Active</Text>
+        </Badge>
+      );
+    case 'COMPLETED':
+      return (
+        <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+          <Icon name="check-circle" size={14} color={colors.success} />
+          <Text style={[styles.completedBadgeText, { color: colors.success }]}>Completed</Text>
+        </Badge>
+      );
+    case 'CANCELLED':
+      return (
+        <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
+          <Icon name="close-circle" size={14} color={colors.error} />
+          <Text style={[styles.cancelledBadgeText, { color: colors.error }]}>Cancelled</Text>
+        </Badge>
+      );
+    case 'IN_PROGRESS':
+      return (
+        <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
+          <Icon name="clock" size={14} color={colors.warning} />
+          <Text style={[styles.inProgressBadgeText, { color: colors.warning }]}>In Progress</Text>
+        </Badge>
+      );
+    case 'NOT_STARTED':
+      return (
+        <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+          <Icon name="clock" size={14} color={colors.textSecondary} />
+          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary }]}>Not Started</Text>
+        </Badge>
+      );
+    default: return null;
+  }
+};
+
 // ==================== Main Component ====================
 const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ 
   isOpen, 
   onClose, 
   booking, 
-  onPaymentComplete 
+  onPaymentComplete,
+  refreshBookings,
+  customerId
 }) => {
   const { colors, fontSize } = useTheme();
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [isCallLoading, setIsCallLoading] = React.useState(false);
-  const [isMessageLoading, setIsMessageLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = React.useState(false);
+  
+  // Vacation states
+  const [holidayDialogOpen, setHolidayDialogOpen] = React.useState(false);
+  const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = React.useState(false);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -212,7 +334,6 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   const handleDownloadInvoice = () => {
-    // Open the Invoice component in a modal
     setShowInvoiceModal(true);
   };
 
@@ -252,6 +373,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               razorpay_signature: data.razorpay_signature,
             });
             if (onPaymentComplete) onPaymentComplete();
+            if (refreshBookings) refreshBookings();
             Alert.alert('Success', 'Payment completed successfully');
           } catch (verifyError) {
             console.error("Payment verification error:", verifyError);
@@ -273,15 +395,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     setIsCallLoading(true);
     setTimeout(() => {
       setIsCallLoading(false);
-      Alert.alert('Call', 'Call provider');
-    }, 500);
-  };
-
-  const handleMessageProvider = () => {
-    setIsMessageLoading(true);
-    setTimeout(() => {
-      setIsMessageLoading(false);
-      Alert.alert('Message', 'Message provider');
+      Alert.alert('Call', `Calling ${booking.serviceProviderName || 'service provider'}...`);
     }, 500);
   };
 
@@ -299,6 +413,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
         textColor: '#FFFFFF',
       });
       if (onPaymentComplete) onPaymentComplete();
+      if (refreshBookings) refreshBookings();
       setTimeout(() => onClose(), 500);
     } catch (error: any) {
       Snackbar.show({
@@ -312,6 +427,73 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     }
   };
 
+  // Vacation Handlers
+  const handleAddVacation = () => {
+    setHolidayDialogOpen(true);
+  };
+
+  const handleModifyVacation = () => {
+    setVacationManagementDialogOpen(true);
+  };
+
+  const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
+    if (!customerId) {
+      Snackbar.show({
+        text: 'Customer ID not found. Please try again.',
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: colors.error,
+        textColor: '#FFFFFF',
+      });
+      throw new Error('Customer ID not found');
+    }
+    
+    try {
+      setIsRefreshing(true);
+      await PaymentInstance.post(`/api/v2/engagements/${booking.id}/vacation`, {
+        customerid: customerId,
+        vacation_start_date: startDate,
+        vacation_end_date: endDate,
+        leave_type: "VACATION",
+        modified_by_id: booking.id,
+        modified_by_role: "CUSTOMER",
+      });
+      
+      if (refreshBookings) await refreshBookings();
+      Snackbar.show({
+        text: 'Vacation applied successfully',
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: colors.success,
+        textColor: '#FFFFFF',
+      });
+      setHolidayDialogOpen(false);
+    } catch (error) {
+      console.error('Error applying leave:', error);
+      throw error;
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleVacationSuccess = async () => {
+    Snackbar.show({
+      text: 'Vacation updated successfully',
+      duration: Snackbar.LENGTH_SHORT,
+      backgroundColor: colors.success,
+      textColor: '#FFFFFF',
+    });
+    if (refreshBookings) await refreshBookings();
+    setVacationManagementDialogOpen(false);
+  };
+
+  const handleModifyClick = () => {
+    // Close the drawer and let the parent component handle the modify dialog
+    onClose();
+    // You can emit an event or directly call a callback if needed
+    setTimeout(() => {
+      Alert.alert('Modify Booking', 'Please use the modify button from the main booking screen');
+    }, 500);
+  };
+
   const getServiceIcon = (serviceType: string) => {
     switch (serviceType) {
       case 'maid': return '🧹';
@@ -322,6 +504,28 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(booking.taskStatus);
+  const hasExistingVacation = hasVacation(booking);
+  const modificationDisabled = isModificationDisabled(booking);
+  const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
+  const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
+  
+  // Determine which action buttons to show based on booking status
+  const shouldShowModifyButton = booking.bookingType === "MONTHLY" && booking.taskStatus === 'NOT_STARTED';
+  const shouldShowVacationButton = booking.bookingType === "MONTHLY" && booking.taskStatus !== 'CANCELLED' && booking.taskStatus !== 'COMPLETED';
+
+  // Convert booking for child components
+  const convertBookingForChildComponents = (bookingData: any): any => {
+    if (!bookingData) return null;
+    return {
+      ...bookingData,
+      serviceType: bookingData.serviceType || bookingData.service_type,
+      vacationDetails: bookingData.vacationDetails ? {
+        ...bookingData.vacationDetails,
+        leave_start_date: bookingData.vacationDetails.leave_start_date || bookingData.vacationDetails.start_date,
+        leave_end_date: bookingData.vacationDetails.leave_end_date || bookingData.vacationDetails.end_date,
+      } : null,
+    };
+  };
 
   // ==================== Styles ====================
   const dynamicStyles = StyleSheet.create({
@@ -377,12 +581,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     serviceTitle: { fontSize: fontSizes.serviceTitle, fontWeight: '700', color: colors.text },
     actionButtonsContainer: { 
       flexDirection: 'row', 
+      flexWrap: 'wrap',
       justifyContent: 'space-between', 
       gap: 10, 
       marginBottom: 20 
     },
     actionButton: { 
       flex: 1, 
+      minWidth: '30%',
       flexDirection: 'row', 
       alignItems: 'center', 
       justifyContent: 'center', 
@@ -392,10 +598,40 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       gap: 6, 
       minHeight: 44 
     },
-    actionButtonText: { color: '#FFFFFF', fontSize: fontSizes.actionButtonText, fontWeight: '600' },
+    actionButtonText: { fontSize: fontSizes.actionButtonText, fontWeight: '600' },
     callButton: { backgroundColor: colors.primary },
-    messageButton: { backgroundColor: colors.primary },
-    cancelButton: { backgroundColor: colors.error },
+    callButtonText: { color: '#FFFFFF' },
+    // Payment Button Outline Style
+    paymentButtonOutline: { 
+      backgroundColor: colors.card, 
+      borderWidth: 2, 
+      borderColor: colors.error,
+      flex: 1 
+    },
+    paymentButtonOutlineText: { 
+      color: colors.error, 
+      fontSize: fontSizes.actionButtonText, 
+      fontWeight: '600' 
+    },
+    // Cancel Button Outline Style
+    cancelButtonOutline: { 
+      backgroundColor: colors.card, 
+      borderWidth: 2, 
+      borderColor: colors.error,
+      flex: 1 
+    },
+    cancelButtonOutlineText: { 
+      color: colors.error, 
+      fontSize: fontSizes.actionButtonText, 
+      fontWeight: '600' 
+    },
+    modifyButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary },
+    modifyButtonText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
+    vacationButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary },
+    vacationButtonText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
+    vacationModifiedButton: { backgroundColor: colors.infoLight, borderColor: colors.info },
+    vacationModifiedText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
+    disabledButton: { opacity: 0.6 },
     section: { marginBottom: 24 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
     sectionTitle: { fontSize: fontSizes.sectionTitle, fontWeight: '500', color: colors.text },
@@ -433,8 +669,11 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     paymentStatusBadge: { paddingHorizontal: 8, paddingVertical: 4 },
     paymentModeValue: { fontSize: fontSizes.paymentValue, fontWeight: '500', color: colors.text, textTransform: 'capitalize' },
     completePaymentContainer: { marginTop: 16 },
-    completePaymentButton: { 
-      backgroundColor: colors.error, 
+    // Complete Payment Button Outline Style
+    completePaymentButtonOutline: { 
+      backgroundColor: colors.card, 
+      borderWidth: 2, 
+      borderColor: colors.error,
       flexDirection: 'row', 
       alignItems: 'center', 
       justifyContent: 'center', 
@@ -442,7 +681,11 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       borderRadius: 8, 
       gap: 8 
     },
-    completePaymentText: { color: '#FFFFFF', fontSize: fontSizes.sectionTitle, fontWeight: '600' },
+    completePaymentButtonOutlineText: { 
+      color: colors.error, 
+      fontSize: fontSizes.sectionTitle, 
+      fontWeight: '600' 
+    },
     completePaymentNote: { fontSize: fontSizes.labelText, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
     invoiceButtonContainer: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
     invoiceButton: { 
@@ -517,43 +760,106 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 </View>
               </View>
 
-              {/* Action Buttons */}
-              <View style={dynamicStyles.actionButtonsContainer}>
-                <TouchableOpacity 
-                  style={[dynamicStyles.actionButton, dynamicStyles.callButton]} 
-                  onPress={handleCallProvider} 
-                  disabled={isCallLoading}
-                >
-                  {isCallLoading ? 
-                    <ActivityIndicator size="small" color="#FFFFFF" /> : 
-                    <Icon name="phone" size={18} color="#FFFFFF" />
-                  }
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[dynamicStyles.actionButton, dynamicStyles.messageButton]} 
-                  onPress={handleMessageProvider} 
-                  disabled={isMessageLoading}
-                >
-                  {isMessageLoading ? 
-                    <ActivityIndicator size="small" color="#FFFFFF" /> : 
-                    <Icon name="message-square" size={18} color="#FFFFFF" />
-                  }
-                </TouchableOpacity>
-                
-                {isCancellable() && (
+              {/* Action Buttons - Updated with red border style for payment and cancel */}
+              {!canShowPaymentButton ? (
+                <View style={dynamicStyles.actionButtonsContainer}>
+                  {/* Call Button */}
                   <TouchableOpacity 
-                    style={[dynamicStyles.actionButton, dynamicStyles.cancelButton]} 
-                    onPress={handleCancelBooking} 
-                    disabled={isCancelLoading}
+                    style={[dynamicStyles.actionButton, dynamicStyles.callButton]} 
+                    onPress={handleCallProvider} 
+                    disabled={isCallLoading}
                   >
-                    {isCancelLoading ? 
+                    {isCallLoading ? 
                       <ActivityIndicator size="small" color="#FFFFFF" /> : 
-                      <Icon name="x-circle" size={18} color="#FFFFFF" />
+                      <Icon name="phone" size={18} color="#FFFFFF" />
                     }
+                    <Text style={[dynamicStyles.actionButtonText, dynamicStyles.callButtonText]}>Call</Text>
                   </TouchableOpacity>
-                )}
-              </View>
+                  
+                  {/* Cancel Button (if cancellable) - Now with red border and red text */}
+                  {isCancellable() && (
+                    <TouchableOpacity 
+                      style={[dynamicStyles.actionButton, dynamicStyles.cancelButtonOutline]} 
+                      onPress={handleCancelBooking} 
+                      disabled={isCancelLoading}
+                    >
+                      {isCancelLoading ? 
+                        <ActivityIndicator size="small" color={colors.error} /> : 
+                        <Icon name="x-circle" size={18} color={colors.error} />
+                      }
+                      <Text style={dynamicStyles.cancelButtonOutlineText}>Cancel</Text>
+                    </TouchableOpacity>
+                  )}
+                  
+                  {/* Modify Button - Only for MONTHLY and NOT_STARTED */}
+                  {shouldShowModifyButton && (
+                    <TouchableOpacity 
+                      style={[dynamicStyles.actionButton, dynamicStyles.modifyButton, modificationDisabled && dynamicStyles.disabledButton]} 
+                      onPress={handleModifyClick}
+                      disabled={modificationDisabled}
+                    >
+                      <Icon name="edit-2" size={18} color={modificationDisabled ? colors.textSecondary : colors.primary} />
+                      <Text style={[dynamicStyles.modifyButtonText, modificationDisabled && { color: colors.textSecondary }]}>Modify</Text>
+                    </TouchableOpacity>
+                  )}
+                  
+                  {/* Vacation Button - For MONTHLY bookings that are not cancelled/completed */}
+                  {shouldShowVacationButton && (
+                    <>
+                      {hasExistingVacation ? (
+                        <TouchableOpacity 
+                          style={[dynamicStyles.actionButton, dynamicStyles.vacationModifiedButton]} 
+                          onPress={handleModifyVacation}
+                          disabled={isRefreshing}
+                        >
+                          <Icon name="edit-2" size={18} color={colors.primary} />
+                          <Text style={dynamicStyles.vacationModifiedText}>Modify Vacation</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity 
+                          style={[dynamicStyles.actionButton, dynamicStyles.vacationButton]} 
+                          onPress={handleAddVacation}
+                          disabled={isRefreshing}
+                        >
+                          <Icon name="calendar" size={18} color={colors.primary} />
+                          <Text style={dynamicStyles.vacationButtonText}>Add Vacation</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+                </View>
+              ) : (
+                /* Payment Button for pending payments - Now with red border and red text */
+                <View style={dynamicStyles.actionButtonsContainer}>
+                  <TouchableOpacity 
+                    style={[dynamicStyles.actionButton, dynamicStyles.paymentButtonOutline]} 
+                    onPress={handleCompletePayment} 
+                    disabled={isProcessingPayment}
+                  >
+                    {isProcessingPayment ? 
+                      <ActivityIndicator size="small" color={colors.error} /> : (
+                      <>
+                        <Icon name="credit-card" size={18} color={colors.error} />
+                        <Text style={dynamicStyles.paymentButtonOutlineText}>Complete Payment</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  
+                  {isCancellable() && (
+                    <TouchableOpacity 
+                      style={[dynamicStyles.actionButton, dynamicStyles.cancelButtonOutline]} 
+                      onPress={handleCancelBooking} 
+                      disabled={isCancelLoading}
+                    >
+                      {isCancelLoading ? 
+                        <ActivityIndicator size="small" color={colors.error} /> : 
+                        <Icon name="x-circle" size={18} color={colors.error} />
+                      }
+                      <Text style={dynamicStyles.cancelButtonOutlineText}>Cancel</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
 
               {/* Schedule Information */}
               <View style={dynamicStyles.section}>
@@ -687,15 +993,15 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                     {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
                       <View style={dynamicStyles.completePaymentContainer}>
                         <TouchableOpacity 
-                          style={dynamicStyles.completePaymentButton} 
+                          style={dynamicStyles.completePaymentButtonOutline} 
                           onPress={handleCompletePayment} 
                           disabled={isProcessingPayment}
                         >
                           {isProcessingPayment ? 
-                            <ActivityIndicator size="small" color="#FFFFFF" /> : (
+                            <ActivityIndicator size="small" color={colors.error} /> : (
                             <>
-                              <Icon name="credit-card" size={20} color="#FFFFFF" />
-                              <Text style={dynamicStyles.completePaymentText}>Complete Payment Now</Text>
+                              <Icon name="credit-card" size={20} color={colors.error} />
+                              <Text style={dynamicStyles.completePaymentButtonOutlineText}>Complete Payment Now</Text>
                             </>
                           )}
                         </TouchableOpacity>
@@ -773,7 +1079,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
         </View>
       </Modal>
 
-      {/* Invoice Modal - Removed the custom header */}
+      {/* Invoice Modal */}
       <Modal
         visible={showInvoiceModal}
         animationType="slide"
@@ -783,6 +1089,25 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
         <Invoice booking={booking} onClose={() => setShowInvoiceModal(false)} />
       </Modal>
 
+      {/* Vacation Dialogs */}
+      <UserHoliday 
+        open={holidayDialogOpen} 
+        onClose={() => setHolidayDialogOpen(false)} 
+        booking={convertBookingForChildComponents(booking)} 
+        onLeaveSubmit={handleLeaveSubmit} 
+      />
+      
+      <VacationManagementDialog 
+        open={vacationManagementDialogOpen} 
+        onClose={() => { 
+          setVacationManagementDialogOpen(false); 
+        }} 
+        booking={convertBookingForChildComponents(booking)} 
+        customerId={customerId ?? null}
+        onSuccess={handleVacationSuccess} 
+      />
+
+      {/* Cancel Dialog */}
       <CancelDialog
         visible={showCancelDialog}
         onClose={() => setShowCancelDialog(false)}
@@ -815,6 +1140,26 @@ const styles = StyleSheet.create({
   separator: { 
     height: 1 
   },
+  // Badge styles for booking type
+  onDemandBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  onDemandBadgeText: { fontWeight: '600' },
+  monthlyBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  monthlyBadgeText: { fontWeight: '600' },
+  shortTermBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  shortTermBadgeText: { fontWeight: '600' },
+  defaultBadge: { paddingHorizontal: 8, paddingVertical: 4 },
+  defaultBadgeText: { fontWeight: '600' },
+  // Badge styles for status
+  activeBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
+  activeBadgeText: { marginLeft: 4, fontWeight: '600' },
+  completedBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
+  completedBadgeText: { marginLeft: 4, fontWeight: '600' },
+  cancelledBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
+  cancelledBadgeText: { marginLeft: 4, fontWeight: '600' },
+  inProgressBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
+  inProgressBadgeText: { marginLeft: 4, fontWeight: '600' },
+  notStartedBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
+  notStartedBadgeText: { marginLeft: 4, fontWeight: '600' },
 });
 
 const cancelDialogStyles = StyleSheet.create({

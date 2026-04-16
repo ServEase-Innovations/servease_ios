@@ -431,19 +431,15 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [futureBookings, setFutureBookings] = useState<Booking[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [selectedBookingForLeave, setSelectedBookingForLeave] = useState<Booking | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [generatedOTPs, setGeneratedOTPs] = useState<Record<number, string>>({});
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
-  const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
-  const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = useState(false);
-  const [selectedBookingForVacationManagement, setSelectedBookingForVacationManagement] = useState<Booking | null>(null);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -457,7 +453,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
 
   const [confirmationDialog, setConfirmationDialog] = useState<{
     open: boolean;
-    type: 'cancel' | 'modify' | 'vacation' | 'payment' | null;
+    type: 'cancel' | 'modify' | 'payment' | null;
     booking: Booking | null;
     message: string;
     title: string;
@@ -750,61 +746,8 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   };
 
-  // ---------- Vacation Submit (Optimistic Update) ----------
-  const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
-    if (!selectedBookingForLeave || !customerId) {
-      throw new Error('Something went wrong');
-    }
-    try {
-      setIsRefreshing(true);
-
-      // Optimistic update
-      const bookingId = selectedBookingForLeave.id;
-      const totalDays = Math.floor((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      const optimisticVacationDetails = {
-        leave_type: "VACATION",
-        total_days: totalDays,
-        leave_start_date: startDate,
-        leave_end_date: endDate,
-        start_date: startDate,
-        end_date: endDate,
-      };
-
-      setCurrentBookings(prev => prev.map(b => b.id === bookingId ? { ...b, hasVacation: true, vacationDetails: optimisticVacationDetails } : b));
-      setFutureBookings(prev => prev.map(b => b.id === bookingId ? { ...b, hasVacation: true, vacationDetails: optimisticVacationDetails } : b));
-      setPastBookings(prev => prev.map(b => b.id === bookingId ? { ...b, hasVacation: true, vacationDetails: optimisticVacationDetails } : b));
-
-      // API call
-      await PaymentInstance.post(`/api/v2/engagements/${selectedBookingForLeave.id}/vacation`, {
-        customerid: customerId,
-        vacation_start_date: startDate,
-        vacation_end_date: endDate,
-        leave_type: "VACATION",
-        modified_by_id: selectedBookingForLeave.id,
-        modified_by_role: "CUSTOMER",
-      });
-
-      await refreshBookings();
-      setSnackbarMessage('Vacation applied successfully');
-      setOpenSnackbar(true);
-      setHolidayDialogOpen(false);
-    } catch (error) {
-      console.error('Error applying leave:', error);
-      await refreshBookings();
-      throw error;
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleVacationSuccess = async () => {
-    setSnackbarMessage('Vacation updated successfully');
-    setOpenSnackbar(true);
-    await refreshBookings();
-  };
-
   // ---------- Action Handlers ----------
-  const showConfirmation = (type: 'cancel' | 'modify' | 'vacation' | 'payment', booking: Booking, title: string, message: string, severity: 'info' | 'warning' | 'error' | 'success' = 'info') => {
+  const showConfirmation = (type: 'cancel' | 'modify' | 'payment', booking: Booking, title: string, message: string, severity: 'info' | 'warning' | 'error' | 'success' = 'info') => {
     setConfirmationDialog({ open: true, type, booking, message, title, severity });
   };
 
@@ -816,7 +759,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       switch (type) {
         case 'cancel': await handleCancelBooking(booking); break;
         case 'modify': setModifyDialogOpen(true); setSelectedBooking(booking); break;
-        case 'vacation': setSelectedBookingForLeave(booking); setHolidayDialogOpen(true); break;
         case 'payment': await handleCompletePayment(booking); break;
       }
     } catch (error) {
@@ -838,16 +780,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const handleModifyClick = (booking: Booking) => {
     setSelectedBooking(booking);
     setModifyDialogOpen(true);
-  };
-
-  const handleVacationClick = (booking: Booking) => {
-    setSelectedBookingForLeave(booking);
-    setHolidayDialogOpen(true);
-  };
-
-  const handleModifyVacationClick = (booking: Booking) => {
-    setSelectedBookingForVacationManagement(booking);
-    setVacationManagementDialogOpen(true);
   };
 
   const handleLeaveReviewClick = (booking: Booking) => {
@@ -1005,55 +937,41 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   };
 
-  const renderActionButtons = (booking: Booking) => {
-    const modificationDisabled = isModificationDisabled(booking);
-    const hasExistingVacation = hasVacation(booking);
-    const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
-    const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
+const renderActionButtons = (booking: Booking) => {
+  const modificationDisabled = isModificationDisabled(booking);
+  const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
+  const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
 
-    if (canShowPaymentButton) {
-      return (
-        <View style={styles.paymentActionContainer}>
-          <Button style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handlePaymentClick(booking)} disabled={paymentLoading === booking.id}>
-            {paymentLoading === booking.id ? (
-              <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Processing...</Text></>
-            ) : (
-              <><Icon name="credit-card" size={16} color="#fff" /><Text style={[styles.paymentButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Complete Payment</Text></>
-            )}
-          </Button>
-          <Button style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.error, borderColor: colors.error }]} onPress={() => handleCancelClick(booking)}>
-            <Icon name="close-circle" size={16} color="#fff" />
-            <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel</Text>
-          </Button>
-        </View>
-      );
-    }
+  if (canShowPaymentButton) {
+    return (
+      <View style={styles.paymentActionContainer}>
+        <Button 
+          style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
+          onPress={() => handlePaymentClick(booking)} 
+          disabled={paymentLoading === booking.id}
+        >
+          {paymentLoading === booking.id ? (
+            <><ActivityIndicator size="small" color={colors.error} /><Text style={[styles.paymentButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Processing...</Text></>
+          ) : (
+            <><Icon name="credit-card" size={16} color={colors.error} /><Text style={[styles.paymentButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Complete Payment</Text></>
+          )}
+        </Button>
+        <Button 
+          style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
+          onPress={() => handleCancelClick(booking)}
+        >
+          <Icon name="close-circle" size={16} color={colors.error} />
+          <Text style={[styles.cancelButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Cancel</Text>
+        </Button>
+      </View>
+    );
+  }
 
     switch (booking.taskStatus) {
       case 'NOT_STARTED':
         return (
           <View style={styles.compactActionRow}>
-            {booking.bookingType === "MONTHLY" && (
-              <Button style={[styles.compactActionButton, styles.modifyButton, { borderColor: colors.primary, backgroundColor: colors.card }, modificationDisabled && styles.disabledButton]} onPress={() => handleModifyClick(booking)} disabled={modificationDisabled}>
-                <Icon name="pencil" size={16} color={modificationDisabled ? colors.textSecondary : colors.primary} />
-                <Text style={[styles.modifyButtonText, { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.buttonText }]}>Modify</Text>
-              </Button>
-            )}
-            {booking.bookingType === "MONTHLY" && (
-              <>
-                {hasExistingVacation ? (
-                  <Button style={[styles.compactActionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]} onPress={() => handleModifyVacationClick(booking)} disabled={isRefreshing}>
-                    <Icon name="pencil" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
-                  </Button>
-                ) : (
-                  <Button style={[styles.compactActionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleVacationClick(booking)} disabled={isRefreshing}>
-                    <Icon name="calendar" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
-                  </Button>
-                )}
-              </>
-            )}
+            {/* Modify button removed */}
           </View>
         );
       case 'IN_PROGRESS':
@@ -1071,21 +989,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
               <Icon name="close-circle" size={16} color="#fff" />
               <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel</Text>
             </Button>
-            {booking.bookingType === "MONTHLY" && (
-              <>
-                {hasExistingVacation ? (
-                  <Button style={[styles.actionButton, styles.vacationModifiedButton, { backgroundColor: colors.infoLight, borderColor: colors.info }]} onPress={() => handleModifyVacationClick(booking)} disabled={isRefreshing}>
-                    <Icon name="pencil" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationModifiedText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Modify Vacation</Text>
-                  </Button>
-                ) : (
-                  <Button style={[styles.actionButton, styles.vacationButton, { borderColor: colors.primary, backgroundColor: colors.card }]} onPress={() => handleVacationClick(booking)} disabled={isRefreshing}>
-                    <Icon name="calendar" size={16} color={colors.primary} />
-                    <Text style={[styles.vacationButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Add Vacation</Text>
-                  </Button>
-                )}
-              </>
-            )}
+            {/* Vacation buttons removed */}
           </View>
         );
       case 'COMPLETED':
@@ -1176,8 +1080,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const handleBackPress = () => {
     if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
     if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
-    if (holidayDialogOpen) { setHolidayDialogOpen(false); return true; }
-    if (vacationManagementDialogOpen) { setVacationManagementDialogOpen(false); return true; }
     if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
     if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
     if (walletDialogOpen) { setWalletDialogOpen(false); return true; }
@@ -1189,7 +1091,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
-  }, [detailsDrawerOpen, modifyDialogOpen, holidayDialogOpen, vacationManagementDialogOpen, reviewDialogVisible, servicesDialogOpen, walletDialogOpen, confirmationDialog.open, onBackToHome]);
+  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, walletDialogOpen, confirmationDialog.open, onBackToHome]);
 
   // Deep linking (simplified)
   useEffect(() => {
@@ -1320,14 +1222,22 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       </ScrollView>
 
       {/* Dialogs */}
-      <UserHoliday open={holidayDialogOpen} onClose={() => setHolidayDialogOpen(false)} booking={convertBookingForChildComponents(selectedBookingForLeave)} onLeaveSubmit={handleLeaveSubmit} />
-      <VacationManagementDialog open={vacationManagementDialogOpen} onClose={() => { setVacationManagementDialogOpen(false); setSelectedBookingForVacationManagement(null); }} booking={convertBookingForChildComponents(selectedBookingForVacationManagement)} customerId={customerId} onSuccess={handleVacationSuccess} />
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
       <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? 'Confirm' : 'Pay Now'} loading={actionLoading} severity={confirmationDialog.severity} />
       <AddReviewDialog visible={reviewDialogVisible} onClose={closeReviewDialog} booking={convertBookingForChildComponents(selectedReviewBooking)} onReviewSubmitted={handleReviewSubmitted} />
       <WalletDialog open={walletDialogOpen} onClose={() => setWalletDialogOpen(false)} />
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
-      <EngagementDetailsDrawer isOpen={detailsDrawerOpen} onClose={() => { setDetailsDrawerOpen(false); setSelectedBooking(null); }} booking={selectedBooking} onPaymentComplete={refreshBookings} />
+      <EngagementDetailsDrawer 
+        isOpen={detailsDrawerOpen} 
+        onClose={() => { 
+          setDetailsDrawerOpen(false); 
+          setSelectedBooking(null); 
+        }} 
+        booking={selectedBooking} 
+        onPaymentComplete={refreshBookings}
+        refreshBookings={refreshBookings}
+        customerId={customerId}
+      />
 
       {openSnackbar && (
         <View style={[styles.snackbar, { backgroundColor: colors.success }]}>
@@ -1391,8 +1301,15 @@ const styles = StyleSheet.create({
   callButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
   messageButton: { backgroundColor: '#10b981', borderColor: '#10b981' },
   messageButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
-  cancelButton: { backgroundColor: '#ef4444', borderColor: '#ef4444' },
-  cancelButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
+  cancelButton: { 
+  backgroundColor: '#fff', 
+  borderColor: '#ef4444' 
+},
+cancelButtonText: { 
+  color: '#ef4444', 
+  marginLeft: 6, 
+  fontWeight: '600' 
+},
   modifyButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
   compactActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', justifyContent: 'flex-start', marginTop: 4, marginBottom: 4 },
   compactActionButton: { flex: 0, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#fff', borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginRight: 8, alignSelf: 'flex-start' },
@@ -1410,8 +1327,17 @@ const styles = StyleSheet.create({
   viewDetailsIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   viewDetailsText: { marginRight: 4 },
   paymentActionContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginBottom: 8 },
-  paymentButton: { backgroundColor: '#dc2626', borderColor: '#dc2626', flex: 1, minWidth: '45%' },
-  paymentButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
+ paymentButton: { 
+  backgroundColor: '#fff', 
+  borderColor: '#ef4444', 
+  flex: 1, 
+  minWidth: '45%' 
+},
+paymentButtonText: { 
+  color: '#ef4444', 
+  marginLeft: 6, 
+  fontWeight: '600' 
+},
   activeBadge: { paddingHorizontal: 8, paddingVertical: 4 },
   activeBadgeText: { marginLeft: 4, fontWeight: '600' },
   completedBadge: { paddingHorizontal: 8, paddingVertical: 4 },
