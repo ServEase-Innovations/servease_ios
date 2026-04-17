@@ -22,14 +22,13 @@ import { RootState } from '../store/userStore';
 import { setHasMobileNumber } from '../features/customerSlice';
 import { useAuth0 } from 'react-native-auth0';
 import { useAppUser } from '../context/AppUserContext';
-// Remove: import { useTranslation } from 'react-i18next';
 import Icon from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { Picker } from '@react-native-picker/picker';
 import axiosInstance from '../services/axiosInstance';
 import providerInstance from '../services/providerInstance';
-import utilsInstance from '../services/utilsInstance';
+import preferenceInstance from '../services/preferenceInstance'; // Changed from utilsInstance to preferenceInstance
 import { useTheme } from '../../src/Settings/ThemeContext';
 
 // Enable LayoutAnimation for Android
@@ -90,7 +89,6 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   isExternalEdit,
   setExternalEdit,
 }) => {
-  // Remove: const { t } = useTranslation();
   const dispatch = useDispatch();
   const { user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
@@ -281,10 +279,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     }
   };
 
-  // Fetch customer addresses
+  // Fetch customer addresses - Updated to use preferenceInstance
   const fetchCustomerAddresses = async (customerId: number) => {
     try {
-      const response = await utilsInstance.get(`/user-settings/${customerId}`);
+      const response = await preferenceInstance.get(`/api/user-settings/${customerId}`);
       const data = response.data;
 
       if (Array.isArray(data) && data.length > 0) {
@@ -511,12 +509,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     }
   };
 
-  // Address functions
+  // Address functions - Updated to use preferenceInstance
   const saveAddressToUserSettings = async (addressData: any) => {
     if (!userId) return;
 
     try {
-      const response = await utilsInstance.get(`/user-settings/${userId}`);
+      const response = await preferenceInstance.get(`/api/user-settings/${userId}`);
       const currentSettings = response.data;
 
       let existingLocations = [];
@@ -556,7 +554,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       };
 
       const updatedLocations = [...existingLocations, newLocation];
-      await utilsInstance.put(`/user-settings/${userId}`, {
+      await preferenceInstance.put(`/api/user-settings/${userId}`, {
         customerId: userId,
         savedLocations: updatedLocations,
       });
@@ -597,7 +595,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         },
       }));
 
-      await utilsInstance.put(`/user-settings/${userId}`, {
+      await preferenceInstance.put(`/api/user-settings/${userId}`, {
         customerId: userId,
         savedLocations: savedLocations,
       });
