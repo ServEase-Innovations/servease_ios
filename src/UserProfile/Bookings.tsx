@@ -16,9 +16,12 @@ import {
   ViewStyle,
   TextStyle,
   StyleProp,
-  RefreshControl,
   Linking,
   BackHandler,
+  Animated,
+  PanResponder,
+  Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -38,6 +41,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -80,6 +85,74 @@ const Badge: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle> 
 const Separator: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => {
   const { colors } = useTheme();
   return <View style={[styles.separatorBase, { backgroundColor: colors.border }, style]} />;
+};
+
+// Custom Pull-to-Refresh Header Component
+const PullToRefreshHeader: React.FC<{
+  pullProgress: Animated.Value;
+  isRefreshing: boolean;
+  colors: any;
+}> = ({ pullProgress, isRefreshing, colors }) => {
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isRefreshing) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.setValue(0);
+    }
+  }, [isRefreshing]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const translateY = pullProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-60, 20],
+    extrapolate: 'clamp',
+  });
+
+  const opacity = pullProgress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0.5, 1],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.pullToRefreshContainer,
+        {
+          transform: [{ translateY }],
+          opacity,
+          backgroundColor: colors.card,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
+      {isRefreshing ? (
+        <>
+          <Animated.View style={{ transform: [{ rotate: spin }] }}>
+            <Icon name="loading" size={30} color={colors.primary} />
+          </Animated.View>
+          <Text style={[styles.refreshText, { color: colors.primary }]}>Refreshing...</Text>
+        </>
+      ) : (
+        <>
+          <Icon name="arrow-down" size={24} color={colors.primary} />
+          <Text style={[styles.refreshText, { color: colors.textSecondary }]}>Pull to refresh</Text>
+        </>
+      )}
+    </Animated.View>
+  );
 };
 
 // ---------- Skeleton Loaders ----------
@@ -186,6 +259,34 @@ const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors
           ))}
         </View>
       </ScrollView>
+    </View>
+  );
+};
+
+// Content Skeleton for Refresh State
+const ContentSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
+  return (
+    <View style={styles.skeletonContent}>
+      <View style={styles.section}>
+        <SectionHeaderSkeleton colors={colors} />
+        <StatusTabsSkeleton />
+        {[1, 2, 3].map((item) => (
+          <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
+        ))}
+      </View>
+      <View style={styles.section}>
+        <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
+          <SkeletonLoader width={24} height={24} variant="circular" />
+          <View style={styles.sectionHeaderContent}>
+            <SkeletonLoader width={150} height={24} />
+            <SkeletonLoader width={100} height={16} style={{ marginTop: 4 }} />
+          </View>
+          <SkeletonLoader width={40} height={32} variant="rectangular" />
+        </View>
+        {[1, 2].map((item) => (
+          <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
+        ))}
+      </View>
     </View>
   );
 };
@@ -444,12 +545,17 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showSkeletonOnRefresh, setShowSkeletonOnRefresh] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState<number | null>(null);
   const [paymentLoading, setPaymentLoading] = useState<number | null>(null);
   const [timeSlots] = useState<string[]>([]);
   const [reviewDialogVisible, setReviewDialogVisible] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
+
+  // Animated values for pull to refresh
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const pullProgress = useRef(new Animated.Value(0)).current;
 
   const [confirmationDialog, setConfirmationDialog] = useState<{
     open: boolean;
@@ -622,6 +728,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       setFutureBookings(mapBookingData(upcoming));
     } catch (error) {
       console.error('Error fetching bookings:', error);
+      throw error;
     }
   };
 
@@ -635,16 +742,56 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   };
 
+  // Custom pull-to-refresh handler with skeleton animation
   const onRefresh = async () => {
     setIsRefreshing(true);
+    setShowSkeletonOnRefresh(true);
+    
+    // Add a small delay to show the skeleton animation
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     try {
-      if (customerId) await refreshBookings();
+      if (customerId) {
+        await refreshBookings();
+        setSnackbarMessage('Bookings refreshed successfully');
+        setOpenSnackbar(true);
+        setTimeout(() => setOpenSnackbar(false), 3000);
+      }
     } catch (error) {
       console.error('Error refreshing bookings:', error);
+      setSnackbarMessage('Failed to refresh bookings');
+      setOpenSnackbar(true);
+      setTimeout(() => setOpenSnackbar(false), 3000);
     } finally {
       setIsRefreshing(false);
+      // Keep skeleton for a moment after refresh completes for smooth transition
+      setTimeout(() => {
+        setShowSkeletonOnRefresh(false);
+      }, 300);
     }
   };
+
+  // Handle scroll to update pull progress
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false }
+  );
+
+  // Update pull progress based on scroll position
+  useEffect(() => {
+    const listenerId = scrollY.addListener(({ value }) => {
+      if (value < 0 && !isRefreshing) {
+        const progress = Math.min(Math.abs(value) / 120, 1);
+        pullProgress.setValue(progress);
+      } else if (!isRefreshing) {
+        pullProgress.setValue(0);
+      }
+    });
+    
+    return () => {
+      scrollY.removeListener(listenerId);
+    };
+  }, [isRefreshing]);
 
   useEffect(() => {
     if (isAuthenticated && appUser?.customerid) {
@@ -737,6 +884,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       await refreshBookings();
       setSnackbarMessage('Booking cancelled successfully');
       setOpenSnackbar(true);
+      setTimeout(() => setOpenSnackbar(false), 3000);
     } catch (error) {
       console.error('Error cancelling engagement:', error);
       setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
@@ -937,35 +1085,35 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   };
 
-const renderActionButtons = (booking: Booking) => {
-  const modificationDisabled = isModificationDisabled(booking);
-  const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
-  const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
+  const renderActionButtons = (booking: Booking) => {
+    const modificationDisabled = isModificationDisabled(booking);
+    const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
+    const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
 
-  if (canShowPaymentButton) {
-    return (
-      <View style={styles.paymentActionContainer}>
-        <Button 
-          style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
-          onPress={() => handlePaymentClick(booking)} 
-          disabled={paymentLoading === booking.id}
-        >
-          {paymentLoading === booking.id ? (
-            <><ActivityIndicator size="small" color={colors.error} /><Text style={[styles.paymentButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Processing...</Text></>
-          ) : (
-            <><Icon name="credit-card" size={16} color={colors.error} /><Text style={[styles.paymentButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Complete Payment</Text></>
-          )}
-        </Button>
-        <Button 
-          style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
-          onPress={() => handleCancelClick(booking)}
-        >
-          <Icon name="close-circle" size={16} color={colors.error} />
-          <Text style={[styles.cancelButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Cancel</Text>
-        </Button>
-      </View>
-    );
-  }
+    if (canShowPaymentButton) {
+      return (
+        <View style={styles.paymentActionContainer}>
+          <Button 
+            style={[styles.actionButton, styles.paymentButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
+            onPress={() => handlePaymentClick(booking)} 
+            disabled={paymentLoading === booking.id}
+          >
+            {paymentLoading === booking.id ? (
+              <><ActivityIndicator size="small" color={colors.error} /><Text style={[styles.paymentButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Processing...</Text></>
+            ) : (
+              <><Icon name="credit-card" size={16} color={colors.error} /><Text style={[styles.paymentButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Complete Payment</Text></>
+            )}
+          </Button>
+          <Button 
+            style={[styles.actionButton, styles.cancelButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
+            onPress={() => handleCancelClick(booking)}
+          >
+            <Icon name="close-circle" size={16} color={colors.error} />
+            <Text style={[styles.cancelButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Cancel</Text>
+          </Button>
+        </View>
+      );
+    }
 
     switch (booking.taskStatus) {
       case 'NOT_STARTED':
@@ -1076,78 +1224,14 @@ const renderActionButtons = (booking: Booking) => {
     );
   };
 
-  // ---------- Back Button Handling ----------
-  const handleBackPress = () => {
-    if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
-    if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
-    if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
-    if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
-    if (walletDialogOpen) { setWalletDialogOpen(false); return true; }
-    if (confirmationDialog.open) { setConfirmationDialog(prev => ({ ...prev, open: false })); return true; }
-    if (onBackToHome) { onBackToHome(); return true; }
-    return false;
-  };
+  // Render main content
+  const renderContent = () => {
+    if (showSkeletonOnRefresh || isLoading) {
+      return <ContentSkeleton colors={colors} fontSizes={fontSizes} />;
+    }
 
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    return () => backHandler.remove();
-  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, walletDialogOpen, confirmationDialog.open, onBackToHome]);
-
-  // Deep linking (simplified)
-  useEffect(() => {
-    const getInitialUrl = async () => {
-      const initialUrl = await Linking.getInitialURL();
-      // process if needed
-    };
-    getInitialUrl();
-    const subscription = Linking.addEventListener('url', ({ url }) => {});
-    return () => subscription.remove();
-  }, []);
-
-  if (isLoading) {
-    return <BookingPageSkeleton colors={colors} fontSizes={fontSizes} />;
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={[isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)', isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)', isDarkMode ? colors.background : 'rgba(255,255,255,1)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]} onPress={handleBackPress}>
-            <Icon name="arrow-left" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>Manage your service bookings</Text>
-          </View>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={[styles.searchInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text, fontSize: fontSizes.searchInput }]}
-              placeholder="Search bookings..."
-              placeholderTextColor={colors.placeholder}
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-            />
-            {searchTerm && (
-              <TouchableOpacity style={styles.clearSearchButton} onPress={() => setSearchTerm('')}>
-                <Icon name="close-circle" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <TouchableOpacity style={[styles.walletButton, { backgroundColor: colors.primary }]} onPress={() => setWalletDialogOpen(true)}>
-            <Icon name="wallet" size={24} color="#fff" />
-            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>Wallet</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      <ScrollView refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+    return (
+      <>
         {/* Upcoming Bookings Section */}
         <View style={styles.section}>
           <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
@@ -1219,7 +1303,104 @@ const renderActionButtons = (booking: Booking) => {
             </Card>
           )}
         </View>
-      </ScrollView>
+      </>
+    );
+  };
+
+  // ---------- Back Button Handling ----------
+  const handleBackPress = () => {
+    if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
+    if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
+    if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
+    if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
+    if (walletDialogOpen) { setWalletDialogOpen(false); return true; }
+    if (confirmationDialog.open) { setConfirmationDialog(prev => ({ ...prev, open: false })); return true; }
+    if (onBackToHome) { onBackToHome(); return true; }
+    return false;
+  };
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => backHandler.remove();
+  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, walletDialogOpen, confirmationDialog.open, onBackToHome]);
+
+  // Deep linking (simplified)
+  useEffect(() => {
+    const getInitialUrl = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      // process if needed
+    };
+    getInitialUrl();
+    const subscription = Linking.addEventListener('url', ({ url }) => {});
+    return () => subscription.remove();
+  }, []);
+
+  if (isLoading && !showSkeletonOnRefresh) {
+    return <BookingPageSkeleton colors={colors} fontSizes={fontSizes} />;
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <LinearGradient
+        colors={[isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)', isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)', isDarkMode ? colors.background : 'rgba(255,255,255,1)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]} onPress={handleBackPress}>
+            <Icon name="arrow-left" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>Manage your service bookings</Text>
+          </View>
+        </View>
+        <View style={styles.headerRight}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={[styles.searchInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text, fontSize: fontSizes.searchInput }]}
+              placeholder="Search bookings..."
+              placeholderTextColor={colors.placeholder}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+            {searchTerm && (
+              <TouchableOpacity style={styles.clearSearchButton} onPress={() => setSearchTerm('')}>
+                <Icon name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity style={[styles.walletButton, { backgroundColor: colors.primary }]} onPress={() => setWalletDialogOpen(true)}>
+            <Icon name="wallet" size={24} color="#fff" />
+            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>Wallet</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* Animated ScrollView with Pull to Refresh */}
+      <Animated.ScrollView
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.card}
+            title="Pull to refresh"
+            titleColor={colors.textSecondary}
+          />
+        }
+      >
+        <PullToRefreshHeader 
+          pullProgress={pullProgress} 
+          isRefreshing={isRefreshing} 
+          colors={colors} 
+        />
+        {renderContent()}
+      </Animated.ScrollView>
 
       {/* Dialogs */}
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
@@ -1302,14 +1483,14 @@ const styles = StyleSheet.create({
   messageButton: { backgroundColor: '#10b981', borderColor: '#10b981' },
   messageButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
   cancelButton: { 
-  backgroundColor: '#fff', 
-  borderColor: '#ef4444' 
-},
-cancelButtonText: { 
-  color: '#ef4444', 
-  marginLeft: 6, 
-  fontWeight: '600' 
-},
+    backgroundColor: '#fff', 
+    borderColor: '#ef4444' 
+  },
+  cancelButtonText: { 
+    color: '#ef4444', 
+    marginLeft: 6, 
+    fontWeight: '600' 
+  },
   modifyButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
   compactActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', justifyContent: 'flex-start', marginTop: 4, marginBottom: 4 },
   compactActionButton: { flex: 0, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#fff', borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginRight: 8, alignSelf: 'flex-start' },
@@ -1327,17 +1508,17 @@ cancelButtonText: {
   viewDetailsIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   viewDetailsText: { marginRight: 4 },
   paymentActionContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginBottom: 8 },
- paymentButton: { 
-  backgroundColor: '#fff', 
-  borderColor: '#ef4444', 
-  flex: 1, 
-  minWidth: '45%' 
-},
-paymentButtonText: { 
-  color: '#ef4444', 
-  marginLeft: 6, 
-  fontWeight: '600' 
-},
+  paymentButton: { 
+    backgroundColor: '#fff', 
+    borderColor: '#ef4444', 
+    flex: 1, 
+    minWidth: '45%' 
+  },
+  paymentButtonText: { 
+    color: '#ef4444', 
+    marginLeft: 6, 
+    fontWeight: '600' 
+  },
   activeBadge: { paddingHorizontal: 8, paddingVertical: 4 },
   activeBadgeText: { marginLeft: 4, fontWeight: '600' },
   completedBadge: { paddingHorizontal: 8, paddingVertical: 4 },
@@ -1396,6 +1577,21 @@ paymentButtonText: {
   snackbar: { position: 'absolute', bottom: 20, left: 20, right: 20, padding: 16, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 },
   snackbarText: { fontWeight: '600', flex: 1 },
   separator: { height: 1, marginVertical: 12 },
+  pullToRefreshContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    marginTop: -10,
+  },
+  refreshText: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  skeletonContent: {
+    flex: 1,
+  },
 });
 
 export default Booking;

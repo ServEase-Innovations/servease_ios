@@ -41,6 +41,7 @@ const heroImage1 = require("../../assets/images/CookLand.png");
 const heroImage2 = require("../../assets/images/MaidLand.png");
 const heroImage3 = require("../../assets/images/NannyLand.png");
 
+
 interface ChildComponentProps {
   sendDataToParent: (data: string) => void;
   bookingType: (data: string) => void;
