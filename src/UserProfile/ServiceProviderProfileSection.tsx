@@ -62,6 +62,12 @@ interface ServiceProviderData {
   isactive: boolean;
   street: string;
   keyFacts: boolean;
+  bankName: string;
+  ifscCode: string;
+  accountHolderName: string;
+  accountNumber: string;
+  accountType: string;
+  upiId: string;
   correspondenceAddress: {
     id: string;
     country: string;
@@ -87,6 +93,15 @@ interface TimeSlot {
   start: number;
   end: number;
   type: 'morning' | 'evening';
+}
+
+interface BankDetails {
+  bankName: string;
+  ifscCode: string;
+  accountHolderName: string;
+  accountNumber: string;
+  accountType: string;
+  upiId: string;
 }
 
 const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps> = ({ 
@@ -136,6 +151,18 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     timeslot: ""
   });
   
+  // Bank details state
+  const [bankDetails, setBankDetails] = useState<BankDetails>({
+    bankName: "",
+    ifscCode: "",
+    accountHolderName: "",
+    accountNumber: "",
+    accountType: "",
+    upiId: ""
+  });
+  
+  const [originalBankDetails, setOriginalBankDetails] = useState<BankDetails>({ ...bankDetails });
+  
   const [originalData, setOriginalData] = useState({ ...userData });
 
   // Mobile validation states
@@ -153,6 +180,13 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     formatError: false
   });
 
+  // IFSC validation state
+  const [ifscValidation, setIfscValidation] = useState({
+    loading: false,
+    error: '',
+    bankName: ''
+  });
+
   // Collapsible sections state
   const [expandedSections, setExpandedSections] = useState({
     personal: true,
@@ -160,6 +194,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     address: true,
     availability: true,
     kyc: true,
+    bank: true,
     additional: true
   });
 
@@ -191,6 +226,14 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     { value: "MALE", label: "Male" },
     { value: "FEMALE", label: "Female" },
     { value: "OTHER", label: "Other" }
+  ];
+
+  const accountTypeOptions = [
+    { value: "SAVINGS", label: "Savings Account" },
+    { value: "CURRENT", label: "Current Account" },
+    { value: "SALARY", label: "Salary Account" },
+    { value: "NRE", label: "NRE Account" },
+    { value: "NRO", label: "NRO Account" }
   ];
 
   // Helper functions for time slots
@@ -273,6 +316,34 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const validateMobileFormat = (number: string): boolean => {
     return /^[0-9]{10}$/.test(number);
+  };
+
+  const validateIFSC = (ifsc: string): boolean => {
+    return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc);
+  };
+
+  const fetchBankDetailsFromIFSC = async (ifsc: string) => {
+    if (!validateIFSC(ifsc)) {
+      setIfscValidation({ loading: false, error: 'Invalid IFSC code format', bankName: '' });
+      return;
+    }
+
+    setIfscValidation({ loading: true, error: '', bankName: '' });
+
+    try {
+      // Using a free IFSC API (you can replace with your own endpoint)
+      const response = await fetch(`https://ifsc.razorpay.com/${ifsc}`);
+      const data = await response.json();
+      
+      if (data.BANK) {
+        setIfscValidation({ loading: false, error: '', bankName: data.BANK });
+        setBankDetails(prev => ({ ...prev, bankName: data.BANK }));
+      } else {
+        setIfscValidation({ loading: false, error: 'Bank not found for this IFSC code', bankName: '' });
+      }
+    } catch (error) {
+      setIfscValidation({ loading: false, error: 'Failed to fetch bank details', bankName: '' });
+    }
   };
 
   const checkMobileAvailability = async (number: string, isAlternate: boolean = false): Promise<boolean> => {
@@ -370,6 +441,19 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       setOriginalMorningSlots(morning);
       setOriginalEveningSlots(evening);
       setOriginalIsFullTime(morning.length === 0 && evening.length === 0);
+
+      // Set bank details
+      const bankData = {
+        bankName: data.bankName || "",
+        ifscCode: data.ifscCode || "",
+        accountHolderName: data.accountHolderName || "",
+        accountNumber: data.accountNumber || "",
+        accountType: data.accountType || "",
+        upiId: data.upiId || ""
+      };
+      
+      setBankDetails(bankData);
+      setOriginalBankDetails(bankData);
 
       const updatedUserData = {
         firstName: data.firstName || "",
@@ -504,6 +588,27 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     }
   };
 
+  const handleIFSCCodeChange = (value: string) => {
+    const cleaned = value.toUpperCase();
+    setBankDetails(prev => ({ ...prev, ifscCode: cleaned }));
+    
+    if (cleaned.length === 11 && validateIFSC(cleaned)) {
+      fetchBankDetailsFromIFSC(cleaned);
+    } else {
+      setIfscValidation({ loading: false, error: '', bankName: '' });
+      if (cleaned && cleaned.length > 0 && cleaned.length < 11) {
+        setIfscValidation({ loading: false, error: 'Please enter complete 11-character IFSC code', bankName: '' });
+      }
+    }
+  };
+
+  const handleAccountNumberChange = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length <= 20) {
+      setBankDetails(prev => ({ ...prev, accountNumber: cleaned }));
+    }
+  };
+
   const handleRoleToggle = (role: string) => {
     setUserData(prev => ({
       ...prev,
@@ -512,6 +617,24 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         : [...prev.housekeepingRoles, role]
     }));
   };
+
+  // Improved hasChanges function to detect all changes including bank details and time slots
+  const hasChanges = useMemo(() => {
+    if (!isEditing) return false;
+    
+    // Check user data changes
+    const userDataChanged = JSON.stringify(userData) !== JSON.stringify(originalData);
+    
+    // Check bank details changes
+    const bankDetailsChanged = JSON.stringify(bankDetails) !== JSON.stringify(originalBankDetails);
+    
+    // Check time slots changes
+    const slotsChanged = 
+      JSON.stringify(morningSlots) !== JSON.stringify(originalMorningSlots) ||
+      JSON.stringify(eveningSlots) !== JSON.stringify(originalEveningSlots);
+    
+    return userDataChanged || bankDetailsChanged || slotsChanged;
+  }, [userData, originalData, bankDetails, originalBankDetails, morningSlots, originalMorningSlots, eveningSlots, originalEveningSlots, isEditing]);
 
   const handleSave = async () => {
     if (!userId) return;
@@ -535,11 +658,23 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       return;
     }
 
+    // Validate bank details if any are provided
+    if (bankDetails.accountNumber && bankDetails.accountNumber.length < 9) {
+      Alert.alert("Error", "Account number should be at least 9 digits");
+      return;
+    }
+
+    if (bankDetails.ifscCode && !validateIFSC(bankDetails.ifscCode)) {
+      Alert.alert("Error", "Please enter a valid IFSC code");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       const payload: any = {};
 
+      // Personal info changes
       if (userData.contactNumber !== originalData.contactNumber) {
         payload.mobileNo = userData.contactNumber;
       }
@@ -565,8 +700,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
       }
 
       if (
-        userData.housekeepingRoles.join(",") !==
-        originalData.housekeepingRoles.join(",")
+        JSON.stringify(userData.housekeepingRoles) !== JSON.stringify(originalData.housekeepingRoles)
       ) {
         payload.housekeepingRoles = userData.housekeepingRoles;
       }
@@ -601,6 +735,31 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
       if (userData.nearbyLocation !== originalData.nearbyLocation) {
         payload.nearbyLocation = userData.nearbyLocation;
+      }
+
+      // Bank details changes
+      if (bankDetails.bankName !== originalBankDetails.bankName) {
+        payload.bankName = bankDetails.bankName;
+      }
+
+      if (bankDetails.ifscCode !== originalBankDetails.ifscCode) {
+        payload.ifscCode = bankDetails.ifscCode;
+      }
+
+      if (bankDetails.accountHolderName !== originalBankDetails.accountHolderName) {
+        payload.accountHolderName = bankDetails.accountHolderName;
+      }
+
+      if (bankDetails.accountNumber !== originalBankDetails.accountNumber) {
+        payload.accountNumber = bankDetails.accountNumber;
+      }
+
+      if (bankDetails.accountType !== originalBankDetails.accountType) {
+        payload.accountType = bankDetails.accountType;
+      }
+
+      if (bankDetails.upiId !== originalBankDetails.upiId) {
+        payload.upiId = bankDetails.upiId;
       }
 
       // Handle timeslot with merged slots
@@ -646,23 +805,17 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
   const handleCancel = () => {
     setUserData(originalData);
+    setBankDetails(originalBankDetails);
     setIsEditing(false);
     setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
     setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
     setMorningSlots(originalMorningSlots);
     setEveningSlots(originalEveningSlots);
+    setIfscValidation({ loading: false, error: '', bankName: '' });
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  const hasChanges = (): boolean => {
-    const userDataChanged = JSON.stringify(userData) !== JSON.stringify(originalData);
-    const slotsChanged = 
-      JSON.stringify(morningSlots) !== JSON.stringify(originalMorningSlots) ||
-      JSON.stringify(eveningSlots) !== JSON.stringify(originalEveningSlots);
-    return userDataChanged || slotsChanged;
   };
 
   const isFormValid = (): boolean => {
@@ -670,6 +823,14 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     if (userData.altContactNumber && !validateMobileFormat(userData.altContactNumber)) return false;
     if (userData.contactNumber && userData.altContactNumber && 
         userData.contactNumber === userData.altContactNumber) return false;
+    
+    // Validate bank details if any field is filled
+    const hasBankInfo = bankDetails.accountNumber || bankDetails.ifscCode || bankDetails.upiId;
+    if (hasBankInfo) {
+      if (bankDetails.accountNumber && bankDetails.accountNumber.length < 9) return false;
+      if (bankDetails.ifscCode && !validateIFSC(bankDetails.ifscCode)) return false;
+    }
+    
     return true;
   };
 
@@ -721,7 +882,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
     </TouchableOpacity>
   );
 
-  const InputField = ({ label, value, onChangeText, editable = true, keyboardType = "default", placeholder = "", secureTextEntry = false }: any) => (
+  const InputField = ({ label, value, onChangeText, editable = true, keyboardType = "default", placeholder = "", secureTextEntry = false, maxLength }: any) => (
     <View style={styles.inputContainer}>
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
@@ -732,6 +893,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
         keyboardType={keyboardType}
         placeholder={placeholder}
         secureTextEntry={secureTextEntry}
+        maxLength={maxLength}
       />
     </View>
   );
@@ -806,6 +968,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                 style={styles.editButton}
                 onPress={() => {
                   setOriginalData({ ...userData });
+                  setOriginalBankDetails({ ...bankDetails });
                   setOriginalMorningSlots([...morningSlots]);
                   setOriginalEveningSlots([...eveningSlots]);
                   setIsEditing(true);
@@ -1082,6 +1245,105 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
 
           <View style={styles.divider} />
 
+          {/* Bank Details Section */}
+          <View style={styles.section}>
+            <SectionHeader 
+              title="BANK DETAILS" 
+              icon="account-balance" 
+              section="bank" 
+              expanded={expandedSections.bank}
+            />
+            {expandedSections.bank && (
+              <View style={styles.sectionContent}>
+                <InputField 
+                  label="Account Holder Name"
+                  value={bankDetails.accountHolderName}
+                  onChangeText={(text: string) => setBankDetails(prev => ({ ...prev, accountHolderName: text }))}
+                  editable={isEditing}
+                  placeholder="Enter account holder name"
+                />
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Account Number</Text>
+                  <TextInput
+                    style={[styles.input, !isEditing && styles.inputReadOnly]}
+                    value={bankDetails.accountNumber}
+                    onChangeText={handleAccountNumberChange}
+                    editable={isEditing}
+                    keyboardType="numeric"
+                    placeholder="Enter account number"
+                    maxLength={20}
+                  />
+                  {bankDetails.accountNumber && bankDetails.accountNumber.length > 0 && bankDetails.accountNumber.length < 9 && (
+                    <Text style={styles.errorText}>Account number should be at least 9 digits</Text>
+                  )}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Account Type</Text>
+                  {isEditing ? (
+                    <View style={styles.pickerContainer}>
+                      <Picker
+                        selectedValue={bankDetails.accountType}
+                        onValueChange={(value) => setBankDetails(prev => ({ ...prev, accountType: value }))}
+                      >
+                        <Picker.Item label="Select Account Type" value="" />
+                        {accountTypeOptions.map(option => (
+                          <Picker.Item key={option.value} label={option.label} value={option.value} />
+                        ))}
+                      </Picker>
+                    </View>
+                  ) : (
+                    <Text style={[styles.input, styles.inputReadOnly]}>
+                      {bankDetails.accountType
+                        ? (accountTypeOptions.find(o => o.value === bankDetails.accountType)?.label || bankDetails.accountType)
+                        : "Not specified"}
+                    </Text>
+                  )}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>IFSC Code</Text>
+                  <View style={styles.ifscInputContainer}>
+                    <TextInput
+                      style={[styles.input, styles.ifscInput, !isEditing && styles.inputReadOnly]}
+                      value={bankDetails.ifscCode}
+                      onChangeText={handleIFSCCodeChange}
+                      editable={isEditing}
+                      placeholder="Enter IFSC code (e.g., SBIN0001234)"
+                      maxLength={11}
+                      autoCapitalize="characters"
+                    />
+                    {isEditing && ifscValidation.loading && (
+                      <View style={styles.validationIcon}>
+                        <ActivityIndicator size="small" color="#1976d2" />
+                      </View>
+                    )}
+                  </View>
+                  {ifscValidation.error && (
+                    <Text style={styles.errorText}>{ifscValidation.error}</Text>
+                  )}
+                  {ifscValidation.bankName && (
+                    <View style={styles.bankNameContainer}>
+                      <Icon name="account-balance" size={14} color="#4caf50" />
+                      <Text style={styles.bankNameText}>Bank: {ifscValidation.bankName}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <InputField 
+                  label="UPI ID"
+                  value={bankDetails.upiId}
+                  onChangeText={(text: string) => setBankDetails(prev => ({ ...prev, upiId: text }))}
+                  editable={isEditing}
+                  placeholder="Enter UPI ID (e.g., username@bankname)"
+                />
+              </View>
+            )}
+          </View>
+
+          <View style={styles.divider} />
+
           {/* Availability Section with TimeSlotSelector */}
           <View style={styles.section}>
             <SectionHeader 
@@ -1294,9 +1556,9 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.saveButton, (!isFormValid() || !hasChanges()) && styles.saveButtonDisabled]}
+                style={[styles.saveButton, (!isFormValid() || !hasChanges) && styles.saveButtonDisabled]}
                 onPress={handleSave}
-                disabled={isSaving || !isFormValid() || !hasChanges()}
+                disabled={isSaving || !isFormValid() || !hasChanges}
               >
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#fff" />
@@ -1499,6 +1761,12 @@ const styles = StyleSheet.create({
   phoneInput: {
     paddingRight: 40,
   },
+  ifscInputContainer: {
+    position: 'relative',
+  },
+  ifscInput: {
+    paddingRight: 40,
+  },
   validationIcon: {
     position: 'absolute',
     right: 12,
@@ -1508,6 +1776,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#f44336',
     marginTop: 4,
+  },
+  bankNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 4,
+  },
+  bankNameText: {
+    fontSize: 12,
+    color: '#2e7d32',
   },
   pickerContainer: {
     borderWidth: 1,
