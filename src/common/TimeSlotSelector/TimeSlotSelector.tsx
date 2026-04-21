@@ -232,6 +232,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
             )}
           </View>
         </View>
+        
 
         {/* Section Content - No ScrollView, just render all slots */}
         {slots.length === 0 ? (
