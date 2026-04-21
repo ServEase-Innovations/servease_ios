@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -16,23 +16,19 @@ import {
   ViewStyle,
   TextStyle,
   StyleProp,
+  RefreshControl,
   Linking,
   BackHandler,
   Animated,
-  PanResponder,
   Dimensions,
-  RefreshControl,
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useTheme } from '../../src/Settings/ThemeContext';
-// Removed: import { useTranslation } from 'react-i18next';
 import { SkeletonLoader } from '../common/SkeletonLoader';
-import UserHoliday from './UserHoliday';
 import ModifyBookingDialog from './ModifyBookingDialog';
-import VacationManagementDialog from './VacationManagement';
 import ConfirmationDialog from './ConfirmationDialog';
 import AddReviewDialog from './AddReviewDialog';
 import WalletDialog from './WalletDialog';
@@ -42,7 +38,7 @@ import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -85,74 +81,6 @@ const Badge: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle> 
 const Separator: React.FC<{ style?: StyleProp<ViewStyle> }> = ({ style }) => {
   const { colors } = useTheme();
   return <View style={[styles.separatorBase, { backgroundColor: colors.border }, style]} />;
-};
-
-// Custom Pull-to-Refresh Header Component
-const PullToRefreshHeader: React.FC<{
-  pullProgress: Animated.Value;
-  isRefreshing: boolean;
-  colors: any;
-}> = ({ pullProgress, isRefreshing, colors }) => {
-  const spinValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (isRefreshing) {
-      Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      spinValue.setValue(0);
-    }
-  }, [isRefreshing]);
-
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  const translateY = pullProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-60, 20],
-    extrapolate: 'clamp',
-  });
-
-  const opacity = pullProgress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 0.5, 1],
-    extrapolate: 'clamp',
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.pullToRefreshContainer,
-        {
-          transform: [{ translateY }],
-          opacity,
-          backgroundColor: colors.card,
-          borderBottomColor: colors.border,
-        },
-      ]}
-    >
-      {isRefreshing ? (
-        <>
-          <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Icon name="loading" size={30} color={colors.primary} />
-          </Animated.View>
-          <Text style={[styles.refreshText, { color: colors.primary }]}>Refreshing...</Text>
-        </>
-      ) : (
-        <>
-          <Icon name="arrow-down" size={24} color={colors.primary} />
-          <Text style={[styles.refreshText, { color: colors.textSecondary }]}>Pull to refresh</Text>
-        </>
-      )}
-    </Animated.View>
-  );
 };
 
 // ---------- Skeleton Loaders ----------
@@ -214,84 +142,12 @@ const StatusTabsSkeleton: React.FC = () => {
   );
 };
 
-const BookingPageSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={[colors.primary + '40', colors.primary + '20', colors.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerTopRow}>
-          <SkeletonLoader width={40} height={40} variant="circular" />
-          <View style={styles.headerContent}>
-            <SkeletonLoader width={200} height={32} />
-            <SkeletonLoader width={250} height={16} style={{ marginTop: 8 }} />
-          </View>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.searchContainer}>
-            <SkeletonLoader width="100%" height={48} variant="rectangular" />
-          </View>
-          <SkeletonLoader width={70} height={70} variant="rectangular" style={{ marginLeft: 12 }} />
-        </View>
-      </LinearGradient>
-      <ScrollView>
-        <View style={styles.section}>
-          <SectionHeaderSkeleton colors={colors} />
-          <StatusTabsSkeleton />
-          {[1, 2, 3].map((item) => (
-            <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
-          ))}
-        </View>
-        <View style={styles.section}>
-          <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
-            <SkeletonLoader width={24} height={24} variant="circular" />
-            <View style={styles.sectionHeaderContent}>
-              <SkeletonLoader width={150} height={24} />
-              <SkeletonLoader width={100} height={16} style={{ marginTop: 4 }} />
-            </View>
-            <SkeletonLoader width={40} height={32} variant="rectangular" />
-          </View>
-          {[1, 2].map((item) => (
-            <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  );
-};
-
-// Content Skeleton for Refresh State
-const ContentSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
-  return (
-    <View style={styles.skeletonContent}>
-      <View style={styles.section}>
-        <SectionHeaderSkeleton colors={colors} />
-        <StatusTabsSkeleton />
-        {[1, 2, 3].map((item) => (
-          <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
-        ))}
-      </View>
-      <View style={styles.section}>
-        <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
-          <SkeletonLoader width={24} height={24} variant="circular" />
-          <View style={styles.sectionHeaderContent}>
-            <SkeletonLoader width={150} height={24} />
-            <SkeletonLoader width={100} height={16} style={{ marginTop: 4 }} />
-          </View>
-          <SkeletonLoader width={40} height={32} variant="rectangular" />
-        </View>
-        {[1, 2].map((item) => (
-          <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
-        ))}
-      </View>
-    </View>
-  );
-};
-
 // ---------- Interfaces ----------
+export interface BookingRef {
+  refreshBookings: () => Promise<void>;
+  forceRefresh: () => Promise<void>;
+}
+
 interface TodayService {
   service_day_id: string;
   status: string;
@@ -396,47 +252,6 @@ const getServiceIcon = (type: string) => {
   }
 };
 
-const getStatusBadge = (status: string, colors: any, fontSizes: any) => {
-  switch (status) {
-    case 'ACTIVE':
-      return (
-        <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-          <Icon name="alert-circle" size={14} color={colors.primary} />
-          <Text style={[styles.activeBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>Active</Text>
-        </Badge>
-      );
-    case 'COMPLETED':
-      return (
-        <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-          <Icon name="check-circle" size={14} color={colors.success} />
-          <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
-        </Badge>
-      );
-    case 'CANCELLED':
-      return (
-        <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
-          <Icon name="close-circle" size={14} color={colors.error} />
-          <Text style={[styles.cancelledBadgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Cancelled</Text>
-        </Badge>
-      );
-    case 'IN_PROGRESS':
-      return (
-        <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
-          <Icon name="clock" size={14} color={colors.warning} />
-          <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
-        </Badge>
-      );
-    case 'NOT_STARTED':
-      return (
-        <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-          <Icon name="clock" size={14} color={colors.textSecondary} />
-          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>Not Started</Text>
-        </Badge>
-      );
-    default: return null;
-  }
-};
-
 const getBookingTypeBadge = (type: string, colors: any, fontSizes: any) => {
   switch (type) {
     case 'ON_DEMAND':
@@ -477,32 +292,6 @@ const getServiceTitle = (type: string) => {
   }
 };
 
-const hasVacation = (booking: Booking): boolean => {
-  return booking.hasVacation || (booking.vacationDetails && (booking.vacationDetails.total_days || 0) > 0) || false;
-};
-
-const isModificationTimeAllowed = (startEpoch: any): boolean => {
-  if (!startEpoch) return false;
-  const now = dayjs().unix();
-  const cutoff = startEpoch - 30 * 60;
-  return now < cutoff;
-};
-
-const isBookingAlreadyModified = (booking: Booking | null): boolean => {
-  if (!booking) return false;
-  return !!(booking.modifications?.some(mod =>
-    mod.action === "Date Rescheduled" ||
-    mod.action === "Time Rescheduled" ||
-    mod.action === "Modified" ||
-    mod.action?.includes("Reschedule")
-  ));
-};
-
-const isModificationDisabled = (booking: Booking | null): boolean => {
-  if (!booking) return true;
-  return !isModificationTimeAllowed(booking.start_epoch) || isBookingAlreadyModified(booking);
-};
-
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
   try {
@@ -523,9 +312,8 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
 };
 
 // ---------- Main Booking Component ----------
-const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
+const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
-  // Removed: const { t } = useTranslation();
 
   // State variables
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
@@ -545,17 +333,17 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showSkeletonOnRefresh, setShowSkeletonOnRefresh] = useState(false);
+  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
+  const [showRefreshAnimation, setShowRefreshAnimation] = useState(false);
+  const [showRefreshTooltip, setShowRefreshTooltip] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState<number | null>(null);
   const [paymentLoading, setPaymentLoading] = useState<number | null>(null);
   const [timeSlots] = useState<string[]>([]);
   const [reviewDialogVisible, setReviewDialogVisible] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
-
-  // Animated values for pull to refresh
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const pullProgress = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const tooltipAnim = useRef(new Animated.Value(0)).current;
 
   const [confirmationDialog, setConfirmationDialog] = useState<{
     open: boolean;
@@ -577,15 +365,48 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   const isAuthenticated = auth0User !== undefined && auth0User !== null;
   const { appUser } = useAppUser();
 
+  // Auto-hide tooltip after 5 seconds
+  useEffect(() => {
+    if (showRefreshTooltip) {
+      Animated.sequence([
+        Animated.timing(tooltipAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.delay(4000),
+        Animated.timing(tooltipAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowRefreshTooltip(false);
+      });
+    }
+  }, [showRefreshTooltip]);
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    refreshBookings: async () => {
+      console.log("🔄 Manual refresh triggered from parent");
+      await performRefresh(false);
+    },
+    forceRefresh: async () => {
+      console.log("💪 Force refresh triggered from parent");
+      await performRefresh(true);
+    }
+  }));
+
   // Font sizes
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
-        return { headerTitle: 24, headerSubtitle: 14, sectionTitle: 20, sectionSubtitle: 13, serviceTitle: 15, infoText: 13, viewDetailsText: 11, buttonText: 11, badgeText: 11, emptyStateTitle: 18, emptyStateText: 15, searchInput: 14 };
+        return { headerTitle: 24, headerSubtitle: 14, sectionTitle: 20, sectionSubtitle: 13, serviceTitle: 15, infoText: 13, viewDetailsText: 11, buttonText: 11, badgeText: 11, emptyStateTitle: 18, emptyStateText: 15, searchInput: 14, tooltipText: 11 };
       case 'large':
-        return { headerTitle: 32, headerSubtitle: 18, sectionTitle: 24, sectionSubtitle: 16, serviceTitle: 18, infoText: 16, viewDetailsText: 14, buttonText: 14, badgeText: 14, emptyStateTitle: 22, emptyStateText: 18, searchInput: 18 };
+        return { headerTitle: 32, headerSubtitle: 18, sectionTitle: 24, sectionSubtitle: 16, serviceTitle: 18, infoText: 16, viewDetailsText: 14, buttonText: 14, badgeText: 14, emptyStateTitle: 22, emptyStateText: 18, searchInput: 18, tooltipText: 13 };
       default:
-        return { headerTitle: 28, headerSubtitle: 16, sectionTitle: 22, sectionSubtitle: 14, serviceTitle: 16, infoText: 14, viewDetailsText: 12, buttonText: 12, badgeText: 12, emptyStateTitle: 20, emptyStateText: 16, searchInput: 16 };
+        return { headerTitle: 28, headerSubtitle: 16, sectionTitle: 22, sectionSubtitle: 14, serviceTitle: 16, infoText: 14, viewDetailsText: 12, buttonText: 12, badgeText: 12, emptyStateTitle: 20, emptyStateText: 16, searchInput: 16, tooltipText: 12 };
     }
   };
   const fontSizes = getFontSizes();
@@ -604,12 +425,11 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     };
   };
 
-  // ---------- Core Data Mapping (FIXED) ----------
+  // ---------- Core Data Mapping ----------
   const mapBookingData = (data: any[]): Booking[] => {
     if (!Array.isArray(data)) return [];
 
     return data.map((item): Booking => {
-      // Detect vacation from root leave_days OR vacations array
       const hasVacationFlag = (item.leave_days && item.leave_days > 0) ||
                               (item.vacations && Array.isArray(item.vacations) && item.vacations.length > 0);
 
@@ -643,7 +463,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       const modifications = item.modifications || [];
       const hasModifications = modifications.length > 0;
 
-      // Extract provider name
       let serviceProviderName = 'Not Assigned';
       let providerRating = 0;
 
@@ -742,13 +561,17 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     }
   };
 
-  // Custom pull-to-refresh handler with skeleton animation
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    setShowSkeletonOnRefresh(true);
-    
-    // Add a small delay to show the skeleton animation
-    await new Promise(resolve => setTimeout(resolve, 500));
+  // Enhanced refresh function with animation
+  const performRefresh = async (showFullAnimation = true) => {
+    if (showFullAnimation) {
+      setIsForceRefreshing(true);
+      setShowRefreshAnimation(true);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
     
     try {
       if (customerId) {
@@ -763,35 +586,38 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       setOpenSnackbar(true);
       setTimeout(() => setOpenSnackbar(false), 3000);
     } finally {
-      setIsRefreshing(false);
-      // Keep skeleton for a moment after refresh completes for smooth transition
-      setTimeout(() => {
-        setShowSkeletonOnRefresh(false);
-      }, 300);
+      if (showFullAnimation) {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          setIsForceRefreshing(false);
+          setShowRefreshAnimation(false);
+        });
+      }
     }
   };
 
-  // Handle scroll to update pull progress
-  const handleScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
-  );
-
-  // Update pull progress based on scroll position
-  useEffect(() => {
-    const listenerId = scrollY.addListener(({ value }) => {
-      if (value < 0 && !isRefreshing) {
-        const progress = Math.min(Math.abs(value) / 120, 1);
-        pullProgress.setValue(progress);
-      } else if (!isRefreshing) {
-        pullProgress.setValue(0);
+  // Pull to refresh handler
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (customerId) {
+        await refreshBookings();
+        setSnackbarMessage('Bookings refreshed successfully');
+        setOpenSnackbar(true);
+        setTimeout(() => setOpenSnackbar(false), 3000);
       }
-    });
-    
-    return () => {
-      scrollY.removeListener(listenerId);
-    };
-  }, [isRefreshing]);
+    } catch (error) {
+      console.error('Error refreshing bookings:', error);
+      setSnackbarMessage('Failed to refresh bookings');
+      setOpenSnackbar(true);
+      setTimeout(() => setOpenSnackbar(false), 3000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated && appUser?.customerid) {
@@ -925,11 +751,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     showConfirmation('payment', booking, 'Complete Payment', `Complete payment of ₹${booking.monthlyAmount} for ${getServiceTitle(booking.service_type)}?`, 'info');
   };
 
-  const handleModifyClick = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setModifyDialogOpen(true);
-  };
-
   const handleLeaveReviewClick = (booking: Booking) => {
     setSelectedReviewBooking(booking);
     setReviewDialogVisible(true);
@@ -942,7 +763,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
 
   const handleReviewSubmitted = (bookingId: number) => {
     setReviewedBookings(prev => [...prev, bookingId]);
-    onRefresh();
+    performRefresh(false);
   };
 
   const hasReview = (booking: Booking): boolean => reviewedBookings.includes(booking.id);
@@ -954,6 +775,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
 
   const handleSaveModifiedBooking = async () => {
     setModifyDialogOpen(false);
+    await performRefresh(false);
   };
 
   // ---------- Filtering & Sorting ----------
@@ -989,104 +811,54 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
     { value: 'CANCELLED', label: 'Cancelled', count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
   ];
 
-  // ---------- Render Helpers ----------
-  const renderScheduledMessage = (booking: Booking) => {
-    if (!booking.today_service) return null;
-    const { status } = booking.today_service;
-    switch (status) {
-      case "SCHEDULED":
-        return (
-          <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
-            <View style={[styles.scheduledMessageCard, { backgroundColor: colors.infoLight, borderColor: colors.info }]}>
-              <View style={styles.scheduledMessageHeader}>
-                <Icon name="check-circle" size={16} color={colors.success} />
-                <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>Service Scheduled</Text>
-                  <Badge style={[styles.scheduledBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.scheduledBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Scheduled</Text>
-                  </Badge>
-                </View>
-              </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your service is scheduled for {formatTimeToAMPM(booking.start_time)}</Text>
-            </View>
-          </View>
-        );
-      case "IN_PROGRESS":
-        return (
-          <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
-            <View style={[styles.inProgressMessageCard, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
-              <View style={styles.scheduledMessageHeader}>
-                <Icon name="check-circle" size={16} color={colors.success} />
-                <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>Service In Progress</Text>
-                  <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
-                    <Text style={[styles.inProgressBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>In Progress</Text>
-                  </Badge>
-                </View>
-              </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your service provider is currently providing the service</Text>
-              <View style={styles.otpButtonContainer}>
-                <Button style={[styles.otpButton, { backgroundColor: colors.primary, borderColor: colors.primary }, otpLoading === booking.id && styles.disabledButton]} onPress={() => handleGenerateOTP(booking)} disabled={otpLoading === booking.id || !booking.today_service?.can_generate_otp}>
-                  {otpLoading === booking.id ? (
-                    <><ActivityIndicator size="small" color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Loading...</Text></>
-                  ) : (
-                    <><Icon name="check-circle" size={16} color="#fff" /><Text style={[styles.otpButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>{booking.today_service.otp_active ? 'OTP Generated' : 'Generate OTP'}</Text></>
-                  )}
-                </Button>
-                {booking.today_service.otp_active && (
-                  <Badge style={[styles.otpActiveBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.otpActiveBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>OTP Active</Text>
-                  </Badge>
-                )}
-              </View>
-              {booking.today_service.otp_active && generatedOTPs[booking.id] && (
-                <View style={[styles.otpDisplayContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Text style={[styles.otpDisplayLabel, { color: colors.text, fontSize: fontSizes.infoText }]}>Share this OTP with provider:</Text>
-                  <View style={styles.otpDisplay}>
-                    <Text style={[styles.otpCode, { color: colors.text, fontSize: fontSizes.headerTitle }]}>{generatedOTPs[booking.id]}</Text>
-                    <Button style={[styles.copyOtpButton, { borderColor: colors.border }]} onPress={() => Alert.alert('Success', 'OTP copied to clipboard')}>
-                      <Text style={[styles.copyOtpButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Copy</Text>
-                    </Button>
-                  </View>
-                  <Text style={[styles.otpExpiryText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Valid for 10 minutes</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        );
-      case "COMPLETED":
-        return (
-          <View style={[styles.scheduledMessageContainer, { backgroundColor: colors.surface }]}>
-            <View style={[styles.completedMessageCard, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
-              <View style={styles.scheduledMessageHeader}>
-                <Icon name="check-circle" size={16} color={colors.success} />
-                <View style={styles.scheduledMessageTitleContainer}>
-                  <Text style={[styles.scheduledMessageTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>Service Completed</Text>
-                  <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                    <Text style={[styles.completedBadgeText, { color: colors.success, fontSize: fontSizes.badgeText }]}>Completed</Text>
-                  </Badge>
-                </View>
-              </View>
-              <Text style={[styles.scheduledMessageText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your {getServiceTitle(booking.service_type)} service was completed at {formatTimeToAMPM(booking.end_time)}</Text>
-              <View style={[styles.reviewPromptContainer, { borderTopColor: colors.success }]}>
-                <View style={styles.reviewPromptContent}>
-                  <Text style={[styles.reviewPromptTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>How was your experience?</Text>
-                  <Text style={[styles.reviewPromptSubtitle, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>Your feedback helps us improve</Text>
-                </View>
-                <Button style={[styles.leaveReviewButton, { borderColor: colors.border }]} onPress={() => handleLeaveReviewClick(booking)}>
-                  <Icon name="message-text" size={16} color={colors.text} />
-                  <Text style={[styles.leaveReviewButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>Leave Review</Text>
-                </Button>
-              </View>
-            </View>
-          </View>
-        );
-      default: return null;
-    }
+  // Refresh Animation Overlay Component
+  const RefreshAnimationOverlay = () => {
+    if (!showRefreshAnimation) return null;
+    
+    return (
+      <Animated.View style={[styles.refreshOverlay, { backgroundColor: colors.background + 'CC', opacity: fadeAnim }]}>
+        <View style={[styles.refreshAnimationContainer, { backgroundColor: colors.card }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.refreshAnimationText, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
+            Refreshing Bookings...
+          </Text>
+        </View>
+      </Animated.View>
+    );
   };
 
+  // Refresh Tooltip Component
+  const RefreshTooltip = () => {
+    if (!showRefreshTooltip) return null;
+    
+    return (
+      <Animated.View 
+        style={[
+          styles.tooltipContainer, 
+          { 
+            opacity: tooltipAnim,
+            transform: [{
+              translateY: tooltipAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-20, 0]
+              })
+            }]
+          }
+        ]}
+      >
+        <View style={[styles.tooltipContent, { backgroundColor: colors.primary + 'E6' }]}>
+          <Icon name="gesture-double-tap" size={16} color="#fff" />
+          <Text style={[styles.tooltipText, { color: '#fff', fontSize: fontSizes.tooltipText }]}>
+            Double-tap "Bookings" in footer to refresh
+          </Text>
+        </View>
+        <View style={[styles.tooltipArrow, { borderTopColor: colors.primary + 'E6' }]} />
+      </Animated.View>
+    );
+  };
+
+  // ---------- Render Helpers ----------
   const renderActionButtons = (booking: Booking) => {
-    const modificationDisabled = isModificationDisabled(booking);
     const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
     const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
 
@@ -1117,11 +889,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
 
     switch (booking.taskStatus) {
       case 'NOT_STARTED':
-        return (
-          <View style={styles.compactActionRow}>
-            {/* Modify button removed */}
-          </View>
-        );
+        return null;
       case 'IN_PROGRESS':
         return (
           <View style={styles.actionButtonsRow}>
@@ -1137,7 +905,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
               <Icon name="close-circle" size={16} color="#fff" />
               <Text style={[styles.cancelButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>Cancel</Text>
             </Button>
-            {/* Vacation buttons removed */}
           </View>
         );
       case 'COMPLETED':
@@ -1213,7 +980,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
             <Text style={[styles.infoText, { color: colors.textSecondary, fontSize: fontSizes.infoText }]}>{formatTimeRange(item.start_time, item.end_time)}</Text>
           </View>
         </View>
-        <View style={styles.scheduledMessageSection}>{renderScheduledMessage(item)}</View>
         <Separator style={styles.separator} />
         <View style={styles.actionButtonsContainer}>{renderActionButtons(item)}</View>
         <View style={styles.viewDetailsIndicator}>
@@ -1221,89 +987,6 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
           <Icon name="chevron-right" size={16} color={colors.textSecondary} />
         </View>
       </Card>
-    );
-  };
-
-  // Render main content
-  const renderContent = () => {
-    if (showSkeletonOnRefresh || isLoading) {
-      return <ContentSkeleton colors={colors} fontSizes={fontSizes} />;
-    }
-
-    return (
-      <>
-        {/* Upcoming Bookings Section */}
-        <View style={styles.section}>
-          <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
-            <Icon name="alert-circle" size={24} color={colors.primary} />
-            <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Upcoming Bookings</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? 'upcoming booking' : 'upcoming bookings'}
-              </Text>
-            </View>
-            <Badge style={[styles.sectionBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-              <Text style={[styles.sectionBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{upcomingBookings.length}</Text>
-            </Badge>
-          </View>
-
-          <View style={styles.statusFilterContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {statusTabs.map((tab) => (
-                <TouchableOpacity
-                  key={tab.value}
-                  style={[styles.statusTab, { backgroundColor: colors.surface }, statusFilter === tab.value && { backgroundColor: colors.primary }]}
-                  onPress={() => setStatusFilter(tab.value)}
-                >
-                  <Text style={[styles.statusTabText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }, statusFilter === tab.value && { color: '#fff' }]}>{tab.label}</Text>
-                  <View style={[styles.statusTabCount, { backgroundColor: colors.border }]}>
-                    <Text style={[styles.statusTabCountText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{tab.count}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {filteredUpcomingBookings.length > 0 ? (
-            <FlatList data={filteredUpcomingBookings} renderItem={renderBookingItem} keyExtractor={(item) => item.id.toString()} scrollEnabled={false} />
-          ) : (
-            <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Icon name="calendar" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Upcoming Bookings</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>You don't have any upcoming service bookings</Text>
-              <Button style={[styles.emptyStateButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setServicesDialogOpen(true)}>
-                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>Book a Service</Text>
-              </Button>
-            </Card>
-          )}
-        </View>
-
-        {/* Past Bookings Section */}
-        <View style={styles.section}>
-          <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
-            <Icon name="history" size={24} color={colors.textSecondary} />
-            <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Past Bookings</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredPastBookings.length} {filteredPastBookings.length === 1 ? 'past booking' : 'past bookings'}
-              </Text>
-            </View>
-            <Badge style={[styles.sectionBadge, styles.pastBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-              <Text style={[styles.sectionBadgeText, styles.pastBadge, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{pastBookings.length}</Text>
-            </Badge>
-          </View>
-
-          {filteredPastBookings.length > 0 ? (
-            <FlatList data={filteredPastBookings} renderItem={renderBookingItem} keyExtractor={(item) => item.id.toString()} scrollEnabled={false} />
-          ) : (
-            <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Icon name="clock" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Past Bookings</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>Your completed bookings will appear here</Text>
-            </Card>
-          )}
-        </View>
-      </>
     );
   };
 
@@ -1328,15 +1011,48 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
   useEffect(() => {
     const getInitialUrl = async () => {
       const initialUrl = await Linking.getInitialURL();
-      // process if needed
     };
     getInitialUrl();
     const subscription = Linking.addEventListener('url', ({ url }) => {});
     return () => subscription.remove();
   }, []);
 
-  if (isLoading && !showSkeletonOnRefresh) {
-    return <BookingPageSkeleton colors={colors} fontSizes={fontSizes} />;
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <LinearGradient
+          colors={[colors.primary + '40', colors.primary + '20', colors.background]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.header}
+        >
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]} onPress={handleBackPress}>
+              <Icon name="arrow-left" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <View style={styles.headerContent}>
+              <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>Manage your service bookings</Text>
+            </View>
+          </View>
+          <View style={styles.headerRight}>
+            <View style={styles.searchContainer}>
+              <SkeletonLoader width="100%" height={48} variant="rectangular" />
+            </View>
+            <SkeletonLoader width={70} height={70} variant="rectangular" style={{ marginLeft: 12 }} />
+          </View>
+        </LinearGradient>
+        <ScrollView>
+          <View style={styles.section}>
+            <SectionHeaderSkeleton colors={colors} />
+            <StatusTabsSkeleton />
+            {[1, 2, 3].map((item) => (
+              <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
   }
 
   return (
@@ -1378,10 +1094,13 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
         </View>
       </LinearGradient>
 
-      {/* Animated ScrollView with Pull to Refresh */}
-      <Animated.ScrollView
-        scrollEventThrottle={16}
-        onScroll={handleScroll}
+      {/* Refresh Tooltip - Shows after header */}
+      <RefreshTooltip />
+
+      {/* Main ScrollView with Pull to Refresh */}
+      <ScrollView 
+        style={styles.mainScrollView}
+        contentContainerStyle={styles.scrollContentContainer}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -1389,18 +1108,99 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
             tintColor={colors.primary}
             colors={[colors.primary]}
             progressBackgroundColor={colors.card}
-            title="Pull to refresh"
-            titleColor={colors.textSecondary}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
-        <PullToRefreshHeader 
-          pullProgress={pullProgress} 
-          isRefreshing={isRefreshing} 
-          colors={colors} 
-        />
-        {renderContent()}
-      </Animated.ScrollView>
+        {/* Upcoming Bookings Section */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
+            <Icon name="alert-circle" size={24} color={colors.primary} />
+            <View style={styles.sectionHeaderContent}>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Upcoming Bookings</Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
+                {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? 'upcoming booking' : 'upcoming bookings'}
+              </Text>
+            </View>
+            <Badge style={[styles.sectionBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+              <Text style={[styles.sectionBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>{upcomingBookings.length}</Text>
+            </Badge>
+          </View>
+
+          {/* Status Filter Tabs */}
+          <View style={styles.statusFilterContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTabsContent}>
+              {statusTabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.value}
+                  style={[styles.statusTab, { backgroundColor: colors.surface }, statusFilter === tab.value && { backgroundColor: colors.primary }]}
+                  onPress={() => setStatusFilter(tab.value)}
+                >
+                  <Text style={[styles.statusTabText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }, statusFilter === tab.value && { color: '#fff' }]}>{tab.label}</Text>
+                  <View style={[styles.statusTabCount, { backgroundColor: colors.border }]}>
+                    <Text style={[styles.statusTabCountText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{tab.count}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Bookings List */}
+          {filteredUpcomingBookings.length > 0 ? (
+            <FlatList 
+              data={filteredUpcomingBookings} 
+              renderItem={renderBookingItem} 
+              keyExtractor={(item) => item.id.toString()} 
+              scrollEnabled={false}
+              style={styles.bookingsList}
+            />
+          ) : (
+            <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Icon name="calendar" size={48} color={colors.textSecondary} />
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Upcoming Bookings</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>You don't have any upcoming service bookings</Text>
+              <Button style={[styles.emptyStateButton, { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setServicesDialogOpen(true)}>
+                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText }}>Book a Service</Text>
+              </Button>
+            </Card>
+          )}
+        </View>
+
+        {/* Past Bookings Section */}
+        <View style={styles.section}>
+          <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '15', borderLeftColor: colors.textSecondary }]}>
+            <Icon name="history" size={24} color={colors.textSecondary} />
+            <View style={styles.sectionHeaderContent}>
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Past Bookings</Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
+                {filteredPastBookings.length} {filteredPastBookings.length === 1 ? 'past booking' : 'past bookings'}
+              </Text>
+            </View>
+            <Badge style={[styles.sectionBadge, styles.pastBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+              <Text style={[styles.sectionBadgeText, styles.pastBadge, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>{pastBookings.length}</Text>
+            </Badge>
+          </View>
+
+          {filteredPastBookings.length > 0 ? (
+            <FlatList 
+              data={filteredPastBookings} 
+              renderItem={renderBookingItem} 
+              keyExtractor={(item) => item.id.toString()} 
+              scrollEnabled={false}
+              style={styles.bookingsList}
+            />
+          ) : (
+            <Card style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Icon name="clock" size={48} color={colors.textSecondary} />
+              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Past Bookings</Text>
+              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>Your completed bookings will appear here</Text>
+            </Card>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Refresh Animation Overlay */}
+      <RefreshAnimationOverlay />
 
       {/* Dialogs */}
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
@@ -1428,7 +1228,7 @@ const Booking: React.FC<BookingProps> = ({ onBackToHome }) => {
       )}
     </View>
   );
-};
+});
 
 // ---------- Styles ----------
 const styles = StyleSheet.create({
@@ -1450,8 +1250,10 @@ const styles = StyleSheet.create({
   clearSearchButton: { position: 'absolute', right: 12, top: 12 },
   walletButton: { padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', width: 70 },
   walletText: { marginTop: 4, fontWeight: '500' },
-  section: { padding: 20 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, padding: 16, borderRadius: 12, borderLeftWidth: 4 },
+  mainScrollView: { flex: 1 },
+  scrollContentContainer: { flexGrow: 1, paddingBottom: 20 },
+  section: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 20 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, padding: 16, borderRadius: 12, borderLeftWidth: 4 },
   pastSectionHeader: { borderLeftColor: 'rgba(156, 163, 175, 0.4)' },
   sectionHeaderContent: { flex: 1, marginLeft: 16 },
   sectionTitle: { fontWeight: '700' },
@@ -1459,12 +1261,14 @@ const styles = StyleSheet.create({
   sectionBadge: { paddingHorizontal: 12, paddingVertical: 8 },
   pastBadge: { backgroundColor: 'rgba(156, 163, 175, 0.15)', borderColor: 'rgba(156, 163, 175, 0.4)' },
   sectionBadgeText: { fontWeight: '700' },
-  statusFilterContainer: { marginBottom: 20 },
+  statusFilterContainer: { marginBottom: 16 },
+  statusTabsContent: { paddingRight: 16 },
   statusTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10 },
   statusTabText: { fontWeight: '600', marginRight: 8 },
   statusTabCount: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, minWidth: 24, alignItems: 'center' },
   statusTabCountText: { fontWeight: '600' },
-  bookingCard: { marginBottom: 20, borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
+  bookingsList: { marginTop: 0 },
+  bookingCard: { marginBottom: 16, borderRadius: 12, overflow: 'hidden', borderWidth: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   serviceInfoContainer: { flexDirection: 'row', alignItems: 'center' },
   serviceIconContainer: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
@@ -1482,23 +1286,8 @@ const styles = StyleSheet.create({
   callButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
   messageButton: { backgroundColor: '#10b981', borderColor: '#10b981' },
   messageButtonText: { color: '#fff', marginLeft: 6, fontWeight: '600' },
-  cancelButton: { 
-    backgroundColor: '#fff', 
-    borderColor: '#ef4444' 
-  },
-  cancelButtonText: { 
-    color: '#ef4444', 
-    marginLeft: 6, 
-    fontWeight: '600' 
-  },
-  modifyButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
-  compactActionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', justifyContent: 'flex-start', marginTop: 4, marginBottom: 4 },
-  compactActionButton: { flex: 0, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#fff', borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', marginRight: 8, alignSelf: 'flex-start' },
-  modifyButtonText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
-  vacationButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
-  vacationButtonText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
-  vacationModifiedButton: { backgroundColor: '#dbeafe', borderColor: '#93c5fd' },
-  vacationModifiedText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
+  cancelButton: { backgroundColor: '#fff', borderColor: '#ef4444' },
+  cancelButtonText: { color: '#ef4444', marginLeft: 6, fontWeight: '600' },
   reviewButton: { backgroundColor: '#fff', borderColor: '#1e40af' },
   reviewButtonText: { color: '#1e40af', marginLeft: 6, fontWeight: '600' },
   reviewSubmittedButton: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
@@ -1508,27 +1297,8 @@ const styles = StyleSheet.create({
   viewDetailsIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   viewDetailsText: { marginRight: 4 },
   paymentActionContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginBottom: 8 },
-  paymentButton: { 
-    backgroundColor: '#fff', 
-    borderColor: '#ef4444', 
-    flex: 1, 
-    minWidth: '45%' 
-  },
-  paymentButtonText: { 
-    color: '#ef4444', 
-    marginLeft: 6, 
-    fontWeight: '600' 
-  },
-  activeBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  activeBadgeText: { marginLeft: 4, fontWeight: '600' },
-  completedBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  completedBadgeText: { marginLeft: 4, fontWeight: '600' },
-  cancelledBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  cancelledBadgeText: { marginLeft: 4, fontWeight: '600' },
-  inProgressBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  inProgressBadgeText: { marginLeft: 4, fontWeight: '600' },
-  notStartedBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  notStartedBadgeText: { marginLeft: 4, fontWeight: '600' },
+  paymentButton: { backgroundColor: '#fff', borderColor: '#ef4444', flex: 1, minWidth: '45%' },
+  paymentButtonText: { color: '#ef4444', marginLeft: 6, fontWeight: '600' },
   onDemandBadge: { paddingHorizontal: 8, paddingVertical: 4 },
   onDemandBadgeText: { fontWeight: '600' },
   monthlyBadge: { paddingHorizontal: 8, paddingVertical: 4 },
@@ -1541,35 +1311,6 @@ const styles = StyleSheet.create({
   awaitingBadgeText: { marginLeft: 4, fontWeight: '600' },
   paymentPendingBadge: { paddingHorizontal: 8, paddingVertical: 4 },
   paymentPendingBadgeText: { marginLeft: 4, fontWeight: '600' },
-  scheduledMessageSection: { marginTop: 12 },
-  scheduledMessageContainer: { marginTop: 12, width: '100%' },
-  scheduledMessageCard: { padding: 12, borderWidth: 1, borderRadius: 8 },
-  inProgressMessageCard: { padding: 12, borderWidth: 1, borderRadius: 8 },
-  completedMessageCard: { padding: 12, borderWidth: 1, borderRadius: 8 },
-  scheduledMessageHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  scheduledMessageTitleContainer: { flex: 1, marginLeft: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' },
-  scheduledMessageTitle: { fontWeight: '600', flex: 1 },
-  scheduledMessageText: { marginBottom: 12, lineHeight: 18, fontWeight: '400' },
-  scheduledBadge: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  scheduledBadgeText: { fontWeight: '600' },
-  otpButtonContainer: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  otpButton: { minWidth: 160, flex: 1, paddingVertical: 10 },
-  otpButtonText: { marginLeft: 8, fontWeight: '600' },
-  otpActiveBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  otpActiveBadgeText: { fontWeight: '600' },
-  otpDisplayContainer: { padding: 12, borderRadius: 8, marginTop: 8, borderWidth: 1 },
-  otpDisplayLabel: { fontWeight: '500', marginBottom: 6 },
-  otpDisplay: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  otpCode: { fontWeight: 'bold', letterSpacing: 4 },
-  copyOtpButton: { backgroundColor: 'transparent', paddingHorizontal: 12, paddingVertical: 6 },
-  copyOtpButtonText: { fontSize: 12, fontWeight: '600' },
-  otpExpiryText: { fontStyle: 'italic' },
-  reviewPromptContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, paddingTop: 12, marginTop: 12 },
-  reviewPromptContent: { flex: 1 },
-  reviewPromptTitle: { fontWeight: '600' },
-  reviewPromptSubtitle: { marginTop: 2, lineHeight: 16 },
-  leaveReviewButton: { backgroundColor: 'transparent', marginLeft: 12, paddingVertical: 8, paddingHorizontal: 12 },
-  leaveReviewButtonText: { marginLeft: 6, fontWeight: '600' },
   emptyStateCard: { alignItems: 'center', padding: 40, borderRadius: 12, borderWidth: 1 },
   emptyStateTitle: { fontWeight: '700', marginTop: 20 },
   emptyStateText: { marginTop: 8, textAlign: 'center', lineHeight: 24 },
@@ -1577,20 +1318,56 @@ const styles = StyleSheet.create({
   snackbar: { position: 'absolute', bottom: 20, left: 20, right: 20, padding: 16, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 },
   snackbarText: { fontWeight: '600', flex: 1 },
   separator: { height: 1, marginVertical: 12 },
-  pullToRefreshContainer: {
-    alignItems: 'center',
+  refreshOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    marginTop: -10,
+    alignItems: 'center',
+    zIndex: 9999,
   },
-  refreshText: {
+  refreshAnimationContainer: {
+    padding: 30,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  refreshAnimationText: {
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  tooltipContainer: {
+    alignItems: 'center',
     marginTop: 8,
-    fontSize: 12,
+    marginBottom: 8,
+    zIndex: 10,
+  },
+  tooltipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    gap: 8,
+  },
+  tooltipText: {
     fontWeight: '500',
   },
-  skeletonContent: {
-    flex: 1,
+  tooltipArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    marginTop: -1,
   },
 });
 

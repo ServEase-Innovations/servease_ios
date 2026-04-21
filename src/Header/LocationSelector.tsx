@@ -1,4 +1,4 @@
-// LocationSelector.tsx - Full fixed version with proper location propagation
+// LocationSelector.tsx - Only fixing button issues and save option selection feedback
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
@@ -14,6 +14,7 @@ import {
   Dimensions,
   FlatList,
   PermissionsAndroid,
+  ScrollView,
 } from "react-native";
 import axios from "axios";
 import { keys } from "../env";
@@ -88,6 +89,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingLocations, setLoadingLocations] = useState(false);
+  const [selectedSaveOption, setSelectedSaveOption] = useState<string | null>(null); // NEW: Track selected save option
 
   const [selectedPinLocation, setSelectedPinLocation] = useState<{
     latitude: number;
@@ -125,6 +127,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           saveOptionText: 13,
           searchResultTitle: 13,
           searchResultSubtitle: 11,
+          iconSize: 18,
+          buttonHeight: 40,
         };
       case 'large':
         return {
@@ -143,6 +147,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           saveOptionText: 16,
           searchResultTitle: 16,
           searchResultSubtitle: 14,
+          iconSize: 24,
+          buttonHeight: 52,
         };
       default:
         return {
@@ -161,6 +167,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           saveOptionText: 14,
           searchResultTitle: 14,
           searchResultSubtitle: 12,
+          iconSize: 20,
+          buttonHeight: 44,
         };
     }
   };
@@ -778,6 +786,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery("");
     setSearchResults([]);
     setShowSearchResults(false);
+    setSelectedSaveOption(null); // Reset selection
+    setShowInput(false); // Reset input visibility
+    setLocationAs(""); // Reset location name
   };
 
   const locationHandleSave = async () => {
@@ -792,6 +803,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         setOpenSaveOptionForSave(false);
         setLocationAs("");
         setIsSaving(false);
+        setSelectedSaveOption(null);
+        setShowInput(false);
       }, 500);
       
     } catch (error: any) {
@@ -881,6 +894,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const handleUserPreference = (preference?: string) => {
+    setSelectedSaveOption(preference || "others");
     if (!preference) {
       setShowInput(true);
       setLocationAs("");
@@ -952,7 +966,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           <View style={styles.methodIconContainer}>
             <MaterialIcon 
               name="my-location" 
-              size={24} 
+              size={fontSizes.iconSize} 
               color={locationMethod === 'auto' ? colors.primary : colors.textSecondary} 
             />
           </View>
@@ -984,7 +998,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           <View style={styles.methodIconContainer}>
             <MaterialIcon 
               name="search" 
-              size={24} 
+              size={fontSizes.iconSize} 
               color={locationMethod === 'manual' ? colors.primary : colors.textSecondary} 
             />
           </View>
@@ -1042,7 +1056,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           </Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, width: '100%' }]}
+              style={[styles.button, { backgroundColor: colors.primary, width: '100%', height: fontSizes.buttonHeight }]}
               onPress={handleOpenSettings}
             >
               <MaterialIcon name="settings" size={16} color="#ffffff" style={{ marginRight: 8 }} />
@@ -1051,7 +1065,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, { marginTop: 12, width: '100%', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+              style={[styles.button, { marginTop: 12, width: '100%', height: fontSizes.buttonHeight, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
               onPress={() => {
                 setLocationMethod('manual');
               }}
@@ -1104,7 +1118,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
           <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
             <View style={styles.locationInfo}>
-              <MaterialIcon name="location-on" size={20} color={colors.primary} />
+              <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
               <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
                 {address || t('locationSelector.fetchingLocation')}
               </Text>
@@ -1125,156 +1139,160 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  const renderManualDetectContent = () => {
-    return (
-      <View style={styles.methodContentContainer}>
-        <View style={styles.searchSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
-            {t('locationSelector.searchForLocation')}
-          </Text>
-          <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Icon name="search" size={16} color={colors.textSecondary} style={styles.searchIcon} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.addressText }]}
-              placeholder={t('locationSelector.enterAddressOrPlace')}
-              placeholderTextColor={colors.placeholder}
-              value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                setShowSearchResults(text.length > 0);
-              }}
-              onFocus={() => setSearchInputFocused(true)}
-              onBlur={() => setTimeout(() => setSearchInputFocused(false), 200)}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSearchQuery("");
-                  setSearchResults([]);
-                  setShowSearchResults(false);
-                }}
-                style={styles.clearSearchButton}
-              >
-                <Icon name="times" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {showSearchResults && (
-            <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {isSearching ? (
-                <View style={styles.searchLoadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={[styles.searchLoadingText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
-                    {t('locationSelector.searching')}
-                  </Text>
-                </View>
-              ) : searchResults.length > 0 ? (
-                <FlatList
-                  data={searchResults}
-                  keyExtractor={(item, index) => `${item.place_id}-${index}`}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
-                      onPress={() => handleLocationSelect(item)}
-                    >
-                      <MaterialIcon name="location-on" size={16} color={colors.primary} />
-                      <View style={styles.searchResultText}>
-                        <Text style={[styles.searchResultTitle, { color: colors.text, fontSize: fontSizes.searchResultTitle }]} numberOfLines={1}>
-                          {item.display_name.split(',')[0]}
-                        </Text>
-                        <Text style={[styles.searchResultSubtitle, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]} numberOfLines={2}>
-                          {item.display_name}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                  style={styles.searchResultsList}
-                />
-              ) : searchQuery.length >= 3 ? (
-                <View style={styles.noResultsContainer}>
-                  <Text style={[styles.noResultsText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
-                    {t('locationSelector.noLocationsFound')}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-        </View>
-
-        <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
-          <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
-            {isPinSelected 
-              ? t('locationSelector.pinLocationSelected')
-              : t('locationSelector.tapOnMapToSelect')}
-          </Text>
-        </View>
-        
-        <View style={styles.mapContainer}>
-          <MapView
-            style={styles.map}
-            region={{
-              latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 37.7749,
-              longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || -122.4194,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
+ const renderManualDetectContent = () => {
+  return (
+    <ScrollView 
+      style={styles.methodContentContainer}
+      showsVerticalScrollIndicator={true}
+      contentContainerStyle={styles.scrollContentContainer}
+    >
+      <View style={styles.searchSection}>
+        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+          {t('locationSelector.searchForLocation')}
+        </Text>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Icon name="search" size={fontSizes.iconSize - 4} color={colors.textSecondary} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.addressText }]}
+            placeholder={t('locationSelector.enterAddressOrPlace')}
+            placeholderTextColor={colors.placeholder}
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              setShowSearchResults(text.length > 0);
             }}
-            onPress={handleMapPress}
-          >
-            {latitude && longitude && (
-              <Marker
-                coordinate={{
-                  latitude: latitude,
-                  longitude: longitude,
-                }}
-                title={t('locationSelector.yourCurrentLocation')}
-                pinColor={colors.primary}
-              />
-            )}
-            
-            {isPinSelected && selectedPinLocation && (
-              <Marker
-                coordinate={selectedPinLocation}
-                title={t('locationSelector.selectedLocation')}
-                pinColor={colors.error}
-              />
-            )}
-          </MapView>
-        </View>
-
-        <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
-          <View style={styles.locationInfo}>
-            <MaterialIcon name="location-on" size={20} color={colors.primary} />
-            <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
-              {isPinSelected ? selectedPinAddress : (address || t('locationSelector.noAddressSelected'))}
-            </Text>
-          </View>
-          {selectedPinLocation && (
-            <View style={styles.coordinatesContainer}>
-              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-                Lat: {selectedPinLocation.latitude.toFixed(4)}
-              </Text>
-              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-                Lng: {selectedPinLocation.longitude.toFixed(4)}
-              </Text>
-            </View>
+            onFocus={() => setSearchInputFocused(true)}
+            onBlur={() => setTimeout(() => setSearchInputFocused(false), 200)}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery("");
+                setSearchResults([]);
+                setShowSearchResults(false);
+              }}
+              style={styles.clearSearchButton}
+            >
+              <Icon name="times" size={fontSizes.iconSize - 4} color={colors.textSecondary} />
+            </TouchableOpacity>
           )}
         </View>
 
-        <View style={styles.locationSelectionButtons}>
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
-            onPress={handleUseCurrentLocation}
-          >
-            <MaterialIcon name="my-location" size={16} color={colors.text} style={{ marginRight: 4 }} />
-            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
-              {t('locationSelector.useCurrent')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {showSearchResults && (
+          <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {isSearching ? (
+              <View style={styles.searchLoadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.searchLoadingText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
+                  {t('locationSelector.searching')}
+                </Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item, index) => `${item.place_id}-${index}`}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
+                    onPress={() => handleLocationSelect(item)}
+                  >
+                    <MaterialIcon name="location-on" size={fontSizes.iconSize - 4} color={colors.primary} />
+                    <View style={styles.searchResultText}>
+                      <Text style={[styles.searchResultTitle, { color: colors.text, fontSize: fontSizes.searchResultTitle }]} numberOfLines={1}>
+                        {item.display_name.split(',')[0]}
+                      </Text>
+                      <Text style={[styles.searchResultSubtitle, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]} numberOfLines={2}>
+                        {item.display_name}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                style={styles.searchResultsList}
+              />
+            ) : searchQuery.length >= 3 ? (
+              <View style={styles.noResultsContainer}>
+                <Text style={[styles.noResultsText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
+                  {t('locationSelector.noLocationsFound')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
       </View>
-    );
-  };
+
+      <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
+        <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
+          {isPinSelected 
+            ? t('locationSelector.pinLocationSelected')
+            : t('locationSelector.tapOnMapToSelect')}
+        </Text>
+      </View>
+      
+      <View style={styles.mapContainer}>
+        <MapView
+          style={styles.map}
+          region={{
+            latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 37.7749,
+            longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || -122.4194,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          onPress={handleMapPress}
+        >
+          {latitude && longitude && (
+            <Marker
+              coordinate={{
+                latitude: latitude,
+                longitude: longitude,
+              }}
+              title={t('locationSelector.yourCurrentLocation')}
+              pinColor={colors.primary}
+            />
+          )}
+          
+          {isPinSelected && selectedPinLocation && (
+            <Marker
+              coordinate={selectedPinLocation}
+              title={t('locationSelector.selectedLocation')}
+              pinColor={colors.error}
+            />
+          )}
+        </MapView>
+      </View>
+
+      <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
+        <View style={styles.locationInfo}>
+          <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
+          <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
+            {isPinSelected ? selectedPinAddress : (address || t('locationSelector.noAddressSelected'))}
+          </Text>
+        </View>
+        {selectedPinLocation && (
+          <View style={styles.coordinatesContainer}>
+            <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+              Lat: {selectedPinLocation.latitude.toFixed(4)}
+            </Text>
+            <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+              Lng: {selectedPinLocation.longitude.toFixed(4)}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.locationSelectionButtons}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1, height: fontSizes.buttonHeight }]}
+          onPress={handleUseCurrentLocation}
+        >
+          <MaterialIcon name="my-location" size={fontSizes.iconSize - 4} color={colors.text} style={{ marginRight: 4 }} />
+          <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+            {t('locationSelector.useCurrent')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
 
   const renderLocationModalContent = () => {
     return (
@@ -1288,7 +1306,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
         <View style={styles.buttonGroup}>
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1, height: fontSizes.buttonHeight }]}
             onPress={() => {
               setOpen(false);
               setIsPinSelected(false);
@@ -1306,7 +1324,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           <TouchableOpacity
             style={[
               styles.button, 
-              { backgroundColor: colors.primary },
+              { backgroundColor: colors.primary, flex: 1, height: fontSizes.buttonHeight },
               (!address && !selectedPinAddress && !(locationMethod === 'auto' && address)) && { backgroundColor: colors.disabled }
             ]}
             onPress={handleLocationSave}
@@ -1506,8 +1524,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       paddingHorizontal: 24,
     },
     button: {
-      flex: 1,
-      paddingVertical: 12,
       borderRadius: 8,
       alignItems: "center",
       justifyContent: "center",
@@ -1539,19 +1555,29 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       flexDirection: "row",
       justifyContent: "space-between",
       marginBottom: 16,
+      gap: 8,
     },
     saveOptionButton: {
       alignItems: "center",
+      justifyContent: "center",
       padding: 12,
       borderRadius: 8,
       backgroundColor: colors.surface,
       flex: 1,
-      marginHorizontal: 4,
+    },
+    saveOptionButtonActive: {
+      backgroundColor: colors.primary + '20',
+      borderWidth: 2,
+      borderColor: colors.primary,
     },
     saveOptionText: {
       marginTop: 8,
       fontSize: fontSizes.saveOptionText,
       color: colors.text,
+    },
+    saveOptionTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
     },
     locationNameInput: {
       borderWidth: 1,
@@ -1770,28 +1796,52 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             <Text style={dynamicStyles.saveAsText}>{t('locationSelector.saveAs')}:</Text>
             <View style={styles.saveOptionsContainer}>
               <TouchableOpacity
-                style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
+                style={[
+                  dynamicStyles.saveOptionButton,
+                  selectedSaveOption === "Home" && dynamicStyles.saveOptionButtonActive
+                ]}
                 onPress={() => handleUserPreference("Home")}
                 disabled={isSaving}
               >
-                <Icon name="home" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.saveOptionText}>{t('common.home')}</Text>
+                <Icon name="home" size={fontSizes.iconSize} color={selectedSaveOption === "Home" ? colors.primary : colors.textSecondary} />
+                <Text style={[
+                  dynamicStyles.saveOptionText,
+                  selectedSaveOption === "Home" && dynamicStyles.saveOptionTextActive
+                ]}>
+                  {t('common.home')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
+                style={[
+                  dynamicStyles.saveOptionButton,
+                  selectedSaveOption === "Office" && dynamicStyles.saveOptionButtonActive
+                ]}
                 onPress={() => handleUserPreference("Office")}
                 disabled={isSaving}
               >
-                <Icon name="briefcase" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.saveOptionText}>{t('common.office')}</Text>
+                <Icon name="briefcase" size={fontSizes.iconSize} color={selectedSaveOption === "Office" ? colors.primary : colors.textSecondary} />
+                <Text style={[
+                  dynamicStyles.saveOptionText,
+                  selectedSaveOption === "Office" && dynamicStyles.saveOptionTextActive
+                ]}>
+                  {t('common.office')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[dynamicStyles.saveOptionButton, { backgroundColor: colors.surface }]}
+                style={[
+                  dynamicStyles.saveOptionButton,
+                  selectedSaveOption === "others" && dynamicStyles.saveOptionButtonActive
+                ]}
                 onPress={() => handleUserPreference()}
                 disabled={isSaving}
               >
-                <Icon name="map-marker" size={20} color={colors.primary} />
-                <Text style={dynamicStyles.saveOptionText}>{t('common.others')}</Text>
+                <Icon name="map-marker" size={fontSizes.iconSize} color={selectedSaveOption === "others" ? colors.primary : colors.textSecondary} />
+                <Text style={[
+                  dynamicStyles.saveOptionText,
+                  selectedSaveOption === "others" && dynamicStyles.saveOptionTextActive
+                ]}>
+                  {t('common.others')}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -1808,16 +1858,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
             <View style={dynamicStyles.buttonGroup}>
               <TouchableOpacity
-                style={[dynamicStyles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                style={[dynamicStyles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1, height: fontSizes.buttonHeight }]}
                 onPress={() => setOpenSaveOptionForSave(false)}
                 disabled={isSaving}
               >
-                <Text style={dynamicStyles.secondaryButtonText}>{t('common.cancel')}</Text>
+                <Text style={[dynamicStyles.secondaryButtonText, { fontSize: fontSizes.buttonText }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   dynamicStyles.button, 
-                  { backgroundColor: colors.primary },
+                  { backgroundColor: colors.primary, flex: 1, height: fontSizes.buttonHeight },
                   (!locationAs || locationAs.trim() === "") && dynamicStyles.disabledButton
                 ]}
                 onPress={locationHandleSave}
@@ -1826,7 +1876,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                 {isSaving ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={dynamicStyles.buttonText}>{t('common.save')}</Text>
+                  <Text style={[dynamicStyles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1859,9 +1909,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 16,
+    gap: 8,
   },
   button: {
-    paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -1999,6 +2049,7 @@ const styles = StyleSheet.create({
   },
   saveOptionButton: {
     alignItems: "center",
+    justifyContent: "center",
     padding: 12,
     borderRadius: 8,
     flex: 1,
@@ -2099,6 +2150,10 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
+  // Add this to the styles object
+scrollContentContainer: {
+  paddingBottom: 20,
+},
 });
 
 export default LocationSelector;
