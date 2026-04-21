@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
+  Clipboard,
 } from 'react-native';
 import {
   SafeAreaView,
@@ -20,9 +21,9 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import providerInstance from '../services/providerInstance';
 import axios from 'axios';
-import { useTranslation } from 'react-i18next';
 import { useFieldValidation } from '../Registration/useFieldValidation';
 import LinearGradient from 'react-native-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 interface RegistrationProps {
   onBackToLogin: (data: boolean) => void;
@@ -114,6 +115,36 @@ const RegistrationIdDisplay: React.FC<{
   </View>
 );
 
+// Tooltip Component
+const Tooltip: React.FC<{
+  visible: boolean;
+  text: string;
+  onClose: () => void;
+}> = ({ visible, text, onClose }) => {
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, onClose]);
+
+  if (!visible) return null;
+
+  return (
+    <View style={styles.tooltipContainer}>
+      <View style={styles.tooltipContent}>
+        <Text style={styles.tooltipText}>{text}</Text>
+        <TouchableOpacity onPress={onClose} style={styles.tooltipClose}>
+          <Icon name="close" size={16} color="#fff" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.tooltipArrow} />
+    </View>
+  );
+};
+
 const AgentRegistrationForm: React.FC<RegistrationProps> = ({
   onBackToLogin,
   onClose,
@@ -133,6 +164,7 @@ const AgentRegistrationForm: React.FC<RegistrationProps> = ({
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({
     phoneNo: '',
@@ -372,12 +404,20 @@ const AgentRegistrationForm: React.FC<RegistrationProps> = ({
 
   const handleCopyRegistrationId = async () => {
     try {
+      await Clipboard.setString(returnedRegistrationId);
       setMessage(t('registrationIdCopied'));
       setSnackbarSeverity('success');
       setSnackbarVisible(true);
     } catch (err) {
       console.error('Failed to copy registration ID: ', err);
+      setMessage(t('copyFailed'));
+      setSnackbarSeverity('error');
+      setSnackbarVisible(true);
     }
+  };
+
+  const handleInfoPress = () => {
+    setShowTooltip(true);
   };
 
   useEffect(() => {
@@ -432,21 +472,19 @@ const AgentRegistrationForm: React.FC<RegistrationProps> = ({
           >
             <View style={styles.dialogContent}>
               {/* Dialog Header */}
-               <LinearGradient
-                        colors={["#0a2a66ff", "#004aadff"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.dialogHeader}
-                      >
-              {/* <View style={styles.dialogHeader}> */}
-               
+              <LinearGradient
+                colors={["#0a2a66ff", "#004aadff"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.dialogHeader}
+              >
                 <Text style={styles.dialogTitle}>{t('Agent Registration')}</Text>
                 <View style={{ width: 40 }} />
-                 <TouchableOpacity onPress={handleClose} style={styles.closeButton} disabled={isSubmitting}>
+                <TouchableOpacity onPress={handleClose} style={styles.closeButton} disabled={isSubmitting}>
                   <Icon name="close" size={24} color="#f8f5f5" />
                 </TouchableOpacity>
-              {/* </View> */}
-</LinearGradient>
+              </LinearGradient>
+              
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
@@ -539,9 +577,18 @@ const AgentRegistrationForm: React.FC<RegistrationProps> = ({
                     )}
                   </View>
 
-                  {/* Registration ID */}
+                  {/* Registration ID with Info Button */}
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label}>{t('registrationId')} *</Text>
+                    <View style={styles.labelContainer}>
+                      <Text style={styles.label}>{t('registrationId')} *</Text>
+                      <TouchableOpacity 
+                        onPress={handleInfoPress} 
+                        style={styles.infoButton}
+                        activeOpacity={0.7}
+                      >
+                        <Icon name="info-outline" size={20} color="#1976d2" />
+                      </TouchableOpacity>
+                    </View>
                     <TextInput
                       style={[
                         styles.input,
@@ -694,6 +741,13 @@ const AgentRegistrationForm: React.FC<RegistrationProps> = ({
                 type={snackbarSeverity}
                 onDismiss={() => setSnackbarVisible(false)}
               />
+
+              {/* Tooltip */}
+              <Tooltip
+                visible={showTooltip}
+                text="Government-issued company registration ID"
+                onClose={() => setShowTooltip(false)}
+              />
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -740,7 +794,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    backgroundColor: '#1976d2',
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
@@ -765,11 +818,19 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 16,
   },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   label: {
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 8,
+  },
+  infoButton: {
+    marginLeft: 8,
+    padding: 2,
   },
   input: {
     borderWidth: 1,
@@ -883,6 +944,46 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     flex: 1,
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    top: '35%',
+    left: '10%',
+    right: '10%',
+    zIndex: 10000,
+    alignItems: 'center',
+  },
+  tooltipContent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    maxWidth: '100%',
+  },
+  tooltipText: {
+    color: '#fff',
+    fontSize: 14,
+    flex: 1,
+    marginRight: 8,
+  },
+  tooltipClose: {
+    padding: 2,
+  },
+  tooltipArrow: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(0, 0, 0, 0.85)',
+    position: 'absolute',
+    bottom: -8,
   },
 });
 
