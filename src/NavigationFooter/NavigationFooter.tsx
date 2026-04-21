@@ -1,5 +1,5 @@
-// NavigationFooter.tsx - CORRECTED VERSION (removed About/Contact from mobile footer)
-import React, { useState } from "react";
+// NavigationFooter.tsx - COMPLETE VERSION with Double-Tap Refresh
+import React, { useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -35,6 +35,7 @@ interface NavigationFooterProps {
   onNavigateToPage: (page: string) => void;
   activePage: string;
   onSignOutComplete?: () => Promise<void>;
+  bookingsRef?: React.MutableRefObject<any>; // Add ref for bookings component
 }
 
 const { width } = Dimensions.get("window");
@@ -53,13 +54,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   onProfileClick,
   onNavigateToPage,
   activePage,
-  onSignOutComplete
+  onSignOutComplete,
+  bookingsRef
 }) => {
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
+  const [lastTap, setLastTap] = useState<number>(0);
   const { t } = useTranslation();
   
   const { authorize, clearSession, getCredentials } = useAuth0();
@@ -69,6 +72,56 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const isServiceProvider = auth0User && appUser?.role === "SERVICE_PROVIDER";
   const isVendor = auth0User && appUser?.role === "VENDOR";
   const isAuthenticated = auth0User;
+
+  // Double tap detection for bookings refresh
+  const handleDoubleTapRefresh = useCallback(() => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    
+    if (lastTap && (now - lastTap) < DOUBLE_TAP_DELAY) {
+      // Double tap detected - force refresh bookings
+      console.log("🔁 Double tap detected on Bookings button - Forcing refresh...");
+      
+      // Show visual feedback
+      Snackbar.show({
+        text: "Refreshing bookings...",
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#3b82f6",
+        textColor: "#ffffff",
+      });
+      
+      // Trigger refresh on bookings component
+      if (bookingsRef?.current && bookingsRef.current.forceRefresh) {
+        bookingsRef.current.forceRefresh();
+      } else if (bookingsRef?.current && bookingsRef.current.refreshBookings) {
+        bookingsRef.current.refreshBookings();
+      } else {
+        // Fallback: just navigate to bookings
+        console.log("⚠️ Bookings ref not available, just navigating");
+        if (isAuthenticated && isCustomer) {
+          onNavigateToPage(BOOKINGS);
+        } else if (!isAuthenticated) {
+          handleLoginClick();
+        } else {
+          onBookingsClick();
+        }
+      }
+      
+      setLastTap(0);
+    } else {
+      setLastTap(now);
+      // Single tap - normal navigation to bookings
+      console.log("📍 Single tap on Bookings button - Navigating...");
+      if (isAuthenticated && isCustomer) {
+        onNavigateToPage(BOOKINGS);
+      } else if (!isAuthenticated) {
+        handleLoginClick();
+      } else {
+        onBookingsClick();
+      }
+      setIsProfileMenuVisible(false);
+    }
+  }, [lastTap, isAuthenticated, isCustomer, onNavigateToPage, onBookingsClick]);
 
   const handleProfileButtonClick = () => {
     if (isAuthenticated) {
@@ -86,34 +139,32 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const handleBookingsButtonClick = () => {
     if (isAuthenticated && isCustomer) {
       onNavigateToPage(BOOKINGS);
-      setIsProfileMenuVisible(false);
     } else if (!isAuthenticated) {
       handleLoginClick();
     } else {
       onBookingsClick();
-      setIsProfileMenuVisible(false);
     }
+    setIsProfileMenuVisible(false);
   };
 
   const handleDashboardButtonClick = () => {
     if (isAuthenticated && isServiceProvider) {
       onNavigateToPage(DASHBOARD);
-      setIsProfileMenuVisible(false);
     } else if (!isAuthenticated) {
       handleLoginClick();
     } else {
       onDashboardClick();
-      setIsProfileMenuVisible(false);
     }
+    setIsProfileMenuVisible(false);
   };
 
   const handleAgentDashboardButtonClick = () => {
     if (isAuthenticated && isVendor) {
       onNavigateToPage(AGENT_DASHBOARD);
-      setIsProfileMenuVisible(false);
     } else if (!isAuthenticated) {
       handleLoginClick();
     }
+    setIsProfileMenuVisible(false);
   };
 
   const handleLoginClick = async () => {
@@ -258,13 +309,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onPress: handleProfileButtonClick,
       });
       
-      // For customers, add Bookings and Wallet
+      // For customers, add Bookings and Wallet with double-tap refresh
       if (isCustomer) {
         tabs.push({
           key: BOOKINGS,
           label: t('navigation.bookings'),
           icon: <MaterialIcon name="event-note" size={22} />,
-          onPress: handleBookingsButtonClick,
+          onPress: handleDoubleTapRefresh, // Using double-tap handler
         });
         
         tabs.push({
@@ -427,7 +478,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
             {isCustomer && (
               <TouchableOpacity
-                onPress={handleBookingsButtonClick}
+                onPress={handleDoubleTapRefresh} // Double-tap for desktop as well
                 style={styles.desktopNavItem}
               >
                 <MaterialIcon name="event-note" size={20} color="#fff" style={styles.navIcon} />

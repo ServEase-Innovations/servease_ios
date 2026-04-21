@@ -1,4 +1,4 @@
-// App.tsx - Complete version with ThemeProvider, Settings, Multi-language support, and Professional Loading Animation
+// App.tsx - Complete version with ThemeProvider, Settings, Multi-language support, and Double-Tap Refresh Support
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -23,7 +23,6 @@ import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "./i18n";
-// import { LinearGradient } from 'expo-linear-gradient'; // Import LinearGradient
 
 // Import Theme Provider
 import { ThemeProvider, useTheme } from "./src/Settings/ThemeContext";
@@ -46,7 +45,7 @@ import HomePage from "./src/HomePage/HomePage";
 import DetailsView from "./src/DetailsView/DetailsView";
 import Footer from "./src/Footer/Footer";
 import Chatbot from "./src/Chatbot/Chatbot";
-import Booking from "./src/UserProfile/Bookings";
+import Booking, { BookingRef } from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard";
@@ -100,7 +99,7 @@ const MainApp = () => {
   const [currentView, setCurrentView] = useState(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
-  const [showSplash, setShowSplash] = useState(true); // This now controls the loading screen
+  const [showSplash, setShowSplash] = useState(true);
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
   const [activeToast, setActiveToast] = useState<Engagement | null>(null);
   const [showNotificationClient, setShowNotificationClient] = useState(false);
@@ -117,10 +116,11 @@ const MainApp = () => {
   const [showProviderRegistration, setShowProviderRegistration] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  // Key to force re-render of entire app
   const [appResetKey, setAppResetKey] = useState(Date.now());
-  // Flag to track if we're performing a full app reset
   const [isResetting, setIsResetting] = useState(false);
+  
+  // Ref for Booking component to enable double-tap refresh
+  const bookingsRef = useRef<BookingRef>(null);
   
   // ============= DEEP LINKING STATES =============
   const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
@@ -149,17 +149,11 @@ const MainApp = () => {
 
   // ============= DEEP LINKING IMPLEMENTATION =============
 
-  /**
-   * Process deep link after authentication
-   */
   const processDeepLink = (openBookings: string, customerId: string | null, bookingId: string | null, action: string | null = 'open') => {
     setProcessingDeepLink(true);
     setShowDeepLinkLoading(true);
     
-    // Store data in AsyncStorage for the Booking component
     if (customerId) {
-      // Using session-like storage (you might want to use AsyncStorage)
-      // For now, we'll use a global variable or context
       global.deepLinkCustomerId = customerId;
       console.log(`📦 Will show ALL bookings for customer #${customerId}`);
     }
@@ -170,26 +164,18 @@ const MainApp = () => {
     }
     
     global.deepLinkTimestamp = Date.now().toString();
-    
-    // MODIFIED: Always set action to 'drawer' by default
-    // This ensures that even without action=drawer parameter, the drawer will open
     global.deepLinkAction = 'drawer';
     console.log(`📦 Default action set to 'drawer' for automatic drawer opening`);
     
-    // Set the view to BOOKINGS
     setCurrentView(BOOKINGS);
-    
-    // Mark as processed
     setDeepLinkProcessed(true);
     setPendingDeepLink(null);
     setProcessingDeepLink(false);
     
-    // Hide loading after a short delay
     setTimeout(() => {
       setShowDeepLinkLoading(false);
     }, 1000);
     
-    // Clean up pending data
     global.pendingDeepLinkCustomerId = null;
     global.pendingDeepLinkBookingId = null;
     global.pendingDeepLinkTimestamp = null;
@@ -198,16 +184,12 @@ const MainApp = () => {
     console.log('✅ Deep link processed successfully with automatic drawer opening');
   };
 
-  /**
-   * Check for deep link parameters on initial load
-   */
   const checkDeepLink = async (url: string | null) => {
     if (!url || deepLinkProcessed) return;
 
     console.log('=== DEEP LINK CHECK ===');
     console.log('Current URL:', url);
     
-    // Parse the URL
     const parsedUrl = new URL(url);
     const params = parsedUrl.searchParams;
     
@@ -220,19 +202,14 @@ const MainApp = () => {
     console.log('customerId param:', customerId);
     console.log('bookingId param:', bookingId);
     console.log('action param:', action);
-    console.log('Is authenticated:', !!appUser);
-    console.log('Auth loading:', false);
 
     if (openBookings === 'true') {
       if (appUser) {
-        // User is already logged in, process deep link immediately
         console.log('✅ User authenticated, processing deep link now');
         processDeepLink(openBookings, customerId, bookingId, action);
       } else {
-        // User not logged in, store deep link for after login
         console.log('🔐 User not authenticated, storing deep link for after login');
         
-        // Store in state
         setPendingDeepLink({
           openBookings,
           customerId,
@@ -240,7 +217,6 @@ const MainApp = () => {
           action
         });
         
-        // Also store in global as backup
         if (customerId) {
           global.pendingDeepLinkCustomerId = customerId;
         }
@@ -249,28 +225,16 @@ const MainApp = () => {
         }
         global.pendingDeepLinkTimestamp = Date.now().toString();
         
-        // MODIFIED: Store action as 'drawer' by default
         const actionToStore = action || 'drawer';
         global.pendingDeepLinkAction = actionToStore;
         console.log(`📦 Stored pending action: ${actionToStore}`);
         
-        console.log(`📦 Stored pending deep link data:`, {
-          customerId: customerId || 'none',
-          bookingId: bookingId || 'none',
-          action: actionToStore
-        });
-        
-        // Show signup drawer to prompt login
         setShowSignupDrawer(true);
       }
     }
   };
 
-  /**
-   * Handle incoming deep links
-   */
   useEffect(() => {
-    // Handle initial URL
     const getInitialURL = async () => {
       const initialUrl = await Linking.getInitialURL();
       if (initialUrl) {
@@ -280,7 +244,6 @@ const MainApp = () => {
 
     getInitialURL();
 
-    // Handle URL events while app is running
     const subscription = Linking.addEventListener('url', ({ url }) => {
       checkDeepLink(url);
     });
@@ -290,12 +253,8 @@ const MainApp = () => {
     };
   }, [appUser, deepLinkProcessed]);
 
-  /**
-   * Handle post-login deep link processing
-   */
   useEffect(() => {
     if (appUser && !deepLinkProcessed) {
-      // Check if we have a pending deep link in state
       if (pendingDeepLink) {
         console.log('🔄 User just logged in, processing pending deep link from state');
         processDeepLink(
@@ -304,9 +263,7 @@ const MainApp = () => {
           pendingDeepLink.bookingId, 
           pendingDeepLink.action
         );
-      } 
-      // Also check global as backup
-      else {
+      } else {
         const pendingCustomerId = global.pendingDeepLinkCustomerId;
         const pendingBookingId = global.pendingDeepLinkBookingId;
         const pendingTimestamp = global.pendingDeepLinkTimestamp;
@@ -321,7 +278,6 @@ const MainApp = () => {
             console.log('🔄 Found pending deep link in global storage, processing...');
             processDeepLink('true', pendingCustomerId, pendingBookingId, pendingAction);
           } else {
-            // Clear expired deep link
             global.pendingDeepLinkCustomerId = null;
             global.pendingDeepLinkBookingId = null;
             global.pendingDeepLinkTimestamp = null;
@@ -334,7 +290,6 @@ const MainApp = () => {
 
   // COMPLETE APP RELAUNCH METHOD
   const handleAppRelaunchAfterSignOut = async () => {
-    // Prevent multiple reset attempts
     if (isResetting) {
       console.log("⚠️ App reset already in progress...");
       return;
@@ -345,7 +300,6 @@ const MainApp = () => {
     try {
       console.log("🔄 ===== STARTING COMPLETE APP RELAUNCH =====");
       
-      // 1. Clear Auth0 session (already done in NavigationFooter, but do it again to be safe)
       try {
         await clearSession({
           returnToUrl: "com.serveaso://logout",
@@ -355,7 +309,6 @@ const MainApp = () => {
         console.log("⚠️ Auth0 session clear may have already been called:", authError);
       }
       
-      // 2. Clear all app states to initial values
       console.log("🔄 Resetting all app states...");
       setCurrentView(HOME);
       setChatbotOpen(false);
@@ -373,13 +326,11 @@ const MainApp = () => {
       setShowProfileMenu(false);
       setActiveToast(null);
       
-      // Reset deep link states
       setDeepLinkProcessed(false);
       setProcessingDeepLink(false);
       setPendingDeepLink(null);
       setShowDeepLinkLoading(false);
       
-      // Clear global deep link data
       global.deepLinkCustomerId = null;
       global.deepLinkBookingId = null;
       global.deepLinkTimestamp = null;
@@ -389,29 +340,24 @@ const MainApp = () => {
       global.pendingDeepLinkTimestamp = null;
       global.pendingDeepLinkAction = null;
       
-      // 3. Clear app user context
       if (clearAppUser) {
         clearAppUser();
         console.log("✅ AppUser context cleared");
       }
       
-      // 4. Disconnect and clear socket connection
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
         console.log("✅ Socket disconnected");
       }
       
-      // 5. Generate new key to force complete re-render
       const newKey = Date.now();
       setAppResetKey(newKey);
       console.log(`✅ App reset key updated: ${newKey}`);
       
-      // 6. Show splash screen to indicate restart
       setShowSplash(true);
       fadeAnim.setValue(1);
       
-      // 7. Hide splash after delay
       setTimeout(() => {
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -426,7 +372,6 @@ const MainApp = () => {
       
     } catch (error) {
       console.error("❌ Error during app relaunch:", error);
-      // Force reset even if errors occur
       setAppResetKey(Date.now());
       setCurrentView(HOME);
       setShowSplash(false);
@@ -524,9 +469,7 @@ const MainApp = () => {
     const fetchCustomerDetails = async () => {
       try {
         console.log("📱 Fetching customer details for ID:", appUser.customerid);
-        const response = await axiosInstance.get
-          (`/api/customer/get-customer-by-id/${appUser.customerid}`
-        );
+        const response = await axiosInstance.get(`/api/customer/get-customer-by-id/${appUser.customerid}`);
 
         const customer = response.data;
         setCustomerData(customer);
@@ -769,18 +712,10 @@ const MainApp = () => {
     Alert.alert(i18n.t('contact.title'), i18n.t('contact.description'));
   };
 
-  // FIXED: renderContent function - Now properly separates HOME and DASHBOARD
+  // renderContent function with ref forwarding for Booking
   const renderContent = () => {
-    // For service providers:
-    // - If currentView is HOME → Show HomePage
-    // - If currentView is DASHBOARD → Show Dashboard
-    // - If currentView is PROFILE → Show ProfileScreen
-    // - If currentView is BOOKINGS → Show Bookings
-    // - If currentView is AGENT_DASHBOARD → Show AgentDashboard
-    
     switch (currentView) {
       case HOME:
-        // Always show HomePage when currentView is HOME, regardless of user role
         return (
           <View style={styles.homeContainer}>
             <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
@@ -788,12 +723,10 @@ const MainApp = () => {
         );
         
       case BOOKINGS:
-        return <Booking onBackToHome={() => setCurrentView(HOME)} />;
+        return <Booking ref={bookingsRef} onBackToHome={() => setCurrentView(HOME)} />;
         
       case DASHBOARD:
-        // Show Dashboard for service providers, but if profile view is requested from dashboard
         return showProfileFromDashboard ? (
-          // <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />
           <ProfileScreen/>
         ) : (
           <Dashboard 
@@ -802,24 +735,18 @@ const MainApp = () => {
           />
         );
         
-      case AGENT_DASHBOARD: // ADD AGENT DASHBOARD CASE
-        // Show AgentDashboard for vendor/agent users
+      case AGENT_DASHBOARD:
         return <AgentDashboard />;
         
       case PROFILE:
-        // return <ProfileScreen onBackToHome={() => setCurrentView(HOME)} />;
         return <ProfileScreen/>;
-
         
       default:
-        // This handles "DETAILS" and any other views
         return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
     }
   };
 
-  // ============= UPDATED LOADING SCREEN =============
-  // This now implements the professional loading animation with LinearGradient,
-  // Logo, "Loading Server" text, and a 2-second delay.
+  // Loading Screen
   if (showSplash) {
     return (
       <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
@@ -835,10 +762,6 @@ const MainApp = () => {
               style={styles.splashImage}
               resizeMode="contain"
             />
-            {/* <Text style={styles.loadingServerText}>Loading Server</Text>
-            <View style={styles.loaderContainer}>
-              <ActivityIndicator size="large" color="#ffffff" />
-            </View> */}
           </View>
         </LinearGradient>
       </Animated.View>
@@ -919,7 +842,7 @@ const MainApp = () => {
                 onDashboardClick={handleDashboardClick}
                 onAboutClick={handleAboutClick}
                 onContactClick={handleContactClick}
-                auth0User={appUser}
+                auth0User={user}
                 appUser={appUser}
                 bookingType={selectedBookingType}
                 onOpenSignup={() => setShowSignupDrawer(true)}
@@ -942,6 +865,7 @@ const MainApp = () => {
                   }
                 }}
                 onSignOutComplete={handleAppRelaunchAfterSignOut}
+                bookingsRef={bookingsRef}
               />
 
               <ProfileMenuSheet
@@ -1074,18 +998,15 @@ const App = () => {
   const [i18nInitialized, setI18nInitialized] = useState(false);
 
   useEffect(() => {
-    // Initialize i18n when app starts
     initI18n().then(() => {
       setI18nInitialized(true);
     }).catch((error) => {
       console.error('Failed to initialize i18n:', error);
-      // Still set initialized to true to show the app even if i18n fails
       setI18nInitialized(true);
     });
   }, []);
 
   if (!i18nInitialized) {
-    // Show a minimal loading screen while i18n initializes
     return (
       <LinearGradient
         colors={["#0a2a66ff", "#004aadff"]}
@@ -1135,19 +1056,6 @@ const styles = StyleSheet.create({
     height: "30%", 
     marginBottom: 30,
   },
-  loadingServerText: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#ffffff",
-    marginBottom: 40,
-    letterSpacing: 0.5,
-    textShadowColor: "rgba(0, 0, 0, 0.2)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  loaderContainer: {
-    marginTop: 20,
-  },
   safeArea: {
     flex: 1,
   },
@@ -1157,19 +1065,6 @@ const styles = StyleSheet.create({
   },
   homeContainer: { 
     flex: 1 
-  },
-  notificationButtonContainer: {
-    position: "absolute",
-    top: 80,
-    right: 20,
-    zIndex: 45,
-    borderRadius: 30,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
   },
   contentContainer: { 
     flex: 1, 
@@ -1241,7 +1136,6 @@ const styles = StyleSheet.create({
     elevation: 5,
     zIndex: 2000,
   },
-  // Deep linking styles
   deepLinkLoadingOverlay: {
     position: 'absolute',
     top: 0,
