@@ -70,7 +70,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   const [duplicateErrors, setDuplicateErrors] = useState<{
     [key: string]: boolean;
   }>({});
-  const [isFullAvailability, setIsFullAvailability] = useState(false);
+  const [isFullAvailability, setIsFullAvailability] = useState(true); // Changed to true for default selection
 
   useEffect(() => {
     setDuplicateErrors({});
@@ -80,6 +80,15 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
   }, [morningSlots.length, eveningSlots.length]);
+
+  // Initialize with full availability if no slots are present
+  useEffect(() => {
+    // If there are no custom slots and full availability is true, ensure it's properly set
+    if (isFullAvailability && morningSlots.length === 0 && eveningSlots.length === 0) {
+      // Full availability is already selected by default
+      // No need to clear slots as they're already empty
+    }
+  }, []);
 
   const handleSlotChange = (id: string, values: number[], type: 'morning' | 'evening') => {
     const [start, end] = values;
@@ -111,10 +120,26 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   };
 
   const handleFullAvailabilityToggle = () => {
-    if (!isFullAvailability) {
+    if (isFullAvailability) {
+      // Unselecting full availability
+      Alert.alert(
+        "Custom Time Slots",
+        "You can now set your own custom time slots. Do you want to continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Continue", 
+            onPress: () => {
+              setIsFullAvailability(false);
+            }
+          }
+        ]
+      );
+    } else {
+      // Selecting full availability
       Alert.alert(
         "Full Time Availability",
-        "This will select all time slots from 6:00 AM to 8:00 PM. Do you want to continue?",
+        "This will select all time slots from 6:00 AM to 8:00 PM. Any custom slots you've created will be cleared. Do you want to continue?",
         [
           { text: "Cancel", style: "cancel" },
           { 
@@ -127,8 +152,6 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
           }
         ]
       );
-    } else {
-      setIsFullAvailability(false);
     }
   };
 
@@ -209,6 +232,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
             )}
           </View>
         </View>
+        
 
         {/* Section Content - No ScrollView, just render all slots */}
         {slots.length === 0 ? (
