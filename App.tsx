@@ -1,4 +1,4 @@
-// App.tsx - Complete version with ThemeProvider, Settings, Multi-language support, and Double-Tap Refresh Support
+/* eslint-disable */
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -49,7 +49,8 @@ import Booking, { BookingRef } from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard";
-import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD } from "./src/Constants/pagesConstants";
+import WalletPage from "./src/UserProfile/WalletDialog";
+import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD, WALLET } from "./src/Constants/pagesConstants";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
@@ -60,7 +61,6 @@ import { useDispatch } from "react-redux";
 import { add } from "./src/features/pricingSlice";
 import MobileNumberDialog from "./src/UserProfile/MobileNumberDialog";
 import axiosInstance from "./src/services/axiosInstance";
-import WalletDialog from "./src/UserProfile/WalletDialog";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
 import { PaperProvider } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
@@ -106,7 +106,6 @@ const MainApp = () => {
   const [shouldShowMobileDialog, setShouldShowMobileDialog] = useState(false);
   const [hasCheckedMobileNumber, setHasCheckedMobileNumber] = useState(false);
   const [customerData, setCustomerData] = useState<any>(null);
-  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const appState = useRef<AppStateStatus>(AppState.currentState);
@@ -318,7 +317,6 @@ const MainApp = () => {
       setShouldShowMobileDialog(false);
       setHasCheckedMobileNumber(false);
       setCustomerData(null);
-      setIsWalletOpen(false);
       setShowNotifications(false);
       setShowSignupDrawer(false);
       setShowProviderRegistration(false);
@@ -456,7 +454,6 @@ const MainApp = () => {
       setShouldShowMobileDialog(false);
       setHasCheckedMobileNumber(false);
       setCustomerData(null);
-      setIsWalletOpen(false);
       setShowNotifications(false);
     }
   }, [appUser]);
@@ -725,6 +722,9 @@ const MainApp = () => {
       case BOOKINGS:
         return <Booking ref={bookingsRef} onBackToHome={() => setCurrentView(HOME)} />;
         
+      case WALLET:
+        return <WalletPage onBack={() => setCurrentView(HOME)} />;
+        
       case DASHBOARD:
         return showProfileFromDashboard ? (
           <ProfileScreen/>
@@ -811,7 +811,7 @@ const MainApp = () => {
 
           {/* Scrollable Content Area */}
           <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-            {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) ? (
+            {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) || currentView === WALLET ? (
               <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
                 {renderContent()}
               </ScrollView>
@@ -859,6 +859,9 @@ const MainApp = () => {
                   } else if (page === AGENT_DASHBOARD) {
                     setCurrentView(AGENT_DASHBOARD);
                     setShowProfileFromDashboard(false);
+                  } else if (page === WALLET) {
+                    setCurrentView(WALLET);
+                    setShowProfileFromDashboard(false);
                   } else if (page === HOME) {
                     setCurrentView(HOME);
                     setShowProfileFromDashboard(false);
@@ -883,7 +886,10 @@ const MainApp = () => {
                   setShowProfileMenu(false);
                   setCurrentView(DASHBOARD);
                 }}
-                onWallet={() => setIsWalletOpen(true)}
+                onWallet={() => {
+                  setShowProfileMenu(false);
+                  setCurrentView(WALLET);
+                }}
                 onContact={handleContactClick}
               />
             </View>
@@ -961,12 +967,6 @@ const MainApp = () => {
               <NotificationClient />
             </View>
           </Modal>
-
-          {/* Wallet Dialog */}
-          <WalletDialog
-            open={isWalletOpen}
-            onClose={() => setIsWalletOpen(false)}
-          />
 
           {/* Notifications Dialog */}
           <NotificationsDialog 

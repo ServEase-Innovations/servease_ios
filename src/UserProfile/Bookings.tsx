@@ -31,7 +31,6 @@ import { SkeletonLoader } from '../common/SkeletonLoader';
 import ModifyBookingDialog from './ModifyBookingDialog';
 import ConfirmationDialog from './ConfirmationDialog';
 import AddReviewDialog from './AddReviewDialog';
-import WalletDialog from './WalletDialog';
 import EngagementDetailsDrawer from './EngagementDetailsDrawer';
 import LinearGradient from 'react-native-linear-gradient';
 import PaymentInstance from '../services/paymentInstance';
@@ -326,7 +325,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
@@ -996,7 +994,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
     if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
     if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
-    if (walletDialogOpen) { setWalletDialogOpen(false); return true; }
     if (confirmationDialog.open) { setConfirmationDialog(prev => ({ ...prev, open: false })); return true; }
     if (onBackToHome) { onBackToHome(); return true; }
     return false;
@@ -1005,7 +1002,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
-  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, walletDialogOpen, confirmationDialog.open, onBackToHome]);
+  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, confirmationDialog.open, onBackToHome]);
 
   // Deep linking (simplified)
   useEffect(() => {
@@ -1039,7 +1036,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
             <View style={styles.searchContainer}>
               <SkeletonLoader width="100%" height={48} variant="rectangular" />
             </View>
-            <SkeletonLoader width={70} height={70} variant="rectangular" style={{ marginLeft: 12 }} />
           </View>
         </LinearGradient>
         <ScrollView>
@@ -1087,10 +1083,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={[styles.walletButton, { backgroundColor: colors.primary }]} onPress={() => setWalletDialogOpen(true)}>
-            <Icon name="wallet" size={24} color="#fff" />
-            <Text style={[styles.walletText, { color: '#fff', fontSize: fontSizes.badgeText }]}>Wallet</Text>
-          </TouchableOpacity>
         </View>
       </LinearGradient>
 
@@ -1206,7 +1198,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
       <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? 'Confirm' : 'Pay Now'} loading={actionLoading} severity={confirmationDialog.severity} />
       <AddReviewDialog visible={reviewDialogVisible} onClose={closeReviewDialog} booking={convertBookingForChildComponents(selectedReviewBooking)} onReviewSubmitted={handleReviewSubmitted} />
-      <WalletDialog open={walletDialogOpen} onClose={() => setWalletDialogOpen(false)} />
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
       <EngagementDetailsDrawer 
         isOpen={detailsDrawerOpen} 
@@ -1248,8 +1239,6 @@ const styles = StyleSheet.create({
   searchContainer: { flex: 1, position: 'relative', marginRight: 12 },
   searchInput: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1 },
   clearSearchButton: { position: 'absolute', right: 12, top: 12 },
-  walletButton: { padding: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center', width: 70 },
-  walletText: { marginTop: 4, fontWeight: '500' },
   mainScrollView: { flex: 1 },
   scrollContentContainer: { flexGrow: 1, paddingBottom: 20 },
   section: { paddingHorizontal: 20, paddingTop: 0, paddingBottom: 20 },

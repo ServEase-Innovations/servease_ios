@@ -22,7 +22,7 @@ import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import FeatherIcon from 'react-native-vector-icons/Feather';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 import { DashboardMetricCard } from './DashboardMetricCard';
-import { PaymentHistory } from './PaymentHistory';
+// import { PaymentHistory } from './PaymentHistory';
 import { useAuth0 } from 'react-native-auth0';
 import { AllBookingsDialog } from './AllBookingsDialog';
 import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from '../common/BookingUtils';
@@ -40,6 +40,7 @@ import TrackAddress from './TrackAddress';
 import { Calendar, MapPin, X, Phone, Clock, Loader2, CheckCircle } from "lucide-react-native";
 
 const { width } = Dimensions.get('window');
+
 
 // Google Maps API Key
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
@@ -1413,7 +1414,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
           </View>
 
           {/* Calendar and Payment History */}
-          <View style={styles.bottomSection}>
+          {/* <View style={styles.bottomSection}>
             {serviceProviderId !== null && (
               <View style={styles.calendarContainer}>
                 <ProviderCalendarBig providerId={serviceProviderId} />
@@ -1422,7 +1423,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
             <View style={styles.paymentHistoryContainer}>
               <PaymentHistory payments={paymentHistory} />
             </View>
-          </View>
+          </View> */}
 
           {/* Sign Out Button */}
           <TouchableOpacity style={styles.signOutButton} onPress={onLogout}>

@@ -1,4 +1,4 @@
-// NavigationFooter.tsx - COMPLETE VERSION with Double-Tap Refresh
+// NavigationFooter.tsx - Updated with Wallet page navigation
 import React, { useState, useRef, useCallback } from "react";
 import {
   View,
@@ -10,13 +10,12 @@ import {
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FeatherIcon from "react-native-vector-icons/Feather";
-import WalletDialog from "../UserProfile/WalletDialog";
 import NotificationsDialog from "../Notifications/NotificationsPage";
 import { useAuth0 } from "react-native-auth0";
 import { useDispatch } from "react-redux";
 import { remove } from "../features/userSlice";
 import Snackbar from "react-native-snackbar";
-import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD } from "../Constants/pagesConstants";
+import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
 import Settings from "../Settings/Settings";
@@ -35,7 +34,7 @@ interface NavigationFooterProps {
   onNavigateToPage: (page: string) => void;
   activePage: string;
   onSignOutComplete?: () => Promise<void>;
-  bookingsRef?: React.MutableRefObject<any>; // Add ref for bookings component
+  bookingsRef?: React.MutableRefObject<any>;
 }
 
 const { width } = Dimensions.get("window");
@@ -57,7 +56,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   onSignOutComplete,
   bookingsRef
 }) => {
-  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
@@ -79,10 +77,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     const DOUBLE_TAP_DELAY = 300;
     
     if (lastTap && (now - lastTap) < DOUBLE_TAP_DELAY) {
-      // Double tap detected - force refresh bookings
       console.log("🔁 Double tap detected on Bookings button - Forcing refresh...");
       
-      // Show visual feedback
       Snackbar.show({
         text: "Refreshing bookings...",
         duration: Snackbar.LENGTH_SHORT,
@@ -90,13 +86,11 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         textColor: "#ffffff",
       });
       
-      // Trigger refresh on bookings component
       if (bookingsRef?.current && bookingsRef.current.forceRefresh) {
         bookingsRef.current.forceRefresh();
       } else if (bookingsRef?.current && bookingsRef.current.refreshBookings) {
         bookingsRef.current.refreshBookings();
       } else {
-        // Fallback: just navigate to bookings
         console.log("⚠️ Bookings ref not available, just navigating");
         if (isAuthenticated && isCustomer) {
           onNavigateToPage(BOOKINGS);
@@ -110,7 +104,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       setLastTap(0);
     } else {
       setLastTap(now);
-      // Single tap - normal navigation to bookings
       console.log("📍 Single tap on Bookings button - Navigating...");
       if (isAuthenticated && isCustomer) {
         onNavigateToPage(BOOKINGS);
@@ -161,6 +154,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const handleAgentDashboardButtonClick = () => {
     if (isAuthenticated && isVendor) {
       onNavigateToPage(AGENT_DASHBOARD);
+    } else if (!isAuthenticated) {
+      handleLoginClick();
+    }
+    setIsProfileMenuVisible(false);
+  };
+
+  const handleWalletClick = () => {
+    if (isAuthenticated && isCustomer) {
+      onNavigateToPage(WALLET);
     } else if (!isAuthenticated) {
       handleLoginClick();
     }
@@ -242,11 +244,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     setIsProfileMenuVisible(false);
   };
 
-  const handleWalletOpen = () => {
-    setIsWalletOpen(true);
-    setIsProfileMenuVisible(false);
-  };
-
   const handleSettingsOpen = () => {
     setIsSettingsVisible(true);
   };
@@ -288,10 +285,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
   // For mobile - render bottom navigation bar
   if (isMobile) {
-    // Define tabs based on user role
     let tabs = [];
     
-    // ALWAYS include HOME tab for everyone
     tabs.push({
       key: HOME,
       label: t('navigation.home'),
@@ -299,9 +294,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       onPress: handleHomeButtonClick,
     });
     
-    // Add other tabs based on authentication and role
     if (isAuthenticated) {
-      // For authenticated users, add the profile/account tab
       tabs.push({
         key: "ACCOUNT",
         label: t('navigation.account'),
@@ -309,24 +302,22 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onPress: handleProfileButtonClick,
       });
       
-      // For customers, add Bookings and Wallet with double-tap refresh
       if (isCustomer) {
         tabs.push({
           key: BOOKINGS,
           label: t('navigation.bookings'),
           icon: <MaterialIcon name="event-note" size={22} />,
-          onPress: handleDoubleTapRefresh, // Using double-tap handler
+          onPress: handleDoubleTapRefresh,
         });
         
         tabs.push({
-          key: "WALLET",
+          key: WALLET,
           label: t('navigation.wallet'),
           icon: <MaterialIcon name="account-balance-wallet" size={22} />,
-          onPress: () => setIsWalletOpen(true),
+          onPress: handleWalletClick,
         });
       }
       
-      // For service providers, add Dashboard and Notifications
       if (isServiceProvider) {
         tabs.push({
           key: DASHBOARD,
@@ -343,7 +334,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         });
       }
 
-      // For vendors, add Agent Dashboard
       if (isVendor) {
         tabs.push({
           key: AGENT_DASHBOARD,
@@ -353,7 +343,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         });
       }
       
-      // Add Sign Out for all authenticated users
       tabs.push({
         key: "SIGN_OUT",
         label: t('navigation.signOut'),
@@ -367,7 +356,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onPress: handleSignOut,
       });
     } else {
-      // For unauthenticated users, add Sign In/Up options AND Settings
       tabs.push({
         key: "ACCOUNT",
         label: t('navigation.signIn'),
@@ -382,7 +370,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onPress: onOpenSignup,
       });
 
-      // ADD SETTINGS OPTION FOR UNAUTHENTICATED USERS
       tabs.push({
         key: "SETTINGS",
         label: t('navigation.settings') || "Settings",
@@ -433,22 +420,16 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onClose={() => setShowNotifications(false)}
         />
 
-        <WalletDialog
-          open={isWalletOpen}
-          onClose={() => setIsWalletOpen(false)}
-        />
-
         <ProfileMenuSheet
           visible={isProfileMenuVisible}
           onClose={() => setIsProfileMenuVisible(false)}
           onProfile={() => handleProfileMenuNavigation(PROFILE)}
           onBookings={() => handleBookingsButtonClick()}
           onDashboard={() => handleDashboardButtonClick()}
-          onWallet={handleWalletOpen}
+          onWallet={handleWalletClick}
           onContact={onContactClick}
         />
 
-        {/* Settings Modal */}
         <Settings
           visible={isSettingsVisible}
           onClose={() => setIsSettingsVisible(false)}
@@ -477,13 +458,23 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             </TouchableOpacity>
 
             {isCustomer && (
-              <TouchableOpacity
-                onPress={handleDoubleTapRefresh} // Double-tap for desktop as well
-                style={styles.desktopNavItem}
-              >
-                <MaterialIcon name="event-note" size={20} color="#fff" style={styles.navIcon} />
-                <Text style={styles.desktopNavText}>{t('navigation.myBookings')}</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  onPress={handleDoubleTapRefresh}
+                  style={styles.desktopNavItem}
+                >
+                  <MaterialIcon name="event-note" size={20} color="#fff" style={styles.navIcon} />
+                  <Text style={styles.desktopNavText}>{t('navigation.myBookings')}</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={handleWalletClick}
+                  style={styles.desktopNavItem}
+                >
+                  <MaterialIcon name="account-balance-wallet" size={20} color="#fff" style={styles.navIcon} />
+                  <Text style={styles.desktopNavText}>Wallet</Text>
+                </TouchableOpacity>
+              </>
             )}
 
             {isServiceProvider && (
@@ -545,15 +536,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
               </TouchableOpacity>
             )}
             
-            {isCustomer && (
-              <TouchableOpacity
-                onPress={() => setIsWalletOpen(true)}
-                style={styles.desktopActionIcon}
-              >
-                <MaterialIcon name="account-balance-wallet" size={22} color="#fff" />
-              </TouchableOpacity>
-            )}
-            
             <TouchableOpacity 
               onPress={handleProfileButtonClick}
               style={[styles.desktopActionIcon, styles.userMenuButton]}
@@ -596,18 +578,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onClose={() => setShowNotifications(false)}
       />
 
-      <WalletDialog
-        open={isWalletOpen}
-        onClose={() => setIsWalletOpen(false)}
-      />
-
       <ProfileMenuSheet
         visible={isProfileMenuVisible}
         onClose={() => setIsProfileMenuVisible(false)}
         onProfile={() => handleProfileMenuNavigation(PROFILE)}
         onBookings={() => handleBookingsButtonClick()}
         onDashboard={() => handleDashboardButtonClick()}
-        onWallet={handleWalletOpen}
+        onWallet={handleWalletClick}
         onContact={onContactClick}
       />
 
@@ -619,9 +596,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   );
 };
 
-// Styles remain the same
 const styles = StyleSheet.create({
-  // Mobile Styles
   mobileNavContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -660,8 +635,6 @@ const styles = StyleSheet.create({
   disabledTabText: {
     color: "#94a3b8",
   },
-
-  // Desktop Styles
   desktopNavContainer: {
     flex: 2,
     justifyContent: "center",
@@ -704,8 +677,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  
-  // User Avatar Styles
   userMenuButton: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     paddingHorizontal: 12,
@@ -786,10 +757,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     maxWidth: 60,
-  },
-  // Button Styles
-  signInButton: {
-    backgroundColor: "rgba(59, 130, 246, 0.8)",
   },
   signOutButton: {
     backgroundColor: "rgba(239, 68, 68, 0.8)",

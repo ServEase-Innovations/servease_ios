@@ -9,3 +9,5 @@ export const DASHBOARD = "dashboard"
 export const WALLET = 'wallet';
 export const HOME = "HOME";
 export const AGENT_DASHBOARD = "AGENT_DASHBOARD";
+export const AGENT_HOME = "AGENT_HOME";
+export const AGENT_BOOKINGS = "AGENT_BOOKINGS";
