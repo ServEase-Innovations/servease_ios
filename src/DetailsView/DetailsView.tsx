@@ -344,7 +344,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         serviceDurationMinutes: serviceDurationMinutes
       };
 
-      // ✅ Add filter parameters if present (same as web version)
+      // ✅ Add filter parameters if present with proper null checks
       if (activeFilters) {
         if (activeFilters.experience && (activeFilters.experience[0] > 0 || activeFilters.experience[1] < 30)) {
           payload.minExperience = activeFilters.experience[0];
@@ -356,16 +356,18 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         if (activeFilters.distance && activeFilters.distance[1] < 50) {
           payload.maxDistance = activeFilters.distance[1];
         }
-        if (activeFilters.gender.length > 0) {
-          payload.genders = activeFilters.gender;
+        // ✅ Null check for gender
+        if (activeFilters.gender !== null && activeFilters.gender !== "") {
+          payload.gender = activeFilters.gender;
         }
-        if (activeFilters.diet.length > 0) {
-          payload.diets = activeFilters.diet;
+        // ✅ Null check for diet
+        if (activeFilters.diet !== null && activeFilters.diet !== "") {
+          payload.diet = activeFilters.diet;
         }
-        if (activeFilters.language.length > 0) {
+        if (activeFilters.language && activeFilters.language.length > 0) {
           payload.languages = activeFilters.language;
         }
-        if (activeFilters.availability.length > 0) {
+        if (activeFilters.availability && activeFilters.availability.length > 0) {
           payload.availabilityStatuses = activeFilters.availability;
         }
       }
@@ -374,7 +376,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         payload.customerID = Number(customerId);
       }
       
-      console.log(`Fetching page ${page} with filters:`, payload);
+      console.log(`Fetching page ${page} with payload:`, payload);
 
       const response = await providerInstance.post(
         `/api/service-providers/nearby-monthly?page=${page}&limit=10`,
@@ -383,6 +385,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
       // Small delay to make skeleton visible and avoid flicker
       await new Promise(resolve => setTimeout(resolve, 300));
+
+      console.log("API Response:", response.data);
 
       const newProviders = response.data.providers || [];
       const total = response.data.count || 0;
@@ -446,7 +450,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     resetAndSearch();
   };
 
-  // ✅ Filter handlers (updated to match web version)
+  // ✅ Filter handlers with proper null checks
   const handleApplyFilters = (filters: FilterCriteria) => {
     setActiveFilters(filters);
     
@@ -455,10 +459,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     if (filters.experience[0] > 0 || filters.experience[1] < 30) count++;
     if (filters.rating) count++;
     if (filters.distance[0] > 0 || filters.distance[1] < 50) count++;
-    if (filters.gender.length > 0) count++;
-    if (filters.diet.length > 0) count++;
-    if (filters.language.length > 0) count++;
-    if (filters.availability.length > 0) count++;
+    // ✅ Null checks for gender and diet
+    if (filters.gender !== null && filters.gender !== "") count++;
+    if (filters.diet !== null && filters.diet !== "") count++;
+    if (filters.language && filters.language.length > 0) count++;
+    if (filters.availability && filters.availability.length > 0) count++;
     
     setActiveFilterCount(count);
     setFilterOpen(false);
@@ -505,7 +510,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
                 paddingHorizontal: 12 * spacingMultiplier,
                 paddingVertical: 8 * spacingMultiplier,
               }]}
-              onPress={() => setFilterOpen(true)}
+              onPress={() => {
+                console.log("Opening filter modal");
+                setFilterOpen(true);
+              }}
+              activeOpacity={0.7}
             >
               <Icon name="filter-list" size={24} color={colors.text} />
               <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
@@ -660,7 +669,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
       <ProviderFilter
         open={filterOpen}
-        onClose={() => setFilterOpen(false)}
+        onClose={() => {
+          console.log("Closing filter modal");
+          setFilterOpen(false);
+        }}
         onApplyFilters={handleApplyFilters}
         initialFilters={activeFilters || undefined}
       />

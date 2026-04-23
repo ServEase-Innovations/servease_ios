@@ -23,10 +23,10 @@ interface FilterProps {
 }
 
 export interface FilterCriteria {
-  experience: number[];
+  experience: number[];        // [min, max] – will be sent as "min-max" string
   rating: number | null;
-  gender: string[];
-  diet: string[];
+  gender: string | null;       // single string
+  diet: string | null;         // single string
   language: string[];
   distance: number[];
   availability: string[];
@@ -74,8 +74,8 @@ const ProviderFilter: React.FC<FilterProps> = ({
     initialFilters || {
       experience: [0, 30],
       rating: null,
-      gender: [],
-      diet: [],
+      gender: null,
+      diet: null,
       language: [],
       distance: [0, 50],
       availability: []
@@ -85,22 +85,14 @@ const ProviderFilter: React.FC<FilterProps> = ({
   const [tempFilters, setTempFilters] = useState<FilterCriteria>(filters);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
 
+  // Single‑select for gender
   const handleGenderChange = (gender: string) => {
-    setTempFilters(prev => ({
-      ...prev,
-      gender: prev.gender.includes(gender)
-        ? prev.gender.filter(g => g !== gender)
-        : [...prev.gender, gender]
-    }));
+    setTempFilters(prev => ({ ...prev, gender }));
   };
 
+  // Single‑select for diet
   const handleDietChange = (diet: string) => {
-    setTempFilters(prev => ({
-      ...prev,
-      diet: prev.diet.includes(diet)
-        ? prev.diet.filter(d => d !== diet)
-        : [...prev.diet, diet]
-    }));
+    setTempFilters(prev => ({ ...prev, diet }));
   };
 
   const handleAvailabilityChange = (status: string) => {
@@ -128,11 +120,11 @@ const ProviderFilter: React.FC<FilterProps> = ({
   };
 
   const handleReset = () => {
-    const resetFilters = {
+    const resetFilters: FilterCriteria = {
       experience: [0, 30],
       rating: null,
-      gender: [],
-      diet: [],
+      gender: null,
+      diet: null,
       language: [],
       distance: [0, 50],
       availability: []
@@ -334,7 +326,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
               </View>
             </View>
 
-            {/* Gender Filter */}
+            {/* Gender Filter – Single Select */}
             <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
               <Text style={[styles.sectionTitle, { 
                 color: colors.text, 
@@ -349,10 +341,10 @@ const ProviderFilter: React.FC<FilterProps> = ({
                     key={gender}
                     style={[
                       styles.filterChip,
-                      tempFilters.gender.includes(gender) && styles.filterChipSelected,
+                      tempFilters.gender === gender && styles.filterChipSelected,
                       { 
                         borderColor: colors.border,
-                        backgroundColor: tempFilters.gender.includes(gender) 
+                        backgroundColor: tempFilters.gender === gender 
                           ? colors.primary 
                           : isDarkMode ? colors.surface : colors.card,
                         paddingHorizontal: 12 * spacingMultiplier,
@@ -364,7 +356,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
                     <Text style={[
                       styles.filterChipText,
                       { 
-                        color: tempFilters.gender.includes(gender) 
+                        color: tempFilters.gender === gender 
                           ? '#ffffff' 
                           : colors.textSecondary,
                         fontSize: fontStyles.smallText
@@ -377,7 +369,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
               </View>
             </View>
 
-            {/* Diet Filter */}
+            {/* Diet Filter – Single Select */}
             <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
               <Text style={[styles.sectionTitle, { 
                 color: colors.text, 
@@ -392,10 +384,10 @@ const ProviderFilter: React.FC<FilterProps> = ({
                     key={diet}
                     style={[
                       styles.filterChip,
-                      tempFilters.diet.includes(diet) && styles.filterChipSelected,
+                      tempFilters.diet === diet && styles.filterChipSelected,
                       { 
                         borderColor: colors.border,
-                        backgroundColor: tempFilters.diet.includes(diet) 
+                        backgroundColor: tempFilters.diet === diet 
                           ? colors.primary 
                           : isDarkMode ? colors.surface : colors.card,
                         paddingHorizontal: 12 * spacingMultiplier,
@@ -407,7 +399,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
                     <Text style={[
                       styles.filterChipText,
                       { 
-                        color: tempFilters.diet.includes(diet) 
+                        color: tempFilters.diet === diet 
                           ? '#ffffff' 
                           : colors.textSecondary,
                         fontSize: fontStyles.smallText
@@ -420,7 +412,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
               </View>
             </View>
 
-            {/* Language Filter */}
+            {/* Language Filter – Multi‑select */}
             <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
               <Text style={[styles.sectionTitle, { 
                 color: colors.text, 
