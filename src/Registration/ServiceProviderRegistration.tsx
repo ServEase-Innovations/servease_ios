@@ -109,6 +109,8 @@ interface FormData {
     country: string;
     pincode: string;
   };
+  // NEW: Bank details
+  bankDetails: BankDetailsData;
 }
 
 // Define RNFile interface to match React Native file objects
@@ -151,6 +153,7 @@ interface FormErrors {
   dob?: string;
   kycType?: string;
   kycNumber?: string;
+  agentReferralId?: string;
   permanentAddress?: {
     apartment?: string;
     street?: string;
@@ -167,6 +170,8 @@ interface FormErrors {
     country?: string;
     pincode?: string;
   };
+  // NEW: Bank details errors
+  bankDetails?: BankDetailsErrors;
 }
 
 // Regex for validation
@@ -245,17 +250,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   // State to track if next button should be disabled
   const [isNextDisabled, setIsNextDisabled] = useState(true);
 
-  // Bank Details State
-  const [bankDetails, setBankDetails] = useState<BankDetailsData>({
-    bankName: "",
-    ifscCode: "",
-    accountHolderName: "",
-    accountNumber: "",
-    accountType: "",
-    upiId: "",
-  });
-  const [bankDetailsErrors, setBankDetailsErrors] = useState<BankDetailsErrors>({});
-
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     middleName: "",
@@ -315,9 +309,52 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       country: "",
       pincode: ""
     },
+    // NEW: Bank details initial state
+    bankDetails: {
+      bankName: "",
+      ifscCode: "",
+      accountHolderName: "",
+      accountNumber: "",
+      accountType: "",
+      upiId: ""
+    }
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // NEW: Handler for bank details field changes
+ // These handlers are already in your code - keep them as is:
+const handleBankFieldChange = (fieldName: string, value: string) => {
+  setFormData(prev => ({
+    ...prev,
+    bankDetails: {
+      ...prev.bankDetails,
+      [fieldName]: value
+    }
+  }));
+  if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
+    setErrors(prev => ({
+      ...prev,
+      bankDetails: {
+        ...prev.bankDetails,
+        [fieldName]: ""
+      }
+    }));
+  }
+  checkStepCompletion();
+};
+
+const handleBankFieldFocus = (fieldName: string) => {
+  if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
+    setErrors(prev => ({
+      ...prev,
+      bankDetails: {
+        ...prev.bankDetails,
+        [fieldName]: ""
+      }
+    }));
+  }
+};
 
   // Initialize Geocoder
   useEffect(() => {
@@ -897,11 +934,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }));
     }
     
-    checkStepCompletion();
-  };
-
-  const handleBankDetailsChange = (data: BankDetailsData) => {
-    setBankDetails(data);
     checkStepCompletion();
   };
 
@@ -1811,6 +1843,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         
         const age = calculateAge(formData.dob);
         
+        // Prepare bank details object (only include non-empty fields)
+        const bankDetailsPayload = Object.fromEntries(
+          Object.entries(formData.bankDetails).filter(([_, v]) => v && v.trim() !== "")
+        );
+
         const payload = {
           firstName: formData.firstName,
           middleName: formData.middleName,
@@ -1869,15 +1906,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           kycNumber: formData.kycNumber,
           dob: formData.dob,
           profilePic: profilePicUrl,
-          // Add bank details to payload
-          bankDetails: {
-            bankName: bankDetails.bankName || "",
-            ifscCode: bankDetails.ifscCode || "",
-            accountHolderName: bankDetails.accountHolderName || "",
-            accountNumber: bankDetails.accountNumber || "",
-            accountType: bankDetails.accountType || "",
-            upiId: bankDetails.upiId || "",
-          }
+          // Add bank details to payload matching React code structure
+          bankName: formData.bankDetails.bankName?.trim() || null,
+          ifscCode: formData.bankDetails.ifscCode?.trim() || null,
+          accountHolderName: formData.bankDetails.accountHolderName?.trim() || null,
+          accountNumber: formData.bankDetails.accountNumber?.trim() || null,
+          accountType: formData.bankDetails.accountType?.trim() || null,
+          upiId: formData.bankDetails.upiId?.trim() || null,
         };
 
         console.log("Submitting payload:", JSON.stringify(payload, null, 2));
@@ -2182,16 +2217,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           </View>
         );
 
-      case 4:
-        return (
-          <View style={styles.stepContainer}>
-            <BankDetails
-              onBankDetailsChange={handleBankDetailsChange}
-              initialData={bankDetails}
-              errors={bankDetailsErrors}
-            />
-          </View>
-        );
+  case 4:
+  return (
+    <View style={styles.stepContainer}>
+      <BankDetails
+        formData={formData.bankDetails}
+        errors={errors.bankDetails || {}}
+        onFieldChange={handleBankFieldChange}
+        onFieldFocus={handleBankFieldFocus}
+      />
+    </View>
+  );
 
       case 5:
         return (

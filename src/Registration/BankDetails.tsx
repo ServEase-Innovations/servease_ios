@@ -1,21 +1,16 @@
-// BankDetails.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+// BankDetails.tsx - Updated for React Native
+import React, { useCallback } from "react";
 import {
   View,
   Text,
   TextInput,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
-  Alert,
-} from 'react-native';
+  TouchableOpacity,
+  Modal,
+  FlatList,
+} from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
-
-interface BankDetailsProps {
-  onBankDetailsChange: (data: BankDetailsData) => void;
-  initialData?: BankDetailsData;
-  errors?: BankDetailsErrors;
-}
 
 export interface BankDetailsData {
   bankName: string;
@@ -35,275 +30,235 @@ export interface BankDetailsErrors {
   upiId?: string;
 }
 
+interface BankDetailsProps {
+  formData: BankDetailsData;
+  errors: BankDetailsErrors;
+  onFieldChange: (fieldName: string, value: string) => void;
+  onFieldFocus?: (fieldName: string) => void;
+}
+
 const accountTypes = [
-  { label: 'Savings Account', value: 'SAVINGS' },
-  { label: 'Current Account', value: 'CURRENT' },
-  { label: 'Salary Account', value: 'SALARY' },
-  { label: 'Fixed Deposit Account', value: 'FIXED_DEPOSIT' },
-  { label: 'NRI Account', value: 'NRI' },
+  { label: "Savings Account", value: "SAVINGS" },
+  { label: "Current Account", value: "CURRENT" },
+  { label: "Salary Account", value: "SALARY" },
+  { label: "Fixed Deposit Account", value: "FIXED_DEPOSIT" },
+  { label: "NRI Account", value: "NRI" },
 ];
 
 const BankDetails: React.FC<BankDetailsProps> = ({
-  onBankDetailsChange,
-  initialData,
-  errors: externalErrors,
+  formData,
+  errors,
+  onFieldChange,
+  onFieldFocus,
 }) => {
-  const [bankDetails, setBankDetails] = useState<BankDetailsData>({
-    bankName: initialData?.bankName || '',
-    ifscCode: initialData?.ifscCode || '',
-    accountHolderName: initialData?.accountHolderName || '',
-    accountNumber: initialData?.accountNumber || '',
-    accountType: initialData?.accountType || '',
-    upiId: initialData?.upiId || '',
-  });
+  const [showAccountTypePicker, setShowAccountTypePicker] = React.useState(false);
 
-  const [errors, setErrors] = useState<BankDetailsErrors>(externalErrors || {});
-  const [showAccountTypes, setShowAccountTypes] = useState(false);
+  const handleInputChange = useCallback((fieldName: string, value: string) => {
+    onFieldChange(fieldName, value);
+  }, [onFieldChange]);
 
-  // IFSC code validation (Indian format: 4 letters + 7 alphanumeric)
-  const validateIFSC = (code: string): boolean => {
-    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-    return ifscRegex.test(code);
-  };
+  const handleSelectAccountType = useCallback((value: string) => {
+    onFieldChange("accountType", value);
+    setShowAccountTypePicker(false);
+  }, [onFieldChange]);
 
-  // Account number validation (8-20 digits)
-  const validateAccountNumber = (number: string): boolean => {
-    const accountRegex = /^[0-9]{8,20}$/;
-    return accountRegex.test(number);
-  };
+  const renderOptionalLabel = (label: string) => (
+    <View style={styles.labelContainer}>
+      <Text style={styles.labelText}>{label}</Text>
+      <Text style={styles.optionalText}>(Optional)</Text>
+    </View>
+  );
 
-  // UPI ID validation
-  const validateUPI = (upi: string): boolean => {
-    const upiRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/;
-    return upiRegex.test(upi);
-  };
+  const renderInfoAlert = () => (
+    <View style={styles.infoAlertContainer}>
+      <Icon name="info" size={20} color="#0288d1" style={styles.alertIcon} />
+      <View style={styles.alertContent}>
+        <Text style={styles.alertTitle}>Bank Details</Text>
+        <Text style={styles.alertMessage}>
+          Bank details are optional but recommended for payment processing.
+        </Text>
+      </View>
+    </View>
+  );
 
-  const handleChange = (field: keyof BankDetailsData, value: string) => {
-    // Remove whitespace for certain fields
-    let processedValue = value;
-    if (field === 'ifscCode') {
-      processedValue = value.toUpperCase();
-    } else if (field === 'accountNumber') {
-      processedValue = value.replace(/[^0-9]/g, '');
-    }
+  const renderBottomAlert = () => (
+    <View style={styles.bottomAlertContainer}>
+      <Icon name="info" size={16} color="#666" style={styles.bottomAlertIcon} />
+      <Text style={styles.bottomAlertText}>
+        All bank details are optional. You can add or update them later from your profile settings.
+      </Text>
+    </View>
+  );
 
-    const updatedDetails = { ...bankDetails, [field]: processedValue };
-    setBankDetails(updatedDetails);
+  const renderAccountTypePicker = () => {
+    if (!showAccountTypePicker) return null;
     
-    // Clear error for this field when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-    
-    // Real-time validation
-    let error = '';
-    switch (field) {
-      case 'ifscCode':
-        if (processedValue && !validateIFSC(processedValue)) {
-          error = 'Invalid IFSC code format (e.g., SBIN0001234)';
-        }
-        break;
-      case 'accountNumber':
-        if (processedValue && !validateAccountNumber(processedValue)) {
-          error = 'Account number must be 8-20 digits';
-        }
-        break;
-      case 'upiId':
-        if (processedValue && !validateUPI(processedValue)) {
-          error = 'Invalid UPI ID format (e.g., username@bankname)';
-        }
-        break;
-    }
-    
-    setErrors(prev => ({ ...prev, [field]: error }));
-    onBankDetailsChange(updatedDetails);
+    return (
+      <Modal
+        visible={showAccountTypePicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAccountTypePicker(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowAccountTypePicker(false)}
+        >
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Account Type</Text>
+              <TouchableOpacity onPress={() => setShowAccountTypePicker(false)}>
+                <Icon name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={accountTypes}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.pickerItem}
+                  onPress={() => handleSelectAccountType(item.value)}
+                >
+                  <Text style={[
+                    styles.pickerItemText,
+                    formData.accountType === item.value && styles.pickerItemTextSelected
+                  ]}>
+                    {item.label}
+                  </Text>
+                  {formData.accountType === item.value && (
+                    <Icon name="check" size={20} color="#1976d2" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
   };
-
-  const handleAccountTypeSelect = (type: string) => {
-    setBankDetails(prev => ({ ...prev, accountType: type }));
-    setShowAccountTypes(false);
-    if (errors.accountType) {
-      setErrors(prev => ({ ...prev, accountType: undefined }));
-    }
-    onBankDetailsChange({ ...bankDetails, accountType: type });
-  };
-
-  // Helper function to check if any required field is filled
-  const hasAnyData = useCallback(() => {
-    return Object.values(bankDetails).some(value => value && value.trim() !== '');
-  }, [bankDetails]);
-
-  // Notify parent of changes
-  useEffect(() => {
-    onBankDetailsChange(bankDetails);
-  }, [bankDetails, onBankDetailsChange]);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.infoContainer}>
-        <Icon name="info-outline" size={20} color="#1976d2" />
-        <Text style={styles.infoText}>
-          Bank details are optional but recommended for payment processing
-        </Text>
-      </View>
+      <View style={styles.content}>
+        {renderInfoAlert()}
 
-      {/* Bank Name */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Bank Name <Text style={styles.optionalLabel}>(Optional)</Text>
-        </Text>
-        <View style={[styles.inputWrapper, errors.bankName && styles.inputError]}>
-          <Icon name="account-balance" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter bank name"
-            placeholderTextColor="#999"
-            value={bankDetails.bankName}
-            onChangeText={(value) => handleChange('bankName', value)}
-          />
-        </View>
-        {errors.bankName && <Text style={styles.errorText}>{errors.bankName}</Text>}
-      </View>
-
-      {/* Account Holder Name */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Account Holder Name <Text style={styles.optionalLabel}>(Optional)</Text>
-        </Text>
-        <View style={[styles.inputWrapper, errors.accountHolderName && styles.inputError]}>
-          <Icon name="person" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter account holder name"
-            placeholderTextColor="#999"
-            value={bankDetails.accountHolderName}
-            onChangeText={(value) => handleChange('accountHolderName', value)}
-          />
-        </View>
-        {errors.accountHolderName && <Text style={styles.errorText}>{errors.accountHolderName}</Text>}
-      </View>
-
-      {/* Account Number */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Account Number <Text style={styles.optionalLabel}>(Optional)</Text>
-        </Text>
-        <View style={[styles.inputWrapper, errors.accountNumber && styles.inputError]}>
-          <Icon name="credit-card" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter account number"
-            placeholderTextColor="#999"
-            keyboardType="numeric"
-            value={bankDetails.accountNumber}
-            onChangeText={(value) => handleChange('accountNumber', value)}
-            maxLength={20}
-          />
-        </View>
-        {errors.accountNumber && <Text style={styles.errorText}>{errors.accountNumber}</Text>}
-      </View>
-
-      {/* IFSC Code */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          IFSC Code <Text style={styles.optionalLabel}>(Optional)</Text>
-        </Text>
-        <View style={[styles.inputWrapper, errors.ifscCode && styles.inputError]}>
-          <Icon name="code" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter IFSC code (e.g., SBIN0001234)"
-            placeholderTextColor="#999"
-            autoCapitalize="characters"
-            value={bankDetails.ifscCode}
-            onChangeText={(value) => handleChange('ifscCode', value)}
-            maxLength={11}
-          />
-        </View>
-        {errors.ifscCode && <Text style={styles.errorText}>{errors.ifscCode}</Text>}
-      </View>
-
-      {/* Account Type */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          Account Type <Text style={styles.optionalLabel}>(Optional)</Text>
-        </Text>
-        <TouchableOpacity
-          style={[styles.dropdownButton, errors.accountType && styles.inputError]}
-          onPress={() => setShowAccountTypes(!showAccountTypes)}
-        >
-          <View style={styles.dropdownLeft}>
-            <Icon name="account-balance-wallet" size={20} color="#666" />
-            <Text style={[styles.dropdownText, !bankDetails.accountType && styles.placeholderText]}>
-              {bankDetails.accountType 
-                ? accountTypes.find(type => type.value === bankDetails.accountType)?.label 
-                : 'Select account type'}
-            </Text>
+        {/* Bank Name Field */}
+        <View style={styles.fieldContainer}>
+          {renderOptionalLabel("Bank Name")}
+          <View style={[styles.inputWrapper, errors.bankName && styles.inputWrapperError]}>
+            <Icon name="account-balance" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter bank name"
+              placeholderTextColor="#999"
+              value={formData.bankName}
+              onChangeText={(value) => handleInputChange("bankName", value)}
+              onFocus={() => onFieldFocus && onFieldFocus("bankName")}
+            />
           </View>
-          <Icon name={showAccountTypes ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#666" />
-        </TouchableOpacity>
-        {errors.accountType && <Text style={styles.errorText}>{errors.accountType}</Text>}
-      </View>
+          {errors.bankName && <Text style={styles.errorText}>{errors.bankName}</Text>}
+        </View>
 
-      {/* Account Type Selection Modal */}
-      {showAccountTypes && (
-        <View style={styles.modalOverlay}>
+        {/* Account Holder Name Field */}
+        <View style={styles.fieldContainer}>
+          {renderOptionalLabel("Account Holder Name")}
+          <View style={[styles.inputWrapper, errors.accountHolderName && styles.inputWrapperError]}>
+            <Icon name="person" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter account holder name"
+              placeholderTextColor="#999"
+              value={formData.accountHolderName}
+              onChangeText={(value) => handleInputChange("accountHolderName", value)}
+              onFocus={() => onFieldFocus && onFieldFocus("accountHolderName")}
+            />
+          </View>
+          {errors.accountHolderName && <Text style={styles.errorText}>{errors.accountHolderName}</Text>}
+        </View>
+
+        {/* Account Number Field */}
+        <View style={styles.fieldContainer}>
+          {renderOptionalLabel("Account Number")}
+          <View style={[styles.inputWrapper, errors.accountNumber && styles.inputWrapperError]}>
+            <Icon name="credit-card" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter account number"
+              placeholderTextColor="#999"
+              value={formData.accountNumber}
+              onChangeText={(value) => handleInputChange("accountNumber", value)}
+              onFocus={() => onFieldFocus && onFieldFocus("accountNumber")}
+              keyboardType="numeric"
+              maxLength={20}
+            />
+          </View>
+          {errors.accountNumber && <Text style={styles.errorText}>{errors.accountNumber}</Text>}
+        </View>
+
+        {/* IFSC Code Field */}
+        <View style={styles.fieldContainer}>
+          {renderOptionalLabel("IFSC Code")}
+          <View style={[styles.inputWrapper, errors.ifscCode && styles.inputWrapperError]}>
+            <Icon name="code" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, styles.uppercaseInput]}
+              placeholder="Enter IFSC code (e.g., SBIN0001234)"
+              placeholderTextColor="#999"
+              value={formData.ifscCode}
+              onChangeText={(value) => handleInputChange("ifscCode", value.toUpperCase())}
+              onFocus={() => onFieldFocus && onFieldFocus("ifscCode")}
+              maxLength={11}
+              autoCapitalize="characters"
+            />
+          </View>
+          {errors.ifscCode && <Text style={styles.errorText}>{errors.ifscCode}</Text>}
+        </View>
+
+        {/* Account Type Field */}
+        <View style={styles.fieldContainer}>
+          {renderOptionalLabel("Account Type")}
           <TouchableOpacity 
-            style={styles.modalBackdrop} 
-            onPress={() => setShowAccountTypes(false)} 
-          />
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Account Type</Text>
-            {accountTypes.map((type) => (
-              <TouchableOpacity
-                key={type.value}
-                style={[
-                  styles.modalOption,
-                  bankDetails.accountType === type.value && styles.modalOptionSelected
-                ]}
-                onPress={() => handleAccountTypeSelect(type.value)}
-              >
-                <Text style={[
-                  styles.modalOptionText,
-                  bankDetails.accountType === type.value && styles.modalOptionTextSelected
-                ]}>
-                  {type.label}
-                </Text>
-                {bankDetails.accountType === type.value && (
-                  <Icon name="check" size={20} color="#1976d2" />
-                )}
-              </TouchableOpacity>
-            ))}
+            style={[styles.selectWrapper, errors.accountType && styles.selectWrapperError]}
+            onPress={() => setShowAccountTypePicker(true)}
+          >
+            <Icon name="credit-card" size={20} color="#666" style={styles.inputIcon} />
+            <Text style={[
+              styles.selectText,
+              !formData.accountType && styles.selectPlaceholder
+            ]}>
+              {formData.accountType 
+                ? accountTypes.find((type) => type.value === formData.accountType)?.label 
+                : "Select account type"}
+            </Text>
+            <Icon name="arrow-drop-down" size={24} color="#666" />
+          </TouchableOpacity>
+          {errors.accountType && <Text style={styles.errorText}>{errors.accountType}</Text>}
+        </View>
+
+        {/* UPI ID Field */}
+        <View style={styles.fieldContainer}>
+          {renderOptionalLabel("UPI ID")}
+          <View style={[styles.inputWrapper, errors.upiId && styles.inputWrapperError]}>
+            <Icon name="payment" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter UPI ID (e.g., username@bankname)"
+              placeholderTextColor="#999"
+              value={formData.upiId}
+              onChangeText={(value) => handleInputChange("upiId", value)}
+              onFocus={() => onFieldFocus && onFieldFocus("upiId")}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
           </View>
+          {errors.upiId && <Text style={styles.errorText}>{errors.upiId}</Text>}
         </View>
-      )}
 
-      {/* UPI ID */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>
-          UPI ID <Text style={styles.optionalLabel}>(Optional)</Text>
-        </Text>
-        <View style={[styles.inputWrapper, errors.upiId && styles.inputError]}>
-          <Icon name="payment" size={20} color="#666" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter UPI ID (e.g., username@bankname)"
-            placeholderTextColor="#999"
-            autoCapitalize="none"
-            value={bankDetails.upiId}
-            onChangeText={(value) => handleChange('upiId', value)}
-          />
-        </View>
-        {errors.upiId && <Text style={styles.errorText}>{errors.upiId}</Text>}
+        {renderBottomAlert()}
       </View>
 
-      {/* Optional Fields Note */}
-      <View style={styles.noteContainer}>
-        <Icon name="info-outline" size={16} color="#666" />
-        <Text style={styles.noteText}>
-          All bank details are optional. You can add or update them later from your profile settings.
-        </Text>
-      </View>
+      {renderAccountTypePicker()}
     </ScrollView>
   );
 };
@@ -311,155 +266,170 @@ const BankDetails: React.FC<BankDetailsProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#fff",
   },
-  infoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e3f2fd',
-    padding: 12,
+  content: {
+    padding: 16,
+  },
+  infoAlertContainer: {
+    flexDirection: "row",
+    backgroundColor: "#e3f2fd",
     borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#90caf9",
+  },
+  alertIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#0d3c61",
+    marginBottom: 4,
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: "#0d3c61",
+    lineHeight: 20,
+  },
+  bottomAlertContainer: {
+    flexDirection: "row",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  bottomAlertIcon: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  bottomAlertText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#666",
+    lineHeight: 18,
+  },
+  fieldContainer: {
     marginBottom: 20,
   },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1976d2',
-    marginLeft: 8,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
+  labelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
-    color: '#333',
   },
-  optionalLabel: {
-    fontWeight: 'normal',
+  labelText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    marginRight: 4,
+  },
+  optionalText: {
     fontSize: 12,
-    color: '#666',
+    fontWeight: "normal",
+    color: "#666",
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
+    borderColor: "#ddd",
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    minHeight: 56,
+  },
+  inputWrapperError: {
+    borderColor: "#d32f2f",
   },
   inputIcon: {
+    marginLeft: 12,
     marginRight: 8,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     paddingVertical: 12,
+    paddingRight: 12,
   },
-  inputError: {
-    borderColor: '#f44336',
+  uppercaseInput: {
+    textTransform: "uppercase",
   },
   errorText: {
-    color: '#f44336',
     fontSize: 12,
+    color: "#d32f2f",
     marginTop: 4,
+    marginLeft: 14,
   },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  selectWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
+    borderColor: "#ddd",
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    minHeight: 56,
+  },
+  selectWrapperError: {
+    borderColor: "#d32f2f",
+  },
+  selectText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
     paddingVertical: 12,
   },
-  dropdownLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 8,
-  },
-  placeholderText: {
-    color: '#999',
+  selectPlaceholder: {
+    color: "#999",
   },
   modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    width: '80%',
-    maxHeight: '80%',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#333',
-    textAlign: 'center',
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalOptionSelected: {
-    backgroundColor: '#f0f7ff',
-  },
-  modalOptionText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  modalOptionTextSelected: {
-    color: '#1976d2',
-    fontWeight: '500',
-  },
-  noteContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  noteText: {
     flex: 1,
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pickerContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    width: "90%",
+    maxHeight: "80%",
+    overflow: "hidden",
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  pickerItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  pickerItemText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  pickerItemTextSelected: {
+    color: "#1976d2",
+    fontWeight: "500",
   },
 });
 
