@@ -1,4 +1,4 @@
-// LocationSelector.tsx - Only fixing button issues and save option selection feedback
+/* eslint-disable */
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
@@ -15,11 +15,14 @@ import {
   FlatList,
   PermissionsAndroid,
   ScrollView,
+  Animated,
+  TouchableWithoutFeedback,
 } from "react-native";
 import axios from "axios";
 import { keys } from "../env";
 import Icon from "react-native-vector-icons/FontAwesome";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import Geocoder from "react-native-geocoding";
 import MapView, { Marker } from "react-native-maps";
 import { NativeModules } from "react-native";
@@ -53,12 +56,16 @@ interface LocationSelectorProps {
   userPreference: any;
   setUserPreference: (preference: any) => void;
   onLocationChange?: (location: string, locationData?: LocationData) => void;
+  currentLocationText?: string;
+  closeDropdown?: boolean;
 }
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
   userPreference,
   setUserPreference,
   onLocationChange,
+  currentLocationText = "",
+  closeDropdown = false,
 }) => {
   const { t } = useTranslation();
   const { colors, fontSize, isDarkMode } = useTheme();
@@ -67,7 +74,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const locationDispatch = useDispatch();
   const { appUser } = useAppUser();
   
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState(currentLocationText || "");
   const [locationAs, setLocationAs] = useState("");
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([
@@ -89,7 +96,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingLocations, setLoadingLocations] = useState(false);
-  const [selectedSaveOption, setSelectedSaveOption] = useState<string | null>(null); // NEW: Track selected save option
+  const [selectedSaveOption, setSelectedSaveOption] = useState<string | null>(null);
+  const [dropdownAnimation] = useState(new Animated.Value(0));
 
   const [selectedPinLocation, setSelectedPinLocation] = useState<{
     latitude: number;
@@ -107,6 +115,32 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [locationMethod, setLocationMethod] = useState<'auto' | 'manual' | null>(null);
 
   const isAuthenticated = appUser && appUser.customerid;
+
+  // Close dropdown when parent triggers it
+  useEffect(() => {
+    if (closeDropdown) {
+      setShowDropdown(false);
+    }
+  }, [closeDropdown]);
+
+  // Animate dropdown
+  useEffect(() => {
+    if (showDropdown) {
+      Animated.spring(dropdownAnimation, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 40,
+      }).start();
+    } else {
+      Animated.spring(dropdownAnimation, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 40,
+      }).start();
+    }
+  }, [showDropdown]);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -175,12 +209,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const fontSizes = getFontSizes();
 
-  // Helper function to validate coordinates
   const isValidCoordinates = (lat: number | null, lng: number | null): boolean => {
     return lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
   };
 
-  // Helper function to create standardized location data
   const createLocationData = (lat: number, lng: number, addr: string): LocationData => {
     return {
       formatted_address: addr,
@@ -206,20 +238,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     };
   };
 
-  // CRITICAL: Function to update location in Redux and notify parent
   const updateLocationInStore = useCallback((lat: number, lng: number, addr: string) => {
     console.log("📍 Updating location in Redux:", { lat, lng, addr });
     
     const locationData = createLocationData(lat, lng, addr);
     
-    // Update both Redux stores
     dispatch(add(locationData));
     locationDispatch(addLocation(locationData));
     
-    // Store in AsyncStorage or similar for persistence if needed
     setDataFromMap(locationData);
+    setLocation(addr);
+    setAddress(addr);
     
-    // Notify parent component
     if (onLocationChange) {
       onLocationChange(addr, locationData);
     }
@@ -282,7 +312,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setLatitude(latitude);
     setLongitude(longitude);
 
-    // Update Redux store immediately
     updateLocationInStore(latitude, longitude, display_name);
   };
 
@@ -489,12 +518,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             setAddress(newLocation);
             setLocationMethod('auto');
             
-            // CRITICAL: Update Redux store with auto-detected location
             updateLocationInStore(latitude, longitude, newLocation);
           }
         } catch (error) {
           console.error("Error getting address:", error);
-          // Still update Redux with coordinates even if address lookup fails
           const fallbackAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
           updateLocationInStore(latitude, longitude, fallbackAddress);
         } finally {
@@ -593,10 +620,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  const handleLocationRefresh = async () => {
-    await fetchLocationWithChecks();
-  };
-
   const handleMapPress = async (event: any) => {
     const { coordinate } = event.nativeEvent;
     setSelectedPinLocation(coordinate);
@@ -608,7 +631,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setSelectedPinAddress(address);
       setAddress(address);
       
-      // CRITICAL: Update Redux store when map is pressed
       updateLocationInStore(coordinate.latitude, coordinate.longitude, address);
     } catch (error) {
       console.warn("Error getting address for selected pin:", error);
@@ -629,7 +651,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       getAddressFromCoords(latitude, longitude)
         .then((addr) => {
           setAddress(addr);
-          // CRITICAL: Update Redux store when using current location
           updateLocationInStore(latitude, longitude, addr);
         })
         .catch(console.error);
@@ -709,12 +730,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           setLatitude(lat);
           setLongitude(lng);
           
-          // CRITICAL: Update Redux store when saved location is selected
           updateLocationInStore(lat, lng, addressToSet);
         } else if (addressToSet) {
           setLocation(addressToSet);
           setAddress(addressToSet);
-          // If we have address but no coordinates, try to geocode
           Geocoder.from(addressToSet)
             .then(json => {
               const location = json.results[0].geometry.location;
@@ -735,6 +754,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         Alert.alert(t('common.notFound'), t('locationSelector.locationNotFound'));
       }
     }
+    setShowDropdown(false);
   };
 
   const handleLocationSave = () => {
@@ -755,7 +775,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       
       setDataFromMap(locationData);
       
-      // CRITICAL: Update Redux store when saving location
       updateLocationInStore(selectedPinLocation.latitude, selectedPinLocation.longitude, selectedPinAddress);
     } else {
       if (address && latitude && longitude) {
@@ -763,7 +782,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         locationData = createLocationData(latitude, longitude, address);
         setDataFromMap(locationData);
         
-        // CRITICAL: Update Redux store when confirming location
         updateLocationInStore(latitude, longitude, address);
       }
     }
@@ -786,9 +804,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     setSearchQuery("");
     setSearchResults([]);
     setShowSearchResults(false);
-    setSelectedSaveOption(null); // Reset selection
-    setShowInput(false); // Reset input visibility
-    setLocationAs(""); // Reset location name
+    setSelectedSaveOption(null);
+    setShowInput(false);
+    setLocationAs("");
   };
 
   const locationHandleSave = async () => {
@@ -905,7 +923,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   useEffect(() => {
-    // Initial location fetch
     fetchLocationWithChecks();
     
     return () => {
@@ -943,11 +960,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     updateSuggestions();
   }, [userPreference]);
 
-  useEffect(() => {
-    if (userPreference) {
-      updateSuggestions();
-    }
-  }, []);
+  const dropdownScale = dropdownAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.95, 1],
+  });
 
   const renderLocationMethodSelector = () => {
     return (
@@ -1139,160 +1155,160 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
- const renderManualDetectContent = () => {
-  return (
-    <ScrollView 
-      style={styles.methodContentContainer}
-      showsVerticalScrollIndicator={true}
-      contentContainerStyle={styles.scrollContentContainer}
-    >
-      <View style={styles.searchSection}>
-        <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
-          {t('locationSelector.searchForLocation')}
-        </Text>
-        <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Icon name="search" size={fontSizes.iconSize - 4} color={colors.textSecondary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.addressText }]}
-            placeholder={t('locationSelector.enterAddressOrPlace')}
-            placeholderTextColor={colors.placeholder}
-            value={searchQuery}
-            onChangeText={(text) => {
-              setSearchQuery(text);
-              setShowSearchResults(text.length > 0);
+  const renderManualDetectContent = () => {
+    return (
+      <ScrollView 
+        style={styles.methodContentContainer}
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
+        <View style={styles.searchSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+            {t('locationSelector.searchForLocation')}
+          </Text>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Icon name="search" size={fontSizes.iconSize - 4} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.addressText }]}
+              placeholder={t('locationSelector.enterAddressOrPlace')}
+              placeholderTextColor={colors.placeholder}
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setShowSearchResults(text.length > 0);
+              }}
+              onFocus={() => setSearchInputFocused(true)}
+              onBlur={() => setTimeout(() => setSearchInputFocused(false), 200)}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setShowSearchResults(false);
+                }}
+                style={styles.clearSearchButton}
+              >
+                <Icon name="times" size={fontSizes.iconSize - 4} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {showSearchResults && (
+            <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {isSearching ? (
+                <View style={styles.searchLoadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.searchLoadingText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
+                    {t('locationSelector.searching')}
+                  </Text>
+                </View>
+              ) : searchResults.length > 0 ? (
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={(item, index) => `${item.place_id}-${index}`}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
+                      onPress={() => handleLocationSelect(item)}
+                    >
+                      <MaterialIcon name="location-on" size={fontSizes.iconSize - 4} color={colors.primary} />
+                      <View style={styles.searchResultText}>
+                        <Text style={[styles.searchResultTitle, { color: colors.text, fontSize: fontSizes.searchResultTitle }]} numberOfLines={1}>
+                          {item.display_name.split(',')[0]}
+                        </Text>
+                        <Text style={[styles.searchResultSubtitle, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]} numberOfLines={2}>
+                          {item.display_name}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.searchResultsList}
+                />
+              ) : searchQuery.length >= 3 ? (
+                <View style={styles.noResultsContainer}>
+                  <Text style={[styles.noResultsText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
+                    {t('locationSelector.noLocationsFound')}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
+          <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
+            {isPinSelected 
+              ? t('locationSelector.pinLocationSelected')
+              : t('locationSelector.tapOnMapToSelect')}
+          </Text>
+        </View>
+        
+        <View style={styles.mapContainer}>
+          <MapView
+            style={styles.map}
+            region={{
+              latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 37.7749,
+              longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || -122.4194,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
             }}
-            onFocus={() => setSearchInputFocused(true)}
-            onBlur={() => setTimeout(() => setSearchInputFocused(false), 200)}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => {
-                setSearchQuery("");
-                setSearchResults([]);
-                setShowSearchResults(false);
-              }}
-              style={styles.clearSearchButton}
-            >
-              <Icon name="times" size={fontSizes.iconSize - 4} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {showSearchResults && (
-          <View style={[styles.searchResultsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {isSearching ? (
-              <View style={styles.searchLoadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.searchLoadingText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
-                  {t('locationSelector.searching')}
-                </Text>
-              </View>
-            ) : searchResults.length > 0 ? (
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item, index) => `${item.place_id}-${index}`}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
-                    onPress={() => handleLocationSelect(item)}
-                  >
-                    <MaterialIcon name="location-on" size={fontSizes.iconSize - 4} color={colors.primary} />
-                    <View style={styles.searchResultText}>
-                      <Text style={[styles.searchResultTitle, { color: colors.text, fontSize: fontSizes.searchResultTitle }]} numberOfLines={1}>
-                        {item.display_name.split(',')[0]}
-                      </Text>
-                      <Text style={[styles.searchResultSubtitle, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]} numberOfLines={2}>
-                        {item.display_name}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-                style={styles.searchResultsList}
+            onPress={handleMapPress}
+          >
+            {latitude && longitude && (
+              <Marker
+                coordinate={{
+                  latitude: latitude,
+                  longitude: longitude,
+                }}
+                title={t('locationSelector.yourCurrentLocation')}
+                pinColor={colors.primary}
               />
-            ) : searchQuery.length >= 3 ? (
-              <View style={styles.noResultsContainer}>
-                <Text style={[styles.noResultsText, { color: colors.textSecondary, fontSize: fontSizes.searchResultSubtitle }]}>
-                  {t('locationSelector.noLocationsFound')}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        )}
-      </View>
-
-      <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
-        <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
-          {isPinSelected 
-            ? t('locationSelector.pinLocationSelected')
-            : t('locationSelector.tapOnMapToSelect')}
-        </Text>
-      </View>
-      
-      <View style={styles.mapContainer}>
-        <MapView
-          style={styles.map}
-          region={{
-            latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 37.7749,
-            longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || -122.4194,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          onPress={handleMapPress}
-        >
-          {latitude && longitude && (
-            <Marker
-              coordinate={{
-                latitude: latitude,
-                longitude: longitude,
-              }}
-              title={t('locationSelector.yourCurrentLocation')}
-              pinColor={colors.primary}
-            />
-          )}
-          
-          {isPinSelected && selectedPinLocation && (
-            <Marker
-              coordinate={selectedPinLocation}
-              title={t('locationSelector.selectedLocation')}
-              pinColor={colors.error}
-            />
-          )}
-        </MapView>
-      </View>
-
-      <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
-        <View style={styles.locationInfo}>
-          <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
-          <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
-            {isPinSelected ? selectedPinAddress : (address || t('locationSelector.noAddressSelected'))}
-          </Text>
+            )}
+            
+            {isPinSelected && selectedPinLocation && (
+              <Marker
+                coordinate={selectedPinLocation}
+                title={t('locationSelector.selectedLocation')}
+                pinColor={colors.error}
+              />
+            )}
+          </MapView>
         </View>
-        {selectedPinLocation && (
-          <View style={styles.coordinatesContainer}>
-            <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-              Lat: {selectedPinLocation.latitude.toFixed(4)}
-            </Text>
-            <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-              Lng: {selectedPinLocation.longitude.toFixed(4)}
+
+        <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
+          <View style={styles.locationInfo}>
+            <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
+            <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
+              {isPinSelected ? selectedPinAddress : (address || t('locationSelector.noAddressSelected'))}
             </Text>
           </View>
-        )}
-      </View>
+          {selectedPinLocation && (
+            <View style={styles.coordinatesContainer}>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+                Lat: {selectedPinLocation.latitude.toFixed(4)}
+              </Text>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+                Lng: {selectedPinLocation.longitude.toFixed(4)}
+              </Text>
+            </View>
+          )}
+        </View>
 
-      <View style={styles.locationSelectionButtons}>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1, height: fontSizes.buttonHeight }]}
-          onPress={handleUseCurrentLocation}
-        >
-          <MaterialIcon name="my-location" size={fontSizes.iconSize - 4} color={colors.text} style={{ marginRight: 4 }} />
-          <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
-            {t('locationSelector.useCurrent')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-};
+        <View style={styles.locationSelectionButtons}>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1, height: fontSizes.buttonHeight }]}
+            onPress={handleUseCurrentLocation}
+          >
+            <MaterialIcon name="my-location" size={fontSizes.iconSize - 4} color={colors.text} style={{ marginRight: 4 }} />
+            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+              {t('locationSelector.useCurrent')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  };
 
   const renderLocationModalContent = () => {
     return (
@@ -1343,7 +1359,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     locationContainer: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surface + 'cc',
       borderRadius: 10,
       paddingHorizontal: 10,
       borderColor: colors.border,
@@ -1366,26 +1382,54 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       position: "absolute",
       top: 50,
       left: 0,
-      backgroundColor: colors.card,
-      borderRadius: 8,
-      padding: 8,
+      right: 0,
+      borderRadius: 12,
+      overflow: 'hidden',
       shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-      elevation: 5,
-      zIndex: 100,
-      width: 200,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 8,
+      zIndex: 1000,
+    },
+    dropdownHeader: {
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    dropdownHeaderText: {
+      fontSize: 10,
+      fontWeight: "700",
+      letterSpacing: 1.2,
+      marginBottom: 8,
+      color: "#94a3b8",
     },
     dropdownItem: {
-      paddingVertical: 10,
-      paddingHorizontal: 12,
       flexDirection: "row",
       alignItems: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      backgroundColor: "#ffffff",
+    },
+    dropdownItemIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: "#f1f5f9",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 10,
     },
     dropdownItemText: {
       fontSize: fontSizes.dropdownItemText,
-      color: colors.text,
+      color: "#1e293b",
+      fontWeight: "500",
+      flex: 1,
+    },
+    dropdownDivider: {
+      height: 1,
+      backgroundColor: "#e2e8f0",
+      marginVertical: 4,
+      marginHorizontal: 12,
     },
     modalContainer: {
       flex: 1,
@@ -1397,11 +1441,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       alignItems: "center",
       padding: 16,
       borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      borderBottomColor: '#e5e7eb',
     },
     modalTitle: {
       fontSize: fontSizes.modalTitle,
-      fontWeight: "bold",
+      fontWeight: "700",
       color: "#ffffff"
     },
     modalContent: {
@@ -1423,8 +1467,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       position: 'relative',
     },
     methodCardActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.primary + '10',
+      borderWidth: 2,
     },
     methodIconContainer: {
       marginBottom: 8,
@@ -1675,12 +1718,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       marginBottom: 16,
     },
     activeButton: {
-      backgroundColor: colors.primary + '20',
-      borderColor: colors.primary,
       borderWidth: 2,
     },
     disabledButton: {
       opacity: 0.6,
+    },
+    scrollContentContainer: {
+      paddingBottom: 20,
     },
   });
 
@@ -1704,37 +1748,88 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {address || location || t('locationSelector.searching')}
+          {address || location || currentLocationText || t('locationSelector.searching')}
         </Text> 
         <MaterialIcon name="arrow-drop-down" size={18} color={colors.primary} />
       </TouchableOpacity>
 
+      {/* Enhanced Dropdown Menu with GRADIENT effect */}
       {showDropdown && (
-        <View style={dynamicStyles.dropdownContainer}>
+        <Animated.View 
+          style={[
+            dynamicStyles.dropdownContainer,
+            {
+              transform: [{ scale: dropdownScale }],
+              opacity: dropdownAnimation,
+            }
+          ]}
+        >
+          {/* Gradient Header for Dropdown */}
+          <LinearGradient
+            colors={["#0d1935", "#1c4485", "#255697"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={dynamicStyles.dropdownHeader}
+          >
+            <Text style={dynamicStyles.dropdownHeaderText}>
+              SET LOCATION
+            </Text>
+          </LinearGradient>
+
           {loadingLocations ? (
             <View style={dynamicStyles.dropdownItem}>
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={[dynamicStyles.dropdownItemText, { marginLeft: 8 }]}>
-                {t('common.loading')}
+                {t('common.loading')}...
               </Text>
             </View>
           ) : (
-            suggestions.map((suggestion, index) => (
-              <TouchableOpacity
-                key={index}
-                style={dynamicStyles.dropdownItem}
-                onPress={() => {
-                  handleChange(suggestion.name);
-                  setShowDropdown(false);
-                }}
-              >
-                <Text style={dynamicStyles.dropdownItemText}>{suggestion.name}</Text>
-              </TouchableOpacity>
-            ))
+            suggestions.map((suggestion, index) => {
+              let iconName = "location-on";
+              let iconColor = "#0284c7";
+              
+              if (suggestion.name === t('locationSelector.detectLocation')) {
+                iconName = "gps-fixed";
+                iconColor = "#0ea5e9";
+              } else if (suggestion.name === t('locationSelector.addAddress')) {
+                iconName = "add-location";
+                iconColor = "#059669";
+              } else {
+                iconName = "place";
+                iconColor = "#6b7280";
+              }
+              
+              return (
+                <React.Fragment key={index}>
+                  <TouchableOpacity
+                    style={dynamicStyles.dropdownItem}
+                    onPress={() => {
+                      handleChange(suggestion.name);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    <View style={dynamicStyles.dropdownItemIcon}>
+                      <MaterialIcon 
+                        name={iconName} 
+                        size={18} 
+                        color={iconColor} 
+                      />
+                    </View>
+                    <Text style={dynamicStyles.dropdownItemText}>
+                      {suggestion.name}
+                    </Text>
+                  </TouchableOpacity>
+                  {index === 1 && suggestions.length > 2 && (
+                    <View style={dynamicStyles.dropdownDivider} />
+                  )}
+                </React.Fragment>
+              );
+            })
           )}
-        </View>
+        </Animated.View>
       )}
 
+      {/* Location Selection Modal */}
       <Modal
         visible={open}
         animationType="slide"
@@ -1751,7 +1846,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
+            colors={["#0d1935", "#1c4485", "#255697"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.modalHeader}
@@ -1774,6 +1869,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         </View>
       </Modal>
 
+      {/* Save Location Modal */}
       <Modal
         visible={OpenSaveOptionForSave}
         animationType="slide"
@@ -1782,7 +1878,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
+            colors={["#0d1935", "#1c4485", "#255697"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.modalHeader}
@@ -2150,10 +2246,9 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
-  // Add this to the styles object
-scrollContentContainer: {
-  paddingBottom: 20,
-},
+  scrollContentContainer: {
+    paddingBottom: 20,
+  },
 });
 
 export default LocationSelector;

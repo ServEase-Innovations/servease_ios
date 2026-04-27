@@ -1,5 +1,5 @@
-/* eslint-disable */
-import React, { useState, useEffect, useRef } from "react";
+// App.tsx - UPDATED with touch handler for closing dropdowns
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -17,6 +17,7 @@ import {
   Dimensions,
   Linking,
   ActivityIndicator,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
@@ -118,6 +119,9 @@ const MainApp = () => {
   const [appResetKey, setAppResetKey] = useState(Date.now());
   const [isResetting, setIsResetting] = useState(false);
   
+  // NEW: State to trigger dropdown closing in Header and LocationSelector
+  const [closeAllDropdowns, setCloseAllDropdowns] = useState(false);
+  
   // Ref for Booking component to enable double-tap refresh
   const bookingsRef = useRef<BookingRef>(null);
   
@@ -145,6 +149,15 @@ const MainApp = () => {
   };
 
   const fontStyles = getFontSizeStyles();
+
+  // NEW: Function to handle outside touch and close dropdowns
+  const handleOutsideTouch = useCallback(() => {
+    setCloseAllDropdowns(true);
+    // Reset after a short delay
+    setTimeout(() => {
+      setCloseAllDropdowns(false);
+    }, 100);
+  }, []);
 
   // ============= DEEP LINKING IMPLEMENTATION =============
 
@@ -786,114 +799,120 @@ const MainApp = () => {
           edges={["top"]} 
           key={`app-${appResetKey}`}
         >
-          {/* Deep linking loading overlay */}
-          {showDeepLinkLoading && (
-            <View style={[styles.deepLinkLoadingOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-              <View style={[styles.deepLinkLoadingContainer, { backgroundColor: colors.surface }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={[styles.deepLinkLoadingText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                  {i18n.t('common.openingBooking')}
-                </Text>
+          {/* Touchable Without Feedback wrapper to close dropdowns when tapping outside */}
+          <TouchableWithoutFeedback onPress={handleOutsideTouch}>
+            <View style={{ flex: 1 }}>
+              {/* Deep linking loading overlay */}
+              {showDeepLinkLoading && (
+                <View style={[styles.deepLinkLoadingOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                  <View style={[styles.deepLinkLoadingContainer, { backgroundColor: colors.surface }]}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={[styles.deepLinkLoadingText, { color: colors.text, fontSize: fontStyles.textSize }]}>
+                      {i18n.t('common.openingBooking')}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Fixed Header - Pass closeDropdowns prop */}
+              <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
+                <Head 
+                  sendDataToParent={handleViewChange} 
+                  bookingType={selectedBookingType}
+                  onAboutClick={handleAboutClick}
+                  onContactClick={handleContactClick}
+                  onLogoClick={handleHomeClick}
+                  closeDropdowns={closeAllDropdowns}
+                />
               </View>
+
+              {/* Scrollable Content Area */}
+              <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
+                {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) || currentView === WALLET ? (
+                  <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
+                    {renderContent()}
+                  </ScrollView>
+                ) : (
+                  <ScrollView
+                    style={styles.mainScrollView}
+                    contentContainerStyle={[
+                      styles.scrollContent,
+                      (currentView === BOOKINGS || currentView === DASHBOARD || currentView === AGENT_DASHBOARD) &&
+                        styles.fullScreenScrollContent,
+                    ]}
+                    contentInsetAdjustmentBehavior="automatic"
+                  >
+                    {renderContent()}
+                    {currentView === HOME &&
+                      (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
+                  </ScrollView>
+                )}
+              </View>
+
+              {/* Fixed Navigation Footer for Mobile */}
+              {isMobile && (
+                <View style={[styles.navigationFooterContainer, { backgroundColor: colors.footerBackground }]}>
+                  <NavigationFooter
+                    activePage={currentView}
+                    onHomeClick={handleHomeClick}
+                    onBookingsClick={handleBookingsClick}
+                    onDashboardClick={handleDashboardClick}
+                    onAboutClick={handleAboutClick}
+                    onContactClick={handleContactClick}
+                    auth0User={user}
+                    appUser={appUser}
+                    bookingType={selectedBookingType}
+                    onOpenSignup={() => setShowSignupDrawer(true)}
+                    onProfileClick={() => setShowProfileMenu(true)}
+                    onNavigateToPage={(page: string) => {
+                      if (page === PROFILE) {
+                        setCurrentView(PROFILE);
+                        setShowProfileFromDashboard(false);
+                      } else if (page === BOOKINGS) {
+                        setCurrentView(BOOKINGS);
+                      } else if (page === DASHBOARD) {
+                        setCurrentView(DASHBOARD);
+                        setShowProfileFromDashboard(false);
+                      } else if (page === AGENT_DASHBOARD) {
+                        setCurrentView(AGENT_DASHBOARD);
+                        setShowProfileFromDashboard(false);
+                      } else if (page === WALLET) {
+                        setCurrentView(WALLET);
+                        setShowProfileFromDashboard(false);
+                      } else if (page === HOME) {
+                        setCurrentView(HOME);
+                        setShowProfileFromDashboard(false);
+                      }
+                    }}
+                    onSignOutComplete={handleAppRelaunchAfterSignOut}
+                    bookingsRef={bookingsRef}
+                  />
+
+                  <ProfileMenuSheet
+                    visible={showProfileMenu}
+                    onClose={() => setShowProfileMenu(false)}
+                    onProfile={() => {
+                      setShowProfileMenu(false);
+                      setCurrentView(PROFILE);
+                    }}
+                    onBookings={() => {
+                      setShowProfileMenu(false);
+                      setCurrentView(BOOKINGS);
+                    }}
+                    onDashboard={() => {
+                      setShowProfileMenu(false);
+                      setCurrentView(DASHBOARD);
+                    }}
+                    onWallet={() => {
+                      setShowProfileMenu(false);
+                      setCurrentView(WALLET);
+                    }}
+                    onContact={handleContactClick}
+                  />
+                </View>
+              )}
             </View>
-          )}
-
-          {/* Fixed Header */}
-          <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
-            <Head 
-              sendDataToParent={handleViewChange} 
-              bookingType={selectedBookingType}
-              onAboutClick={handleAboutClick}
-              onContactClick={handleContactClick}
-              onLogoClick={handleHomeClick}
-            />
-          </View>
-
-          {/* Scrollable Content Area */}
-          <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-            {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) || currentView === WALLET ? (
-              <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
-                {renderContent()}
-              </ScrollView>
-            ) : (
-              <ScrollView
-                style={styles.mainScrollView}
-                contentContainerStyle={[
-                  styles.scrollContent,
-                  (currentView === BOOKINGS || currentView === DASHBOARD || currentView === AGENT_DASHBOARD) &&
-                    styles.fullScreenScrollContent,
-                ]}
-                contentInsetAdjustmentBehavior="automatic"
-              >
-                {renderContent()}
-                {currentView === HOME &&
-                  (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Fixed Navigation Footer for Mobile */}
-          {isMobile && (
-            <View style={[styles.navigationFooterContainer, { backgroundColor: colors.footerBackground }]}>
-              <NavigationFooter
-                activePage={currentView}
-                onHomeClick={handleHomeClick}
-                onBookingsClick={handleBookingsClick}
-                onDashboardClick={handleDashboardClick}
-                onAboutClick={handleAboutClick}
-                onContactClick={handleContactClick}
-                auth0User={user}
-                appUser={appUser}
-                bookingType={selectedBookingType}
-                onOpenSignup={() => setShowSignupDrawer(true)}
-                onProfileClick={() => setShowProfileMenu(true)}
-                onNavigateToPage={(page: string) => {
-                  if (page === PROFILE) {
-                    setCurrentView(PROFILE);
-                    setShowProfileFromDashboard(false);
-                  } else if (page === BOOKINGS) {
-                    setCurrentView(BOOKINGS);
-                  } else if (page === DASHBOARD) {
-                    setCurrentView(DASHBOARD);
-                    setShowProfileFromDashboard(false);
-                  } else if (page === AGENT_DASHBOARD) {
-                    setCurrentView(AGENT_DASHBOARD);
-                    setShowProfileFromDashboard(false);
-                  } else if (page === WALLET) {
-                    setCurrentView(WALLET);
-                    setShowProfileFromDashboard(false);
-                  } else if (page === HOME) {
-                    setCurrentView(HOME);
-                    setShowProfileFromDashboard(false);
-                  }
-                }}
-                onSignOutComplete={handleAppRelaunchAfterSignOut}
-                bookingsRef={bookingsRef}
-              />
-
-              <ProfileMenuSheet
-                visible={showProfileMenu}
-                onClose={() => setShowProfileMenu(false)}
-                onProfile={() => {
-                  setShowProfileMenu(false);
-                  setCurrentView(PROFILE);
-                }}
-                onBookings={() => {
-                  setShowProfileMenu(false);
-                  setCurrentView(BOOKINGS);
-                }}
-                onDashboard={() => {
-                  setShowProfileMenu(false);
-                  setCurrentView(DASHBOARD);
-                }}
-                onWallet={() => {
-                  setShowProfileMenu(false);
-                  setCurrentView(WALLET);
-                }}
-                onContact={handleContactClick}
-              />
-            </View>
-          )}
+          </TouchableWithoutFeedback>
 
           {/* Chat Button - Positioned above Navigation Footer */}
           {!chatbotOpen && isMobile && (

@@ -12,6 +12,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useAuth0 } from 'react-native-auth0';
 import { useAppUser } from '../context/AppUserContext';
@@ -20,6 +21,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
 import providerInstance from '../services/providerInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import Svg, { Path, Line, Defs, Pattern, Rect, Circle } from 'react-native-svg';
 
 // Import sections
 import CustomerProfileSection from './CustomerProfileSection';
@@ -27,7 +29,7 @@ import ServiceProviderProfileSection from './ServiceProviderProfileSection';
 import VendorProfileSection from './VendorProfileSection';
 import MobileNumberDialog from './MobileNumberDialog';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface AppUser {
   name?: string;
@@ -63,6 +65,7 @@ const ProfileScreen: React.FC = () => {
           subtitle: 14,
           body: 12,
           button: 12,
+          smallText: 10,
         };
       case 'large':
         return {
@@ -70,6 +73,7 @@ const ProfileScreen: React.FC = () => {
           subtitle: 18,
           body: 16,
           button: 16,
+          smallText: 14,
         };
       default:
         return {
@@ -77,6 +81,7 @@ const ProfileScreen: React.FC = () => {
           subtitle: 16,
           body: 14,
           button: 14,
+          smallText: 12,
         };
     }
   };
@@ -171,38 +176,81 @@ const ProfileScreen: React.FC = () => {
     return colorsList[charCode % colorsList.length];
   };
 
+  // Diagonal line pattern
+  const DiagonalPattern = () => (
+    <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <Pattern
+          id="diagonalPattern"
+          patternUnits="userSpaceOnUse"
+          width={30}
+          height={30}
+          patternTransform="rotate(45)"
+        >
+          <Line
+            x1="0"
+            y1="15"
+            x2="30"
+            y2="15"
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="1.5"
+          />
+        </Pattern>
+      </Defs>
+      <Rect width="100%" height="100%" fill="url(#diagonalPattern)" />
+    </Svg>
+  );
+
+  // Dot pattern for texture
+  const DotPattern = () => (
+    <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <Pattern
+          id="dotPattern"
+          patternUnits="userSpaceOnUse"
+          width={20}
+          height={20}
+        >
+          <Circle cx="10" cy="10" r="1.2" fill="rgba(255,255,255,0.1)" />
+        </Pattern>
+      </Defs>
+      <Rect width="100%" height="100%" fill="url(#dotPattern)" />
+    </Svg>
+  );
+
   // Loading skeleton for the entire profile
   if (isLoading || auth0Loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header Skeleton */}
-          <LinearGradient
-            colors={[colors.primary || '#dbeafe', colors.background]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.headerSkeleton}
-          >
-            <View style={styles.headerContentSkeleton}>
-              <View style={styles.profileInfoSkeleton}>
-                <View style={[styles.avatarSkeleton, { backgroundColor: colors.surface }]} />
-                <View style={styles.textInfoSkeleton}>
-                  <View style={[styles.nameSkeleton, { backgroundColor: colors.surface }]} />
-                  <View style={[styles.roleSkeleton, { backgroundColor: colors.surface }]} />
-                </View>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <LinearGradient
+          colors={['#0d1935', '#1c4485', '#255697']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerSkeleton}
+        >
+          <View style={styles.headerContentSkeleton}>
+            <View style={styles.profileInfoSkeleton}>
+              <View style={[styles.avatarSkeleton, { backgroundColor: colors.surface }]} />
+              <View style={styles.textInfoSkeleton}>
+                <View style={[styles.nameSkeleton, { backgroundColor: colors.surface }]} />
+                <View style={[styles.roleSkeleton, { backgroundColor: colors.surface }]} />
               </View>
-              <View style={[styles.buttonSkeleton, { backgroundColor: colors.surface }]} />
             </View>
-          </LinearGradient>
-
-          {/* Content Skeleton */}
+          </View>
+        </LinearGradient>
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContentContainer}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.mainContent}>
             <View style={[styles.skeletonCard, { backgroundColor: colors.card }]}>
+              {/* Skeleton content */}
               <View style={styles.skeletonHeader}>
                 <View style={[styles.skeletonTitle, { backgroundColor: colors.surface }]} />
                 <View style={[styles.skeletonEditButton, { backgroundColor: colors.surface }]} />
               </View>
-
               <View style={styles.skeletonSection}>
                 <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
                 <View style={styles.skeletonRow}>
@@ -210,60 +258,7 @@ const ProfileScreen: React.FC = () => {
                     <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
                     <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
                   </View>
-                  <View style={styles.skeletonInputGroup}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-                  </View>
                 </View>
-                <View style={styles.skeletonRow}>
-                  <View style={styles.skeletonInputGroup}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-                  </View>
-                  <View style={styles.skeletonInputGroup}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-                  </View>
-                </View>
-              </View>
-
-              <View style={[styles.skeletonDivider, { backgroundColor: colors.border }]} />
-
-              <View style={styles.skeletonSection}>
-                <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
-                <View style={styles.skeletonRow}>
-                  <View style={styles.skeletonInputGroup}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-                  </View>
-                  <View style={styles.skeletonInputGroup}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-                  </View>
-                </View>
-              </View>
-
-              <View style={[styles.skeletonDivider, { backgroundColor: colors.border }]} />
-
-              <View style={styles.skeletonSection}>
-                <View style={styles.skeletonAddressHeader}>
-                  <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                  <View style={[styles.skeletonAddButton, { backgroundColor: colors.surface }]} />
-                </View>
-                {[1, 2].map((item) => (
-                  <View key={item} style={[styles.skeletonAddressCard, { backgroundColor: colors.surface }]}>
-                    <View style={styles.skeletonAddressHeader}>
-                      <View style={[styles.skeletonAddressTitle, { backgroundColor: colors.surface }]} />
-                      <View style={[styles.skeletonAddressIcon, { backgroundColor: colors.surface }]} />
-                    </View>
-                    <View style={[styles.skeletonAddressLine, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonAddressLineShort, { backgroundColor: colors.surface }]} />
-                  </View>
-                ))}
-              </View>
-
-              <View style={[styles.skeletonFooter, { backgroundColor: colors.surface }]}>
-                <View style={[styles.skeletonFooterText, { backgroundColor: colors.surface }]} />
               </View>
             </View>
           </View>
@@ -277,7 +272,117 @@ const ProfileScreen: React.FC = () => {
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header with curved bottom edge */}
+        <View style={styles.headerWrapper}>
+          <LinearGradient
+            colors={['#0d1935', '#1c4485', '#255697']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.header}
+          >
+            {/* Texture patterns */}
+            <DiagonalPattern />
+            <DotPattern />
+            
+            <View style={styles.headerContent}>
+              <View style={styles.profileInfo}>
+                <View style={styles.avatarRing}>
+                  {appUser?.picture || auth0User?.picture ? (
+                    <Image
+                      source={getAvatarSource()}
+                      style={styles.avatar}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.avatarFallback,
+                        { backgroundColor: getAvatarBackgroundColor(getUserInitial()) },
+                      ]}
+                    >
+                      <Text style={[styles.avatarText, { fontSize: fontSizes.title, color: '#fff' }]}>
+                        {getUserInitial()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={[styles.greeting, { color: '#ffffff', fontSize: fontSizes.title }]}>
+                    Hello, {userName || t('profile.page.user')}
+                  </Text>
+                  <View style={styles.roleContainer}>
+                    <Text style={[styles.roleText, { color: '#cbd5e1', fontSize: fontSizes.subtitle }]}>
+                      {getRoleDisplay()}
+                    </Text>
+                    {userRole === 'CUSTOMER' && hasMobileNumber === false && (
+                      <Text style={[styles.mobileWarning, { color: '#fde047', fontSize: fontSizes.body }]}>
+                        {' '}⚠️ Mobile number required
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+
+              {/* Add Mobile Button - Only for Customers */}
+              {userRole === 'CUSTOMER' && hasMobileNumber === false && (
+                <TouchableOpacity
+                  style={styles.addMobileButton}
+                  onPress={() => setMobileDialogOpen(true)}
+                >
+                  <Icon name="phone" size={16} color="#fde047" />
+                  <Text style={[styles.addMobileText, { color: '#fde047', fontSize: fontSizes.button }]}>
+                    Add Mobile Number
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Vendor ID Display */}
+              {userRole === 'VENDOR' && userId && (
+                <View style={styles.vendorIdBadge}>
+                  <Text style={[styles.vendorIdText, { color: '#bae6fd', fontSize: fontSizes.body }]}>
+                    Vendor ID: {userId}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Curved bottom edge decoration - like the image */}
+            <View style={styles.curveOverlay} />
+          </LinearGradient>
+          
+          {/* Curved white overlay to create the rounded edge effect */}
+          <View style={styles.bottomCurve} />
+        </View>
+
+        {/* Profile Section - starts with curved top */}
+        <View style={styles.profileSectionContainer}>
+          {userRole === 'CUSTOMER' ? (
+            <CustomerProfileSection
+              userId={userId}
+              userEmail={userEmail}
+              onBack={() => {}}
+            />
+          ) : userRole === 'SERVICE_PROVIDER' ? (
+            <ServiceProviderProfileSection
+              userId={userId}
+              userEmail={userEmail}
+              onBack={() => {}}
+            />
+          ) : userRole === 'VENDOR' ? (
+            <VendorProfileSection
+              userId={userId}
+              userEmail={userEmail}
+              onBack={() => {}}
+            />
+          ) : null}
+        </View>
+
         {/* Mobile Dialog */}
         {mobileDialogOpen && userId && userRole === 'CUSTOMER' && (
           <MobileNumberDialog
@@ -290,112 +395,6 @@ const ProfileScreen: React.FC = () => {
             }}
           />
         )}
-
-        {/* Header */}
-        <LinearGradient
-          colors={[colors.primary || '#dbeafe', colors.background]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.header}
-        >
-          <View style={styles.headerContent}>
-            <View style={styles.profileInfo}>
-              {/* Avatar with blue ring - UPDATED to match React version */}
-              <View style={styles.avatarRing}>
-                {appUser?.picture || auth0User?.picture ? (
-                  <Image
-                    source={getAvatarSource()}
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.avatarFallback,
-                      { backgroundColor: getAvatarBackgroundColor(getUserInitial()) },
-                    ]}
-                  >
-                    <Text style={[styles.avatarText, { fontSize: fontSizes.title, color: '#fff' }]}>
-                      {getUserInitial()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={[styles.greeting, { color: colors.text, fontSize: fontSizes.title }]}>
-                  {t('profile.page.hello')}, {userName || t('profile.page.user')}
-                </Text>
-                <View style={styles.roleContainer}>
-                  <Text style={[styles.roleText, { color: colors.textSecondary, fontSize: fontSizes.subtitle }]}>
-                    {getRoleDisplay()}
-                  </Text>
-                  {userRole === 'CUSTOMER' && hasMobileNumber === false && (
-                    <Text style={[styles.mobileWarning, { color: colors.error, fontSize: fontSizes.body }]}>
-                      {' '}⚠️ {t('profile.page.mobileNumberRequired')}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* Add Mobile Button - Only for Customers */}
-            {userRole === 'CUSTOMER' && hasMobileNumber === false && (
-              <TouchableOpacity
-                style={[styles.addMobileButton, { backgroundColor: colors.errorLight }]}
-                onPress={() => setMobileDialogOpen(true)}
-              >
-                <Icon name="phone" size={16} color={colors.error} />
-                <Text style={[styles.addMobileText, { color: colors.error, fontSize: fontSizes.button }]}>
-                  {t('profile.page.addMobileNumber')}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Vendor ID Display */}
-            {userRole === 'VENDOR' && userId && (
-              <View style={[styles.vendorIdBadge, { backgroundColor: colors.infoLight }]}>
-                <Text style={[styles.vendorIdText, { color: colors.info, fontSize: fontSizes.body }]}>
-                  {t('profile.page.vendorId')}: {userId}
-                </Text>
-              </View>
-            )}
-          </View>
-        </LinearGradient>
-
-        {/* Profile Section */}
-        <View style={styles.profileSectionContainer}>
-          {userRole === 'CUSTOMER' ? (
-            <CustomerProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {
-                // Handle back navigation if needed
-              }}
-            />
-          ) : userRole === 'SERVICE_PROVIDER' ? (
-            <ServiceProviderProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {
-                // Handle back navigation if needed
-              }}
-            />
-          ) : userRole === 'VENDOR' ? (
-            <VendorProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {
-                // Handle back navigation if needed
-              }}
-            />
-          ) : null}
-        </View>
-
-        {/* Footer */}
-        <View style={[styles.footer, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.footerText, { color: colors.textTertiary, fontSize: fontSizes.body }]}>
-            © 2025 MyApp. {t('profile.page.allRightsReserved')}
-          </Text>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -405,11 +404,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  headerWrapper: {
+    position: 'relative',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+  },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40 + (StatusBar.currentHeight || 0),
+    paddingBottom: 50,
+    position: 'relative',
+  },
+  curveOverlay: {
+    position: 'absolute',
+    bottom: -2,
+    left: 0,
+    right: 0,
+    height: 30,
+    backgroundColor: 'transparent',
+  },
+  bottomCurve: {
+    position: 'absolute',
+    bottom: -1,
+    left: 0,
+    right: 0,
+    height: 30,
+    backgroundColor: '#f8fafc',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
   headerContent: {
     flexDirection: 'row',
@@ -418,6 +447,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 20,
     gap: 12,
+    zIndex: 10,
   },
   profileInfo: {
     flexDirection: 'row',
@@ -425,18 +455,22 @@ const styles = StyleSheet.create({
     gap: 16,
     flex: 1,
   },
-  // NEW: Avatar ring styling - matches React version with p-[3px] rounded-full bg-blue-500
   avatarRing: {
     padding: 3,
     borderRadius: 40,
-    backgroundColor: '#3b82f6', // blue-500
+    backgroundColor: '#3b82f6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   avatar: {
-    width: 64, // w-16 (16 * 4 = 64)
+    width: 64,
     height: 64,
     borderRadius: 32,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   avatarFallback: {
     width: 64,
@@ -445,7 +479,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   avatarText: {
     fontWeight: 'bold',
@@ -471,73 +505,35 @@ const styles = StyleSheet.create({
   addMobileButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+    backgroundColor: 'rgba(253, 224, 71, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(253, 224, 71, 0.3)',
   },
   addMobileText: {
     fontWeight: '600',
   },
   vendorIdBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   vendorIdText: {
     fontWeight: '600',
   },
   profileSectionContainer: {
+    backgroundColor: '#f8fafc',
+    paddingTop: 10,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     marginTop: -20,
-  },
-  footer: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  footerText: {
-    textAlign: 'center',
-  },
-  // Skeleton styles
-  headerSkeleton: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerContentSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  profileInfoSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  avatarSkeleton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-  },
-  textInfoSkeleton: {
-    gap: 8,
-  },
-  nameSkeleton: {
-    width: 160,
-    height: 28,
-    borderRadius: 4,
-  },
-  roleSkeleton: {
-    width: 96,
-    height: 16,
-    borderRadius: 4,
-  },
-  buttonSkeleton: {
-    width: 128,
-    height: 40,
-    borderRadius: 20,
+    zIndex: 20,
   },
   mainContent: {
     alignItems: 'center',
@@ -657,6 +653,46 @@ const styles = StyleSheet.create({
     width: 200,
     height: 16,
     borderRadius: 4,
+  },
+  headerSkeleton: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 50,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerContentSkeleton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  profileInfoSkeleton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  avatarSkeleton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  textInfoSkeleton: {
+    gap: 8,
+  },
+  nameSkeleton: {
+    width: 160,
+    height: 28,
+    borderRadius: 4,
+  },
+  roleSkeleton: {
+    width: 96,
+    height: 16,
+    borderRadius: 4,
+  },
+  buttonSkeleton: {
+    width: 128,
+    height: 40,
+    borderRadius: 20,
   },
 });
 

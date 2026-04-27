@@ -1,4 +1,4 @@
-// Head.tsx - UPDATED: With alerts button after location selector
+// Head.tsx - UPDATED: Pass closeDropdowns to LocationSelector
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -48,10 +48,9 @@ interface ChildComponentProps {
   onAboutClick: () => void;
   onContactClick: () => void;
   onLogoClick: () => void;
-  closeDropdowns?: boolean; // CHANGED: Prop to trigger dropdown closing (boolean instead of number)
+  closeDropdowns?: boolean; // Add this prop
 }
 
-// Location data interface
 interface LocationData {
   formatted_address: string;
   geometry: {
@@ -71,7 +70,7 @@ const Head: React.FC<ChildComponentProps> = ({
   onAboutClick,
   onContactClick,
   onLogoClick,
-  closeDropdowns = false // CHANGED: Default value changed to false
+  closeDropdowns = false // Receive the prop
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const {
@@ -96,7 +95,6 @@ const Head: React.FC<ChildComponentProps> = ({
   const [selectedService, setSelectedService] = useState("");
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
 
-  // Get font sizes based on theme
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
@@ -119,16 +117,13 @@ const Head: React.FC<ChildComponentProps> = ({
 
   const fontSizes = getFontSizes();
 
-  // NEW: Close dropdowns when parent triggers it
+  // Close any internal dropdowns when closeDropdowns prop changes
   useEffect(() => {
     if (closeDropdowns) {
       setMenuVisible(false);
-      // Note: We can't directly control LocationSelector's dropdown
-      // It should handle its own closing on outside clicks
     }
   }, [closeDropdowns]);
 
-  // Snackbar helper functions
   const showSuccessSnackbar = (message: string) => {
     Snackbar.show({
       text: message,
@@ -156,7 +151,6 @@ const Head: React.FC<ChildComponentProps> = ({
     });
   };
 
-  // Function to get current location data for booking service
   const getCurrentLocationData = (): { latitude: number; longitude: number } | null => {
     if (!currentLocation) return null;
     
@@ -166,7 +160,6 @@ const Head: React.FC<ChildComponentProps> = ({
     };
   };
 
-  // Updated location change handler
   const handleLocationChange = (location: string, locationData?: LocationData) => {
     console.log("Location changed to:", location);
     console.log("Location data:", locationData);
@@ -175,7 +168,6 @@ const Head: React.FC<ChildComponentProps> = ({
     if (locationData) {
       setCurrentLocation(locationData);
       
-      // Store in Redux for backward compatibility
       dispatch(add({ 
         type: 'LOCATION_UPDATE', 
         payload: locationData 
@@ -223,7 +215,6 @@ const Head: React.FC<ChildComponentProps> = ({
     if (service === "Caregiver") serviceType = "NANNY";
 
     console.log(`Service selected: ${service}, Type: ${serviceType}`);
-    // You can trigger navigation or state update based on service selection
   };
 
   const { setAppUser, appUser } = useAppUser();
@@ -463,7 +454,6 @@ const Head: React.FC<ChildComponentProps> = ({
     setMenuVisible(false);
   };
 
-  // Export function to get location data
   const getLocationData = () => currentLocation;
 
   const dynamicStyles = StyleSheet.create({
@@ -516,12 +506,12 @@ const Head: React.FC<ChildComponentProps> = ({
   return (
     <View style={{ position: "relative" }}>
       <LinearGradient
-        colors={["#0a2a66", "#004aad"]}
+        colors={["#0d1935", "#1c4485", "#255697"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={dynamicStyles.headerContainer}
       >
-        {/* Logo Section - Centered */}
+        {/* Logo Section */}
         <View style={styles.logoContainer}>
           <TouchableOpacity onPress={onLogoClick}>
             <Image
@@ -531,16 +521,17 @@ const Head: React.FC<ChildComponentProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Location Selector - Slightly shrinked to accommodate alerts button */}
+        {/* Location Selector - Pass closeDropdowns prop */}
         <View style={styles.locationContainer}>
           <LocationSelector
             userPreference={userPreference}
             setUserPreference={setUserPreference}
             onLocationChange={handleLocationChange}
+            closeDropdown={closeDropdowns} // Pass the prop here
           />
         </View>
 
-        {/* Alerts Button - Always displayed after location selector */}
+        {/* Alerts Button */}
         <TouchableOpacity
           onPress={handleNotificationClick}
           style={dynamicStyles.alertsButton}
@@ -551,7 +542,7 @@ const Head: React.FC<ChildComponentProps> = ({
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Wallet Dialog - kept as it might be triggered from other parts */}
+      {/* Wallet Dialog */}
       <WalletDialog
         open={isWalletOpen}
         onClose={() => setIsWalletOpen(false)}
@@ -571,7 +562,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0a2a66", "#004aad"]}
+            colors={["#0d1935", "#1c4485", "#255697"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}
@@ -593,7 +584,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0a2a66", "#004aad"]}
+            colors={["#0ea5e9", "#1e293b", "#0f172a"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}
@@ -607,7 +598,7 @@ const Head: React.FC<ChildComponentProps> = ({
         </View>
       </Modal>
 
-      {/* About Page - kept as it might be triggered from other parts */}
+      {/* About Page */}
       <AboutPage visible={showAboutUs} onBack={() => setShowAboutUs(false)} />
 
       {/* Contact Us Modal */}
@@ -618,7 +609,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0a2a66", "#004aad"]}
+            colors={["#0ea5e9", "#1e293b", "#0f172a"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}

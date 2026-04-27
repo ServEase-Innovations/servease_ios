@@ -11,9 +11,11 @@ import {
   ScrollView,
   Modal
 } from "react-native";
+import LinearGradient from 'react-native-linear-gradient';
 import moment from "moment";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useDispatch, useSelector } from "react-redux";
 import { add, update } from "../features/bookingTypeSlice";
 import DemoCook from "../ServiceDialogs/CookServiceDialog";
@@ -69,11 +71,11 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const getFontSizeStyles = () => {
     switch (fontSize) {
       case 'small':
-        return { textSize: 14, headingSize: 18, smallText: 12, xSmall: 10 };
+        return { textSize: 13, headingSize: 17, smallText: 11, xSmall: 10, metricValue: 16 };
       case 'large':
-        return { textSize: 18, headingSize: 24, smallText: 16, xSmall: 14 };
+        return { textSize: 17, headingSize: 23, smallText: 15, xSmall: 13, metricValue: 20 };
       default:
-        return { textSize: 16, headingSize: 20, smallText: 14, xSmall: 12 };
+        return { textSize: 15, headingSize: 20, smallText: 13, xSmall: 11, metricValue: 18 };
     }
   };
 
@@ -159,9 +161,9 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     } else {
       switch(props.diet?.toUpperCase()) {
         case 'VEG':
-          return colors.veg;
+          return '#4caf50';
         case 'NONVEG':
-          return colors.nonVeg;
+          return '#f44336';
         default:
           return colors.textSecondary;
       }
@@ -170,7 +172,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Get availability status
   const getAvailabilityStatus = () => {
-    if (!props.monthlyAvailability) return "Available";
+    if (!props.monthlyAvailability) return "Partially Available";
     
     if (props.monthlyAvailability.fullyAvailable) {
       return "Fully Available";
@@ -190,8 +192,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Get availability chip style
   const getAvailabilityStyle = () => {
     if (!props.monthlyAvailability) return {
-      container: { backgroundColor: isDarkMode ? '#2d3a4f' : colors.surface2 },
-      text: { color: isDarkMode ? '#94a3b8' : colors.textSecondary }
+      container: { backgroundColor: isDarkMode ? '#2d3a4f' : '#f5f5f5' },
+      text: { color: isDarkMode ? '#94a3b8' : '#9e9e9e' }
     };
     
     if (props.monthlyAvailability.fullyAvailable) {
@@ -279,10 +281,10 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     switch (gender.toUpperCase()) {
       case 'FEMALE': 
       case 'F': 
-        return 'F';
+        return '♀';
       case 'MALE': 
       case 'M': 
-        return 'M';
+        return '♂';
       default: 
         return gender.charAt(0).toUpperCase();
     }
@@ -601,71 +603,101 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const diet = props.diet || "NONVEG";
 
   // Check if any badge is present
-  const hasBadges = props.bestMatch || props.previouslyBooked;
+  const hasBestMatch = props.bestMatch;
+  const hasPreviouslyBooked = props.previouslyBooked;
 
   console.log("Rendering ProviderDetails with housekeepingRoles:", housekeepingRoles);
 
   return (
     <View style={[styles.container, { 
-      padding: 12 * spacingMultiplier, 
+      padding: 8 * spacingMultiplier,
       backgroundColor: 'transparent'
     }]}>
-      <View style={[
-        styles.card,
-        isMobile && styles.cardMobile,
-        isSmallScreen && styles.cardSmall,
-        { 
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          shadowColor: colors.shadow,
-        }
-      ]}>
-        {/* Header Section with Badges and Roles */}
+      <LinearGradient
+        colors={isDarkMode ? ['#1e293b', '#0f172a'] : ['#ffffff', '#f8fafc']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[
+          styles.card,
+          isMobile && styles.cardMobile,
+          isSmallScreen && styles.cardSmall,
+          { 
+            borderColor: colors.border,
+            shadowColor: colors.shadow,
+          }
+        ]}
+      >
+        {/* Header Section with Badges */}
         <View style={[
           styles.headerSection,
           isMobile && styles.headerSectionMobile
         ]}>
           {/* Badges Container */}
-          {hasBadges && (
+          {(hasBestMatch || hasPreviouslyBooked) && (
             <View style={[
               styles.badgeContainer,
               isMobile && styles.badgeContainerMobile
             ]}>
-              {/* Best Match Badge */}
-              {props.bestMatch && (
-                <View style={[
-                  styles.bestMatchBadge,
-                  isMobile && styles.bestMatchBadgeMobile,
-                  { backgroundColor: '#ff9800' }
-                ]}>
-                  <MaterialCommunityIcons name="fire" size={12} color="#ffffff" />
+              {/* Best Match Badge with Gradient */}
+              {hasBestMatch && (
+                <LinearGradient
+                  colors={['#FF6B35', '#FF8C42', '#FFB347']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[
+                    styles.bestMatchBadge,
+                    isMobile && styles.bestMatchBadgeMobile
+                  ]}
+                >
+                  <MaterialCommunityIcons name="fire" size={isMobile ? 12 : 14} color="#ffffff" />
                   <Text style={[
                     styles.badgeText,
                     isMobile && styles.badgeTextMobile,
                     { fontSize: fontStyles.xSmall }
                   ]}>Best Match</Text>
-                </View>
+                </LinearGradient>
               )}
               
-              {/* Previously Booked Badge */}
-              {props.previouslyBooked && (
-                <View style={[
-                  styles.previouslyBookedBadge,
-                  isMobile && styles.previouslyBookedBadgeMobile,
-                  { backgroundColor: '#2196f3' }
-                ]}>
-                  <MaterialCommunityIcons name="history" size={12} color="#ffffff" />
+              {/* Previously Booked Badge with Gradient */}
+              {hasPreviouslyBooked && (
+                <LinearGradient
+                  colors={['#2196F3', '#42A5F5', '#64B5F6']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[
+                    styles.previouslyBookedBadge,
+                    isMobile && styles.previouslyBookedBadgeMobile
+                  ]}
+                >
+                  <MaterialCommunityIcons name="history" size={isMobile ? 12 : 14} color="#ffffff" />
                   <Text style={[
                     styles.badgeText,
                     isMobile && styles.badgeTextMobile,
                     { fontSize: fontStyles.xSmall }
                   ]}>Previously Booked</Text>
-                </View>
+                </LinearGradient>
               )}
             </View>
           )}
 
-          
+          {/* Favorite Button */}
+          <TouchableOpacity 
+            onPress={toggleFavorite} 
+            style={[
+              styles.favoriteButton,
+              { 
+                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                borderRadius: 20,
+                padding: 6
+              }
+            ]}
+          >
+            <MaterialCommunityIcons 
+              name={isFavorite ? "heart" : "heart-outline"} 
+              size={20} 
+              color={isFavorite ? "#f44336" : colors.textSecondary} 
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Main Content */}
@@ -678,7 +710,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             styles.leftSection,
             isMobile && styles.leftSectionMobile
           ]}>
-            {/* Name and Basic Info */}
+            {/* Profile Header - Name and Basic Info */}
             <View style={styles.nameRow}>
               <Text style={[
                 styles.nameText,
@@ -692,16 +724,16 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 isMobile && styles.genderAgeTextMobile,
                 { color: colors.textSecondary, fontSize: fontStyles.smallText, marginLeft: 8 }
               ]}>
-                {genderSymbol} • {age} yrs
+                {genderSymbol} {age}
               </Text>
             </View>
 
-            {/* Meta Info Row - Diet and Languages */}
+            {/* Diet and Languages Row */}
             <View style={[
               styles.metaRow,
               isMobile && styles.metaRowMobile
             ]}>
-              {/* Diet */}
+              {/* Diet with icon */}
               <View style={styles.metaItem}>
                 <MaterialCommunityIcons name="food" size={14} color={getDietColor()} />
                 <Text style={[
@@ -739,7 +771,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               </View>
             </View>
 
-            {/* Roles Display Line */}
+            {/* Roles Display */}
             {housekeepingRoles.length > 0 && housekeepingRoles[0] !== "UNKNOWN" && (
               <View style={[styles.rolesDisplayRow, { marginBottom: 8 }]}>
                 <MaterialCommunityIcons name="badge-account" size={14} color={colors.textSecondary} />
@@ -760,14 +792,14 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               <Text style={[
                 styles.availabilityLabel,
                 { color: colors.textSecondary, fontSize: fontStyles.smallText, fontWeight: '600', marginBottom: 8 }
-              ]}>Availability</Text>
+              ]}>AVAILABILITY</Text>
               
               {/* Availability Info Row */}
               <View style={styles.availabilityInfoRow}>
                 <MaterialCommunityIcons name="clock-outline" size={16} color={getTimeIconColor()} />
                 <Text style={[
                   styles.availabilityMessage,
-                  { color: colors.text, fontSize: fontStyles.textSize, marginLeft: 8, flex: 1 }
+                  { color: colors.text, fontSize: fontStyles.smallText, marginLeft: 8, flex: 1 }
                 ]}>
                   {getAvailabilityMessage()}
                 </Text>
@@ -778,58 +810,83 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 styles.availabilityChipsRow,
                 { marginTop: 8, marginBottom: 8, gap: 8 }
               ]}>
+                {/* Duration Chip */}
                 <View style={[
                   styles.durationChip,
                   { 
                     borderWidth: 1,
-                    borderColor: colors.secondary,
-                    borderRadius: 16,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
+                    borderColor: colors.primary,
+                    borderRadius: 20,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
                     backgroundColor: 'transparent'
                   }
                 ]}>
                   <Text style={[
                     styles.durationChipText,
-                    { color: colors.secondary, fontSize: fontStyles.xSmall, fontWeight: '600' }
+                    { color: colors.primary, fontSize: fontStyles.xSmall, fontWeight: '600' }
                   ]}>
                     {getAvailabilityDuration()}
                   </Text>
                 </View>
 
-                <View style={[
-                  styles.availabilityChipContainer,
-                  availabilityStyle.container,
-                  {
-                    borderRadius: 16,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4
-                  }
-                ]}>
-                  <Text style={[
-                    styles.availabilityChipText,
-                    { fontSize: fontStyles.xSmall, fontWeight: '600' },
-                    availabilityStyle.text
+                {/* Status Chip with Gradient for Monthly */}
+                {getAvailabilityDuration() === "Monthly" && !props.monthlyAvailability?.fullyAvailable && (
+                  <LinearGradient
+                    colors={['#FF6B35', '#FF8C42']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.availabilityChipContainer,
+                      {
+                        borderRadius: 20,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6
+                      }
+                    ]}
+                  >
+                    <Text style={[
+                      styles.availabilityChipText,
+                      { fontSize: fontStyles.xSmall, fontWeight: '600', color: '#ffffff' }
+                    ]}>
+                      {getAvailabilityStatus()}
+                    </Text>
+                  </LinearGradient>
+                )}
+
+                {/* Regular Status Chip */}
+                {getAvailabilityDuration() !== "Monthly" && (
+                  <View style={[
+                    styles.availabilityChipContainer,
+                    availabilityStyle.container,
+                    {
+                      borderRadius: 20,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6
+                    }
                   ]}>
-                    {getAvailabilityStatus()}
-                  </Text>
-                </View>
+                    <Text style={[
+                      styles.availabilityChipText,
+                      { fontSize: fontStyles.xSmall, fontWeight: '600' },
+                      availabilityStyle.text
+                    ]}>
+                      {getAvailabilityStatus()}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Additional Availability Info */}
               {props.monthlyAvailability?.exceptions && props.monthlyAvailability.exceptions.length > 0 && (
                 <View style={[
                   styles.exceptionContainer,
-                  { 
-                    marginTop: 4,
-                    marginBottom: 4
-                  }
+                  { marginTop: 4, marginBottom: 4 }
                 ]}>
                   <Text style={[
                     styles.exceptionText,
                     { color: isDarkMode ? '#fbbf24' : '#ed6c02', fontSize: fontStyles.xSmall, fontWeight: '500' }
                   ]}>
-                    ⚠️ {props.monthlyAvailability.exceptions.length} schedule exceptions this month
+                    ⚠️ {props.monthlyAvailability.exceptions.length} schedule exception(s) this month
                   </Text>
                 </View>
               )}
@@ -844,21 +901,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                     { color: isDarkMode ? '#4ade80' : '#2e7d32', fontSize: fontStyles.xSmall, fontWeight: '500' }
                   ]}>
                     ✓ Fully available all month
-                  </Text>
-                </View>
-              )}
-
-              {props.monthlyAvailability && !props.monthlyAvailability.fullyAvailable && 
-               (!props.monthlyAvailability.exceptions || props.monthlyAvailability.exceptions.length === 0) && (
-                <View style={[
-                  styles.partiallyAvailableContainer,
-                  { marginTop: 4, marginBottom: 4 }
-                ]}>
-                  <Text style={[
-                    styles.partiallyAvailableText,
-                    { color: isDarkMode ? '#fbbf24' : '#ed6c02', fontSize: fontStyles.xSmall, fontWeight: '500' }
-                  ]}>
-                    ⚠️ Partially available this month
                   </Text>
                 </View>
               )}
@@ -879,12 +921,13 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             </View>
           </View>
 
-          {/* Metrics Section - Row of 3 metrics */}
+          {/* Metrics Section - 3 metrics in a row */}
           <View style={[
             styles.metricsSection,
             isMobile && styles.metricsSectionMobile,
-            { gap: 8, marginTop: isMobile ? 12 : 0 }
+            { gap: 10, marginTop: isMobile ? 12 : 0 }
           ]}>
+            {/* Distance Metric */}
             <View style={[
               styles.metricBox,
               { 
@@ -892,14 +935,14 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 borderWidth: 1,
                 borderColor: colors.border,
                 borderRadius: 12,
-                padding: 8,
+                padding: 10,
                 alignItems: 'center',
                 flex: 1
               }
             ]}>
               <Text style={[
                 styles.metricValue,
-                { color: colors.text, fontSize: fontStyles.textSize, fontWeight: '700' }
+                { color: colors.text, fontSize: fontStyles.metricValue, fontWeight: '700' }
               ]}>{getDistanceDisplay()}</Text>
               <Text style={[
                 styles.metricLabel,
@@ -907,6 +950,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               ]}>km away</Text>
             </View>
 
+            {/* Rating Metric */}
             <View style={[
               styles.metricBox,
               { 
@@ -914,7 +958,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 borderWidth: 1,
                 borderColor: colors.border,
                 borderRadius: 12,
-                padding: 8,
+                padding: 10,
                 alignItems: 'center',
                 flex: 1
               }
@@ -923,15 +967,16 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 <MaterialCommunityIcons name="star" size={14} color="#ffc107" />
                 <Text style={[
                   styles.metricValue,
-                  { color: colors.text, fontSize: fontStyles.textSize, fontWeight: '700' }
+                  { color: colors.text, fontSize: fontStyles.metricValue, fontWeight: '700' }
                 ]}>{getRatingDisplay()}</Text>
               </View>
               <Text style={[
                 styles.metricLabel,
                 { color: colors.textTertiary, fontSize: fontStyles.xSmall, marginTop: 4 }
-              ]}>{props.rating === 0 ? 'Ratings' : 'reviews'}</Text>
+              ]}>{props.ratingCount || props.rating === 0 ? 'Ratings' : 'Ratings'}</Text>
             </View>
 
+            {/* Experience Metric */}
             <View style={[
               styles.metricBox,
               { 
@@ -939,48 +984,48 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
                 borderWidth: 1,
                 borderColor: colors.border,
                 borderRadius: 12,
-                padding: 8,
+                padding: 10,
                 alignItems: 'center',
                 flex: 1
               }
             ]}>
               <Text style={[
                 styles.metricValue,
-                { color: colors.success, fontSize: fontStyles.textSize, fontWeight: '700' }
+                { color: '#4caf50', fontSize: fontStyles.metricValue, fontWeight: '700' }
               ]}>{getExperienceDisplay()}</Text>
               <Text style={[
                 styles.metricLabel,
                 { color: colors.textTertiary, fontSize: fontStyles.xSmall, marginTop: 4 }
-              ]}>years exp</Text>
+              ]}>yrs experience</Text>
             </View>
           </View>
 
-          {/* Right Section - Actions */}
+          {/* Action Buttons Section */}
           <View style={[
             styles.rightSection,
             isMobile && styles.rightSectionMobile,
-            { gap: 8, marginTop: isMobile ? 12 : 0 }
+            { gap: 10, marginTop: isMobile ? 12 : 0 }
           ]}>
             {/* View Details Button */}
             <TouchableOpacity 
               style={[
                 styles.detailsButton,
                 { 
-                  borderWidth: 1,
+                  borderWidth: 1.5,
                   borderColor: colors.primary,
-                  borderRadius: 8,
-                  paddingVertical: 10,
+                  borderRadius: 10,
+                  paddingVertical: 12,
                   paddingHorizontal: 16,
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'row',
-                  gap: 6,
+                  gap: 8,
                   backgroundColor: 'transparent'
                 }
               ]}
               onPress={handleViewDetails}
             >
-              <MaterialCommunityIcons name="information-outline" size={16} color={colors.primary} />
+              <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} />
               <Text style={[
                 styles.detailsButtonText,
                 { color: colors.primary, fontSize: fontStyles.smallText, fontWeight: '600' }
@@ -989,31 +1034,35 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               </Text>
             </TouchableOpacity>
 
-            {/* Book Now Button */}
-            <TouchableOpacity 
+            {/* Book Now Button with Gradient */}
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark || '#0a2a66ff']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
               style={[
                 styles.bookNowButton,
                 { 
-                  backgroundColor: colors.primary,
-                  borderRadius: 8,
-                  paddingVertical: 10,
+                  borderRadius: 10,
+                  paddingVertical: 12,
                   paddingHorizontal: 16,
-                  alignItems: 'center',
-                  justifyContent: 'center'
                 }
               ]}
-              onPress={handleBookNow}
             >
-              <Text style={[
-                styles.bookNowButtonText,
-                { color: '#ffffff', fontSize: fontStyles.textSize, fontWeight: '700' }
-              ]}>
-                Book Now
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={handleBookNow}
+                style={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}
+              >
+                <Text style={[
+                  styles.bookNowButtonText,
+                  { color: '#ffffff', fontSize: fontStyles.textSize, fontWeight: '700' }
+                ]}>
+                  Book Now
+                </Text>
+              </TouchableOpacity>
+            </LinearGradient>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Drawer and Dialogs */}
       <ProviderAvailabilityDrawer
@@ -1041,9 +1090,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
     marginBottom: 12,
     borderWidth: 1,
   },
@@ -1061,70 +1110,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     flexWrap: 'wrap',
     gap: 8,
   },
   headerSectionMobile: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   badgeContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
     alignItems: 'center',
     flex: 1,
   },
   badgeContainerMobile: {
-    gap: 6,
+    gap: 8,
   },
   bestMatchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   bestMatchBadgeMobile: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 4,
   },
   previouslyBookedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   previouslyBookedBadgeMobile: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 4,
   },
   badgeText: {
     color: '#ffffff',
     fontWeight: '700',
   },
   badgeTextMobile: {},
-  rolesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+  favoriteButton: {
+    padding: 4,
   },
-  headerRoleChip: {
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  headerRoleChipText: {},
   rolesDisplayRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1166,7 +1209,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   metaRowMobile: {},
   metaItem: {
@@ -1177,7 +1220,9 @@ const styles = StyleSheet.create({
   metaTextMobile: {},
   metaDivider: {},
   availabilitySection: {},
-  availabilityLabel: {},
+  availabilityLabel: {
+    letterSpacing: 0.5,
+  },
   availabilityInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1199,8 +1244,6 @@ const styles = StyleSheet.create({
   exceptionText: {},
   fullyAvailableContainer: {},
   fullyAvailableText: {},
-  partiallyAvailableContainer: {},
-  partiallyAvailableText: {},
   otherServicesContainer: {},
   otherServicesText: {},
   metricsSection: {
@@ -1221,7 +1264,7 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    minWidth: 110,
+    minWidth: 120,
     marginLeft: 16,
   },
   rightSectionMobile: {
@@ -1233,7 +1276,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#e2e8f0',
   },
   detailsButton: {},
   detailsButtonText: {},

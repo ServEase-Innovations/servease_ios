@@ -1,16 +1,14 @@
-// Footer.tsx - Updated with ThemeContext integration and Full Responsiveness
+// Footer.tsx - Updated with Gradient Background, White Text, and Improved Responsiveness
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, StyleSheet, Image, Modal, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, StyleSheet, Image, Modal, useWindowDimensions, Platform, SafeAreaView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import LinearGradient from 'react-native-linear-gradient';
 import TnC from '../TermsAndConditions/TnC';
-import { useTheme } from '../Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
   const { t } = useTranslation();
-  const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const [showTnC, setShowTnC] = useState(false);
 
@@ -35,7 +33,7 @@ const Footer = () => {
     setShowTnC(false);
   };
 
-  // Get font size styles based on settings and screen size
+  // Get font size styles based on screen size
   const getFontSizeStyles = () => {
     let baseSize = 14;
     let headingSize = 16;
@@ -55,33 +53,14 @@ const Footer = () => {
       smallText = 14;
     }
     
-    switch (fontSize) {
-      case 'small':
-        return { textSize: baseSize - 2, headingSize: headingSize - 2, smallText: smallText - 2 };
-      case 'large':
-        return { textSize: baseSize + 2, headingSize: headingSize + 2, smallText: smallText + 2 };
-      default:
-        return { textSize: baseSize, headingSize: headingSize, smallText: smallText };
-    }
+    return { textSize: baseSize, headingSize: headingSize, smallText: smallText };
   };
 
   const fontStyles = getFontSizeStyles();
 
-  // Get gradient colors based on theme
+  // Fixed gradient colors for consistent professional look
   const getGradientColors = () => {
-    if (isDarkMode) {
-      return [
-        colors.surface2,           // Darker top
-        colors.surface,            // Middle
-        colors.surface,            // Bottom
-      ];
-    } else {
-      return [
-        'rgba(255, 255, 255, 1)',       // White at the top
-        'rgba(213, 229, 233, 0.8)',     // Lighter blue
-        'rgba(139, 187, 221, 0.8)',     // Blue tone at the bottom
-      ];
-    }
+    return ['#0d1935', '#1c4485', '#255697'];
   };
 
   // Responsive logo size
@@ -113,284 +92,285 @@ const Footer = () => {
       <LinearGradient
         colors={getGradientColors()}
         start={{x: 0, y: 0}}
-        end={{x: 0, y: 1}}
-        style={[
-          styles.gradientContainer,
-          { borderTopColor: isDarkMode ? colors.border : '#a0c8ff' }
-        ]}
+        end={{x: 1, y: 0}}
+        style={styles.gradientContainer}
       >
-        <View style={[
-          styles.footer,
-          shouldUseColumnLayout && styles.footerColumn
-        ]}>
-          {/* Left side - Logo and Brand Info */}
+        <SafeAreaView>
           <View style={[
-            styles.leftSection,
-            shouldUseColumnLayout && styles.leftSectionColumn,
-            { marginRight: shouldUseColumnLayout ? 0 : 20 }
+            styles.footer,
+            shouldUseColumnLayout && styles.footerColumn
           ]}>
-            <View style={styles.logoContainer}>
-              {/* Logo Image */}
-              <Image 
-                source={require('../../assets/images/serveasonew.png')} 
-                style={[
-                  styles.logoImage,
-                  { 
-                    width: getLogoSize(),
-                    height: getLogoSize(),
-                    backgroundColor: isDarkMode ? colors.primary : '#0a3d62',
-                    shadowColor: colors.shadow,
-                    borderRadius: isSmallScreen ? 8 : 12,
-                  }
-                ]}
-                resizeMode="contain"
-              />
-              <Text style={[
-                styles.brandSubtitle, 
-                { 
-                  color: isDarkMode ? colors.text : '#0a3d62',
-                  fontSize: fontStyles.headingSize 
-                }
-              ]}>
-                ServEaso
-              </Text>
-            </View>
-            
-            <View style={styles.companyInfo}>
-              <Text style={[
-                styles.infoText, 
-                { 
-                  color: isDarkMode ? colors.textSecondary : '#0a3d62',
-                  fontSize: fontStyles.smallText,
-                  lineHeight: fontStyles.smallText + 4
-                }
-              ]}>
-                Est. 2024
-              </Text>
-              <TouchableOpacity onPress={openTnC}>
-                <Text style={[
-                  styles.tncText, 
-                  { 
-                    color: isDarkMode ? colors.primary : '#0a3d62',
-                    fontSize: fontStyles.smallText,
-                    lineHeight: fontStyles.smallText + 4,
-                    marginTop: isSmallScreen ? 8 : 15
-                  }
-                ]}>
-                  Terms and Conditions
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Right side - Contact Us Section */}
-          <View style={[
-            styles.rightSection,
-            shouldUseColumnLayout && styles.rightSectionColumn,
-            { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-start' }
-          ]}>
-            <Text style={[
-              styles.contactTitle, 
-              { 
-                color: isDarkMode ? colors.text : '#0a3d62',
-                fontSize: fontStyles.textSize,
-                marginBottom: isSmallScreen ? 8 : 12,
-                textAlign: shouldUseColumnLayout ? 'left' : 'right'
-              }
-            ]}>
-              Contact us:
-            </Text>
+            {/* Left side - Logo and Brand Info */}
             <View style={[
-              styles.contactButtonsContainer,
-              shouldUseColumnLayout && styles.contactButtonsContainerColumn,
-              { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-end' }
+              styles.leftSection,
+              shouldUseColumnLayout && styles.leftSectionColumn,
+              { marginRight: shouldUseColumnLayout ? 0 : 20 }
             ]}>
-              <TouchableOpacity 
-                style={[
-                  styles.contactButton,
-                  { 
-                    backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
-                    borderColor: isDarkMode ? colors.border : '#0a3d62',
-                    shadowColor: colors.shadow,
-                    width: getContactButtonWidth(),
-                    padding: isSmallScreen ? 8 : 12,
-                    marginBottom: isSmallScreen ? 6 : 10,
-                  }
-                ]}
-                onPress={() => makePhoneCall('+918792827744')}
-              >
-                <FontAwesome name="phone" size={getIconSize()} color={isDarkMode ? colors.primary : '#0a3d62'} style={styles.phoneIcon} />
+              <View style={styles.logoContainer}>
+                {/* Logo Image */}
+                <Image 
+                  source={require('../../assets/images/serveasonew.png')} 
+                  style={[
+                    styles.logoImage,
+                    { 
+                      width: getLogoSize(),
+                      height: getLogoSize(),
+                      shadowColor: '#000',
+                      borderRadius: isSmallScreen ? 8 : 12,
+                    }
+                  ]}
+                  resizeMode="contain"
+                />
                 <Text style={[
-                  styles.contactText, 
+                  styles.brandSubtitle, 
                   { 
-                    color: isDarkMode ? colors.text : '#0a3d62',
-                    fontSize: fontStyles.smallText 
+                    color: '#FFFFFF',
+                    fontSize: fontStyles.headingSize 
                   }
                 ]}>
-                  Helpline: +91 87928 27744
+                  ServEaso
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[
-                  styles.contactButton,
-                  { 
-                    backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
-                    borderColor: isDarkMode ? colors.border : '#0a3d62',
-                    shadowColor: colors.shadow,
-                    width: getContactButtonWidth(),
-                    padding: isSmallScreen ? 8 : 12,
-                    marginBottom: isSmallScreen ? 0 : 0,
-                  }
-                ]}
-                onPress={() => makePhoneCall('+918792827754')}
-              >
-                <FontAwesome name="phone" size={getIconSize()} color={isDarkMode ? colors.primary : '#0a3d62'} style={styles.phoneIcon} />
+              </View>
+              
+              <View style={styles.companyInfo}>
                 <Text style={[
-                  styles.contactText, 
+                  styles.infoText, 
                   { 
-                    color: isDarkMode ? colors.text : '#0a3d62',
-                    fontSize: fontStyles.smallText 
+                    color: '#FFFFFFCC',
+                    fontSize: fontStyles.smallText,
+                    lineHeight: fontStyles.smallText + 4
                   }
                 ]}>
-                  Join Us: +91 87928 27754
+                  Est. 2024
                 </Text>
-              </TouchableOpacity>
+                <TouchableOpacity onPress={openTnC}>
+                  <Text style={[
+                    styles.tncText, 
+                    { 
+                      color: '#FFFFFF',
+                      fontSize: fontStyles.smallText,
+                      lineHeight: fontStyles.smallText + 4,
+                      marginTop: isSmallScreen ? 8 : 15,
+                      opacity: 0.9,
+                    }
+                  ]}>
+                    Terms and Conditions
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Right side - Contact Us Section */}
+            <View style={[
+              styles.rightSection,
+              shouldUseColumnLayout && styles.rightSectionColumn,
+              { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-start' }
+            ]}>
+              <Text style={[
+                styles.contactTitle, 
+                { 
+                  color: '#FFFFFF',
+                  fontSize: fontStyles.textSize,
+                  marginBottom: isSmallScreen ? 8 : 12,
+                  textAlign: shouldUseColumnLayout ? 'left' : 'right',
+                  fontWeight: '600',
+                }
+              ]}>
+                Contact us:
+              </Text>
+              <View style={[
+                styles.contactButtonsContainer,
+                shouldUseColumnLayout && styles.contactButtonsContainerColumn,
+                { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-end' }
+              ]}>
+                <TouchableOpacity 
+                  style={[
+                    styles.contactButton,
+                    { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      shadowColor: '#000',
+                      width: getContactButtonWidth(),
+                      padding: isSmallScreen ? 8 : 12,
+                      marginBottom: isSmallScreen ? 6 : 10,
+                    }
+                  ]}
+                  onPress={() => makePhoneCall('+918792827744')}
+                >
+                  <FontAwesome name="phone" size={getIconSize()} color="#FFFFFF" style={styles.phoneIcon} />
+                  <Text style={[
+                    styles.contactText, 
+                    { 
+                      color: '#FFFFFF',
+                      fontSize: fontStyles.smallText 
+                    }
+                  ]}>
+                    Helpline: +91 87928 27744
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    styles.contactButton,
+                    { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      shadowColor: '#000',
+                      width: getContactButtonWidth(),
+                      padding: isSmallScreen ? 8 : 12,
+                      marginBottom: isSmallScreen ? 0 : 0,
+                    }
+                  ]}
+                  onPress={() => makePhoneCall('+918792827754')}
+                >
+                  <FontAwesome name="phone" size={getIconSize()} color="#FFFFFF" style={styles.phoneIcon} />
+                  <Text style={[
+                    styles.contactText, 
+                    { 
+                      color: '#FFFFFF',
+                      fontSize: fontStyles.smallText 
+                    }
+                  ]}>
+                    Join Us: +91 87928 27754
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Follow Us Section - Single line at bottom */}
-        <View style={[
-          styles.followSection,
-          { 
-            borderTopColor: isDarkMode ? colors.border : '#a0c8ff',
-            paddingHorizontal: isSmallScreen ? 10 : 15,
-            paddingVertical: isSmallScreen ? 8 : 10,
-            marginHorizontal: isSmallScreen ? 10 : 15,
-            paddingRight: isSmallScreen ? 20 : 42,
-            flexDirection: isSmallScreen ? 'column' : 'row',
-            alignItems: isSmallScreen ? 'center' : 'center',
-          }
-        ]}>
-          <Text style={[
-            styles.followText, 
+          {/* Follow Us Section - Single line at bottom */}
+          <View style={[
+            styles.followSection,
             { 
-              color: isDarkMode ? colors.text : '#0a3d62',
-              fontSize: fontStyles.textSize,
-              marginRight: isSmallScreen ? 0 : 12,
-              marginBottom: isSmallScreen ? 8 : 0,
+              borderTopColor: 'rgba(255, 255, 255, 0.2)',
+              paddingHorizontal: isSmallScreen ? 10 : 15,
+              paddingVertical: isSmallScreen ? 12 : 15,
+              marginHorizontal: isSmallScreen ? 10 : 15,
+              paddingRight: isSmallScreen ? 20 : 42,
+              flexDirection: isSmallScreen ? 'column' : 'row',
+              alignItems: isSmallScreen ? 'center' : 'center',
             }
           ]}>
-            Follow us on:
-          </Text>
-          <View style={[
-            styles.socialMedia,
-            { flexWrap: isSmallScreen ? 'wrap' : 'nowrap' }
-          ]}>
-            <TouchableOpacity 
-              style={[
-                styles.iconButton,
-                { 
-                  backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
-                  borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow,
-                  padding: isSmallScreen ? 6 : 8,
-                  marginHorizontal: isSmallScreen ? 3 : 4,
-                  minWidth: isSmallScreen ? 28 : 32,
-                  minHeight: isSmallScreen ? 28 : 32,
-                  borderRadius: isSmallScreen ? 18 : 20,
-                }
-              ]}
-              onPress={() => openLink('https://x.com/ServEaso')}
-            >
-              <View style={styles.xIconContainer}>
-                <Text style={[
-                  styles.xIcon, 
+            <Text style={[
+              styles.followText, 
+              { 
+                color: '#FFFFFF',
+                fontSize: fontStyles.textSize,
+                marginRight: isSmallScreen ? 0 : 12,
+                marginBottom: isSmallScreen ? 8 : 0,
+                fontWeight: '600',
+              }
+            ]}>
+              Follow us on:
+            </Text>
+            <View style={[
+              styles.socialMedia,
+              { flexWrap: isSmallScreen ? 'wrap' : 'nowrap' }
+            ]}>
+              <TouchableOpacity 
+                style={[
+                  styles.iconButton,
                   { 
-                    color: isDarkMode ? colors.text : '#0a3d62',
-                    fontSize: isSmallScreen ? 10 : 12,
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    shadowColor: '#000',
+                    padding: isSmallScreen ? 6 : 8,
+                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    minWidth: isSmallScreen ? 28 : 32,
+                    minHeight: isSmallScreen ? 28 : 32,
+                    borderRadius: isSmallScreen ? 18 : 20,
                   }
-                ]}>X</Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.iconButton,
-                { 
-                  backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
-                  borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow,
-                  padding: isSmallScreen ? 6 : 8,
-                  marginHorizontal: isSmallScreen ? 3 : 4,
-                  minWidth: isSmallScreen ? 28 : 32,
-                  minHeight: isSmallScreen ? 28 : 32,
-                  borderRadius: isSmallScreen ? 18 : 20,
-                }
-              ]}
-              onPress={() => openLink('https://www.instagram.com/serveaso?igsh=cHQxdmdubnZocjRn')}
-            >
-              <Ionicons name="logo-instagram" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.iconButton,
-                { 
-                  backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
-                  borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow,
-                  padding: isSmallScreen ? 6 : 8,
-                  marginHorizontal: isSmallScreen ? 3 : 4,
-                  minWidth: isSmallScreen ? 28 : 32,
-                  minHeight: isSmallScreen ? 28 : 32,
-                  borderRadius: isSmallScreen ? 18 : 20,
-                }
-              ]}
-              onPress={() => openLink('https://www.youtube.com/@ServEaso')}
-            >
-              <Ionicons name="logo-youtube" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.iconButton,
-                { 
-                  backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
-                  borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow,
-                  padding: isSmallScreen ? 6 : 8,
-                  marginHorizontal: isSmallScreen ? 3 : 4,
-                  minWidth: isSmallScreen ? 28 : 32,
-                  minHeight: isSmallScreen ? 28 : 32,
-                  borderRadius: isSmallScreen ? 18 : 20,
-                }
-              ]}
-              onPress={() => openLink('https://www.linkedin.com/in/serveaso-media-7b7719381/')}
-            >
-              <Ionicons name="logo-linkedin" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.iconButton,
-                { 
-                  backgroundColor: isDarkMode ? colors.surface : 'rgba(255, 255, 255, 0.9)',
-                  borderColor: isDarkMode ? colors.border : '#0a3d62',
-                  shadowColor: colors.shadow,
-                  padding: isSmallScreen ? 6 : 8,
-                  marginHorizontal: isSmallScreen ? 3 : 4,
-                  minWidth: isSmallScreen ? 28 : 32,
-                  minHeight: isSmallScreen ? 28 : 32,
-                  borderRadius: isSmallScreen ? 18 : 20,
-                }
-              ]}
-              onPress={() => openLink('https://www.facebook.com/profile.php?id=61572701168852')}
-            >
-              <Ionicons name="logo-facebook" size={getIconSize()} color={isDarkMode ? colors.text : '#0a3d62'} />
-            </TouchableOpacity>
+                ]}
+                onPress={() => openLink('https://x.com/ServEaso')}
+              >
+                <View style={styles.xIconContainer}>
+                  <Text style={[
+                    styles.xIcon, 
+                    { 
+                      color: '#FFFFFF',
+                      fontSize: isSmallScreen ? 10 : 12,
+                    }
+                  ]}>X</Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.iconButton,
+                  { 
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    shadowColor: '#000',
+                    padding: isSmallScreen ? 6 : 8,
+                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    minWidth: isSmallScreen ? 28 : 32,
+                    minHeight: isSmallScreen ? 28 : 32,
+                    borderRadius: isSmallScreen ? 18 : 20,
+                  }
+                ]}
+                onPress={() => openLink('https://www.instagram.com/serveaso?igsh=cHQxdmdubnZocjRn')}
+              >
+                <Ionicons name="logo-instagram" size={getIconSize()} color="#FFFFFF" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.iconButton,
+                  { 
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    shadowColor: '#000',
+                    padding: isSmallScreen ? 6 : 8,
+                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    minWidth: isSmallScreen ? 28 : 32,
+                    minHeight: isSmallScreen ? 28 : 32,
+                    borderRadius: isSmallScreen ? 18 : 20,
+                  }
+                ]}
+                onPress={() => openLink('https://www.youtube.com/@ServEaso')}
+              >
+                <Ionicons name="logo-youtube" size={getIconSize()} color="#FFFFFF" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.iconButton,
+                  { 
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    shadowColor: '#000',
+                    padding: isSmallScreen ? 6 : 8,
+                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    minWidth: isSmallScreen ? 28 : 32,
+                    minHeight: isSmallScreen ? 28 : 32,
+                    borderRadius: isSmallScreen ? 18 : 20,
+                  }
+                ]}
+                onPress={() => openLink('https://www.linkedin.com/in/serveaso-media-7b7719381/')}
+              >
+                <Ionicons name="logo-linkedin" size={getIconSize()} color="#FFFFFF" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.iconButton,
+                  { 
+                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    shadowColor: '#000',
+                    padding: isSmallScreen ? 6 : 8,
+                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    minWidth: isSmallScreen ? 28 : 32,
+                    minHeight: isSmallScreen ? 28 : 32,
+                    borderRadius: isSmallScreen ? 18 : 20,
+                  }
+                ]}
+                onPress={() => openLink('https://www.facebook.com/profile.php?id=61572701168852')}
+              >
+                <Ionicons name="logo-facebook" size={getIconSize()} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </SafeAreaView>
       </LinearGradient>
 
       {/* Terms and Conditions Modal */}
@@ -400,9 +380,9 @@ const Footer = () => {
         presentationStyle="pageSheet"
         onRequestClose={closeTnC}
       >
-        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+        <View style={styles.modalContainer}>
           <LinearGradient
-            colors={isDarkMode ? [colors.primaryDark, colors.primary] : ["#0a2a66ff", "#004aadff"]}
+            colors={['#0d1935', '#1c4485', '#255697']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[
@@ -410,11 +390,11 @@ const Footer = () => {
               { paddingTop: Platform.OS === 'ios' ? 50 : 16 }
             ]}
           >
-            <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+            <Text style={[styles.modalTitle, { color: '#FFFFFF', fontSize: fontStyles.headingSize }]}>
               Terms and Conditions
             </Text>
             <TouchableOpacity style={styles.closeButton} onPress={closeTnC}>
-              <Ionicons name="close" size={24} color="#ffffff" />
+              <Ionicons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </LinearGradient>
           <TnC />
@@ -427,20 +407,22 @@ const Footer = () => {
 const styles = StyleSheet.create({
   gradientContainer: {
     borderTopWidth: 1,
-    paddingBottom: 15,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24, // Extra padding for bottom safe area
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: 15,
-    paddingBottom: 20,
+    padding: 20,
+    paddingTop: 25,
+    paddingBottom: 25,
     minHeight: 180,
   },
   footerColumn: {
     flexDirection: 'column',
     minHeight: 'auto',
-    paddingBottom: 10,
+    paddingBottom: 15,
   },
   leftSection: {
     flex: 1,
@@ -467,17 +449,23 @@ const styles = StyleSheet.create({
   logoImage: {
     marginBottom: 8,
     padding: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   brandSubtitle: {
-    fontWeight: '600',
+    fontWeight: '700',
     marginLeft: 0,
     textAlign: 'left',
+    letterSpacing: 0.5,
   },
   companyInfo: {
     alignItems: 'flex-start',
   },
   infoText: {
     fontWeight: '500',
+    opacity: 0.8,
   },
   tncText: {
     fontWeight: '600',
@@ -485,6 +473,7 @@ const styles = StyleSheet.create({
   },
   contactTitle: {
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   contactButtonsContainer: {
     width: '100%',
@@ -496,13 +485,13 @@ const styles = StyleSheet.create({
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
     justifyContent: 'flex-start',
@@ -521,6 +510,7 @@ const styles = StyleSheet.create({
   },
   followText: {
     fontWeight: '600',
+    letterSpacing: 0.3,
   },
   socialMedia: {
     flexDirection: 'row',
@@ -533,7 +523,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
     justifyContent: 'center',
@@ -548,6 +538,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   modalHeader: {
     flexDirection: 'row',

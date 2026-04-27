@@ -1,4 +1,4 @@
-// NavigationFooter.tsx - Updated with Wallet page navigation
+// NavigationFooter.tsx - Updated with Wallet page navigation and Gradient Background
 import React, { useState, useRef, useCallback } from "react";
 import {
   View,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
+import LinearGradient from "react-native-linear-gradient";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FeatherIcon from "react-native-vector-icons/Feather";
 import NotificationsDialog from "../Notifications/NotificationsPage";
@@ -283,7 +284,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     );
   };
 
-  // For mobile - render bottom navigation bar
+  // For mobile - render bottom navigation bar with gradient
   if (isMobile) {
     let tabs = [];
     
@@ -380,7 +381,12 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
     return (
       <>
-        <View style={styles.mobileNavContainer}>
+        <LinearGradient
+          colors={['#0d1935', '#1c4485', '#255697']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.mobileNavContainer}
+        >
           {tabs.map((tab, index) => {
             const isActive = activePage === tab.key || (tab.key === "ACCOUNT" && activePage === PROFILE);
             const isLast = index === tabs.length - 1;
@@ -410,10 +416,11 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 >
                   {tab.label}
                 </Text>
+                {isActive && <View style={styles.activeIndicator} />}
               </TouchableOpacity>
             );
           })}
-        </View>
+        </LinearGradient>
 
         <NotificationsDialog
           visible={showNotifications}
@@ -438,10 +445,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     );
   }
 
-  // For desktop - render desktop navigation
+  // For desktop - render desktop navigation with gradient
   return (
     <>
-      <View style={styles.desktopNavContainer}>
+      <LinearGradient
+        colors={['#0d1935', '#1c4485', '#255697']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.desktopNavContainer}
+      >
         <View style={styles.desktopNavInner}>
           <View style={styles.desktopNavLinks}>
             <TouchableOpacity
@@ -571,7 +583,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             )}
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       <NotificationsDialog
         visible={showNotifications}
@@ -600,34 +612,45 @@ const styles = StyleSheet.create({
   mobileNavContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    backgroundColor: "#0a2a66",
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
     minHeight: 60,
+    position: "relative",
   },
   mobileNavItem: {
     alignItems: "center",
     paddingHorizontal: 8,
     flex: 1,
+    position: "relative",
+    paddingVertical: 4,
   },
   withBorder: {
     borderRightWidth: 1,
     borderRightColor: "rgba(255,255,255,0.15)",
   },
   activeTab: {
-    borderTopColor: "#3b82f6",
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 12,
   },
   activeTabText: {
     color: "#93c5fd",
     fontWeight: "600",
-    textDecorationLine: "underline",
+  },
+  activeIndicator: {
+    position: "absolute",
+    bottom: -4,
+    width: 30,
+    height: 2,
+    backgroundColor: "#93c5fd",
+    borderRadius: 1,
   },
   mobileNavText: {
     color: "white",
     fontSize: 11,
     fontWeight: "400",
     textAlign: "center",
+    marginTop: 4,
   },
   disabledTab: {
     opacity: 0.6,
@@ -644,6 +667,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   desktopNavLinks: {
     flexDirection: "row",
@@ -654,7 +678,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
+    paddingHorizontal: 8,
     gap: 6,
+    borderRadius: 8,
   },
   navIcon: {
     marginRight: 4,

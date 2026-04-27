@@ -13,11 +13,15 @@ import {
   Alert,
   RefreshControl,
   FlatList,
+  Dimensions,
+  Image,
 } from "react-native";
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import providerInstance from "../services/providerInstance";
 import { CONFIRMATION } from "../Constants/pagesConstants";
-import ProviderDetails from "../DetailsView/ProviderDetails";
+import ProviderDetailsComponent from "../DetailsView/ProviderDetails";
 import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
 import { ServiceProviderDTO } from "../types/ProviderDetailsType";
@@ -26,6 +30,8 @@ import { useTheme } from '../Settings/ThemeContext';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import dayjs, { Dayjs } from 'dayjs';
 import { useAppUser } from '../context/AppUserContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface DetailsViewProps {
   sendDataToParent: (data: string) => void;
@@ -56,8 +62,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   
   // Add a ref to track if initial load has been done
   const initialLoadDone = useRef(false);
-  const isFetchingRef = useRef(false); // Prevent concurrent fetches
-  const locationKeyRef = useRef<string>(""); // Track location changes
+  const isFetchingRef = useRef(false);
+  const locationKeyRef = useRef<string>("");
   
   // Infinite scroll state
   const [loading, setLoading] = useState(false);
@@ -72,11 +78,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const getFontSizeStyles = () => {
     switch (fontSize) {
       case 'small':
-        return { textSize: 14, headingSize: 18, smallText: 12 };
+        return { textSize: 13, headingSize: 17, smallText: 11, badgeText: 10 };
       case 'large':
-        return { textSize: 18, headingSize: 24, smallText: 16 };
+        return { textSize: 17, headingSize: 23, smallText: 15, badgeText: 13 };
       default:
-        return { textSize: 16, headingSize: 20, smallText: 14 };
+        return { textSize: 15, headingSize: 20, smallText: 13, badgeText: 11 };
     }
   };
 
@@ -109,7 +115,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return lat !== null && lng !== null && lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng);
   }, []);
 
-  // Fixed getLocationKey with validation
   const getLocationKey = useCallback(() => {
     if (!location || !isValidLocation(location)) return "";
     
@@ -131,44 +136,35 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return "";
   }, [location, isValidLocation]);
 
-  // No client-side filtering - backend handles all filtering
-  // filteredProviders is just allProviders from API (already filtered by backend)
   const filteredProviders = allProviders;
 
-  // ✅ Trigger search when filters change
   useEffect(() => {
-    // Only search if we have the necessary data and initial load is done
     if (selectedProviderType !== undefined && location && bookingType && initialLoadDone.current) {
       console.log("Filters changed, resetting and searching");
       resetAndSearch();
     }
-  }, [activeFilters]); // Re-run when filters change
+  }, [activeFilters]);
 
-  // ✅ Fixed: Single source of truth for initial load
   useEffect(() => {
     const currentLocationKey = getLocationKey();
     const locationValid = isValidLocation(location);
     
     setIsLocationValid(locationValid);
     
-    // Check if location has actually changed
     const locationChanged = locationValid && currentLocationKey !== locationKeyRef.current;
     
     if (locationValid && bookingType && !initialLoadDone.current) {
-      // Initial load - only once
       console.log("Initial load triggered");
       locationKeyRef.current = currentLocationKey;
       initialLoadDone.current = true;
       resetAndSearch();
     } else if (locationValid && locationChanged && initialLoadDone.current) {
-      // Location changed after initial load - reset and search
       console.log("Location changed, resetting");
       locationKeyRef.current = currentLocationKey;
       resetAndSearch();
     }
-  }, [location, bookingType]); // Only depend on location and bookingType
+  }, [location, bookingType]);
 
-  // Handle selected provider type changes
   useEffect(() => {
     if (selected && selected !== selectedProviderType && initialLoadDone.current) {
       setSelectedProviderType(selected);
@@ -273,9 +269,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return 60;
   };
 
-  // Core fetch function with pagination + filter parameters (backend filtering)
   const fetchProviders = async (page: number, reset: boolean = false) => {
-    // Prevent concurrent fetch calls
     if (isFetchingRef.current) {
       console.log("Fetch already in progress, skipping...");
       return;
@@ -332,7 +326,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         bookingType?.endTime
       );
 
-      // Base payload
       const payload: any = {
         lat: latitude.toString(),
         lng: longitude.toString(),
@@ -344,7 +337,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         serviceDurationMinutes: serviceDurationMinutes
       };
 
-      // ✅ Add filter parameters if present with proper null checks
       if (activeFilters) {
         if (activeFilters.experience && (activeFilters.experience[0] > 0 || activeFilters.experience[1] < 30)) {
           payload.minExperience = activeFilters.experience[0];
@@ -356,11 +348,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         if (activeFilters.distance && activeFilters.distance[1] < 50) {
           payload.maxDistance = activeFilters.distance[1];
         }
-        // ✅ Null check for gender
         if (activeFilters.gender !== null && activeFilters.gender !== "") {
           payload.gender = activeFilters.gender;
         }
-        // ✅ Null check for diet
         if (activeFilters.diet !== null && activeFilters.diet !== "") {
           payload.diet = activeFilters.diet;
         }
@@ -383,7 +373,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         payload
       );
 
-      // Small delay to make skeleton visible and avoid flicker
       await new Promise(resolve => setTimeout(resolve, 300));
 
       console.log("API Response:", response.data);
@@ -430,17 +419,12 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     await fetchProviders(reset ? 1 : currentPage + 1, reset);
   };
 
-  // ✅ Proper infinite scroll - only triggers when needed
   const fetchMoreData = useCallback(() => {
-    // Check all conditions before fetching more
     if (isLoadingMore || !hasMore || loading || isFetchingRef.current) {
-      console.log("Skipping fetch more:", { isLoadingMore, hasMore, loading, isFetching: isFetchingRef.current });
       return;
     }
     
-    // Only fetch if we have providers loaded and not at the end
     if (allProviders.length > 0 && hasMore) {
-      console.log("Fetching more data, next page:", currentPage + 1);
       fetchProviders(currentPage + 1, false);
     }
   }, [isLoadingMore, hasMore, loading, allProviders.length, currentPage]);
@@ -450,16 +434,13 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     resetAndSearch();
   };
 
-  // ✅ Filter handlers with proper null checks
   const handleApplyFilters = (filters: FilterCriteria) => {
     setActiveFilters(filters);
     
-    // Count active filters for badge
     let count = 0;
     if (filters.experience[0] > 0 || filters.experience[1] < 30) count++;
     if (filters.rating) count++;
     if (filters.distance[0] > 0 || filters.distance[1] < 50) count++;
-    // ✅ Null checks for gender and diet
     if (filters.gender !== null && filters.gender !== "") count++;
     if (filters.diet !== null && filters.diet !== "") count++;
     if (filters.language && filters.language.length > 0) count++;
@@ -467,13 +448,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     setActiveFilterCount(count);
     setFilterOpen(false);
-    // Search will be triggered automatically by the useEffect that watches activeFilters
   };
 
   const handleClearFilters = () => {
     setActiveFilters(null);
     setActiveFilterCount(0);
-    // Search will be triggered automatically by the useEffect that watches activeFilters
   };
 
   const renderFooter = () => {
@@ -481,8 +460,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     return (
       <View style={[styles.footerLoader, { paddingVertical: 20 }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingMoreText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+        <ActivityIndicator size="large" color="#0a2a66ff" />
+        <Text style={[styles.loadingMoreText, { color: '#64748B', fontSize: fontStyles.smallText }]}>
           Loading more providers...
         </Text>
       </View>
@@ -492,64 +471,68 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const renderHeader = () => {
     if (filteredProviders.length === 0 && !loading && !hasFetchedOnce) return null;
     
+    const resultsLabel = totalCount === 1 ? "1 service provider found" : `${totalCount} service providers found`;
+    
     return (
       <>
-        <View style={[styles.headerContainer, { paddingHorizontal: 16 * spacingMultiplier }]}>
-          <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
-            <Icon name="arrow-back" size={24} color={colors.text} />
-            <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-              Back
-            </Text>
-          </TouchableOpacity>
-          
-          <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
-            <TouchableOpacity
-              style={[styles.filterButton, { 
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                paddingHorizontal: 12 * spacingMultiplier,
-                paddingVertical: 8 * spacingMultiplier,
-              }]}
-              onPress={() => {
-                console.log("Opening filter modal");
-                setFilterOpen(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Icon name="filter-list" size={24} color={colors.text} />
-              <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
-                Filter
+        <View style={[styles.headerContainer, { paddingHorizontal: 16 * spacingMultiplier, marginBottom: 16 }]}>
+          {/* Left side - Back button */}
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
+              <Icon name="arrow-back" size={20} color="#1E293B" />
+              <Text style={[styles.backText, { color: '#1E293B', fontSize: fontStyles.smallText }]}>
+                Back
               </Text>
-              {activeFilterCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
-                  <Text style={[styles.badgeText, { fontSize: fontStyles.smallText - 2 }]}>{activeFilterCount}</Text>
-                </View>
-              )}
             </TouchableOpacity>
-            
-            {activeFilterCount > 0 && (
+          </View>
+          
+          {/* Center - Results count */}
+          <View style={styles.headerCenter}>
+            <Text style={[styles.resultsCountText, { fontSize: fontStyles.smallText, color: '#475569' }]}>
+              {resultsLabel}
+            </Text>
+          </View>
+          
+          {/* Right side - Filter button */}
+          <View style={styles.headerRight}>
+            <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
               <TouchableOpacity
-                style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
-                onPress={handleClearFilters}
+                style={[styles.filterButton, { 
+                  backgroundColor: '#FFFFFF',
+                  borderColor: '#E2E8F0',
+                  paddingHorizontal: 12 * spacingMultiplier,
+                  paddingVertical: 8 * spacingMultiplier,
+                }]}
+                onPress={() => setFilterOpen(true)}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.clearButtonText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
-                  Clear all
+                <Icon name="filter-list" size={18} color="#1E293B" />
+                <Text style={[styles.filterButtonText, { color: '#1E293B', fontSize: fontStyles.smallText }]}>
+                  Filter
                 </Text>
+                {activeFilterCount > 0 && (
+                  <View style={[styles.badge, { backgroundColor: '#0a2a66ff' }]}>
+                    <Text style={[styles.badgeText, { fontSize: fontStyles.badgeText, color: '#FFFFFF' }]}>{activeFilterCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
-            )}
+              
+              {activeFilterCount > 0 && (
+                <TouchableOpacity
+                  style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
+                  onPress={handleClearFilters}
+                >
+                  <Text style={[styles.clearButtonText, { color: '#0a2a66ff', fontSize: fontStyles.smallText }]}>
+                    Clear all
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
-        <Text style={[styles.resultsCount, { 
-          color: colors.textSecondary, 
-          fontSize: fontStyles.smallText,
-          backgroundColor: colors.surface,
-          marginHorizontal: 16 * spacingMultiplier,
-          paddingHorizontal: 16 * spacingMultiplier,
-          paddingVertical: 8 * spacingMultiplier,
-        }]}>
-          {totalCount} service provider{totalCount !== 1 ? 's' : ''} found
-        </Text>
+        {/* Divider */}
+        <View style={[styles.divider, { backgroundColor: '#E2E8F0', marginBottom: 16 }]} />
       </>
     );
   };
@@ -559,33 +542,45 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       return renderSkeletonLoader();
     } else if (hasFetchedOnce && filteredProviders.length === 0 && !loading) {
       return (
-        <View style={[styles.centerContainer, { minHeight: 400 }]}>
-          <Text style={[styles.title, { color: colors.text, fontSize: fontStyles.headingSize }]}>
-            {activeFilters ? 'No Providers Match Your Filters' : 'Service Not Available in Your Area'}
-          </Text>
-          <Text style={[styles.message, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
-            {activeFilters 
-              ? 'Try adjusting your filters to see more providers.'
-              : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
-          </Text>
-          
-          <View style={{ gap: 12 * spacingMultiplier }}>
-            {activeFilters && (
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: colors.primary, width: 200 }]}
-                onPress={handleClearFilters}
-              >
-                <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Clear Filters</Text>
-              </TouchableOpacity>
-            )}
+        <View style={[styles.centerContainer, { minHeight: 400, paddingHorizontal: 20 }]}>
+          <LinearGradient
+            colors={['#F8FAFC', '#FFFFFF']}
+            style={styles.emptyGradientContainer}
+          >
+            <View style={styles.emptyIconContainer}>
+              {activeFilters ? (
+                <FontAwesome name="sliders" size={40} color="#0a2a66ff" />
+              ) : (
+                <Icon name="location-off" size={40} color="#0a2a66ff" />
+              )}
+            </View>
+            <Text style={[styles.emptyTitle, { color: '#0F172A', fontSize: fontStyles.headingSize }]}>
+              {activeFilters ? 'No Providers Match Your Filters' : 'Service Not Available in Your Area'}
+            </Text>
+            <Text style={[styles.emptyMessage, { color: '#64748B', fontSize: fontStyles.textSize }]}>
+              {activeFilters 
+                ? 'Try adjusting your filters to see more providers.'
+                : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
+            </Text>
             
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.secondary, width: 200 }]}
-              onPress={() => sendDataToParent("")}
-            >
-              <Text style={[styles.buttonText, { fontSize: fontStyles.textSize }]}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={{ gap: 12 * spacingMultiplier, marginTop: 24 }}>
+              {activeFilters && (
+                <TouchableOpacity
+                  style={[styles.emptyButton, { backgroundColor: '#0a2a66ff' }]}
+                  onPress={handleClearFilters}
+                >
+                  <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>Clear Filters</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                style={[styles.emptyButtonOutline, { borderColor: '#0a2a66ff' }]}
+                onPress={() => sendDataToParent("")}
+              >
+                <Text style={[styles.emptyButtonOutlineText, { fontSize: fontStyles.textSize, color: '#0a2a66ff' }]}>Go Back</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
         </View>
       );
     }
@@ -625,8 +620,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   };
 
   const renderProviderItem = ({ item, index }: { item: ServiceProviderDTO; index: number }) => (
-    <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier, paddingTop: 4 * spacingMultiplier }]}>
-      <ProviderDetails 
+    <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier }]}>
+      <ProviderDetailsComponent 
         {...item} 
         selectedProvider={handleSelectedProvider}
         sendDataToParent={sendDataToParent} 
@@ -635,48 +630,52 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {loading && !hasFetchedOnce ? (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
-          {renderSkeletonLoader()}
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={filteredProviders}
-          renderItem={renderProviderItem}
-          keyExtractor={(item, index) => `provider-${item.id || index}`}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.contentContainer,
-            filteredProviders.length === 0 && { flexGrow: 1 }
-          ]}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={renderEmptyComponent}
-          ListFooterComponent={renderFooter}
-          onEndReached={fetchMoreData}
-          onEndReachedThreshold={0.3}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-        />
-      )}
+    <LinearGradient
+      colors={isDarkMode ? ['#0F172A', '#1E293B', '#0F172A'] : ['#F8FAFC', '#FFFFFF', '#F1F5F9']}
+      style={{ flex: 1 }}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        {loading && !hasFetchedOnce ? (
+          <View style={[styles.container]}>
+            {renderSkeletonLoader()}
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={filteredProviders}
+            renderItem={renderProviderItem}
+            keyExtractor={(item, index) => `provider-${item.serviceproviderid || index}`}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.contentContainer,
+              filteredProviders.length === 0 && { flexGrow: 1 }
+            ]}
+            ListHeaderComponent={renderHeader}
+            ListEmptyComponent={renderEmptyComponent}
+            ListFooterComponent={renderFooter}
+            onEndReached={fetchMoreData}
+            onEndReachedThreshold={0.3}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                colors={['#0a2a66ff']}
+                tintColor="#0a2a66ff"
+              />
+            }
+          />
+        )}
 
-      <ProviderFilter
-        open={filterOpen}
-        onClose={() => {
-          console.log("Closing filter modal");
-          setFilterOpen(false);
-        }}
-        onApplyFilters={handleApplyFilters}
-        initialFilters={activeFilters || undefined}
-      />
-    </SafeAreaView>
+        <ProviderFilter
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          onApplyFilters={handleApplyFilters}
+          initialFilters={activeFilters || undefined}
+        />
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
@@ -695,16 +694,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+  },
+  headerLeft: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  headerCenter: {
+    flex: 2,
+    alignItems: 'center',
+  },
+  headerRight: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   backText: {
-    marginLeft: 4,
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  resultsCountText: {
     fontWeight: '500',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   filterContainer: {
     flexDirection: 'row',
@@ -713,87 +737,116 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     position: 'relative',
   },
   filterButtonText: {
-    marginLeft: 4,
-    marginRight: 4,
+    marginLeft: 6,
+    fontWeight: '500',
   },
   badge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
-    borderRadius: 12,
-    minWidth: 20,
-    height: 20,
+    top: -6,
+    right: -6,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    paddingHorizontal: 4,
   },
   badgeText: {
-    color: '#fff',
     fontWeight: 'bold',
   },
   clearButton: {},
   clearButtonText: {
-    textDecorationLine: 'underline',
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    width: '100%',
   },
   providerContainer: {},
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
-  title: {
-    fontWeight: '600',
+  emptyGradientContainer: {
+    alignItems: 'center',
+    padding: 32,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontWeight: '700',
     marginBottom: 10,
     textAlign: 'center',
   },
-  message: {
-    lineHeight: 20,
+  emptyMessage: {
+    lineHeight: 22,
     textAlign: 'center',
     marginBottom: 20,
   },
-  button: {
+  emptyButton: {
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    minWidth: 180,
+    alignItems: 'center',
   },
-  buttonText: {
-    fontWeight: '500',
-    color: 'white',
-    textAlign: 'center',
+  emptyButtonOutline: {
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    borderWidth: 2,
+    minWidth: 180,
+    alignItems: 'center',
   },
-  resultsCount: {
-    borderRadius: 8,
-    textAlign: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  emptyButtonText: {
+    fontWeight: '600',
   },
-  initialStateText: {
-    textAlign: 'center',
-    marginTop: 20,
+  emptyButtonOutlineText: {
+    fontWeight: '600',
   },
   skeletonContainer: {
     flex: 1,
+    padding: 16,
   },
   skeletonHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
   },
   skeletonCard: {
     padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#f9fafb',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   skeletonCardHeader: {
     flexDirection: 'row',
