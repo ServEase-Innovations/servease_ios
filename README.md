@@ -18,6 +18,14 @@ npm start
 yarn start
 ```
 
+Note for Android emulator/device connectivity:
+- This project binds Metro to `0.0.0.0:8081` by default so Android can reach it reliably.
+- If you hit stale cache or "Unable to load script", use:
+
+```sh
+npm run start:reset
+```
+
 ## Step 2: Build and run your app
 
 With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
@@ -57,6 +65,17 @@ npm run ios
 # OR using Yarn
 yarn ios
 ```
+
+For live reload / Fast Refresh on iOS:
+- Keep Metro running in a separate terminal (`npm start`).
+- Run the app in Debug mode (`npm run ios` uses Debug by default in this repo).
+- If changes stop reflecting, reset Metro cache:
+
+```sh
+npm run start:reset
+```
+
+In iOS Simulator, open Dev Menu and make sure **Fast Refresh** is enabled.
 
 If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
 

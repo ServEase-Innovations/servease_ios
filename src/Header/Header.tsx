@@ -472,7 +472,7 @@ const Head: React.FC<ChildComponentProps> = ({
       justifyContent: "space-between",
       height: 70,
       elevation: 3,
-      paddingHorizontal: 12,
+      // paddingHorizontal: 12,
     },
     alertsButton: {
       flex: 0.5,

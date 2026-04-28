@@ -8,6 +8,9 @@ apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
  */
 react {
     autolinkLibrariesWithApp()
+    // Ensure debug APK also contains a JS bundle fallback so app can start
+    // even when Metro connectivity is flaky on emulator/device networking.
+    debuggableVariants = []
 }
 
 def enableProguardInReleaseBuilds = false

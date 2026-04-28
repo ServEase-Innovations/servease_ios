@@ -39,7 +39,7 @@ PODS:
     - hermes-engine/Pre-built (= 0.79.2)
   - hermes-engine/Pre-built (0.79.2)
   - JWTDecode (3.3.0)
-  - razorpay-core-pod (1.0.4)
+  - razorpay-core-pod (1.0.6)
   - razorpay-pod (1.5.0):
     - razorpay-core-pod
   - RCT-Folly (2024.11.18.00):
@@ -1472,6 +1472,8 @@ PODS:
   - react-native-razorpay (2.3.1):
     - razorpay-pod (= 1.5.0)
     - React
+  - react-native-restart (0.0.27):
+    - React-Core
   - react-native-safe-area-context (5.6.2):
     - DoubleConversion
     - glog
@@ -2040,6 +2042,30 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNLocalize (3.7.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNPermissions (5.4.4):
     - DoubleConversion
     - glog
@@ -2192,6 +2218,7 @@ DEPENDENCIES:
   - react-native-maps (from `../node_modules/react-native-maps`)
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
   - react-native-razorpay (from `../node_modules/react-native-razorpay`)
+  - react-native-restart (from `../node_modules/react-native-restart`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2231,6 +2258,7 @@ DEPENDENCIES:
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNDeviceInfo (from `../node_modules/react-native-device-info`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - RNLocalize (from `../node_modules/react-native-localize`)
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNSnackbar (from `../node_modules/react-native-snackbar`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -2340,6 +2368,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-community/netinfo"
   react-native-razorpay:
     :path: "../node_modules/react-native-razorpay"
+  react-native-restart:
+    :path: "../node_modules/react-native-restart"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-slider:
@@ -2418,6 +2448,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-device-info"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNLocalize:
+    :path: "../node_modules/react-native-localize"
   RNPermissions:
     :path: "../node_modules/react-native-permissions"
   RNSnackbar:
@@ -2441,7 +2473,7 @@ SPEC CHECKSUMS:
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 314be5250afa5692b57b4dd1705959e1973a8ebe
   JWTDecode: 1ca6f765844457d0dd8690436860fecee788f631
-  razorpay-core-pod: a5ee92704a114e9468436dcba9d9b6222f6d9899
+  razorpay-core-pod: 6da5fb4ed280279d665507fdb50e213d793a5fe2
   razorpay-pod: f634f1b8397eb54d547f25d35291f679545ddf17
   RCT-Folly: e78785aa9ba2ed998ea4151e314036f6c49e6d82
   RCTDeprecation: 83ffb90c23ee5cea353bd32008a7bca100908f8c
@@ -2480,6 +2512,7 @@ SPEC CHECKSUMS:
   react-native-maps: 50994008072637228c3bc261630a99f848c5c52b
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-razorpay: 376ba84b614ef8a22b5701df4ffee10f4c116d14
+  react-native-restart: 0bc732f4461709022a742bb29bcccf6bbc5b4863
   react-native-safe-area-context: 0b8555c40461feb7198e999912a3446602e7c601
   react-native-slider: bbaef403486de7d0ecb35ea7d4f3f236609c15c7
   React-NativeModulesApple: 2c4377e139522c3d73f5df582e4f051a838ff25e
@@ -2519,6 +2552,7 @@ SPEC CHECKSUMS:
   RNDateTimePicker: 4b3de938b14deb7f63a719318b21f0fbfa9ad070
   RNDeviceInfo: bcce8752b5043a623fe3c26789679b473f705d3c
   RNGestureHandler: 4d34255948b634d4f3827cc534a1a3d05e50095b
+  RNLocalize: 0b5b54ce69778d4cd8c1f42b40d11ff5a9eef2ab
   RNPermissions: e258b4c4ecfef8003b03476eb086271a4d6090d9
   RNSnackbar: c1b235eb606b03938c693ce769ed3059c31dff9b
   RNSVG: 88e0593581542e88fa1acca15e36c9bd00acdce3

@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
-    "ios": "react-native run-ios",
+    "ios": "react-native run-ios --mode Debug",
+    "ios:device": "react-native run-ios --mode Debug --device",
     "lint": "eslint .",
-    "start": "react-native start",
+    "start": "react-native start --host 0.0.0.0 --port 8081",
+    "start:reset": "react-native start --host 0.0.0.0 --port 8081 --reset-cache",
     "test": "jest"
   },
   "dependencies": {

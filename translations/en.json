@@ -609,6 +609,7 @@
     "noProvidersFound": "No providers found"
   },
   "settings": {
+    "notifications": "Notifications",
     "title": "Settings",
     "appearance": "Appearance",
     "theme": "Theme",
