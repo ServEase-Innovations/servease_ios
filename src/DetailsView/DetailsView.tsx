@@ -20,7 +20,6 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import providerInstance from "../services/providerInstance";
-import { CONFIRMATION } from "../Constants/pagesConstants";
 import ProviderDetailsComponent from "../DetailsView/ProviderDetails";
 import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
@@ -153,7 +152,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     const locationChanged = locationValid && currentLocationKey !== locationKeyRef.current;
     
-    if (locationValid && bookingType && !initialLoadDone.current) {
+    if (locationValid && !initialLoadDone.current) {
       console.log("Initial load triggered");
       locationKeyRef.current = currentLocationKey;
       initialLoadDone.current = true;
@@ -163,7 +162,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       locationKeyRef.current = currentLocationKey;
       resetAndSearch();
     }
-  }, [location, bookingType]);
+  }, [location]);
 
   useEffect(() => {
     if (selected && selected !== selectedProviderType && initialLoadDone.current) {
@@ -190,8 +189,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     if (selectedProvider) {
       selectedProvider(provider);
     }
-    sendDataToParent(CONFIRMATION);
-  }, [selectedProvider, sendDataToParent]);
+  }, [selectedProvider]);
 
   const formatDateOnly = (dateString?: string) => {
     if (!dateString) return "";
