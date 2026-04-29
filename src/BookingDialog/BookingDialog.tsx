@@ -9,6 +9,8 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  Animated,
+  PanResponder,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs, { Dayjs } from "dayjs";
@@ -84,6 +86,46 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [customAmPm, setCustomAmPm] = useState<"AM" | "PM">("AM");
   const [use24HourFormat, setUse24HourFormat] = useState<boolean>(false);
   const [isDateChanged, setIsDateChanged] = useState<boolean>(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 4,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          sheetTranslateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 120 || gestureState.vy > 1.2) {
+          Animated.timing(sheetTranslateY, {
+            toValue: 500,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            handleSheetClose();
+            sheetTranslateY.setValue(0);
+          });
+          return;
+        }
+
+        Animated.spring(sheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 18,
+          bounciness: 0,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(sheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
 
   // Business hours configuration
   const BUSINESS_HOURS = {
@@ -132,6 +174,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setUse24HourFormat(false);
       setIsDateChanged(false);
       setTempSelectedTime(null);
+      setCurrentStep(1);
     }
   }, [open]);
 
@@ -607,6 +650,42 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     });
   };
 
+  const handleSheetClose = () => {
+    setCurrentStep(1);
+    sheetTranslateY.setValue(0);
+    onClose();
+  };
+
+  const getTotalSteps = () => 3;
+
+  const isStepValid = (step: number) => {
+    if (step === 1) {
+      return ["Date", "Short term", "Monthly"].includes(selectedOption);
+    }
+    if (step === 2) {
+      return !isConfirmDisabled();
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (currentStep < getTotalSteps() && isStepValid(currentStep)) {
+      setCurrentStep((prev) => prev + 1);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 50);
+    }
+  };
+
+  const handleBackStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 50);
+    }
+  };
+
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
@@ -640,6 +719,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const fontSizes = getFontSizes();
+  const headerTitleSize = Math.min(fontSizes.title, 17);
 
   // Render Duration Control (appears first in the dialog)
   const renderDurationControl = () => {
@@ -1034,11 +1114,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   if (isServiceDisabled) {
     return (
-      <Modal visible={open} transparent animationType="fade">
+      <Modal visible={open} transparent animationType="fade" onRequestClose={handleSheetClose}>
         <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-          <View style={[styles.container, { backgroundColor: colors.card }]}>
+          <View style={[styles.container, { backgroundColor: isDarkMode ? colors.card : "#f8fafc" }]}>
+            <View style={styles.sheetHandleWrap}>
+              <View style={[styles.sheetHandleBar, { backgroundColor: colors.border }]} />
+            </View>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={["#0a2a66", "#328aff"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.headerContainer}
@@ -1047,20 +1130,20 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 <View style={styles.headerLeft} />
                 <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>Service Unavailable</Text>
                 <View style={styles.headerRight}>
-                  <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+                  <TouchableOpacity onPress={handleSheetClose} style={styles.closeIcon}>
                     <Icon name="close" size={24} color="#fff" />
                   </TouchableOpacity>
                 </View>
               </View>
             </LinearGradient>
 
-            <View style={[styles.disabledContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.disabledContainer, { backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}>
               <Icon name="info-outline" size={60} color="#FFA500" />
               <Text style={[styles.disabledTitle, { color: colors.text, fontSize: fontSizes.title }]}>Service Provider View</Text>
               <Text style={[styles.disabledMessage, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 As a service provider, you cannot book services. Please switch to customer mode.
               </Text>
-              <TouchableOpacity style={[styles.disabledCloseButton, { backgroundColor: colors.primary }]} onPress={onClose}>
+              <TouchableOpacity style={[styles.disabledCloseButton, { backgroundColor: colors.primary }]} onPress={handleSheetClose}>
                 <Text style={[styles.disabledCloseButtonText, { color: '#fff', fontSize: fontSizes.button }]}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -1071,67 +1154,155 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   }
 
   const bookingTypeOptions = [
-    { value: "Date", label: "Date" },
-    { value: "Short term", label: "Short term" },
-    { value: "Monthly", label: "Monthly" },
+    {
+      value: "Date",
+      label: "One-time",
+      subtitle: "Single day booking",
+      icon: "event-available",
+    },
+    {
+      value: "Short term",
+      label: "Short term",
+      subtitle: "Multi-day booking",
+      icon: "date-range",
+    },
+    {
+      value: "Monthly",
+      label: "Monthly",
+      subtitle: "Recurring monthly plan",
+      icon: "calendar-month",
+    },
   ];
 
   return (
-    <Modal visible={open} transparent animationType="fade">
+    <Modal visible={open} transparent animationType="slide" onRequestClose={handleSheetClose}>
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+        <Animated.View
+          style={[
+            styles.container,
+            { backgroundColor: isDarkMode ? colors.card : "#f8fafc", transform: [{ translateY: sheetTranslateY }] },
+          ]}
+        >
+          <LinearGradient
+            colors={["#0a2a66", "#328aff"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerContainer}
+            {...panResponder.panHandlers}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.headerLeft} />
+              <Text
+                style={[styles.title, { color: "#fff", fontSize: headerTitleSize }]}
+                numberOfLines={2}
+              >
+                Booking Details
+              </Text>
+              <View style={styles.headerRight}>
+                <TouchableOpacity onPress={handleSheetClose} style={styles.closeIcon}>
+                  <Icon name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.stepMetaRow}>
+              <Text style={[styles.stepMetaText, { color: "#dbeafe", fontSize: fontSizes.small }]}>
+                Step {currentStep} of {getTotalSteps()}
+              </Text>
+            </View>
+          </LinearGradient>
           <ScrollView
             ref={scrollViewRef}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={styles.wizardScrollContent}
             showsVerticalScrollIndicator={true}
             nestedScrollEnabled={true}
           >
-            <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.headerContainer}
-            >
-              <View style={styles.headerContent}>
-                <View style={styles.headerLeft} />
-                <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>Select your Booking Option</Text>
-                <View style={styles.headerRight}>
-                  <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
-                    <Icon name="close" size={24} color="#fff" />
-                  </TouchableOpacity>
+            {currentStep === 1 && (
+              <>
+                <View
+                  style={[
+                    styles.bookingOptionsSection,
+                    {
+                      backgroundColor: isDarkMode ? colors.surface2 : "#ffffff",
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.sectionHeading, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+                    Select your booking option
+                  </Text>
+                  <Text style={[styles.sectionSubheading, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+                    Choose the plan that fits your schedule
+                  </Text>
+
+                  <View style={styles.radioRow}>
+                  {bookingTypeOptions.map((opt) => {
+                    const selected = selectedOption === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.radioOption,
+                          {
+                            borderColor: selected ? colors.primary : colors.border,
+                            backgroundColor: selected ? colors.primary + "14" : colors.surface,
+                          },
+                          selected && [styles.radioOptionSelected, { shadowColor: colors.primary }],
+                        ]}
+                        onPress={() => handleOptionChange(opt.value)}
+                        activeOpacity={0.9}
+                      >
+                        <View style={styles.radioTopRow}>
+                          <View
+                            style={[
+                              styles.optionIconPill,
+                              { backgroundColor: selected ? colors.primary : colors.surface2 },
+                            ]}
+                          >
+                            <Icon
+                              name={opt.icon}
+                              size={16}
+                              color={selected ? "#fff" : colors.textSecondary}
+                            />
+                          </View>
+
+                          <View
+                            style={[
+                              styles.radioCircle,
+                              { borderColor: selected ? colors.primary : colors.border },
+                              selected && { backgroundColor: colors.primary },
+                            ]}
+                          >
+                            {selected && <View style={styles.radioInnerCircle} />}
+                          </View>
+                        </View>
+
+                        <Text
+                          style={[
+                            styles.radioText,
+                            { color: selected ? colors.primary : colors.text, fontSize: fontSizes.text },
+                            selected && styles.radioTextSelected,
+                          ]}
+                        >
+                            {opt.label}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.optionSubtitle,
+                            { color: selected ? colors.primary : colors.textSecondary, fontSize: fontSizes.small },
+                          ]}
+                        >
+                          {opt.subtitle}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              </View>
-            </LinearGradient>
+                </View>
+              </>
+            )}
 
-            {/* Booking Type Selection */}
-            <View style={styles.radioRow}>
-              {bookingTypeOptions.map((opt) => {
-                const selected = selectedOption === opt.value;
-                return (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[
-                      styles.radioOption,
-                      { borderColor: selected ? colors.primary : colors.border },
-                      selected && [styles.radioOptionSelected, { backgroundColor: colors.primary + '20' }],
-                    ]}
-                    onPress={() => handleOptionChange(opt.value)}
-                  >
-                    <View style={styles.radioContent}>
-                      <View style={[styles.radioCircle, { borderColor: selected ? colors.primary : colors.border }, selected && { backgroundColor: colors.primary }]}>
-                        {selected && <View style={styles.radioInnerCircle} />}
-                      </View>
-                      <Text style={[styles.radioText, { color: selected ? colors.primary : colors.text, fontSize: fontSizes.text }, selected && styles.radioTextSelected]}>
-                        {opt.label}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Date Option */}
-            {selectedOption === "Date" && (
+            {/* Step 2: Schedule */}
+            {currentStep === 2 && selectedOption === "Date" && (
               <>
                 {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
@@ -1170,8 +1341,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </>
             )}
 
-            {/* Short Term Option */}
-            {selectedOption === "Short term" && (
+            {currentStep === 2 && selectedOption === "Short term" && (
               <>
                 {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
@@ -1208,8 +1378,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </>
             )}
 
-            {/* Monthly Option */}
-            {selectedOption === "Monthly" && (
+            {currentStep === 2 && selectedOption === "Monthly" && (
               <>
                 {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
@@ -1254,12 +1423,41 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </>
             )}
 
-            {/* Action Buttons */}
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.cancelButton, { borderColor: colors.primary }]} onPress={onClose}>
-                <Text style={[styles.cancelText, { color: colors.primary, fontSize: fontSizes.button }]}>Cancel</Text>
-              </TouchableOpacity>
+            {currentStep === 3 && (
+              <View style={[styles.reviewSection, { backgroundColor: isDarkMode ? colors.surface2 : "#ffffff", borderColor: colors.border }]}>
+                <Text style={[styles.sectionHeading, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+                  Review booking details
+                </Text>
+                <Text style={[styles.sectionSubheading, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+                  Please verify your selection before confirming
+                </Text>
+                {renderBookingDetails()}
+              </View>
+            )}
+          </ScrollView>
+          <View style={[styles.actions, { borderTopColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#f8fafc" }]}>
+            <TouchableOpacity
+              style={[styles.cancelButton, { borderColor: colors.primary }]}
+              onPress={currentStep === 1 ? handleSheetClose : handleBackStep}
+            >
+              <Text style={[styles.cancelText, { color: colors.primary, fontSize: fontSizes.button }]}>
+                {currentStep === 1 ? "Cancel" : "Back"}
+              </Text>
+            </TouchableOpacity>
 
+            {currentStep < getTotalSteps() ? (
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  { backgroundColor: colors.primary },
+                  !isStepValid(currentStep) && [styles.disabledButton, { backgroundColor: colors.disabled }],
+                ]}
+                onPress={handleNextStep}
+                disabled={!isStepValid(currentStep)}
+              >
+                <Text style={[styles.confirmText, { color: "#fff", fontSize: fontSizes.button }]}>Next</Text>
+              </TouchableOpacity>
+            ) : (
               <TouchableOpacity
                 style={[styles.confirmButton, { backgroundColor: colors.primary }, isConfirmDisabled() && [styles.disabledButton, { backgroundColor: colors.disabled }]]}
                 onPress={handleAccept}
@@ -1267,9 +1465,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               >
                 <Text style={[styles.confirmText, { color: '#fff', fontSize: fontSizes.button }]}>Confirm</Text>
               </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
+            )}
+          </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -1280,20 +1478,36 @@ export default BookingDialog;
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-end",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   container: {
-    width: Dimensions.get("window").width * 0.95,
+    width: "100%",
     maxHeight: Dimensions.get("window").height * 0.9,
-    borderRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: "hidden",
+    paddingBottom: Platform.OS === "ios" ? 16 : 10,
+  },
+  sheetHandleWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  sheetHandleBar: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    opacity: 0.9,
   },
   headerContainer: {
-    padding: 20,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    paddingHorizontal: 14,
+    paddingTop: Platform.OS === "ios" ? 18 : 16,
+    paddingBottom: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   headerContent: {
     flexDirection: "row",
@@ -1302,10 +1516,10 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   headerLeft: {
-    width: 40,
+    width: 24,
   },
   headerRight: {
-    width: 40,
+    width: 24,
     alignItems: "flex-end",
   },
   closeIcon: {
@@ -1315,49 +1529,102 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     flex: 1,
+    lineHeight: 21,
+    paddingHorizontal: 10,
+  },
+  stepMetaRow: {
+    marginTop: 8,
+    alignItems: "center",
+  },
+  stepMetaText: {
+    fontWeight: "600",
+  },
+  wizardScrollContent: {
+    paddingBottom: 16,
   },
   radioRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginVertical: 12,
+    marginTop: 12,
+    marginBottom: 8,
     paddingHorizontal: 20,
-    gap: 12,
+    gap: 10,
+  },
+  bookingOptionsSection: {
+    marginTop: 14,
+    marginHorizontal: 20,
+    marginBottom: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingTop: 14,
+    paddingBottom: 6,
+    paddingHorizontal: 12,
+  },
+  sectionHeading: {
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  sectionSubheading: {
+    marginTop: 4,
+    lineHeight: 18,
   },
   radioOption: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 10,
     borderRadius: 12,
-    borderWidth: 2,
-    alignItems: "center",
+    borderWidth: 1.5,
+    alignItems: "flex-start",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
   },
   radioOptionSelected: {
     borderWidth: 2,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  radioContent: {
+  radioTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 8,
+  },
+  optionIconPill: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   radioInnerCircle: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: "#fff",
   },
   radioText: {
-    fontWeight: "500",
+    fontWeight: "600",
+    marginBottom: 2,
+    letterSpacing: -0.1,
   },
   radioTextSelected: {
     fontWeight: "700",
+  },
+  optionSubtitle: {
+    fontWeight: "500",
+    lineHeight: 16,
   },
   dateTimeContainer: {
     paddingHorizontal: 20,
@@ -1366,10 +1633,22 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 0,
     paddingHorizontal: 20,
+    paddingVertical: 14,
     gap: 12,
+    borderTopWidth: 1,
+  },
+  reviewSection: {
+    marginTop: 14,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingTop: 14,
+    paddingBottom: 14,
+    paddingHorizontal: 12,
   },
   cancelButton: {
     flex: 1,
