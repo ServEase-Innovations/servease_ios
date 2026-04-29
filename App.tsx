@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   StatusBar,
-  Image,
   Animated,
   AppState,
   TouchableOpacity,
@@ -17,7 +16,6 @@ import {
   Dimensions,
   Linking,
   ActivityIndicator,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
@@ -69,7 +67,7 @@ import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegis
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
 import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
-import LinearGradient from "react-native-linear-gradient";
+import BrandLoadingScreen from "./src/common/BrandLoadingScreen";
 
 interface Engagement {
   engagement_id: number;
@@ -763,20 +761,7 @@ const MainApp = () => {
   if (showSplash) {
     return (
       <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
-        <LinearGradient
-          colors={["#0a2a66ff", "#004aadff"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.gradientBackground}
-        >
-          <View style={styles.loadingContent}>
-            <Image
-              source={require("./assets/images/serveasologo.png")}
-              style={styles.splashImage}
-              resizeMode="contain"
-            />
-          </View>
-        </LinearGradient>
+        <BrandLoadingScreen />
       </Animated.View>
     );
   }
@@ -799,9 +784,7 @@ const MainApp = () => {
           edges={["top"]} 
           key={`app-${appResetKey}`}
         >
-          {/* Touchable Without Feedback wrapper to close dropdowns when tapping outside */}
-          <TouchableWithoutFeedback onPress={handleOutsideTouch}>
-            <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
               {/* Deep linking loading overlay */}
               {showDeepLinkLoading && (
                 <View style={[styles.deepLinkLoadingOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
@@ -829,7 +812,11 @@ const MainApp = () => {
               {/* Scrollable Content Area */}
               <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
                 {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) || currentView === WALLET ? (
-                  <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
+                  <ScrollView
+                    style={styles.profileScrollView}
+                    contentContainerStyle={styles.profileScrollContent}
+                    keyboardShouldPersistTaps="handled"
+                  >
                     {renderContent()}
                   </ScrollView>
                 ) : (
@@ -841,6 +828,8 @@ const MainApp = () => {
                         styles.fullScreenScrollContent,
                     ]}
                     contentInsetAdjustmentBehavior="automatic"
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
                   >
                     {renderContent()}
                     {currentView === HOME &&
@@ -912,7 +901,6 @@ const MainApp = () => {
                 </View>
               )}
             </View>
-          </TouchableWithoutFeedback>
 
           {/* Chat Button - Positioned above Navigation Footer */}
           {!chatbotOpen && isMobile && (
@@ -1026,22 +1014,7 @@ const App = () => {
   }, []);
 
   if (!i18nInitialized) {
-    return (
-      <LinearGradient
-        colors={["#0a2a66ff", "#004aadff"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradientBackground}
-      >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Image
-            source={require("./assets/images/serveasologo.png")}
-            style={{ width: 200, height: 200 }}
-            resizeMode="contain"
-          />
-        </View>
-      </LinearGradient>
-    );
+    return <BrandLoadingScreen subtitle="Preparing language and app setup for you" />;
   }
 
   return (
@@ -1058,22 +1031,8 @@ const App = () => {
 };
 
 const styles = StyleSheet.create({
-  gradientBackground: {
-    flex: 1,
-  },
   splashContainer: {
     flex: 1,
-  },
-  loadingContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  splashImage: { 
-    width: "80%", 
-    height: "30%", 
-    marginBottom: 30,
   },
   safeArea: {
     flex: 1,
@@ -1088,7 +1047,8 @@ const styles = StyleSheet.create({
   contentContainer: { 
     flex: 1, 
     marginTop: 50,
-    paddingBottom: 50,
+    // Keep scrollable home content clear of fixed mobile footer
+    paddingBottom: 96,
   },
   mainScrollView: { 
     flex: 1 
@@ -1130,14 +1090,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-    minHeight: 60,
+    minHeight: 68,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 14,
   },
   chatButton: {
     position: "absolute",

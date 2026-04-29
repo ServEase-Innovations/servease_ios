@@ -399,20 +399,23 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 disabled={isDisabled}
                 style={[
                   styles.mobileNavItem,
-                  !isLast && styles.withBorder,
                   isActive && styles.activeTab,
                   isDisabled && styles.disabledTab,
                 ]}
+                activeOpacity={0.85}
               >
-                {React.cloneElement(tab.icon as any, {
-                  color: isActive ? "#93c5fd" : isDisabled ? "#94a3b8" : "#fff",
-                })}
+                <View style={[styles.mobileNavIconWrap, isActive && styles.mobileNavIconWrapActive]}>
+                  {React.cloneElement(tab.icon as any, {
+                    color: isActive ? "#bfdbfe" : isDisabled ? "#94a3b8" : "#fff",
+                  })}
+                </View>
                 <Text
                   style={[
                     styles.mobileNavText,
                     isActive && styles.activeTabText,
                     isDisabled && styles.disabledTabText,
                   ]}
+                  numberOfLines={1}
                 >
                   {tab.label}
                 </Text>
@@ -611,46 +614,63 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 const styles = StyleSheet.create({
   mobileNavContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 12,
+    justifyContent: "space-between",
+    paddingTop: 8,
+    paddingBottom: 10,
+    paddingHorizontal: 8,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-    minHeight: 60,
+    borderTopColor: "rgba(255, 255, 255, 0.16)",
+    minHeight: 68,
     position: "relative",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 12,
   },
   mobileNavItem: {
     alignItems: "center",
-    paddingHorizontal: 8,
+    justifyContent: "center",
+    paddingHorizontal: 4,
     flex: 1,
     position: "relative",
-    paddingVertical: 4,
-  },
-  withBorder: {
-    borderRightWidth: 1,
-    borderRightColor: "rgba(255,255,255,0.15)",
-  },
-  activeTab: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingVertical: 6,
+    minHeight: 52,
     borderRadius: 12,
   },
+  activeTab: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 12,
+  },
+  mobileNavIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileNavIconWrapActive: {
+    backgroundColor: "rgba(191, 219, 254, 0.18)",
+  },
   activeTabText: {
-    color: "#93c5fd",
-    fontWeight: "600",
+    color: "#bfdbfe",
+    fontWeight: "700",
   },
   activeIndicator: {
     position: "absolute",
-    bottom: -4,
-    width: 30,
-    height: 2,
-    backgroundColor: "#93c5fd",
-    borderRadius: 1,
+    bottom: -2,
+    width: 20,
+    height: 3,
+    backgroundColor: "#bfdbfe",
+    borderRadius: 999,
   },
   mobileNavText: {
     color: "white",
-    fontSize: 11,
-    fontWeight: "400",
+    fontSize: 10,
+    fontWeight: "500",
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 3,
+    maxWidth: "95%",
   },
   disabledTab: {
     opacity: 0.6,

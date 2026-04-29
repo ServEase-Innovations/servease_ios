@@ -73,6 +73,7 @@ const Head: React.FC<ChildComponentProps> = ({
   closeDropdowns = false // Receive the prop
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
   const {
     authorize,
     clearSession,
@@ -506,7 +507,7 @@ const Head: React.FC<ChildComponentProps> = ({
   return (
     <View style={{ position: "relative" }}>
       <LinearGradient
-        colors={["#0d1935", "#1c4485", "#255697"]}
+        colors={chromeGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={dynamicStyles.headerContainer}
@@ -562,7 +563,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
+            colors={chromeGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}
@@ -584,7 +585,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0ea5e9", "#1e293b", "#0f172a"]}
+            colors={chromeGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}
@@ -609,7 +610,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0ea5e9", "#1e293b", "#0f172a"]}
+            colors={chromeGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}

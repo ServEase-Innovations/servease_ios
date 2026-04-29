@@ -128,6 +128,17 @@ const howItWorksSlides = [
   },
 ];
 
+const hexToRgba = (hex: string, alpha: number): string => {
+  const normalized = hex.replace('#', '');
+  if (normalized.length !== 6) {
+    return `rgba(0,0,0,${alpha})`;
+  }
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const HomePage: React.FC<ChildComponentProps> = ({
   sendDataToParent,
   bookingType,
@@ -135,7 +146,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   // Get theme values
   const { colors, isDarkMode, fontSize } = useTheme();
   const { t } = useTranslation();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
   
   // Responsive sizing based on screen dimensions
   const isSmallScreen = screenWidth < 375;
@@ -217,6 +228,16 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const fontStyles = getFontSizeStyles();
+  const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
+  const heroOverlayGradient = [
+    hexToRgba(colors.chromeStart, 0.72),
+    hexToRgba(colors.chromeMid, 0.62),
+    hexToRgba(colors.chromeEnd, 0.78),
+  ];
+  const serviceImageOverlayGradient = [
+    hexToRgba(colors.chromeStart, 0.75),
+    hexToRgba(colors.chromeMid, 0.55),
+  ];
 
   // Carousel images array
   const carouselImages = [heroImage1, heroImage2, heroImage3];
@@ -237,33 +258,41 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const getHorizontalPadding = () => {
-    if (isSmallScreen) return 14;
-    if (isMediumScreen) return 20;
+    if (isSmallScreen) return 12;
+    if (isMediumScreen) return 18;
     return 28;
   };
 
   const getServiceCardWidth = () => {
-    if (isSmallScreen) return (screenWidth - 40) / 3;
-    if (isMediumScreen) return (screenWidth - 60) / 3;
+    if (isSmallScreen) return Math.max(112, Math.min(136, Math.round(screenWidth * 0.33)));
+    if (isMediumScreen) return Math.max(126, Math.min(156, Math.round(screenWidth * 0.31)));
     return 180;
   };
 
   const getServicesCarouselHeight = () => {
-    if (isSmallScreen) return 470;
-    if (isMediumScreen) return 500;
+    if (isSmallScreen) return Math.max(560, Math.round(screenHeight * 0.75));
+    if (isMediumScreen) return Math.max(580, Math.round(screenHeight * 0.72));
     return 560;
   };
 
   const getHowItWorksCarouselHeight = () => {
-    if (isSmallScreen) return 420;
-    if (isMediumScreen) return 430;
+    if (isSmallScreen) return Math.max(520, Math.round(screenHeight * 0.68));
+    if (isMediumScreen) return Math.max(540, Math.round(screenHeight * 0.66));
     return 500;
   };
 
   const getHowItWorksCardMinHeight = () => {
-    if (isSmallScreen) return 360;
-    if (isMediumScreen) return 370;
-    return 420;
+    const extraForLargeFont = fontScale > 1.05 ? Math.round((fontScale - 1) * 160) : 0;
+    if (isSmallScreen) return 430 + extraForLargeFont;
+    if (isMediumScreen) return 450 + extraForLargeFont;
+    return 420 + extraForLargeFont;
+  };
+
+  const getSectionChipTitleSize = () => {
+    const preferred = fontStyles.headingSize;
+    if (isSmallScreen) return Math.min(preferred, 18);
+    if (isMediumScreen) return Math.min(preferred, 20);
+    return Math.min(preferred, 22);
   };
 
   const handleExploreServices = () => {
@@ -587,8 +616,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
   // Responsive hero section height
   const getHeroMinHeight = () => {
-    if (isSmallScreen) return 500;
-    if (isMediumScreen) return 600;
+    const extraForLargeFont = fontScale > 1.05 ? Math.round((fontScale - 1) * 120) : 0;
+    if (isSmallScreen) return 500 + extraForLargeFont;
+    if (isMediumScreen) return 590 + extraForLargeFont;
     return 650;
   };
 
@@ -598,8 +628,14 @@ const HomePage: React.FC<ChildComponentProps> = ({
         ref={scrollRef}
         style={styles.container} 
         scrollEnabled={!showRegistration && !showAgentRegistration}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: isSmallScreen ? 42 : 24 },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        directionalLockEnabled
       >
         {/* Hero Section with Blue Gradient Overlay */}
         <View style={[styles.heroSection, { minHeight: getHeroMinHeight() }]}>
@@ -623,7 +659,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
           
           {/* Blue Gradient Overlay */}
           <LinearGradient
-            colors={["rgba(10, 42, 102, 0.7)", "rgba(0, 74, 173, 0.6)", "rgba(10, 42, 102, 0.8)"]}
+            colors={heroOverlayGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientOverlay}
@@ -643,7 +679,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
               activeOpacity={0.9}
             >
               <LinearGradient
-                colors={["#ffffff", "#e9f2ff"]}
+                colors={[colors.surface, colors.backgroundAlt]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.primaryCtaGradient}
@@ -689,9 +725,22 @@ const HomePage: React.FC<ChildComponentProps> = ({
               {isServiceDisabled ? t('home.hero.learnAboutServices') : t('home.hero.tapToBook')}
             </Text>
             
-            <View style={[styles.serviceIconsContainer, { paddingHorizontal: isSmallScreen ? 0 : 8 }]}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled
+              directionalLockEnabled
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={[
+                styles.serviceIconsContainer,
+                {
+                  paddingHorizontal: isSmallScreen ? 4 : 8,
+                  justifyContent: isLargeScreen ? "center" : "flex-start",
+                },
+              ]}
+            >
               {/* Cook Service */}
-              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 3 : 6 }]}>
+              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 5 : 6 }]}>
                 <TouchableOpacity
                   style={[
                     styles.serviceIconContainerRectangular,
@@ -700,13 +749,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     isServiceDisabled && styles.disabledServiceContainer,
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("COOK")}
-                  onPressIn={() => setHoveredService("COOK")}
-                  onPressOut={() => setHoveredService(null)}
+                  onPressIn={!isTablet ? undefined : () => setHoveredService("COOK")}
+                  onPressOut={!isTablet ? undefined : () => setHoveredService(null)}
                   disabled={isServiceDisabled}
                 >
                   <Image source={cookImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
                   <LinearGradient
-                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    colors={serviceImageOverlayGradient}
                     style={styles.serviceOverlay}
                   >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.homeCook')}</Text>
@@ -716,7 +765,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
               </View>
 
               {/* Maid Service */}
-              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 3 : 6 }]}>
+              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 5 : 6 }]}>
                 <TouchableOpacity
                   style={[
                     styles.serviceIconContainerRectangular,
@@ -725,13 +774,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     isServiceDisabled && styles.disabledServiceContainer,
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("MAID")}
-                  onPressIn={() => setHoveredService("MAID")}
-                  onPressOut={() => setHoveredService(null)}
+                  onPressIn={!isTablet ? undefined : () => setHoveredService("MAID")}
+                  onPressOut={!isTablet ? undefined : () => setHoveredService(null)}
                   disabled={isServiceDisabled}
                 >
                   <Image source={maidImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
                   <LinearGradient
-                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    colors={serviceImageOverlayGradient}
                     style={styles.serviceOverlay}
                   >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.cleaningHelp')}</Text>
@@ -741,7 +790,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
               </View>
 
               {/* Nanny Service */}
-              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 3 : 6 }]}>
+              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 5 : 6 }]}>
                 <TouchableOpacity
                   style={[
                     styles.serviceIconContainerRectangular,
@@ -750,13 +799,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
                     isServiceDisabled && styles.disabledServiceContainer,
                   ]}
                   onPress={() => !isServiceDisabled && handleClick("NANNY")}
-                  onPressIn={() => setHoveredService("NANNY")}
-                  onPressOut={() => setHoveredService(null)}
+                  onPressIn={!isTablet ? undefined : () => setHoveredService("NANNY")}
+                  onPressOut={!isTablet ? undefined : () => setHoveredService(null)}
                   disabled={isServiceDisabled}
                 >
                   <Image source={nannyImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
                   <LinearGradient
-                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    colors={serviceImageOverlayGradient}
                     style={styles.serviceOverlay}
                   >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.caregiver')}</Text>
@@ -764,7 +813,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
-            </View>
+            </ScrollView>
           </View>
           
           <View style={styles.heroIndicators}>
@@ -797,19 +846,37 @@ const HomePage: React.FC<ChildComponentProps> = ({
         
         {/* Popular Services Section */}
         <View
-          style={[styles.servicesSection, { backgroundColor: isDarkMode ? colors.surface : '#f8fafc', paddingHorizontal: getHorizontalPadding() }]}
+          style={[styles.servicesSection, { backgroundColor: colors.backgroundAlt, paddingHorizontal: getHorizontalPadding(), paddingTop: isSmallScreen ? 22 : 30 }]}
           onLayout={(event) => {
             setServicesSectionY(event.nativeEvent.layout.y);
           }}
         >
           <View style={styles.sectionHeader}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={chromeGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.sectionTitleGradient}
+              style={[
+                styles.sectionTitleGradient,
+                {
+                  alignSelf: "center",
+                  paddingHorizontal: isSmallScreen ? 18 : 22,
+                  height: isSmallScreen ? 42 : 44,
+                  minWidth: isSmallScreen ? 176 : 192,
+                  maxWidth: isSmallScreen ? "98%" : "96%",
+                },
+              ]}
             >
-              <Text style={[styles.sectionTitle, { fontSize: fontStyles.headingSize }]}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    fontSize: getSectionChipTitleSize(),
+                    lineHeight: getSectionChipTitleSize(),
+                  },
+                ]}
+                numberOfLines={1}
+              >
                 {t('home.services.title')}
               </Text>
             </LinearGradient>
@@ -828,8 +895,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
               <TouchableOpacity 
                 style={[styles.serviceCard, isServiceDisabled && styles.disabledServiceCard]}
                 onPress={() => handleLearnMore(popularServices[currentServiceIndex].title)}
-                onPressIn={() => handleCardPressIn(currentServiceIndex)}
-                onPressOut={() => handleCardPressOut(currentServiceIndex)}
+                onPressIn={!isTablet ? undefined : () => handleCardPressIn(currentServiceIndex)}
+                onPressOut={!isTablet ? undefined : () => handleCardPressOut(currentServiceIndex)}
                 activeOpacity={0.95}
               >
                 <LinearGradient
@@ -901,15 +968,33 @@ const HomePage: React.FC<ChildComponentProps> = ({
         </View>
 
         {/* How it works section */}
-        <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff', paddingHorizontal: getHorizontalPadding() }]}>
+        <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff', paddingHorizontal: getHorizontalPadding(), paddingTop: isSmallScreen ? 30 : 40 }]}>
           <View style={styles.sectionHeader}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={chromeGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.sectionTitleGradient}
+              style={[
+                styles.sectionTitleGradient,
+                {
+                  alignSelf: "center",
+                  paddingHorizontal: isSmallScreen ? 18 : 22,
+                  height: isSmallScreen ? 42 : 44,
+                  minWidth: isSmallScreen ? 176 : 192,
+                  maxWidth: isSmallScreen ? "98%" : "96%",
+                },
+              ]}
             >
-              <Text style={[styles.sectionTitle, { fontSize: fontStyles.headingSize }]}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    fontSize: getSectionChipTitleSize(),
+                    lineHeight: getSectionChipTitleSize(),
+                  },
+                ]}
+                numberOfLines={1}
+              >
                 {t('home.howItWorks.title')}
               </Text>
             </LinearGradient>
@@ -1076,6 +1161,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
           onClose={() => setServiceDetailsOpen(false)}
           serviceType={selectedServiceType}
         />
+
+        {/* Keep final section visible above fixed mobile footer/nav */}
+        <View style={{ height: isSmallScreen ? 92 : 78 }} />
       </ScrollView>
 
       {/* Service Selection Dialog for Promotional Offer */}
@@ -1109,12 +1197,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: 24,
   },
   heroSection: {
     position: 'relative',
-    overflow: 'hidden',
-    paddingTop: 20,
-    marginBottom: -30,
+    overflow: 'visible',
+    paddingTop: 16,
+    marginBottom: 0,
     zIndex: 1,
   },
   backgroundImage: {
@@ -1127,14 +1216,15 @@ const styles = StyleSheet.create({
   },
   heroContent: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 44,
     zIndex: 2,
   },
   primaryCtaButton: {
     alignSelf: "center",
     borderRadius: 999,
-    marginBottom: 14,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -1143,8 +1233,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   primaryCtaGradient: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -1184,7 +1274,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     marginBottom: 14,
     flexWrap: "wrap",
   },
@@ -1193,8 +1283,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.28)",
     borderWidth: 1,
     borderRadius: 12,
-    minWidth: 72,
-    paddingHorizontal: 10,
+    minWidth: 68,
+    paddingHorizontal: 9,
     paddingVertical: 6,
     alignItems: "center",
   },
@@ -1236,7 +1326,7 @@ const styles = StyleSheet.create({
   selectorSubtitle: {
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
@@ -1244,17 +1334,18 @@ const styles = StyleSheet.create({
   },
   serviceIconsContainer: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 20,
-    paddingHorizontal: 0,
+    justifyContent: "flex-start",
+    marginBottom: 16,
+    paddingHorizontal: 2,
+    paddingBottom: 4,
   },
   serviceSelectorContainer: {
     alignItems: 'center',
-    flex: 1,
+    flexShrink: 0,
   },
   heroIndicators: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 10,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -1273,11 +1364,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   promotionalSection: {
-    marginTop: 20,
-    marginBottom: 10,
-    paddingHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 8,
+    paddingHorizontal: 12,
     zIndex: 5,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   offerWrapper: {
     marginBottom: 8,
@@ -1292,7 +1383,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    marginTop: 10,
+    marginTop: 16,
     zIndex: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -10 },
@@ -1301,20 +1392,30 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   sectionHeader: {
-    marginBottom: 30,
+    marginBottom: 22,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitleGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 25,
+    paddingHorizontal: 22,
+    borderRadius: 999,
     marginBottom: 8,
+    alignSelf: "center",
+    maxWidth: "96%",
+    minWidth: 188,
+    justifyContent: "center",
+    alignItems: "center",
   },
   sectionTitle: {
     fontWeight: "700",
     textAlign: "center",
-    letterSpacing: -0.5,
+    letterSpacing: 0,
     color: '#fff',
+    includeFontPadding: false,
+    textAlignVertical: "center",
+    alignSelf: "center",
+    marginTop: -1,
+    width: "auto",
   },
   sectionSubtitle: {
     textAlign: "center",
@@ -1325,11 +1426,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    width: '100%',
   },
   serviceCarouselSlide: {
-    width: '100%',
+    width: '96%',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
     borderRadius: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
@@ -1341,6 +1444,8 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   disabledServiceCard: {
     opacity: 0.9,
@@ -1448,7 +1553,7 @@ const styles = StyleSheet.create({
     top: '50%',
     left: 0,
     right: 0,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     transform: [{ translateY: -20 }],
   },
   serviceNavArrow: {
@@ -1468,24 +1573,27 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    marginTop: -30,
+    marginTop: 12,
     zIndex: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 10,
+    paddingBottom: 56,
   },
   howItWorksCarouselContainer: {
     height: 400,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    width: '100%',
   },
   howItWorksCarouselSlide: {
-    width: '100%',
+    width: '96%',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
     borderRadius: 32,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
@@ -1496,12 +1604,13 @@ const styles = StyleSheet.create({
   gradientContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 30,
+    padding: 22,
     borderRadius: 32,
     width: '100%',
-    minHeight: 350,
+    minHeight: 420,
     position: 'relative',
     overflow: 'hidden',
+    alignSelf: 'center',
   },
   glowEffect: {
     position: 'absolute',
@@ -1621,10 +1730,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     position: 'absolute',
-    top: '50%',
+    top: '46%',
     left: 0,
     right: 0,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     transform: [{ translateY: -20 }],
   },
   howItWorksNavArrow: {
@@ -1659,14 +1768,14 @@ const styles = StyleSheet.create({
     elevation: 15,
   },
   serviceIconContainerRectangular: {
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowRadius: 5,
     elevation: 5,
     position: 'relative',
   },
@@ -1693,7 +1802,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 10,
+    padding: 8,
     alignItems: 'center',
   },
   serviceLabelRectangular: {

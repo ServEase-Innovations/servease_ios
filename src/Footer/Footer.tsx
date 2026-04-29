@@ -60,32 +60,32 @@ const Footer = () => {
 
   // Fixed gradient colors for consistent professional look
   const getGradientColors = () => {
-    return ['#0d1935', '#1c4485', '#255697'];
+    return ['#081a38', '#143b76', '#1f5699'];
   };
 
   // Responsive logo size
   const getLogoSize = () => {
-    if (isSmallScreen) return 40;
-    if (isMediumScreen) return 50;
-    return 60;
+    if (isSmallScreen) return 34;
+    if (isMediumScreen) return 42;
+    return 48;
   };
 
   // Responsive button width
   const getContactButtonWidth = () => {
-    if (isSmallScreen) return 180;
-    if (isMediumScreen) return 200;
-    return 220;
+    if (isSmallScreen) return 162;
+    if (isMediumScreen) return 178;
+    return 192;
   };
 
   // Responsive icon size
   const getIconSize = () => {
-    if (isSmallScreen) return 14;
+    if (isSmallScreen) return 13;
     if (isMediumScreen) return 16;
     return 18;
   };
 
-  // Check if layout should be column on very small screens
-  const shouldUseColumnLayout = isSmallScreen;
+  // Use stacked layout on compact phones for better readability
+  const shouldUseColumnLayout = screenWidth < 360;
 
   return (
     <>
@@ -104,7 +104,12 @@ const Footer = () => {
             <View style={[
               styles.leftSection,
               shouldUseColumnLayout && styles.leftSectionColumn,
-              { marginRight: shouldUseColumnLayout ? 0 : 20 }
+              {
+                marginRight: shouldUseColumnLayout ? 0 : 16,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderColor: 'rgba(255,255,255,0.18)',
+                borderWidth: 1,
+              }
             ]}>
               <View style={styles.logoContainer}>
                 {/* Logo Image */}
@@ -141,7 +146,7 @@ const Footer = () => {
                     lineHeight: fontStyles.smallText + 4
                   }
                 ]}>
-                  Est. 2024
+                  Trusted home services
                 </Text>
                 <TouchableOpacity onPress={openTnC}>
                   <Text style={[
@@ -154,7 +159,7 @@ const Footer = () => {
                       opacity: 0.9,
                     }
                   ]}>
-                    Terms and Conditions
+                    Terms & Conditions
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -164,7 +169,12 @@ const Footer = () => {
             <View style={[
               styles.rightSection,
               shouldUseColumnLayout && styles.rightSectionColumn,
-              { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-start' }
+              {
+                alignItems: 'flex-start',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderColor: 'rgba(255,255,255,0.18)',
+                borderWidth: 1,
+              }
             ]}>
               <Text style={[
                 styles.contactTitle, 
@@ -191,8 +201,9 @@ const Footer = () => {
                       borderColor: 'rgba(255, 255, 255, 0.3)',
                       shadowColor: '#000',
                       width: getContactButtonWidth(),
-                      padding: isSmallScreen ? 8 : 12,
-                      marginBottom: isSmallScreen ? 6 : 10,
+                      paddingVertical: isSmallScreen ? 7 : 8,
+                      paddingHorizontal: isSmallScreen ? 9 : 10,
+                      marginBottom: 8,
                     }
                   ]}
                   onPress={() => makePhoneCall('+918792827744')}
@@ -216,8 +227,8 @@ const Footer = () => {
                       borderColor: 'rgba(255, 255, 255, 0.3)',
                       shadowColor: '#000',
                       width: getContactButtonWidth(),
-                      padding: isSmallScreen ? 8 : 12,
-                      marginBottom: isSmallScreen ? 0 : 0,
+                      paddingVertical: isSmallScreen ? 7 : 8,
+                      paddingHorizontal: isSmallScreen ? 9 : 10,
                     }
                   ]}
                   onPress={() => makePhoneCall('+918792827754')}
@@ -245,7 +256,7 @@ const Footer = () => {
               paddingHorizontal: isSmallScreen ? 10 : 15,
               paddingVertical: isSmallScreen ? 12 : 15,
               marginHorizontal: isSmallScreen ? 10 : 15,
-              paddingRight: isSmallScreen ? 20 : 42,
+              paddingRight: isSmallScreen ? 12 : 20,
               flexDirection: isSmallScreen ? 'column' : 'row',
               alignItems: isSmallScreen ? 'center' : 'center',
             }
@@ -260,7 +271,7 @@ const Footer = () => {
                 fontWeight: '600',
               }
             ]}>
-              Follow us on:
+              Follow us:
             </Text>
             <View style={[
               styles.socialMedia,
@@ -274,7 +285,7 @@ const Footer = () => {
                     borderColor: 'rgba(255, 255, 255, 0.3)',
                     shadowColor: '#000',
                     padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    marginHorizontal: 3,
                     minWidth: isSmallScreen ? 28 : 32,
                     minHeight: isSmallScreen ? 28 : 32,
                     borderRadius: isSmallScreen ? 18 : 20,
@@ -301,7 +312,7 @@ const Footer = () => {
                     borderColor: 'rgba(255, 255, 255, 0.3)',
                     shadowColor: '#000',
                     padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    marginHorizontal: 3,
                     minWidth: isSmallScreen ? 28 : 32,
                     minHeight: isSmallScreen ? 28 : 32,
                     borderRadius: isSmallScreen ? 18 : 20,
@@ -320,7 +331,7 @@ const Footer = () => {
                     borderColor: 'rgba(255, 255, 255, 0.3)',
                     shadowColor: '#000',
                     padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    marginHorizontal: 3,
                     minWidth: isSmallScreen ? 28 : 32,
                     minHeight: isSmallScreen ? 28 : 32,
                     borderRadius: isSmallScreen ? 18 : 20,
@@ -339,7 +350,7 @@ const Footer = () => {
                     borderColor: 'rgba(255, 255, 255, 0.3)',
                     shadowColor: '#000',
                     padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    marginHorizontal: 3,
                     minWidth: isSmallScreen ? 28 : 32,
                     minHeight: isSmallScreen ? 28 : 32,
                     borderRadius: isSmallScreen ? 18 : 20,
@@ -358,7 +369,7 @@ const Footer = () => {
                     borderColor: 'rgba(255, 255, 255, 0.3)',
                     shadowColor: '#000',
                     padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: isSmallScreen ? 3 : 4,
+                    marginHorizontal: 3,
                     minWidth: isSmallScreen ? 28 : 32,
                     minHeight: isSmallScreen ? 28 : 32,
                     borderRadius: isSmallScreen ? 18 : 20,
@@ -408,34 +419,39 @@ const styles = StyleSheet.create({
   gradientContainer: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.2)',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24, // Extra padding for bottom safe area
+    paddingBottom: Platform.OS === 'ios' ? 18 : 12,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: 20,
-    paddingTop: 25,
-    paddingBottom: 25,
-    minHeight: 180,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+    minHeight: 126,
   },
   footerColumn: {
     flexDirection: 'column',
     minHeight: 'auto',
-    paddingBottom: 15,
+    paddingBottom: 10,
   },
   leftSection: {
     flex: 1,
-    marginRight: 20,
+    marginRight: 10,
+    borderRadius: 12,
+    padding: 10,
   },
   leftSectionColumn: {
     marginRight: 0,
-    marginBottom: 20,
+    marginBottom: 8,
     width: '100%',
   },
   rightSection: {
     alignItems: 'flex-start',
-    minWidth: 200,
+    minWidth: 172,
+    borderRadius: 12,
+    padding: 10,
   },
   rightSectionColumn: {
     width: '100%',
@@ -444,11 +460,11 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    marginBottom: 15,
+    marginBottom: 6,
   },
   logoImage: {
-    marginBottom: 8,
-    padding: 10,
+    marginBottom: 6,
+    padding: 6,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -458,14 +474,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 0,
     textAlign: 'left',
-    letterSpacing: 0.5,
+    letterSpacing: 0.25,
   },
   companyInfo: {
     alignItems: 'flex-start',
   },
   infoText: {
     fontWeight: '500',
-    opacity: 0.8,
+    opacity: 0.86,
   },
   tncText: {
     fontWeight: '600',
@@ -473,11 +489,11 @@ const styles = StyleSheet.create({
   },
   contactTitle: {
     fontWeight: '600',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   contactButtonsContainer: {
     width: '100%',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   contactButtonsContainerColumn: {
     alignItems: 'flex-start',
@@ -485,7 +501,7 @@ const styles = StyleSheet.create({
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     shadowOffset: {
       width: 0,
@@ -497,7 +513,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   phoneIcon: {
-    marginRight: 8,
+    marginRight: 7,
   },
   contactText: {
     fontWeight: '500',
@@ -507,6 +523,9 @@ const styles = StyleSheet.create({
   followSection: {
     borderTopWidth: 1,
     justifyContent: 'center',
+    borderRadius: 10,
+    marginBottom: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   followText: {
     fontWeight: '600',
@@ -516,6 +535,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 0,
   },
   iconButton: {
     borderWidth: 1,

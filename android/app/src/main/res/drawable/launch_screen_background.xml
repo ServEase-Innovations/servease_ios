@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="315"
+                android:startColor="#04488F"
+                android:centerColor="#01254A"
+                android:endColor="#000D1A" />
+        </shape>
+    </item>
+    <item android:gravity="center">
+        <bitmap
+            android:src="@mipmap/serveasonew"
+            android:gravity="center" />
+    </item>
+</layer-list>
