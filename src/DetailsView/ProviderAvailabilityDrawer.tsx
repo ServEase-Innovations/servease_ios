@@ -1,11 +1,13 @@
 /* eslint-disable */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   ScrollView,
   Modal,
   StyleSheet,
   TouchableOpacity,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import {
   Portal,
@@ -45,8 +47,56 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
   
   const [previousBookingExpanded, setPreviousBookingExpanded] = useState(false);
   const [scheduleExceptionsExpanded, setScheduleExceptionsExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'availability' | 'history'>('overview');
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
 
   if (!provider) return null;
+
+  React.useEffect(() => {
+    if (open) {
+      sheetTranslateY.setValue(0);
+    }
+  }, [open, sheetTranslateY]);
+
+  const handleSheetClose = () => {
+    onClose();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 4,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          sheetTranslateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 120 || gestureState.vy > 1.2) {
+          Animated.timing(sheetTranslateY, {
+            toValue: 600,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            handleSheetClose();
+          });
+          return;
+        }
+        Animated.spring(sheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 18,
+          bounciness: 0,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(sheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
 
   const formatTime = (timeString: string) => {
     if (!timeString) return '08:00 AM';
@@ -124,19 +174,26 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
 
   const renderHeader = () => (
     <LinearGradient
-      colors={["#0a2a66ff", "#004aadff"]}
+      colors={["#0a2a66", "#328aff"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.header}
     >
       <View style={styles.headerContent}>
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, { fontSize: fontSizes.title }]}>
           {t('availabilityDrawer.availabilityDetails')}
         </Text>
-        <View style={styles.providerInfo}>
-          <Text style={styles.providerName}>
+        <View style={styles.providerInfoRow}>
+          <Text style={[styles.providerName, { fontSize: fontSizes.subtitle }]}>
             {provider.firstName} {provider.lastName}
           </Text>
+          <View style={styles.headerMetaPill}>
+            <Text style={[styles.headerMetaText, { fontSize: fontSizes.small }]}>
+              {provider.housekeepingRole || 'Provider'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.providerInfo}>
           {provider.bestMatch && (
             <View style={styles.bestMatchBadge}>
               <MaterialCommunityIcons name="fire" size={14} color="#FFD700" />
@@ -151,8 +208,8 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
           )}
         </View>
       </View>
-      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-        <Icon name="close" size={28} color="#fcf7f7" />
+      <TouchableOpacity onPress={handleSheetClose} style={styles.closeButton}>
+        <Icon name="close" size={24} color="#fcf7f7" />
       </TouchableOpacity>
     </LinearGradient>
   );
@@ -570,6 +627,68 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     </View>
   );
 
+  const renderTabs = () => (
+    <View style={[styles.tabRow, { borderBottomColor: colors.border, backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+      {[
+        { key: 'overview', label: 'Overview' },
+        { key: 'availability', label: 'Availability' },
+        { key: 'history', label: 'History' },
+      ].map((tab) => {
+        const selected = activeTab === tab.key;
+        return (
+          <TouchableOpacity
+            key={tab.key}
+            style={[
+              styles.tabButton,
+              selected && [styles.tabButtonActive, { borderBottomColor: colors.primary }],
+            ]}
+            onPress={() => setActiveTab(tab.key as 'overview' | 'availability' | 'history')}
+          >
+            <Text style={[styles.tabButtonText, { color: selected ? colors.primary : colors.textSecondary }]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const renderTabContent = () => {
+    if (activeTab === 'overview') {
+      return (
+        <>
+          {renderBestMatchAlert()}
+          {renderNotices()}
+        </>
+      );
+    }
+
+    if (activeTab === 'availability') {
+      return (
+        <>
+          {renderMonthlyAvailability()}
+          {renderExceptions()}
+        </>
+      );
+    }
+
+    return (
+      <>
+        {renderPreviousBooking()}
+        {!provider.previouslyBooked && (
+          <View style={[styles.alert, styles.infoAlert, { backgroundColor: colors.infoLight }]}>
+            <View style={styles.alertTextContainer}>
+              <Text style={[styles.alertTitle, { color: colors.text }]}>No booking history yet</Text>
+              <Text style={[styles.alertMessage, { color: colors.textSecondary }]}>
+                This provider has no previous booking record with your account.
+              </Text>
+            </View>
+          </View>
+        )}
+      </>
+    );
+  };
+
   // Get font sizes based on theme
   const getFontSizes = () => {
     switch (fontSize) {
@@ -588,26 +707,51 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
     <Portal>
       <Modal
         visible={open}
-        onRequestClose={onClose}
+        onRequestClose={handleSheetClose}
         animationType="slide"
-        presentationStyle="pageSheet"
+        transparent
         style={styles.modal}
       >
         <PaperProvider>
-          <View style={[styles.container, { backgroundColor: colors.background }]}>
-            {renderHeader()}
-            <Divider style={{ backgroundColor: colors.border }} />
-            <ScrollView 
-              style={styles.content}
-              contentContainerStyle={styles.contentContainer}
-              showsVerticalScrollIndicator={false}
+          <View style={styles.backdrop}>
+            <Animated.View
+              style={[
+                styles.container,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  transform: [{ translateY: sheetTranslateY }],
+                },
+              ]}
             >
-              {renderBestMatchAlert()}
-              {renderPreviousBooking()}
-              {renderMonthlyAvailability()}
-              {renderExceptions()}
-              {renderNotices()}
-            </ScrollView>
+              <View style={styles.sheetHandleTouchZone} {...panResponder.panHandlers}>
+                <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+              </View>
+              {renderHeader()}
+              <Divider style={{ backgroundColor: colors.border }} />
+              {renderTabs()}
+              <ScrollView
+                style={styles.content}
+                contentContainerStyle={styles.contentContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                {renderTabContent()}
+              </ScrollView>
+              <View style={[styles.footerBar, { borderTopColor: colors.border, backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+                <TouchableOpacity
+                  style={[styles.footerGhostButton, { borderColor: colors.primary }]}
+                  onPress={handleSheetClose}
+                >
+                  <Text style={[styles.footerGhostText, { color: colors.primary }]}>Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.footerPrimaryButton, { backgroundColor: colors.primary }]}
+                  onPress={handleSheetClose}
+                >
+                  <Text style={styles.footerPrimaryText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
           </View>
         </PaperProvider>
       </Modal>
@@ -619,23 +763,55 @@ const styles = StyleSheet.create({
   modal: {
     margin: 0,
   },
-  container: {
+  backdrop: {
     flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(2, 6, 23, 0.42)',
+  },
+  container: {
+    minHeight: '52%',
+    maxHeight: '90%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  sheetHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  sheetHandleTouchZone: {
+    alignSelf: 'center',
+    paddingTop: 4,
+    paddingBottom: 2,
+    width: 120,
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingLeft: 20,
+    paddingRight: 24,
+    paddingTop: 20,
+    paddingBottom: 18,
   },
   headerContent: {
     flex: 1,
   },
+  providerInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
   headerTitle: {
     fontWeight: '700',
-    fontSize: 24,
-    marginBottom: 8,
+    marginBottom: 10,
     color: '#ffffff',
   },
   providerInfo: {
@@ -644,9 +820,21 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  headerMetaPill: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  headerMetaText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
   providerName: {
     fontWeight: '600',
-    fontSize: 16,
     color: '#ffffff',
   },
   bestMatchBadge: {
@@ -678,13 +866,67 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   closeButton: {
-    padding: 4,
+    marginTop: 0,
+    padding: 5,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   content: {
-    flex: 1,
+    flexGrow: 0,
   },
   contentContainer: {
     padding: 16,
+    paddingBottom: 24,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    paddingHorizontal: 8,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabButtonActive: {},
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  footerBar: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    borderTopWidth: 1,
+  },
+  footerGhostButton: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerGhostText: {
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  footerPrimaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerPrimaryText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 15,
   },
   alert: {
     borderRadius: 12,

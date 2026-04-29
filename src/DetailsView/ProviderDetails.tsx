@@ -47,7 +47,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Get theme values
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   
-  const [isExpanded, setIsExpanded] = useState(false);
   const [eveningSelection, setEveningSelection] = useState<number | null>(null);
   const [morningSelection, setMorningSelection] = useState<number | null>(null);
   const [eveningSelectionTime, setEveningSelectionTime] = useState<string | null>(null);
@@ -605,102 +604,158 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Check if any badge is present
   const hasBestMatch = props.bestMatch;
   const hasPreviouslyBooked = props.previouslyBooked;
+  const showExpandedContent = false;
 
   console.log("Rendering ProviderDetails with housekeepingRoles:", housekeepingRoles);
 
   return (
     <View style={[styles.container, { 
-      padding: 8 * spacingMultiplier,
+      paddingHorizontal: 0,
+      paddingVertical: 6 * spacingMultiplier,
       backgroundColor: 'transparent'
     }]}>
-      <LinearGradient
-        colors={isDarkMode ? ['#1e293b', '#0f172a'] : ['#ffffff', '#f8fafc']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
         style={[
           styles.card,
           isMobile && styles.cardMobile,
           isSmallScreen && styles.cardSmall,
-          { 
+          {
+            backgroundColor: isDarkMode ? colors.card : "#ffffff",
             borderColor: colors.border,
             shadowColor: colors.shadow,
-          }
+          },
         ]}
       >
-        {/* Header Section with Badges */}
-        <View style={[
-          styles.headerSection,
-          isMobile && styles.headerSectionMobile
-        ]}>
-          {/* Badges Container */}
-          {(hasBestMatch || hasPreviouslyBooked) && (
-            <View style={[
-              styles.badgeContainer,
-              isMobile && styles.badgeContainerMobile
-            ]}>
-              {/* Best Match Badge with Gradient */}
-              {hasBestMatch && (
-                <LinearGradient
-                  colors={['#FF6B35', '#FF8C42', '#FFB347']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.bestMatchBadge,
-                    isMobile && styles.bestMatchBadgeMobile
-                  ]}
-                >
-                  <MaterialCommunityIcons name="fire" size={isMobile ? 12 : 14} color="#ffffff" />
-                  <Text style={[
-                    styles.badgeText,
-                    isMobile && styles.badgeTextMobile,
-                    { fontSize: fontStyles.xSmall }
-                  ]}>Best Match</Text>
-                </LinearGradient>
-              )}
-              
-              {/* Previously Booked Badge with Gradient */}
-              {hasPreviouslyBooked && (
-                <LinearGradient
-                  colors={['#2196F3', '#42A5F5', '#64B5F6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.previouslyBookedBadge,
-                    isMobile && styles.previouslyBookedBadgeMobile
-                  ]}
-                >
-                  <MaterialCommunityIcons name="history" size={isMobile ? 12 : 14} color="#ffffff" />
-                  <Text style={[
-                    styles.badgeText,
-                    isMobile && styles.badgeTextMobile,
-                    { fontSize: fontStyles.xSmall }
-                  ]}>Previously Booked</Text>
-                </LinearGradient>
-              )}
+        {(hasBestMatch || hasPreviouslyBooked) && (
+          <View style={[styles.badgeContainer, isMobile && styles.badgeContainerMobile]}>
+            {hasBestMatch && (
+              <View
+                style={[
+                  styles.bestMatchBadge,
+                  isMobile && styles.bestMatchBadgeMobile,
+                  { backgroundColor: '#FF8C42' }
+                ]}
+              >
+                <MaterialCommunityIcons name="fire" size={isMobile ? 12 : 14} color="#ffffff" />
+                <Text style={[styles.badgeText, isMobile && styles.badgeTextMobile, { fontSize: fontStyles.xSmall }]}>
+                  Best Match
+                </Text>
+              </View>
+            )}
+
+            {hasPreviouslyBooked && (
+              <View
+                style={[
+                  styles.previouslyBookedBadge,
+                  isMobile && styles.previouslyBookedBadgeMobile,
+                  { backgroundColor: '#3B82F6' }
+                ]}
+              >
+                <MaterialCommunityIcons name="history" size={isMobile ? 12 : 14} color="#ffffff" />
+                <Text style={[styles.badgeText, isMobile && styles.badgeTextMobile, { fontSize: fontStyles.xSmall }]}>
+                  Previously Booked
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleViewDetails}
+          style={[styles.summaryCard, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}
+        >
+          <View style={styles.marketplaceHeroRow}>
+            <View style={[styles.avatarCircle, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "50" }]}>
+              <Text style={[styles.avatarText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
+                {getInitials() || "SP"}
+              </Text>
             </View>
-          )}
+            <View style={styles.marketplaceHeroContent}>
+              <View style={styles.summaryTopRow}>
+                <Text style={[styles.nameText, isMobile && styles.nameTextMobile, { color: colors.text, fontSize: fontStyles.headingSize }]}>
+                  {fullName}
+                </Text>
+                <View style={styles.summaryTopRight}>
+                  <TouchableOpacity
+                    onPress={toggleFavorite}
+                    style={[
+                      styles.favoriteButton,
+                      {
+                        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                        borderRadius: 20,
+                        padding: 5
+                      }
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={isFavorite ? "heart" : "heart-outline"}
+                      size={18}
+                      color={isFavorite ? "#f44336" : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  <Text style={[styles.genderAgeText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                    {genderSymbol} {age}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
+                </View>
+              </View>
+              <View style={styles.marketplaceTagRow}>
+                <View style={[styles.marketplaceTag, { backgroundColor: colors.primary + "14", borderColor: colors.primary + "30" }]}>
+                  <Text style={[styles.marketplaceTagText, { color: colors.primary, fontSize: fontStyles.xSmall }]}>
+                    {housekeepingRoles.length > 0 && housekeepingRoles[0] !== "UNKNOWN" ? housekeepingRoles[0] : "PROVIDER"}
+                  </Text>
+                </View>
+                <View style={[styles.marketplaceTag, { backgroundColor: isDarkMode ? colors.surface : "#f8fafc", borderColor: colors.border }]}>
+                  <Text style={[styles.marketplaceTagText, { color: colors.textSecondary, fontSize: fontStyles.xSmall }]}>
+                    {diet}
+                  </Text>
+                </View>
+                {hasLanguages && (
+                  <View style={[styles.marketplaceTag, { backgroundColor: isDarkMode ? colors.surface : "#f8fafc", borderColor: colors.border }]}>
+                    <Text style={[styles.marketplaceTagText, { color: colors.textSecondary, fontSize: fontStyles.xSmall }]}>
+                      {allLanguages[0]}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+          <View style={styles.summaryInfoRow}>
+            <MaterialCommunityIcons name="clock-outline" size={14} color={getTimeIconColor()} />
+            <Text style={[styles.summaryInfoText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+              {getAvailabilityMessage()}
+            </Text>
+          </View>
+          <View style={styles.summaryInfoRow}>
+            <MaterialCommunityIcons name="badge-account" size={14} color={colors.textSecondary} />
+            <Text style={[styles.summaryInfoText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+              {housekeepingRoles.length > 0 && housekeepingRoles[0] !== "UNKNOWN" ? formatRolesDisplay(housekeepingRoles) : "Service Provider"}
+            </Text>
+          </View>
+          <View style={styles.summaryMetricsRow}>
+            <View style={[styles.metricChip, { backgroundColor: isDarkMode ? colors.surface : "#f8fafc", borderColor: colors.border }]}>
+              <Text style={[styles.summaryMetricText, { color: colors.text, fontSize: fontStyles.smallText }]}>
+                {getDistanceDisplay()}
+              </Text>
+              <Text style={[styles.metricChipLabel, { color: colors.textSecondary, fontSize: fontStyles.xSmall }]}>km</Text>
+            </View>
+            <View style={[styles.metricChip, { backgroundColor: isDarkMode ? colors.surface : "#f8fafc", borderColor: colors.border }]}>
+              <Text style={[styles.summaryMetricText, { color: colors.text, fontSize: fontStyles.smallText }]}>
+                {getRatingDisplay()}
+              </Text>
+              <Text style={[styles.metricChipLabel, { color: colors.textSecondary, fontSize: fontStyles.xSmall }]}>rating</Text>
+            </View>
+            <View style={[styles.metricChip, { backgroundColor: isDarkMode ? colors.surface : "#f8fafc", borderColor: colors.border }]}>
+              <Text style={[styles.summaryMetricText, { color: '#16a34a', fontSize: fontStyles.smallText }]}>
+                {getExperienceDisplay()}
+              </Text>
+              <Text style={[styles.metricChipLabel, { color: colors.textSecondary, fontSize: fontStyles.xSmall }]}>yrs exp</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
 
-          {/* Favorite Button */}
-          <TouchableOpacity 
-            onPress={toggleFavorite} 
-            style={[
-              styles.favoriteButton,
-              { 
-                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                borderRadius: 20,
-                padding: 6
-              }
-            ]}
-          >
-            <MaterialCommunityIcons 
-              name={isFavorite ? "heart" : "heart-outline"} 
-              size={20} 
-              color={isFavorite ? "#f44336" : colors.textSecondary} 
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Main Content */}
+        {showExpandedContent && (
         <View style={[
           styles.mainContent,
           isMobile && styles.mainContentMobile
@@ -1010,6 +1065,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             <TouchableOpacity 
               style={[
                 styles.detailsButton,
+                isMobile && styles.mobileActionButton,
                 { 
                   borderWidth: 1.5,
                   borderColor: colors.primary,
@@ -1041,6 +1097,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
               end={{ x: 1, y: 0 }}
               style={[
                 styles.bookNowButton,
+                isMobile && styles.mobileActionButton,
                 { 
                   borderRadius: 10,
                   paddingVertical: 12,
@@ -1062,7 +1119,47 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
             </LinearGradient>
           </View>
         </View>
-      </LinearGradient>
+        )}
+
+        {!showExpandedContent && (
+          <View style={styles.compactActionRow}>
+            <TouchableOpacity
+              style={[
+                styles.detailsButton,
+                styles.compactActionBtn,
+                {
+                  borderWidth: 1.5,
+                  borderColor: colors.primary,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 8,
+                  backgroundColor: 'transparent'
+                }
+              ]}
+              onPress={handleViewDetails}
+            >
+              <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} />
+              <Text style={[styles.detailsButtonText, { color: colors.primary, fontSize: fontStyles.smallText, fontWeight: '600' }]}>
+                Details
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.bookNowButton,
+                styles.compactActionBtn,
+                { borderRadius: 10, backgroundColor: colors.primary }
+              ]}
+              onPress={handleBookNow}
+            >
+              <Text style={[styles.bookNowButtonText, { color: '#ffffff', fontSize: fontStyles.textSize, fontWeight: '700', textAlign: 'center' }]}>
+                Book Now
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       {/* Drawer and Dialogs */}
       <ProviderAvailabilityDrawer
@@ -1084,7 +1181,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: "100%",
   },
   card: {
     borderRadius: 16,
@@ -1181,6 +1278,93 @@ const styles = StyleSheet.create({
   },
   mainContentMobile: {
     flexDirection: 'column',
+    gap: 12,
+  },
+  summaryCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  marketplaceHeroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontWeight: "800",
+  },
+  marketplaceHeroContent: {
+    flex: 1,
+  },
+  summaryTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  summaryTopRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  marketplaceTagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+  },
+  marketplaceTag: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  marketplaceTagText: {
+    fontWeight: "700",
+    textTransform: "capitalize",
+  },
+  summaryInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 6,
+  },
+  summaryInfoText: {
+    flex: 1,
+    fontWeight: "500",
+  },
+  summaryMetricsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+    gap: 8,
+  },
+  metricChip: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summaryMetricText: {
+    fontWeight: "800",
+  },
+  metricChipLabel: {
+    marginTop: 2,
+    fontWeight: "600",
   },
   leftSection: {
     flex: 2,
@@ -1257,6 +1441,7 @@ const styles = StyleSheet.create({
     width: '100%',
     marginLeft: 0,
     marginTop: 12,
+    marginBottom: 4,
   },
   metricBox: {},
   metricValue: {},
@@ -1271,17 +1456,41 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginLeft: 0,
     marginTop: 12,
     paddingTop: 12,
+    paddingBottom: 4,
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
+    gap: 10,
   },
-  detailsButton: {},
+  compactActionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 2,
+  },
+  compactActionBtn: {
+    flex: 1,
+    flexBasis: 0,
+    minHeight: 46,
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  detailsButton: {
+    minHeight: 46,
+  },
   detailsButtonText: {},
-  bookNowButton: {},
+  bookNowButton: {
+    minHeight: 46,
+    justifyContent: "center",
+  },
   bookNowButtonText: {},
+  mobileActionButton: {
+    flex: 1,
+    flexBasis: 0,
+  },
 });
 
 export default ProviderDetails;

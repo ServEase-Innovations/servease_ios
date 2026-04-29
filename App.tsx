@@ -49,7 +49,7 @@ import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard";
 import WalletPage from "./src/UserProfile/WalletDialog";
-import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD, WALLET } from "./src/Constants/pagesConstants";
+import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD, WALLET, DETAILS } from "./src/Constants/pagesConstants";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
@@ -147,6 +147,11 @@ const MainApp = () => {
   };
 
   const fontStyles = getFontSizeStyles();
+  const shouldRenderWithoutParentScroll =
+    currentView === DETAILS ||
+    currentView === BOOKINGS ||
+    currentView === DASHBOARD ||
+    currentView === AGENT_DASHBOARD;
 
   // NEW: Function to handle outside touch and close dropdowns
   const handleOutsideTouch = useCallback(() => {
@@ -694,7 +699,7 @@ const MainApp = () => {
     console.log(`Service selected: ${service}`);
     if (service === "Home Cook" || service === "Cleaning Help" || service === "Caregiver") {
       setSelectedBookingType(service);
-      setCurrentView("DETAILS");
+      setCurrentView(DETAILS);
     }
   };
 
@@ -819,6 +824,12 @@ const MainApp = () => {
                   >
                     {renderContent()}
                   </ScrollView>
+                ) : shouldRenderWithoutParentScroll ? (
+                  <View style={styles.mainScrollView}>
+                    {renderContent()}
+                    {currentView === HOME &&
+                      (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
+                  </View>
                 ) : (
                   <ScrollView
                     style={styles.mainScrollView}

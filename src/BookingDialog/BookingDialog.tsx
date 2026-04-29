@@ -804,17 +804,25 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
     return (
       <View style={[styles.bookingDetailsContainer, { 
-        backgroundColor: colors.primary + '10', 
+        backgroundColor: isDarkMode ? colors.surface2 : "#ffffff",
         borderColor: colors.border,
-        borderLeftWidth: 4,
-        borderLeftColor: colors.primary,
       }]}>
-        <Text style={[styles.bookingDetailsTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
-          Booking Details
-        </Text>
+        <View style={styles.bookingDetailsHeader}>
+          <View style={styles.bookingDetailsHeadingWrap}>
+            <Icon name="fact-check" size={18} color={colors.primary} />
+            <Text style={[styles.bookingDetailsTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+              Booking Details
+            </Text>
+          </View>
+          <View style={[styles.bookingTypeBadge, { backgroundColor: colors.primary + "16", borderColor: colors.primary + "3a" }]}>
+            <Text style={[styles.bookingTypeBadgeText, { color: colors.primary, fontSize: fontSizes.small }]}>
+              {selectedOption}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.bookingDetailsContent}>
-          <View style={styles.detailRow}>
+          <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
               Start Date:
             </Text>
@@ -824,7 +832,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </View>
 
           {selectedOption === "Monthly" && localEndDate && (
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Date:
               </Text>
@@ -835,7 +843,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           )}
 
           {selectedOption === "Short term" && localEndDate && (
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Date:
               </Text>
@@ -845,7 +853,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
           )}
 
-          <View style={styles.detailRow}>
+          <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
               Start Time:
             </Text>
@@ -855,7 +863,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </View>
 
           {localEndTime && (
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Time:
               </Text>
@@ -865,21 +873,30 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
           )}
 
+          <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
+            <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+              Duration:
+            </Text>
+            <Text style={[styles.detailValue, { color: colors.text, fontSize: fontSizes.text }]}>
+              {duration} {duration > 1 ? "hours" : "hour"}
+            </Text>
+          </View>
+
           {selectedOption === "Short term" && localEndDate && localStartTime && localEndTime && (
-            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small }]}>
+            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Service will run from {dayjs(localStartDate).format('MMMM D')} to {dayjs(localEndDate).format('MMMM D, YYYY')}, 
               daily from {localStartTime.format('h:mm A')} to {localEndTime.format('h:mm A')}
             </Text>
           )}
 
           {selectedOption === "Monthly" && localEndDate && (
-            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small }]}>
+            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Monthly subscription from {dayjs(localStartDate).format('MMMM D, YYYY')} to {dayjs(localEndDate).format('MMMM D, YYYY')}
             </Text>
           )}
 
           {selectedOption === "Date" && localStartDate && localStartTime && (
-            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small }]}>
+            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Service will start on {dayjs(localStartDate).format('MMMM D, YYYY')} at {localStartTime.format('h:mm A')}
             </Text>
           )}
@@ -1729,16 +1746,40 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   bookingDetailsContainer: {
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginHorizontal: 20,
     marginTop: 12,
     marginBottom: 8,
     borderWidth: 1,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  bookingDetailsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  bookingDetailsHeadingWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bookingTypeBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  bookingTypeBadgeText: {
+    fontWeight: "700",
   },
   bookingDetailsTitle: {
     fontWeight: "700",
-    marginBottom: 12,
   },
   bookingDetailsContent: {
     gap: 8,
@@ -1746,18 +1787,28 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   detailLabel: {
     fontWeight: "600",
+    flex: 0.95,
   },
   detailValue: {
-    fontWeight: "400",
+    fontWeight: "600",
+    flex: 1.05,
+    textAlign: "right",
   },
   infoMessage: {
-    fontStyle: "italic",
-    marginTop: 8,
+    fontStyle: "normal",
+    marginTop: 6,
     textAlign: "center",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   relaxMessageContainer: {
     alignItems: "center",

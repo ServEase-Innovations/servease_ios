@@ -475,55 +475,58 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     return (
       <>
-        <View style={[styles.headerContainer, { paddingHorizontal: 16 * spacingMultiplier, marginBottom: 16 }]}>
-          {/* Left side - Back button */}
-          <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
-              <Icon name="arrow-back" size={20} color="#1E293B" />
-              <Text style={[styles.backText, { color: '#1E293B', fontSize: fontStyles.smallText }]}>
-                Back
-              </Text>
+        <View style={[styles.headerShell, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.surface : "#ffffff" }]}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              onPress={handleBackClick}
+              style={[styles.backButton, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#F8FAFC" }]}
+            >
+              <Icon name="arrow-back" size={20} color={colors.text} />
+              <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.smallText }]}>Back</Text>
             </TouchableOpacity>
+            <View style={[styles.resultsPill, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#F8FAFC" }]}>
+              <Text style={[styles.resultsCountText, { fontSize: fontStyles.smallText, color: colors.textSecondary }]}>
+                {resultsLabel}
+              </Text>
+            </View>
           </View>
-          
-          {/* Center - Results count */}
-          <View style={styles.headerCenter}>
-            <Text style={[styles.resultsCountText, { fontSize: fontStyles.smallText, color: '#475569' }]}>
-              {resultsLabel}
+
+          <View style={styles.headerBottomRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
+              Available Providers
             </Text>
-          </View>
-          
-          {/* Right side - Filter button */}
-          <View style={styles.headerRight}>
             <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
               <TouchableOpacity
-                style={[styles.filterButton, { 
-                  backgroundColor: '#FFFFFF',
-                  borderColor: '#E2E8F0',
-                  paddingHorizontal: 12 * spacingMultiplier,
-                  paddingVertical: 8 * spacingMultiplier,
-                }]}
+                style={[
+                  styles.filterButton,
+                  {
+                    backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
+                    borderColor: colors.border,
+                    paddingHorizontal: 12 * spacingMultiplier,
+                    paddingVertical: 8 * spacingMultiplier,
+                  },
+                ]}
                 onPress={() => setFilterOpen(true)}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
-                <Icon name="filter-list" size={18} color="#1E293B" />
-                <Text style={[styles.filterButtonText, { color: '#1E293B', fontSize: fontStyles.smallText }]}>
+                <Icon name="tune" size={18} color={colors.text} />
+                <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
                   Filter
                 </Text>
                 {activeFilterCount > 0 && (
-                  <View style={[styles.badge, { backgroundColor: '#0a2a66ff' }]}>
+                  <View style={[styles.badge, { backgroundColor: colors.primary }]}>
                     <Text style={[styles.badgeText, { fontSize: fontStyles.badgeText, color: '#FFFFFF' }]}>{activeFilterCount}</Text>
                   </View>
                 )}
               </TouchableOpacity>
-              
+
               {activeFilterCount > 0 && (
                 <TouchableOpacity
                   style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
                   onPress={handleClearFilters}
                 >
-                  <Text style={[styles.clearButtonText, { color: '#0a2a66ff', fontSize: fontStyles.smallText }]}>
-                    Clear all
+                  <Text style={[styles.clearButtonText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
+                    Clear
                   </Text>
                 </TouchableOpacity>
               )}
@@ -531,8 +534,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           </View>
         </View>
 
-        {/* Divider */}
-        <View style={[styles.divider, { backgroundColor: '#E2E8F0', marginBottom: 16 }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border, marginBottom: 16 }]} />
       </>
     );
   };
@@ -619,15 +621,17 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     );
   };
 
-  const renderProviderItem = ({ item, index }: { item: ServiceProviderDTO; index: number }) => (
-    <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier }]}>
-      <ProviderDetailsComponent 
-        {...item} 
-        selectedProvider={handleSelectedProvider}
-        sendDataToParent={sendDataToParent} 
-      />
-    </View>
-  );
+  const renderProviderItem = ({ item, index }: { item: ServiceProviderDTO; index: number }) => {
+    return (
+      <View key={index} style={[styles.providerContainer, { marginBottom: 14 * spacingMultiplier }]}>
+        <ProviderDetailsComponent
+          {...item}
+          selectedProvider={handleSelectedProvider}
+          sendDataToParent={sendDataToParent}
+        />
+      </View>
+    );
+  };
 
   return (
     <LinearGradient
@@ -688,12 +692,33 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 6,
+    paddingBottom: 130,
+  },
+  headerShell: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 14,
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    gap: 10,
+  },
+  headerBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
   },
   headerLeft: {
     flex: 1,
@@ -721,14 +746,18 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontWeight: '600',
   },
-  resultsCountText: {
-    fontWeight: '500',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  resultsPill: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  resultsCountText: {
+    fontWeight: '600',
+  },
+  sectionTitle: {
+    fontWeight: "700",
+    flex: 1,
   },
   filterContainer: {
     flexDirection: 'row',
@@ -767,7 +796,15 @@ const styles = StyleSheet.create({
     height: 1,
     width: '100%',
   },
-  providerContainer: {},
+  providerContainer: {
+    borderRadius: 18,
+    overflow: "hidden",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
