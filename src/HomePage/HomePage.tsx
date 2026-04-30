@@ -1,5 +1,4 @@
-// HomePage.tsx - Complete with Broadcast Message Component (Fully Responsive)
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,38 +7,30 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Platform,
-  Animated,
-  Dimensions,
   Alert,
   useWindowDimensions,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
-import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useAuth0 } from 'react-native-auth0';
-import { useTheme } from '../Settings/ThemeContext';
-import { useTranslation } from 'react-i18next';
-import FirstBookingOffer from './FirstBookingOffer';
-import ServiceSelectionDialog from './ServiceSelectionDialog';
-import BookingDialog from '../BookingDialog/BookingDialog';
-import ServiceDetailsDialog from './ServiceDetailsDialog';
+import LinearGradient from "react-native-linear-gradient";
+import { useAuth0 } from "react-native-auth0";
+import { useTheme } from "../Settings/ThemeContext";
+import { useTranslation } from "react-i18next";
+import FirstBookingOffer from "./FirstBookingOffer";
+import ServiceSelectionDialog from "./ServiceSelectionDialog";
+import BookingDialog from "../BookingDialog/BookingDialog";
+import ServiceDetailsDialog from "./ServiceDetailsDialog";
 import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
 import DemoCook from "../ServiceDialogs/CookServiceDialog";
 import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
-import ServiceProviderRegistration from '../Registration/ServiceProviderRegistration';
-import AgentRegistrationForm from '../Agent/AgentRegistrationForm';
-import BroadcastMessage from './BroadcastMessage';
+import ServiceProviderRegistration from "../Registration/ServiceProviderRegistration";
+import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
+import BroadcastMessage from "./BroadcastMessage";
 
-// Import local images
 const cookImage = require("../../assets/images/Cooknew.png");
 const maidImage = require("../../assets/images/Maidnew.png");
 const nannyImage = require("../../assets/images/Nannynew.png");
-const heroImage1 = require("../../assets/images/CookLand.png");
-const heroImage2 = require("../../assets/images/MaidLand.png");
-const heroImage3 = require("../../assets/images/NannyLand.png");
 
 interface ChildComponentProps {
   sendDataToParent: (data: string) => void;
@@ -48,112 +39,19 @@ interface ChildComponentProps {
   providerDetails?: any;
 }
 
-// Popular services data for carousel
-const popularServices = [
-  {
-    id: 1,
-    title: "Home Cook",
-    titleKey: "homeCook",
-    descKey: "cookDesc",
-    icon: "👩‍🍳",
-    features: [
-      { key: "professional", text: "Professional chefs" },
-      { key: "hygiene", text: "Hygiene certified" },
-      { key: "customMenus", text: "Custom menus" }
-    ],
-    gradient: ['#0f2027', '#203a43', '#2c5364'],
-    accentColor: '#ff6b6b',
-    iconBg: '#ffe5e5',
-  },
-  {
-    id: 2,
-    title: "Cleaning Help",
-    titleKey: "cleaningHelp",
-    descKey: "maidDesc",
-    icon: "🧹",
-    features: [
-      { key: "deepCleaning", text: "Deep cleaning" },
-      { key: "ecoFriendly", text: "Eco-friendly" },
-      { key: "scheduled", text: "Scheduled visits" }
-    ],
-    gradient: ['#0b3b5c', '#1c5985', '#2a7a9e'],
-    accentColor: '#4ecdc4',
-    iconBg: '#e0f7fa',
-  },
-  {
-    id: 3,
-    title: "Caregiver",
-    titleKey: "caregiver",
-    descKey: "nannyDesc",
-    icon: "👶",
-    features: [
-      { key: "cprCertified", text: "CPR certified" },
-      { key: "backgroundChecked", text: "Background checked" },
-      { key: "support247", text: "24/7 support" }
-    ],
-    gradient: ['#42275a', '#734b6d', '#b4869f'],
-    accentColor: '#f8b195',
-    iconBg: '#fff0e5',
-  },
-];
+type ServiceType = "COOK" | "MAID" | "NANNY";
 
-// How it works slides
-const howItWorksSlides = [
-  {
-    icon: "🔍",
-    title: "Choose Your Service",
-    desc: "Browse through our curated selection of professional household services tailored to your needs.",
-    gradientColors: ['#1a1c2c', '#2a2f4f', '#1a2639'],
-    features: ["100+ Services", "Verified Pros", "Instant Booking"],
-    illustration: "✨",
-    accentColor: '#4a6fa5',
-  },
-  {
-    icon: "📱",
-    title: "Book in Seconds",
-    desc: "Schedule your service with our intuitive platform. Pick date, time, and preferences effortlessly.",
-    gradientColors: ['#1f2a44', '#2c3e6e', '#1e2f4a'],
-    features: ["Real-time Availability", "Instant Confirmation", "Flexible Scheduling"],
-    illustration: "⚡",
-    accentColor: '#3b8ea5',
-  },
-  {
-    icon: "🏆",
-    title: "Premium Service",
-    desc: "Sit back and relax while our verified experts deliver exceptional quality and care.",
-    gradientColors: ['#2a1f2f', '#3d2b3d', '#2a1f2f'],
-    features: ["Quality Guaranteed", "Secure Payment", "24/7 Support"],
-    illustration: "🌟",
-    accentColor: '#8a6d9c',
-  },
-];
-
-const hexToRgba = (hex: string, alpha: number): string => {
-  const normalized = hex.replace('#', '');
-  if (normalized.length !== 6) {
-    return `rgba(0,0,0,${alpha})`;
-  }
-  const r = parseInt(normalized.slice(0, 2), 16);
-  const g = parseInt(normalized.slice(2, 4), 16);
-  const b = parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
-const HomePage: React.FC<ChildComponentProps> = ({
-  sendDataToParent,
-  bookingType,
-}) => {
-  // Get theme values
+const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   const { colors, isDarkMode, fontSize } = useTheme();
   const { t } = useTranslation();
-  const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
-  
-  // Responsive sizing based on screen dimensions
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { user: auth0User } = useAuth0();
+  const dispatch = useDispatch();
+
   const isSmallScreen = screenWidth < 375;
-  const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
-  const isLargeScreen = screenWidth >= 768;
-  const isTablet = screenWidth >= 768;
-  
+  const heroTitleSize = screenWidth >= 428 ? 24 : screenWidth >= 390 ? 22 : 20;
+  const heroSubtitleSize = screenWidth >= 428 ? 12 : 11;
+
   const [open, setOpen] = useState(false);
   const [selectedType, setSelectedtype] = useState("");
   const [selectedRadioButtonValue, setSelectedRadioButtonValue] = useState("");
@@ -167,275 +65,37 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [showMaidServiceDialog, setShowMaidServiceDialog] = useState(false);
   const [showNannyServicesDialog, setShowNannyServicesDialog] = useState(false);
   const [showCookDialog, setShowCookDialog] = useState(false);
-  const [hoveredService, setHoveredService] = useState<string | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [currentServiceIndex, setCurrentServiceIndex] = useState(0);
-  const [servicesSectionY, setServicesSectionY] = useState(0);
-  const scrollRef = useRef<ScrollView>(null);
-  
-  // Promotional offer states
   const [showOffer, setShowOffer] = useState(true);
   const [showServiceSelection, setShowServiceSelection] = useState(false);
-  
-  // Animation values for hero carousel
-  const fadeAnim1 = useRef(new Animated.Value(1)).current;
-  const fadeAnim2 = useRef(new Animated.Value(0)).current;
-  const fadeAnim3 = useRef(new Animated.Value(0)).current;
-  
-  // Animation values for services carousel
-  const serviceFadeAnim = useRef(new Animated.Value(1)).current;
-  const serviceSlideAnim = useRef(new Animated.Value(0)).current;
-
-  // Animation values for how it works carousel
-  const howItWorksFadeAnim = useRef(new Animated.Value(1)).current;
-  const howItWorksSlideAnim = useRef(new Animated.Value(0)).current;
-
-  // Auth0 authentication
-  const { user: auth0User } = useAuth0();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
-  // Get font size styles based on settings and screen size
-  const getFontSizeStyles = () => {
-    let baseSize = 16;
-    let headingSize = 20;
-    let smallText = 14;
-    
-    if (isSmallScreen) {
-      baseSize = 13;
-      headingSize = 18;
-      smallText = 11;
-    } else if (isMediumScreen) {
-      baseSize = 15;
-      headingSize = 20;
-      smallText = 13;
-    } else if (isLargeScreen) {
-      baseSize = 17;
-      headingSize = 24;
-      smallText = 15;
-    }
-    
-    switch (fontSize) {
-      case 'small':
-        return { textSize: baseSize - 2, headingSize: headingSize - 2, smallText: smallText - 2 };
-      case 'large':
-        return { textSize: baseSize + 2, headingSize: headingSize + 2, smallText: smallText + 2 };
-      default:
-        return { textSize: baseSize, headingSize: headingSize, smallText: smallText };
-    }
-  };
-
-  const fontStyles = getFontSizeStyles();
-  const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
-  const heroOverlayGradient = [
-    hexToRgba(colors.chromeStart, 0.72),
-    hexToRgba(colors.chromeMid, 0.62),
-    hexToRgba(colors.chromeEnd, 0.78),
-  ];
-  const serviceImageOverlayGradient = [
-    hexToRgba(colors.chromeStart, 0.75),
-    hexToRgba(colors.chromeMid, 0.55),
-  ];
-
-  // Carousel images array
-  const carouselImages = [heroImage1, heroImage2, heroImage3];
-
-  // Responsive service icon size
-  const getServiceIconSize = () => {
-    if (isSmallScreen) return 96;
-    if (isMediumScreen) return 110;
-    if (isTablet) return 170;
-    return 130;
-  };
-
-  const getServiceIconHeight = () => {
-    if (isSmallScreen) return 150;
-    if (isMediumScreen) return 168;
-    if (isTablet) return 220;
-    return 186;
-  };
-
-  const getHorizontalPadding = () => {
-    if (isSmallScreen) return 12;
-    if (isMediumScreen) return 18;
-    return 28;
-  };
-
-  const getServiceCardWidth = () => {
-    if (isSmallScreen) return Math.max(112, Math.min(136, Math.round(screenWidth * 0.33)));
-    if (isMediumScreen) return Math.max(126, Math.min(156, Math.round(screenWidth * 0.31)));
-    return 180;
-  };
-
-  const getServicesCarouselHeight = () => {
-    if (isSmallScreen) return Math.max(560, Math.round(screenHeight * 0.75));
-    if (isMediumScreen) return Math.max(580, Math.round(screenHeight * 0.72));
-    return 560;
-  };
-
-  const getHowItWorksCarouselHeight = () => {
-    if (isSmallScreen) return Math.max(520, Math.round(screenHeight * 0.68));
-    if (isMediumScreen) return Math.max(540, Math.round(screenHeight * 0.66));
-    return 500;
-  };
-
-  const getHowItWorksCardMinHeight = () => {
-    const extraForLargeFont = fontScale > 1.05 ? Math.round((fontScale - 1) * 160) : 0;
-    if (isSmallScreen) return 430 + extraForLargeFont;
-    if (isMediumScreen) return 450 + extraForLargeFont;
-    return 420 + extraForLargeFont;
-  };
-
-  const getSectionChipTitleSize = () => {
-    const preferred = fontStyles.headingSize;
-    if (isSmallScreen) return Math.min(preferred, 18);
-    if (isMediumScreen) return Math.min(preferred, 20);
-    return Math.min(preferred, 22);
-  };
-
-  const handleExploreServices = () => {
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, servicesSectionY - 20),
-      animated: true,
-    });
-  };
-
-  // Check authentication status
   useEffect(() => {
     setIsAuthenticated(!!auth0User);
   }, [auth0User]);
 
-  // Initialize user role from Auth0
   useEffect(() => {
-    const initializeUser = async () => {
-      if (isAuthenticated && auth0User) {
-        const userRole = auth0User.role || "CUSTOMER";
-        setRole(userRole);
-      }
-    };
-    initializeUser();
+    if (isAuthenticated && auth0User) {
+      const userRole = auth0User.role || "CUSTOMER";
+      setRole(userRole);
+    }
   }, [isAuthenticated, auth0User]);
-  
-  // Smooth carousel with crossfade animation for hero section
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    const startCarousel = () => {
-      interval = setInterval(() => {
-        const nextIndex = (currentImageIndex + 1) % carouselImages.length;
-        
-        if (currentImageIndex === 0 && nextIndex === 1) {
-          Animated.parallel([
-            Animated.timing(fadeAnim1, { toValue: 0, duration: 1500, useNativeDriver: true }),
-            Animated.timing(fadeAnim2, { toValue: 1, duration: 1500, useNativeDriver: true }),
-          ]).start(() => {
-            setCurrentImageIndex(nextIndex);
-            fadeAnim1.setValue(0);
-            fadeAnim2.setValue(1);
-            fadeAnim3.setValue(0);
-          });
-        } else if (currentImageIndex === 1 && nextIndex === 2) {
-          Animated.parallel([
-            Animated.timing(fadeAnim2, { toValue: 0, duration: 1500, useNativeDriver: true }),
-            Animated.timing(fadeAnim3, { toValue: 1, duration: 1500, useNativeDriver: true }),
-          ]).start(() => {
-            setCurrentImageIndex(nextIndex);
-            fadeAnim1.setValue(0);
-            fadeAnim2.setValue(0);
-            fadeAnim3.setValue(1);
-          });
-        } else if (currentImageIndex === 2 && nextIndex === 0) {
-          Animated.parallel([
-            Animated.timing(fadeAnim3, { toValue: 0, duration: 1500, useNativeDriver: true }),
-            Animated.timing(fadeAnim1, { toValue: 1, duration: 1500, useNativeDriver: true }),
-          ]).start(() => {
-            setCurrentImageIndex(nextIndex);
-            fadeAnim1.setValue(1);
-            fadeAnim2.setValue(0);
-            fadeAnim3.setValue(0);
-          });
-        }
-      }, 5000);
-    };
-    
-    startCarousel();
-    return () => { if (interval) clearInterval(interval); };
-  }, [currentImageIndex]);
 
-  // Services carousel with smooth transitions
-  useEffect(() => {
-    let serviceInterval: NodeJS.Timeout;
-    
-    const startServiceCarousel = () => {
-      serviceInterval = setInterval(() => {
-        const nextIndex = (currentServiceIndex + 1) % popularServices.length;
-        
-        Animated.parallel([
-          Animated.timing(serviceFadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
-          Animated.timing(serviceSlideAnim, { toValue: -50, duration: 400, useNativeDriver: true }),
-        ]).start(() => {
-          setCurrentServiceIndex(nextIndex);
-          serviceSlideAnim.setValue(50);
-          Animated.parallel([
-            Animated.timing(serviceFadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-            Animated.timing(serviceSlideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-          ]).start();
-        });
-      }, 5000);
-    };
-    
-    startServiceCarousel();
-    return () => { if (serviceInterval) clearInterval(serviceInterval); };
-  }, [currentServiceIndex]);
+  const services = useMemo(
+    () => [
+      { key: "COOK" as ServiceType, title: t("home.services.homeCook"), subtitle: "Daily and custom meals", image: cookImage },
+      { key: "MAID" as ServiceType, title: t("home.services.cleaningHelp"), subtitle: "Cleaning and upkeep", image: maidImage },
+      { key: "NANNY" as ServiceType, title: t("home.services.caregiver"), subtitle: "Child and elder care", image: nannyImage },
+    ],
+    [t]
+  );
 
-  // How It Works carousel with smooth transitions
-  useEffect(() => {
-    let howItWorksInterval: NodeJS.Timeout;
-    
-    const startHowItWorksCarousel = () => {
-      howItWorksInterval = setInterval(() => {
-        const nextIndex = (currentSlide + 1) % howItWorksSlides.length;
-        
-        Animated.parallel([
-          Animated.timing(howItWorksFadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
-          Animated.timing(howItWorksSlideAnim, { toValue: -50, duration: 400, useNativeDriver: true }),
-        ]).start(() => {
-          setCurrentSlide(nextIndex);
-          howItWorksSlideAnim.setValue(50);
-          Animated.parallel([
-            Animated.timing(howItWorksFadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-            Animated.timing(howItWorksSlideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
-          ]).start();
-        });
-      }, 5000);
-    };
-    
-    startHowItWorksCarousel();
-    return () => { if (howItWorksInterval) clearInterval(howItWorksInterval); };
-  }, [currentSlide]);
+  const isServiceDisabled = role === "SERVICE_PROVIDER";
 
-  // Initialize animation values
-  useEffect(() => {
-    fadeAnim1.setValue(1);
-    fadeAnim2.setValue(0);
-    fadeAnim3.setValue(0);
-    serviceFadeAnim.setValue(1);
-    serviceSlideAnim.setValue(0);
-    howItWorksFadeAnim.setValue(1);
-    howItWorksSlideAnim.setValue(0);
-  }, []);
-
-  const dispatch = useDispatch();
-
-  const handleClick = (data: string) => {
+  const handleClick = (data: ServiceType) => {
     if (isServiceDisabled) {
-      Alert.alert(
-        t('home.serviceProvider.alert.title'),
-        t('home.serviceProvider.alert.message'),
-        [{ text: t('common.ok') }]
-      );
+      Alert.alert(t("home.serviceProvider.alert.title"), t("home.serviceProvider.alert.message"), [{ text: t("common.ok") }]);
       return;
     }
     setOpen(true);
@@ -450,14 +110,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
     setEndTime(null);
   };
 
-  const handleClose = () => {
-    setOpen(false);
-  };
-
   const handleSave = (bookingDetails: any) => {
     bookingDetails.startTime = bookingDetails.startTime.format("HH:mm");
     bookingDetails.endTime = bookingDetails.endTime.format("HH:mm");
-    
+
     const formatDate = (value: any) => {
       if (!value) return "";
       const date = new Date(value);
@@ -467,22 +123,18 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
     const formatTime = (value: any) => {
       if (!value) return "";
-      if (value && typeof value === 'object' && value.format) {
-        return value.format("HH:mm");
-      }
-      if (value instanceof Date) {
-        return value.toTimeString().slice(0, 5);
-      }
-      if (typeof value === 'string') {
-        let timeStr = value.trim();
-        if (timeStr.includes('AM') || timeStr.includes('PM')) {
+      if (value && typeof value === "object" && value.format) return value.format("HH:mm");
+      if (value instanceof Date) return value.toTimeString().slice(0, 5);
+      if (typeof value === "string") {
+        const timeStr = value.trim();
+        if (timeStr.includes("AM") || timeStr.includes("PM")) {
           const [timePart, period] = timeStr.split(/\s+/);
-          let [hours, minutes] = timePart.split(':').map(Number);
-          if (period === 'PM' && hours < 12) hours += 12;
-          else if (period === 'AM' && hours === 12) hours = 0;
-          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          let [hours, minutes] = timePart.split(":").map(Number);
+          if (period === "PM" && hours < 12) hours += 12;
+          else if (period === "AM" && hours === 12) hours = 0;
+          return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
         }
-        return timeStr.replace(/\s+/g, '');
+        return timeStr.replace(/\s+/g, "");
       }
       return "";
     };
@@ -492,27 +144,19 @@ const HomePage: React.FC<ChildComponentProps> = ({
       start_time: formatTime(bookingDetails.startTime),
       end_date: formatDate(bookingDetails.endDate || bookingDetails.startDate),
       end_time: bookingDetails.endTime,
-      timeRange: bookingDetails.startTime && bookingDetails.endTime
-        ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
-        : formatTime(bookingDetails.startTime) || "",
+      timeRange:
+        bookingDetails.startTime && bookingDetails.endTime
+          ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
+          : formatTime(bookingDetails.startTime) || "",
       bookingPreference: selectedRadioButtonValue,
       housekeepingRole: selectedType,
     };
 
     if (selectedRadioButtonValue === "Date") {
-      switch (selectedType) {
-        case "COOK":
-          setShowCookDialog(true);
-          break;
-        case "MAID":
-          setShowMaidServiceDialog(true);
-          break;
-        case "NANNY":
-          setShowNannyServicesDialog(true);
-          break;
-        default:
-          sendDataToParent(DETAILS);
-      }
+      if (selectedType === "COOK") setShowCookDialog(true);
+      else if (selectedType === "MAID") setShowMaidServiceDialog(true);
+      else if (selectedType === "NANNY") setShowNannyServicesDialog(true);
+      else sendDataToParent(DETAILS);
     } else {
       sendDataToParent(DETAILS);
     }
@@ -521,576 +165,139 @@ const HomePage: React.FC<ChildComponentProps> = ({
     dispatch(add(booking));
   };
 
-  const handleLearnMore = (service: string) => {
-    switch (service) {
-      case "Home Cook":
-        setSelectedServiceType("cook");
-        break;
-      case "Cleaning Help":
-        setSelectedServiceType("maid");
-        break;
-      case "Caregiver":
-        setSelectedServiceType("babycare");
-        break;
-      default:
-        setSelectedServiceType(null);
-    }
+  const handleLearnMore = (service: ServiceType) => {
+    if (service === "COOK") setSelectedServiceType("cook");
+    else if (service === "MAID") setSelectedServiceType("maid");
+    else setSelectedServiceType("babycare");
     setServiceDetailsOpen(true);
-  };
-
-  const isServiceDisabled = role === "SERVICE_PROVIDER";
-
-  const handleCardPressIn = (index: number) => {
-    Animated.spring(scaleAnimations[index], {
-      toValue: 0.98,
-      useNativeDriver: true,
-      tension: 150,
-      friction: 3
-    }).start();
-  };
-
-  const handleCardPressOut = (index: number) => {
-    Animated.spring(scaleAnimations[index], {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 150,
-      friction: 3
-    }).start();
-  };
-
-  const scaleAnimations = useRef([
-    new Animated.Value(1),
-    new Animated.Value(1),
-    new Animated.Value(1)
-  ]).current;
-
-  const goToServiceSlide = (index: number) => {
-    if (index === currentServiceIndex) return;
-    const direction = index > currentServiceIndex ? -50 : 50;
-    
-    Animated.parallel([
-      Animated.timing(serviceFadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-      Animated.timing(serviceSlideAnim, { toValue: direction, duration: 300, useNativeDriver: true }),
-    ]).start(() => {
-      setCurrentServiceIndex(index);
-      serviceSlideAnim.setValue(direction * -1);
-      Animated.parallel([
-        Animated.timing(serviceFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(serviceSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]).start();
-    });
-  };
-
-  const goToHowItWorksSlide = (index: number) => {
-    if (index === currentSlide) return;
-    const direction = index > currentSlide ? -50 : 50;
-    
-    Animated.parallel([
-      Animated.timing(howItWorksFadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-      Animated.timing(howItWorksSlideAnim, { toValue: direction, duration: 300, useNativeDriver: true }),
-    ]).start(() => {
-      setCurrentSlide(index);
-      howItWorksSlideAnim.setValue(direction * -1);
-      Animated.parallel([
-        Animated.timing(howItWorksFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(howItWorksSlideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]).start();
-    });
-  };
-
-  // Handle promotional offer press - opens service selection dialog
-  const handlePromotionalOfferPress = () => {
-    setShowServiceSelection(true);
-  };
-
-  // Handle service selection from dialog
-  const handleServiceSelectedFromOffer = (serviceType: string) => {
-    setSelectedtype(serviceType);
-    setOpen(true);
-  };
-
-  // Handle coupon application from broadcast message
-  const handleCouponApplied = (couponCode: string) => {
-    console.log('Coupon applied:', couponCode);
-  };
-
-  // Responsive hero section height
-  const getHeroMinHeight = () => {
-    const extraForLargeFont = fontScale > 1.05 ? Math.round((fontScale - 1) * 120) : 0;
-    if (isSmallScreen) return 500 + extraForLargeFont;
-    if (isMediumScreen) return 590 + extraForLargeFont;
-    return 650;
   };
 
   return (
     <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
-      <ScrollView 
-        ref={scrollRef}
-        style={styles.container} 
-        scrollEnabled={!showRegistration && !showAgentRegistration}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: isSmallScreen ? 42 : 24 },
-        ]}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: isSmallScreen ? 92 : 80 }}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
-        directionalLockEnabled
       >
-        {/* Hero Section with Blue Gradient Overlay */}
-        <View style={[styles.heroSection, { minHeight: getHeroMinHeight() }]}>
-          <View style={StyleSheet.absoluteFillObject}>
-            <Animated.Image
-              source={carouselImages[0]}
-              style={[styles.backgroundImage, { opacity: fadeAnim1 }]}
-              resizeMode="cover"
-            />
-            <Animated.Image
-              source={carouselImages[1]}
-              style={[styles.backgroundImage, { opacity: fadeAnim2 }]}
-              resizeMode="cover"
-            />
-            <Animated.Image
-              source={carouselImages[2]}
-              style={[styles.backgroundImage, { opacity: fadeAnim3 }]}
-              resizeMode="cover"
-            />
+        <LinearGradient colors={["#0a2a66", "#328aff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+          <Text style={styles.heroEyebrow}>SERVEASO HOME SERVICES</Text>
+          <Text
+            style={[
+              styles.heroTitle,
+              {
+                fontSize: fontSize === "large" ? heroTitleSize + 2 : heroTitleSize,
+                lineHeight: (fontSize === "large" ? heroTitleSize + 2 : heroTitleSize) + 3,
+              },
+            ]}
+            numberOfLines={3}
+            allowFontScaling={false}
+          >
+            {t("home.hero.title")}
+          </Text>
+          <Text
+            style={[styles.heroSubtitle, { fontSize: heroSubtitleSize, lineHeight: heroSubtitleSize + 6 }]}
+            numberOfLines={4}
+            allowFontScaling={false}
+          >
+            {t("home.hero.subtitle")}
+          </Text>
+          <View style={styles.heroPills}>
+            <Text style={styles.heroPill}>Trusted Pros</Text>
+            <Text style={styles.heroPill}>Easy Booking</Text>
+            <Text style={styles.heroPill}>Flexible Slots</Text>
           </View>
-          
-          {/* Blue Gradient Overlay */}
-          <LinearGradient
-            colors={heroOverlayGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientOverlay}
-          />
-          
-          <View style={styles.heroContent}>
-            <Text style={[styles.heroTitle, { fontSize: fontStyles.headingSize + 4, marginBottom: isSmallScreen ? 8 : 12 }]}>
-              {t('home.hero.title')}
-            </Text>
-            <Text style={[styles.heroSubtitle, { fontSize: fontStyles.textSize, marginBottom: isSmallScreen ? 16 : 24 }]}>
-              {t('home.hero.subtitle')}
-            </Text>
+        </LinearGradient>
 
-            <TouchableOpacity
-              style={styles.primaryCtaButton}
-              onPress={handleExploreServices}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={[colors.surface, colors.backgroundAlt]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.primaryCtaGradient}
-              >
-                <Text style={[styles.primaryCtaText, { fontSize: fontStyles.textSize }]}>
-                  {isServiceDisabled ? "Explore Services" : "Book a Service"}
-                </Text>
-                <Text style={styles.primaryCtaArrow}>↓</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+        <View style={[styles.sectionWrap, { backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {isServiceDisabled ? t("home.hero.exploreServices") : t("home.hero.whatService")}
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+            {isServiceDisabled ? t("home.hero.learnAboutServices") : t("home.hero.tapToBook")}
+          </Text>
 
-            <View style={styles.quickHighlightsRow}>
-              <View style={styles.quickHighlightChip}>
-                <Text style={[styles.quickHighlightText, { fontSize: fontStyles.smallText - 1 }]}>Trusted Pros</Text>
-              </View>
-              <View style={styles.quickHighlightChip}>
-                <Text style={[styles.quickHighlightText, { fontSize: fontStyles.smallText - 1 }]}>Instant Booking</Text>
-              </View>
-              <View style={styles.quickHighlightChip}>
-                <Text style={[styles.quickHighlightText, { fontSize: fontStyles.smallText - 1 }]}>Flexible Slots</Text>
-              </View>
-            </View>
-
-            <View style={styles.statsRow}>
-              <View style={styles.statPill}>
-                <Text style={[styles.statPillValue, { fontSize: fontStyles.smallText + 1 }]}>10k+</Text>
-                <Text style={[styles.statPillLabel, { fontSize: fontStyles.smallText - 2 }]}>Bookings</Text>
-              </View>
-              <View style={styles.statPill}>
-                <Text style={[styles.statPillValue, { fontSize: fontStyles.smallText + 1 }]}>4.8★</Text>
-                <Text style={[styles.statPillLabel, { fontSize: fontStyles.smallText - 2 }]}>Rated</Text>
-              </View>
-              <View style={styles.statPill}>
-                <Text style={[styles.statPillValue, { fontSize: fontStyles.smallText + 1 }]}>24/7</Text>
-                <Text style={[styles.statPillLabel, { fontSize: fontStyles.smallText - 2 }]}>Support</Text>
-              </View>
-            </View>
-            
-            <Text style={[styles.selectorTitle, { fontSize: fontStyles.headingSize - 2, marginTop: isSmallScreen ? 10 : 20 }]}>
-              {isServiceDisabled ? t('home.hero.exploreServices') : t('home.hero.whatService')}
-            </Text>
-            <Text style={[styles.selectorSubtitle, { fontSize: fontStyles.smallText }]}>
-              {isServiceDisabled ? t('home.hero.learnAboutServices') : t('home.hero.tapToBook')}
-            </Text>
-            
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              nestedScrollEnabled
-              directionalLockEnabled
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={[
-                styles.serviceIconsContainer,
-                {
-                  paddingHorizontal: isSmallScreen ? 4 : 8,
-                  justifyContent: isLargeScreen ? "center" : "flex-start",
-                },
-              ]}
-            >
-              {/* Cook Service */}
-              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 5 : 6 }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.serviceIconContainerRectangular,
-                    { width: getServiceCardWidth(), height: getServiceIconHeight() },
-                    hoveredService === "COOK" && styles.serviceIconContainerRectangularHover,
-                    isServiceDisabled && styles.disabledServiceContainer,
-                  ]}
-                  onPress={() => !isServiceDisabled && handleClick("COOK")}
-                  onPressIn={!isTablet ? undefined : () => setHoveredService("COOK")}
-                  onPressOut={!isTablet ? undefined : () => setHoveredService(null)}
-                  disabled={isServiceDisabled}
-                >
-                  <Image source={cookImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
-                  <LinearGradient
-                    colors={serviceImageOverlayGradient}
-                    style={styles.serviceOverlay}
-                  >
-                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.homeCook')}</Text>
-                    {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-
-              {/* Maid Service */}
-              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 5 : 6 }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.serviceIconContainerRectangular,
-                    { width: getServiceCardWidth(), height: getServiceIconHeight() },
-                    hoveredService === "MAID" && styles.serviceIconContainerRectangularHover,
-                    isServiceDisabled && styles.disabledServiceContainer,
-                  ]}
-                  onPress={() => !isServiceDisabled && handleClick("MAID")}
-                  onPressIn={!isTablet ? undefined : () => setHoveredService("MAID")}
-                  onPressOut={!isTablet ? undefined : () => setHoveredService(null)}
-                  disabled={isServiceDisabled}
-                >
-                  <Image source={maidImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
-                  <LinearGradient
-                    colors={serviceImageOverlayGradient}
-                    style={styles.serviceOverlay}
-                  >
-                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.cleaningHelp')}</Text>
-                    {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-
-              {/* Nanny Service */}
-              <View style={[styles.serviceSelectorContainer, { marginHorizontal: isSmallScreen ? 5 : 6 }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.serviceIconContainerRectangular,
-                    { width: getServiceCardWidth(), height: getServiceIconHeight() },
-                    hoveredService === "NANNY" && styles.serviceIconContainerRectangularHover,
-                    isServiceDisabled && styles.disabledServiceContainer,
-                  ]}
-                  onPress={() => !isServiceDisabled && handleClick("NANNY")}
-                  onPressIn={!isTablet ? undefined : () => setHoveredService("NANNY")}
-                  onPressOut={!isTablet ? undefined : () => setHoveredService(null)}
-                  disabled={isServiceDisabled}
-                >
-                  <Image source={nannyImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
-                  <LinearGradient
-                    colors={serviceImageOverlayGradient}
-                    style={styles.serviceOverlay}
-                  >
-                    <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.caregiver')}</Text>
-                    {isServiceDisabled && <Text style={[styles.disabledText, { fontSize: fontStyles.smallText - 2 }]}>{t('home.hero.viewOnly')}</Text>}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-          
-          <View style={styles.heroIndicators}>
-            {carouselImages.map((_, index) => (
-              <View
-                key={index}
+          <View style={styles.serviceGrid}>
+            {services.map((service) => (
+              <TouchableOpacity
+                key={service.key}
+                onPress={() => handleClick(service.key)}
+                onLongPress={() => handleLearnMore(service.key)}
+                disabled={isServiceDisabled}
+                activeOpacity={0.9}
                 style={[
-                  styles.heroIndicator,
-                  index === currentImageIndex && styles.heroIndicatorActive,
+                  styles.serviceCard,
+                  { backgroundColor: isDarkMode ? colors.surface : "#f8fafc", borderColor: colors.border + "66" },
                 ]}
-              />
+              >
+                <View style={styles.serviceCardRow}>
+                  <View style={styles.serviceImageWrap}>
+                    <Image source={service.image} style={styles.serviceImage} />
+                    <View style={styles.serviceBadge}>
+                      <Text style={styles.serviceBadgeText}>Top Rated</Text>
+                    </View>
+                  </View>
+                  <View style={styles.serviceContent}>
+                    <Text style={[styles.serviceTitle, { color: colors.text }]} numberOfLines={1}>
+                      {service.title}
+                    </Text>
+                    <Text style={[styles.serviceSub, { color: colors.textSecondary }]} numberOfLines={2}>
+                      {service.subtitle}
+                    </Text>
+                    <View style={[styles.bookChip, { backgroundColor: isDarkMode ? "#1e3a8a" : "#dbeafe" }]}>
+                      <Text style={[styles.bookChipText, { color: isDarkMode ? "#bfdbfe" : "#1e3a8a" }]}>Tap to book</Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
-          
-          {/* PROMOTIONAL SECTION - Now includes both FirstBookingOffer and BroadcastMessage */}
-          <View style={styles.promotionalSection}>
-            {showOffer && !isServiceDisabled && (
-              <>
-                <View style={styles.offerWrapper}>
-                  <FirstBookingOffer onPress={handlePromotionalOfferPress} />
-                </View>
-                {/* Broadcast Message Component */}
-                <View style={styles.broadcastWrapper}>
-                  <BroadcastMessage onCouponApplied={handleCouponApplied} />
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-        
-        {/* Popular Services Section */}
-        <View
-          style={[styles.servicesSection, { backgroundColor: colors.backgroundAlt, paddingHorizontal: getHorizontalPadding(), paddingTop: isSmallScreen ? 22 : 30 }]}
-          onLayout={(event) => {
-            setServicesSectionY(event.nativeEvent.layout.y);
-          }}
-        >
-          <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={chromeGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[
-                styles.sectionTitleGradient,
-                {
-                  alignSelf: "center",
-                  paddingHorizontal: isSmallScreen ? 18 : 22,
-                  height: isSmallScreen ? 42 : 44,
-                  minWidth: isSmallScreen ? 176 : 192,
-                  maxWidth: isSmallScreen ? "98%" : "96%",
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    fontSize: getSectionChipTitleSize(),
-                    lineHeight: getSectionChipTitleSize(),
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {t('home.services.title')}
-              </Text>
-            </LinearGradient>
-            <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
-              {t('home.services.subtitle')}
-            </Text>
-          </View>
-          
-          <View style={[styles.servicesCarouselContainer, { height: getServicesCarouselHeight() }]}>
-            <Animated.View
-              style={[
-                styles.serviceCarouselSlide,
-                { opacity: serviceFadeAnim, transform: [{ translateX: serviceSlideAnim }] },
-              ]}
-            >
-              <TouchableOpacity 
-                style={[styles.serviceCard, isServiceDisabled && styles.disabledServiceCard]}
-                onPress={() => handleLearnMore(popularServices[currentServiceIndex].title)}
-                onPressIn={!isTablet ? undefined : () => handleCardPressIn(currentServiceIndex)}
-                onPressOut={!isTablet ? undefined : () => handleCardPressOut(currentServiceIndex)}
-                activeOpacity={0.95}
-              >
-                <LinearGradient
-                  colors={popularServices[currentServiceIndex].gradient}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 1}}
-                  style={styles.serviceCardGradient}
-                >
-                  <View style={[styles.serviceCardContent, { padding: isSmallScreen ? 20 : 28 }]}>
-                    <View style={[styles.serviceIconContainer, { width: isSmallScreen ? 60 : 80, height: isSmallScreen ? 60 : 80, borderRadius: isSmallScreen ? 30 : 40, marginBottom: isSmallScreen ? 8 : 12 }]}>
-                      <Text style={[styles.serviceIcon, { fontSize: isSmallScreen ? 28 : 36 }]}>{popularServices[currentServiceIndex].icon}</Text>
-                    </View>
-                    
-                    <Text style={[styles.serviceTitle, { fontSize: fontStyles.headingSize - 2 }]}>
-                      {t(`home.services.${popularServices[currentServiceIndex].titleKey}`)}
-                    </Text>
-                    <Text style={[styles.serviceDesc, { fontSize: fontStyles.smallText }]}>
-                      {t(`home.services.${popularServices[currentServiceIndex].descKey}`)}
-                    </Text>
-                    
-                    <View style={[styles.featuresContainer, { gap: isSmallScreen ? 6 : 8 }]}>
-                      {popularServices[currentServiceIndex].features.map((feature, idx) => (
-                        <View key={idx} style={[styles.featureBadge, { paddingHorizontal: isSmallScreen ? 8 : 12, paddingVertical: isSmallScreen ? 4 : 5 }]}>
-                          <Text style={[styles.featureBadgeText, { fontSize: fontStyles.smallText - 2 }]}>
-                            ✓ {t(`home.services.features.${feature.key}`)}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                    
-                    <View style={[styles.learnMoreContainer, { marginTop: isSmallScreen ? 12 : 16, paddingVertical: isSmallScreen ? 8 : 10, paddingHorizontal: isSmallScreen ? 20 : 24 }]}>
-                      <Text style={[styles.learnMoreLink, { fontSize: fontStyles.smallText }]}>{t('home.services.learnMore')}</Text>
-                      <Text style={styles.learnMoreArrow}>→</Text>
-                    </View>
 
-                    <View style={[styles.decorativeCircle, { width: isSmallScreen ? 100 : 150, height: isSmallScreen ? 100 : 150, top: isSmallScreen ? -20 : -30, right: isSmallScreen ? -20 : -30 }]} />
-                    <View style={[styles.decorativeCircle2, { width: isSmallScreen ? 150 : 200, height: isSmallScreen ? 150 : 200, bottom: isSmallScreen ? -30 : -40, left: isSmallScreen ? -30 : -40 }]} />
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <View style={[styles.serviceDotsContainer, { marginTop: isSmallScreen ? 15 : 20, gap: isSmallScreen ? 8 : 12 }]}>
-              {popularServices.map((_, index) => {
-                const dotScale = index === currentServiceIndex ? 1.3 : 1;
-                const dotWidth = index === currentServiceIndex ? (isSmallScreen ? 20 : 24) : (isSmallScreen ? 8 : 10);
-                return (
-                  <TouchableOpacity key={index} onPress={() => goToServiceSlide(index)} activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={index === currentServiceIndex ? popularServices[index].gradient : [colors.disabled, colors.border]}
-                      start={{x: 0, y: 0}}
-                      end={{x: 1, y: 0}}
-                      style={[styles.serviceDot, { width: dotWidth, height: isSmallScreen ? 8 : 10, transform: [{ scale: dotScale }], opacity: index === currentServiceIndex ? 1 : 0.5 }]}
-                    />
-                  </TouchableOpacity>
-                );
-              })}
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>Long press a card to view details</Text>
+          <View style={styles.quickStats}>
+            <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
+              <Text style={[styles.quickStatValue, { color: colors.text }]}>4.8</Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Avg Rating</Text>
             </View>
-
-            <View style={styles.serviceNavigationArrows}>
-              <TouchableOpacity style={[styles.serviceNavArrow, { backgroundColor: colors.surface, width: isSmallScreen ? 35 : 40, height: isSmallScreen ? 35 : 40, borderRadius: isSmallScreen ? 17.5 : 20 }]} onPress={() => goToServiceSlide(currentServiceIndex === 0 ? popularServices.length - 1 : currentServiceIndex - 1)}>
-                <Text style={[styles.serviceNavArrowText, { color: colors.text, fontSize: isSmallScreen ? 18 : 20 }]}>←</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.serviceNavArrow, { backgroundColor: colors.surface, width: isSmallScreen ? 35 : 40, height: isSmallScreen ? 35 : 40, borderRadius: isSmallScreen ? 17.5 : 20 }]} onPress={() => goToServiceSlide((currentServiceIndex + 1) % popularServices.length)}>
-                <Text style={[styles.serviceNavArrowText, { color: colors.text, fontSize: isSmallScreen ? 18 : 20 }]}>→</Text>
-              </TouchableOpacity>
+            <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
+              <Text style={[styles.quickStatValue, { color: colors.text }]}>30m</Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Fast Match</Text>
+            </View>
+            <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
+              <Text style={[styles.quickStatValue, { color: colors.text }]}>10k+</Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Bookings</Text>
             </View>
           </View>
         </View>
 
-        {/* How it works section */}
-        <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff', paddingHorizontal: getHorizontalPadding(), paddingTop: isSmallScreen ? 30 : 40 }]}>
-          <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={chromeGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[
-                styles.sectionTitleGradient,
-                {
-                  alignSelf: "center",
-                  paddingHorizontal: isSmallScreen ? 18 : 22,
-                  height: isSmallScreen ? 42 : 44,
-                  minWidth: isSmallScreen ? 176 : 192,
-                  maxWidth: isSmallScreen ? "98%" : "96%",
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  {
-                    fontSize: getSectionChipTitleSize(),
-                    lineHeight: getSectionChipTitleSize(),
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {t('home.howItWorks.title')}
-              </Text>
-            </LinearGradient>
-            <Text style={[styles.sectionSubtitle, { color: isDarkMode ? colors.textSecondary : '#64748b', fontSize: fontStyles.smallText }]}>
-              {t('home.howItWorks.subtitle')}
-            </Text>
+        {!isServiceDisabled && showOffer ? (
+          <View style={styles.promoWrap}>
+            <FirstBookingOffer onPress={() => setShowServiceSelection(true)} />
+            <View style={{ marginTop: 8 }}>
+              <BroadcastMessage onCouponApplied={() => null} />
+            </View>
           </View>
-          
-          <View style={[styles.howItWorksCarouselContainer, { height: getHowItWorksCarouselHeight() }]}>
-            <Animated.View
-              style={[
-                styles.howItWorksCarouselSlide,
-                { opacity: howItWorksFadeAnim, transform: [{ translateX: howItWorksSlideAnim }] },
-              ]}
-            >
-              <LinearGradient
-                colors={howItWorksSlides[currentSlide].gradientColors}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={[styles.gradientContainer, { minHeight: getHowItWorksCardMinHeight() }]}
-              >
-                <View style={styles.glowEffect} />
-                <View style={styles.particleContainer}>
-                  <Text style={styles.particle}>✦</Text>
-                  <Text style={styles.particle2}>✧</Text>
-                  <Text style={styles.particle3}>✦</Text>
-                </View>
-                
-                <View style={[styles.illustrationContainer, { backgroundColor: howItWorksSlides[currentSlide].accentColor, width: isSmallScreen ? 40 : 50, height: isSmallScreen ? 40 : 50, borderRadius: isSmallScreen ? 20 : 25 }]}>
-                  <Text style={[styles.illustrationIcon, { fontSize: isSmallScreen ? 22 : 28 }]}>{howItWorksSlides[currentSlide].illustration}</Text>
-                </View>
-                
-                <View style={[styles.iconWrapper, { marginBottom: isSmallScreen ? 12 : 16 }]}>
-                  <View style={[styles.iconContainer, { width: isSmallScreen ? 70 : 90, height: isSmallScreen ? 70 : 90, borderRadius: isSmallScreen ? 35 : 45 }]}>
-                    <Text style={[styles.stepIcon, { fontSize: isSmallScreen ? 32 : 40 }]}>{howItWorksSlides[currentSlide].icon}</Text>
-                  </View>
-                </View>
-                
-                <Text style={[styles.stepTitle, { fontSize: fontStyles.headingSize, marginBottom: isSmallScreen ? 8 : 12 }]}>
-                  {t(`home.howItWorks.step${currentSlide + 1}.title`)}
-                </Text>
-                <Text style={[styles.stepDesc, { fontSize: fontStyles.textSize, paddingHorizontal: isSmallScreen ? 10 : 20, marginBottom: isSmallScreen ? 15 : 20 }]}>
-                  {t(`home.howItWorks.step${currentSlide + 1}.desc`)}
-                </Text>
+        ) : null}
 
-                <View style={[styles.slideFeaturesContainer, { gap: isSmallScreen ? 6 : 10 }]}>
-                  {howItWorksSlides[currentSlide].features.map((feature, idx) => (
-                    <View key={idx} style={[styles.slideFeatureBadge, { paddingHorizontal: isSmallScreen ? 12 : 16, paddingVertical: isSmallScreen ? 4 : 6, borderColor: howItWorksSlides[currentSlide].accentColor }]}>
-                      <Text style={[styles.slideFeatureBadgeText, { fontSize: fontStyles.smallText - 1 }]}>
-                        ✓ {t(`home.howItWorks.step${currentSlide + 1}.features.${idx}`)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                <View style={[styles.slideProgress, { bottom: isSmallScreen ? 15 : 20, right: isSmallScreen ? 15 : 20, paddingHorizontal: isSmallScreen ? 8 : 12, paddingVertical: isSmallScreen ? 4 : 6, borderRadius: isSmallScreen ? 15 : 20 }]}>
-                  <Text style={[styles.slideProgressText, { fontSize: fontStyles.smallText - 2 }]}>
-                    {currentSlide + 1} / {howItWorksSlides.length}
-                  </Text>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-
-            <View style={[styles.howItWorksDotsContainer, { marginTop: isSmallScreen ? 15 : 20, gap: isSmallScreen ? 8 : 12 }]}>
-              {howItWorksSlides.map((_, index) => {
-                const dotScale = index === currentSlide ? 1.3 : 1;
-                const dotWidth = index === currentSlide ? (isSmallScreen ? 20 : 24) : (isSmallScreen ? 8 : 10);
-                return (
-                  <TouchableOpacity key={index} onPress={() => goToHowItWorksSlide(index)} activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={index === currentSlide ? howItWorksSlides[index].gradientColors : [colors.disabled, colors.border]}
-                      start={{x: 0, y: 0}}
-                      end={{x: 1, y: 0}}
-                      style={[styles.howItWorksDot, { width: dotWidth, height: isSmallScreen ? 8 : 10, transform: [{ scale: dotScale }], opacity: index === currentSlide ? 1 : 0.5 }]}
-                    />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <View style={styles.howItWorksNavigationArrows}>
-              <TouchableOpacity style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface, width: isSmallScreen ? 35 : 40, height: isSmallScreen ? 35 : 40, borderRadius: isSmallScreen ? 17.5 : 20 }]} onPress={() => goToHowItWorksSlide(currentSlide === 0 ? howItWorksSlides.length - 1 : currentSlide - 1)}>
-                <Text style={[styles.howItWorksNavArrowText, { color: colors.text, fontSize: isSmallScreen ? 18 : 20 }]}>←</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.howItWorksNavArrow, { backgroundColor: colors.surface, width: isSmallScreen ? 35 : 40, height: isSmallScreen ? 35 : 40, borderRadius: isSmallScreen ? 17.5 : 20 }]} onPress={() => goToHowItWorksSlide((currentSlide + 1) % howItWorksSlides.length)}>
-                <Text style={[styles.howItWorksNavArrowText, { color: colors.text, fontSize: isSmallScreen ? 18 : 20 }]}>→</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={[styles.stepsCard, { backgroundColor: isDarkMode ? colors.card : "#ffffff", borderColor: colors.border + "55" }]}>
+          <Text style={[styles.stepsTitle, { color: colors.text }]}>{t("home.howItWorks.title")}</Text>
+          <View style={styles.stepRow}>
+            <Text style={styles.stepDot}>1</Text>
+            <Text style={[styles.stepText, { color: colors.textSecondary }]}>Choose a service</Text>
+          </View>
+          <View style={styles.stepRow}>
+            <Text style={styles.stepDot}>2</Text>
+            <Text style={[styles.stepText, { color: colors.textSecondary }]}>Select date and time</Text>
+          </View>
+          <View style={styles.stepRow}>
+            <Text style={styles.stepDot}>3</Text>
+            <Text style={[styles.stepText, { color: colors.textSecondary }]}>Confirm and relax</Text>
           </View>
         </View>
-        
-        {/* Booking Dialog */}
+
         {!isServiceDisabled && (
           <BookingDialog
             open={open}
-            onClose={handleClose}
+            onClose={() => setOpen(false)}
             onSave={handleSave}
             selectedOption={selectedRadioButtonValue}
             onOptionChange={getSelectedValue}
@@ -1105,7 +312,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
           />
         )}
 
-        {/* Service Dialogs */}
         {showCookDialog && (
           <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
             <View style={[styles.dialogBox, { backgroundColor: colors.surface, width: screenWidth * 0.92, maxHeight: screenHeight * 0.85 }]}>
@@ -1155,667 +361,254 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </View>
           </View>
         )}
-
-        <ServiceDetailsDialog
-          open={serviceDetailsOpen}
-          onClose={() => setServiceDetailsOpen(false)}
-          serviceType={selectedServiceType}
-        />
-
-        {/* Keep final section visible above fixed mobile footer/nav */}
-        <View style={{ height: isSmallScreen ? 92 : 78 }} />
       </ScrollView>
 
-      {/* Service Selection Dialog for Promotional Offer */}
       <ServiceSelectionDialog
         visible={showServiceSelection}
         onClose={() => setShowServiceSelection(false)}
-        onSelectService={handleServiceSelectedFromOffer}
+        onSelectService={(serviceType: string) => {
+          setSelectedtype(serviceType);
+          setOpen(true);
+        }}
       />
 
-      {/* Agent Registration Modal */}
+      <ServiceDetailsDialog open={serviceDetailsOpen} onClose={() => setServiceDetailsOpen(false)} serviceType={selectedServiceType} />
+
       <Modal visible={showAgentRegistration} animationType="slide">
         <AgentRegistrationForm onBackToLogin={() => setShowAgentRegistration(false)} />
       </Modal>
 
-      {/* Service Provider Registration */}
-      {showRegistration && (
-        <ServiceProviderRegistration onBackToLogin={() => setShowRegistration(false)} />
-      )}
+      {showRegistration && <ServiceProviderRegistration onBackToLogin={() => setShowRegistration(false)} />}
     </View>
   );
 };
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 24,
-  },
-  heroSection: {
-    position: 'relative',
-    overflow: 'visible',
-    paddingTop: 16,
-    marginBottom: 0,
-    zIndex: 1,
-  },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  gradientOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroContent: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 44,
-    zIndex: 2,
-  },
-  primaryCtaButton: {
-    alignSelf: "center",
-    borderRadius: 999,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+  mainContainer: { flex: 1 },
+  container: { flex: 1 },
+  hero: {
+    marginHorizontal: 6,
+    marginTop: 12,
+    borderRadius: 20,
+    paddingHorizontal: 0,
+    paddingTop: 7,
+    paddingBottom: 8,
+    minHeight: 205,
+    alignItems: "center",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
     overflow: "hidden",
   },
-  primaryCtaGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  primaryCtaText: {
-    color: "#0a2a66",
+  heroEyebrow: {
+    color: "rgba(255,255,255,0.82)",
+    letterSpacing: 3.2,
+    fontSize: 15,
     fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  primaryCtaArrow: {
-    color: "#0a2a66",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  quickHighlightsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    flexWrap: "wrap",
-    marginBottom: 16,
-    gap: 8,
-  },
-  quickHighlightChip: {
-    backgroundColor: "rgba(255,255,255,0.16)",
-    borderColor: "rgba(255,255,255,0.35)",
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  quickHighlightText: {
-    color: "#ffffff",
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 14,
-    flexWrap: "wrap",
-  },
-  statPill: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderColor: "rgba(255,255,255,0.28)",
-    borderWidth: 1,
-    borderRadius: 12,
-    minWidth: 68,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    alignItems: "center",
-  },
-  statPillValue: {
-    color: "#ffffff",
-    fontWeight: "700",
-  },
-  statPillLabel: {
-    color: "rgba(255,255,255,0.92)",
-    fontWeight: "500",
+    textAlign: "center",
+    marginBottom: 5,
+    width: "100%",
+    alignSelf: "center",
   },
   heroTitle: {
-    fontWeight: "bold",
+    color: "#fff",
+    fontWeight: "800",
     textAlign: "center",
-    color: "#ffffff",
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    marginBottom: 4,
+    width: "92%",
+    alignSelf: "center",
   },
   heroSubtitle: {
-    color: "#ffffff",
+    color: "rgba(255,255,255,0.95)",
     textAlign: "center",
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-    lineHeight: 22,
-    fontWeight: '500',
-  },
-  selectorTitle: {
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-    letterSpacing: 0.5,
-  },
-  selectorSubtitle: {
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-    fontWeight: '500',
-  },
-  serviceIconsContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    marginBottom: 16,
-    paddingHorizontal: 2,
-    paddingBottom: 4,
-  },
-  serviceSelectorContainer: {
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  heroIndicators: {
-    position: 'absolute',
-    bottom: 10,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    zIndex: 3,
-  },
-  heroIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  heroIndicatorActive: {
-    width: 20,
-    backgroundColor: '#fff',
-  },
-  promotionalSection: {
-    marginTop: 14,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    zIndex: 5,
-    paddingBottom: 8,
-  },
-  offerWrapper: {
-    marginBottom: 8,
-  },
-  broadcastWrapper: {
-    marginTop: 4,
     marginBottom: 4,
-  },
-  servicesSection: {
-    padding: 20,
-    paddingTop: 30,
-    paddingBottom: 40,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: 16,
-    zIndex: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  sectionHeader: {
-    marginBottom: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitleGradient: {
-    paddingHorizontal: 22,
-    borderRadius: 999,
-    marginBottom: 8,
+    fontWeight: "500",
+    width: "90%",
     alignSelf: "center",
-    maxWidth: "96%",
-    minWidth: 188,
+  },
+  heroPills: {
+    flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 5,
+    paddingHorizontal: 10,
+    marginTop: 0,
+  },
+  heroPill: {
+    color: "#fff",
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderColor: "rgba(255,255,255,0.28)",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  sectionWrap: {
+    marginHorizontal: 14,
+    marginTop: 6,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
   },
   sectionTitle: {
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     textAlign: "center",
-    letterSpacing: 0,
-    color: '#fff',
-    includeFontPadding: false,
-    textAlignVertical: "center",
-    alignSelf: "center",
-    marginTop: -1,
-    width: "auto",
   },
   sectionSubtitle: {
     textAlign: "center",
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 14,
   },
-  servicesCarouselContainer: {
-    height: 520,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    width: '100%',
-  },
-  serviceCarouselSlide: {
-    width: '96%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    borderRadius: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+  serviceGrid: {
+    gap: 10,
   },
   serviceCard: {
-    width: '100%',
-    borderRadius: 24,
-    overflow: 'hidden',
+    borderRadius: 14,
+    padding: 9,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  disabledServiceCard: {
-    opacity: 0.9,
-  },
-  serviceCardGradient: {
-    borderRadius: 24,
-    padding: 0,
-  },
-  serviceCardContent: {
-    alignItems: "center",
-    gap: 12,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  serviceIconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: "#000",
+    shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  serviceIcon: {
-    fontWeight: '600',
+  serviceCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  serviceImageWrap: {
+    position: "relative",
+    width: 110,
+    flexShrink: 0,
+  },
+  serviceImage: {
+    width: 110,
+    height: 84,
+    borderRadius: 10,
+  },
+  serviceContent: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  serviceBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    backgroundColor: "rgba(10,42,102,0.9)",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  serviceBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
   },
   serviceTitle: {
+    fontSize: 15,
     fontWeight: "700",
-    color: '#fff',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    letterSpacing: -0.3,
   },
-  serviceDesc: {
-    color: "rgba(255, 255, 255, 0.95)",
+  serviceSub: {
+    fontSize: 12,
+    marginTop: 3,
+  },
+  bookChip: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 8,
+  },
+  bookChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  helperText: {
     textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  featuresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginVertical: 10,
-  },
-  featureBadge: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  featureBadgeText: {
-    color: '#fff',
-    fontWeight: '500',
-  },
-  learnMoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  learnMoreLink: {
-    color: "#fff",
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  learnMoreArrow: {
-    fontSize: 18,
-    color: "#fff",
-    fontWeight: 'bold',
-  },
-  decorativeCircle: {
-    position: 'absolute',
-    borderRadius: 75,
-    opacity: 0.5,
-  },
-  decorativeCircle2: {
-    position: 'absolute',
-    borderRadius: 100,
-    opacity: 0.3,
-  },
-  serviceDotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  serviceDot: {
-    borderRadius: 5,
-    marginHorizontal: 0,
-  },
-  serviceNavigationArrows: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    position: 'absolute',
-    top: '50%',
-    left: 0,
-    right: 0,
-    paddingHorizontal: 4,
-    transform: [{ translateY: -20 }],
-  },
-  serviceNavArrow: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  serviceNavArrowText: {
-    fontWeight: 'bold',
-  },
-  howItWorksSection: {
-    padding: 20,
-    paddingVertical: 40,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
     marginTop: 12,
-    zIndex: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
-    paddingBottom: 56,
+    fontSize: 12,
   },
-  howItWorksCarouselContainer: {
-    height: 400,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    width: '100%',
+  quickStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+    gap: 8,
   },
-  howItWorksCarouselSlide: {
-    width: '96%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    borderRadius: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
+  quickStatCard: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: "center",
   },
-  gradientContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 22,
-    borderRadius: 32,
-    width: '100%',
-    minHeight: 420,
-    position: 'relative',
-    overflow: 'hidden',
-    alignSelf: 'center',
+  quickStatValue: {
+    fontSize: 14,
+    fontWeight: "800",
   },
-  glowEffect: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  quickStatLabel: {
+    fontSize: 11,
+    fontWeight: "500",
   },
-  particleContainer: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    right: 20,
-    bottom: 20,
+  promoWrap: {
+    marginHorizontal: 14,
+    marginTop: 10,
   },
-  particle: {
-    position: 'absolute',
-    top: 20,
-    right: 30,
-    fontSize: 24,
-    color: 'rgba(255,255,255,0.15)',
-    transform: [{ rotate: '15deg' }],
+  stepsCard: {
+    marginHorizontal: 14,
+    marginTop: 12,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
   },
-  particle2: {
-    position: 'absolute',
-    bottom: 40,
-    left: 20,
-    fontSize: 32,
-    color: 'rgba(255,255,255,0.1)',
-    transform: [{ rotate: '-10deg' }],
-  },
-  particle3: {
-    position: 'absolute',
-    top: 100,
-    left: 40,
-    fontSize: 20,
-    color: 'rgba(255,255,255,0.12)',
-    transform: [{ rotate: '45deg' }],
-  },
-  illustrationContainer: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  illustrationIcon: {},
-  iconWrapper: {
-    transform: [{ scale: 1.1 }],
-  },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.2)',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  stepIcon: {
-    fontWeight: '300',
-  },
-  stepTitle: {
+  stepsTitle: {
+    fontSize: 18,
     fontWeight: "700",
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    letterSpacing: -0.3,
+    marginBottom: 10,
   },
-  stepDesc: {
-    color: "rgba(255, 255, 255, 0.9)",
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  stepDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     textAlign: "center",
     lineHeight: 22,
+    color: "#fff",
+    backgroundColor: "#0a2a66",
+    fontSize: 12,
+    fontWeight: "700",
   },
-  slideFeaturesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: 10,
-    marginBottom: 15,
-  },
-  slideFeatureBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 25,
-    borderWidth: 1,
-  },
-  slideFeatureBadgeText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  slideProgress: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  slideProgressText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  howItWorksDotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  howItWorksDot: {
-    borderRadius: 5,
-    marginHorizontal: 0,
-  },
-  howItWorksNavigationArrows: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    position: 'absolute',
-    top: '46%',
-    left: 0,
-    right: 0,
-    paddingHorizontal: 4,
-    transform: [{ translateY: -20 }],
-  },
-  howItWorksNavArrow: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  howItWorksNavArrowText: {
-    fontWeight: 'bold',
+  stepText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   dialogOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 1000,
   },
   dialogBox: {
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 15,
-  },
-  serviceIconContainerRectangular: {
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-    position: 'relative',
-  },
-  serviceIconContainerRectangularHover: {
-    transform: [{ scale: 1.05 }],
-    shadowColor: "#004aad",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
-    borderColor: "#ffffff",
-    borderWidth: 2,
-  },
-  disabledServiceContainer: {
-    opacity: 0.8,
-  },
-  serviceImageRectangular: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  serviceOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 8,
-    alignItems: 'center',
-  },
-  serviceLabelRectangular: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  disabledService: {
-    opacity: 0.7,
-  },
-  disabledText: {
-    color: '#ffd700',
-    marginTop: 3,
-    fontWeight: '500',
   },
 });
 

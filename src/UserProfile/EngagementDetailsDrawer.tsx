@@ -24,6 +24,7 @@ import { useTheme } from '../../src/Settings/ThemeContext';
 import Invoice from '../Invoice/Invoice';
 import UserHoliday from './UserHoliday';
 import VacationManagementDialog from './VacationManagement';
+import BottomSheetScaffold from '../design-system/BottomSheetScaffold';
 
 const { width } = Dimensions.get('window');
 
@@ -720,7 +721,11 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
         <View style={dynamicStyles.modalOverlay}>
           <TouchableOpacity style={dynamicStyles.overlayTouchable} onPress={onClose} />
-          <View style={dynamicStyles.drawerContainer}>
+          <BottomSheetScaffold
+            backgroundColor={colors.background}
+            borderColor={colors.border}
+            style={dynamicStyles.drawerContainer}
+          >
             <LinearGradient 
               colors={["#0a2a66ff", "#004aadff"]} 
               start={{ x: 0, y: 0 }} 
@@ -1075,7 +1080,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 </View>
               </View>
             </ScrollView>
-          </View>
+          </BottomSheetScaffold>
         </View>
       </Modal>
 

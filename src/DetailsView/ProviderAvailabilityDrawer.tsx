@@ -26,6 +26,7 @@ import { ServiceProviderDTO } from '../types/ProviderDetailsType';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import BottomSheetScaffold from '../design-system/BottomSheetScaffold';
 
 interface ProviderAvailabilityDrawerProps {
   open: boolean;
@@ -714,16 +715,12 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
       >
         <PaperProvider>
           <View style={styles.backdrop}>
-            <Animated.View
-              style={[
-                styles.container,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                  transform: [{ translateY: sheetTranslateY }],
-                },
-              ]}
-            >
+            <Animated.View style={{ transform: [{ translateY: sheetTranslateY }] }}>
+              <BottomSheetScaffold
+                backgroundColor={colors.background}
+                borderColor={colors.border}
+                style={styles.container}
+              >
               <View style={styles.sheetHandleTouchZone} {...panResponder.panHandlers}>
                 <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
               </View>
@@ -751,6 +748,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
                   <Text style={styles.footerPrimaryText}>Done</Text>
                 </TouchableOpacity>
               </View>
+              </BottomSheetScaffold>
             </Animated.View>
           </View>
         </PaperProvider>
