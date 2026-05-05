@@ -1,4 +1,4 @@
-// NavigationFooter.tsx - Updated with Wallet page navigation and Gradient Background
+// NavigationFooter.tsx - Updated with authentication choice dialog
 import React, { useState, useRef, useCallback } from "react";
 import {
   View,
@@ -7,6 +7,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Modal,
+  Pressable,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
@@ -20,6 +22,7 @@ import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET } from "../
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
 import Settings from "../Settings/Settings";
+import Login from "../Login/Login";
 
 interface NavigationFooterProps {
   onHomeClick: () => void;
@@ -62,6 +65,9 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [lastTap, setLastTap] = useState<number>(0);
+  // New state for authentication choice modal
+  const [showAuthChoiceModal, setShowAuthChoiceModal] = useState(false);
+  const [showPhoneLoginModal, setShowPhoneLoginModal] = useState(false);
   const { t } = useTranslation();
   
   const { authorize, clearSession, getCredentials } = useAuth0();
@@ -96,7 +102,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         if (isAuthenticated && isCustomer) {
           onNavigateToPage(BOOKINGS);
         } else if (!isAuthenticated) {
-          handleLoginClick();
+          handleShowAuthChoice();
         } else {
           onBookingsClick();
         }
@@ -109,7 +115,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       if (isAuthenticated && isCustomer) {
         onNavigateToPage(BOOKINGS);
       } else if (!isAuthenticated) {
-        handleLoginClick();
+        handleShowAuthChoice();
       } else {
         onBookingsClick();
       }
@@ -117,60 +123,20 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
   }, [lastTap, isAuthenticated, isCustomer, onNavigateToPage, onBookingsClick]);
 
-  const handleProfileButtonClick = () => {
-    if (isAuthenticated) {
-      setIsProfileMenuVisible(true);
-    } else {
-      handleLoginClick();
-    }
+  // Show authentication choice modal instead of direct login
+  const handleShowAuthChoice = () => {
+    setShowAuthChoiceModal(true);
   };
 
-  const handleHomeButtonClick = () => {
-    onHomeClick();
-    setIsProfileMenuVisible(false);
+  // Handle phone login
+  const handlePhoneLogin = () => {
+    setShowAuthChoiceModal(false);
+    setShowPhoneLoginModal(true);
   };
 
-  const handleBookingsButtonClick = () => {
-    if (isAuthenticated && isCustomer) {
-      onNavigateToPage(BOOKINGS);
-    } else if (!isAuthenticated) {
-      handleLoginClick();
-    } else {
-      onBookingsClick();
-    }
-    setIsProfileMenuVisible(false);
-  };
-
-  const handleDashboardButtonClick = () => {
-    if (isAuthenticated && isServiceProvider) {
-      onNavigateToPage(DASHBOARD);
-    } else if (!isAuthenticated) {
-      handleLoginClick();
-    } else {
-      onDashboardClick();
-    }
-    setIsProfileMenuVisible(false);
-  };
-
-  const handleAgentDashboardButtonClick = () => {
-    if (isAuthenticated && isVendor) {
-      onNavigateToPage(AGENT_DASHBOARD);
-    } else if (!isAuthenticated) {
-      handleLoginClick();
-    }
-    setIsProfileMenuVisible(false);
-  };
-
-  const handleWalletClick = () => {
-    if (isAuthenticated && isCustomer) {
-      onNavigateToPage(WALLET);
-    } else if (!isAuthenticated) {
-      handleLoginClick();
-    }
-    setIsProfileMenuVisible(false);
-  };
-
-  const handleLoginClick = async () => {
+  // Handle email login with Auth0
+  const handleEmailLogin = async () => {
+    setShowAuthChoiceModal(false);
     try {
       await authorize({
         scope: "openid profile email",
@@ -195,6 +161,64 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         textColor: "#ffffff",
       });
     }
+  };
+
+  const handleProfileButtonClick = () => {
+    if (isAuthenticated) {
+      setIsProfileMenuVisible(true);
+    } else {
+      handleShowAuthChoice();
+    }
+  };
+
+  const handleHomeButtonClick = () => {
+    onHomeClick();
+    setIsProfileMenuVisible(false);
+  };
+
+  const handleBookingsButtonClick = () => {
+    if (isAuthenticated && isCustomer) {
+      onNavigateToPage(BOOKINGS);
+    } else if (!isAuthenticated) {
+      handleShowAuthChoice();
+    } else {
+      onBookingsClick();
+    }
+    setIsProfileMenuVisible(false);
+  };
+
+  const handleDashboardButtonClick = () => {
+    if (isAuthenticated && isServiceProvider) {
+      onNavigateToPage(DASHBOARD);
+    } else if (!isAuthenticated) {
+      handleShowAuthChoice();
+    } else {
+      onDashboardClick();
+    }
+    setIsProfileMenuVisible(false);
+  };
+
+  const handleAgentDashboardButtonClick = () => {
+    if (isAuthenticated && isVendor) {
+      onNavigateToPage(AGENT_DASHBOARD);
+    } else if (!isAuthenticated) {
+      handleShowAuthChoice();
+    }
+    setIsProfileMenuVisible(false);
+  };
+
+  const handleWalletClick = () => {
+    if (isAuthenticated && isCustomer) {
+      onNavigateToPage(WALLET);
+    } else if (!isAuthenticated) {
+      handleShowAuthChoice();
+    }
+    setIsProfileMenuVisible(false);
+  };
+
+  const handleLoginClick = async () => {
+    // This is kept for backward compatibility but now using the modal approach
+    handleShowAuthChoice();
   };
 
   const handleSignOut = async () => {
@@ -283,6 +307,55 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       </View>
     );
   };
+
+  // Authentication Choice Modal Component
+  const AuthChoiceModal = () => (
+    <Modal
+      visible={showAuthChoiceModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowAuthChoiceModal(false)}
+    >
+      <Pressable 
+        style={styles.modalOverlay} 
+        onPress={() => setShowAuthChoiceModal(false)}
+      >
+        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Choose Login Method</Text>
+            <TouchableOpacity 
+              onPress={() => setShowAuthChoiceModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <FeatherIcon name="x" size={24} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.modalBody}>
+            <Text style={styles.modalDescription}>
+              Continue with your preferred sign-in option.
+            </Text>
+          </View>
+          
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonPrimary]}
+              onPress={handlePhoneLogin}
+            >
+              <Text style={styles.modalButtonPrimaryText}>Login with phone</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonSecondary]}
+              onPress={handleEmailLogin}
+            >
+              <Text style={styles.modalButtonSecondaryText}>Login with email</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
 
   // For mobile - render bottom navigation bar with gradient
   if (isMobile) {
@@ -444,6 +517,33 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           visible={isSettingsVisible}
           onClose={() => setIsSettingsVisible(false)}
         />
+
+        {/* Authentication Choice Modal */}
+        <AuthChoiceModal />
+
+        {/* Phone Login Modal */}
+       {/* In the phone login modal section of NavigationFooter.tsx */}
+<Modal
+  visible={showPhoneLoginModal}
+  transparent={true}
+  animationType="slide"
+  onRequestClose={() => setShowPhoneLoginModal(false)}
+>
+  <View style={styles.fullScreenModal}>
+    <Login 
+      embedded={true}
+      onBack={() => setShowPhoneLoginModal(false)}
+      sendDataToParent={(data: string) => {
+        setShowPhoneLoginModal(false);
+        if (data === "") {
+          if (onSignOutComplete) {
+            onSignOutComplete();
+          }
+        }
+      }}
+    />
+  </View>
+</Modal>
       </>
     );
   }
@@ -607,6 +707,85 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         visible={isSettingsVisible}
         onClose={() => setIsSettingsVisible(false)}
       />
+
+      {/* Authentication Choice Modal for Desktop */}
+      <Modal
+        visible={showAuthChoiceModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAuthChoiceModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setShowAuthChoiceModal(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Choose Login Method</Text>
+              <TouchableOpacity 
+                onPress={() => setShowAuthChoiceModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <FeatherIcon name="x" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Text style={styles.modalDescription}>
+                Continue with your preferred sign-in option.
+              </Text>
+            </View>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={handlePhoneLogin}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Login with phone</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={handleEmailLogin}
+              >
+                <Text style={styles.modalButtonSecondaryText}>Login with email</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Phone Login Modal for Desktop */}
+      <Modal
+        visible={showPhoneLoginModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPhoneLoginModal(false)}
+      >
+        <View style={styles.fullScreenModal}>
+          <View style={styles.fullScreenModalHeader}>
+            <TouchableOpacity 
+              onPress={() => setShowPhoneLoginModal(false)}
+              style={styles.backButton}
+            >
+              <FeatherIcon name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.fullScreenModalTitle}>Login with Phone</Text>
+            <View style={styles.backButtonPlaceholder} />
+          </View>
+          <Login 
+            embedded={true}
+            sendDataToParent={(data: string) => {
+              setShowPhoneLoginModal(false);
+              if (data === "") {
+                if (onSignOutComplete) {
+                  onSignOutComplete();
+                }
+              }
+            }}
+          />
+        </View>
+      </Modal>
     </>
   );
 };
@@ -819,6 +998,107 @@ const styles = StyleSheet.create({
   },
   disabledDesktopButton: {
     opacity: 0.6,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    width: "90%",
+    maxWidth: 400,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 16,
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: "#64748b",
+    lineHeight: 20,
+  },
+  modalActions: {
+    flexDirection: "row",
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonPrimary: {
+    backgroundColor: "#0284c7",
+  },
+  modalButtonPrimaryText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  modalButtonSecondary: {
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
+  modalButtonSecondaryText: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  // Full screen modal for phone login
+  fullScreenModal: {
+    flex: 1,
+    backgroundColor: "#f3f4f6",
+  },
+  fullScreenModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 16,
+    backgroundColor: "#0d1935",
+  },
+  backButton: {
+    padding: 8,
+  },
+  backButtonPlaceholder: {
+    width: 40,
+  },
+  fullScreenModalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#ffffff",
   },
 });
 
