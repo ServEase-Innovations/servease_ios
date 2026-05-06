@@ -174,7 +174,7 @@ interface FormErrors {
   bankDetails?: BankDetailsErrors;
 }
 
-// Regex for validation
+// Regex for validation (kept for optional format checks)
 const nameRegex = /^[A-Za-z]+(?:[ ][A-Za-z]+)*$/;
 const emailIdRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Z|a-z]{2,}$/;
 const strongPasswordRegex =
@@ -239,6 +239,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [isFullTime, setIsFullTime] = useState(true);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string>("06:00-20:00");
 
+  // NEW: State for KYC document upload
+  const [kycDocumentUrl, setKycDocumentUrl] = useState<string>("");
+  const [isKycUploading, setIsKycUploading] = useState(false);
+
   // Policy modal states
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
   const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
@@ -247,8 +251,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
-  // State to track if next button should be disabled
-  const [isNextDisabled, setIsNextDisabled] = useState(true);
+  // State to track if next button should be disabled - NOW ALWAYS FALSE (no validation blocking)
+  const [isNextDisabled, setIsNextDisabled] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -323,38 +327,36 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [errors, setErrors] = useState<FormErrors>({});
 
   // NEW: Handler for bank details field changes
- // These handlers are already in your code - keep them as is:
-const handleBankFieldChange = (fieldName: string, value: string) => {
-  setFormData(prev => ({
-    ...prev,
-    bankDetails: {
-      ...prev.bankDetails,
-      [fieldName]: value
+  const handleBankFieldChange = (fieldName: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      bankDetails: {
+        ...prev.bankDetails,
+        [fieldName]: value
+      }
+    }));
+    if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        bankDetails: {
+          ...prev.bankDetails,
+          [fieldName]: ""
+        }
+      }));
     }
-  }));
-  if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
-    setErrors(prev => ({
-      ...prev,
-      bankDetails: {
-        ...prev.bankDetails,
-        [fieldName]: ""
-      }
-    }));
-  }
-  checkStepCompletion();
-};
+  };
 
-const handleBankFieldFocus = (fieldName: string) => {
-  if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
-    setErrors(prev => ({
-      ...prev,
-      bankDetails: {
-        ...prev.bankDetails,
-        [fieldName]: ""
-      }
-    }));
-  }
-};
+  const handleBankFieldFocus = (fieldName: string) => {
+    if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        bankDetails: {
+          ...prev.bankDetails,
+          [fieldName]: ""
+        }
+      }));
+    }
+  };
 
   // Initialize Geocoder
   useEffect(() => {
@@ -437,81 +439,16 @@ const handleBankFieldFocus = (fieldName: string) => {
 
   const { validationResults, validateField, resetValidation } = useFieldValidation();
 
+  // Helper function to check if step 0 is ready for next - **NOW ALWAYS TRUE**
+  const isStep0ReadyForNext = () => {
+    // All fields are optional - always allow next
+    return true;
+  };
+
   const checkStepCompletion = useCallback(() => {
-    let isComplete = false;
-    
-    switch(activeStep) {
-      case 0:
-        isComplete = formData.firstName.trim() !== "" &&
-                     formData.lastName.trim() !== "" &&
-                     formData.gender !== "" &&
-                     formData.emailId.trim() !== "" &&
-                     formData.password.trim() !== "" &&
-                     formData.confirmPassword.trim() !== "" &&
-                     formData.mobileNo.trim() !== "" &&
-                     formData.dob.trim() !== "" &&
-                     !errors.firstName &&
-                     !errors.lastName &&
-                     !errors.gender &&
-                     !errors.emailId &&
-                     !errors.password &&
-                     !errors.confirmPassword &&
-                     !errors.mobileNo &&
-                     !errors.dob &&
-                     validationResults.email.isAvailable !== false &&
-                     validationResults.mobile.isAvailable !== false;
-        break;
-        
-      case 1:
-        isComplete = formData.permanentAddress.apartment?.trim() !== "" &&
-                     formData.permanentAddress.street?.trim() !== "" &&
-                     formData.permanentAddress.city?.trim() !== "" &&
-                     formData.permanentAddress.state?.trim() !== "" &&
-                     formData.permanentAddress.country?.trim() !== "" &&
-                     formData.permanentAddress.pincode?.trim() !== "" &&
-                     formData.permanentAddress.pincode.length === 6 &&
-                     (isSameAddress || (
-                       formData.correspondenceAddress.apartment?.trim() !== "" &&
-                       formData.correspondenceAddress.street?.trim() !== "" &&
-                       formData.correspondenceAddress.city?.trim() !== "" &&
-                       formData.correspondenceAddress.state?.trim() !== "" &&
-                       formData.correspondenceAddress.country?.trim() !== "" &&
-                       formData.correspondenceAddress.pincode?.trim() !== "" &&
-                       formData.correspondenceAddress.pincode.length === 6
-                     ));
-        break;
-        
-      case 2:
-        isComplete = formData.housekeepingRole.length > 0 &&
-                     formData.diet !== "" &&
-                     formData.experience !== "" &&
-                     !isNaN(Number(formData.experience)) &&
-                     Number(formData.experience) >= 0 &&
-                     (!formData.housekeepingRole.includes("COOK") || formData.cookingSpeciality !== "") &&
-                     (!formData.housekeepingRole.includes("NANNY") || formData.nannyCareType !== "");
-        break;
-        
-      case 3:
-        isComplete = formData.kycType !== "" &&
-                     formData.kycNumber !== "" &&
-                     formData.documentImage !== null;
-        break;
-        
-      case 4:
-        // Bank Details - Optional step, always complete
-        isComplete = true;
-        break;
-        
-      case 5:
-        isComplete = formData.keyFacts && formData.terms && formData.privacy;
-        break;
-        
-      default:
-        isComplete = false;
-    }
-    
-    setIsNextDisabled(!isComplete);
-  }, [activeStep, formData, errors, validationResults, isSameAddress]);
+    // NO VALIDATION - Always allow next/submit
+    setIsNextDisabled(false);
+  }, []);
 
   useEffect(() => {
     checkStepCompletion();
@@ -799,6 +736,55 @@ const handleBankFieldFocus = (fieldName: string) => {
     }));
   };
 
+  // NEW: Function to upload KYC document
+  const handleKycDocumentUpload = async (file: RNFile | null) => {
+    if (!file) {
+      setKycDocumentUrl("");
+      setFormData(prev => ({ ...prev, documentImage: null }));
+      return;
+    }
+
+    setIsKycUploading(true);
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", {
+        uri: file.uri,
+        type: file.type || 'image/jpeg',
+        name: file.name || 'kyc_document.jpg'
+      } as any);
+
+      const response = await axios.post(
+        "https://imageuploader-5njj.onrender.com/api/files/upload-file",
+        uploadFormData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        const url = response.data.fileUrl || response.data.url || response.data.imageUrl || "";
+        if (url) {
+          setKycDocumentUrl(url);
+          setFormData(prev => ({ ...prev, documentImage: file }));
+          showSnackbar("KYC document uploaded successfully", "success");
+        } else {
+          throw new Error("No URL returned");
+        }
+      } else {
+        throw new Error("Upload failed");
+      }
+    } catch (error) {
+      console.error("KYC upload error:", error);
+      showSnackbar("Failed to upload KYC document", "error");
+      setKycDocumentUrl("");
+      setFormData(prev => ({ ...prev, documentImage: null }));
+    } finally {
+      setIsKycUploading(false);
+    }
+  };
+
   const handleAgentReferralIdChange = (text: string) => {
     setFormData(prev => ({
       ...prev,
@@ -829,6 +815,7 @@ const handleBankFieldFocus = (fieldName: string) => {
       const formattedDate = moment(date).format("YYYY-MM-DD");
       setFormData((prev) => ({ ...prev, dob: formattedDate }));
 
+      // Optional validation - just for UX, not blocking
       const { isValid, message } = validateAge(formattedDate);
       setIsDobValid(isValid);
 
@@ -976,10 +963,11 @@ const handleBankFieldFocus = (fieldName: string) => {
     resetValidation('alternate');
   };
 
-  // Fixed handleRealTimeValidation - accepts event object with target
+  // Updated handleRealTimeValidation - only shows validation errors for UX, never blocks submission
   const handleRealTimeValidation = (e: any) => {
     const { name, value } = e.target;
     
+    // Clear error for this field when user starts typing
     if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({
         ...prev,
@@ -987,14 +975,10 @@ const handleBankFieldFocus = (fieldName: string) => {
       }));
     }
 
-    if (name === "firstName") {
+    // Optional validation for UX only - never prevents submission
+    if (name === "firstName" && value.trim()) {
       const trimmedValue = value.trim();
-      if (!trimmedValue) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          firstName: "First name is required",
-        }));
-      } else if (!nameRegex.test(trimmedValue)) {
+      if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           firstName: "First name should contain only letters",
@@ -1012,14 +996,9 @@ const handleBankFieldFocus = (fieldName: string) => {
       }
     }
 
-    if (name === "lastName") {
+    if (name === "lastName" && value.trim()) {
       const trimmedValue = value.trim();
-      if (!trimmedValue) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          lastName: "Last name is required",
-        }));
-      } else if (!nameRegex.test(trimmedValue)) {
+      if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           lastName: "Last name should contain only letters",
@@ -1045,13 +1024,8 @@ const handleBankFieldFocus = (fieldName: string) => {
       return;
     }
 
-    if (name === "password") {
-      if (!value) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          password: "Password is required",
-        }));
-      } else if (value.length < 8) {
+    if (name === "password" && value.trim()) {
+      if (value.length < 8) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           password: "Password must be at least 8 characters",
@@ -1084,13 +1058,8 @@ const handleBankFieldFocus = (fieldName: string) => {
       }
     }
 
-    if (name === "confirmPassword") {
-      if (!value) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          confirmPassword: "Please confirm your password",
-        }));
-      } else if (value !== formData.password) {
+    if (name === "confirmPassword" && value.trim()) {
+      if (value !== formData.password) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           confirmPassword: "Passwords do not match",
@@ -1103,17 +1072,11 @@ const handleBankFieldFocus = (fieldName: string) => {
       }
     }
 
-    if (name === "emailId") {
+    if (name === "emailId" && value.trim()) {
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const trimmedValue = value.trim();
-      
-      if (!trimmedValue) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          emailId: "Email address is required",
-        }));
-        resetValidation('email');
-      } else if (!emailPattern.test(trimmedValue)) {
+
+      if (!emailPattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           emailId: "Please enter a valid email address",
@@ -1126,19 +1089,15 @@ const handleBankFieldFocus = (fieldName: string) => {
         }));
         debouncedEmailValidation(trimmedValue);
       }
+    } else if (name === "emailId" && !value.trim()) {
+      resetValidation('email');
     }
 
-    if (name === "mobileNo") {
+    if (name === "mobileNo" && value.trim()) {
       const mobilePattern = /^[0-9]{10}$/;
       const trimmedValue = value.trim();
-      
-      if (!trimmedValue) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          mobileNo: "Mobile number is required",
-        }));
-        resetValidation('mobile');
-      } else if (!mobilePattern.test(trimmedValue)) {
+
+      if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           mobileNo: "Please enter a valid 10-digit mobile number",
@@ -1151,12 +1110,14 @@ const handleBankFieldFocus = (fieldName: string) => {
         }));
         debouncedMobileValidation(trimmedValue);
       }
+    } else if (name === "mobileNo" && !value.trim()) {
+      resetValidation('mobile');
     }
 
-    if (name === "AlternateNumber" && value) {
+    if (name === "AlternateNumber" && value.trim()) {
       const mobilePattern = /^[0-9]{10}$/;
       const trimmedValue = value.trim();
-      
+
       if (trimmedValue === formData.mobileNo) {
         setErrors((prevErrors) => ({
           ...prevErrors,
@@ -1176,46 +1137,48 @@ const handleBankFieldFocus = (fieldName: string) => {
         }));
         debouncedAlternateValidation(trimmedValue);
       }
+    } else if (name === "AlternateNumber" && !value.trim()) {
+      resetValidation('alternate');
     }
 
-    if (name === "kycNumber") {
+    if (name === "kycNumber" && value.trim()) {
       const trimmedValue = value.trim();
-      
-      if (trimmedValue) {
-        let isValid = true;
-        let errorMessage = "";
-        
-        switch(formData.kycType) {
-          case "AADHAR":
-            isValid = /^[0-9]{12}$/.test(trimmedValue);
-            errorMessage = "Aadhaar number must be 12 digits";
-            break;
-          case "PAN":
-            isValid = panRegex.test(trimmedValue);
-            errorMessage = "PAN number must be in format: ABCDE1234F";
-            break;
-          case "DRIVING_LICENSE":
-            isValid = trimmedValue.length >= 8;
-            errorMessage = "Please enter a valid driving license number";
-            break;
-          case "VOTER_ID":
-            isValid = voterIdRegex.test(trimmedValue);
-            errorMessage = "Voter ID must be in format: ABC1234567";
-            break;
-          case "PASSPORT":
-            isValid = passportRegex.test(trimmedValue);
-            errorMessage = "Passport number must be 8 characters (1 letter + 7 digits)";
-            break;
-        }
-        
-        if (!isValid) {
-          setErrors(prev => ({ ...prev, kycNumber: errorMessage }));
-        } else {
-          setErrors(prev => ({ ...prev, kycNumber: "" }));
-        }
-      } else {
-        setErrors(prev => ({ ...prev, kycNumber: `${getKycLabel(formData.kycType)} number is required` }));
+      setFormData(prev => ({ ...prev, kycNumber: trimmedValue }));
+
+      // Optional validation for UX only
+      let isValid = true;
+      let errorMessage = "";
+
+      switch(formData.kycType) {
+        case "AADHAR":
+          isValid = /^[0-9]{12}$/.test(trimmedValue);
+          errorMessage = "Aadhaar number must be 12 digits";
+          break;
+        case "PAN":
+          isValid = panRegex.test(trimmedValue);
+          errorMessage = "PAN number must be in format: ABCDE1234F";
+          break;
+        case "DRIVING_LICENSE":
+          isValid = trimmedValue.length >= 8;
+          errorMessage = "Please enter a valid driving license number";
+          break;
+        case "VOTER_ID":
+          isValid = voterIdRegex.test(trimmedValue);
+          errorMessage = "Voter ID must be in format: ABC1234567";
+          break;
+        case "PASSPORT":
+          isValid = passportRegex.test(trimmedValue);
+          errorMessage = "Passport number must be 8 characters (1 letter + 7 digits)";
+          break;
       }
+
+      if (!isValid) {
+        setErrors(prev => ({ ...prev, kycNumber: errorMessage }));
+      } else {
+        setErrors(prev => ({ ...prev, kycNumber: "" }));
+      }
+    } else if (name === "kycNumber" && !value.trim()) {
+      setErrors(prev => ({ ...prev, kycNumber: "" }));
     }
 
     if (name === "gender") {
@@ -1295,11 +1258,6 @@ const handleBankFieldFocus = (fieldName: string) => {
 
   const handleReferralCodeChange = (text: string) => {
     setFormData(prev => ({ ...prev, referralCode: text }));
-  };
-
-  const handleDocumentUpload = (file: RNFile | null) => {
-    setFormData(prev => ({ ...prev, documentImage: file }));
-    checkStepCompletion();
   };
 
   // Handle DOB change for BasicInformation
@@ -1494,294 +1452,16 @@ const handleBankFieldFocus = (fieldName: string) => {
     }
   };
 
+  // ============================================================
+  // VALIDATION IS NOW DISABLED FOR ALL STEPS
+  // ============================================================
   const validateStep = (step: number): boolean => {
-    let tempErrors: FormErrors = {};
-    let isValid = true;
-
-    if (step === 0) {
-      if (!formData.firstName.trim()) {
-        tempErrors.firstName = "First name is required";
-        isValid = false;
-      } else if (!nameRegex.test(formData.firstName)) {
-        tempErrors.firstName = "First name should contain only letters";
-        isValid = false;
-      } else if (formData.firstName.length > MAX_NAME_LENGTH) {
-        tempErrors.firstName = `First name must be less than ${MAX_NAME_LENGTH} characters`;
-        isValid = false;
-      }
-
-      if (!formData.lastName.trim()) {
-        tempErrors.lastName = "Last name is required";
-        isValid = false;
-      } else if (!nameRegex.test(formData.lastName)) {
-        tempErrors.lastName = "Last name should contain only letters";
-        isValid = false;
-      } else if (formData.lastName.length > MAX_NAME_LENGTH) {
-        tempErrors.lastName = `Last name must be less than ${MAX_NAME_LENGTH} characters`;
-        isValid = false;
-      }
-
-      if (!formData.gender) {
-        tempErrors.gender = "Gender is required";
-        isValid = false;
-      }
-      
-      if (!formData.emailId.trim()) {
-        tempErrors.emailId = "Email address is required";
-        isValid = false;
-      } else if (!emailIdRegex.test(formData.emailId)) {
-        tempErrors.emailId = "Please enter a valid email address";
-        isValid = false;
-      } else if (validationResults.email.error) {
-        tempErrors.emailId = validationResults.email.error;
-        isValid = false;
-      } else if (!validationResults.email.isAvailable) {
-        tempErrors.emailId = "Email is already registered";
-        isValid = false;
-      }
-      
-      if (!formData.password.trim()) {
-        tempErrors.password = "Password is required";
-        isValid = false;
-      } else if (!strongPasswordRegex.test(formData.password)) {
-        tempErrors.password = "Password must be at least 8 characters and include uppercase, lowercase, number and special character";
-        isValid = false;
-      }
-      
-      if (!formData.confirmPassword.trim()) {
-        tempErrors.confirmPassword = "Please confirm your password";
-        isValid = false;
-      } else if (formData.password !== formData.confirmPassword) {
-        tempErrors.confirmPassword = "Passwords do not match";
-        isValid = false;
-      }
-      
-      if (!formData.mobileNo.trim()) {
-        tempErrors.mobileNo = "Mobile number is required";
-        isValid = false;
-      } else if (!phoneRegex.test(formData.mobileNo)) {
-        tempErrors.mobileNo = "Please enter a valid 10-digit mobile number";
-        isValid = false;
-      } else if (validationResults.mobile.error) {
-        tempErrors.mobileNo = validationResults.mobile.error;
-        isValid = false;
-      } else if (!validationResults.mobile.isAvailable) {
-        tempErrors.mobileNo = "Mobile number is already registered";
-        isValid = false;
-      }
-      
-      if (formData.AlternateNumber.trim()) {
-        if (!phoneRegex.test(formData.AlternateNumber)) {
-          tempErrors.AlternateNumber = "Please enter a valid 10-digit number";
-          isValid = false;
-        } else if (formData.AlternateNumber === formData.mobileNo) {
-          tempErrors.AlternateNumber = "Alternate number cannot be same as mobile number";
-          isValid = false;
-        } else if (!validationResults.alternate.isAvailable) {
-          tempErrors.AlternateNumber = "Alternate number is already registered";
-          isValid = false;
-        }
-      }
-
-      if (!formData.dob.trim()) {
-        tempErrors.dob = "Date of birth is required";
-        isValid = false;
-      } else {
-        const { isValid: isAgeValid, message } = validateAge(formData.dob);
-        if (!isAgeValid) {
-          tempErrors.dob = message;
-          isValid = false;
-        }
-      }
-    }
-
-    else if (step === 1) {
-      const permanentErrors: any = {};
-      if (!formData.permanentAddress.apartment?.trim()) {
-        permanentErrors.apartment = "Apartment/House number is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.street?.trim()) {
-        permanentErrors.street = "Street address is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.city?.trim()) {
-        permanentErrors.city = "City is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.state?.trim()) {
-        permanentErrors.state = "State is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.country?.trim()) {
-        permanentErrors.country = "Country is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.pincode?.trim()) {
-        permanentErrors.pincode = "Pincode is required";
-        isValid = false;
-      } else if (formData.permanentAddress.pincode.length !== 6) {
-        permanentErrors.pincode = "Pincode must be 6 digits";
-        isValid = false;
-      }
-
-      if (Object.keys(permanentErrors).length > 0) {
-        tempErrors.permanentAddress = permanentErrors;
-      }
-
-      if (!isSameAddress) {
-        const correspondenceErrors: any = {};
-        if (!formData.correspondenceAddress.apartment?.trim()) {
-          correspondenceErrors.apartment = "Apartment/House number is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.street?.trim()) {
-          correspondenceErrors.street = "Street address is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.city?.trim()) {
-          correspondenceErrors.city = "City is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.state?.trim()) {
-          correspondenceErrors.state = "State is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.country?.trim()) {
-          correspondenceErrors.country = "Country is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.pincode?.trim()) {
-          correspondenceErrors.pincode = "Pincode is required";
-          isValid = false;
-        } else if (formData.correspondenceAddress.pincode.length !== 6) {
-          correspondenceErrors.pincode = "Pincode must be 6 digits";
-          isValid = false;
-        }
-
-        if (Object.keys(correspondenceErrors).length > 0) {
-          tempErrors.correspondenceAddress = correspondenceErrors;
-        }
-      }
-    }
-
-    else if (step === 2) {
-      if (formData.housekeepingRole.length === 0) {
-        tempErrors.housekeepingRole = "Please select at least one service type";
-        isValid = false;
-      }
-      if (formData.housekeepingRole.includes("COOK") && !formData.cookingSpeciality) {
-        tempErrors.cookingSpeciality = "Please select cooking speciality";
-        isValid = false;
-      }
-      if (formData.housekeepingRole.includes("NANNY") && !formData.nannyCareType) {
-        tempErrors.nannyCareType = "Please select care type";
-        isValid = false;
-      }
-      if (!formData.diet) {
-        tempErrors.diet = "Please select diet preference";
-        isValid = false;
-      }
-      if (!formData.experience) {
-        tempErrors.experience = "Experience is required";
-        isValid = false;
-      } else if (isNaN(Number(formData.experience)) || Number(formData.experience) < 0) {
-        tempErrors.experience = "Please enter a valid number";
-        isValid = false;
-      }
-    }
-
-    else if (step === 3) {
-      if (!formData.kycType) {
-        tempErrors.kycType = "Please select document type";
-        isValid = false;
-      }
-      if (!formData.kycNumber) {
-        tempErrors.kycNumber = `${getKycLabel(formData.kycType)} number is required`;
-        isValid = false;
-      } else {
-        switch(formData.kycType) {
-          case "AADHAR":
-            if (!aadhaarRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Aadhaar number must be 12 digits";
-              isValid = false;
-            }
-            break;
-          case "PAN":
-            if (!panRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "PAN number must be in format: ABCDE1234F";
-              isValid = false;
-            }
-            break;
-          case "DRIVING_LICENSE":
-            if (formData.kycNumber.length < 8) {
-              tempErrors.kycNumber = "Please enter a valid driving license number";
-              isValid = false;
-            }
-            break;
-          case "VOTER_ID":
-            if (!voterIdRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Voter ID must be in format: ABC1234567";
-              isValid = false;
-            }
-            break;
-          case "PASSPORT":
-            if (!passportRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Passport number must be 8 characters (1 letter + 7 digits)";
-              isValid = false;
-            }
-            break;
-        }
-      }
-      if (!formData.documentImage) {
-        tempErrors.documentImage = "Please upload document image";
-        isValid = false;
-      }
-    }
-
-    else if (step === 4) {
-      // Bank details are optional, always valid
-      isValid = true;
-    }
-
-    else if (step === 5) {
-      if (!formData.keyFacts) {
-        tempErrors.keyFacts = "You must agree to the Key Facts Statement";
-        isValid = false;
-      }
-      if (!formData.terms) {
-        tempErrors.terms = "You must agree to the Terms and Conditions";
-        isValid = false;
-      }
-      if (!formData.privacy) {
-        tempErrors.privacy = "You must agree to the Privacy Policy";
-        isValid = false;
-      }
-    }
-
-    setErrors(tempErrors);
-    
-    return isValid;
+    // All steps are always valid - no required fields
+    return true;
   };
 
   const handleNext = () => {
-    if (isNextDisabled) {
-      showSnackbar("Please fill all required fields", "warning");
-      return;
-    }
-    
-    if (activeStep === 0) {
-      if (validationResults.email.loading || validationResults.mobile.loading) {
-        showSnackbar("Please wait for email and mobile validation", "warning");
-        return;
-      }
-    }
-    
-    if (!validateStep(activeStep)) {
-      showSnackbar("Please fix the errors before proceeding", "error");
-      return;
-    }
-    
+    // No validation needed - just proceed
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
     // Scroll to top when step changes
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -1803,136 +1483,141 @@ const handleBankFieldFocus = (fieldName: string) => {
   const handleSubmit = async () => {
     if (activeStep !== steps.length - 1) return;
 
-    if (validateStep(activeStep)) {
-      setIsSubmitting(true);
-      try {
-        let profilePicUrl = "";
+    setIsSubmitting(true);
+    try {
+      let profilePicUrl = "";
 
-        if (image) {
-          const profileFormData = new FormData();
-          profileFormData.append("image", {
-            uri: image.uri,
-            type: image.type || 'image/jpeg',
-            name: image.name || 'profile.jpg'
-          } as any);
+      if (image) {
+        const profileFormData = new FormData();
+        profileFormData.append("image", {
+          uri: image.uri,
+          type: image.type || 'image/jpeg',
+          name: image.name || 'profile.jpg'
+        } as any);
 
-          const imageResponse = await axiosInstance.post(
-            "http://65.2.153.173:3000/upload",
-            profileFormData,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-              },
-            }
-          );
-
-          if (imageResponse.status === 200) {
-            profilePicUrl = imageResponse.data.imageUrl;
-          }
-        }
-        
-        const selectedServices = formData.housekeepingRole;
-        const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
-        
-        const calculateAge = (dob: string): number => {
-          if (!dob) return 0;
-          const birthDate = moment(dob, "YYYY-MM-DD");
-          const today = moment();
-          return today.diff(birthDate, "years");
-        };
-        
-        const age = calculateAge(formData.dob);
-        
-        // Prepare bank details object (only include non-empty fields)
-        const bankDetailsPayload = Object.fromEntries(
-          Object.entries(formData.bankDetails).filter(([_, v]) => v && v.trim() !== "")
-        );
-
-        const payload = {
-          firstName: formData.firstName,
-          middleName: formData.middleName,
-          lastName: formData.lastName,
-          mobileNo: parseInt(formData.mobileNo) || 0,
-          alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : 0,
-          emailId: formData.emailId,
-          gender: formData.gender,
-          buildingName: formData.buildingName,
-          locality: formData.locality,
-          latitude: currentLocation?.latitude || formData.latitude,
-          longitude: currentLocation?.longitude || formData.longitude,
-          street: formData.street,
-          pincode: parseInt(formData.pincode) || 0,
-          currentLocation: formData.currentLocation,
-          nearbyLocation: formData.nearbyLocation,
-          location: formData.currentLocation,
-          housekeepingRoles: selectedServices,
-          housekeepingRole: primaryRole,
-          serviceTypes: selectedServices,
-          diet: formData.diet,
-          languages: selectedLanguages,
-          age: age,
-          ...(selectedServices.includes("COOK") && {
-            cookingSpeciality: formData.cookingSpeciality
-          }),
-          ...(selectedServices.includes("NANNY") && {
-            nannyCareType: formData.nannyCareType
-          }),
-          timeslot: formData.timeslot,
-          expectedSalary: 0,
-          experience: parseInt(formData.experience) || 0,
-          username: formData.emailId,
-          password: formData.password,
-          agentReferralId: formData.agentReferralId || "",
-          privacy: formData.privacy,
-          keyFacts: formData.keyFacts,
-          permanentAddress: {
-            field1: formData.permanentAddress.apartment || "",
-            field2: formData.permanentAddress.street || "",
-            ctarea: formData.permanentAddress.city || "",
-            pinno: formData.permanentAddress.pincode || "",
-            state: formData.permanentAddress.state || "",
-            country: formData.permanentAddress.country || ""
-          },
-          correspondenceAddress: {
-            field1: formData.correspondenceAddress.apartment || "",
-            field2: formData.correspondenceAddress.street || "",
-            ctarea: formData.correspondenceAddress.city || "",
-            pinno: formData.correspondenceAddress.pincode || "",
-            state: formData.correspondenceAddress.state || "",
-            country: formData.correspondenceAddress.country || ""
-          },
-          active: true,
-          kycType: formData.kycType,
-          kycNumber: formData.kycNumber,
-          dob: formData.dob,
-          profilePic: profilePicUrl,
-          // Add bank details to payload matching React code structure
-          bankName: formData.bankDetails.bankName?.trim() || null,
-          ifscCode: formData.bankDetails.ifscCode?.trim() || null,
-          accountHolderName: formData.bankDetails.accountHolderName?.trim() || null,
-          accountNumber: formData.bankDetails.accountNumber?.trim() || null,
-          accountType: formData.bankDetails.accountType?.trim() || null,
-          upiId: formData.bankDetails.upiId?.trim() || null,
-        };
-
-        console.log("Submitting payload:", JSON.stringify(payload, null, 2));
-
-        const response = await providerInstance.post(
-          "/api/service-providers/serviceprovider/add",
-          payload,
+        const imageResponse = await axios.post(
+          "https://imageuploader-5njj.onrender.com/api/images/upload",
+          profileFormData,
           {
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "multipart/form-data",
             },
           }
         );
 
-        showSnackbar("Registration successful!", "success");
+        if (imageResponse.status === 200) {
+          profilePicUrl = imageResponse.data.imageUrl || imageResponse.data.url || "";
+        }
+      }
+      
+      const selectedServices = formData.housekeepingRole;
+      const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
+      
+      const calculateAge = (dob: string): number => {
+        if (!dob) return 0;
+        const birthDate = moment(dob, "YYYY-MM-DD");
+        const today = moment();
+        return today.diff(birthDate, "years");
+      };
+      
+      const age = calculateAge(formData.dob);
+      
+      // Helper to convert empty strings to null
+      const toNull = (value: any) => (value === "" ? null : value);
 
+      // Prepare bank details object (only include non-empty fields)
+      const bankDetailsPayload = Object.fromEntries(
+        Object.entries(formData.bankDetails).filter(([_, v]) => v && v.trim() !== "")
+      );
+
+      const payload = {
+        firstName: toNull(formData.firstName),
+        middleName: toNull(formData.middleName),
+        lastName: toNull(formData.lastName),
+        mobileNo: formData.mobileNo ? parseInt(formData.mobileNo) : null,
+        alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : null,
+        emailId: toNull(formData.emailId),
+        gender: toNull(formData.gender),
+        buildingName: toNull(formData.buildingName),
+        locality: toNull(formData.locality),
+        latitude: currentLocation?.latitude || formData.latitude || null,
+        longitude: currentLocation?.longitude || formData.longitude || null,
+        street: toNull(formData.street),
+        pincode: formData.pincode ? parseInt(formData.pincode) : null,
+        currentLocation: toNull(formData.currentLocation),
+        nearbyLocation: toNull(formData.nearbyLocation),
+        location: toNull(formData.currentLocation),
+        housekeepingRoles: selectedServices.length ? selectedServices : null,
+        housekeepingRole: primaryRole || null,
+        serviceTypes: selectedServices.length ? selectedServices : null,
+        diet: toNull(formData.diet),
+        languages: selectedLanguages.length ? selectedLanguages : null,
+        ...(selectedServices.includes("COOK") && formData.cookingSpeciality && {
+          cookingSpeciality: formData.cookingSpeciality
+        }),
+        ...(selectedServices.includes("NANNY") && formData.nannyCareType && {
+          nannyCareType: formData.nannyCareType
+        }),
+        timeslot: toNull(formData.timeslot),
+        expectedSalary: 0,
+        experience: formData.experience ? parseInt(formData.experience) : null,
+        username: toNull(formData.emailId),
+        password: toNull(formData.password),
+        agentReferralId: toNull(formData.agentReferralId),
+        privacy: formData.privacy || false,
+        keyFacts: formData.keyFacts || false,
+        permanentAddress: {
+          field1: toNull(formData.permanentAddress.apartment),
+          field2: toNull(formData.permanentAddress.street),
+          ctarea: toNull(formData.permanentAddress.city),
+          pinno: toNull(formData.permanentAddress.pincode),
+          state: toNull(formData.permanentAddress.state),
+          country: toNull(formData.permanentAddress.country)
+        },
+        correspondenceAddress: {
+          field1: toNull(formData.correspondenceAddress.apartment),
+          field2: toNull(formData.correspondenceAddress.street),
+          ctarea: toNull(formData.correspondenceAddress.city),
+          pinno: toNull(formData.correspondenceAddress.pincode),
+          state: toNull(formData.correspondenceAddress.state),
+          country: toNull(formData.correspondenceAddress.country)
+        },
+        active: true,
+        kycType: toNull(formData.kycType),
+        kycNumber: toNull(formData.kycNumber),
+        kycDocumentUrl: kycDocumentUrl || null,
+        dob: toNull(formData.dob),
+        profilePic: profilePicUrl || null,
+        age: age || null,
+        // Bank details matching React code structure
+        bankName: toNull(formData.bankDetails.bankName),
+        ifscCode: toNull(formData.bankDetails.ifscCode),
+        accountHolderName: toNull(formData.bankDetails.accountHolderName),
+        accountNumber: toNull(formData.bankDetails.accountNumber),
+        accountType: toNull(formData.bankDetails.accountType),
+        upiId: toNull(formData.bankDetails.upiId),
+      };
+
+      console.log("Submitting payload:", JSON.stringify(payload, null, 2));
+
+      const response = await providerInstance.post(
+        "/api/service-providers/serviceprovider/add",
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      showSnackbar("Registration successful!", "success");
+
+      // Only create Auth0 user if email and password are provided
+      if (formData.emailId && formData.password) {
         const authPayload = {
           email: formData.emailId,
           password: formData.password,
-          name: `${formData.firstName} ${formData.lastName}`,
+          name: `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || "Service Provider",
         };
 
         axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
@@ -1941,29 +1626,27 @@ const handleBankFieldFocus = (fieldName: string) => {
           }).catch((authError) => {
             console.error("Error creating AuthO user:", authError);
           });
-
-        setTimeout(() => {
-          setIsSubmitting(false);
-          if (onRegistrationSuccess) {
-            onRegistrationSuccess();
-          } else {
-            onBackToLogin(true);
-          }
-        }, 3000);
-      } catch (error) {
-        setIsSubmitting(false);
-        
-        if (axios.isAxiosError(error) && error.response) {
-          const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
-          showSnackbar(errorMsg, "error");
-          console.error("Error submitting form:", error.response.data);
-        } else {
-          showSnackbar("Registration failed. Please try again.", "error");
-          console.error("Error submitting form:", error);
-        }
       }
-    } else {
+
+      setTimeout(() => {
+        setIsSubmitting(false);
+        if (onRegistrationSuccess) {
+          onRegistrationSuccess();
+        } else {
+          onBackToLogin(true);
+        }
+      }, 3000);
+    } catch (error) {
       setIsSubmitting(false);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
+        showSnackbar(errorMsg, "error");
+        console.error("Error submitting form:", error.response.data);
+      } else {
+        showSnackbar("Registration failed. Please try again.", "error");
+        console.error("Error submitting form:", error);
+      }
     }
   };
 
@@ -1975,9 +1658,10 @@ const handleBankFieldFocus = (fieldName: string) => {
     setSnackbarOpen(false);
   };
 
+  // Validate age function - kept for informational purposes only (not blocking)
   const validateAge = (dob: string): { isValid: boolean; message: string } => {
     if (!dob) {
-      return { isValid: false, message: "Date of birth is required" };
+      return { isValid: true, message: "" }; // No error if empty
     }
 
     const birthDate = moment(dob, "YYYY-MM-DD");
@@ -2049,50 +1733,51 @@ const handleBankFieldFocus = (fieldName: string) => {
   const fontSizes = getFontSizes();
 
   const renderStepper = () => {
-  return (
-    <View style={styles.stepperWrapper}>
-      {steps.map((step, index) => (
-        <View key={index} style={styles.stepperItem}>
-          <View
-            style={[
-              styles.stepperCircle,
-              index < activeStep && styles.stepperCircleCompleted,
-              index === activeStep && styles.stepperCircleActive,
-              index > activeStep && styles.stepperCircleInactive,
-            ]}
-          >
-            {index < activeStep ? (
-              <Icon name="check" size={SCREEN_WIDTH < 380 ? 12 : 16} color="#fff" />
-            ) : (
-              <Text style={[styles.stepperNumber, { fontSize: SCREEN_WIDTH < 380 ? 10 : 12 }]}>{index + 1}</Text>
-            )}
-          </View>
-          <Text
-            style={[
-              styles.stepperLabel,
-              { 
-                fontSize: SCREEN_WIDTH < 380 ? 9 : (SCREEN_WIDTH < 480 ? 10 : 11),
-                textAlign: 'center'
-              },
-              index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
-            ]}
-            numberOfLines={2}
-          >
-            {step}
-          </Text>
-          {index < steps.length - 1 && (
+    return (
+      <View style={styles.stepperWrapper}>
+        {steps.map((step, index) => (
+          <View key={index} style={styles.stepperItem}>
             <View
               style={[
-                styles.stepperLine,
-                index < activeStep && styles.stepperLineActive,
+                styles.stepperCircle,
+                index < activeStep && styles.stepperCircleCompleted,
+                index === activeStep && styles.stepperCircleActive,
+                index > activeStep && styles.stepperCircleInactive,
               ]}
-            />
-          )}
-        </View>
-      ))}
-    </View>
-  );
-};
+            >
+              {index < activeStep ? (
+                <Icon name="check" size={SCREEN_WIDTH < 380 ? 12 : 16} color="#fff" />
+              ) : (
+                <Text style={[styles.stepperNumber, { fontSize: SCREEN_WIDTH < 380 ? 10 : 12 }]}>{index + 1}</Text>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.stepperLabel,
+                { 
+                  fontSize: SCREEN_WIDTH < 380 ? 9 : (SCREEN_WIDTH < 480 ? 10 : 11),
+                  textAlign: 'center'
+                },
+                index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
+              ]}
+              numberOfLines={2}
+            >
+              {step}
+            </Text>
+            {index < steps.length - 1 && (
+              <View
+                style={[
+                  styles.stepperLine,
+                  index < activeStep && styles.stepperLineActive,
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -2211,23 +1896,25 @@ const handleBankFieldFocus = (fieldName: string) => {
               errors={errors}
               onFieldChange={handleRealTimeValidation}
               onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
-              onDocumentUpload={handleDocumentUpload}
+              onDocumentUpload={handleKycDocumentUpload}
               onKycTypeChange={handleKycTypeChange}
+              isUploading={isKycUploading}
+              uploadedUrl={kycDocumentUrl}
             />
           </View>
         );
 
-  case 4:
-  return (
-    <View style={styles.stepContainer}>
-      <BankDetails
-        formData={formData.bankDetails}
-        errors={errors.bankDetails || {}}
-        onFieldChange={handleBankFieldChange}
-        onFieldFocus={handleBankFieldFocus}
-      />
-    </View>
-  );
+      case 4:
+        return (
+          <View style={styles.stepContainer}>
+            <BankDetails
+              formData={formData.bankDetails}
+              errors={errors.bankDetails || {}}
+              onFieldChange={handleBankFieldChange}
+              onFieldFocus={handleBankFieldFocus}
+            />
+          </View>
+        );
 
       case 5:
         return (
@@ -2311,7 +1998,7 @@ const handleBankFieldFocus = (fieldName: string) => {
                     variant="primary"
                     size="medium"
                     onPress={handleSubmit}
-                    disabled={isNextDisabled || isSubmitting}
+                    disabled={isSubmitting}
                     loading={isSubmitting}
                   >
                     Submit
@@ -2321,7 +2008,7 @@ const handleBankFieldFocus = (fieldName: string) => {
                     variant="primary"
                     size="medium"
                     onPress={handleNext}
-                    disabled={isNextDisabled || isSubmitting}
+                    disabled={isSubmitting}
                     endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
                   >
                     Next
@@ -2468,9 +2155,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   stepperLabel: {
-  fontWeight: '500',
-  lineHeight: 14,
-},
+    fontWeight: '500',
+    lineHeight: 14,
+  },
   stepperLabelActive: {
     color: '#1976d2',
     fontWeight: 'bold',

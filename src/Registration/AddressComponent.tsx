@@ -504,12 +504,12 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
       {/* Permanent Address */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>
-          {t('registration.address.permanent')} *
+          {t('registration.address.permanent')}
         </Text>
         
         <View style={styles.row}>
           {renderInput(
-            t('registration.address.apartment') + ' *',
+            t('registration.address.apartment'),
             permanentAddress.apartment,
             (text) => handlePermanentAddressChange('apartment', text),
             errors.permanent?.apartment,
@@ -524,7 +524,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
 
         <View style={styles.row}>
           {renderInput(
-            t('registration.address.street') + ' *',
+            t('registration.address.street'),
             permanentAddress.street,
             (text) => handlePermanentAddressChange('street', text),
             errors.permanent?.street,
@@ -540,7 +540,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
         {/* City and Country row */}
         <View style={styles.row}>
           {renderInput(
-            t('registration.address.city') + ' *',
+            t('registration.address.city'),
             permanentAddress.city,
             (text) => handlePermanentAddressChange('city', text),
             errors.permanent?.city,
@@ -552,7 +552,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             t('registration.address.enterCity')
           )}
           {renderInput(
-            t('registration.address.country') + ' *',
+            t('registration.address.country'),
             permanentAddress.country,
             () => {}, // Empty function as we handle via dropdown
             errors.permanent?.country,
@@ -568,7 +568,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
         {/* State and Pincode row */}
         <View style={styles.row}>
           {renderInput(
-            t('registration.address.state') + ' *',
+            t('registration.address.state'),
             permanentAddress.state,
             () => {}, // Empty function as we handle via dropdown
             errors.permanent?.state,
@@ -580,7 +580,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             permanentAddress.country ? t('registration.address.selectState') : t('registration.address.selectCountryFirst')
           )}
           {renderInput(
-            t('registration.address.pincode') + ' *',
+            t('registration.address.pincode'),
             permanentAddress.pincode,
             (text) => handlePermanentAddressChange('pincode', text.replace(/\D/g, '').slice(0, 6)),
             errors.permanent?.pincode,
@@ -617,12 +617,12 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
       {!isSameAddress && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>
-            {t('registration.address.correspondence')} *
+            {t('registration.address.correspondence')}
           </Text>
           
           <View style={styles.row}>
             {renderInput(
-              t('registration.address.apartment') + ' *',
+              t('registration.address.apartment'),
               correspondenceAddress.apartment,
               (text) => handleCorrespondenceAddressChange('apartment', text),
               errors.correspondence?.apartment,
@@ -637,7 +637,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
 
           <View style={styles.row}>
             {renderInput(
-              t('registration.address.street') + ' *',
+              t('registration.address.street'),
               correspondenceAddress.street,
               (text) => handleCorrespondenceAddressChange('street', text),
               errors.correspondence?.street,
@@ -653,7 +653,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
           {/* City and Country row */}
           <View style={styles.row}>
             {renderInput(
-              t('registration.address.city') + ' *',
+              t('registration.address.city'),
               correspondenceAddress.city,
               (text) => handleCorrespondenceAddressChange('city', text),
               errors.correspondence?.city,
@@ -665,7 +665,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
               t('registration.address.enterCity')
             )}
             {renderInput(
-              t('registration.address.country') + ' *',
+              t('registration.address.country'),
               correspondenceAddress.country,
               () => {}, // Empty function as we handle via dropdown
               errors.correspondence?.country,
@@ -681,7 +681,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
           {/* State and Pincode row */}
           <View style={styles.row}>
             {renderInput(
-              t('registration.address.state') + ' *',
+              t('registration.address.state'),
               correspondenceAddress.state,
               () => {}, // Empty function as we handle via dropdown
               errors.correspondence?.state,
@@ -693,7 +693,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
               correspondenceAddress.country ? t('registration.address.selectState') : t('registration.address.selectCountryFirst')
             )}
             {renderInput(
-              t('registration.address.pincode') + ' *',
+              t('registration.address.pincode'),
               correspondenceAddress.pincode,
               (text) => handleCorrespondenceAddressChange('pincode', text.replace(/\D/g, '').slice(0, 6)),
               errors.correspondence?.pincode,

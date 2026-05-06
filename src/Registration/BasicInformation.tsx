@@ -403,10 +403,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           <ProfileImageUpload onImageSelect={onImageSelect} />
         </View>
         
-        {/* First Name */}
+        {/* First Name - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.firstName')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.firstName')}
           </Text>
           <TextInput
             style={[dynamicStyles.input, errors.firstName && dynamicStyles.inputError]}
@@ -424,7 +424,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Middle Name */}
+        {/* Middle Name - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.middleName')}
@@ -438,10 +438,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           />
         </View>
         
-        {/* Last Name */}
+        {/* Last Name - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.lastName')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.lastName')}
           </Text>
           <TextInput
             style={[dynamicStyles.input, errors.lastName && dynamicStyles.inputError]}
@@ -459,10 +459,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Date of Birth - Modern DateTimePicker with Age Restriction */}
+        {/* Date of Birth - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.dateOfBirth')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.dateOfBirth')}
           </Text>
           
           <TouchableOpacity 
@@ -518,10 +518,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           />
         )}
         
-        {/* Gender */}
+        {/* Gender - NO ASTERISK */}
         <View style={dynamicStyles.genderContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.gender')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.gender')}
           </Text>
           <View style={dynamicStyles.radioGroup}>
             <TouchableOpacity
@@ -570,10 +570,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Email */}
+        {/* Email - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.email')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.email')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
@@ -616,10 +616,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Password */}
+        {/* Password - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.password')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.password')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
@@ -650,10 +650,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Confirm Password */}
+        {/* Confirm Password - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.confirmPassword')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.confirmPassword')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
@@ -684,10 +684,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
         
-        {/* Mobile Number */}
+        {/* Mobile Number - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
-            {t('registration.basicInformation.mobileNumber')} <Text style={dynamicStyles.required}>*</Text>
+            {t('registration.basicInformation.mobileNumber')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
@@ -729,7 +729,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
 
-        {/* Alternate Number */}
+        {/* Alternate Number - NO ASTERISK */}
         <View style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.alternateNumber')}

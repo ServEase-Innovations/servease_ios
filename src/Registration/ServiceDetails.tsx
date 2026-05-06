@@ -218,7 +218,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       {/* Cooking Speciality */}
       {isCookSelected && (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Cooking Speciality *</Text>
+          <Text style={styles.sectionTitle}>Cooking Speciality</Text>
           <View style={styles.optionsContainer}>
             {dietOptions.map((option) => (
               <TouchableOpacity
@@ -239,7 +239,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       {/* Nanny Care Type */}
       {isNannySelected && (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Care Type *</Text>
+          <Text style={styles.sectionTitle}>Care Type</Text>
           <View style={styles.optionsContainer}>
             {nannyCareOptions.map((option) => (
               <TouchableOpacity
@@ -259,7 +259,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
 
       {/* Diet Preference */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Diet Preference *</Text>
+        <Text style={styles.sectionTitle}>Diet Preference</Text>
         <View style={styles.optionsContainer}>
           {dietOptions.map((option) => (
             <TouchableOpacity
