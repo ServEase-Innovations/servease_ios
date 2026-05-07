@@ -43,7 +43,7 @@ interface AppUser {
 
 const ProfileScreen: React.FC = () => {
   const { t } = useTranslation();
-  const { user: auth0User, isLoading: auth0Loading } = useAuth0();
+  const { user: auth0User, isLoading: auth0Loading } = useAuth0(); // only used for picture fallback
   const { appUser } = useAppUser();
   const { colors, fontSize, isDarkMode } = useTheme();
 
@@ -110,9 +110,10 @@ const ProfileScreen: React.FC = () => {
     const initializeProfile = async () => {
       setIsLoading(true);
 
+      // ✅ Use appUser regardless of Auth0 authentication
       if (appUser) {
         const name = appUser.name || null;
-        const email = appUser.email || auth0User?.email || null;
+        const email = appUser.email || null;
         const role = appUser.role || 'CUSTOMER';
 
         setUserRole(role);
@@ -142,7 +143,7 @@ const ProfileScreen: React.FC = () => {
     };
 
     initializeProfile();
-  }, [appUser, auth0User?.email, checkMobileNumber]);
+  }, [appUser, checkMobileNumber]);
 
   const getRoleDisplay = () => {
     switch (userRole) {
@@ -267,6 +268,9 @@ const ProfileScreen: React.FC = () => {
     );
   }
 
+  // Determine profile picture: from appUser, Auth0, or default
+  const profilePicture = appUser?.picture || auth0User?.picture || "https://via.placeholder.com/80";
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -294,23 +298,10 @@ const ProfileScreen: React.FC = () => {
             <View style={styles.headerContent}>
               <View style={styles.profileInfo}>
                 <View style={styles.avatarRing}>
-                  {appUser?.picture || auth0User?.picture ? (
-                    <Image
-                      source={getAvatarSource()}
-                      style={styles.avatar}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.avatarFallback,
-                        { backgroundColor: getAvatarBackgroundColor(getUserInitial()) },
-                      ]}
-                    >
-                      <Text style={[styles.avatarText, { fontSize: fontSizes.title, color: '#fff' }]}>
-                        {getUserInitial()}
-                      </Text>
-                    </View>
-                  )}
+                  <Image
+                    source={{ uri: profilePicture }}
+                    style={styles.avatar}
+                  />
                 </View>
                 <View style={styles.userInfo}>
                   <Text style={[styles.greeting, { color: '#ffffff', fontSize: fontSizes.title }]}>
@@ -360,7 +351,7 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.bottomCurve} />
         </View>
 
-        {/* Profile Section - starts with curved top */}
+        {/* Profile Section - Supports all three roles */}
         <View style={styles.profileSectionContainer}>
           {userRole === 'CUSTOMER' ? (
             <CustomerProfileSection

@@ -1,6 +1,6 @@
-// Login.tsx - React Native CLI version with inline styles and gradient header
+// Login.tsx - React Native CLI version with inline styles and gradient header (FIXED)
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,9 @@ import Registration from "../UserRegistration/Registration";
 import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 import ServiceProviderRegistration from "../Registration/ServiceProviderRegistration";
 import ForgotPassword from "./ForgotPassword";
+
+// Import the custom hook for AppUser context
+import { useAppUser } from "../context/AppUserContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -120,6 +123,7 @@ export const Login: React.FC<ChildComponentProps> = ({
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const dispatch = useDispatch();
+  const { setAppUser } = useAppUser(); // Use the AppUser context
 
   const handleBackToLogin = () => {
     setIsRegistration(false);
@@ -130,14 +134,6 @@ export const Login: React.FC<ChildComponentProps> = ({
 
   const handleSnackbarClose = () => {
     setOpenSnackbar(false);
-  };
-
-  const handleKeyPress = () => {
-    if (otpSent) {
-      handleVerifyOtp();
-    } else {
-      handleSendOtp();
-    }
   };
 
   const handleSendOtp = async () => {
@@ -163,6 +159,8 @@ export const Login: React.FC<ChildComponentProps> = ({
       );
       setSnackbarSeverity("success");
       setOpenSnackbar(true);
+      // Clear OTP field when new OTP is sent
+      setOtp("");
     } catch (error: any) {
       console.error("Send OTP error:", error);
       setSnackbarMessage(
@@ -191,21 +189,96 @@ export const Login: React.FC<ChildComponentProps> = ({
       });
 
       const payload = response?.data?.data;
-      if (!payload?.customer) {
+      const role = payload?.role;
+
+      // Basic validation: must have valid role and token
+      if (!role || !payload?.token) {
         throw new Error("Invalid response from OTP login.");
       }
 
+      // Store token and Redux data
       localStorage.setItem("token", payload.token);
       dispatch(add(payload));
+
+      // Build AppUser object based on role
+      if (role === "SERVICE_PROVIDER") {
+        // ID can be string; convert to number for consistency
+        const serviceProviderId = payload.serviceProviderId
+          ? Number(payload.serviceProviderId)
+          : null;
+        const providerData = payload.serviceProvider;
+        setAppUser({
+          role: "SERVICE_PROVIDER",
+          serviceProviderId: serviceProviderId,
+          name: providerData
+            ? [providerData.firstName, providerData.lastName].filter(Boolean).join(" ")
+            : "Service Provider",
+          email: providerData?.emailId ?? null,
+        });
+      }
+      else if (role === "VENDOR") {
+        // Assuming similar structure: vendorId (string) and vendor object
+        const vendorId = payload.vendorId ? Number(payload.vendorId) : null;
+        const vendorData = payload.vendor;
+        setAppUser({
+          role: "VENDOR",
+          vendorId: vendorId,
+          name: vendorData
+            ? [vendorData.firstName, vendorData.lastName].filter(Boolean).join(" ")
+            : "Vendor",
+          email: vendorData?.emailId ?? null,
+        });
+      }
+      else if (role === "CUSTOMER") {
+        // Assuming similar structure: customerId (string) and customer object
+        const customerId = payload.customerId ? Number(payload.customerId) : null;
+        const customerData = payload.customer;
+        setAppUser({
+          role: "CUSTOMER",
+          customerid: customerId,
+          name: customerData
+            ? [customerData.firstname, customerData.lastname].filter(Boolean).join(" ")
+            : "Customer",
+          email: customerData?.emailid ?? null,
+        });
+      }
+      else {
+        // Unknown role – still set minimal appUser to avoid crashing
+        setAppUser({
+          role: role,
+          name: "User",
+          email: null,
+        });
+      }
+
       setSnackbarMessage("Login successful!");
       setSnackbarSeverity("success");
       setOpenSnackbar(true);
 
+      // Navigate based on role
       setTimeout(() => {
-        if (sendDataToParent) {
-          sendDataToParent("");
-        } else if (bookingPage) {
-          bookingPage("CUSTOMER");
+        if (role === "SERVICE_PROVIDER") {
+          if (sendDataToParent) {
+            sendDataToParent("PROFILE");
+          } else if (bookingPage) {
+            bookingPage("SERVICE_PROVIDER");
+          }
+        } else if (role === "VENDOR") {
+          if (sendDataToParent) {
+            sendDataToParent("AGENT_DASHBOARD");
+          } else if (bookingPage) {
+            bookingPage("VENDOR");
+          }
+        } else if (role === "CUSTOMER") {
+          if (sendDataToParent) {
+            sendDataToParent("");
+          } else if (bookingPage) {
+            bookingPage("CUSTOMER");
+          }
+        } else {
+          // Fallback
+          if (sendDataToParent) sendDataToParent("");
+          if (bookingPage) bookingPage("CUSTOMER");
         }
       }, 700);
     } catch (error: any) {
@@ -220,10 +293,22 @@ export const Login: React.FC<ChildComponentProps> = ({
     }
   };
 
-  React.useEffect(() => {
-    if (!otpSent || resendIn <= 0) return;
-    const t = setTimeout(() => setResendIn((prev) => prev - 1), 1000);
-    return () => clearTimeout(t);
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (otpSent && resendIn > 0) {
+      interval = setInterval(() => {
+        setResendIn((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [otpSent, resendIn]);
 
   // Render header with gradient for embedded mode
@@ -329,11 +414,12 @@ export const Login: React.FC<ChildComponentProps> = ({
                         keyboardType="phone-pad"
                         value={mobile}
                         onChangeText={setMobile}
-                        onSubmitEditing={handleKeyPress}
+                        editable={!otpSent} // Disable mobile number editing after OTP is sent
                         maxLength={10}
                       />
                     </View>
                     
+                    {/* OTP Input - Conditionally rendered based on otpSent */}
                     {otpSent && (
                       <View style={styles.otpContainer}>
                         {!embedded && (
@@ -347,19 +433,21 @@ export const Login: React.FC<ChildComponentProps> = ({
                         <TextInput
                           style={[
                             styles.input,
-                            embedded ? styles.embeddedInput : styles.normalInput
+                            embedded ? styles.embeddedInput : styles.normalInput,
+                            styles.otpInput
                           ]}
                           placeholder={embedded ? "Enter 6-digit OTP" : "Enter 6-digit OTP"}
                           placeholderTextColor={embedded ? "#94a3b8" : "#9ca3af"}
                           keyboardType="number-pad"
                           value={otp}
                           onChangeText={setOtp}
-                          onSubmitEditing={handleKeyPress}
                           maxLength={6}
+                          autoFocus={true} // Auto-focus OTP input when it appears
                         />
                       </View>
                     )}
 
+                    {/* Conditional Button Rendering */}
                     {!otpSent ? (
                       <TouchableOpacity
                         style={[
@@ -424,7 +512,7 @@ export const Login: React.FC<ChildComponentProps> = ({
                     )}
                   </View>
 
-                  {!embedded && (
+                  {!embedded && !otpSent && (
                     <View style={styles.signupLinks}>
                       <TouchableOpacity onPress={() => setIsRegistration(true)}>
                         <Text style={styles.linkText}>New User? Register</Text>
@@ -617,6 +705,11 @@ const styles = StyleSheet.create({
   },
   otpContainer: {
     marginTop: 0,
+  },
+  otpInput: {
+    fontSize: 18,
+    letterSpacing: 2,
+    textAlign: "center",
   },
   button: {
     borderRadius: 12,
