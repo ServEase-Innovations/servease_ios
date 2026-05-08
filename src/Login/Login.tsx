@@ -17,7 +17,7 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import { useDispatch } from "react-redux";
 import { add } from "../features/userSlice";
-import axiosInstance from "../services/axiosInstance";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Custom components (you'll need to create these)
 import Registration from "../UserRegistration/Registration";
@@ -27,6 +27,7 @@ import ForgotPassword from "./ForgotPassword";
 
 // Import the custom hook for AppUser context
 import { useAppUser } from "../context/AppUserContext";
+import providerInstance from "../services/providerInstance";
 
 const { width, height } = Dimensions.get("window");
 
@@ -147,7 +148,7 @@ export const Login: React.FC<ChildComponentProps> = ({
 
     try {
       setSendingOtp(true);
-      const response = await axiosInstance.post("/api/auth/otp/send", {
+      const response = await providerInstance.post("/api/auth/otp/send", {
         mobile: sanitizedMobile,
       });
       setOtpSent(true);
@@ -183,7 +184,7 @@ export const Login: React.FC<ChildComponentProps> = ({
 
     try {
       setVerifyingOtp(true);
-      const response = await axiosInstance.post("/api/auth/otp/verify", {
+      const response = await providerInstance.post("/api/auth/otp/verify", {
         mobile: mobile.replace(/\D/g, ""),
         otp: otp.trim(),
       });
@@ -196,67 +197,90 @@ export const Login: React.FC<ChildComponentProps> = ({
         throw new Error("Invalid response from OTP login.");
       }
 
-      // Store token and Redux data
-      localStorage.setItem("token", payload.token);
+      // Store token in AsyncStorage
+      await AsyncStorage.setItem("token", payload.token);
+      await AsyncStorage.setItem("userRole", role);
+      
+      // Also store in Redux
       dispatch(add(payload));
+
+      // Build complete user object for context
+      let userData: any = {
+        token: payload.token,
+        role: role,
+        email: null,
+        name: "",
+      };
 
       // Build AppUser object based on role
       if (role === "SERVICE_PROVIDER") {
-        // ID can be string; convert to number for consistency
         const serviceProviderId = payload.serviceProviderId
           ? Number(payload.serviceProviderId)
           : null;
         const providerData = payload.serviceProvider;
-        setAppUser({
-          role: "SERVICE_PROVIDER",
+        userData = {
+          ...userData,
           serviceProviderId: serviceProviderId,
           name: providerData
             ? [providerData.firstName, providerData.lastName].filter(Boolean).join(" ")
             : "Service Provider",
           email: providerData?.emailId ?? null,
-        });
+          firstName: providerData?.firstName,
+          lastName: providerData?.lastName,
+        };
       }
       else if (role === "VENDOR") {
-        // Assuming similar structure: vendorId (string) and vendor object
         const vendorId = payload.vendorId ? Number(payload.vendorId) : null;
         const vendorData = payload.vendor;
-        setAppUser({
-          role: "VENDOR",
+        userData = {
+          ...userData,
           vendorId: vendorId,
           name: vendorData
             ? [vendorData.firstName, vendorData.lastName].filter(Boolean).join(" ")
             : "Vendor",
           email: vendorData?.emailId ?? null,
-        });
+          firstName: vendorData?.firstName,
+          lastName: vendorData?.lastName,
+        };
       }
       else if (role === "CUSTOMER") {
-        // Assuming similar structure: customerId (string) and customer object
         const customerId = payload.customerId ? Number(payload.customerId) : null;
         const customerData = payload.customer;
-        setAppUser({
-          role: "CUSTOMER",
+        userData = {
+          ...userData,
           customerid: customerId,
           name: customerData
             ? [customerData.firstname, customerData.lastname].filter(Boolean).join(" ")
             : "Customer",
           email: customerData?.emailid ?? null,
-        });
+          firstName: customerData?.firstname,
+          lastName: customerData?.lastname,
+          mobile: mobile.replace(/\D/g, ""),
+        };
       }
       else {
-        // Unknown role – still set minimal appUser to avoid crashing
-        setAppUser({
-          role: role,
+        userData = {
+          ...userData,
           name: "User",
-          email: null,
-        });
+        };
       }
+
+      // Set the user in context - this will trigger re-render everywhere
+      setAppUser(userData);
+      
+      console.log("✅ User logged in successfully:", { role, name: userData.name });
 
       setSnackbarMessage("Login successful!");
       setSnackbarSeverity("success");
       setOpenSnackbar(true);
 
-      // Navigate based on role
+      // Close modal and navigate after short delay
       setTimeout(() => {
+        if (embedded && onBack) {
+          onBack();
+        }
+        
+        // Navigate based on role
         if (role === "SERVICE_PROVIDER") {
           if (sendDataToParent) {
             sendDataToParent("PROFILE");
@@ -276,11 +300,11 @@ export const Login: React.FC<ChildComponentProps> = ({
             bookingPage("CUSTOMER");
           }
         } else {
-          // Fallback
           if (sendDataToParent) sendDataToParent("");
           if (bookingPage) bookingPage("CUSTOMER");
         }
-      }, 700);
+      }, 500);
+      
     } catch (error: any) {
       console.error("Verify OTP error:", error);
       setSnackbarMessage(
@@ -414,12 +438,11 @@ export const Login: React.FC<ChildComponentProps> = ({
                         keyboardType="phone-pad"
                         value={mobile}
                         onChangeText={setMobile}
-                        editable={!otpSent} // Disable mobile number editing after OTP is sent
+                        editable={!otpSent}
                         maxLength={10}
                       />
                     </View>
                     
-                    {/* OTP Input - Conditionally rendered based on otpSent */}
                     {otpSent && (
                       <View style={styles.otpContainer}>
                         {!embedded && (
@@ -442,12 +465,11 @@ export const Login: React.FC<ChildComponentProps> = ({
                           value={otp}
                           onChangeText={setOtp}
                           maxLength={6}
-                          autoFocus={true} // Auto-focus OTP input when it appears
+                          autoFocus={true}
                         />
                       </View>
                     )}
 
-                    {/* Conditional Button Rendering */}
                     {!otpSent ? (
                       <TouchableOpacity
                         style={[

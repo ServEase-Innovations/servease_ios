@@ -1,4 +1,4 @@
-// App.tsx - UPDATED with touch handler for closing dropdowns
+// App.tsx - UPDATED with proper authentication handling for both email and mobile login
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
@@ -95,7 +95,7 @@ const MainApp = () => {
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   
   const [chatbotOpen, setChatbotOpen] = useState(false);
-  const [currentView, setCurrentView] = useState(HOME);
+  const [currentView, setCurrentView] = useState<string>(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -117,7 +117,7 @@ const MainApp = () => {
   const [appResetKey, setAppResetKey] = useState(Date.now());
   const [isResetting, setIsResetting] = useState(false);
   
-  // NEW: State to trigger dropdown closing in Header and LocationSelector
+  // State to trigger dropdown closing in Header and LocationSelector
   const [closeAllDropdowns, setCloseAllDropdowns] = useState(false);
   
   // Ref for Booking component to enable double-tap refresh
@@ -130,8 +130,7 @@ const MainApp = () => {
   const [showDeepLinkLoading, setShowDeepLinkLoading] = useState(false);
 
   const dispatch = useDispatch();
-  const { appUser, clearAppUser } = useAppUser();
-
+  const { appUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
   const { authorize, getCredentials, clearSession, user } = useAuth0();
 
   // Get font size styles based on settings
@@ -153,10 +152,9 @@ const MainApp = () => {
     currentView === DASHBOARD ||
     currentView === AGENT_DASHBOARD;
 
-  // NEW: Function to handle outside touch and close dropdowns
+  // Function to handle outside touch and close dropdowns
   const handleOutsideTouch = useCallback(() => {
     setCloseAllDropdowns(true);
-    // Reset after a short delay
     setTimeout(() => {
       setCloseAllDropdowns(false);
     }, 100);
@@ -205,47 +203,51 @@ const MainApp = () => {
     console.log('=== DEEP LINK CHECK ===');
     console.log('Current URL:', url);
     
-    const parsedUrl = new URL(url);
-    const params = parsedUrl.searchParams;
-    
-    const openBookings = params.get('openBookings');
-    const customerId = params.get('customerId');
-    const bookingId = params.get('bookingId');
-    const action = params.get('action');
-    
-    console.log('openBookings param:', openBookings);
-    console.log('customerId param:', customerId);
-    console.log('bookingId param:', bookingId);
-    console.log('action param:', action);
+    try {
+      const parsedUrl = new URL(url);
+      const params = parsedUrl.searchParams;
+      
+      const openBookings = params.get('openBookings');
+      const customerId = params.get('customerId');
+      const bookingId = params.get('bookingId');
+      const action = params.get('action');
+      
+      console.log('openBookings param:', openBookings);
+      console.log('customerId param:', customerId);
+      console.log('bookingId param:', bookingId);
+      console.log('action param:', action);
 
-    if (openBookings === 'true') {
-      if (appUser) {
-        console.log('✅ User authenticated, processing deep link now');
-        processDeepLink(openBookings, customerId, bookingId, action);
-      } else {
-        console.log('🔐 User not authenticated, storing deep link for after login');
-        
-        setPendingDeepLink({
-          openBookings,
-          customerId,
-          bookingId,
-          action
-        });
-        
-        if (customerId) {
-          global.pendingDeepLinkCustomerId = customerId;
+      if (openBookings === 'true') {
+        if (appUser) {
+          console.log('✅ User authenticated, processing deep link now');
+          processDeepLink(openBookings, customerId, bookingId, action);
+        } else {
+          console.log('🔐 User not authenticated, storing deep link for after login');
+          
+          setPendingDeepLink({
+            openBookings,
+            customerId,
+            bookingId,
+            action
+          });
+          
+          if (customerId) {
+            global.pendingDeepLinkCustomerId = customerId;
+          }
+          if (bookingId) {
+            global.pendingDeepLinkBookingId = bookingId;
+          }
+          global.pendingDeepLinkTimestamp = Date.now().toString();
+          
+          const actionToStore = action || 'drawer';
+          global.pendingDeepLinkAction = actionToStore;
+          console.log(`📦 Stored pending action: ${actionToStore}`);
+          
+          setShowSignupDrawer(true);
         }
-        if (bookingId) {
-          global.pendingDeepLinkBookingId = bookingId;
-        }
-        global.pendingDeepLinkTimestamp = Date.now().toString();
-        
-        const actionToStore = action || 'drawer';
-        global.pendingDeepLinkAction = actionToStore;
-        console.log(`📦 Stored pending action: ${actionToStore}`);
-        
-        setShowSignupDrawer(true);
       }
+    } catch (error) {
+      console.error('Error parsing deep link URL:', error);
     }
   };
 
@@ -355,7 +357,7 @@ const MainApp = () => {
       global.pendingDeepLinkAction = null;
       
       if (clearAppUser) {
-        clearAppUser();
+        await clearAppUser();
         console.log("✅ AppUser context cleared");
       }
       
@@ -459,8 +461,9 @@ const MainApp = () => {
     setShowProviderRegistration(false);
   };
 
+  // Monitor appUser changes
   useEffect(() => {
-    console.log("🔄 AppUser changed:", appUser ? `Logged in as ${appUser.role}` : "Logged out");
+    console.log("🔄 AppUser changed in App.tsx:", appUser ? `Logged in as ${appUser.role} - ${appUser.name}` : "Logged out");
 
     if (!appUser) {
       console.log("👤 No user detected, resetting to HOME view");
@@ -471,6 +474,16 @@ const MainApp = () => {
       setHasCheckedMobileNumber(false);
       setCustomerData(null);
       setShowNotifications(false);
+    } else {
+      console.log("✅ User is logged in, role:", appUser.role);
+      // If user is logged in and has a role, we might want to navigate to appropriate dashboard
+      if (appUser.role === "SERVICE_PROVIDER" && currentView === HOME) {
+        // Optional: Auto-navigate to dashboard for service providers
+        // setCurrentView(DASHBOARD);
+      } else if (appUser.role === "VENDOR" && currentView === HOME) {
+        // Optional: Auto-navigate to agent dashboard for vendors
+        // setCurrentView(AGENT_DASHBOARD);
+      }
     }
   }, [appUser]);
 
@@ -762,8 +775,8 @@ const MainApp = () => {
     }
   };
 
-  // Loading Screen
-  if (showSplash) {
+  // Loading Screen - Check for user loading state
+  if (isUserLoading || showSplash) {
     return (
       <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
         <BrandLoadingScreen />
@@ -1058,7 +1071,6 @@ const styles = StyleSheet.create({
   contentContainer: { 
     flex: 1, 
     marginTop: 50,
-    // Keep scrollable home content clear of fixed mobile footer
     paddingBottom: 96,
   },
   mainScrollView: { 

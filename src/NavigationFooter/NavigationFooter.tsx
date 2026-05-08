@@ -1,5 +1,5 @@
-// NavigationFooter.tsx - Updated with authentication choice dialog
-import React, { useState, useRef, useCallback } from "react";
+// NavigationFooter.tsx - Updated with proper authentication handling
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
 import Settings from "../Settings/Settings";
 import Login from "../Login/Login";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface NavigationFooterProps {
   onHomeClick: () => void;
@@ -65,7 +66,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [lastTap, setLastTap] = useState<number>(0);
-  // New state for authentication choice modal
   const [showAuthChoiceModal, setShowAuthChoiceModal] = useState(false);
   const [showPhoneLoginModal, setShowPhoneLoginModal] = useState(false);
   const { t } = useTranslation();
@@ -73,12 +73,36 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const { authorize, clearSession, getCredentials } = useAuth0();
   const dispatch = useDispatch();
 
-  const isCustomer = auth0User && appUser?.role === "CUSTOMER";
-  const isServiceProvider = auth0User && appUser?.role === "SERVICE_PROVIDER";
-  const isVendor = auth0User && appUser?.role === "VENDOR";
-  const isAuthenticated = auth0User;
+  // FIXED: Check if user is authenticated - either via Auth0 OR via appUser with token
+  const isAuthenticated = !!(auth0User || (appUser && appUser.token));
+  
+  // FIXED: Role checks - use appUser.role as the source of truth
+  const getUserRole = () => {
+    if (appUser && appUser.role) {
+      return appUser.role;
+    }
+    return null;
+  };
+  
+  const userRole = getUserRole();
+  const isCustomer = userRole === "CUSTOMER";
+  const isServiceProvider = userRole === "SERVICE_PROVIDER";
+  const isVendor = userRole === "VENDOR";
 
-  // Double tap detection for bookings refresh
+  // Log for debugging
+  useEffect(() => {
+    console.log("NavigationFooter - State updated:", {
+      isAuthenticated,
+      hasAuth0: !!auth0User,
+      hasAppUser: !!appUser,
+      hasToken: !!(appUser && appUser.token),
+      userRole,
+      isCustomer,
+      isServiceProvider,
+      isVendor
+    });
+  }, [auth0User, appUser, isAuthenticated, userRole, isCustomer, isServiceProvider, isVendor]);
+
   const handleDoubleTapRefresh = useCallback(() => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
@@ -123,18 +147,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
   }, [lastTap, isAuthenticated, isCustomer, onNavigateToPage, onBookingsClick]);
 
-  // Show authentication choice modal instead of direct login
   const handleShowAuthChoice = () => {
     setShowAuthChoiceModal(true);
   };
 
-  // Handle phone login
   const handlePhoneLogin = () => {
     setShowAuthChoiceModal(false);
     setShowPhoneLoginModal(true);
   };
 
-  // Handle email login with Auth0
   const handleEmailLogin = async () => {
     setShowAuthChoiceModal(false);
     try {
@@ -216,11 +237,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     setIsProfileMenuVisible(false);
   };
 
-  const handleLoginClick = async () => {
-    // This is kept for backward compatibility but now using the modal approach
-    handleShowAuthChoice();
-  };
-
   const handleSignOut = async () => {
     if (isSigningOut) {
       console.log("⏳ Sign out already in progress...");
@@ -240,9 +256,17 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         textColor: "#ffffff",
       });
 
-      await clearSession({
-        returnToUrl: "com.serveaso://logout",
-      });
+      // Clear token from AsyncStorage for mobile login users
+      await AsyncStorage.multiRemove(['token', 'userRole', '@app_user_data']);
+
+      // Clear Auth0 session if it exists
+      try {
+        await clearSession({
+          returnToUrl: "com.serveaso://logout",
+        });
+      } catch (e) {
+        console.log("No Auth0 session to clear or error clearing:", e);
+      }
 
       dispatch(remove());
       
@@ -273,7 +297,45 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     setIsSettingsVisible(true);
   };
 
+  const handlePhoneLoginSuccess = (data: string) => {
+    console.log("Phone login success callback received:", data);
+    setShowPhoneLoginModal(false);
+    
+    Snackbar.show({
+      text: "Login successful!",
+      duration: Snackbar.LENGTH_SHORT,
+      backgroundColor: "#10b981",
+      textColor: "#ffffff",
+    });
+    
+    // Force a small delay to ensure context updates are processed
+    setTimeout(() => {
+      console.log("Phone login completed, navigation should update now");
+    }, 500);
+  };
+
   const renderUserAvatar = (isMobileView: boolean = false) => {
+    // For mobile login users, show a default avatar
+    if (!auth0User && appUser && appUser.name) {
+      return (
+        <View style={isMobileView ? styles.userAvatarContainerMobile : styles.userAvatarContainer}>
+          <View style={isMobileView ? styles.userAvatarPlaceholderMobile : styles.userAvatarPlaceholder}>
+            <Text style={isMobileView ? styles.userAvatarPlaceholderTextMobile : styles.userAvatarPlaceholderText}>
+              {appUser.name ? appUser.name.charAt(0).toUpperCase() : "U"}
+            </Text>
+          </View>
+          {!isMobileView && (
+            <View style={styles.userInfo}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {appUser.name?.split(' ')[0] || "User"}
+              </Text>
+              <FeatherIcon name="chevron-down" size={14} color="#fff" />
+            </View>
+          )}
+        </View>
+      );
+    }
+    
     if (!auth0User) {
       return (
         <View style={isMobileView ? styles.userIconContainerMobile : styles.userIconContainer}>
@@ -308,7 +370,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     );
   };
 
-  // Authentication Choice Modal Component
   const AuthChoiceModal = () => (
     <Modal
       visible={showAuthChoiceModal}
@@ -357,7 +418,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     </Modal>
   );
 
-  // For mobile - render bottom navigation bar with gradient
   if (isMobile) {
     let tabs = [];
     
@@ -462,7 +522,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         >
           {tabs.map((tab, index) => {
             const isActive = activePage === tab.key || (tab.key === "ACCOUNT" && activePage === PROFILE);
-            const isLast = index === tabs.length - 1;
             const isDisabled = isAuthenticated && tab.key === "SIGN_OUT" && isSigningOut;
 
             return (
@@ -518,32 +577,40 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onClose={() => setIsSettingsVisible(false)}
         />
 
-        {/* Authentication Choice Modal */}
         <AuthChoiceModal />
 
-        {/* Phone Login Modal */}
-       {/* In the phone login modal section of NavigationFooter.tsx */}
-<Modal
-  visible={showPhoneLoginModal}
-  transparent={true}
-  animationType="slide"
-  onRequestClose={() => setShowPhoneLoginModal(false)}
->
-  <View style={styles.fullScreenModal}>
-    <Login 
-      embedded={true}
-      onBack={() => setShowPhoneLoginModal(false)}
-      sendDataToParent={(data: string) => {
-        setShowPhoneLoginModal(false);
-        if (data === "") {
-          if (onSignOutComplete) {
-            onSignOutComplete();
-          }
-        }
-      }}
-    />
-  </View>
-</Modal>
+        <Modal
+          visible={showPhoneLoginModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowPhoneLoginModal(false)}
+        >
+          <View style={styles.fullScreenModal}>
+            <View style={styles.fullScreenModalHeader}>
+              <TouchableOpacity 
+                onPress={() => setShowPhoneLoginModal(false)}
+                style={styles.backButton}
+              >
+                <FeatherIcon name="arrow-left" size={24} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.fullScreenModalTitle}>Login with Phone</Text>
+              <View style={styles.backButtonPlaceholder} />
+            </View>
+            <Login 
+              embedded={true}
+              onBack={() => setShowPhoneLoginModal(false)}
+              sendDataToParent={(data: string) => {
+                console.log("Login callback received with data:", data);
+                handlePhoneLoginSuccess(data);
+                if (data === "") {
+                  if (onSignOutComplete) {
+                    onSignOutComplete();
+                  }
+                }
+              }}
+            />
+          </View>
+        </Modal>
       </>
     );
   }
@@ -708,54 +775,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onClose={() => setIsSettingsVisible(false)}
       />
 
-      {/* Authentication Choice Modal for Desktop */}
-      <Modal
-        visible={showAuthChoiceModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowAuthChoiceModal(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setShowAuthChoiceModal(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose Login Method</Text>
-              <TouchableOpacity 
-                onPress={() => setShowAuthChoiceModal(false)}
-                style={styles.modalCloseButton}
-              >
-                <FeatherIcon name="x" size={24} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.modalBody}>
-              <Text style={styles.modalDescription}>
-                Continue with your preferred sign-in option.
-              </Text>
-            </View>
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonPrimary]}
-                onPress={handlePhoneLogin}
-              >
-                <Text style={styles.modalButtonPrimaryText}>Login with phone</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSecondary]}
-                onPress={handleEmailLogin}
-              >
-                <Text style={styles.modalButtonSecondaryText}>Login with email</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <AuthChoiceModal />
 
-      {/* Phone Login Modal for Desktop */}
       <Modal
         visible={showPhoneLoginModal}
         transparent={true}
@@ -775,8 +796,10 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           </View>
           <Login 
             embedded={true}
+            onBack={() => setShowPhoneLoginModal(false)}
             sendDataToParent={(data: string) => {
-              setShowPhoneLoginModal(false);
+              console.log("Login callback received with data:", data);
+              handlePhoneLoginSuccess(data);
               if (data === "") {
                 if (onSignOutComplete) {
                   onSignOutComplete();
@@ -999,7 +1022,6 @@ const styles = StyleSheet.create({
   disabledDesktopButton: {
     opacity: 0.6,
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -1075,7 +1097,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  // Full screen modal for phone login
   fullScreenModal: {
     flex: 1,
     backgroundColor: "#f3f4f6",
