@@ -143,7 +143,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Get all languages as array
   const getAllLanguages = (): string[] => {
-    return normalizeLanguages(props.languageknown);
+    return normalizeLanguages(props.languageKnown ?? props.languageknown);
   };
 
   // Get diet color
@@ -508,7 +508,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
   // Get distance display
   const getDistanceDisplay = () => {
-    return props.distance_km?.toFixed(2) || "0.00";
+    return (props.distanceKm ?? props.distance_km)?.toFixed(2) || "0.00";
   };
 
   // Get experience display

@@ -49,13 +49,17 @@ export interface ServiceProviderDTO {
   housekeepingRoles:string[];
   diet: "VEG" | "NONVEG" | "BOTH";
   cookingspeciality: "VEG" | "NONVEG" | "BOTH";
+  /** @deprecated prefer camelCase `languageKnown` from API */
   languageknown: string | string[] | null;
+  languageKnown?: string | string[] | null;
   locality: string;
   location: string;
   pincode: number;
   latitude: number;
   longitude: number;
-  distance_km: number;
+  distanceKm?: number;
+  /** @deprecated same as distanceKm */
+  distance_km?: number;
   bestMatch: boolean;
   monthlyAvailability: MonthlyAvailabilityDTO;
   previouslyBooked: boolean;
