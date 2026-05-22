@@ -714,24 +714,42 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   };
 
   const handleCompletePayment = async (booking: Booking) => {
-    if (!booking.payment?.engagement_id) {
+    const engagementId = booking.payment?.engagement_id ?? booking.id;
+    if (!engagementId) {
       Alert.alert('Error', 'Failed to resume payment');
       return;
     }
     try {
       setPaymentLoading(booking.id);
-      const resumeRes = await PaymentInstance.get(`/api/payments/${booking.payment.engagement_id}/resume`);
-      const { razorpay_order_id, amount, currency, engagement_id, customer } = resumeRes.data;
+      const resumeRes = await PaymentInstance.post(
+        '/api/v2/createEngagements/resume-payment',
+        { engagementId }
+      );
+      const {
+        razorpay_order_id,
+        amount,
+        amount_inr,
+        currency,
+        engagementId: engagement_id,
+        engagement_id: engagement_id_snake,
+        customer,
+      } = resumeRes.data;
+      const resolvedEngagementId = engagement_id ?? engagement_id_snake ?? engagementId;
+      let amountPaise = Number(amount);
+      if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+        const inr = Number(amount_inr);
+        amountPaise = Math.round(inr * 100);
+      }
       const options = {
         key: "rzp_test_lTdgjtSRlEwreA",
-        amount: amount * 100,
-        currency,
+        amount: amountPaise,
+        currency: currency || 'INR',
         order_id: razorpay_order_id,
         name: "Serveaso",
         description: `Payment for ${getServiceTitle(booking.service_type)}`,
         prefill: {
           name: customer?.firstName || customer?.firstname || booking.customerName,
-          contact: customer?.contact || '9999999999',
+          contact: customer?.contact || customer?.mobile || '9999999999',
           email: customer?.email || auth0User?.email || '',
         },
         theme: { color: colors.primary },
@@ -739,8 +757,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       RazorpayCheckout.open(options)
         .then(async (data: any) => {
           try {
-            await PaymentInstance.post("/api/payments/verify", {
-              engagementId: engagement_id,
+            await PaymentInstance.post("/api/v2/createEngagements/verify", {
+              engagementId: resolvedEngagementId,
               razorpay_order_id: data.razorpay_order_id,
               razorpay_payment_id: data.razorpay_payment_id,
               razorpay_signature: data.razorpay_signature,
@@ -755,9 +773,10 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         .catch((error: any) => {
           if (error.code !== 2) Alert.alert('Error', 'Payment failed');
         });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Complete payment error:', err);
-      Alert.alert('Error', 'Failed to resume payment');
+      const msg = err?.response?.data?.error || 'Failed to resume payment';
+      Alert.alert('Error', msg);
     } finally {
       setPaymentLoading(null);
     }
