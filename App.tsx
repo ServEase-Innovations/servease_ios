@@ -149,6 +149,7 @@ const MainApp = () => {
   const shouldRenderWithoutParentScroll =
     currentView === DETAILS ||
     currentView === BOOKINGS ||
+    currentView === WALLET ||
     currentView === DASHBOARD ||
     currentView === AGENT_DASHBOARD;
 
@@ -792,14 +793,15 @@ const MainApp = () => {
           backgroundColor="transparent" 
           barStyle={isDarkMode ? "light-content" : "dark-content"} 
         />
-        <SafeAreaView 
+        <SafeAreaView
           style={[
-            styles.safeArea, 
-            { 
-              backgroundColor: colors.headerBackground,
-            }
-          ]} 
-          edges={["top"]} 
+            styles.safeArea,
+            {
+              backgroundColor:
+                currentView === BOOKINGS || currentView === WALLET ? "#0a2a66" : colors.headerBackground,
+            },
+          ]}
+          edges={currentView === BOOKINGS || currentView === WALLET ? ["bottom"] : ["top"]}
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>
@@ -815,21 +817,29 @@ const MainApp = () => {
                 </View>
               )}
 
-              {/* Fixed Header - Pass closeDropdowns prop */}
-              <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
-                <Head 
-                  sendDataToParent={handleViewChange} 
-                  bookingType={selectedBookingType}
-                  onAboutClick={handleAboutClick}
-                  onContactClick={handleContactClick}
-                  onLogoClick={handleHomeClick}
-                  closeDropdowns={closeAllDropdowns}
-                />
-              </View>
+              {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
+              {currentView !== BOOKINGS && currentView !== WALLET && (
+                <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
+                  <Head
+                    sendDataToParent={handleViewChange}
+                    bookingType={selectedBookingType}
+                    onAboutClick={handleAboutClick}
+                    onContactClick={handleContactClick}
+                    onLogoClick={handleHomeClick}
+                    closeDropdowns={closeAllDropdowns}
+                  />
+                </View>
+              )}
 
               {/* Scrollable Content Area */}
-              <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-                {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) || currentView === WALLET ? (
+              <View
+                style={[
+                  styles.contentContainer,
+                  { backgroundColor: colors.background },
+                  (currentView === BOOKINGS || currentView === WALLET) && styles.contentContainerFullScreen,
+                ]}
+              >
+                {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) ? (
                   <ScrollView
                     style={styles.profileScrollView}
                     contentContainerStyle={styles.profileScrollContent}
@@ -929,7 +939,11 @@ const MainApp = () => {
           {/* Chat Button - Positioned above Navigation Footer */}
           {!chatbotOpen && isMobile && (
             <TouchableOpacity 
-              style={[styles.chatButton, { backgroundColor: colors.secondary }]} 
+              style={[
+                styles.chatButton,
+                { backgroundColor: colors.secondary },
+                (currentView === WALLET || currentView === BOOKINGS) && styles.chatButtonRaised,
+              ]} 
               onPress={() => setChatbotOpen(true)}
             >
               <Icon name="chat" size={28} color="#fff" />
@@ -1068,10 +1082,14 @@ const styles = StyleSheet.create({
   homeContainer: { 
     flex: 1 
   },
-  contentContainer: { 
-    flex: 1, 
+  contentContainer: {
+    flex: 1,
     marginTop: 50,
     paddingBottom: 96,
+  },
+  contentContainerFullScreen: {
+    marginTop: 0,
+    paddingBottom: 0,
   },
   mainScrollView: { 
     flex: 1 
@@ -1113,7 +1131,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-    minHeight: 68,
+    minHeight: 72,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -1135,6 +1153,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     zIndex: 2000,
+  },
+  chatButtonRaised: {
+    bottom: 108,
   },
   deepLinkLoadingOverlay: {
     position: 'absolute',

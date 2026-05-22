@@ -11,7 +11,6 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   ViewStyle,
   TextStyle,
@@ -20,8 +19,8 @@ import {
   Linking,
   BackHandler,
   Animated,
-  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
@@ -39,8 +38,6 @@ import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 import GlassCard from '../design-system/GlassCard';
 import SegmentedRail from '../design-system/SegmentedRail';
 import ActionRow from '../design-system/ActionRow';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -328,8 +325,12 @@ const hasVacation = (booking: Booking): boolean => {
 };
 
 // ---------- Main Booking Component ----------
+const HORIZONTAL_GUTTER = 16;
+const FOOTER_CLEARANCE = 96;
+
 const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
 
   // [Keep all existing state declarations unchanged]
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
@@ -886,22 +887,245 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     searchTerm
   );
 
-  const statusTabs = [
-    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: upcomingBookings.length },
-    { value: 'NOT_STARTED', label: 'Not Started', icon: 'clock-outline', count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
-    { value: 'IN_PROGRESS', label: 'In Progress', icon: 'progress-clock', count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
-    { value: 'COMPLETED', label: 'Completed', icon: 'check-circle', count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
-    { value: 'CANCELLED', label: 'Cancelled', icon: 'close-circle', count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
+  const upcomingBaseBookings = filterBookings(filterByBookingType(upcomingBookings), searchTerm);
+
+  const upcomingStatusTabs = [
+    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: upcomingBaseBookings.length },
+    {
+      value: 'NOT_STARTED',
+      label: 'Not started',
+      icon: 'clock-outline',
+      count: upcomingBaseBookings.filter((b) => b.taskStatus === 'NOT_STARTED').length,
+    },
+    {
+      value: 'IN_PROGRESS',
+      label: 'In progress',
+      icon: 'progress-clock',
+      count: upcomingBaseBookings.filter((b) => b.taskStatus === 'IN_PROGRESS').length,
+    },
+    {
+      value: 'COMPLETED',
+      label: 'Completed',
+      icon: 'check-circle',
+      count: upcomingBaseBookings.filter((b) => b.taskStatus === 'COMPLETED').length,
+    },
   ];
+
+  const handleSectionTabChange = (tab: 'action_needed' | 'upcoming' | 'past' | 'cancelled') => {
+    setActiveSectionTab(tab);
+    if (tab === 'upcoming') {
+      setStatusFilter('ALL');
+    }
+  };
 
  
 
+  const renderBookingsHeader = () => (
+    <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: insets.top }]}>
+      <View style={styles.headerTopRow}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress}
+          accessibilityLabel="Go back"
+        >
+          <Icon name="arrow-left" size={22} color="#ffffff" />
+        </TouchableOpacity>
+        <Text
+          style={[styles.headerTitleSimple, { fontSize: fontSizes.headerTitle + 2, marginLeft: 4 }]}
+          numberOfLines={1}
+        >
+          My Bookings
+        </Text>
+        <View style={styles.headerTitleSpacer} />
+      </View>
+    </View>
+  );
+
+  const renderBookingsSearch = (skeleton?: boolean) => (
+    <View style={[styles.searchSection, { backgroundColor: colors.background }]}>
+      {skeleton ? (
+        <SkeletonLoader width="100%" height={44} variant="rectangular" style={{ borderRadius: 12 }} />
+      ) : (
+        <View
+          style={[
+            styles.searchContainer,
+            {
+              backgroundColor: isDarkMode ? colors.card : '#ffffff',
+              borderColor: colors.border + '60',
+            },
+          ]}
+        >
+          <Icon name="magnify" size={18} color={colors.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.searchInput, flex: 1 }]}
+            placeholder="Search bookings..."
+            placeholderTextColor={colors.textSecondary + '99'}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            returnKeyType="search"
+          />
+          {searchTerm.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="close-circle" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+
+  const renderUpcomingStatusFilter = () => (
+    <View style={styles.upcomingFiltersBlock}>
+      <Text style={[styles.filterGroupLabel, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+        Filter by status
+      </Text>
+      <View style={styles.statusFilterWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statusFilterScroll}
+          contentContainerStyle={styles.statusFilterScrollContent}
+          nestedScrollEnabled
+        >
+          {upcomingStatusTabs.map((tab) => {
+          const selected = statusFilter === tab.value;
+          return (
+            <TouchableOpacity
+              key={tab.value}
+              style={[
+                styles.statusChip,
+                {
+                  backgroundColor: selected
+                    ? colors.primary
+                    : isDarkMode
+                      ? colors.card
+                      : '#ffffff',
+                  borderColor: selected ? colors.primary : colors.border + '55',
+                },
+              ]}
+              onPress={() => setStatusFilter(tab.value)}
+              activeOpacity={0.85}
+            >
+              <Icon
+                name={tab.icon}
+                size={14}
+                color={selected ? '#fff' : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.statusChipText,
+                  {
+                    color: selected ? '#fff' : colors.textSecondary,
+                    fontSize: fontSizes.badgeText,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {tab.label}
+              </Text>
+              <View
+                style={[
+                  styles.statusChipCount,
+                  {
+                    backgroundColor: selected ? 'rgba(255,255,255,0.28)' : colors.border + '90',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusChipCountText,
+                    { color: selected ? '#fff' : colors.textSecondary },
+                  ]}
+                >
+                  {tab.count}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+          })}
+        </ScrollView>
+      </View>
+    </View>
+  );
+
+  const renderUpcomingEmptyState = () => {
+    if (upcomingBaseBookings.length === 0) {
+      return (
+        <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+          <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
+            <Icon name="calendar-check" size={48} color={colors.primary} />
+          </View>
+          <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>
+            No Upcoming Bookings
+          </Text>
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+            You do not have any upcoming service bookings
+          </Text>
+          <GradientButton style={styles.emptyStateButton} onPress={() => setServicesDialogOpen(true)}>
+            <Icon name="plus" size={20} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: fontSizes.buttonText, fontWeight: '600' }}>Book a Service</Text>
+          </GradientButton>
+        </View>
+      );
+    }
+
+    const statusLabel =
+      upcomingStatusTabs.find((t) => t.value === statusFilter)?.label ?? 'selected status';
+
+    return (
+      <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+        <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
+          <Icon name="filter-off-outline" size={44} color={colors.primary} />
+        </View>
+        <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>
+          No {statusLabel} Bookings
+        </Text>
+        <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+          None of your upcoming bookings match this status. Try another filter or show all.
+        </Text>
+        <TouchableOpacity
+          style={[styles.clearFilterBtn, { borderColor: colors.primary }]}
+          onPress={() => setStatusFilter('ALL')}
+        >
+          <Text style={[styles.clearFilterBtnText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
+            Show all upcoming
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderBookingsList = (bookings: Booking[], emptyNode: React.ReactNode) => {
+    if (bookings.length === 0) {
+      return emptyNode;
+    }
+    return (
+      <View style={styles.bookingsList}>
+        {bookings.map((item) => (
+          <View key={String(item.id)} style={styles.bookingListItem}>
+            {renderBookingItem({ item })}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderSectionTabs = () => {
     const tabs = [
-      { key: 'action_needed' as const, label: 'Action Needed', count: actionNeededBookings.length, icon: 'alert-circle' },
-      { key: 'upcoming' as const, label: 'Upcoming', count: filteredUpcomingBookings.length, icon: 'calendar-clock' },
-      { key: 'past' as const, label: 'Past', count: filteredPastBookings.length, icon: 'history' },
-      { key: 'cancelled' as const, label: 'Cancelled', count: filteredCancelledBookings.length, icon: 'close-circle' },
+      { key: 'action_needed' as const, label: 'Action needed', count: actionNeededBookings.length, icon: 'alert-circle' },
+      { key: 'upcoming' as const, label: 'Upcoming', count: upcomingBaseBookings.length, icon: 'calendar-clock' },
+      {
+        key: 'past' as const,
+        label: 'Past',
+        count: filterBookings(filterByBookingType(pastBookings), searchTerm).length,
+        icon: 'history',
+      },
+      {
+        key: 'cancelled' as const,
+        label: 'Cancelled',
+        count: filterBookings(filterByBookingType(cancelledBookings), searchTerm).length,
+        icon: 'close-circle',
+      },
     ];
 
     return (
@@ -910,7 +1134,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         activeKey={activeSectionTab}
         onChange={(k) => {
           if (k === 'action_needed' || k === 'upcoming' || k === 'past' || k === 'cancelled') {
-            setActiveSectionTab(k);
+            handleSectionTabChange(k);
           }
         }}
         colors={colors}
@@ -1097,7 +1321,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const serviceType = item.serviceType || item.service_type;
     const isPaymentPending = item.payment && item.payment.status === "PENDING";
-    const compactCardColors = isDarkMode ? [colors.card, colors.surface2] : [colors.card, colors.surface];
     const compactPrimaryText = colors.text;
     const compactSecondaryText = colors.textSecondary;
     const amountValue =
@@ -1122,12 +1345,19 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     const urgencyLabel = getUrgencyLabel();
     
     return (
-      <TouchableOpacity activeOpacity={0.95} onPress={() => handleViewDetails(item)} style={styles.compactCardTouch}>
-        <LinearGradient
-          colors={compactCardColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.bookingCardCompact, { borderColor: colors.border + '25' }]}
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={() => handleViewDetails(item)}
+        style={styles.compactCardTouch}
+      >
+        <View
+          style={[
+            styles.bookingCardCompact,
+            {
+              borderColor: colors.border + '25',
+              backgroundColor: isDarkMode ? colors.card : colors.card,
+            },
+          ]}
         >
           <View style={styles.compactHeaderBlock}>
             <View style={styles.compactTopRow}>
@@ -1136,20 +1366,25 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
                   <Icon name={getServiceIcon(serviceType)} size={18} color={colors.primary} />
                 </View>
                 <View style={styles.compactTitleBlock}>
-                  <Text style={[styles.serviceTitle, { color: compactPrimaryText, fontSize: Math.max(14, fontSizes.serviceTitle - 2) }]}>
+                  <Text
+                    style={[styles.serviceTitle, { color: compactPrimaryText, fontSize: Math.max(14, fontSizes.serviceTitle - 2) }]}
+                    numberOfLines={1}
+                  >
                     {getServiceTitle(serviceType)}
                   </Text>
-                  <Text style={[styles.compactProviderText, { color: compactSecondaryText }]}>
+                  <Text style={[styles.compactProviderText, { color: compactSecondaryText }]} numberOfLines={2}>
                     #{item.id} · {item.serviceProviderName}
                   </Text>
                 </View>
               </View>
-            </View>
-            <View style={styles.compactAmountRow}>
-              <Text style={[styles.compactAmountValue, { color: compactPrimaryText }]}>{amountText}</Text>
-              <Text style={[styles.compactAmountLabel, { color: compactSecondaryText }]}>
-                {item.bookingType === 'ON_DEMAND' ? 'ON DEMAND' : item.bookingType}
-              </Text>
+              <View style={styles.compactAmountCol}>
+                <Text style={[styles.compactAmountValue, { color: compactPrimaryText }]} numberOfLines={1}>
+                  {amountText}
+                </Text>
+                <Text style={[styles.compactAmountLabel, { color: compactSecondaryText }]} numberOfLines={1}>
+                  {item.bookingType === 'ON_DEMAND' ? 'ON DEMAND' : item.bookingType}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -1204,7 +1439,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               <Icon name="chevron-right" size={18} color={compactSecondaryText} />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -1239,34 +1474,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LinearGradient
-          colors={isDarkMode ? ['#0a2a66', '#1f4fa3', colors.background] : ['#0a2a66', '#328aff', colors.background]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.header}
-        >
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.22)' }]} onPress={handleBackPress}>
-              <Icon name="arrow-left" size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <View style={styles.headerContent}>
-              <Text style={[styles.headerTitle, { color: '#fff', fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
-              <Text style={[styles.headerSubtitle, { color: '#fff', fontSize: fontSizes.headerSubtitle, opacity: 0.9 }]}>
-                Manage your service bookings
-              </Text>
-            </View>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <View style={styles.searchWrapper}>
-            <View style={[styles.searchContainer, { backgroundColor: isDarkMode ? colors.card + 'D9' : '#ffffffD9', borderColor: 'rgba(255,255,255,0.35)' }]}>
-              <Icon name="magnify" size={18} color={isDarkMode ? colors.textSecondary : '#334155'} />
-              <Text style={[styles.searchInput, { color: isDarkMode ? colors.textSecondary : '#64748B', fontSize: fontSizes.searchInput, flex: 1 }]}>
-                Search bookings...
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
+        {renderBookingsHeader()}
+        {renderBookingsSearch(true)}
 
         <View style={styles.bookingTypeFilterWrap}>
           <View style={styles.bookingTypeFilterRow}>
@@ -1276,11 +1485,10 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
-            <SkeletonLoader width="100%" height={44} variant="rectangular" style={{ borderRadius: 16 }} />
-          </View>
-
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + FOOTER_CLEARANCE }}
+        >
           <View style={styles.section}>
             {[1, 2, 3].map((item) => (
               <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
@@ -1294,46 +1502,14 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   // Main Render
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={isDarkMode ? ['#0a2a66', '#1f4fa3', colors.background] : ['#0a2a66', '#328aff', colors.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.22)' }]} onPress={handleBackPress}>
-            <Icon name="arrow-left" size={24} color="#ffffff" />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: '#fff', fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
-            <Text style={[styles.headerSubtitle, { color: '#fff', fontSize: fontSizes.headerSubtitle, opacity: 0.9 }]}>
-              Manage your service bookings
-            </Text>
-          </View>
-          <View style={{ width: 40 }} />
-        </View>
-        
-        {/* Search Bar */}
-        <View style={styles.searchWrapper}>
-          <View style={[styles.searchContainer, { backgroundColor: isDarkMode ? colors.card + 'D9' : '#ffffffD9', borderColor: 'rgba(255,255,255,0.35)' }]}>
-            <Icon name="magnify" size={18} color={isDarkMode ? colors.textSecondary : '#334155'} />
-            <TextInput
-              style={[styles.searchInput, { color: isDarkMode ? colors.text : '#0f172a', fontSize: fontSizes.searchInput, flex: 1 }]}
-              placeholder="Search bookings..."
-              placeholderTextColor={isDarkMode ? colors.textSecondary + '80' : '#64748B'}
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-            />
-            {searchTerm && (
-              <TouchableOpacity onPress={() => setSearchTerm('')}>
-                <Icon name="close-circle" size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </LinearGradient>
+      {renderBookingsHeader()}
+      {renderBookingsSearch()}
       <View style={styles.bookingTypeFilterWrap}>
-        <View style={styles.bookingTypeFilterRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.bookingTypeFilterRow}
+        >
           <TouchableOpacity
             style={[
               styles.bookingTypeChip,
@@ -1368,14 +1544,16 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               Recurring
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
       <RefreshTooltip />
 
       <ScrollView 
         style={styles.mainScrollView}
-        contentContainerStyle={styles.scrollContentContainer}
-        stickyHeaderIndices={[0]}
+        contentContainerStyle={[
+          styles.scrollContentContainer,
+          { paddingBottom: insets.bottom + FOOTER_CLEARANCE },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -1409,16 +1587,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               </View>
             </View> */}
 
-            {actionNeededBookings.length > 0 ? (
-              <FlatList
-                data={actionNeededBookings}
-                renderItem={renderBookingItem}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-                removeClippedSubviews={false}
-                style={styles.bookingsList}
-              />
-            ) : (
+            {renderBookingsList(
+              actionNeededBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
                 <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.success + '10' }]}>
                   <Icon name="check-circle-outline" size={48} color={colors.success} />
@@ -1451,62 +1621,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               </View>
             </View> */}
 
-            <View style={styles.statusFilterContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTabsContent}>
-                {statusTabs.map((tab) => (
-                  <TouchableOpacity
-                    key={tab.value}
-                    style={[
-                      styles.statusTab,
-                      { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '50' },
-                      statusFilter === tab.value && { backgroundColor: colors.primary + 'E8', borderColor: colors.primary + 'DD' }
-                    ]}
-                    onPress={() => setStatusFilter(tab.value)}
-                  >
-                    <Icon name={tab.icon} size={16} color={statusFilter === tab.value ? '#fff' : colors.textSecondary} />
-                    <Text style={[
-                      styles.statusTabText,
-                      { color: statusFilter === tab.value ? '#fff' : colors.textSecondary, fontSize: fontSizes.badgeText }
-                    ]}>
-                      {tab.label}
-                    </Text>
-                    <View style={[styles.statusTabCount, { backgroundColor: statusFilter === tab.value ? '#ffffff35' : colors.border + '90' }]}>
-                      <Text style={[
-                        styles.statusTabCountText,
-                        { color: statusFilter === tab.value ? '#fff' : colors.textSecondary, fontSize: fontSizes.badgeText - 2 }
-                      ]}>
-                        {tab.count}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+            {renderUpcomingStatusFilter()}
 
-            {filteredUpcomingBookings.length > 0 ? (
-              <FlatList
-                data={filteredUpcomingBookings}
-                renderItem={renderBookingItem}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-                removeClippedSubviews={false}
-                style={styles.bookingsList}
-              />
-            ) : (
-              <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
-                <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
-                  <Icon name="calendar-check" size={48} color={colors.primary} />
-                </View>
-                <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Upcoming Bookings</Text>
-                <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-                  You don't have any upcoming service bookings
-                </Text>
-                <GradientButton style={styles.emptyStateButton} onPress={() => setServicesDialogOpen(true)}>
-                  <Icon name="plus" size={20} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: fontSizes.buttonText, fontWeight: '600' }}>Book a Service</Text>
-                </GradientButton>
-              </View>
-            )}
+            {renderBookingsList(filteredUpcomingBookings, renderUpcomingEmptyState())}
           </View>
         )}
 
@@ -1529,16 +1646,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               </View>
             </View> */}
 
-            {filteredPastBookings.length > 0 ? (
-              <FlatList
-                data={filteredPastBookings}
-                renderItem={renderBookingItem}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-                removeClippedSubviews={false}
-                style={styles.bookingsList}
-              />
-            ) : (
+            {renderBookingsList(
+              filteredPastBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
                 <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.textSecondary + '10' }]}>
                   <Icon name="clock-time-four" size={48} color={colors.textSecondary} />
@@ -1571,16 +1680,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               </View>
             </View> */}
 
-            {filteredCancelledBookings.length > 0 ? (
-              <FlatList
-                data={filteredCancelledBookings}
-                renderItem={renderBookingItem}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-                removeClippedSubviews={false}
-                style={styles.bookingsList}
-              />
-            ) : (
+            {renderBookingsList(
+              filteredCancelledBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
                 <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.error + '10' }]}>
                   <Icon name="close-octagon-outline" size={48} color={colors.error} />
@@ -1616,7 +1717,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       />
 
       {openSnackbar && (
-        <View style={[styles.snackbar, { backgroundColor: colors.success }]}>
+        <View style={[styles.snackbar, { backgroundColor: colors.success, bottom: insets.bottom + 88 }]}>
           <Icon name="check-circle" size={20} color="#fff" />
           <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.infoText, flex: 1, marginLeft: 8 }]}>
             {snackbarMessage}
@@ -1635,65 +1736,56 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   
   // Header Styles
-  header: { 
+  header: {
     width: '100%',
     alignSelf: 'stretch',
-    paddingTop: 12,
-    // paddingBottom: 18,
-    minHeight: SCREEN_HEIGHT * 0.18,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    justifyContent: 'flex-start',
   },
-  headerTopRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  backButton: { 
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center', 
+  headerTopRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: '100%',
+    minHeight: 52,
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 10,
+    paddingBottom: 14,
   },
-  headerContent: { 
-    flex: 1, 
-    alignItems: 'center' 
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    flexShrink: 0,
   },
-  headerTitle: { 
+  headerTitleSimple: {
+    flex: 1,
+    color: '#ffffff',
     fontWeight: '700',
-    letterSpacing: 0,
+    letterSpacing: -0.2,
+    lineHeight: 28,
   },
-  headerSubtitle: { 
-    marginTop: 2,
-    textAlign: 'center',
-    opacity: 0.88,
+  headerTitleSpacer: {
+    width: 40,
+    flexShrink: 0,
   },
-  
-  // Search Styles
-  searchWrapper: {
-    marginTop: 6,
+
+  // Search (below header)
+  searchSection: {
+    width: '100%',
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
-    minHeight: 40,
+    borderRadius: 12,
+    minHeight: 44,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
   },
   searchInput: {
     padding: 0,
@@ -1701,12 +1793,13 @@ const styles = StyleSheet.create({
   },
   bookingTypeFilterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: HORIZONTAL_GUTTER,
   },
   bookingTypeFilterWrap: {
     marginTop: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: HORIZONTAL_GUTTER,
   },
   bookingTypeChip: {
     borderWidth: 1,
@@ -1721,7 +1814,7 @@ const styles = StyleSheet.create({
   
   // Main Content
   mainScrollView: { flex: 1 },
-  scrollContentContainer: { flexGrow: 1, paddingBottom: 20 },
+  scrollContentContainer: { flexGrow: 1 },
   overviewStatsWrap: {
     paddingTop: 16,
     paddingHorizontal: 14,
@@ -1809,7 +1902,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  section: { paddingHorizontal: 14, paddingTop: 20, paddingBottom: 12 },
+  section: {
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 16,
+    paddingBottom: 12,
+    alignItems: 'center',
+  },
   
   // Section Header
   sectionHeader: { 
@@ -1841,32 +1941,68 @@ const styles = StyleSheet.create({
   },
   sectionBadgeText: { fontWeight: '700' },
   
-  // Status Tabs
-  statusFilterContainer: { marginBottom: 20 },
-  statusTabsContent: { paddingRight: 16, gap: 10 },
-  statusTab: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8,
-    paddingHorizontal: 16, 
-    paddingVertical: 10, 
-    borderRadius: 30,
-    marginRight: 10,
-    borderWidth: 1,
+  upcomingFiltersBlock: {
+    width: '100%',
+    marginBottom: 12,
   },
-  
-  statusTabText: { fontWeight: '600', marginRight: 4 },
-  statusTabCount: { 
-    borderRadius: 20, 
-    paddingHorizontal: 8, 
-    paddingVertical: 2, 
-    minWidth: 28, 
+  filterGroupLabel: {
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  // Upcoming status filter (fixed height — avoids stretch in nested ScrollView)
+  statusFilterWrap: {
+    width: '100%',
+    height: 40,
+    marginBottom: 12,
+    flexGrow: 0,
+  },
+  statusFilterScroll: {
+    height: 40,
+    flexGrow: 0,
+  },
+  statusFilterScrollContent: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
+    height: 40,
   },
-  statusTabCountText: { fontWeight: '600' },
-  
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    borderWidth: 1,
+    gap: 5,
+  },
+  statusChipText: {
+    fontWeight: '600',
+  },
+  statusChipCount: {
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusChipCountText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+
   // Booking Card
-  bookingsList: { marginTop: 0 },
+  bookingsList: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  bookingListItem: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   bookingCard: {
     marginBottom: 16,
     // borderRadius: 22,
@@ -1881,16 +2017,17 @@ const styles = StyleSheet.create({
   },
   compactCardTouch: {
     width: '100%',
+    alignSelf: 'stretch',
+    marginBottom: 12,
   },
   bookingCardCompact: {
     width: '100%',
-    marginBottom: 12,
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingTop: 12,
-    paddingBottom: 22,
+    paddingBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -1902,12 +2039,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   compactTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     width: '100%',
+    gap: 12,
   },
-  compactAmountRow: {
-    width: '100%',
-    marginTop: 10,
+  compactAmountCol: {
     alignItems: 'flex-end',
+    flexShrink: 0,
+    maxWidth: '40%',
     gap: 2,
   },
   compactTitleBlock: {
@@ -1916,9 +2057,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   compactServiceInfo: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    width: '100%',
     minWidth: 0,
     gap: 10,
   },
@@ -1960,9 +2101,10 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   compactMetaIcon: {
-    width: 22,
-    paddingTop: 2,
+    width: 18,
+    paddingTop: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   compactMetaTextWrap: {
     flex: 1,
@@ -1977,17 +2119,18 @@ const styles = StyleSheet.create({
   },
   compactFooterRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 8,
+    marginTop: 2,
   },
   compactBadgeRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
     flex: 1,
-    paddingBottom: 2,
+    minWidth: 0,
   },
   compactChevronBtn: {
     width: 28,
@@ -2223,10 +2366,23 @@ const styles = StyleSheet.create({
   // Empty State
   emptyStateCard: {
     alignItems: 'center',
-    padding: 48,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 32,
     borderRadius: 20,
     borderWidth: 1,
     marginTop: 8,
+    width: '100%',
+  },
+  clearFilterBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  clearFilterBtnText: {
+    fontWeight: '700',
   },
   emptyStateIconContainer: {
     width: 96,
@@ -2254,9 +2410,8 @@ const styles = StyleSheet.create({
   // Snackbar
   snackbar: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    left: HORIZONTAL_GUTTER,
+    right: HORIZONTAL_GUTTER,
     padding: 16,
     borderRadius: 16,
     flexDirection: 'row',
