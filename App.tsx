@@ -17,7 +17,7 @@ import {
   Linking,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
 import { I18nextProvider } from 'react-i18next';
@@ -40,6 +40,9 @@ declare global {
 
 import Head from "./src/Header/Header";
 import NavigationFooter from "./src/NavigationFooter/NavigationFooter";
+import {
+  getMobileTabBarHeight,
+} from "./src/Constants/mobileLayout";
 import HomePage from "./src/HomePage/HomePage";
 import DetailsView from "./src/DetailsView/DetailsView";
 import Footer from "./src/Footer/Footer";
@@ -65,7 +68,6 @@ import { PaperProvider } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
-import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
 import BrandLoadingScreen from "./src/common/BrandLoadingScreen";
 
@@ -93,6 +95,8 @@ interface DeepLinkData {
 // Main App component with theme
 const MainApp = () => {
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
+  const insets = useSafeAreaInsets();
+  const safeBottom = Number.isFinite(insets.bottom) ? insets.bottom : 0;
   
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [currentView, setCurrentView] = useState<string>(HOME);
@@ -113,7 +117,6 @@ const MainApp = () => {
   const [showSignupDrawer, setShowSignupDrawer] = useState(false);
   const [showProviderRegistration, setShowProviderRegistration] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [appResetKey, setAppResetKey] = useState(Date.now());
   const [isResetting, setIsResetting] = useState(false);
   
@@ -151,7 +154,8 @@ const MainApp = () => {
     currentView === BOOKINGS ||
     currentView === WALLET ||
     currentView === DASHBOARD ||
-    currentView === AGENT_DASHBOARD;
+    currentView === AGENT_DASHBOARD ||
+    currentView === PROFILE;
 
   // Function to handle outside touch and close dropdowns
   const handleOutsideTouch = useCallback(() => {
@@ -340,7 +344,6 @@ const MainApp = () => {
       setShowSignupDrawer(false);
       setShowProviderRegistration(false);
       setShowAgentRegistration(false);
-      setShowProfileMenu(false);
       setActiveToast(null);
       
       setDeepLinkProcessed(false);
@@ -426,6 +429,7 @@ const MainApp = () => {
 
   const { height, width } = Dimensions.get('window');
   const isMobile = width < 768;
+  const mobileTabBarClearance = isMobile ? getMobileTabBarHeight(safeBottom) : 0;
 
   const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
     setShowSignupDrawer(false);
@@ -757,7 +761,12 @@ const MainApp = () => {
         
       case DASHBOARD:
         return showProfileFromDashboard ? (
-          <ProfileScreen/>
+          <ProfileScreen
+            onBack={() => setShowProfileFromDashboard(false)}
+            onNavigateToBookings={() => setCurrentView(BOOKINGS)}
+            onContact={handleContactClick}
+            onSignOutComplete={handleAppRelaunchAfterSignOut}
+          />
         ) : (
           <Dashboard 
             onProfilePress={handleDashboardProfilePress} 
@@ -769,7 +778,14 @@ const MainApp = () => {
         return <AgentDashboard />;
         
       case PROFILE:
-        return <ProfileScreen/>;
+        return (
+          <ProfileScreen
+            onBack={() => setCurrentView(HOME)}
+            onNavigateToBookings={() => setCurrentView(BOOKINGS)}
+            onContact={handleContactClick}
+            onSignOutComplete={handleAppRelaunchAfterSignOut}
+          />
+        );
         
       default:
         return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
@@ -787,7 +803,6 @@ const MainApp = () => {
 
   return (
     <PaperProvider>
-      <SafeAreaProvider>
         <StatusBar 
           translucent 
           backgroundColor="transparent" 
@@ -798,10 +813,20 @@ const MainApp = () => {
             styles.safeArea,
             {
               backgroundColor:
-                currentView === BOOKINGS || currentView === WALLET ? "#0a2a66" : colors.headerBackground,
+                currentView === BOOKINGS || currentView === WALLET
+                  ? "#0a2a66"
+                  : currentView === PROFILE
+                    ? colors.background
+                    : colors.headerBackground,
             },
           ]}
-          edges={currentView === BOOKINGS || currentView === WALLET ? ["bottom"] : ["top"]}
+          edges={
+            currentView === BOOKINGS || currentView === WALLET
+              ? ["bottom"]
+              : currentView === PROFILE
+                ? []
+                : ["top"]
+          }
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>
@@ -818,7 +843,7 @@ const MainApp = () => {
               )}
 
               {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
-              {currentView !== BOOKINGS && currentView !== WALLET && (
+              {currentView !== BOOKINGS && currentView !== WALLET && currentView !== PROFILE && (
                 <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
                   <Head
                     sendDataToParent={handleViewChange}
@@ -835,19 +860,23 @@ const MainApp = () => {
               <View
                 style={[
                   styles.contentContainer,
-                  { backgroundColor: colors.background },
-                  (currentView === BOOKINGS || currentView === WALLET) && styles.contentContainerFullScreen,
+                  {
+                    backgroundColor: colors.background,
+                    paddingBottom:
+                      isMobile &&
+                      currentView !== BOOKINGS &&
+                      currentView !== WALLET
+                        ? mobileTabBarClearance
+                        : 0,
+                  },
+                  (currentView === BOOKINGS ||
+                    currentView === WALLET ||
+                    currentView === PROFILE ||
+                    (currentView === DASHBOARD && showProfileFromDashboard)) &&
+                    styles.contentContainerFullScreen,
                 ]}
               >
-                {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) ? (
-                  <ScrollView
-                    style={styles.profileScrollView}
-                    contentContainerStyle={styles.profileScrollContent}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {renderContent()}
-                  </ScrollView>
-                ) : shouldRenderWithoutParentScroll ? (
+                {shouldRenderWithoutParentScroll ? (
                   <View style={styles.mainScrollView}>
                     {renderContent()}
                     {currentView === HOME &&
@@ -874,7 +903,7 @@ const MainApp = () => {
 
               {/* Fixed Navigation Footer for Mobile */}
               {isMobile && (
-                <View style={[styles.navigationFooterContainer, { backgroundColor: colors.footerBackground }]}>
+                <View style={styles.navigationFooterContainer}>
                   <NavigationFooter
                     activePage={currentView}
                     onHomeClick={handleHomeClick}
@@ -886,7 +915,6 @@ const MainApp = () => {
                     appUser={appUser}
                     bookingType={selectedBookingType}
                     onOpenSignup={() => setShowSignupDrawer(true)}
-                    onProfileClick={() => setShowProfileMenu(true)}
                     onNavigateToPage={(page: string) => {
                       if (page === PROFILE) {
                         setCurrentView(PROFILE);
@@ -911,27 +939,6 @@ const MainApp = () => {
                     bookingsRef={bookingsRef}
                   />
 
-                  <ProfileMenuSheet
-                    visible={showProfileMenu}
-                    onClose={() => setShowProfileMenu(false)}
-                    onProfile={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(PROFILE);
-                    }}
-                    onBookings={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(BOOKINGS);
-                    }}
-                    onDashboard={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(DASHBOARD);
-                    }}
-                    onWallet={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(WALLET);
-                    }}
-                    onContact={handleContactClick}
-                  />
                 </View>
               )}
             </View>
@@ -941,12 +948,15 @@ const MainApp = () => {
             <TouchableOpacity 
               style={[
                 styles.chatButton,
-                { backgroundColor: colors.secondary },
-                (currentView === WALLET || currentView === BOOKINGS) && styles.chatButtonRaised,
+                {
+                  backgroundColor: colors.secondary,
+                  bottom: mobileTabBarClearance + 10,
+                  right: 76,
+                },
               ]} 
               onPress={() => setChatbotOpen(true)}
             >
-              <Icon name="chat" size={28} color="#fff" />
+              <Icon name="chat" size={26} color="#fff" />
             </TouchableOpacity>
           )}
 
@@ -1033,7 +1043,6 @@ const MainApp = () => {
             />
           )}
         </SafeAreaView>
-      </SafeAreaProvider>
     </PaperProvider>
   );
 };
@@ -1060,7 +1069,9 @@ const App = () => {
       <AppUserProvider>
         <ThemeProvider>
           <I18nextProvider i18n={i18n}>
-            <MainApp />
+            <SafeAreaProvider>
+              <MainApp />
+            </SafeAreaProvider>
           </I18nextProvider>
         </ThemeProvider>
       </AppUserProvider>
@@ -1085,7 +1096,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     marginTop: 50,
-    paddingBottom: 96,
   },
   contentContainerFullScreen: {
     marginTop: 0,
@@ -1101,12 +1111,6 @@ const styles = StyleSheet.create({
   },
   fullScreenScrollContent: { 
     paddingBottom: 0 
-  },
-  profileScrollView: { 
-    flex: 1 
-  },
-  profileScrollContent: { 
-    flexGrow: 1 
   },
   modalContainer: { 
     flex: 1, 
@@ -1130,21 +1134,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    width: "100%",
     zIndex: 100,
-    minHeight: 72,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 14,
+    backgroundColor: "transparent",
   },
   chatButton: {
     position: "absolute",
-    bottom: 80,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -1153,9 +1151,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     zIndex: 2000,
-  },
-  chatButtonRaised: {
-    bottom: 108,
   },
   deepLinkLoadingOverlay: {
     position: 'absolute',

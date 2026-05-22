@@ -176,7 +176,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: isSmallScreen ? 92 : 80 }}
+        contentContainerStyle={{ paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient colors={["#0a2a66", "#328aff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>

@@ -29,7 +29,6 @@ import {
 } from "../Constants/pagesConstants";
 import { useAuth0 } from "react-native-auth0";
 import LinearGradient from "react-native-linear-gradient";
-import WalletDialog from "../UserProfile/WalletDialog";
 import TnC from "../TermsAndConditions/TnC";
 import AboutPage from "../AboutUs/AboutPage";
 import ContactUs from "../ContactUs/ContactUs";
@@ -87,7 +86,6 @@ const Head: React.FC<ChildComponentProps> = ({
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("");
   const [userPreference, setUserPreference] = useState<any>([]);
-  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showTnC, setShowTnC] = useState(false);
   const [showAboutUs, setShowAboutUs] = useState(false);
   const [showContactUs, setShowContactUs] = useState(false);
@@ -442,11 +440,6 @@ const Head: React.FC<ChildComponentProps> = ({
     handleClick(AGENT_DASHBOARD);
   };
 
-  const handleWalletClick = () => {
-    setMenuVisible(false);
-    setIsWalletOpen(true);
-  };
-
   const handleMenuPress = () => {
     setMenuVisible(!menuVisible);
   };
@@ -542,12 +535,6 @@ const Head: React.FC<ChildComponentProps> = ({
           </View>
         </TouchableOpacity>
       </LinearGradient>
-
-      {/* Wallet Dialog */}
-      <WalletDialog
-        open={isWalletOpen}
-        onClose={() => setIsWalletOpen(false)}
-      />
 
       {/* Notifications Dialog */}
       <NotificationsDialog

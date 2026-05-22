@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,387 +7,499 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   StatusBar,
-} from 'react-native';
-import { useAuth0 } from 'react-native-auth0';
-import { useAppUser } from '../context/AppUserContext';
-import { useTranslation } from 'react-i18next';
-import Icon from 'react-native-vector-icons/Feather';
-import LinearGradient from 'react-native-linear-gradient';
-import providerInstance from '../services/providerInstance';
-import { useTheme } from '../../src/Settings/ThemeContext';
-import Svg, { Path, Line, Defs, Pattern, Rect, Circle } from 'react-native-svg';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth0 } from "react-native-auth0";
+import { useDispatch } from "react-redux";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import Snackbar from "react-native-snackbar";
+import { useAppUser } from "../context/AppUserContext";
+import { useTranslation } from "react-i18next";
+import providerInstance from "../services/providerInstance";
+import { useTheme } from "../Settings/ThemeContext";
+import { remove } from "../features/userSlice";
+import CustomerProfileSection from "./CustomerProfileSection";
+import ServiceProviderProfileSection from "./ServiceProviderProfileSection";
+import VendorProfileSection from "./VendorProfileSection";
+import MobileNumberDialog from "./MobileNumberDialog";
+import Settings from "../Settings/Settings";
+import { ProfileHubSkeleton } from "../common/ProfileHubSkeleton";
+import {
+  extractContactFromPayload,
+  formatContactDisplay,
+  isValidContact,
+} from "../utils/profileContact";
 
-// Import sections
-import CustomerProfileSection from './CustomerProfileSection';
-import ServiceProviderProfileSection from './ServiceProviderProfileSection';
-import VendorProfileSection from './VendorProfileSection';
-import MobileNumberDialog from './MobileNumberDialog';
+type ProfileSubView = "hub" | "edit";
 
-const { width, height } = Dimensions.get('window');
-
-interface AppUser {
-  name?: string;
-  email?: string;
-  picture?: string;
-  role?: 'CUSTOMER' | 'SERVICE_PROVIDER' | 'VENDOR';
-  customerid?: number;
-  serviceProviderId?: number;
-  vendorId?: number;
+export interface ProfileScreenProps {
+  onBack: () => void;
+  onNavigateToBookings?: () => void;
+  onContact?: () => void;
+  onSignOutComplete?: () => Promise<void>;
 }
 
-const ProfileScreen: React.FC = () => {
-  const { t } = useTranslation();
-  const { user: auth0User, isLoading: auth0Loading } = useAuth0(); // only used for picture fallback
-  const { appUser } = useAppUser();
-  const { colors, fontSize, isDarkMode } = useTheme();
+type MenuItem = {
+  key: string;
+  label: string;
+  icon: string;
+  showChevron?: boolean;
+  destructive?: boolean;
+  onPress: () => void;
+};
 
+const ProfileTopBar = ({
+  title,
+  onBack,
+  textColor,
+  borderColor,
+  backgroundColor,
+}: {
+  title: string;
+  onBack: () => void;
+  textColor: string;
+  borderColor: string;
+  backgroundColor: string;
+}) => {
+  const insets = useSafeAreaInsets();
+  const { isDarkMode } = useTheme();
+  return (
+    <View
+      style={[
+        styles.topBar,
+        {
+          paddingTop: insets.top > 0 ? insets.top : 8,
+          backgroundColor,
+          borderBottomColor: borderColor,
+        },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={onBack}
+        style={[
+          styles.backButton,
+          { backgroundColor: isDarkMode ? "#1e293b" : "#f3f4f6" },
+        ]}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityLabel="Go back"
+      >
+        <MaterialIcon name="arrow-back" size={22} color={textColor} />
+      </TouchableOpacity>
+      <Text style={[styles.topBarTitle, { color: textColor }]}>{title}</Text>
+      <View style={styles.topBarSide} />
+    </View>
+  );
+};
+
+const ProfileMenuRow = ({
+  item,
+  textColor,
+  mutedColor,
+  borderColor,
+}: {
+  item: MenuItem;
+  textColor: string;
+  mutedColor: string;
+  borderColor: string;
+}) => (
+  <TouchableOpacity
+    style={[styles.menuRow, { borderBottomColor: borderColor }]}
+    onPress={item.onPress}
+    activeOpacity={0.65}
+  >
+    <MaterialIcon
+      name={item.icon}
+      size={22}
+      color={item.destructive ? "#dc2626" : mutedColor}
+    />
+    <Text
+      style={[
+        styles.menuLabel,
+        { color: item.destructive ? "#dc2626" : textColor },
+      ]}
+    >
+      {item.label}
+    </Text>
+    {item.showChevron !== false && (
+      <MaterialIcon name="chevron-right" size={22} color={mutedColor} />
+    )}
+  </TouchableOpacity>
+);
+
+const ProfileScreen: React.FC<ProfileScreenProps> = ({
+  onBack,
+  onNavigateToBookings,
+  onContact,
+  onSignOutComplete,
+}) => {
+  const { t } = useTranslation();
+  const { user: auth0User, isLoading: auth0Loading, clearSession } = useAuth0();
+  const { appUser } = useAppUser();
+  const { colors, isDarkMode } = useTheme();
+  const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
+
+  const [subView, setSubView] = useState<ProfileSubView>("hub");
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-  const [userRole, setUserRole] = useState<'CUSTOMER' | 'SERVICE_PROVIDER' | 'VENDOR'>('CUSTOMER');
+  const [userRole, setUserRole] = useState<"CUSTOMER" | "SERVICE_PROVIDER" | "VENDOR">(
+    "CUSTOMER"
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [dialogShownInSession, setDialogShownInSession] = useState(false);
+  const [contactNumber, setContactNumber] = useState<string | null>(null);
   const [hasMobileNumber, setHasMobileNumber] = useState<boolean | null>(null);
 
-  // Get font sizes based on theme
-  const getFontSizes = () => {
-    switch (fontSize) {
-      case 'small':
-        return {
-          title: 24,
-          subtitle: 14,
-          body: 12,
-          button: 12,
-          smallText: 10,
-        };
-      case 'large':
-        return {
-          title: 32,
-          subtitle: 18,
-          body: 16,
-          button: 16,
-          smallText: 14,
-        };
-      default:
-        return {
-          title: 28,
-          subtitle: 16,
-          body: 14,
-          button: 14,
-          smallText: 12,
-        };
-    }
-  };
+  const textPrimary = isDarkMode ? "#f8fafc" : "#0f172a";
+  const textMuted = isDarkMode ? "#94a3b8" : "#64748b";
+  const surfaceBg = isDarkMode ? colors.background : "#ffffff";
+  const divider = isDarkMode ? "#334155" : "#e5e7eb";
+  const loadProfileContact = useCallback(
+    async (
+      role: "CUSTOMER" | "SERVICE_PROVIDER" | "VENDOR",
+      id: number
+    ) => {
+      try {
+        let contact = "";
+        if (role === "CUSTOMER") {
+          const response = await providerInstance.get(`/api/customer/${id}`);
+          contact = extractContactFromPayload(response.data?.data);
+        } else if (role === "SERVICE_PROVIDER") {
+          const response = await providerInstance.get(
+            `/api/service-providers/serviceprovider/${id}`
+          );
+          contact = extractContactFromPayload(response.data?.data);
+        } else if (role === "VENDOR") {
+          const response = await providerInstance.get(`/api/vendor/${id}`);
+          contact = extractContactFromPayload(response.data?.data);
+        }
 
-  const fontSizes = getFontSizes();
+        const valid = isValidContact(contact);
+        setContactNumber(valid ? contact : null);
+        setHasMobileNumber(valid);
 
-  // Check mobile number for customers
-  const checkMobileNumber = useCallback(async (customerId: number) => {
-    try {
-      const response = await providerInstance.get(`/api/customer/${customerId}`);
-      const mobileExists = !!response.data?.data?.mobileno;
-      setHasMobileNumber(mobileExists);
-
-      if (!mobileExists && !dialogShownInSession) {
-        setTimeout(() => {
-          setMobileDialogOpen(true);
-          setDialogShownInSession(true);
-        }, 1000);
+        if (role === "CUSTOMER" && !valid && !dialogShownInSession) {
+          setTimeout(() => {
+            setMobileDialogOpen(true);
+            setDialogShownInSession(true);
+          }, 800);
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile contact:", error);
+        setContactNumber(null);
+        setHasMobileNumber(null);
       }
-    } catch (error) {
-      console.error('Failed to fetch customer data:', error);
-    }
-  }, [dialogShownInSession]);
+    },
+    [dialogShownInSession]
+  );
 
   useEffect(() => {
     const initializeProfile = async () => {
       setIsLoading(true);
-
-      // ✅ Use appUser regardless of Auth0 authentication
       if (appUser) {
         const name = appUser.name || null;
         const email = appUser.email || null;
-        const role = appUser.role || 'CUSTOMER';
-
+        const role = appUser.role || "CUSTOMER";
         setUserRole(role);
         setUserName(name);
         setUserEmail(email);
 
-        let id = null;
-        if (role === 'SERVICE_PROVIDER') {
-          id = appUser.serviceProviderId;
-        } else if (role === 'CUSTOMER') {
-          id = appUser.customerid;
-        } else if (role === 'VENDOR') {
-          id = appUser.vendorId;
+        let id: number | null = null;
+        if (role === "SERVICE_PROVIDER") {
+          id = appUser.serviceProviderId ? Number(appUser.serviceProviderId) : null;
+        } else if (role === "CUSTOMER") {
+          id = appUser.customerid ? Number(appUser.customerid) : null;
+        } else if (role === "VENDOR") {
+          id = appUser.vendorId ? Number(appUser.vendorId) : null;
         }
+        setUserId(id);
 
-        const numericId = id ? Number(id) : null;
-        setUserId(numericId);
-
-        if (role === 'CUSTOMER' && numericId) {
-          await checkMobileNumber(numericId);
-        } else if (role === 'SERVICE_PROVIDER' || role === 'VENDOR') {
-          setHasMobileNumber(true);
+        if (id) {
+          await loadProfileContact(role, id);
+        } else {
+          setContactNumber(null);
+          setHasMobileNumber(null);
         }
       }
-
       setIsLoading(false);
     };
-
     initializeProfile();
-  }, [appUser, checkMobileNumber]);
+  }, [appUser, loadProfileContact]);
 
-  const getRoleDisplay = () => {
-    switch (userRole) {
-      case 'CUSTOMER':
-        return t('profile.page.customer');
-      case 'SERVICE_PROVIDER':
-        return t('profile.page.serviceProvider');
-      case 'VENDOR':
-        return t('profile.page.vendor');
-      default:
-        return t('profile.page.user');
+  const getHandle = () => {
+    const email = userEmail || appUser?.email || auth0User?.email;
+    if (!email) return "@user";
+    const local = email.split("@")[0] || "user";
+    return `@${local.toLowerCase().replace(/[^a-z0-9._]/g, "")}`;
+  };
+
+  const getDisplayName = () => userName || appUser?.name || t("profile.page.user");
+
+  const getAvatarUri = () => appUser?.picture || auth0User?.picture || null;
+
+  const getInitial = () => getDisplayName().charAt(0).toUpperCase();
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      Snackbar.show({
+        text: t("navigation.signingOutMsg") || "Signing out…",
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#3b82f6",
+        textColor: "#ffffff",
+      });
+      await AsyncStorage.multiRemove(["token", "userRole", "@app_user_data"]);
+      try {
+        await clearSession({ returnToUrl: "com.serveaso://logout" });
+      } catch (e) {
+        console.log("No Auth0 session to clear:", e);
+      }
+      dispatch(remove());
+      if (onSignOutComplete) {
+        await onSignOutComplete();
+      }
+    } catch (e) {
+      console.log("Sign out error:", e);
+      Snackbar.show({
+        text: t("navigation.signOut") || "Sign out failed",
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#ef4444",
+        textColor: "#ffffff",
+      });
+      setIsSigningOut(false);
     }
   };
 
-  const getAvatarSource = () => {
-    const pictureUri = appUser?.picture || auth0User?.picture;
-    if (pictureUri) {
-      return { uri: pictureUri };
+  const confirmSignOut = () => {
+    Alert.alert(
+      t("navigation.signOut") || "Log out",
+      "Are you sure you want to log out?",
+      [
+        { text: t("common.cancel") || "Cancel", style: "cancel" },
+        {
+          text: t("navigation.signOut") || "Log out",
+          style: "destructive",
+          onPress: handleSignOut,
+        },
+      ]
+    );
+  };
+
+  const handleChangePassword = () => {
+    Alert.alert(
+      "Change Password",
+      "Use the Forgot Password option on the login screen to reset your password.",
+      [{ text: "OK" }]
+    );
+  };
+
+  const buildMenuItems = (): { primary: MenuItem[]; secondary: MenuItem[] } => {
+    const primary: MenuItem[] = [
+      {
+        key: "settings",
+        label: t("navigation.settings") || "Settings",
+        icon: "settings",
+        onPress: () => setSettingsVisible(true),
+      },
+    ];
+
+    if (userRole === "CUSTOMER") {
+      primary.push(
+        {
+          key: "orders",
+          label: t("navigation.bookings") || "My Orders",
+          icon: "receipt-long",
+          onPress: () => onNavigateToBookings?.(),
+        },
+        {
+          key: "address",
+          label: "Address",
+          icon: "place",
+          onPress: () => setSubView("edit"),
+        },
+        {
+          key: "password",
+          label: "Change Password",
+          icon: "lock-outline",
+          onPress: handleChangePassword,
+        }
+      );
     }
-    return undefined;
+
+    const secondary: MenuItem[] = [
+      {
+        key: "help",
+        label: "Help & Support",
+        icon: "help-outline",
+        onPress: () => onContact?.(),
+      },
+      {
+        key: "logout",
+        label: t("navigation.signOut") || "Log out",
+        icon: "logout",
+        showChevron: false,
+        destructive: true,
+        onPress: confirmSignOut,
+      },
+    ];
+
+    return { primary, secondary };
   };
 
-  const getUserInitial = () => {
-    const name = userName || t('profile.page.user');
-    return name.charAt(0).toUpperCase();
-  };
+  const showProfileSkeleton = isLoading || (auth0Loading && !appUser);
 
-  const getAvatarBackgroundColor = (initial: string) => {
-    const colorsList = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
-    const charCode = initial.charCodeAt(0);
-    return colorsList[charCode % colorsList.length];
-  };
+  if (showProfileSkeleton) {
+    return <ProfileHubSkeleton />;
+  }
 
-  // Diagonal line pattern
-  const DiagonalPattern = () => (
-    <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-      <Defs>
-        <Pattern
-          id="diagonalPattern"
-          patternUnits="userSpaceOnUse"
-          width={30}
-          height={30}
-          patternTransform="rotate(45)"
-        >
-          <Line
-            x1="0"
-            y1="15"
-            x2="30"
-            y2="15"
-            stroke="rgba(255,255,255,0.12)"
-            strokeWidth="1.5"
-          />
-        </Pattern>
-      </Defs>
-      <Rect width="100%" height="100%" fill="url(#diagonalPattern)" />
-    </Svg>
-  );
-
-  // Dot pattern for texture
-  const DotPattern = () => (
-    <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-      <Defs>
-        <Pattern
-          id="dotPattern"
-          patternUnits="userSpaceOnUse"
-          width={20}
-          height={20}
-        >
-          <Circle cx="10" cy="10" r="1.2" fill="rgba(255,255,255,0.1)" />
-        </Pattern>
-      </Defs>
-      <Rect width="100%" height="100%" fill="url(#dotPattern)" />
-    </Svg>
-  );
-
-  // Loading skeleton for the entire profile
-  if (isLoading || auth0Loading) {
+  if (subView === "edit") {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-        <LinearGradient
-          colors={['#0d1935', '#1c4485', '#255697']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerSkeleton}
-        >
-          <View style={styles.headerContentSkeleton}>
-            <View style={styles.profileInfoSkeleton}>
-              <View style={[styles.avatarSkeleton, { backgroundColor: colors.surface }]} />
-              <View style={styles.textInfoSkeleton}>
-                <View style={[styles.nameSkeleton, { backgroundColor: colors.surface }]} />
-                <View style={[styles.roleSkeleton, { backgroundColor: colors.surface }]} />
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
-        <ScrollView 
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.mainContent}>
-            <View style={[styles.skeletonCard, { backgroundColor: colors.card }]}>
-              {/* Skeleton content */}
-              <View style={styles.skeletonHeader}>
-                <View style={[styles.skeletonTitle, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonEditButton, { backgroundColor: colors.surface }]} />
-              </View>
-              <View style={styles.skeletonSection}>
-                <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
-                <View style={styles.skeletonRow}>
-                  <View style={styles.skeletonInputGroup}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+        <ProfileTopBar
+          title="Edit Profile"
+          onBack={() => setSubView("hub")}
+          textColor={textPrimary}
+          borderColor={divider}
+          backgroundColor={surfaceBg}
+        />
+        <View style={styles.editBody}>
+          {userRole === "CUSTOMER" ? (
+            <CustomerProfileSection
+              userId={userId}
+              userEmail={userEmail}
+              onBack={() => setSubView("hub")}
+              embedMode
+            />
+          ) : userRole === "SERVICE_PROVIDER" ? (
+            <ServiceProviderProfileSection userId={userId} userEmail={userEmail} />
+          ) : (
+            <VendorProfileSection userId={userId} userEmail={userEmail} onBack={() => setSubView("hub")} />
+          )}
+        </View>
       </View>
     );
   }
 
-  // Determine profile picture: from appUser, Auth0, or default
-  const profilePicture = appUser?.picture || auth0User?.picture || "https://via.placeholder.com/80";
+  const { primary, secondary } = buildMenuItems();
+  const avatarUri = getAvatarUri();
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      
-      <ScrollView 
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContentContainer}
+    <View style={[styles.container, { backgroundColor: surfaceBg }]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+
+      <ProfileTopBar
+        title="Profile"
+        onBack={onBack}
+        textColor={textPrimary}
+        borderColor={divider}
+        backgroundColor={surfaceBg}
+      />
+
+      <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
       >
-        {/* Header with curved bottom edge */}
-        <View style={styles.headerWrapper}>
-          <LinearGradient
-            colors={['#0d1935', '#1c4485', '#255697']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.header}
-          >
-            {/* Texture patterns */}
-            <DiagonalPattern />
-            <DotPattern />
-            
-            <View style={styles.headerContent}>
-              <View style={styles.profileInfo}>
-                <View style={styles.avatarRing}>
-                  <Image
-                    source={{ uri: profilePicture }}
-                    style={styles.avatar}
-                  />
-                </View>
-                <View style={styles.userInfo}>
-                  <Text style={[styles.greeting, { color: '#ffffff', fontSize: fontSizes.title }]}>
-                    Hello, {userName || t('profile.page.user')}
-                  </Text>
-                  <View style={styles.roleContainer}>
-                    <Text style={[styles.roleText, { color: '#cbd5e1', fontSize: fontSizes.subtitle }]}>
-                      {getRoleDisplay()}
-                    </Text>
-                    {userRole === 'CUSTOMER' && hasMobileNumber === false && (
-                      <Text style={[styles.mobileWarning, { color: '#fde047', fontSize: fontSizes.body }]}>
-                        {' '}⚠️ Mobile number required
-                      </Text>
-                    )}
-                  </View>
-                </View>
+        <View style={styles.identitySection}>
+          <View style={[styles.avatarRing, { borderColor: textPrimary }]}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <View style={[styles.avatarFallback, { backgroundColor: colors.primary }]}>
+                <Text style={styles.avatarInitial}>{getInitial()}</Text>
               </View>
+            )}
+          </View>
 
-              {/* Add Mobile Button - Only for Customers */}
-              {userRole === 'CUSTOMER' && hasMobileNumber === false && (
-                <TouchableOpacity
-                  style={styles.addMobileButton}
-                  onPress={() => setMobileDialogOpen(true)}
-                >
-                  <Icon name="phone" size={16} color="#fde047" />
-                  <Text style={[styles.addMobileText, { color: '#fde047', fontSize: fontSizes.button }]}>
-                    Add Mobile Number
-                  </Text>
-                </TouchableOpacity>
-              )}
+          <Text style={[styles.displayName, { color: textPrimary }]}>{getDisplayName()}</Text>
+          <Text style={[styles.handle, { color: textMuted }]}>{getHandle()}</Text>
 
-              {/* Vendor ID Display */}
-              {userRole === 'VENDOR' && userId && (
-                <View style={styles.vendorIdBadge}>
-                  <Text style={[styles.vendorIdText, { color: '#bae6fd', fontSize: fontSizes.body }]}>
-                    Vendor ID: {userId}
-                  </Text>
-                </View>
-              )}
+          {contactNumber ? (
+            <View style={styles.contactRow}>
+              <MaterialIcon name="phone" size={15} color={textMuted} />
+              <Text style={[styles.contactText, { color: textMuted }]}>
+                {formatContactDisplay(contactNumber)}
+              </Text>
             </View>
-
-            {/* Curved bottom edge decoration - like the image */}
-            <View style={styles.curveOverlay} />
-          </LinearGradient>
-          
-          {/* Curved white overlay to create the rounded edge effect */}
-          <View style={styles.bottomCurve} />
-        </View>
-
-        {/* Profile Section - Supports all three roles */}
-        <View style={styles.profileSectionContainer}>
-          {userRole === 'CUSTOMER' ? (
-            <CustomerProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {}}
-            />
-          ) : userRole === 'SERVICE_PROVIDER' ? (
-            <ServiceProviderProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {}}
-            />
-          ) : userRole === 'VENDOR' ? (
-            <VendorProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {}}
-            />
           ) : null}
+
+          {userRole === "CUSTOMER" && hasMobileNumber === false && (
+            <TouchableOpacity
+              style={styles.mobileHint}
+              onPress={() => setMobileDialogOpen(true)}
+            >
+              <MaterialIcon name="phone-android" size={16} color="#b45309" />
+              <Text style={styles.mobileHintText}>Add mobile number</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.editProfileBtn, { backgroundColor: textPrimary }]}
+            onPress={() => setSubView("edit")}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.editProfileBtnText, { color: surfaceBg }]}>
+              Edit Profile
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Mobile Dialog */}
-        {mobileDialogOpen && userId && userRole === 'CUSTOMER' && (
-          <MobileNumberDialog
-            visible={mobileDialogOpen}
-            onClose={() => setMobileDialogOpen(false)}
-            customerId={userId}
-            onSuccess={() => {
-              setHasMobileNumber(true);
-              setMobileDialogOpen(false);
-            }}
-          />
-        )}
+        <View style={[styles.menuGroup, { borderTopColor: divider }]}>
+          {primary.map((item) => (
+            <ProfileMenuRow
+              key={item.key}
+              item={item}
+              textColor={textPrimary}
+              mutedColor={textMuted}
+              borderColor={divider}
+            />
+          ))}
+        </View>
+
+        <View style={[styles.menuGroup, { borderTopColor: divider }]}>
+          {secondary.map((item) => (
+            <ProfileMenuRow
+              key={item.key}
+              item={item}
+              textColor={textPrimary}
+              mutedColor={textMuted}
+              borderColor={divider}
+            />
+          ))}
+        </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+
+      {mobileDialogOpen && userId && userRole === "CUSTOMER" && (
+        <MobileNumberDialog
+          visible={mobileDialogOpen}
+          onClose={() => setMobileDialogOpen(false)}
+          customerId={userId}
+          onSuccess={() => {
+            setHasMobileNumber(true);
+            setMobileDialogOpen(false);
+            if (userId) {
+              loadProfileContact("CUSTOMER", userId);
+            }
+          }}
+        />
+      )}
+
+      {settingsVisible && (
+        <Settings
+          visible
+          onClose={() => setSettingsVisible(false)}
+        />
+      )}
+    </View>
   );
 };
 
@@ -395,295 +507,129 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContainer: {
-    flex: 1,
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  scrollContentContainer: {
-    flexGrow: 1,
-    paddingBottom: 20,
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerWrapper: {
-    position: 'relative',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
+  topBarTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40 + (StatusBar.currentHeight || 0),
-    paddingBottom: 50,
-    position: 'relative',
+  topBarSide: {
+    width: 36,
   },
-  curveOverlay: {
-    position: 'absolute',
-    bottom: -2,
-    left: 0,
-    right: 0,
-    height: 30,
-    backgroundColor: 'transparent',
-  },
-  bottomCurve: {
-    position: 'absolute',
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 30,
-    backgroundColor: '#f8fafc',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    gap: 12,
-    zIndex: 10,
-  },
-  profileInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    flex: 1,
+  identitySection: {
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   avatarRing: {
-    padding: 3,
-    borderRadius: 40,
-    backgroundColor: '#3b82f6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 108,
+    height: 108,
+    borderRadius: 54,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    padding: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarImage: {
+    width: 98,
+    height: 98,
+    borderRadius: 49,
   },
   avatarFallback: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    width: 98,
+    height: 98,
+    borderRadius: 49,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarText: {
-    fontWeight: 'bold',
+  avatarInitial: {
+    fontSize: 36,
+    fontWeight: "700",
+    color: "#ffffff",
   },
-  userInfo: {
-    flex: 1,
+  displayName: {
+    marginTop: 12,
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    textAlign: "center",
   },
-  greeting: {
-    fontWeight: 'bold',
-    marginBottom: 4,
+  handle: {
+    marginTop: 6,
+    fontSize: 14,
+    textAlign: "center",
   },
-  roleContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  roleText: {
-    fontWeight: '500',
-  },
-  mobileWarning: {
-    fontWeight: '500',
-  },
-  addMobileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
-    backgroundColor: 'rgba(253, 224, 71, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.3)',
-  },
-  addMobileText: {
-    fontWeight: '600',
-  },
-  vendorIdBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  vendorIdText: {
-    fontWeight: '600',
-  },
-  profileSectionContainer: {
-    backgroundColor: '#f8fafc',
-    paddingTop: 10,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: -20,
-    zIndex: 20,
-  },
-  mainContent: {
-    alignItems: 'center',
-    padding: 16,
-  },
-  skeletonCard: {
-    width: width - 32,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  skeletonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 12,
-    marginBottom: 16,
-  },
-  skeletonTitle: {
-    width: 120,
-    height: 24,
-    borderRadius: 4,
-  },
-  skeletonEditButton: {
-    width: 80,
-    height: 36,
-    borderRadius: 20,
-  },
-  skeletonSection: {
-    marginBottom: 20,
-  },
-  skeletonSectionTitle: {
-    width: 150,
-    height: 20,
-    borderRadius: 4,
-    marginBottom: 16,
-  },
-  skeletonRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 12,
-  },
-  skeletonInputGroup: {
-    flex: 1,
-    minWidth: 200,
-  },
-  skeletonLabel: {
-    width: 80,
-    height: 16,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonInput: {
-    width: '100%',
-    height: 40,
-    borderRadius: 8,
-  },
-  skeletonDivider: {
-    height: 1,
-    marginVertical: 20,
-  },
-  skeletonAddressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  skeletonAddButton: {
-    width: 120,
-    height: 32,
-    borderRadius: 6,
-  },
-  skeletonAddressCard: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-  },
-  skeletonAddressTitle: {
-    width: 80,
-    height: 20,
-    borderRadius: 4,
-  },
-  skeletonAddressIcon: {
-    width: 60,
-    height: 20,
-    borderRadius: 4,
-  },
-  skeletonAddressLine: {
-    width: '100%',
-    height: 20,
-    borderRadius: 4,
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     marginTop: 8,
-    marginBottom: 4,
   },
-  skeletonAddressLineShort: {
-    width: '80%',
-    height: 20,
-    borderRadius: 4,
+  contactText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
-  skeletonFooter: {
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 20,
+  mobileHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#fef3c7",
   },
-  skeletonFooterText: {
-    width: 200,
-    height: 16,
-    borderRadius: 4,
+  mobileHintText: {
+    fontSize: 13,
+    color: "#b45309",
+    fontWeight: "500",
   },
-  headerSkeleton: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 50,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+  editProfileBtn: {
+    marginTop: 14,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    minWidth: 200,
+    alignItems: "center",
   },
-  headerContentSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  editProfileBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  menuGroup: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: 0,
     paddingHorizontal: 20,
   },
-  profileInfoSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 14,
   },
-  avatarSkeleton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  menuLabel: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
   },
-  textInfoSkeleton: {
-    gap: 8,
-  },
-  nameSkeleton: {
-    width: 160,
-    height: 28,
-    borderRadius: 4,
-  },
-  roleSkeleton: {
-    width: 96,
-    height: 16,
-    borderRadius: 4,
-  },
-  buttonSkeleton: {
-    width: 128,
-    height: 40,
-    borderRadius: 20,
+  editBody: {
+    flex: 1,
   },
 });
 

@@ -30,6 +30,8 @@ import axiosInstance from '../services/axiosInstance';
 import providerInstance from '../services/providerInstance';
 import preferenceInstance from '../services/preferenceInstance'; // Changed from utilsInstance to preferenceInstance
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { ProfileContentSkeleton } from '../common/ProfileContentSkeleton';
+import { parseAlternateContact, parsePrimaryContact } from '../utils/profileContact';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -79,6 +81,8 @@ interface CustomerProfileSectionProps {
   initialData?: any;
   isExternalEdit?: boolean;
   setExternalEdit?: (val: boolean) => void;
+  /** When opened from profile hub "Edit Profile" — hide duplicate header, start in edit mode. */
+  embedMode?: boolean;
 }
 
 const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
@@ -88,6 +92,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   initialData,
   isExternalEdit,
   setExternalEdit,
+  embedMode = false,
 }) => {
   const dispatch = useDispatch();
   const { user: auth0User } = useAuth0();
@@ -103,7 +108,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     (state: RootState) => state.customer
   );
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(!!isExternalEdit || !!embedMode);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<UserData>({
@@ -261,10 +266,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       const data = response.data?.data;
 
       const userDataFromApi = {
-        firstName: data?.firstname || '',
-        lastName: data?.lastname || '',
-        contactNumber: data?.mobileno || '',
-        altContactNumber: data?.alternateno || '',
+        firstName: data?.firstName || data?.firstname || '',
+        lastName: data?.lastName || data?.lastname || '',
+        contactNumber: parsePrimaryContact(data),
+        altContactNumber: parseAlternateContact(data),
       };
 
       setUserData(userDataFromApi);
@@ -341,10 +346,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       if (userId) {
         if (initialData) {
           const userDataFromProps = {
-            firstName: initialData.firstname || '',
-            lastName: initialData.lastname || '',
-            contactNumber: initialData.mobileno || '',
-            altContactNumber: initialData.alternateno || '',
+            firstName: initialData.firstName || initialData.firstname || '',
+            lastName: initialData.lastName || initialData.lastname || '',
+            contactNumber: parsePrimaryContact(initialData),
+            altContactNumber: parseAlternateContact(initialData),
           };
           setUserData(userDataFromProps);
           setOriginalData(prev => ({
@@ -784,50 +789,8 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     { label: '+971 (UAE)', value: '+971' },
   ];
 
-  // Loading skeleton
   if (isLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.skeletonCard, { backgroundColor: colors.card }]}>
-          <View style={styles.skeletonHeader}>
-            <View style={[styles.skeletonTitle, { backgroundColor: colors.surface }]} />
-            <View style={[styles.skeletonButton, { backgroundColor: colors.surface }]} />
-          </View>
-          <View style={styles.skeletonSection}>
-            <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
-            <View style={styles.skeletonRow}>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-            </View>
-            <View style={styles.skeletonRow}>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-            </View>
-          </View>
-          <View style={[styles.skeletonDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.skeletonSection}>
-            <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
-            <View style={styles.skeletonAddressCard}>
-              <View style={[styles.skeletonAddressTitle, { backgroundColor: colors.surface }]} />
-              <View style={[styles.skeletonAddressLine, { backgroundColor: colors.surface }]} />
-              <View style={[styles.skeletonAddressLineShort, { backgroundColor: colors.surface }]} />
-            </View>
-          </View>
-        </View>
-      </View>
-    );
+    return <ProfileContentSkeleton />;
   }
 
   return (
@@ -845,26 +808,27 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       >
         <View style={styles.mainContent}>
           <View style={[styles.formContainer, { backgroundColor: colors.card }]}>
-            {/* Header */}
-            <View style={[styles.formHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.formTitle, { color: colors.text, fontSize: fontSizes.formTitle }]}>
-                My Account
-              </Text>
-              {!isEditing && (
-                <TouchableOpacity
-                  style={[styles.editButtonTop, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    setOriginalData({ userData: { ...userData }, addresses: [...addresses] });
-                    setIsEditing(true);
-                  }}
-                >
-                  <Icon name="edit-3" size={16} color="#fff" />
-                  <Text style={[styles.editButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                    Edit
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            {!embedMode && (
+              <View style={[styles.formHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.formTitle, { color: colors.text, fontSize: fontSizes.formTitle }]}>
+                  My Account
+                </Text>
+                {!isEditing && (
+                  <TouchableOpacity
+                    style={[styles.editButtonTop, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      setOriginalData({ userData: { ...userData }, addresses: [...addresses] });
+                      setIsEditing(true);
+                    }}
+                  >
+                    <Icon name="edit-3" size={16} color="#fff" />
+                    <Text style={[styles.editButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                      Edit
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {/* User Information */}
             <View>

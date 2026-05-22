@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LinearGradient from "react-native-linear-gradient";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FeatherIcon from "react-native-vector-icons/Feather";
@@ -24,6 +25,29 @@ import { useTranslation } from 'react-i18next';
 import Settings from "../Settings/Settings";
 import Login from "../Login/Login";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from "../Settings/ThemeContext";
+
+type MobileTab = {
+  key: string;
+  label: string;
+  onPress: () => void;
+  iconName?: string;
+  isAccount?: boolean;
+  variant?: "default" | "destructive";
+  disabled?: boolean;
+};
+
+import {
+  MOBILE_TAB_BAR_CONTENT_HEIGHT,
+  MOBILE_TAB_BAR_EDGE_PAD,
+  getMobileTabBarHeight,
+} from "../Constants/mobileLayout";
+
+export {
+  MOBILE_TAB_BAR_CONTENT_HEIGHT,
+  MOBILE_TAB_BAR_EDGE_PAD,
+  getMobileTabBarHeight,
+};
 
 interface NavigationFooterProps {
   onHomeClick: () => void;
@@ -35,7 +59,7 @@ interface NavigationFooterProps {
   auth0User: any;
   appUser: any;
   bookingType?: string;
-  onProfileClick: () => void;
+  onProfileClick?: () => void;
   onNavigateToPage: (page: string) => void;
   activePage: string;
   onSignOutComplete?: () => Promise<void>;
@@ -69,7 +93,10 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [showAuthChoiceModal, setShowAuthChoiceModal] = useState(false);
   const [showPhoneLoginModal, setShowPhoneLoginModal] = useState(false);
   const { t } = useTranslation();
-  
+  const insets = useSafeAreaInsets();
+  const safeBottom = Number.isFinite(insets.bottom) ? insets.bottom : 0;
+  const { colors, isDarkMode } = useTheme();
+
   const { authorize, clearSession, getCredentials } = useAuth0();
   const dispatch = useDispatch();
 
@@ -289,8 +316,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   };
 
   const handleProfileMenuNavigation = (page: string) => {
-    onNavigateToPage(page);
     setIsProfileMenuVisible(false);
+    onNavigateToPage(page);
   };
 
   const handleSettingsOpen = () => {
@@ -312,6 +339,76 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     setTimeout(() => {
       console.log("Phone login completed, navigation should update now");
     }, 500);
+  };
+
+  const renderCompactAccountAvatar = () => {
+    const avatarSize = 24;
+
+    if (!auth0User && appUser?.name) {
+      return (
+        <View style={[styles.compactAvatarInner, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}>
+          <Text style={styles.compactAvatarInitial}>
+            {appUser.name.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      );
+    }
+
+    if (!auth0User) {
+      return <FeatherIcon name="user" size={20} color={isDarkMode ? "#94a3b8" : "#64748b"} />;
+    }
+
+    if (auth0User.picture) {
+      return (
+        <Image
+          source={{ uri: auth0User.picture }}
+          style={{ width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }}
+        />
+      );
+    }
+
+    return (
+      <View style={[styles.compactAvatarInner, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}>
+        <Text style={styles.compactAvatarInitial}>
+          {auth0User.name ? auth0User.name.charAt(0).toUpperCase() : "U"}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderMobileTabIcon = (tab: MobileTab, isActive: boolean) => {
+    const iconMuted = isDarkMode ? "#94a3b8" : "#64748b";
+    const iconActiveColor = colors.primary;
+
+    if (tab.isAccount) {
+      return (
+        <View
+          style={[
+            styles.compactAvatarRing,
+            isDarkMode && styles.compactAvatarRingDark,
+            isActive && styles.compactAvatarRingActive,
+            isActive && isDarkMode && styles.compactAvatarRingActiveDark,
+          ]}
+        >
+          {renderCompactAccountAvatar()}
+        </View>
+      );
+    }
+
+    const iconColor =
+      tab.variant === "destructive"
+        ? isActive
+          ? "#b91c1c"
+          : "#ef4444"
+        : isActive
+          ? iconActiveColor
+          : iconMuted;
+
+    return (
+      <View style={styles.navIconSlot}>
+        <MaterialIcon name={tab.iconName ?? "circle"} size={24} color={iconColor} />
+      </View>
+    );
   };
 
   const renderUserAvatar = (isMobileView: boolean = false) => {
@@ -419,51 +516,49 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   );
 
   if (isMobile) {
-    let tabs = [];
-    
+    const tabs: MobileTab[] = [];
+
     tabs.push({
       key: HOME,
-      label: t('navigation.home'),
-      icon: <MaterialIcon name="home" size={22} />,
+      label: t("navigation.home"),
+      iconName: "home",
       onPress: handleHomeButtonClick,
     });
-    
+
     if (isAuthenticated) {
       tabs.push({
         key: "ACCOUNT",
-        label: t('navigation.account'),
-        icon: renderUserAvatar(true),
+        label: t("navigation.account"),
+        isAccount: true,
         onPress: handleProfileButtonClick,
       });
-      
+
       if (isCustomer) {
         tabs.push({
           key: BOOKINGS,
-          label: t('navigation.bookings'),
-          icon: <MaterialIcon name="event-note" size={22} />,
+          label: t("navigation.bookings"),
+          iconName: "event-note",
           onPress: handleDoubleTapRefresh,
         });
-        
         tabs.push({
           key: WALLET,
-          label: t('navigation.wallet'),
-          icon: <MaterialIcon name="account-balance-wallet" size={22} />,
+          label: t("navigation.wallet"),
+          iconName: "account-balance-wallet",
           onPress: handleWalletClick,
         });
       }
-      
+
       if (isServiceProvider) {
         tabs.push({
           key: DASHBOARD,
-          label: t('navigation.dashboard'),
-          icon: <MaterialIcon name="dashboard" size={22} />,
+          label: t("navigation.dashboard"),
+          iconName: "dashboard",
           onPress: handleDashboardButtonClick,
         });
-        
         tabs.push({
           key: "NOTIFICATIONS",
-          label: t('navigation.alerts'),
-          icon: <MaterialIcon name="notifications" size={22} />,
+          label: t("navigation.alerts"),
+          iconName: "notifications-none",
           onPress: () => setShowNotifications(true),
         });
       }
@@ -471,91 +566,98 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       if (isVendor) {
         tabs.push({
           key: AGENT_DASHBOARD,
-          label: "Agent Dashboard",
-          icon: <MaterialIcon name="business" size={22} />,
+          label: "Agent",
+          iconName: "business-center",
           onPress: handleAgentDashboardButtonClick,
         });
       }
-      
+
       tabs.push({
         key: "SIGN_OUT",
-        label: t('navigation.signOut'),
-        icon: (
-          <MaterialIcon
-            name="logout"
-            size={22}
-            color={isSigningOut ? "#94a3b8" : "#fff"}
-          />
-        ),
+        label: t("navigation.signOut"),
+        iconName: "logout",
+        variant: "destructive",
+        disabled: isSigningOut,
         onPress: handleSignOut,
       });
     } else {
       tabs.push({
         key: "ACCOUNT",
-        label: t('navigation.signIn'),
-        icon: renderUserAvatar(true),
+        label: t("navigation.signIn"),
+        isAccount: true,
         onPress: handleProfileButtonClick,
       });
-      
       tabs.push({
         key: "SIGN_UP",
-        label: t('navigation.signUp'),
-        icon: <MaterialIcon name="person-add" size={22} color="#fff" />,
+        label: t("navigation.signUp"),
+        iconName: "person-add-alt-1",
         onPress: onOpenSignup,
       });
-
       tabs.push({
         key: "SETTINGS",
-        label: t('navigation.settings') || "Settings",
-        icon: <MaterialIcon name="settings" size={22} color="#fff" />,
+        label: t("navigation.settings") || "Settings",
+        iconName: "settings",
         onPress: handleSettingsOpen,
       });
     }
 
+    const navSurface = isDarkMode ? colors.card : "#ffffff";
+    const navBorder = isDarkMode ? colors.border : "#e2e8f0";
+    const textMuted = isDarkMode ? "#94a3b8" : "#64748b";
+    const textActiveColor = colors.primary;
+    const bottomPad = Math.max(safeBottom, MOBILE_TAB_BAR_EDGE_PAD);
+
     return (
       <>
-        <LinearGradient
-          colors={['#0d1935', '#1c4485', '#255697']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.mobileNavContainer}
+        <View
+          style={[
+            styles.mobileNavShell,
+            { backgroundColor: navSurface, borderTopColor: navBorder },
+          ]}
         >
-          {tabs.map((tab, index) => {
-            const isActive = activePage === tab.key || (tab.key === "ACCOUNT" && activePage === PROFILE);
-            const isDisabled = isAuthenticated && tab.key === "SIGN_OUT" && isSigningOut;
+          <View
+            style={[
+              styles.mobileNavContainer,
+              {
+                paddingTop: MOBILE_TAB_BAR_EDGE_PAD,
+                paddingBottom: bottomPad,
+              },
+            ]}
+          >
+            {tabs.map((tab) => {
+              const isActive =
+                tab.variant !== "destructive" &&
+                (activePage === tab.key || (tab.key === "ACCOUNT" && activePage === PROFILE));
+              const isDisabled = !!tab.disabled;
 
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={tab.onPress}
-                disabled={isDisabled}
-                style={[
-                  styles.mobileNavItem,
-                  isActive && styles.activeTab,
-                  isDisabled && styles.disabledTab,
-                ]}
-                activeOpacity={0.85}
-              >
-                <View style={[styles.mobileNavIconWrap, isActive && styles.mobileNavIconWrapActive]}>
-                  {React.cloneElement(tab.icon as any, {
-                    color: isActive ? "#bfdbfe" : isDisabled ? "#94a3b8" : "#fff",
-                  })}
-                </View>
-                <Text
-                  style={[
-                    styles.mobileNavText,
-                    isActive && styles.activeTabText,
-                    isDisabled && styles.disabledTabText,
-                  ]}
-                  numberOfLines={1}
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={tab.onPress}
+                  disabled={isDisabled}
+                  style={[styles.mobileNavItem, isDisabled && styles.disabledTab]}
+                  activeOpacity={0.72}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive, disabled: isDisabled }}
                 >
-                  {tab.label}
-                </Text>
-                {isActive && <View style={styles.activeIndicator} />}
-              </TouchableOpacity>
-            );
-          })}
-        </LinearGradient>
+                  {renderMobileTabIcon(tab, isActive)}
+                  <Text
+                    style={[
+                      styles.mobileNavText,
+                      { color: textMuted },
+                      isActive && { color: textActiveColor, fontWeight: "600" },
+                      tab.variant === "destructive" && styles.mobileNavTextDestructive,
+                      isDisabled && styles.disabledTabText,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         <NotificationsDialog
           visible={showNotifications}
@@ -570,6 +672,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onDashboard={() => handleDashboardButtonClick()}
           onWallet={handleWalletClick}
           onContact={onContactClick}
+          dockAboveTabBar
         />
 
         <Settings
@@ -814,69 +917,78 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 };
 
 const styles = StyleSheet.create({
-  mobileNavContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingTop: 8,
-    paddingBottom: 12,
-    paddingHorizontal: 8,
+  mobileNavShell: {
+    width: "100%",
+    alignSelf: "stretch",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.16)",
-    minHeight: 72,
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 12,
+  },
+  mobileNavContainer: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
   },
   mobileNavItem: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
     flex: 1,
-    position: "relative",
-    paddingVertical: 6,
-    minHeight: 52,
-    borderRadius: 12,
+    paddingHorizontal: 2,
+    minHeight: MOBILE_TAB_BAR_CONTENT_HEIGHT,
+    gap: 3,
   },
-  activeTab: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 12,
+  navIconSlot: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  mobileNavIconWrap: {
+  compactAvatarRing: {
     width: 28,
     height: 28,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#f8fafc",
   },
-  mobileNavIconWrapActive: {
-    backgroundColor: "rgba(191, 219, 254, 0.18)",
+  compactAvatarRingDark: {
+    borderColor: "#334155",
+    backgroundColor: "#1e293b",
   },
-  activeTabText: {
-    color: "#bfdbfe",
+  compactAvatarRingActive: {
+    borderColor: "#0a2a66",
+    backgroundColor: "#eff6ff",
+  },
+  compactAvatarRingActiveDark: {
+    borderColor: "#60a5fa",
+    backgroundColor: "#1e3a5f",
+  },
+  compactAvatarInner: {
+    backgroundColor: "#2563eb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactAvatarInitial: {
+    color: "#fff",
+    fontSize: 11,
     fontWeight: "700",
   },
-  activeIndicator: {
-    position: "absolute",
-    bottom: 4,
-    width: 20,
-    height: 3,
-    backgroundColor: "#bfdbfe",
-    borderRadius: 999,
-  },
   mobileNavText: {
-    color: "white",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "500",
     textAlign: "center",
-    marginTop: 4,
-    lineHeight: 13,
-    maxWidth: "95%",
+    letterSpacing: 0.1,
+    maxWidth: "100%",
+  },
+  mobileNavTextDestructive: {
+    color: "#ef4444",
+    fontSize: 10,
+    fontWeight: "600",
   },
   disabledTab: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   disabledTabText: {
     color: "#94a3b8",
