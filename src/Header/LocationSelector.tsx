@@ -17,6 +17,7 @@ import {
   ScrollView,
   Animated,
   TouchableWithoutFeedback,
+  Pressable,
 } from "react-native";
 import axios from "axios";
 import { keys } from "../env";
@@ -38,6 +39,50 @@ import { useTranslation } from 'react-i18next';
 Geocoder.init(keys.api_key);
 
 const { width } = Dimensions.get("window");
+
+function isCoordinateLike(value?: string): boolean {
+  if (!value) return false;
+  const s = value.trim();
+  return (
+    /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(s) ||
+    /^-?\d+\.\d{4,}$/.test(s)
+  );
+}
+
+function shortenAddress(address: string, maxParts = 2): string {
+  const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= maxParts) return parts.join(", ");
+  return `${parts.slice(0, maxParts).join(", ")}…`;
+}
+
+function getSavedLocationsList(pref: any): any[] {
+  if (!pref) return [];
+  if (Array.isArray(pref) && pref[0]?.savedLocations) return pref[0].savedLocations;
+  if (pref.savedLocations && Array.isArray(pref.savedLocations)) return pref.savedLocations;
+  return [];
+}
+
+async function resolveAddressFromCoords(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await axios.get(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      {
+        headers: { "User-Agent": "ServeasoApp", "Accept-Language": "en" },
+      }
+    );
+    if (res.data?.display_name) return res.data.display_name;
+  } catch {
+    /* try geocoder */
+  }
+  try {
+    const res = await Geocoder.from(lat, lng);
+    const addr = res.results?.[0]?.formatted_address;
+    if (addr) return addr;
+  } catch {
+    /* fall through */
+  }
+  return "";
+}
 
 interface LocationData {
   formatted_address: string;
@@ -73,6 +118,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const dispatch = useDispatch();
   const locationDispatch = useDispatch();
   const { appUser } = useAppUser();
+  const geoFromRedux = useSelector((state: { geoLocation?: { value?: LocationData } }) =>
+    state.geoLocation?.value ?? null
+  );
   
   const [location, setLocation] = useState(currentLocationText || "");
   const [locationAs, setLocationAs] = useState("");
@@ -116,12 +164,44 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const isAuthenticated = appUser && appUser.customerid;
 
+  const headerDisplayText = (() => {
+    const raw = address || location || currentLocationText;
+    if (loading && !raw) return t("locationSelector.gettingYourLocation");
+    if (!raw || isCoordinateLike(raw)) return t("locationSelector.tapToChooseLocation");
+    return shortenAddress(raw, 3);
+  })();
+
   // Close dropdown when parent triggers it
   useEffect(() => {
     if (closeDropdown) {
       setShowDropdown(false);
     }
   }, [closeDropdown]);
+
+  useEffect(() => {
+    const saved = getSavedLocationsList(userPreference);
+    const base = [
+      { name: t("locationSelector.detectLocation"), index: 1 },
+      { name: t("locationSelector.addAddress"), index: 2 },
+    ];
+    const savedSuggestions = saved.map((loc: { name: string }, i: number) => ({
+      name: loc.name,
+      index: i + 3,
+    }));
+    setSuggestions([...base, ...savedSuggestions]);
+  }, [userPreference, t]);
+
+  useEffect(() => {
+    if (!geoFromRedux) return;
+    const addr = geoFromRedux.formatted_address;
+    if (!addr || isCoordinateLike(addr)) return;
+    setAddress(addr);
+    setLocation(shortenAddress(addr, 3));
+    if (geoFromRedux.geometry?.location) {
+      setLatitude(geoFromRedux.geometry.location.lat);
+      setLongitude(geoFromRedux.geometry.location.lng);
+    }
+  }, [geoFromRedux]);
 
   // Animate dropdown
   useEffect(() => {
@@ -522,8 +602,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           }
         } catch (error) {
           console.error("Error getting address:", error);
-          const fallbackAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-          updateLocationInStore(latitude, longitude, fallbackAddress);
+          const resolved = await resolveAddressFromCoords(latitude, longitude);
+          const fallbackAddress =
+            resolved || t("locationSelector.tapToChooseLocation");
+          setLocation(shortenAddress(fallbackAddress, 3));
+          setAddress(fallbackAddress);
+          if (resolved) {
+            updateLocationInStore(latitude, longitude, resolved);
+          }
         } finally {
           setLoading(false);
           setShowGPSButton(false);
@@ -684,18 +770,13 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     } else if (newValue === t('locationSelector.detectLocation')) {
       fetchLocationWithChecks();
     } else {
-      if (!userPreference || (Array.isArray(userPreference) && userPreference.length === 0)) {
-        Alert.alert(t('common.error'), t('locationSelector.noSavedLocations'));
+      const savedLocations = getSavedLocationsList(userPreference);
+
+      if (savedLocations.length === 0) {
+        Alert.alert(t("common.error"), t("locationSelector.noSavedLocations"));
         return;
       }
-      
-      let savedLocations = [];
-      if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
-        savedLocations = userPreference[0].savedLocations;
-      } else if (userPreference?.savedLocations) {
-        savedLocations = userPreference.savedLocations;
-      }
-      
+
       const savedLocation = savedLocations.find(
         (location: any) => location.name === newValue
       ) || savedLocations.find(
@@ -1380,17 +1461,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     },
     dropdownContainer: {
       position: "absolute",
-      top: 50,
+      top: 48,
       left: 0,
       right: 0,
       borderRadius: 12,
-      overflow: 'hidden',
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
+      overflow: "hidden",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.22,
       shadowRadius: 12,
-      elevation: 8,
-      zIndex: 1000,
+      elevation: 24,
+      zIndex: 9999,
+    },
+    dropdownBackdrop: {
+      position: "absolute",
+      top: -400,
+      left: -width,
+      width: width * 3,
+      height: 800,
+      zIndex: 9998,
     },
     dropdownHeader: {
       paddingHorizontal: 12,
@@ -1730,11 +1819,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   return (
     <View style={styles.locationSection}>
+      {showDropdown && (
+        <Pressable
+          style={dynamicStyles.dropdownBackdrop}
+          onPress={() => setShowDropdown(false)}
+        />
+      )}
+
       <TouchableOpacity
         style={dynamicStyles.locationContainer}
-        onPress={() =>{ 
-          setShowDropdown(!showDropdown);
-          updateSuggestions();
+        activeOpacity={0.85}
+        onPress={() => {
+          setShowDropdown((prev) => !prev);
         }}
       >
         <MaterialIcon
@@ -1748,12 +1844,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {address || location || currentLocationText || t('locationSelector.searching')}
-        </Text> 
-        <MaterialIcon name="arrow-drop-down" size={18} color={colors.primary} />
+          {headerDisplayText}
+        </Text>
+        <MaterialIcon
+          name={showDropdown ? "arrow-drop-up" : "arrow-drop-down"}
+          size={20}
+          color={colors.primary}
+        />
       </TouchableOpacity>
 
-      {/* Enhanced Dropdown Menu with GRADIENT effect */}
       {showDropdown && (
         <Animated.View 
           style={[
@@ -1986,8 +2085,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 const styles = StyleSheet.create({
   locationSection: {
     flex: 2,
-    marginHorizontal: 12,
+    marginHorizontal: 8,
     position: "relative",
+    zIndex: 200,
+    overflow: "visible",
+    minHeight: 44,
+    justifyContent: "center",
   },
   modalHeader: {
     flexDirection: "row",

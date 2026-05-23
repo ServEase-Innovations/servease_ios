@@ -22,7 +22,7 @@ import ServiceSelectionDialog from "./ServiceSelectionDialog";
 import BookingDialog from "../BookingDialog/BookingDialog";
 import ServiceDetailsDialog from "./ServiceDetailsDialog";
 import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
-import DemoCook from "../ServiceDialogs/CookServiceDialog";
+import CookServiceDialog from "../ServiceDialogs/CookServiceDialog";
 import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import ServiceProviderRegistration from "../Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
@@ -139,15 +139,19 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
       return "";
     };
 
+    const startTimeStr = formatTime(bookingDetails.startTime);
+    const endTimeStr = bookingDetails.endTime
+      ? formatTime(bookingDetails.endTime)
+      : "";
     const booking = {
-      start_date: formatDate(bookingDetails.startDate),
-      start_time: formatTime(bookingDetails.startTime),
-      end_date: formatDate(bookingDetails.endDate || bookingDetails.startDate),
-      end_time: bookingDetails.endTime,
+      startDate: formatDate(bookingDetails.startDate),
+      startTime: startTimeStr,
+      endDate: formatDate(bookingDetails.endDate || bookingDetails.startDate),
+      endTime: endTimeStr,
       timeRange:
-        bookingDetails.startTime && bookingDetails.endTime
-          ? `${formatTime(bookingDetails.startTime)} - ${formatTime(bookingDetails.endTime)}`
-          : formatTime(bookingDetails.startTime) || "",
+        startTimeStr && endTimeStr
+          ? `${startTimeStr}-${endTimeStr}`
+          : startTimeStr || "",
       bookingPreference: selectedRadioButtonValue,
       housekeepingRole: selectedType,
     };
@@ -312,13 +316,11 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           />
         )}
 
-        {showCookDialog && (
-          <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
-            <View style={[styles.dialogBox, { backgroundColor: colors.surface, width: screenWidth * 0.92, maxHeight: screenHeight * 0.85 }]}>
-              <DemoCook onClose={() => setShowCookDialog(false)} sendDataToParent={sendDataToParent} />
-            </View>
-          </View>
-        )}
+        <CookServiceDialog
+          open={showCookDialog}
+          handleClose={() => setShowCookDialog(false)}
+          sendDataToParent={sendDataToParent}
+        />
 
         {showNannyServicesDialog && (
           <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
@@ -341,26 +343,11 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           </View>
         )}
 
-        {showMaidServiceDialog && (
-          <View style={[styles.dialogOverlay, { backgroundColor: colors.overlay }]}>
-            <View style={[styles.dialogBox, { backgroundColor: colors.surface, width: screenWidth * 0.92, maxHeight: screenHeight * 0.85 }]}>
-              <MaidServiceDialog
-                open={showMaidServiceDialog}
-                handleClose={() => setShowMaidServiceDialog(false)}
-                sendDataToParent={sendDataToParent}
-                bookingType={{
-                  start_date: startDate ? new Date(startDate).toISOString().split("T")[0] : "",
-                  start_time: startTime ? new Date(startTime).toTimeString().slice(0, 5) : "",
-                  end_date: endDate ? new Date(endDate).toISOString().split("T")[0] : startDate ? new Date(startDate).toISOString().split("T")[0] : "",
-                  end_time: endTime ? new Date(endTime).toTimeString().slice(0, 5) : "",
-                  timeRange: startTime ? `${new Date(startTime).toTimeString().slice(0, 5)}` : "",
-                  bookingPreference: selectedRadioButtonValue,
-                  housekeepingRole: selectedType,
-                }}
-              />
-            </View>
-          </View>
-        )}
+        <MaidServiceDialog
+          open={showMaidServiceDialog}
+          handleClose={() => setShowMaidServiceDialog(false)}
+          sendDataToParent={sendDataToParent}
+        />
       </ScrollView>
 
       <ServiceSelectionDialog

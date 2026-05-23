@@ -1,5 +1,5 @@
-// BookingSuccessDialog.tsx
-import React, { useEffect, useRef, useState } from 'react';
+/* eslint-disable */
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   Modal,
   View,
@@ -9,11 +9,13 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-} from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import LinearGradient from 'react-native-linear-gradient';
+  ScrollView,
+} from "react-native";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import LinearGradient from "react-native-linear-gradient";
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const DIALOG_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 400);
 
 interface BookingSuccessDialogProps {
   visible: boolean;
@@ -30,350 +32,218 @@ interface BookingSuccessDialogProps {
   onNavigateToBookings?: () => void;
 }
 
+function formatCompactDate(dateString?: string): string {
+  if (!dateString) return "—";
+  try {
+    const d = new Date(dateString.includes("T") ? dateString : `${dateString}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return dateString;
+    return d.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+function formatInrAmount(amount?: number): string {
+  if (amount == null || !Number.isFinite(amount)) return "—";
+  return `₹${Math.round(amount).toLocaleString("en-IN")}`;
+}
+
+function DetailRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text
+        style={[styles.detailValue, highlight && styles.detailValueHighlight]}
+        numberOfLines={3}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 const BookingSuccessDialog: React.FC<BookingSuccessDialogProps> = ({
   visible,
   onClose,
   bookingDetails,
-  message = "Payment verified and completed successfully",
+  message = "Your booking is confirmed. Payment was successful.",
   onRedirectToBookings,
   onNavigateToBookings,
 }) => {
   const [showConfetti, setShowConfetti] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const scaleAnim = useRef(new Animated.Value(0.92)).current;
   const bounceAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    if (visible) {
-      // Start entrance animations
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Bounce animation for icon
-      Animated.sequence([
-        Animated.timing(bounceAnim, {
-          toValue: -8,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: -4,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Show confetti
-      setShowConfetti(true);
-
-      // Start countdown animation
-      Animated.timing(progressAnim, {
-        toValue: 0,
-        duration: 6500,
-        useNativeDriver: false,
-      }).start();
-
-      // Set timer to hide confetti and auto close
-      const confettiTimer = setTimeout(() => {
-        setShowConfetti(false);
-      }, 6500);
-
-      const closeTimer = setTimeout(() => {
-        handleAutoClose();
-      }, 6500);
-
-      return () => {
-        clearTimeout(confettiTimer);
-        clearTimeout(closeTimer);
-        progressAnim.stopAnimation();
-      };
-    } else {
-      // Reset animations when dialog closes
-      fadeAnim.setValue(0);
-      scaleAnim.setValue(0.9);
-      progressAnim.setValue(1);
-    }
-  }, [visible]);
-
-  const handleAutoClose = () => {
-    // First navigate to bookings, then close dialog
-    if (onNavigateToBookings) {
-      onNavigateToBookings();
-    } else if (onRedirectToBookings) {
-      onRedirectToBookings();
-    }
-    onClose();
-  };
-
-  const handleViewBookings = () => {
+  const goToBookings = useCallback(() => {
     setShowConfetti(false);
-    
-    // Navigate to bookings page
     if (onNavigateToBookings) {
       onNavigateToBookings();
-    } else if (onRedirectToBookings) {
+      return;
+    }
+    if (onRedirectToBookings) {
       onRedirectToBookings();
+      return;
     }
-    
-    // Close the dialog
     onClose();
-  };
+  }, [onNavigateToBookings, onRedirectToBookings, onClose]);
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return dateString;
+  useEffect(() => {
+    if (!visible) {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.92);
+      progressAnim.setValue(1);
+      return;
     }
-  };
 
-  // Custom confetti component (simplified version)
-  const ConfettiComponent = () => {
-    const particles = Array.from({ length: 100 }, (_, i) => ({
-      id: i,
-      left: Math.random() * width,
-      top: Math.random() * height,
-      color: ['#667eea', '#764ba2', '#FFD700', '#4CAF50', '#FF6B6B', '#4ECDC4'][Math.floor(Math.random() * 6)],
-      delay: Math.random() * 2000,
-    }));
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 50, useNativeDriver: true }),
+    ]).start();
 
-    return (
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-        {particles.map((particle) => (
-          <Animated.View
-            key={particle.id}
-            style={[
-              styles.confettiPiece,
-              {
-                left: particle.left,
-                top: particle.top,
-                backgroundColor: particle.color,
-                opacity: showConfetti ? 1 : 0,
-              },
-            ]}
-          />
-        ))}
-      </View>
-    );
-  };
+    Animated.sequence([
+      Animated.timing(bounceAnim, { toValue: -6, duration: 180, useNativeDriver: true }),
+      Animated.timing(bounceAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start();
 
-  // Celebration Icon Component
-  const CelebrationIcon = ({ top, right, left, bottom, color, delay }: any) => {
-    const pulseAnim = useRef(new Animated.Value(1)).current;
+    setShowConfetti(true);
+    Animated.timing(progressAnim, { toValue: 0, duration: 6500, useNativeDriver: false }).start();
 
-    useEffect(() => {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      
-      setTimeout(() => pulse.start(), delay);
-      
-      return () => pulse.stop();
-    }, [delay]);
+    const confettiOff = setTimeout(() => setShowConfetti(false), 5500);
+    const autoNav = setTimeout(() => goToBookings(), 6500);
 
-    return (
-      <Animated.View
-        style={[
-          styles.celebrationIcon,
-          {
-            top,
-            right,
-            left,
-            bottom,
-            transform: [{ scale: pulseAnim }],
-          },
-        ]}
-      >
-        <Icon name="celebration" size={24} color={color} />
-      </Animated.View>
-    );
-  };
-
-  // Countdown Bar Component
-  const CountdownBar = () => {
-    const widthInterpolate = progressAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0%', '100%'],
-    });
-
-    return (
-      <Animated.View
-        style={[
-          styles.countdownBar,
-          {
-            width: widthInterpolate,
-          },
-        ]}
-      />
-    );
-  };
+    return () => {
+      clearTimeout(confettiOff);
+      clearTimeout(autoNav);
+      progressAnim.stopAnimation();
+    };
+  }, [visible, fadeAnim, scaleAnim, bounceAnim, progressAnim, goToBookings]);
 
   if (!visible) return null;
 
+  const providerDisplay =
+    bookingDetails?.providerName?.trim() ||
+    "Provider will be assigned after payment";
+  const showPersons =
+    bookingDetails?.persons != null && Number(bookingDetails.persons) > 1;
+
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="fade"
-      onRequestClose={handleViewBookings}
-    >
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={goToBookings}>
       <View style={styles.overlay}>
-        {showConfetti && <ConfettiComponent />}
-        
+        {showConfetti && (
+          <View style={styles.confettiLayer} pointerEvents="none">
+            {Array.from({ length: 36 }, (_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.confettiDot,
+                  {
+                    left: ((i * 41) % 320) + 24,
+                    top: ((i * 67) % 500) + 40,
+                    backgroundColor:
+                      ["#FFD700", "#4CAF50", "#60a5fa", "#f472b6", "#a78bfa"][i % 5],
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        )}
+
         <Animated.View
           style={[
-            styles.dialogContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }],
-            },
+            styles.dialogCard,
+            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
           ]}
         >
           <LinearGradient
-            colors={['#0a2a66', '#575aff']}
+            colors={["#0a2a66", "#3b4cca", "#575aff"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.gradientBackground}
+            style={styles.gradient}
           >
-            <CountdownBar />
-            
-            <CelebrationIcon top={12} left={12} color="#FFD700" delay={0} />
-            <CelebrationIcon top={12} right={12} color="#FF6B6B" delay={300} />
-            <CelebrationIcon bottom={12} left={12} color="#4ECDC4" delay={600} />
-            <CelebrationIcon bottom={12} right={12} color="#FFA500" delay={900} />
-            
-            {/* Success Icon */}
-            <Animated.View
-              style={[
-                styles.iconContainer,
-                {
-                  transform: [{ translateY: bounceAnim }],
-                },
-              ]}
+            <View style={styles.countdownWrap}>
+              <Animated.View
+                style={[
+                  styles.countdownFill,
+                  {
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, DIALOG_WIDTH],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+
+            <ScrollView
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
             >
-              <View style={styles.successIconBackground}>
-                <Icon name="check-circle" size={60} color="#4CAF50" />
-              </View>
-            </Animated.View>
-            
-            {/* Title */}
-            <Text style={styles.title}>
-              Booking Confirmed! 🎉
-            </Text>
-            
-            {/* Message */}
-            <Text style={styles.message}>
-              {message}
-            </Text>
-            
-            {/* Booking Details */}
-            {bookingDetails && (
-              <View style={styles.detailBox}>
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Service Provider:</Text>
-                  <Text style={styles.detailValue}>
-                    {bookingDetails.providerName || 'N/A'}
-                  </Text>
+              <Animated.View style={[styles.iconWrap, { transform: [{ translateY: bounceAnim }] }]}>
+                <View style={styles.iconCircle}>
+                  <Icon name="check-circle" size={52} color="#22c55e" />
                 </View>
-                
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Service Type:</Text>
-                  <Text style={styles.detailValue}>
-                    {bookingDetails.serviceType}
-                  </Text>
-                </View>
-                
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Persons:</Text>
-                  <Text style={styles.detailValue}>
-                    {bookingDetails.persons}
-                  </Text>
-                </View>
-                
-                {bookingDetails.bookingDate && (
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Booking Date:</Text>
-                    <Text style={styles.detailValue}>
-                      {formatDate(bookingDetails.bookingDate)}
+              </Animated.View>
+
+              <Text style={styles.title}>Booking confirmed</Text>
+              <Text style={styles.subtitle}>{message}</Text>
+
+              {bookingDetails ? (
+                <View style={styles.detailBox}>
+                  <DetailRow label="Service" value={bookingDetails.serviceType || "—"} />
+                  <DetailRow label="Provider" value={providerDisplay} />
+                  {bookingDetails.bookingDate ? (
+                    <DetailRow
+                      label="Date"
+                      value={formatCompactDate(bookingDetails.bookingDate)}
+                    />
+                  ) : null}
+                  {showPersons ? (
+                    <DetailRow
+                      label="Persons"
+                      value={String(bookingDetails.persons)}
+                    />
+                  ) : null}
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>Total paid</Text>
+                    <Text style={styles.totalValue}>
+                      {formatInrAmount(bookingDetails.totalAmount)}
                     </Text>
                   </View>
-                )}
-                
-                <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Total Amount:</Text>
-                  <Text style={styles.amountValue}>
-                    ₹{bookingDetails.totalAmount?.toFixed(2)}
-                  </Text>
                 </View>
-              </View>
-            )}
-            
-            {/* Email Note */}
-            <Text style={styles.emailNote}>
-              You will receive a confirmation email shortly
-            </Text>
-            
-            {/* Redirect Message */}
-            <Text style={styles.redirectMessage}>
-              Redirecting to bookings page in a few seconds...
-            </Text>
-            
-            {/* Manual Close Button */}
-            <TouchableOpacity
-              style={styles.continueButton}
-              onPress={handleViewBookings}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={['#FFFFFF', '#F8F9FA']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.buttonGradient}
+              ) : null}
+
+              <Text style={styles.hint}>A confirmation email will be sent shortly.</Text>
+              <Text style={styles.redirectHint}>
+                Opening My Bookings in a few seconds…
+              </Text>
+
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={goToBookings}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="View my bookings"
               >
-                <Text style={styles.buttonText}>
-                  View My Bookings
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <Text style={styles.primaryBtnText}>View My Bookings</Text>
+                <Icon name="arrow-forward" size={18} color="#1d4ed8" />
+              </TouchableOpacity>
+            </ScrollView>
           </LinearGradient>
         </Animated.View>
       </View>
@@ -384,157 +254,172 @@ const BookingSuccessDialog: React.FC<BookingSuccessDialogProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(2, 6, 23, 0.78)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
   },
-  dialogContainer: {
-    width: width * 0.9,
-    maxWidth: 420,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 15,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 35,
-    elevation: 10,
+  confettiLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
-  gradientBackground: {
-    padding: 24,
-    alignItems: 'center',
-    position: 'relative',
-    minHeight: 'auto',
+  confettiDot: {
+    position: "absolute",
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    opacity: 0.35,
   },
-  countdownBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    height: 4,
-    backgroundColor: '#FFD700',
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-  },
-  celebrationIcon: {
-    position: 'absolute',
-    opacity: 0.7,
-  },
-  iconContainer: {
-    marginBottom: 12,
-  },
-  successIconBackground: {
-    backgroundColor: 'white',
-    borderRadius: 30,
-    padding: 8,
-    shadowColor: '#4CAF50',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: 'white',
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 15,
-    marginBottom: 16,
-    opacity: 0.95,
-    fontWeight: '500',
-    lineHeight: 21,
-    color: 'white',
-    textAlign: 'center',
-  },
-  detailBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 12,
-    width: '100%',
-  },
-  detailItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  detailLabel: {
-    fontSize: 13,
-    opacity: 0.9,
-    fontWeight: '500',
-    color: 'white',
-    flex: 1,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'right',
-    flex: 1,
-  },
-  amountValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFD700',
-    textAlign: 'right',
-    flex: 1,
-  },
-  emailNote: {
-    fontSize: 12,
-    opacity: 0.8,
-    marginTop: 8,
-    color: 'white',
-  },
-  redirectMessage: {
-    fontSize: 12,
-    opacity: 0.8,
-    marginTop: 8,
-    fontStyle: 'italic',
-    color: 'white',
-  },
-  continueButton: {
-    marginTop: 12,
-    width: '100%',
-    borderRadius: 25,
-    overflow: 'hidden',
+  dialogCard: {
+    width: DIALOG_WIDTH,
+    maxHeight: "88%",
+    borderRadius: 20,
+    overflow: "hidden",
+    zIndex: 1,
     ...Platform.select({
       ios: {
-        shadowColor: 'white',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 15,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.35,
+        shadowRadius: 24,
       },
-      android: {
-        elevation: 4,
-      },
+      android: { elevation: 16 },
     }),
   },
-  buttonGradient: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    alignItems: 'center',
+  gradient: {
+    position: "relative",
+    overflow: "hidden",
   },
-  buttonText: {
-    color: '#667eea',
+  countdownWrap: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  countdownFill: {
+    height: 4,
+    backgroundColor: "#fbbf24",
+    borderBottomLeftRadius: 20,
+  },
+  scrollContent: {
+    paddingHorizontal: 22,
+    paddingTop: 28,
+    paddingBottom: 22,
+    alignItems: "center",
+  },
+  iconWrap: {
+    marginBottom: 14,
+  },
+  iconCircle: {
+    backgroundColor: "#fff",
+    borderRadius: 40,
+    padding: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#22c55e",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+      android: { elevation: 6 },
+    }),
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#fff",
+    textAlign: "center",
+    letterSpacing: 0.2,
+  },
+  subtitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    color: "rgba(255,255,255,0.92)",
+    textAlign: "center",
+    lineHeight: 20,
+    marginTop: 8,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
-  confettiPiece: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  detailBox: {
+    alignSelf: "stretch",
+    width: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    marginBottom: 14,
+  },
+  detailRow: {
+    marginBottom: 12,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.75)",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#ffffff",
+    lineHeight: 21,
+  },
+  detailValueHighlight: {
+    color: "#fde68a",
+  },
+  totalRow: {
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.22)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  totalLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.9)",
+  },
+  totalValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#fde047",
+  },
+  hint: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  redirectHint: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    fontStyle: "italic",
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  primaryBtn: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  primaryBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1d4ed8",
   },
 });
 

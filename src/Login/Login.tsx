@@ -214,9 +214,13 @@ export const Login: React.FC<ChildComponentProps> = ({
 
       // Build AppUser object based on role
       if (role === "SERVICE_PROVIDER") {
-        const serviceProviderId = payload.serviceProviderId
-          ? Number(payload.serviceProviderId)
-          : null;
+        const rawSpId =
+          payload.serviceProviderId ??
+          payload.serviceproviderid ??
+          payload.serviceProvider?.serviceproviderid ??
+          payload.serviceProvider?.id;
+        const serviceProviderId =
+          rawSpId != null && rawSpId !== "" ? Number(rawSpId) : null;
         const providerData = payload.serviceProvider;
         userData = {
           ...userData,

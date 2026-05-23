@@ -1,5 +1,5 @@
 // BroadcastMessage.tsx - With Modern Switch at Top and Snackbar
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,20 @@ import {
   Dimensions,
   Platform,
   TouchableWithoutFeedback,
+  InteractionManager,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Snackbar from 'react-native-snackbar';
 
 const { width, height } = Dimensions.get('window');
+
+/** Run after the current commit/animation frame (avoids useInsertionEffect update errors). */
+const runAfterFrame = (fn: () => void) => {
+  InteractionManager.runAfterInteractions(() => {
+    setTimeout(fn, 0);
+  });
+};
 
 interface Coupon {
   id: string;
@@ -64,6 +72,23 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const shineAnim = useRef(new Animated.Value(0)).current;
 
+  const advanceBanner = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % coupons.length);
+    bannerSlideAnim.setValue(50);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bannerSlideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, bannerSlideAnim]);
+
   // Rotate through messages every 2 seconds
   useEffect(() => {
     const interval = setInterval(() => {
@@ -78,26 +103,14 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
           duration: 500,
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        setCurrentIndex((prev) => (prev + 1) % coupons.length);
-        bannerSlideAnim.setValue(50);
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(bannerSlideAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ]).start();
+      ]).start(({ finished }) => {
+        if (!finished) return;
+        runAfterFrame(advanceBanner);
       });
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [fadeAnim, bannerSlideAnim]);
+  }, [fadeAnim, bannerSlideAnim, advanceBanner]);
 
   // Pulse animation for attention
   useEffect(() => {
@@ -156,8 +169,10 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      setModalVisible(false);
-      setSelectedCoupon(null);
+      runAfterFrame(() => {
+        setModalVisible(false);
+        setSelectedCoupon(null);
+      });
     });
   };
 
@@ -165,33 +180,36 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
     try {
       await Clipboard.setString(couponCode);
       
-      // Show snackbar instead of alert
-      Snackbar.show({
-        text: `🎉 Coupon "${couponCode}" copied! Get ${selectedCoupon?.discount}% OFF`,
-        duration: Snackbar.LENGTH_LONG,
-        backgroundColor: '#4caf50',
-        textColor: '#ffffff',
-        action: {
-          text: 'USE NOW',
-          textColor: '#FFD700',
-          onPress: () => {
-            if (onCouponApplied) {
-              onCouponApplied(couponCode);
-            }
+      runAfterFrame(() => {
+        Snackbar.show({
+          text: `🎉 Coupon "${couponCode}" copied! Get ${selectedCoupon?.discount}% OFF`,
+          duration: Snackbar.LENGTH_LONG,
+          backgroundColor: '#4caf50',
+          textColor: '#ffffff',
+          action: {
+            text: 'USE NOW',
+            textColor: '#FFD700',
+            onPress: () => {
+              if (onCouponApplied) {
+                onCouponApplied(couponCode);
+              }
+            },
           },
-        },
+        });
       });
-      
+
       if (onCouponApplied) {
         onCouponApplied(couponCode);
       }
       closeModal();
     } catch (error) {
-      Snackbar.show({
-        text: '❌ Failed to copy coupon. Please try again!',
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: '#f44336',
-        textColor: '#ffffff',
+      runAfterFrame(() => {
+        Snackbar.show({
+          text: '❌ Failed to copy coupon. Please try again!',
+          duration: Snackbar.LENGTH_SHORT,
+          backgroundColor: '#f44336',
+          textColor: '#ffffff',
+        });
       });
     }
   };
@@ -231,13 +249,14 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
     ]).start();
     
     setSelectedCoupon(coupon);
-    
-    // Show snackbar on switch
-    Snackbar.show({
-      text: `Switched to ${coupon.discount}% OFF coupon`,
-      duration: Snackbar.LENGTH_SHORT,
-      backgroundColor: '#0a2a66ff',
-      textColor: '#ffffff',
+
+    runAfterFrame(() => {
+      Snackbar.show({
+        text: `Switched to ${coupon.discount}% OFF coupon`,
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: '#0a2a66ff',
+        textColor: '#ffffff',
+      });
     });
   };
 

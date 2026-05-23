@@ -56,7 +56,17 @@ import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD, WALLET, DETAILS } 
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
-import io, { Socket } from "socket.io-client";
+import { BookingRequestPayload } from "./src/Notifications/inAppNotificationUtils";
+import {
+  acceptEngagement,
+  parseAcceptEngagementError,
+  parseEngagementId,
+  resolveServiceProviderId,
+} from "./src/services/engagementService";
+import {
+  disconnectProviderBookingSocket,
+  useProviderBookingSocket,
+} from "./src/hooks/useProviderBookingSocket";
 import { AppUserProvider, useAppUser } from "./src/context/AppUserContext";
 import axios from "axios";
 import { useDispatch } from "react-redux";
@@ -70,20 +80,6 @@ import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegis
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
 import Snackbar from "react-native-snackbar";
 import BrandLoadingScreen from "./src/common/BrandLoadingScreen";
-
-interface Engagement {
-  engagement_id: number;
-  service_type: string;
-  booking_type: string;
-  start_date: string;
-  end_date: string;
-  start_time: string;
-  end_time: string;
-  base_amount: number;
-  customer_name?: string;
-  customer_email?: string;
-  status?: string;
-}
 
 interface DeepLinkData {
   openBookings: string;
@@ -104,7 +100,9 @@ const MainApp = () => {
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
-  const [activeToast, setActiveToast] = useState<Engagement | null>(null);
+  const [activeToast, setActiveToast] = useState<BookingRequestPayload | null>(null);
+  const [acceptingEngagementId, setAcceptingEngagementId] = useState<number | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [showNotificationClient, setShowNotificationClient] = useState(false);
   const [shouldShowMobileDialog, setShouldShowMobileDialog] = useState(false);
   const [hasCheckedMobileNumber, setHasCheckedMobileNumber] = useState(false);
@@ -112,8 +110,6 @@ const MainApp = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const appState = useRef<AppStateStatus>(AppState.currentState);
-  const socketRef = useRef<Socket | null>(null);
-  const SOCKET_URL = "https://payments-j5id.onrender.com";
   const [showSignupDrawer, setShowSignupDrawer] = useState(false);
   const [showProviderRegistration, setShowProviderRegistration] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
@@ -133,7 +129,7 @@ const MainApp = () => {
   const [showDeepLinkLoading, setShowDeepLinkLoading] = useState(false);
 
   const dispatch = useDispatch();
-  const { appUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
+  const { appUser, setAppUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
   const { authorize, getCredentials, clearSession, user } = useAuth0();
 
   // Get font size styles based on settings
@@ -365,11 +361,8 @@ const MainApp = () => {
         console.log("✅ AppUser context cleared");
       }
       
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-        console.log("✅ Socket disconnected");
-      }
+      disconnectProviderBookingSocket();
+      console.log("✅ Provider booking socket disconnected");
       
       const newKey = Date.now();
       setAppResetKey(newKey);
@@ -616,83 +609,104 @@ const MainApp = () => {
   };
 
   useEffect(() => {
-    if (!appUser) {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      return;
-    }
+    if (isUserLoading || !appUser) return;
+    if (String(appUser.role || "").toUpperCase() !== "SERVICE_PROVIDER") return;
+    if (resolveServiceProviderId(appUser)) return;
 
-    if (appUser.role?.toUpperCase() !== "SERVICE_PROVIDER") return;
-    if (socketRef.current) return;
+    const email = appUser.email;
+    if (!email) return;
 
-    let mounted = true;
-
+    let cancelled = false;
     (async () => {
-      const token = appUser?.accessToken ?? null;
-
-      const socket = io(SOCKET_URL, {
-        transports: ["polling", "websocket"],
-        auth: token ? { token } : undefined,
-        timeout: 20000,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        withCredentials: true,
-      });
-
-      socketRef.current = socket;
-
-      socket.on("connect", () => {
-        console.log("[socket] connected", socket.id);
-        socket.emit("join", { providerId: appUser.serviceProviderId });
-      });
-
-      socket.on("new-engagement", (payload: any) => {
-        console.log("[socket] new-engagement", payload);
-        const engagement = payload?.engagement ?? payload;
-        Alert.alert(
-          i18n.t('common.notification'),
-          `${i18n.t('common.bookingRequest')} ${engagement?.service_type ?? i18n.t('common.service')}`
+      try {
+        const res = await axios.get(
+          `https://utils-ndt3.onrender.com/customer/check-email?email=${encodeURIComponent(email)}`
         );
-      });
-
-      socket.on("connect_error", (err) => {
-        console.error("[socket] connect_error", err);
-      });
-
-      socket.io.on("reconnect_attempt", (attempt) => {
-        console.log("[socket] reconnect attempt", attempt);
-      });
-
-      if (!mounted) {
-        socket.disconnect();
-        socketRef.current = null;
+        if (cancelled) return;
+        if (res.data?.user_role === "SERVICE_PROVIDER" && res.data?.id != null) {
+          setAppUser({
+            ...appUser,
+            role: "SERVICE_PROVIDER",
+            serviceProviderId: res.data.id,
+          });
+          console.log("[sp-socket] backfilled serviceProviderId:", res.data.id);
+        }
+      } catch (e) {
+        console.warn("[sp-socket] could not backfill serviceProviderId", e);
       }
-    })().catch((e) => console.warn("[socket] init failed", e));
+    })();
 
     return () => {
-      mounted = false;
-      const s = socketRef.current;
-      if (s) {
-        s.off("connect");
-        s.off("new-engagement");
-        s.off("connect_error");
-        s.disconnect();
-        socketRef.current = null;
-      }
+      cancelled = true;
     };
-  }, [appUser]);
+  }, [appUser, isUserLoading, setAppUser]);
 
-  const handleAccept = (id: number) => {
-    Alert.alert(i18n.t('common.success'), i18n.t('booking.accepted'));
-    setActiveToast(null);
+  const onProviderBookingRequest = useCallback((payload: BookingRequestPayload) => {
+    setAcceptError(null);
+    setActiveToast(payload);
+  }, []);
+
+  const onProviderBookingClosed = useCallback((engagementId: number) => {
+    setActiveToast((cur) => {
+      if (!cur) return null;
+      const curId = parseEngagementId(cur.engagement_id);
+      return curId === engagementId ? null : cur;
+    });
+  }, []);
+
+  useProviderBookingSocket({
+    appUser,
+    isUserLoading,
+    onBookingRequest: onProviderBookingRequest,
+    onBookingClosed: onProviderBookingClosed,
+  });
+
+  useEffect(() => {
+    if (activeToast) {
+      setAcceptError(null);
+    }
+  }, [activeToast?.engagement_id]);
+
+  const handleAccept = async (engagementId: number) => {
+    const eid = parseEngagementId(engagementId);
+    if (eid == null) {
+      const msg = "Invalid booking id.";
+      setAcceptError(msg);
+      Snackbar.show({
+        text: msg,
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#f44336",
+      });
+      return;
+    }
+    setAcceptError(null);
+    setAcceptingEngagementId(eid);
+    try {
+      const result = await acceptEngagement(eid, appUser);
+      setActiveToast(null);
+      setAcceptError(null);
+      Snackbar.show({
+        text: result.message,
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: "#4caf50",
+      });
+    } catch (err) {
+      const msg = parseAcceptEngagementError(err);
+      setAcceptError(msg);
+      Snackbar.show({
+        text: msg,
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: "#f44336",
+      });
+      console.error("Failed to accept engagement", err);
+    } finally {
+      setAcceptingEngagementId(null);
+    }
   };
 
-  const handleReject = (id: number) => {
-    Alert.alert(i18n.t('common.rejected'), i18n.t('booking.rejected'));
+  const handleReject = (_engagementId: number) => {
     setActiveToast(null);
+    setAcceptError(null);
   };
 
   const handleViewChange = (view: string) => {
@@ -1032,14 +1046,21 @@ const MainApp = () => {
           {/* Chatbot */}
           <Chatbot open={chatbotOpen} onClose={() => setChatbotOpen(false)} />
 
-          {/* Booking Request Toast */}
+          {/* SP on-demand booking: Accept / Decline popup (not the header bell) */}
           {activeToast && (
             <BookingRequestToast
               engagement={activeToast}
               onAccept={handleAccept}
               onReject={handleReject}
-              onClose={() => setActiveToast(null)}
+              onClose={() => {
+                setActiveToast(null);
+                setAcceptError(null);
+              }}
               visible={!!activeToast}
+              actionBusy={
+                parseEngagementId(activeToast.engagement_id) === acceptingEngagementId
+              }
+              acceptError={acceptError}
             />
           )}
         </SafeAreaView>

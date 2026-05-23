@@ -1,5 +1,5 @@
 // Head.tsx - UPDATED: Pass closeDropdowns to LocationSelector
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -34,9 +34,12 @@ import AboutPage from "../AboutUs/AboutPage";
 import ContactUs from "../ContactUs/ContactUs";
 import LocationSelector from "../Header/LocationSelector";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Snackbar from "react-native-snackbar";
 import { useAppUser } from "../context/AppUserContext";
 import NotificationsDialog from "../Notifications/NotificationsPage";
+import PaymentInstance from "../services/paymentInstance";
+import { recipientParams } from "../Notifications/inAppNotificationUtils";
 import { addLocation } from "../features/geoLocationSlice";
 import Booking from "../UserProfile/Bookings";
 import { useTheme } from "../../src/Settings/ThemeContext";
@@ -82,6 +85,7 @@ const Head: React.FC<ChildComponentProps> = ({
   } = useAuth0();
 
   const dispatch = useDispatch();
+  const { setAppUser, appUser } = useAppUser();
   const dropdownRef = useRef<View>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("");
@@ -90,6 +94,7 @@ const Head: React.FC<ChildComponentProps> = ({
   const [showAboutUs, setShowAboutUs] = useState(false);
   const [showContactUs, setShowContactUs] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [inAppUnread, setInAppUnread] = useState(0);
   const [showBookings, setShowBookings] = useState(false);
   const [selectedService, setSelectedService] = useState("");
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
@@ -174,6 +179,31 @@ const Head: React.FC<ChildComponentProps> = ({
     }
   };
 
+  const refreshInAppUnread = useCallback(async () => {
+    const r = recipientParams(appUser);
+    if (!r) {
+      setInAppUnread(0);
+      return;
+    }
+    try {
+      const { data } = await PaymentInstance.get("/api/in-app-notifications/unread-count", {
+        params: {
+          recipientType: r.recipientType,
+          recipientId: r.recipientId,
+        },
+      });
+      if (data?.count != null) setInAppUnread(Number(data.count));
+    } catch {
+      /* non-blocking */
+    }
+  }, [appUser]);
+
+  useEffect(() => {
+    void refreshInAppUnread();
+    const interval = setInterval(() => void refreshInAppUnread(), 30000);
+    return () => clearInterval(interval);
+  }, [refreshInAppUnread]);
+
   const handleNotificationClick = () => {
     setMenuVisible(false);
     setShowNotifications(true);
@@ -181,6 +211,7 @@ const Head: React.FC<ChildComponentProps> = ({
 
   const handleCloseNotifications = () => {
     setShowNotifications(false);
+    void refreshInAppUnread();
   };
 
   const handleCloseBookings = () => {
@@ -216,8 +247,6 @@ const Head: React.FC<ChildComponentProps> = ({
     console.log(`Service selected: ${service}, Type: ${serviceType}`);
   };
 
-  const { setAppUser, appUser } = useAppUser();
-
   useEffect(() => {
     const run = async () => {
       if (!auth0User || auth0Loading || !auth0User?.email) {
@@ -242,10 +271,16 @@ const Head: React.FC<ChildComponentProps> = ({
         if (!response.data.user_role) {
           await createUser(auth0User);
         } else if (response.data.user_role === "SERVICE_PROVIDER") {
+          const spId = response.data.id ?? response.data.serviceproviderid;
+          if (token?.accessToken) {
+            await AsyncStorage.setItem("token", token.accessToken);
+          }
           setAppUser({
             ...auth0User,
             role: "SERVICE_PROVIDER",
-            serviceProviderId: response.data.id,
+            serviceProviderId: spId,
+            accessToken: token?.accessToken,
+            token: token?.accessToken,
           });
         } else if (response.data.user_role === "VENDOR") {
           setAppUser({
@@ -466,7 +501,7 @@ const Head: React.FC<ChildComponentProps> = ({
       justifyContent: "space-between",
       height: 70,
       elevation: 3,
-      // paddingHorizontal: 12,
+      overflow: "visible",
     },
     alertsButton: {
       flex: 0.5,
@@ -529,9 +564,17 @@ const Head: React.FC<ChildComponentProps> = ({
         <TouchableOpacity
           onPress={handleNotificationClick}
           style={dynamicStyles.alertsButton}
+          accessibilityLabel="Notifications"
         >
           <View style={styles.alertsButtonInner}>
             <MaterialIcon name="notifications" size={22} color="#fff" />
+            {inAppUnread > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {inAppUnread > 99 ? "99+" : inAppUnread}
+                </Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </LinearGradient>
@@ -540,6 +583,7 @@ const Head: React.FC<ChildComponentProps> = ({
       <NotificationsDialog
         visible={showNotifications}
         onClose={handleCloseNotifications}
+        onUnreadCountChange={setInAppUnread}
       />
 
       {/* Bookings Dialog */}
@@ -633,6 +677,8 @@ const styles = StyleSheet.create({
     height: 50,
     marginHorizontal: 8,
     paddingBottom: 10,
+    zIndex: 200,
+    overflow: "visible",
   },
   alertsButtonInner: {
     flexDirection: "column",
@@ -640,6 +686,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 70,
     height: 70,
+    position: "relative",
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: 8,
+    right: 6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+  },
+  unreadBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
   },
 });
 

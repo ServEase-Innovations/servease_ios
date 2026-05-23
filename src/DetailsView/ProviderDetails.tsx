@@ -18,7 +18,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useDispatch, useSelector } from "react-redux";
 import { add, update } from "../features/bookingTypeSlice";
-import DemoCook from "../ServiceDialogs/CookServiceDialog";
+import CookServiceDialog from "../ServiceDialogs/CookServiceDialog";
 import MaidServiceDialog from "../ServiceDialogs/MaidServiceDialog";
 import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import axiosInstance from "../services/axiosInstance";
@@ -453,15 +453,9 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     }
   };
 
-  // Handle booking success callback
+  // Close provider dialog when payment succeeds; bookings navigation happens from success dialog.
   const handleBookingSuccess = () => {
-    console.log("🎉 Booking success callback triggered in ProviderDetails");
     setOpen(false);
-    
-    if (props.sendDataToParent) {
-      console.log("🔄 Navigating to BOOKINGS after successful booking");
-      props.sendDataToParent(BOOKINGS);
-    }
   };
 
   // Handle view details
@@ -548,14 +542,11 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     switch (primaryRole) {
       case "COOK":
         return (
-          <DemoCook 
-            visible={open}
-            onClose={handleClose}
+          <CookServiceDialog
+            open={open}
             handleClose={handleClose}
             sendDataToParent={handleBookingPage}
-            user={user}
             providerDetails={providerDetailsData}
-            bookingType={bookingType}
             onBookingSuccess={handleBookingSuccess}
           />
         );

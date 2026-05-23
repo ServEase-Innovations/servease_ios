@@ -471,6 +471,7 @@
   "locationSelector": {
     "detectLocation": "অবস্থান সনাক্ত করুন",
     "addAddress": "ঠিকানা যোগ করুন",
+    "tapToChooseLocation": "অবস্থান বেছে নিতে ট্যাপ করুন",
     "autoDetect": "স্বয়ংক্রিয় সনাক্তকরণ",
     "searchManually": "ম্যানুয়ালি অনুসন্ধান করুন",
     "useYourCurrentLocation": "আপনার বর্তমান অবস্থান ব্যবহার করুন",

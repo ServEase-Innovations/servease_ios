@@ -469,6 +469,7 @@
   "locationSelector": {
     "detectLocation": "Detect Location",
     "addAddress": "Add Address",
+    "tapToChooseLocation": "Tap to choose location",
     "autoDetect": "Auto Detect",
     "searchManually": "Search Manually",
     "useYourCurrentLocation": "Use your current location",

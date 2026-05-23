@@ -516,17 +516,11 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
       {!isServiceDisabled && (
         <>
           {/* CookServicesDialog - uses onClose prop (no open prop) */}
-          {showCookDialog && (
-            <View style={styles.dialogOverlay}>
-              <View style={styles.dialogBox}>
-                <CookServicesDialog
-                  onClose={handleServiceDialogClose}
-                  sendDataToParent={sendDataToParent}
-                  bookingType={getBookingType()}
-                />
-              </View>
-            </View>
-          )}
+          <CookServicesDialog
+            open={showCookDialog}
+            handleClose={handleServiceDialogClose}
+            sendDataToParent={sendDataToParent}
+          />
 
           {/* NannyServicesDialog - uses open and handleClose props */}
           {showNannyServicesDialog && (

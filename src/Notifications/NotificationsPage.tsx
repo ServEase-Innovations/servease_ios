@@ -1,639 +1,687 @@
-// NotificationsDialog.tsx
-import React, { useState } from "react";
+/* eslint-disable */
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
   Modal,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
+  ScrollView,
   Dimensions,
+  useWindowDimensions,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import LinearGradient from "react-native-linear-gradient";
+import Snackbar from "react-native-snackbar";
+import { useTranslation } from "react-i18next";
+import PaymentInstance from "../services/paymentInstance";
+import { useAppUser } from "../context/AppUserContext";
+import {
+  acceptEngagement,
+  parseAcceptEngagementError,
+  parseEngagementId,
+} from "../services/engagementService";
+import BookingRequestPanel from "./BookingRequestPanel";
+import {
+  InAppNotification,
+  inAppToBookingRequestPayload,
+  recipientParams,
+  timeAgo,
+  typeMeta,
+} from "./inAppNotificationUtils";
 
-interface Engagement {
-  engagement_id: number;
-  service_type: string;
-  booking_type: string;
-  start_date: string;
-  end_date: string;
-  start_time: string;
-  end_time: string;
-  base_amount: number;
-  status: "pending" | "accepted" | "rejected" | "completed";
-  created_at: string;
-}
-
-interface NotificationItemProps {
-  engagement: Engagement;
-  onAccept: (engagementId: number) => void;
-  onReject: (engagementId: number) => void;
-  onDelete: (engagementId: number) => void;
-}
-
-interface NotificationsDialogProps {
+type Props = {
   visible: boolean;
   onClose: () => void;
-}
-
-const { width, height } = Dimensions.get("window");
-
-// Custom Card Components
-const Card: React.FC<{ children: React.ReactNode; style?: any }> = ({ 
-  children, 
-  style 
-}) => {
-  return (
-    <View style={[styles.card, style]}>
-      {children}
-    </View>
-  );
+  onUnreadCountChange?: (n: number) => void;
 };
 
-const CardContent: React.FC<{ children: React.ReactNode; style?: any }> = ({ 
-  children, 
-  style 
-}) => {
-  return (
-    <View style={[styles.cardContent, style]}>
-      {children}
-    </View>
-  );
-};
-
-function NotificationItem({
-  engagement,
-  onAccept,
-  onReject,
-  onDelete,
-}: NotificationItemProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending": return { color: "#d97706", backgroundColor: "#fef3c7" };
-      case "accepted": return { color: "#059669", backgroundColor: "#d1fae5" };
-      case "rejected": return { color: "#dc2626", backgroundColor: "#fee2e2" };
-      case "completed": return { color: "#2563eb", backgroundColor: "#dbeafe" };
-      default: return { color: "#4b5563", backgroundColor: "#f3f4f6" };
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "pending": return "clock";
-      case "accepted": return "check-circle";
-      case "rejected": return "close-circle";
-      case "completed": return "party-popper";
-      default: return "bell";
-    }
-  };
-
-  const statusStyle = getStatusColor(engagement.status);
-
-  return (
-    <Card style={[styles.notificationCard, { borderLeftWidth: 4, borderLeftColor: "#2563eb" }]}>
-      <CardContent style={styles.notificationContent}>
-        <View style={styles.notificationHeader}>
-          <View style={styles.statusContainer}>
-            <Icon name={getStatusIcon(engagement.status)} size={20} color={statusStyle.color} />
-            <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
-              <Text style={[styles.statusText, { color: statusStyle.color }]}>
-                {engagement.status.charAt(0).toUpperCase() + engagement.status.slice(1)}
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            onPress={() => onDelete(engagement.engagement_id)}
-            style={styles.deleteButton}
-          >
-            <Icon name="delete-outline" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.notificationTitle}>
-          {engagement.booking_type} booking for{" "}
-          <Text style={styles.serviceType}>{engagement.service_type}</Text>
-        </Text>
-        
-        <View style={styles.notificationDetails}>
-          <Text style={styles.detailText}>
-            📅 {engagement.start_date} ({engagement.start_time} – {engagement.end_time})
-          </Text>
-          <Text style={styles.amountText}>₹{engagement.base_amount}</Text>
-          <Text style={styles.dateText}>
-            Received: {new Date(engagement.created_at).toLocaleString()}
-          </Text>
-        </View>
-
-        {engagement.status === "pending" && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.rejectButton]}
-              onPress={() => onReject(engagement.engagement_id)}
-            >
-              <Icon name="close-circle" size={16} color="#dc2626" />
-              <Text style={styles.rejectButtonText}> Reject</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.acceptButton]}
-              onPress={() => onAccept(engagement.engagement_id)}
-            >
-              <Icon name="check-circle" size={16} color="#ffffff" />
-              <Text style={styles.acceptButtonText}> Accept</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </CardContent>
-    </Card>
-  );
+function asMetaRecord(m: unknown): Record<string, unknown> | null {
+  if (m && typeof m === "object" && !Array.isArray(m)) {
+    return m as Record<string, unknown>;
+  }
+  return null;
 }
 
-export default function NotificationsDialog({ visible, onClose }: NotificationsDialogProps) {
-  const [notifications, setNotifications] = useState<Engagement[]>([
-    {
-      engagement_id: 1,
-      service_type: "Home Cook",
-      booking_type: "Regular",
-      start_date: "2024-01-15",
-      end_date: "2024-01-15",
-      start_time: "10:00 AM",
-      end_time: "12:00 PM",
-      base_amount: 1200,
-      status: "pending",
-      created_at: "2024-01-14T10:30:00Z"
+export default function NotificationsPage({
+  visible,
+  onClose,
+  onUnreadCountChange,
+}: Props) {
+  const { t } = useTranslation();
+  const { appUser } = useAppUser();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const sheetHeight = Math.round(windowHeight * 0.82);
+  const bodyMinHeight = Math.round(windowHeight * 0.48);
+  const [items, setItems] = useState<InAppNotification[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [detailFor, setDetailFor] = useState<InAppNotification | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const r = useMemo(() => recipientParams(appUser), [appUser]);
+
+  const setUnreadSafe = useCallback(
+    (n: number) => {
+      setUnread(n);
+      onUnreadCountChange?.(n);
     },
-    {
-      engagement_id: 2,
-      service_type: "Cleaning Help",
-      booking_type: "One-time",
-      start_date: "2024-01-16",
-      end_date: "2024-01-16",
-      start_time: "2:00 PM",
-      end_time: "4:00 PM",
-      base_amount: 800,
-      status: "accepted",
-      created_at: "2024-01-14T09:15:00Z"
+    [onUnreadCountChange]
+  );
+
+  const bumpUnread = useCallback(
+    (delta: number) => {
+      setUnread((u) => {
+        const next = Math.max(0, u + delta);
+        onUnreadCountChange?.(next);
+        return next;
+      });
     },
-    {
-      engagement_id: 3,
-      service_type: "Caregiver",
-      booking_type: "Long-term",
-      start_date: "2024-01-17",
-      end_date: "2024-01-20",
-      start_time: "9:00 AM",
-      end_time: "5:00 PM",
-      base_amount: 3500,
-      status: "rejected",
-      created_at: "2024-01-13T14:20:00Z"
-    },
-    {
-      engagement_id: 4,
-      service_type: "Home Cook",
-      booking_type: "Short-term",
-      start_date: "2024-01-18",
-      end_date: "2024-01-18",
-      start_time: "6:00 PM",
-      end_time: "8:00 PM",
-      base_amount: 1500,
-      status: "completed",
-      created_at: "2024-01-12T16:45:00Z"
+    [onUnreadCountChange]
+  );
+
+  const fetchList = useCallback(async () => {
+    if (!r) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await PaymentInstance.get("/api/in-app-notifications", {
+        params: {
+          recipientType: r.recipientType,
+          recipientId: r.recipientId,
+          limit: 50,
+        },
+      });
+      const list = (data?.notifications || []) as InAppNotification[];
+      setItems(list);
+      const count = data?.unreadCount ?? 0;
+      setUnreadSafe(Number(count));
+    } catch (e: any) {
+      setError(e?.message || "Could not load notifications");
+    } finally {
+      setLoading(false);
     }
-  ]);
+  }, [r, setUnreadSafe]);
 
-  const [filter, setFilter] = useState<string>("all");
+  useEffect(() => {
+    if (!visible || !r) return;
+    void fetchList();
+  }, [visible, r, fetchList]);
 
-  const handleAccept = (engagementId: number) => {
-    setNotifications(notifications.map(notif => 
-      notif.engagement_id === engagementId 
-        ? { ...notif, status: "accepted" as const }
-        : notif
-    ));
-    console.log(`Accepted engagement: ${engagementId}`);
+  useEffect(() => {
+    if (!visible || !r) return;
+    const refreshTimer = setInterval(() => {
+      void fetchList();
+    }, 10000);
+    return () => clearInterval(refreshTimer);
+  }, [visible, r, fetchList]);
+
+  const markRead = useCallback(
+    async (n: InAppNotification) => {
+      if (!r || n.readAt) return;
+      const rid = Number(r.recipientId);
+      const nid = String(n.id ?? "").trim();
+      if (!Number.isFinite(rid) || rid < 1 || !/^\d+$/.test(nid)) return;
+      try {
+        await PaymentInstance.patch(`/api/in-app-notifications/${nid}/read`, {
+          recipientType: r.recipientType,
+          recipientId: rid,
+        }, {
+          params: { recipientType: r.recipientType, recipientId: rid },
+        });
+        setItems((prev) =>
+          prev.map((x) =>
+            x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x
+          )
+        );
+        bumpUnread(-1);
+      } catch (e: any) {
+        Snackbar.show({
+          text: e?.response?.data?.error || e?.message || "Could not update notification",
+          duration: Snackbar.LENGTH_SHORT,
+          backgroundColor: "#f44336",
+        });
+      }
+    },
+    [r, bumpUnread]
+  );
+
+  const markAll = async () => {
+    if (!r) return;
+    try {
+      await PaymentInstance.post("/api/in-app-notifications/read-all", {
+        recipientType: r.recipientType,
+        recipientId: r.recipientId,
+      });
+      setItems((prev) =>
+        prev.map((x) => ({ ...x, readAt: x.readAt || new Date().toISOString() }))
+      );
+      setUnreadSafe(0);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleReject = (engagementId: number) => {
-    setNotifications(notifications.map(notif => 
-      notif.engagement_id === engagementId 
-        ? { ...notif, status: "rejected" as const }
-        : notif
-    ));
-    console.log(`Rejected engagement: ${engagementId}`);
-  };
+  const acceptFromList = useCallback(
+    async (n: InAppNotification) => {
+      if (!r || r.recipientType !== "provider") {
+        Snackbar.show({
+          text: "Sign in as a provider to accept",
+          duration: Snackbar.LENGTH_SHORT,
+          backgroundColor: "#f44336",
+        });
+        return;
+      }
+      const eid = parseEngagementId(n.engagementId);
+      if (eid == null) return;
+      setAcceptingId(n.id);
+      setDetailError(null);
+      try {
+        const result = await acceptEngagement(eid, appUser);
+        Snackbar.show({
+          text: result.message,
+          duration: Snackbar.LENGTH_SHORT,
+          backgroundColor: "#4caf50",
+        });
+        setDetailFor((d) => (d != null && String(d.id) === String(n.id) ? null : d));
+        await fetchList();
+      } catch (e: unknown) {
+        const msg = parseAcceptEngagementError(e);
+        setDetailError(msg);
+        Snackbar.show({ text: msg, duration: Snackbar.LENGTH_LONG, backgroundColor: "#f44336" });
+      } finally {
+        setAcceptingId(null);
+      }
+    },
+    [r, appUser, fetchList]
+  );
 
-  const handleDelete = (engagementId: number) => {
-    Alert.alert(
-      "Delete Notification",
-      "Are you sure you want to delete this notification?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive",
-          onPress: () => {
-            setNotifications(notifications.filter(notif => notif.engagement_id !== engagementId));
+  const notInterested = useCallback(
+    async (n: InAppNotification) => {
+      if (!n.readAt) await markRead(n);
+      setDetailFor((d) => (d?.id === n.id ? null : d));
+    },
+    [markRead]
+  );
+
+  const detailPayload = detailFor ? inAppToBookingRequestPayload(detailFor) : null;
+
+  const renderGuest = () => (
+    <View style={styles.guestBody}>
+      <MaterialIcon name="inbox" size={40} color="#94a3b8" />
+      <Text style={styles.guestTitle}>Stay updated</Text>
+      <Text style={styles.guestText}>
+        Sign in as a customer or service provider to see booking and service updates here.
+      </Text>
+    </View>
+  );
+
+  const renderItem = ({ item: n }: { item: InAppNotification }) => {
+    const unreadItem = !n.readAt;
+    const meta = typeMeta(n.type);
+    const metaRow = asMetaRecord(n.metadata);
+    const tUpper = (n.type || "").toUpperCase();
+    const isSpOndemandNewBooking =
+      r?.recipientType === "provider" &&
+      (tUpper === "NEW_BOOKING_OPPORTUNITY" || tUpper === "NEW_BOOKING_REQUEST");
+    const isSpAssignedConfirmed =
+      r?.recipientType === "provider" && tUpper === "ASSIGNED_BOOKING_CONFIRMED";
+    const eid = parseEngagementId(n.engagementId);
+    const hasBookingDetailPanel =
+      (isSpOndemandNewBooking || isSpAssignedConfirmed) && eid != null;
+    const canQuickAct = isSpOndemandNewBooking && unreadItem && hasBookingDetailPanel;
+
+    return (
+      <TouchableOpacity
+        style={[styles.itemCard, unreadItem && styles.itemUnread]}
+        activeOpacity={0.85}
+        onPress={() => {
+          if (isSpAssignedConfirmed && hasBookingDetailPanel) {
+            setDetailError(null);
+            setDetailFor(n);
+            if (unreadItem) void markRead(n);
+            return;
           }
-        }
-      ]
-    );
-  };
-
-  const handleClearAll = () => {
-    Alert.alert(
-      "Clear All Notifications",
-      "Are you sure you want to clear all notifications?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Clear All", 
-          style: "destructive",
-          onPress: () => setNotifications([])
-        }
-      ]
-    );
-  };
-
-  const filteredNotifications = notifications.filter(notif => 
-    filter === "all" ? true : notif.status === filter
-  );
-
-  const getNotificationCount = (status: string) => {
-    return notifications.filter(notif => notif.status === status).length;
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-      statusBarTranslucent={true}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.dialog}>
-          {/* Dialog Header */}
-          <View style={styles.dialogHeader}>
-            <View style={styles.headerContent}>
-              <View style={styles.headerIcon}>
-                <Icon name="bell" size={24} color="#ffffff" />
-              </View>
-              <View style={styles.headerText}>
-                <Text style={styles.dialogTitle}>Notifications</Text>
-                <Text style={styles.dialogSubtitle}>Manage your booking requests and updates</Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
+          if (isSpOndemandNewBooking) return;
+          if (unreadItem) void markRead(n);
+        }}
+      >
+        <View style={styles.itemRow}>
+          <View style={[styles.iconWrap, { backgroundColor: `${meta.color}18` }]}>
+            <MaterialIcon name={meta.icon} size={20} color={meta.color} />
           </View>
-
-          <View style={styles.dialogContent}>
-            {/* Stats and Filters */}
-            <Card style={styles.statsCard}>
-              <CardContent>
-                <View style={styles.statsContainer}>
-                  <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statNumber}>{getNotificationCount("pending")}</Text>
-                      <Text style={styles.statLabel}>Pending</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Text style={[styles.statNumber, styles.acceptedStat]}>{getNotificationCount("accepted")}</Text>
-                      <Text style={styles.statLabel}>Accepted</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Text style={[styles.statNumber, styles.totalStat]}>{notifications.length}</Text>
-                      <Text style={styles.statLabel}>Total</Text>
-                    </View>
-                  </View>
-                  
-                  <TouchableOpacity 
-                    style={styles.filterContainer}
-                    onPress={() => {
-                      // Simple filter toggle for demo
-                      setFilter(filter === "all" ? "pending" : "all");
-                    }}
-                  >
-                    <Icon name="filter" size={16} color="#6b7280" />
-                    <View style={styles.filterSelect}>
-                      <Text style={styles.filterText}>
-                        {filter === "all" ? "All Notifications" : 
-                         filter === "pending" ? "Pending" :
-                         filter === "accepted" ? "Accepted" :
-                         filter === "rejected" ? "Rejected" : "Completed"}
-                      </Text>
-                      <Icon name="chevron-down" size={16} color="#6b7280" />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </CardContent>
-            </Card>
-
-            {/* Clear All Button */}
-            {notifications.length > 0 && (
-              <View style={styles.clearAllContainer}>
-                <TouchableOpacity
-                  onPress={handleClearAll}
-                  style={styles.clearAllButton}
-                >
-                  <Icon name="delete-outline" size={16} color="#dc2626" />
-                  <Text style={styles.clearAllText}> Clear All</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Notifications List */}
-            <ScrollView 
-              style={styles.notificationsList}
-              showsVerticalScrollIndicator={false}
-            >
-              {filteredNotifications.length === 0 ? (
-                <Card style={styles.emptyCard}>
-                  <CardContent style={styles.emptyContent}>
-                    <Icon name="bell-outline" size={48} color="#d1d5db" />
-                    <Text style={styles.emptyTitle}>No notifications</Text>
-                    <Text style={styles.emptyText}>
-                      {notifications.length === 0 
-                        ? "You don't have any notifications yet." 
-                        : `No ${filter === "all" ? "" : filter + " "}notifications found.`
-                      }
-                    </Text>
-                  </CardContent>
-                </Card>
-              ) : (
-                <View>
-                  {filteredNotifications.map((notification) => (
-                    <NotificationItem
-                      key={notification.engagement_id}
-                      engagement={notification}
-                      onAccept={handleAccept}
-                      onReject={handleReject}
-                      onDelete={handleDelete}
-                    />
-                  ))}
+          <View style={styles.itemContent}>
+            <View style={styles.titleRow}>
+              <Text style={[styles.itemTitle, unreadItem && styles.itemTitleBold]} numberOfLines={2}>
+                {n.title}
+              </Text>
+              {unreadItem && (
+                <View style={styles.newBadge}>
+                  <Text style={styles.newBadgeText}>New</Text>
                 </View>
               )}
-            </ScrollView>
+            </View>
+            {n.body ? <Text style={styles.itemBody}>{n.body}</Text> : null}
+            {metaRow?.address ? (
+              <Text style={styles.metaLine}>
+                <Text style={styles.metaBold}>Location: </Text>
+                {String(metaRow.address)}
+              </Text>
+            ) : null}
+            {hasBookingDetailPanel && (
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={styles.smallBtn}
+                  onPress={() => {
+                    setDetailError(null);
+                    setDetailFor(n);
+                    if (unreadItem && isSpAssignedConfirmed) void markRead(n);
+                  }}
+                >
+                  <Text style={styles.smallBtnText}>View details</Text>
+                </TouchableOpacity>
+                {canQuickAct && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.smallBtn, styles.smallBtnPrimary]}
+                      disabled={acceptingId === n.id}
+                      onPress={() => void acceptFromList(n)}
+                    >
+                      <Text style={styles.smallBtnPrimaryText}>
+                        {acceptingId === n.id ? "…" : "Accept"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.smallBtn}
+                      disabled={acceptingId === n.id}
+                      onPress={() => void notInterested(n)}
+                    >
+                      <Text style={styles.smallBtnText}>Not interested</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
+            <Text style={styles.itemMeta}>
+              {meta.label}
+              {n.engagementId ? ` · #${n.engagementId}` : ""} · {timeAgo(n.createdAt)}
+            </Text>
           </View>
         </View>
-      </View>
-    </Modal>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <>
+      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+        <View style={styles.overlay}>
+          <View style={[styles.dialog, { height: sheetHeight, width: windowWidth }]}>
+            <View style={styles.sheetTop}>
+              <View style={styles.sheetHandle} />
+            </View>
+
+            <View style={[styles.headerWrap, { width: windowWidth }]}>
+              <LinearGradient
+                colors={["#0369a1", "#1e3a5f", "#0f172a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.headerGradientBg}
+              />
+              <View style={styles.headerRow}>
+                <View style={styles.headerTextBlock}>
+                  <Text style={styles.headerEyebrow}>ACTIVITY</Text>
+                  <Text style={styles.headerTitle} numberOfLines={1}>
+                    {t("common.notifications")}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.closeHeader}
+                  onPress={onClose}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Close notifications"
+                >
+                  <Text style={styles.closeHeaderText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={styles.subHeader}>
+              {r
+                ? unread > 0
+                  ? `${unread} unread — tap an item to mark read`
+                  : "Bookings, visits, and acceptances appear here in real time."
+                : "Sign in to see your activity"}
+            </Text>
+
+            <View style={[styles.body, { minHeight: bodyMinHeight }]}>
+              {!r ? (
+                <ScrollView
+                  contentContainerStyle={styles.centeredScroll}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {renderGuest()}
+                </ScrollView>
+              ) : loading && items.length === 0 ? (
+                <View style={styles.centered}>
+                  <ActivityIndicator size="large" color="#0284c7" />
+                  <Text style={styles.loadingText}>Loading your activity…</Text>
+                </View>
+              ) : error ? (
+                <View style={styles.centered}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  <TouchableOpacity style={styles.retryBtn} onPress={() => void fetchList()}>
+                    <Text style={styles.retryText}>Try again</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : items.length === 0 ? (
+                <View style={styles.centered}>
+                  <MaterialIcon name="inbox" size={48} color="#cbd5e1" />
+                  <Text style={styles.emptyTitle}>Nothing new yet</Text>
+                  <Text style={styles.emptyText}>
+                    When a booking is accepted, a visit starts, or a service completes, you will see it here.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={items}
+                  keyExtractor={(item) => String(item.id)}
+                  renderItem={renderItem}
+                  contentContainerStyle={styles.listContent}
+                  style={styles.list}
+                  showsVerticalScrollIndicator
+                />
+              )}
+            </View>
+
+            <View style={styles.footer}>
+              <TouchableOpacity style={styles.footerBtnOutline} onPress={onClose}>
+                <Text style={styles.footerBtnOutlineText}>{t("common.cancel")}</Text>
+              </TouchableOpacity>
+              {r && unread > 0 && (
+                <TouchableOpacity style={styles.footerBtnPrimary} onPress={() => void markAll()}>
+                  <Text style={styles.footerBtnPrimaryText}>Mark all as read</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={visible && detailFor != null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setDetailFor(null);
+          setDetailError(null);
+        }}
+      >
+        <View style={styles.overlay}>
+          <View style={[styles.dialog, styles.detailDialog]}>
+            {detailFor && !detailPayload ? (
+              <ScrollView contentContainerStyle={styles.centered}>
+                <Text style={styles.emptyText}>
+                  Booking details are not available for this item. Engagement #
+                  {String(detailFor.engagementId || "—")}
+                </Text>
+                <TouchableOpacity
+                  style={styles.footerBtnOutline}
+                  onPress={() => {
+                    setDetailFor(null);
+                    setDetailError(null);
+                  }}
+                >
+                  <Text style={styles.footerBtnOutlineText}>Close</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : null}
+            {detailFor && detailPayload ? (
+              <>
+                <TouchableOpacity
+                  style={styles.detailClose}
+                  onPress={() => {
+                    setDetailFor(null);
+                    setDetailError(null);
+                  }}
+                >
+                  <MaterialIcon name="close" size={22} color="#64748b" />
+                </TouchableOpacity>
+                <BookingRequestPanel
+                  engagement={detailPayload}
+                  onAccept={() => {
+                    if (detailFor) void acceptFromList(detailFor);
+                  }}
+                  onReject={(engId) => {
+                    if (detailFor && Number(detailFor.engagementId) === engId) {
+                      void notInterested(detailFor);
+                    }
+                  }}
+                  actionBusy={
+                    detailFor != null &&
+                    acceptingId != null &&
+                    String(acceptingId) === String(detailFor.id)
+                  }
+                  errorText={detailError}
+                  headerCaption={`Engagement #${detailPayload.engagement_id}`}
+                />
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  modalContainer: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: "rgba(15,23,42,0.45)",
+    justifyContent: "flex-end",
+    alignItems: "stretch",
+    width: "100%",
   },
   dialog: {
-    borderRadius: 12,
-    maxHeight: "85%",
-    backgroundColor: "#ffffff",
-    // width: '100%',
-    maxWidth: 500,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    alignSelf: "stretch",
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+    flexDirection: "column",
   },
-  dialogHeader: {
-    backgroundColor: "#0a2a66",
-    padding: 24,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  headerIcon: {
-    padding: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  headerText: {
-    flex: 1,
-  },
-  dialogTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  dialogSubtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  dialogContent: {
-    flex: 1,
-  },
-  // Card Styles
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  cardContent: {
-    padding: 16,
-  },
-  // Stats Card
-  statsCard: {
-    margin: 16,
-    marginBottom: 0,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 24,
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#2563eb",
-  },
-  acceptedStat: {
-    color: "#059669",
-  },
-  totalStat: {
-    color: "#6b7280",
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  filterContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  filterSelect: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  filterText: {
-    fontSize: 14,
-    color: "#374151",
-    marginRight: 4,
-  },
-  clearAllContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    alignItems: "flex-end",
-  },
-  clearAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  clearAllText: {
-    color: "#dc2626",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  notificationsList: {
-    maxHeight: 400,
-    padding: 16,
-  },
-  notificationCard: {
-    marginBottom: 16,
-  },
-  notificationContent: {
-    padding: 16,
-  },
-  notificationHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  statusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  deleteButton: {
-    padding: 4,
-  },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  serviceType: {
-    fontWeight: "600",
-    color: "#2563eb",
-  },
-  notificationDetails: {
-    gap: 4,
-    marginBottom: 8,
-  },
-  detailText: {
-    fontSize: 14,
-    color: "#6b7280",
-  },
-  amountText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#2563eb",
-  },
-  dateText: {
-    fontSize: 12,
-    color: "#9ca3af",
-  },
-  actionButtons: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 16,
-  },
-  button: {
-    flex: 1,
-    flexDirection: "row",
+  detailDialog: { maxHeight: Math.round(Dimensions.get("window").height * 0.92) },
+  sheetTop: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    borderWidth: 1,
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: "#fff",
   },
-  rejectButton: {
-    borderColor: "#dc2626",
-    backgroundColor: "transparent",
+  sheetHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#cbd5e1",
   },
-  rejectButtonText: {
-    color: "#dc2626",
-    fontSize: 14,
-    fontWeight: "500",
+  headerWrap: {
+    minHeight: 96,
+    position: "relative",
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  acceptButton: {
-    backgroundColor: "#059669",
-    borderColor: "#059669",
+  headerGradientBg: {
+    ...StyleSheet.absoluteFillObject,
   },
-  acceptButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  emptyCard: {
+  headerRow: {
+    flexDirection: "row",
     alignItems: "center",
-    padding: 32,
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    zIndex: 1,
   },
-  emptyContent: {
+  headerTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 16,
+    justifyContent: "center",
+  },
+  headerEyebrow: {
+    color: "rgba(186,230,253,0.95)",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 6,
+    paddingBottom: 2,
+  },
+  closeHeader: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
-    gap: 12,
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    flexShrink: 0,
   },
-  emptyTitle: {
+  closeHeaderText: {
+    color: "#fff",
     fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
+    fontWeight: "700",
+    lineHeight: 20,
+    marginTop: -1,
   },
-  emptyText: {
-    fontSize: 14,
-    color: "#6b7280",
-    textAlign: "center",
+  body: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: "#fff",
+  },
+  subHeader: {
+    width: "100%",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#475569",
+    backgroundColor: "#f8fafc",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  list: { flex: 1, width: "100%" },
+  listContent: { padding: 12, paddingBottom: 16, flexGrow: 1 },
+  itemCard: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: "#fff",
+  },
+  itemUnread: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#0284c7",
+    backgroundColor: "rgba(37,99,235,0.04)",
+  },
+  itemRow: { flexDirection: "row", gap: 10 },
+  iconWrap: { padding: 8, borderRadius: 10 },
+  itemContent: { flex: 1 },
+  titleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 },
+  itemTitle: { fontSize: 15, color: "#0f172a", flex: 1 },
+  itemTitleBold: { fontWeight: "800" },
+  newBadge: {
+    backgroundColor: "#0284c7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  newBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+  itemBody: { fontSize: 13, color: "#64748b", marginTop: 4, lineHeight: 18 },
+  metaLine: { fontSize: 12, color: "#64748b", marginTop: 4 },
+  metaBold: { fontWeight: "700", color: "#334155" },
+  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  smallBtn: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  smallBtnPrimary: { backgroundColor: "#0284c7", borderColor: "#0284c7" },
+  smallBtnText: { fontSize: 12, fontWeight: "600", color: "#334155" },
+  smallBtnPrimaryText: { fontSize: 12, fontWeight: "600", color: "#fff" },
+  itemMeta: { fontSize: 11, color: "#94a3b8", marginTop: 8 },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    width: "100%",
+  },
+  centeredScroll: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    minHeight: 240,
+  },
+  loadingText: { marginTop: 12, color: "#64748b" },
+  errorText: { color: "#dc2626", marginBottom: 12, textAlign: "center" },
+  retryBtn: {
+    borderWidth: 1,
+    borderColor: "#0284c7",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  retryText: { color: "#0284c7", fontWeight: "600" },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#1e293b", marginTop: 12 },
+  emptyText: { fontSize: 14, color: "#64748b", textAlign: "center", marginTop: 8, lineHeight: 20 },
+  guestBody: { alignItems: "center", padding: 32 },
+  guestTitle: { fontSize: 18, fontWeight: "700", color: "#1e293b", marginTop: 12 },
+  guestText: { fontSize: 14, color: "#64748b", textAlign: "center", marginTop: 8, lineHeight: 22 },
+  footer: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 14,
+    paddingBottom: 18,
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+    backgroundColor: "#f8fafc",
+    flexShrink: 0,
+  },
+  footerBtnOutline: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    alignItems: "center",
+  },
+  footerBtnOutlineText: { color: "#475569", fontWeight: "600" },
+  footerBtnPrimary: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#0284c7",
+    alignItems: "center",
+  },
+  footerBtnPrimaryText: { color: "#fff", fontWeight: "700" },
+  detailClose: {
+    position: "absolute",
+    right: 12,
+    top: 12,
+    zIndex: 5,
+    padding: 4,
   },
 });
