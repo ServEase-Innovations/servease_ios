@@ -67,6 +67,72 @@ export function parseAcceptEngagementError(err: unknown): string {
   return ax.message || "Could not accept this booking. Please try again.";
 }
 
+function isNewBookingNotificationType(type: string): boolean {
+  const t = (type || "").toUpperCase();
+  return (
+    t === "NEW_BOOKING_OPPORTUNITY" ||
+    t === "NEW_BOOKING_REQUEST" ||
+    t.includes("NEW_BOOKING") ||
+    t.includes("OPPORTUNITY")
+  );
+}
+
+/** Mark provider "new booking" notifications read so the Accept/Decline popup does not return. */
+export async function dismissProviderNewBookingNotifications(
+  engagementId: number,
+  providerId: number
+): Promise<void> {
+  const eid = parseEngagementId(engagementId);
+  if (eid == null || !Number.isFinite(providerId) || providerId < 1) return;
+
+  try {
+    const { data } = await PaymentInstance.get("/api/in-app-notifications", {
+      params: {
+        recipientType: "provider",
+        recipientId: String(providerId),
+        limit: 50,
+      },
+    });
+    const list = (data?.notifications || []) as Array<{
+      id: string;
+      type?: string;
+      engagementId?: string | null;
+      readAt?: string | null;
+    }>;
+
+    const targets = list.filter((n) => {
+      if (n.readAt) return false;
+      if (String(n.engagementId) !== String(eid)) return false;
+      return isNewBookingNotificationType(n.type || "");
+    });
+
+    await Promise.all(
+      targets.map((n) =>
+        PaymentInstance.patch(
+          `/api/in-app-notifications/${n.id}/read`,
+          { recipientType: "provider", recipientId: providerId },
+          { params: { recipientType: "provider", recipientId: providerId } }
+        )
+      )
+    );
+  } catch (e) {
+    console.warn("[sp-booking] dismiss notification failed", e);
+  }
+}
+
+export function isTerminalAcceptFailure(message: string): boolean {
+  const m = (message || "").toLowerCase();
+  return (
+    m.includes("no longer available") ||
+    m.includes("already accepted") ||
+    m.includes("time conflict") ||
+    m.includes("another booking") ||
+    m.includes("not found") ||
+    m.includes("cannot be accepted") ||
+    m.includes("payment is not complete")
+  );
+}
+
 export async function acceptEngagement(
   engagementId: number | string,
   appUser: Record<string, unknown> | null | undefined

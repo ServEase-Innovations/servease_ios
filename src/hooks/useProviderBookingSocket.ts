@@ -13,6 +13,18 @@ import { parseEngagementId, resolveServiceProviderId } from "../services/engagem
 /** Poll interval for new paid on-demand bookings (Accept/Decline popup). */
 const POLL_MS = 5000;
 
+/** Engagements we already surfaced in the popup (module-level so App can clear after accept). */
+const shownEngagementIds = new Set<number>();
+
+export function clearProviderBookingEngagement(engagementId: number) {
+  const eid = parseEngagementId(engagementId);
+  if (eid != null) shownEngagementIds.delete(eid);
+}
+
+export function resetProviderBookingPopupState() {
+  shownEngagementIds.clear();
+}
+
 function toActionableBookingPayload(
   raw: Record<string, unknown> | BookingRequestPayload
 ): BookingRequestPayload | null {
@@ -58,6 +70,8 @@ type Options = {
   isUserLoading: boolean;
   onBookingRequest: (payload: BookingRequestPayload) => void;
   onBookingClosed: (engagementId: number) => void;
+  /** Engagement id currently shown in the Accept/Decline modal (if any). */
+  activeEngagementId?: number | null;
 };
 
 /**
@@ -70,20 +84,22 @@ export function useProviderBookingSocket({
   isUserLoading,
   onBookingRequest,
   onBookingClosed,
+  activeEngagementId = null,
 }: Options) {
   const onRequestRef = useRef(onBookingRequest);
   const onClosedRef = useRef(onBookingClosed);
-  const shownEngagementIdsRef = useRef<Set<number>>(new Set());
+  const activeIdRef = useRef(activeEngagementId);
   const pollInFlightRef = useRef(false);
 
   onRequestRef.current = onBookingRequest;
   onClosedRef.current = onBookingClosed;
+  activeIdRef.current = activeEngagementId;
 
   const presentBookingRequest = useCallback(
     (payload: BookingRequestPayload, source: string) => {
       const eid = payload.engagement_id;
-      if (shownEngagementIdsRef.current.has(eid)) return;
-      shownEngagementIdsRef.current.add(eid);
+      if (shownEngagementIds.has(eid)) return;
+      shownEngagementIds.add(eid);
       console.log(`[sp-booking] ${source} → accept/decline popup #${eid}`);
       onRequestRef.current(payload);
     },
@@ -112,6 +128,7 @@ export function useProviderBookingSocket({
 
   useEffect(() => {
     if (!isProvider || providerId == null) {
+      resetProviderBookingPopupState();
       return;
     }
 
@@ -131,17 +148,27 @@ export function useProviderBookingSocket({
         for (const n of list) {
           const eid = parseEngagementId(n.engagementId);
           if (eid == null) continue;
-          if (shownEngagementIdsRef.current.has(eid) && n.readAt) {
-            shownEngagementIdsRef.current.delete(eid);
-            onClosedRef.current(eid);
+
+          if (isNewBookingNotificationType(n.type || "") && n.readAt) {
+            shownEngagementIds.delete(eid);
+            const activeId = parseEngagementId(activeIdRef.current);
+            if (activeId === eid) {
+              onClosedRef.current(eid);
+            }
           }
         }
 
         const bookingAlerts = list.filter(
           (n) => !n.readAt && isNewBookingNotificationType(n.type || "")
         );
+
         if (bookingAlerts.length > 0) {
-          handleInAppNotification(bookingAlerts[0], "poll");
+          const activeId = parseEngagementId(activeIdRef.current);
+          const pick =
+            activeId != null
+              ? bookingAlerts.find((n) => parseEngagementId(n.engagementId) === activeId)
+              : undefined;
+          handleInAppNotification(pick ?? bookingAlerts[0], "poll");
         }
       } catch (e) {
         console.warn("[sp-booking] poll failed", e);
@@ -165,4 +192,6 @@ export function useProviderBookingSocket({
 }
 
 /** No socket connection; kept for sign-out call sites. */
-export function disconnectProviderBookingSocket() {}
+export function disconnectProviderBookingSocket() {
+  resetProviderBookingPopupState();
+}

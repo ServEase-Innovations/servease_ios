@@ -38,10 +38,10 @@ export default function BookingRequestToast({
   const maxSheetHeight = Math.round(windowHeight * 0.82);
 
   useEffect(() => {
-    if (!visible || isInfoOnly) return undefined;
-    const timer = setTimeout(() => onClose(), 60000);
+    if (!visible || isInfoOnly || actionBusy) return undefined;
+    const timer = setTimeout(() => onClose(), 20_000);
     return () => clearTimeout(timer);
-  }, [onClose, isInfoOnly, visible]);
+  }, [onClose, isInfoOnly, visible, actionBusy, payload.engagement_id]);
 
   if (!visible) return null;
 

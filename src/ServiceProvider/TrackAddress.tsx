@@ -30,21 +30,63 @@ interface Location {
 interface TrackAddressProps {
   onClose: () => void;
   googleMapsApiKey: string;
+  destinationAddress?: string;
 }
 
-const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }) => {
+const TrackAddress: React.FC<TrackAddressProps> = ({
+  onClose,
+  googleMapsApiKey,
+  destinationAddress,
+}) => {
   const { t } = useTranslation();
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [destination, setDestination] = useState(BARASAT_LOCATION);
   const mapRef = useRef<MapView>(null);
 
-  // Get current location on component mount
+  useEffect(() => {
+    const resolveDestination = async () => {
+      if (!destinationAddress?.trim()) {
+        setDestination(BARASAT_LOCATION);
+        return;
+      }
+      try {
+        const encoded = encodeURIComponent(destinationAddress.trim());
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encoded}&key=${googleMapsApiKey}`
+        );
+        const json = await res.json();
+        const loc = json?.results?.[0]?.geometry?.location;
+        if (loc?.lat != null && loc?.lng != null) {
+          setDestination({
+            latitude: loc.lat,
+            longitude: loc.lng,
+            address: destinationAddress.trim(),
+          });
+        } else {
+          setDestination({ ...BARASAT_LOCATION, address: destinationAddress.trim() });
+        }
+      } catch {
+        setDestination({ ...BARASAT_LOCATION, address: destinationAddress.trim() });
+      }
+    };
+    void resolveDestination();
+  }, [destinationAddress, googleMapsApiKey]);
+
   useEffect(() => {
     getCurrentLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (currentLocation) {
+      calculateRouteToDestination(currentLocation);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destination.latitude, destination.longitude]);
 
   // Get current location using React Native Geolocation API
   const getCurrentLocation = () => {
@@ -57,7 +99,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
         setCurrentLocation({ latitude, longitude });
         setIsLoading(false);
         // Calculate route after getting location
-        calculateRouteToBarasat({ latitude, longitude });
+        calculateRouteToDestination({ latitude, longitude });
       },
       (error) => {
         console.log('Error getting location:', error);
@@ -90,12 +132,10 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
     );
   };
 
-  // Calculate route to Barasat
-  const calculateRouteToBarasat = (start: Location) => {
+  const calculateRouteToDestination = (start: Location) => {
     setIsCalculatingRoute(true);
     
-    // Generate route points with some intermediate points for realistic path
-    const route = generateRoutePoints(start, BARASAT_LOCATION);
+    const route = generateRoutePoints(start, destination);
     setRouteCoordinates(route);
     
     // Fit map to show the entire route
@@ -151,14 +191,13 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
     return R * c;
   };
 
-  // Get distance to Barasat
-  const getDistanceToBarasat = (): number => {
+  const getDistanceToDestination = (): number => {
     if (!currentLocation) return 0;
     return calculateDistance(
       currentLocation.latitude,
       currentLocation.longitude,
-      BARASAT_LOCATION.latitude,
-      BARASAT_LOCATION.longitude
+      destination.latitude,
+      destination.longitude
     );
   };
 
@@ -189,8 +228,8 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
     if (!currentLocation) return;
     
     const url = Platform.select({
-      ios: `http://maps.apple.com/?saddr=${currentLocation.latitude},${currentLocation.longitude}&daddr=${BARASAT_LOCATION.latitude},${BARASAT_LOCATION.longitude}&dirflg=d`,
-      android: `google.navigation:q=${BARASAT_LOCATION.latitude},${BARASAT_LOCATION.longitude}`,
+      ios: `http://maps.apple.com/?saddr=${currentLocation.latitude},${currentLocation.longitude}&daddr=${destination.latitude},${destination.longitude}&dirflg=d`,
+      android: `google.navigation:q=${destination.latitude},${destination.longitude}`,
     });
     
     if (url) {
@@ -214,7 +253,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
     );
   }
 
-  const distance = getDistanceToBarasat();
+  const distance = getDistanceToDestination();
   const travelTime = getTravelTime(distance);
 
   return (
@@ -244,8 +283,8 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
         </View>
         <View style={styles.locationRow}>
           <Icon name="flag" size={16} color="#FF5252" />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {t('trackAddress.to')}
+          <Text style={styles.locationText} numberOfLines={2}>
+            {destination.address || t('trackAddress.to')}
           </Text>
         </View>
       </View>
@@ -257,8 +296,8 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           initialRegion={{
-            latitude: currentLocation?.latitude || BARASAT_LOCATION.latitude,
-            longitude: currentLocation?.longitude || BARASAT_LOCATION.longitude,
+            latitude: currentLocation?.latitude || destination.latitude,
+            longitude: currentLocation?.longitude || destination.longitude,
             latitudeDelta: 0.5,
             longitudeDelta: 0.5,
           }}
@@ -281,11 +320,10 @@ const TrackAddress: React.FC<TrackAddressProps> = ({ onClose, googleMapsApiKey }
             </Marker>
           )}
 
-          {/* Barasat Destination Marker */}
           <Marker
-            coordinate={BARASAT_LOCATION}
+            coordinate={destination}
             title={t('trackAddress.destination')}
-            description={t('trackAddress.destinationDesc')}
+            description={destination.address}
           >
             <View style={styles.destinationMarker}>
               <Icon name="location-on" size={30} color="#FF5252" />

@@ -59,11 +59,14 @@ import BookingRequestToast from "./src/Notifications/BookingRequestToast";
 import { BookingRequestPayload } from "./src/Notifications/inAppNotificationUtils";
 import {
   acceptEngagement,
+  dismissProviderNewBookingNotifications,
+  isTerminalAcceptFailure,
   parseAcceptEngagementError,
   parseEngagementId,
   resolveServiceProviderId,
 } from "./src/services/engagementService";
 import {
+  clearProviderBookingEngagement,
   disconnectProviderBookingSocket,
   useProviderBookingSocket,
 } from "./src/hooks/useProviderBookingSocket";
@@ -654,11 +657,16 @@ const MainApp = () => {
     });
   }, []);
 
+  const activeToastEngagementId = activeToast
+    ? parseEngagementId(activeToast.engagement_id)
+    : null;
+
   useProviderBookingSocket({
     appUser,
     isUserLoading,
     onBookingRequest: onProviderBookingRequest,
     onBookingClosed: onProviderBookingClosed,
+    activeEngagementId: activeToastEngagementId,
   });
 
   useEffect(() => {
@@ -681,8 +689,13 @@ const MainApp = () => {
     }
     setAcceptError(null);
     setAcceptingEngagementId(eid);
+    const providerId = resolveServiceProviderId(appUser);
     try {
       const result = await acceptEngagement(eid, appUser);
+      if (providerId != null) {
+        await dismissProviderNewBookingNotifications(eid, providerId);
+      }
+      clearProviderBookingEngagement(eid);
       setActiveToast(null);
       setAcceptError(null);
       Snackbar.show({
@@ -692,7 +705,16 @@ const MainApp = () => {
       });
     } catch (err) {
       const msg = parseAcceptEngagementError(err);
-      setAcceptError(msg);
+      if (isTerminalAcceptFailure(msg)) {
+        if (providerId != null) {
+          await dismissProviderNewBookingNotifications(eid, providerId);
+        }
+        clearProviderBookingEngagement(eid);
+        setActiveToast(null);
+        setAcceptError(null);
+      } else {
+        setAcceptError(msg);
+      }
       Snackbar.show({
         text: msg,
         duration: Snackbar.LENGTH_LONG,
@@ -704,7 +726,13 @@ const MainApp = () => {
     }
   };
 
-  const handleReject = (_engagementId: number) => {
+  const handleReject = async (engagementId: number) => {
+    const eid = parseEngagementId(engagementId);
+    const providerId = resolveServiceProviderId(appUser);
+    if (eid != null && providerId != null) {
+      await dismissProviderNewBookingNotifications(eid, providerId);
+      clearProviderBookingEngagement(eid);
+    }
     setActiveToast(null);
     setAcceptError(null);
   };
@@ -1053,6 +1081,13 @@ const MainApp = () => {
               onAccept={handleAccept}
               onReject={handleReject}
               onClose={() => {
+                const eid = parseEngagementId(activeToast.engagement_id);
+                const providerId = resolveServiceProviderId(appUser);
+                if (eid != null && providerId != null) {
+                  void dismissProviderNewBookingNotifications(eid, providerId).finally(() => {
+                    clearProviderBookingEngagement(eid);
+                  });
+                }
                 setActiveToast(null);
                 setAcceptError(null);
               }}

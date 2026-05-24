@@ -1,15 +1,27 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
-import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import FeatherIcon from 'react-native-vector-icons/Feather';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import Icon from "react-native-vector-icons/FontAwesome";
+
+export type MetricIcon =
+  | "rupee"
+  | "shield"
+  | "credit-card"
+  | "wallet"
+  | "calendar"
+  | "star"
+  | "trending-up"
+  | "users"
+  | "clock"
+  | "home"
+  | "bell";
 
 interface DashboardMetricCardProps {
   title: string;
   value: string;
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
-  icon: "rupee" | "calendar" | "star" | "trending-up" | "users" | "clock" | "home" | "bell";
+  icon: MetricIcon;
   description?: string;
 }
 
@@ -19,68 +31,68 @@ export function DashboardMetricCard({
   change,
   changeType = "neutral",
   icon,
-  description
+  description,
 }: DashboardMetricCardProps) {
-  const getChangeColor = () => {
-    switch (changeType) {
-      case "positive":
-        return { backgroundColor: '#10b981', color: '#ffffff' };
-      case "negative":
-        return { backgroundColor: '#ef4444', color: '#ffffff' };
-      default:
-        return { backgroundColor: '#e5e7eb', color: '#374151' };
-    }
-  };
+  const changeBadgeStyle =
+    changeType === "positive"
+      ? styles.changePositive
+      : changeType === "negative"
+        ? styles.changeNegative
+        : styles.changeNeutral;
+  const changeTextColor =
+    changeType === "positive"
+      ? "#065f46"
+      : changeType === "negative"
+        ? "#9f1239"
+        : "#475569";
 
   const renderIcon = () => {
+    const color = "#0369a1";
+    const size = 22;
     switch (icon) {
-      case 'rupee':
-        return <Icon name="rupee" size={24} color="#ffffff" />;
-      case 'calendar':
-        return <Icon name="calendar" size={24} color="#ffffff" />;
-      case 'star':
-        return <Icon name="star" size={24} color="#ffffff" />;
-      case 'trending-up':
-        return <MaterialIcon name="trending-up" size={24} color="#ffffff" />;
-      case 'users':
-        return <Icon name="users" size={24} color="#ffffff" />;
-      case 'clock':
-        return <Icon name="clock-o" size={24} color="#ffffff" />;
-      case 'home':
-        return <Icon name="home" size={24} color="#ffffff" />;
-      case 'bell':
-        return <Icon name="bell" size={24} color="#ffffff" />;
+      case "rupee":
+        return <MaterialIcon name="currency-rupee" size={size} color={color} />;
+      case "shield":
+        return <MaterialIcon name="security" size={size} color={color} />;
+      case "credit-card":
+        return <MaterialIcon name="credit-card" size={size} color={color} />;
+      case "wallet":
+        return <MaterialIcon name="account-balance-wallet" size={size} color={color} />;
+      case "calendar":
+        return <Icon name="calendar" size={size} color={color} />;
+      case "star":
+        return <Icon name="star" size={size} color={color} />;
+      case "trending-up":
+        return <MaterialIcon name="trending-up" size={size} color={color} />;
+      case "users":
+        return <Icon name="users" size={size} color={color} />;
+      case "clock":
+        return <Icon name="clock-o" size={size} color={color} />;
+      case "home":
+        return <Icon name="home" size={size} color={color} />;
       default:
-        return <Icon name="info-circle" size={24} color="#ffffff" />;
+        return <MaterialIcon name="info" size={size} color={color} />;
     }
   };
-
-  const changeColors = getChangeColor();
 
   return (
     <View style={styles.card}>
-      <View style={styles.cardContent}>
-        <View style={styles.contentContainer}>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{title}</Text>
-            <View style={styles.valueContainer}>
-              <Text style={styles.value}>{value}</Text>
-              {change && (
-                <View style={[styles.changeBadge, { backgroundColor: changeColors.backgroundColor }]}>
-                  <Text style={[styles.changeText, { color: changeColors.color }]}>
-                    {change}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {description && (
-              <Text style={styles.description}>{description}</Text>
-            )}
+      <View style={styles.row}>
+        <View style={styles.textBlock}>
+          <Text style={styles.title}>{title.toUpperCase()}</Text>
+          <View style={styles.valueRow}>
+            <Text style={styles.value} numberOfLines={1}>
+              {value}
+            </Text>
+            {change ? (
+              <View style={[styles.changeBadge, changeBadgeStyle]}>
+                <Text style={[styles.changeText, { color: changeTextColor }]}>{change}</Text>
+              </View>
+            ) : null}
           </View>
-          <View style={styles.iconContainer}>
-            {renderIcon()}
-          </View>
+          {description ? <Text style={styles.description}>{description}</Text> : null}
         </View>
+        <View style={styles.iconWrap}>{renderIcon()}</View>
       </View>
     </View>
   );
@@ -88,60 +100,49 @@ export function DashboardMetricCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    shadowColor: '#000',
+    width: "48%",
+    marginBottom: 12,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(226, 232, 240, 0.95)",
+    padding: 14,
+    shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
     elevation: 2,
-    borderWidth: 0,
-    marginBottom: 16,
-    width: '48%', // For grid layout
   },
-  cardContent: {
-    padding: 24,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  textContainer: {
-    flex: 1,
-    gap: 8,
-  },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  textBlock: { flex: 1, paddingRight: 8 },
   title: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280',
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    color: "#64748b",
+    marginBottom: 6,
   },
-  valueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  value: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
+  valueRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 },
+  value: { fontSize: 20, fontWeight: "700", color: "#0f172a" },
   changeBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  changeText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  description: {
-    fontSize: 12,
-    color: '#6b7280',
-  },
-  iconContainer: {
-    padding: 12,
-    backgroundColor: '#3b82f6',
     borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+  },
+  changePositive: { backgroundColor: "#d1fae5", borderColor: "#a7f3d0" },
+  changeNegative: { backgroundColor: "#ffe4e6", borderColor: "#fecdd3" },
+  changeNeutral: { backgroundColor: "#f1f5f9", borderColor: "#e2e8f0" },
+  changeText: { fontSize: 10, fontWeight: "600" },
+  description: { fontSize: 11, color: "#64748b", marginTop: 6 },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(224, 242, 254, 0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(186, 230, 253, 0.8)",
   },
 });

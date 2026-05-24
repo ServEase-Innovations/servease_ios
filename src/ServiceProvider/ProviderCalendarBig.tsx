@@ -46,8 +46,10 @@ interface MarkedDate {
 
 export default function ProviderCalendarBig({
   providerId,
+  refreshToken = 0,
 }: {
   providerId: number;
+  refreshToken?: number;
 }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +105,7 @@ export default function ProviderCalendarBig({
     };
 
     fetchCalendar();
-  }, [providerId, currentDate]);
+  }, [providerId, currentDate, refreshToken]);
 
   const updateMarkedDates = (evts: Event[]) => {
     const marked: { [key: string]: MarkedDate } = {};
