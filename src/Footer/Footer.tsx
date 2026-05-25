@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, Linking, StyleSheet, Image, Modal, useWin
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import LinearGradient from 'react-native-linear-gradient';
+import { GRADIENTS } from '../theme/brandColors';
 import TnC from '../TermsAndConditions/TnC';
 import { useTranslation } from 'react-i18next';
 
@@ -59,9 +60,7 @@ const Footer = () => {
   const fontStyles = getFontSizeStyles();
 
   // Fixed gradient colors for consistent professional look
-  const getGradientColors = () => {
-    return ['#081a38', '#143b76', '#1f5699'];
-  };
+  const getGradientColors = () => [...GRADIENTS.chrome];
 
   // Responsive logo size
   const getLogoSize = () => {
@@ -393,7 +392,7 @@ const Footer = () => {
       >
         <View style={styles.modalContainer}>
           <LinearGradient
-            colors={['#0d1935', '#1c4485', '#255697']}
+            colors={[...GRADIENTS.chrome]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[

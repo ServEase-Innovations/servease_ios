@@ -1,5 +1,5 @@
 // App.tsx - UPDATED with proper authentication handling for both email and mobile login
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -70,10 +70,11 @@ import {
   disconnectProviderBookingSocket,
   useProviderBookingSocket,
 } from "./src/hooks/useProviderBookingSocket";
+import type { PushUserContext } from "./src/types/push";
 import {
   setupPushNotifications,
   unregisterPushNotifications,
-} from "./src/services/pushNotifications";
+} from "./src/services/pushApi";
 import { AppUserProvider, useAppUser } from "./src/context/AppUserContext";
 import axios from "axios";
 import { useDispatch } from "react-redux";
@@ -81,7 +82,7 @@ import { add } from "./src/features/pricingSlice";
 import MobileNumberDialog from "./src/UserProfile/MobileNumberDialog";
 import axiosInstance from "./src/services/axiosInstance";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
-import { PaperProvider } from "react-native-paper";
+import { PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
@@ -100,7 +101,35 @@ const MainApp = () => {
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   const insets = useSafeAreaInsets();
   const safeBottom = Number.isFinite(insets.bottom) ? insets.bottom : 0;
-  
+
+  const paperTheme = useMemo(
+    () =>
+      isDarkMode
+        ? {
+            ...MD3DarkTheme,
+            colors: {
+              ...MD3DarkTheme.colors,
+              primary: colors.primary,
+              secondary: colors.secondary,
+              background: colors.background,
+              surface: colors.surface,
+              error: colors.error,
+            },
+          }
+        : {
+            ...MD3LightTheme,
+            colors: {
+              ...MD3LightTheme.colors,
+              primary: colors.primary,
+              secondary: colors.secondary,
+              background: colors.background,
+              surface: colors.surface,
+              error: colors.error,
+            },
+          },
+    [isDarkMode, colors.primary, colors.secondary, colors.background, colors.surface, colors.error]
+  );
+
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [currentView, setCurrentView] = useState<string>(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
@@ -495,13 +524,14 @@ const MainApp = () => {
 
   useEffect(() => {
     if (!appUser || isUserLoading) return;
-    void setupPushNotifications({
+    const ctx: PushUserContext = {
       email: appUser.email || user?.email,
       role: appUser.role,
       userId: appUser.id || appUser.userId,
       serviceProviderId: appUser.serviceProviderId,
       customerId: appUser.customerid || appUser.customerId,
-    });
+    };
+    void setupPushNotifications(ctx);
   }, [appUser?.id, appUser?.userId, appUser?.email, isUserLoading]);
 
   useEffect(() => {
@@ -860,7 +890,7 @@ const MainApp = () => {
   }
 
   return (
-    <PaperProvider>
+    <PaperProvider theme={paperTheme}>
         <StatusBar 
           translucent 
           backgroundColor="transparent" 
@@ -872,7 +902,7 @@ const MainApp = () => {
             {
               backgroundColor:
                 currentView === BOOKINGS || currentView === WALLET
-                  ? "#0a2a66"
+                  ? colors.headerBackground
                   : currentView === PROFILE
                     ? colors.background
                     : colors.headerBackground,

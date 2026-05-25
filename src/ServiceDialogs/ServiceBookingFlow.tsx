@@ -39,6 +39,7 @@ import {
   loadServiceQuote,
   type ServiceBookingKind,
 } from "./serviceBookingConfig";
+import { BrandButton } from "../design-system/BrandButton";
 
 export type BookingSuccessDetails = {
   providerName?: string;
@@ -454,24 +455,20 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
 
         <View style={styles.footer}>
           <View style={styles.footerActions}>
-            <TouchableOpacity style={styles.btnGhost} onPress={onClose}>
-              <Text style={styles.btnGhostText}>Close</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.btnPrimary, (!canCheckout || loading) && styles.btnDisabled]}
-              disabled={!canCheckout || loading}
+            <BrandButton variant="ghost" onPress={onClose} flex={0}>
+              Close
+            </BrandButton>
+            <BrandButton
+              variant="primary"
+              flex={2}
+              disabled={!canCheckout}
+              loading={loading}
               onPress={() => void handleCheckout()}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.btnPrimaryText}>
-                  {quoteTotal > 0 && !quotePreview.loading
-                    ? `Pay now · ${formatInr(quoteTotal)}`
-                    : "Pay now"}
-                </Text>
-              )}
-            </TouchableOpacity>
+              {quoteTotal > 0 && !quotePreview.loading
+                ? `Pay now · ${formatInr(quoteTotal)}`
+                : "Pay now"}
+            </BrandButton>
           </View>
         </View>
       </View>
@@ -542,25 +539,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     flexShrink: 0,
   },
-  footerActions: { flexDirection: "row", gap: 10, alignItems: "center" },
-  btnGhost: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    alignItems: "center",
-  },
-  btnGhostText: { fontSize: 15, fontWeight: "600", color: "#475569" },
-  btnPrimary: {
-    flex: 2,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "#0b5bd3",
-    alignItems: "center",
-  },
-  btnDisabled: { opacity: 0.5 },
-  btnPrimaryText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  footerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
 });
 
 export default ServiceBookingFlow;

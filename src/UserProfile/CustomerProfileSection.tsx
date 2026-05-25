@@ -1802,7 +1802,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6c757d',
   },
   saveButton: {
-    backgroundColor: '#0a2a66',
+    backgroundColor: '#0b5bd3',
   },
   disabledButton: {
     opacity: 0.6,

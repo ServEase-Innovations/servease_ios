@@ -21,6 +21,7 @@ import CookServicesDialog from '../ServiceDialogs/CookServiceDialog';
 import MaidServiceDialog from '../ServiceDialogs/MaidServiceDialog';
 import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
 import { useAppUser } from '../context/AppUserContext'; // Import the context
+import { useTheme } from '../Settings/ThemeContext';
 
 // Import DETAILS constant
 import { DETAILS } from '../Constants/pagesConstants';
@@ -59,6 +60,7 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
 
   // Use AppUserContext instead of useAuth0
   const { appUser } = useAppUser();
+  const { colors } = useTheme();
   const [role, setRole] = useState<string | null>(null);
 
   // Check user role from context
@@ -324,20 +326,19 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
     setEndTime(null);
   };
 
-  // Theme colors
   const themeColors = {
-    headerBg: 'rgb(14, 48, 92)',
-    primary: '#2FB3FF',
-    textPrimary: 'rgb(14, 48, 92)',
-    textSecondary: '#64748B',
-    border: '#E2E8F0',
-    background: '#FFFFFF'
+    headerBg: colors.primaryDark,
+    primary: colors.primary,
+    textPrimary: colors.text,
+    textSecondary: colors.textTertiary,
+    border: colors.border,
+    background: colors.surface,
   };
 
   const cleaningHelpColors = {
-    iconColor: '#2FB3FF',
-    bgColor: '#EFF6FF',
-    accentColor: '#2FB3FF'
+    iconColor: colors.primary,
+    bgColor: colors.accentSoft ?? colors.accentLight,
+    accentColor: colors.primary,
   };
 
   const serviceOptions: ServiceOption[] = [
@@ -651,7 +652,7 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: 'rgba(47, 179, 255, 0.3)',
     overflow: 'hidden',
-    shadowColor: '#2FB3FF',
+    shadowColor: '#0b5bd3',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,

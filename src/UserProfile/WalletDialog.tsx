@@ -14,6 +14,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { GRADIENTS } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
 import PaymentInstance from '../services/paymentInstance';
 
@@ -197,7 +198,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   const renderBalanceCard = () => (
     <View style={styles.balanceCardShell}>
       <LinearGradient
-        colors={isDarkMode ? ['#041433', '#0a2a66', '#1d4ed8'] : ['#051a4a', '#0a2a66', '#2563eb']}
+        colors={isDarkMode ? [...GRADIENTS.walletDark] : [...GRADIENTS.walletLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}

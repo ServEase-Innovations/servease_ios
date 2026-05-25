@@ -458,7 +458,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     return (
       <View style={[styles.footerLoader, { paddingVertical: 20 }]}>
-        <ActivityIndicator size="large" color="#0a2a66ff" />
+        <ActivityIndicator size="large" color="#0b5bd3" />
         <Text style={[styles.loadingMoreText, { color: '#64748B', fontSize: fontStyles.smallText }]}>
           Loading more providers...
         </Text>
@@ -549,9 +549,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           >
             <View style={styles.emptyIconContainer}>
               {activeFilters ? (
-                <FontAwesome name="sliders" size={40} color="#0a2a66ff" />
+                <FontAwesome name="sliders" size={40} color="#0b5bd3" />
               ) : (
-                <Icon name="location-off" size={40} color="#0a2a66ff" />
+                <Icon name="location-off" size={40} color="#0b5bd3" />
               )}
             </View>
             <Text style={[styles.emptyTitle, { color: '#0F172A', fontSize: fontStyles.headingSize }]}>
@@ -566,7 +566,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             <View style={{ gap: 12 * spacingMultiplier, marginTop: 24 }}>
               {activeFilters && (
                 <TouchableOpacity
-                  style={[styles.emptyButton, { backgroundColor: '#0a2a66ff' }]}
+                  style={[styles.emptyButton, { backgroundColor: '#0b5bd3' }]}
                   onPress={handleClearFilters}
                 >
                   <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>Clear Filters</Text>
@@ -574,10 +574,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               )}
               
               <TouchableOpacity
-                style={[styles.emptyButtonOutline, { borderColor: '#0a2a66ff' }]}
+                style={[styles.emptyButtonOutline, { borderColor: '#0b5bd3' }]}
                 onPress={() => sendDataToParent("")}
               >
-                <Text style={[styles.emptyButtonOutlineText, { fontSize: fontStyles.textSize, color: '#0a2a66ff' }]}>Go Back</Text>
+                <Text style={[styles.emptyButtonOutlineText, { fontSize: fontStyles.textSize, color: '#0b5bd3' }]}>Go Back</Text>
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -663,8 +663,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={handleRefresh}
-                colors={['#0a2a66ff']}
-                tintColor="#0a2a66ff"
+                colors={['#0b5bd3']}
+                tintColor="#0b5bd3"
               />
             }
           />

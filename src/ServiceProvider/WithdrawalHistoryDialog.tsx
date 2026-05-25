@@ -106,14 +106,14 @@ const Button: React.FC<{
   containerStyle?: any;
 }> = ({ title, onPress, variant = 'primary', size = 'md', disabled = false, loading = false, containerStyle }) => {
   const getButtonStyle = () => {
-    let backgroundColor = '#004aad';
-    let borderColor = '#004aad';
+    let backgroundColor = '#0848b0';
+    let borderColor = '#0848b0';
     let textColor = '#ffffff';
 
     if (variant === 'outline') {
       backgroundColor = 'transparent';
-      borderColor = '#004aad';
-      textColor = '#004aad';
+      borderColor = '#0848b0';
+      textColor = '#0848b0';
     } else if (variant === 'secondary') {
       backgroundColor = '#6c757d';
       borderColor = '#6c757d';
@@ -189,7 +189,7 @@ const FilterButton: React.FC<{
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
-        backgroundColor: active ? '#004aad' : '#f3f4f6',
+        backgroundColor: active ? '#0848b0' : '#f3f4f6',
         marginRight: 8,
         flexDirection: 'row',
         alignItems: 'center',
@@ -368,7 +368,7 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
       <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
         {/* Header with Gradient */}
         <LinearGradient
-          colors={['#0a2a66ff', '#004aadff']}
+          colors={['#0b5bd3', '#4f8ff7']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={{
@@ -413,7 +413,7 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
         {/* Content */}
         {loading && !refreshing ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#004aad" />
+            <ActivityIndicator size="large" color="#0848b0" />
           </View>
         ) : !historyData ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>

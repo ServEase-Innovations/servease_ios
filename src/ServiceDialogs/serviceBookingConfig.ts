@@ -7,7 +7,7 @@ import {
   type PricingQuoteResponse,
 } from "../services/pricingService";
 
-export const BOOKING_HEADER_GRADIENT = ["#0a2a66", "#004aad"];
+export { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
 export type ServiceBookingKind = "maid" | "cook";
 

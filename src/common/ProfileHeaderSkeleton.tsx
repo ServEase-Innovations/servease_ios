@@ -1,12 +1,13 @@
 import React from "react";
 import { View, StyleSheet, Platform, StatusBar } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
+import { GRADIENTS } from "../theme/brandColors";
 import { SkeletonLoader } from "./SkeletonLoader";
 
 export const ProfileHeaderSkeleton: React.FC = () => {
   return (
     <LinearGradient
-      colors={["#0d1935", "#1c4485", "#255697"]}
+      colors={[...GRADIENTS.chrome]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.header}

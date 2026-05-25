@@ -239,7 +239,7 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
           <View style={styles.modalContainer}>
             {/* Dialog Header */}
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={["#0b5bd3", "#4f8ff7"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.dialogHeader}
@@ -284,7 +284,7 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
         <View style={styles.modalContainer}>
           {/* Dialog Header */}
           <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
+            colors={["#0b5bd3", "#4f8ff7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.dialogHeader}

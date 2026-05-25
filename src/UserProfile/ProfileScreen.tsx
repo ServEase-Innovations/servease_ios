@@ -3203,7 +3203,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: "#0a2a66",
+    borderColor: "#0b5bd3",
     marginRight: 15,
   },
   avatarFallback: {
@@ -3211,7 +3211,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: "#0a2a66",
+    borderColor: "#0b5bd3",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -3731,7 +3731,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#6c757d",
   },
   saveButton: {
-    backgroundColor: "#0a2a66",
+    backgroundColor: "#0b5bd3",
   },
   disabledButton: {
     opacity: 0.6,

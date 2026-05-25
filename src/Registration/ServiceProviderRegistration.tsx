@@ -1958,7 +1958,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         >
           <View style={[styles.container, { backgroundColor: colors.background }]}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={["#0b5bd3", "#4f8ff7"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.headerContainer}
@@ -2025,7 +2025,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             >
               <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
                 <LinearGradient
-                  colors={["#0a2a66ff", "#004aadff"]}
+                  colors={["#0b5bd3", "#4f8ff7"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.policyModalHeader}

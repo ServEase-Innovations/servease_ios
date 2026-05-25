@@ -10,6 +10,7 @@ import {
   Alert,
   useWindowDimensions,
   Animated,
+  Platform,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
@@ -17,6 +18,7 @@ import { DETAILS } from "../Constants/pagesConstants";
 import LinearGradient from "react-native-linear-gradient";
 import { useAuth0 } from "react-native-auth0";
 import { useTheme } from "../Settings/ThemeContext";
+import { BRAND, GRADIENTS } from "../theme/brandColors";
 import { useTranslation } from "react-i18next";
 import FirstBookingOffer from "./FirstBookingOffer";
 import ServiceSelectionDialog from "./ServiceSelectionDialog";
@@ -97,21 +99,21 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
         title: t("home.services.homeCook"), 
         subtitle: "Daily and custom meals", 
         image: cookImage,
-        gradientColors: ['#1e3a8a', '#3b82f6'],
+        gradientColors: [...GRADIENTS.serviceCardCook],
       },
       { 
         key: "MAID" as ServiceType, 
         title: t("home.services.cleaningHelp"), 
         subtitle: "Cleaning and upkeep", 
         image: maidImage,
-        gradientColors: ['#1e40af', '#3b82f6'],
+        gradientColors: [...GRADIENTS.serviceCardMaid],
       },
       { 
         key: "NANNY" as ServiceType, 
         title: t("home.services.caregiver"), 
         subtitle: "Child and elder care", 
         image: nannyImage,
-        gradientColors: ['#1e3a8a', '#2563eb'],
+        gradientColors: [...GRADIENTS.serviceCardNanny],
       },
     ],
     [t]
@@ -264,11 +266,11 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
               },
             ]}
           >
-            <LinearGradient
-              colors={service.gradientColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.serviceCardGradient}
+            <View
+              style={[
+                styles.serviceCardBorder,
+                { borderColor: service.gradientColors[1] ?? BRAND.accent },
+              ]}
             >
               <View style={styles.serviceCardInner}>
                 <View style={styles.serviceImageContainer}>
@@ -276,26 +278,21 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
                     <Image source={service.image} style={styles.serviceImage} />
                   </View>
                 </View>
-                
+
                 <View style={styles.serviceContent}>
                   <View style={styles.serviceHeader}>
-                    <Text style={[styles.serviceTitle, { color: '#1e293b' }]} numberOfLines={1}>
+                    <Text style={styles.serviceTitle} numberOfLines={1}>
                       {service.title}
                     </Text>
-                    <LinearGradient
-                      colors={['#2563eb', '#1e3a8a']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.serviceBadge}
-                    >
+                    <View style={styles.serviceBadge}>
                       <Text style={styles.serviceBadgeText}>⭐ Top Rated</Text>
-                    </LinearGradient>
+                    </View>
                   </View>
-                  
-                  <Text style={[styles.serviceSub, { color: '#475569' }]} numberOfLines={2}>
+
+                  <Text style={styles.serviceSub} numberOfLines={2}>
                     {service.subtitle}
                   </Text>
-                  
+
                   <View style={styles.serviceFeatures}>
                     <View style={styles.featureChip}>
                       <Text style={styles.featureChipText}>✓ Verified</Text>
@@ -304,18 +301,13 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
                       <Text style={styles.featureChipText}>✓ Insured</Text>
                     </View>
                   </View>
-                  
-                  <LinearGradient
-                    colors={service.gradientColors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.bookButton}
-                  >
+
+                  <View style={styles.bookButton}>
                     <Text style={styles.bookButtonText}>Book Now →</Text>
-                  </LinearGradient>
+                  </View>
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </Animated.View>
         </TouchableOpacity>
       </Animated.View>
@@ -329,7 +321,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
         contentContainerStyle={{ paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={["#0a2a66", "#328aff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <LinearGradient colors={[...GRADIENTS.hero]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <Text style={styles.heroEyebrow}>SERVEASO HOME SERVICES</Text>
           <Text
             style={[
@@ -572,23 +564,27 @@ const styles = StyleSheet.create({
   },
   serviceCardWrapper: {
     borderRadius: 16,
-    overflow: 'hidden',
+    ...Platform.select({
+      ios: {},
+      android: { overflow: "hidden" as const },
+    }),
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
-  serviceCardGradient: {
+  serviceCardBorder: {
     borderRadius: 16,
-    padding: 2,
+    borderWidth: 2,
+    backgroundColor: "#fff",
   },
   serviceCardInner: {
     flexDirection: "row",
     backgroundColor: "#fff",
     borderRadius: 14,
-    padding: 12,
-    alignItems: "center",
+    padding: 14,
+    alignItems: "flex-start",
   },
   serviceImageContainer: {
     marginRight: 12,
@@ -613,37 +609,43 @@ const styles = StyleSheet.create({
   },
   serviceContent: {
     flex: 1,
+    minWidth: 0,
+    paddingTop: 2,
   },
   serviceHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 6,
     gap: 8,
   },
   serviceTitle: {
     fontSize: 18,
     fontWeight: "800",
     flex: 1,
+    flexShrink: 1,
+    color: BRAND.text,
   },
   serviceBadge: {
+    flexShrink: 0,
+    backgroundColor: BRAND.accentDark,
     borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 6,
+    minHeight: 28,
+    justifyContent: "center",
   },
   serviceBadgeText: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
+    lineHeight: 14,
   },
   serviceSub: {
     fontSize: 13,
     marginBottom: 8,
+    color: "#475569",
+    lineHeight: 18,
   },
   serviceFeatures: {
     flexDirection: "row",
@@ -663,19 +665,19 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     alignSelf: "flex-start",
+    backgroundColor: BRAND.accent,
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    minHeight: 40,
+    justifyContent: "center",
+    marginTop: 4,
   },
   bookButtonText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
+    lineHeight: 16,
   },
   helperText: {
     textAlign: "center",
@@ -731,7 +733,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     color: "#fff",
-    backgroundColor: "#0a2a66",
+    backgroundColor: "#0b5bd3",
     fontSize: 12,
     fontWeight: "700",
   },

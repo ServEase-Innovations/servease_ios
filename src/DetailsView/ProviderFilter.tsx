@@ -191,7 +191,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
       <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
         <View style={[styles.drawer, { backgroundColor: colors.background }]}>
           <LinearGradient
-            colors={isDarkMode ? ['#1e293b', '#0f172a'] : ["#0a2a66ff", "#004aadff"]}
+            colors={isDarkMode ? ['#1e293b', '#0f172a'] : ["#0b5bd3", "#4f8ff7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[styles.header, { padding: 16 * spacingMultiplier }]}

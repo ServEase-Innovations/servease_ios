@@ -17,6 +17,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Snackbar from 'react-native-snackbar';
+import { BRAND, GRADIENTS } from '../theme/brandColors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -254,7 +255,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
       Snackbar.show({
         text: `Switched to ${coupon.discount}% OFF coupon`,
         duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: '#0a2a66ff',
+        backgroundColor: BRAND.accent,
         textColor: '#ffffff',
       });
     });
@@ -274,7 +275,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
       >
         <Animated.View style={[styles.bannerContainer, { transform: [{ scale: pulseAnim }] }]}>
           <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
+            colors={[...GRADIENTS.bookingHeader]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.bannerGradient}
@@ -355,7 +356,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
                         >
                           <LinearGradient
                             colors={selectedCoupon?.id === coupon.id 
-                              ? ["#0a2a66ff", "#004aadff"] 
+                              ? [...GRADIENTS.bookingHeader] 
                               : ["#f0f0f0", "#e0e0e0"]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
@@ -422,21 +423,21 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
                     <Text style={styles.sectionTitle}>📋 Offer Details</Text>
                     
                     <View style={styles.detailRow}>
-                      <Icon name="info" size={20} color="#0a2a66ff" />
+                      <Icon name="info" size={20} color={BRAND.accent} />
                       <Text style={styles.detailText}>
                         {selectedCoupon?.description}
                       </Text>
                     </View>
                     
                     <View style={styles.detailRow}>
-                      <Icon name="attach-money" size={20} color="#0a2a66ff" />
+                      <Icon name="attach-money" size={20} color={BRAND.accent} />
                       <Text style={styles.detailText}>
                         Minimum Order: ₹{selectedCoupon?.minAmount}
                       </Text>
                     </View>
                     
                     <View style={styles.detailRow}>
-                      <Icon name="event" size={20} color="#0a2a66ff" />
+                      <Icon name="event" size={20} color={BRAND.accent} />
                       <Text style={styles.detailText}>
                         Valid Till: {selectedCoupon && formatDate(selectedCoupon.validUntil)}
                       </Text>
@@ -482,7 +483,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={["#0a2a66ff", "#004aadff"]}
+                      colors={[...GRADIENTS.bookingHeader]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.applyGradient}
@@ -627,7 +628,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   switchItemActive: {
-    shadowColor: '#0a2a66ff',
+    shadowColor: BRAND.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -667,7 +668,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   switchCodeActive: {
-    color: '#0a2a66ff',
+    color: BRAND.accent,
   },
   switchMin: {
     fontSize: 10,
@@ -675,7 +676,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   switchMinActive: {
-    color: '#004aadff',
+    color: '#4f8ff7',
   },
 
   modalScrollContent: {
@@ -685,7 +686,7 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#0a2a66ff',
+    backgroundColor: BRAND.accent,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -740,7 +741,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#0a2a66ff',
+    color: BRAND.accent,
     marginBottom: 12,
   },
   detailRow: {
@@ -770,7 +771,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#004aadff',
+    backgroundColor: '#4f8ff7',
     marginRight: 10,
   },
   termText: {

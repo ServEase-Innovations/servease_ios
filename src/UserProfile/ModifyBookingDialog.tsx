@@ -16,6 +16,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import VacationManagementDialog from './VacationManagement';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { BrandButton } from '../design-system/BrandButton';
 
 interface Booking {
   bookingType: string;
@@ -387,42 +388,31 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     }
   };
 
-  const CustomButton = ({ 
-    title, 
-    onPress, 
-    disabled = false, 
-    variant = 'contained' 
-  }: { 
-    title: string; 
-    onPress: () => void; 
+  const CustomButton = ({
+    title,
+    onPress,
+    disabled = false,
+    variant = "contained",
+    fullWidth = false,
+  }: {
+    title: string;
+    onPress: () => void;
     disabled?: boolean;
-    variant?: 'contained' | 'outlined';
-  }) => {
-    return (
-      <TouchableOpacity
-        onPress={onPress}
-        disabled={disabled}
-        style={[
-          styles.button,
-          variant === 'contained' 
-            ? [styles.containedButton, { backgroundColor: colors.primary }] 
-            : [styles.outlinedButton, { borderColor: colors.primary }],
-          disabled && styles.disabledButton
-        ]}
-      >
-        <Text style={[
-          styles.buttonText,
-          { fontSize: fontSizes.buttonText },
-          variant === 'contained' 
-            ? [styles.containedButtonText, { color: '#fff' }] 
-            : [styles.outlinedButtonText, { color: colors.primary }],
-          disabled && [styles.disabledButtonText, { color: colors.textSecondary }]
-        ]}>
-          {title}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+    variant?: "contained" | "outlined";
+    fullWidth?: boolean;
+  }) => (
+    <BrandButton
+      variant={variant === "contained" ? "primary" : "ghost"}
+      onPress={onPress}
+      disabled={disabled}
+      flex={fullWidth ? undefined : 1}
+      fullWidth={fullWidth}
+      style={styles.button}
+      textStyle={{ fontSize: fontSizes.buttonText }}
+    >
+      {title}
+    </BrandButton>
+  );
 
   return (
     <>
@@ -489,14 +479,16 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 {/* Options */}
                 {selectedSection === "OPTIONS" && (
                   <View style={styles.optionsContainer}>
-                    <CustomButton 
-                      title={t('modifyBooking.options.rescheduleDate')} 
-                      onPress={() => setSelectedSection("BOOKING_DATE")} 
+                    <CustomButton
+                      fullWidth
+                      title={t('modifyBooking.options.rescheduleDate')}
+                      onPress={() => setSelectedSection("BOOKING_DATE")}
                       disabled={modificationDisabled || isLoading}
                     />
-                    <CustomButton 
-                      title={t('modifyBooking.options.rescheduleTime')} 
-                      onPress={() => setSelectedSection("BOOKING_TIME")} 
+                    <CustomButton
+                      fullWidth
+                      title={t('modifyBooking.options.rescheduleTime')}
+                      onPress={() => setSelectedSection("BOOKING_TIME")}
                       disabled={modificationDisabled || isLoading}
                     />
 
@@ -729,26 +721,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 4,
-    alignItems: 'center',
-    minWidth: 100,
+    marginHorizontal: 4,
   },
-  containedButton: {},
-  outlinedButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    fontWeight: '500',
-  },
-  containedButtonText: {},
-  outlinedButtonText: {},
-  disabledButtonText: {},
   statusMessageContainer: {
     marginTop: 8,
     padding: 12,

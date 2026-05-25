@@ -1133,7 +1133,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}>
           <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <LinearGradient colors={["#0a2a66ff", "#004aadff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.headerContainer}>
+            <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.headerContainer}>
               <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
               <TouchableOpacity style={styles.closeButton} onPress={() => onBackToLogin(true)}><Icon name="close" size={24} color="#fff" /></TouchableOpacity>
             </LinearGradient>
@@ -1151,7 +1151,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             </ScrollView>
             <Modal visible={policyModalVisible} animationType="slide" transparent={false} onRequestClose={() => setPolicyModalVisible(false)}>
               <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
-                <LinearGradient colors={["#0a2a66ff", "#004aadff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.policyModalHeader}>
+                <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.policyModalHeader}>
                   <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>{activePolicy === 'terms' ? "Terms and Conditions" : activePolicy === 'privacy' ? "Privacy Policy" : "Key Facts Statement"}</Text>
                   <TouchableOpacity style={styles.policyModalClose} onPress={() => setPolicyModalVisible(false)}><Icon name="close" size={24} color="#fff" /></TouchableOpacity>
                 </LinearGradient>

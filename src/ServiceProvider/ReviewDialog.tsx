@@ -279,7 +279,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
         <View style={styles.modalContainer}>
           {/* Header - Fixed at top */}
           <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
+                    colors={["#0b5bd3", "#4f8ff7"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.header}

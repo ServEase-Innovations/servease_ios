@@ -2,7 +2,6 @@ import { Platform, Alert, PermissionsAndroid, Linking } from "react-native";
 import messaging, {
   FirebaseMessagingTypes,
 } from "@react-native-firebase/messaging";
-import notifee, { AndroidImportance } from "@notifee/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DeviceInfo from "react-native-device-info";
 import utilsInstance, { UTILS_BASE_URL } from "./utilsInstance";
@@ -15,13 +14,20 @@ const ANDROID_CHANNEL_ID = "serveaso_default";
 let listenersAttached = false;
 const listenerUnsubs: Array<() => void> = [];
 
-export type PushUserContext = {
-  email?: string | null;
-  role?: string | null;
-  userId?: string | number | null;
-  serviceProviderId?: string | number | null;
-  customerId?: string | number | null;
-};
+import type { PushUserContext } from "../types/push";
+
+export type { PushUserContext };
+
+/** Notifee is Android-only; avoid top-level import so iOS never loads the native module */
+async function getNotifee() {
+  if (Platform.OS !== "android") return null;
+  try {
+    return await import("@notifee/react-native");
+  } catch (err) {
+    console.warn("[push] Notifee unavailable on Android", err);
+    return null;
+  }
+}
 
 function androidNeedsRuntimePermission(): boolean {
   return Platform.OS === "android" && Number(Platform.Version) >= 33;
@@ -40,11 +46,13 @@ async function androidNotificationsAllowed(): Promise<boolean> {
 
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
-  await notifee.createChannel({
+  const notifeeMod = await getNotifee();
+  if (!notifeeMod) return;
+  await notifeeMod.default.createChannel({
     id: ANDROID_CHANNEL_ID,
     name: "Serveaso",
     description: "Booking alerts and updates",
-    importance: AndroidImportance.HIGH,
+    importance: notifeeMod.AndroidImportance.HIGH,
     sound: "default",
   });
 }
@@ -153,15 +161,18 @@ async function displayForegroundNotification(
     remoteMessage.data?.collapseId ||
     "serveaso-push-latest";
 
+  const notifeeMod = await getNotifee();
+  if (!notifeeMod) return;
+
   await ensureAndroidChannel();
-  await notifee.displayNotification({
+  await notifeeMod.default.displayNotification({
     id: String(notificationId),
     title: String(title),
     body: String(body),
     android: {
       channelId: ANDROID_CHANNEL_ID,
       smallIcon: "ic_stat_serveaso",
-      color: "#0B7DD9",
+      color: "#0B5BD3",
       pressAction: { id: "default" },
       tag: "serveaso_push",
     },

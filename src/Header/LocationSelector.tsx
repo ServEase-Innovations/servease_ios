@@ -34,6 +34,7 @@ import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
 import LinearGradient from "react-native-linear-gradient";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { GRADIENTS } from "../theme/brandColors";
 import { useTranslation } from 'react-i18next';
 
 Geocoder.init(keys.api_key);
@@ -1865,7 +1866,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         >
           {/* Gradient Header for Dropdown */}
           <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
+            colors={[...GRADIENTS.chrome]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.dropdownHeader}
@@ -1945,7 +1946,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
+            colors={[...GRADIENTS.chrome]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.modalHeader}
@@ -1977,7 +1978,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
+            colors={[...GRADIENTS.chrome]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.modalHeader}

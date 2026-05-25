@@ -15,6 +15,7 @@ import {
   Animated,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
+import { GRADIENTS } from "../theme/brandColors";
 import { useDispatch } from "react-redux";
 import { add } from "../features/userSlice";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -345,7 +346,7 @@ export const Login: React.FC<ChildComponentProps> = ({
     
     return (
       <LinearGradient
-        colors={['#0d1935', '#1c4485', '#255697']}
+        colors={[...GRADIENTS.login]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.headerGradient}

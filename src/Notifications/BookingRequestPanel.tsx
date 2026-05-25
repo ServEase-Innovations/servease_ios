@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { BrandButton } from "../design-system/BrandButton";
+import { BRAND } from "../theme/brandColors";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import {
   BookingRequestPayload,
@@ -122,39 +124,40 @@ export default function BookingRequestPanel({
 
       <View style={styles.footer}>
         {isInfoOnly ? (
-          <TouchableOpacity
-            style={[styles.btn, styles.btnPrimary]}
+          <BrandButton
+            variant="primary"
             disabled={actionBusy}
             onPress={() => {
               if (resolvedEngagementId != null) onReject(resolvedEngagementId);
             }}
           >
-            <Text style={styles.btnPrimaryText}>Dismiss</Text>
-          </TouchableOpacity>
+            Dismiss
+          </BrandButton>
         ) : (
           <View style={styles.btnRow}>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnOutline]}
+            <BrandButton
+              variant="ghost"
+              flex={1}
               disabled={actionBusy || resolvedEngagementId == null}
               onPress={() => {
                 if (resolvedEngagementId != null) onReject(resolvedEngagementId);
               }}
+              style={styles.btnDecline}
+              textStyle={styles.btnDeclineText}
             >
-              <Text style={styles.btnOutlineText}>Decline</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnAccept]}
+              Decline
+            </BrandButton>
+            <BrandButton
+              variant="primary"
+              flex={1}
               disabled={actionBusy || !canAccept}
+              loading={actionBusy}
               onPress={() => {
                 if (resolvedEngagementId != null) void onAccept(resolvedEngagementId);
               }}
             >
-              {actionBusy ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.btnPrimaryText}>Accept</Text>
-              )}
-            </TouchableOpacity>
+              Accept
+            </BrandButton>
           </View>
         )}
       </View>
@@ -212,19 +215,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginTop: 4,
   },
-  amount: { fontSize: 18, fontWeight: "700", color: "#0284c7" },
+  amount: { fontSize: 18, fontWeight: "700", color: BRAND.accent },
   footer: { padding: 16, paddingTop: 0, borderTopWidth: 1, borderTopColor: "#e2e8f0" },
-  btnRow: { flexDirection: "row", gap: 10 },
-  btn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnOutline: { borderWidth: 1.5, borderColor: "#f87171" },
-  btnOutlineText: { color: "#dc2626", fontWeight: "700", fontSize: 15 },
-  btnAccept: { backgroundColor: "#059669" },
-  btnPrimary: { backgroundColor: "#0284c7" },
-  btnPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  btnRow: { flexDirection: "row", gap: 8 },
+  btnDecline: { borderColor: "#f87171" },
+  btnDeclineText: { color: "#dc2626", fontWeight: "700" },
 });

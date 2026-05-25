@@ -137,7 +137,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
         <View style={styles.modalContent}>
           {/* Header with Gradient - Same as History Dialog */}
           <LinearGradient
-            colors={['#0a2a66ff', '#004aadff']}
+            colors={['#0b5bd3', '#4f8ff7']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.gradientHeader}

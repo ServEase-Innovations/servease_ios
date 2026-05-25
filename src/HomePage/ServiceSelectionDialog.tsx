@@ -150,7 +150,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
         ]}>
           {/* Header with Linear Gradient */}
           <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
+            colors={["#0b5bd3", "#4f8ff7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerContainer}
@@ -205,7 +205,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
               {/* CHOOSE YOUR SERVICE SECTION */}
               <View style={styles.servicesSection}>
                 <View style={styles.sectionHeader}>
-                  <Icon name="handyman" size={18} color="#0a2a66ff" />
+                  <Icon name="handyman" size={18} color="#0b5bd3" />
                   <Text style={styles.sectionTitle}>Choose your service</Text>
                 </View>
                 
@@ -240,7 +240,7 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
               {/* HOW TO BOOK SECTION - Compact */}
               <View style={styles.howToBookContainer}>
                 <View style={styles.howToBookHeader}>
-                  <Icon name="help-outline" size={18} color="#0a2a66ff" />
+                  <Icon name="help-outline" size={18} color="#0b5bd3" />
                   <Text style={styles.howToBookTitle}>How to book your service?</Text>
                 </View>
                 
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0a2a66ff',
+    color: '#0b5bd3',
   },
   serviceCard: {
     borderRadius: 12,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   howToBookTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0a2a66ff',
+    color: '#0b5bd3',
   },
   stepsList: {
     gap: 8,

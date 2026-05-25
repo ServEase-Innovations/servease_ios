@@ -1083,7 +1083,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
 
             {/* Book Now Button with Gradient */}
             <LinearGradient
-              colors={[colors.primary, colors.primaryDark || '#0a2a66ff']}
+              colors={[colors.primary, colors.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[

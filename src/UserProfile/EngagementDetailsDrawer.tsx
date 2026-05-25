@@ -84,7 +84,7 @@ const CancelDialog: React.FC<{
       <View style={cancelDialogStyles.overlay}>
         <View style={[cancelDialogStyles.dialogContainer, { backgroundColor: colors.card }]}>
           <LinearGradient 
-            colors={["#0a2a66ff", "#004aadff"]} 
+            colors={["#0b5bd3", "#4f8ff7"]} 
             start={{ x: 0, y: 0 }} 
             end={{ x: 1, y: 0 }} 
             style={cancelDialogStyles.header}
@@ -727,7 +727,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             style={dynamicStyles.drawerContainer}
           >
             <LinearGradient 
-              colors={["#0a2a66ff", "#004aadff"]} 
+              colors={["#0b5bd3", "#4f8ff7"]} 
               start={{ x: 0, y: 0 }} 
               end={{ x: 1, y: 0 }} 
               style={dynamicStyles.header}

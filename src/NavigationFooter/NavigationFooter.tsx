@@ -717,7 +717,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   return (
     <>
       <LinearGradient
-        colors={['#0d1935', '#1c4485', '#255697']}
+        colors={[...colors.chromeGradient]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.desktopNavContainer}
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1e293b",
   },
   compactAvatarRingActive: {
-    borderColor: "#0a2a66",
+    borderColor: "#0b5bd3",
     backgroundColor: "#eff6ff",
   },
   compactAvatarRingActiveDark: {
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 48,
     paddingBottom: 16,
-    backgroundColor: "#0d1935",
+    backgroundColor: "#020617",
   },
   backButton: {
     padding: 8,

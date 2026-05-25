@@ -1176,7 +1176,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               <View style={[styles.sheetHandleBar, { backgroundColor: colors.border }]} />
             </View>
             <LinearGradient
-              colors={["#0a2a66", "#328aff"]}
+              colors={["#0b5bd3", "#4f8ff7"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.headerContainer}
@@ -1238,7 +1238,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           ]}
         >
           <LinearGradient
-            colors={["#0a2a66", "#328aff"]}
+            colors={["#0b5bd3", "#4f8ff7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerContainer}

@@ -257,7 +257,7 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
       flex: 1,
     },
     doneButton: {
-      backgroundColor: '#004aadff',
+      backgroundColor: '#4f8ff7',
     },
     doneButtonText: {
       color: '#FFFFFF',
@@ -365,7 +365,7 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                 {/* Gradient Header */}
                 <View style={styles.modalHeader}>
                   <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
+                    colors={["#0b5bd3", "#4f8ff7"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.gradientHeader}

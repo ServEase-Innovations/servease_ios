@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { changeLanguage as changeI18nLanguage } from '../../i18n';
+import { BRAND, GRADIENTS } from '../theme/brandColors';
 
 type ThemeType = 'light' | 'dark' | 'system';
 
@@ -44,18 +45,18 @@ interface ThemeContextType {
   getSpacingMultiplier: () => number;
 }
 
-// Enhanced Light theme colors - Deeper and more vibrant
+// Light theme — matches servase-ui booking + chrome bar
 const lightColors = {
-  // Primary brand colors - richer and more professional
-  primary: '#0a2a66', // Deep navy blue
-  primaryLight: '#1a3a7a',
-  primaryDark: '#051a4a',
-  secondary: '#3b82f6', // Vibrant blue
-  secondaryLight: '#60a5fa',
-  secondaryDark: '#2563eb',
-  accent: '#6366f1', // Indigo accent
-  accentLight: '#818cf8',
-  accentDark: '#4f46e5',
+  primary: BRAND.accent,
+  primaryLight: BRAND.bookingSky,
+  primaryDark: BRAND.accentDark,
+  secondary: BRAND.skyCta,
+  secondaryLight: BRAND.logoLight,
+  secondaryDark: BRAND.logoDark,
+  accent: BRAND.bookingSky,
+  accentLight: BRAND.accentSoft,
+  accentDark: BRAND.accentDark,
+  accentSoft: BRAND.accentSoft,
   
   // Backgrounds - clean and sophisticated
   background: '#f8fafc', // Very light slate
@@ -65,18 +66,16 @@ const lightColors = {
   surface3: '#f1f5f9', // Even lighter for elevated surfaces
   surfaceElevated: '#ffffff', // White for elevated cards
   
-  // Text colors - improved contrast and hierarchy
-  text: '#0f172a', // Deep slate for primary text
-  textPrimary: '#0f172a',
-  textSecondary: '#475569', // Medium slate for secondary text
-  textTertiary: '#64748b', // Light slate for tertiary text
+  text: BRAND.text,
+  textPrimary: BRAND.text,
+  textSecondary: '#475569',
+  textTertiary: BRAND.textMuted,
   textDisabled: '#94a3b8',
   textHint: '#94a3b8',
   textInverse: '#ffffff', // White text for dark backgrounds
   
-  // Borders - subtle but distinct
-  border: '#e2e8f0',
-  borderLight: '#f1f5f9',
+  border: BRAND.line,
+  borderLight: BRAND.canvas,
   borderDark: '#cbd5e1',
   
   // Status colors - vibrant and clear
@@ -99,13 +98,12 @@ const lightColors = {
   cardElevated: '#ffffff',
   cardBorder: '#e2e8f0',
   
-  // Navigation and Header
-  headerBackground: '#0a2a66',
+  headerBackground: BRAND.chromeMid,
   headerText: '#ffffff',
   headerBorder: 'rgba(255,255,255,0.1)',
-  footerBackground: '#0a2a66',
+  footerBackground: BRAND.chromeMid,
   footerText: '#ffffff',
-  tabBar: '#0a2a66',
+  tabBar: BRAND.chromeMid,
   tabBarActive: '#ffffff',
   tabBarInactive: '#94a3b8',
   
@@ -120,7 +118,7 @@ const lightColors = {
   // Form elements
   inputBackground: '#ffffff',
   inputBorder: '#e2e8f0',
-  inputFocus: '#0a2a66',
+  inputFocus: BRAND.accent,
   inputError: '#dc2626',
   disabled: '#e2e8f0',
   placeholder: '#94a3b8',
@@ -137,31 +135,31 @@ const lightColors = {
   // Additional UI colors
   divider: '#e2e8f0',
   icon: '#475569',
-  iconActive: '#0a2a66',
+  iconActive: BRAND.accent,
   badge: '#ef4444',
   badgeText: '#ffffff',
   chip: '#f1f5f9',
   chipText: '#475569',
-  chipActive: '#0a2a66',
+  chipActive: BRAND.accent,
   chipActiveText: '#ffffff',
-  // Web-like chrome bar gradient (matches web header/footer language)
-  chromeStart: '#020617',
-  chromeMid: '#0b2a5c',
-  chromeEnd: '#082f49',
+  chromeStart: BRAND.chromeStart,
+  chromeMid: BRAND.chromeMid,
+  chromeEnd: BRAND.chromeEnd,
+  bookingHeaderGradient: [...GRADIENTS.bookingHeader],
+  chromeGradient: [...GRADIENTS.chrome],
 };
 
-// Enhanced Dark theme colors - Deeper, richer, and more vibrant
 const darkColors = {
-  // Primary brand colors - brighter for better visibility
-  primary: '#3b82f6', // Bright blue
-  primaryLight: '#60a5fa',
-  primaryDark: '#2563eb',
-  secondary: '#8b5cf6', // Purple accent
-  secondaryLight: '#a78bfa',
-  secondaryDark: '#7c3aed',
-  accent: '#f43f5e', // Pink accent for highlights
-  accentLight: '#fb7185',
-  accentDark: '#e11d48',
+  primary: BRAND.bookingSky,
+  primaryLight: BRAND.logoLight,
+  primaryDark: BRAND.accent,
+  secondary: BRAND.skyCta,
+  secondaryLight: '#38bdf8',
+  secondaryDark: BRAND.accentDark,
+  accent: BRAND.accent,
+  accentLight: BRAND.accentSoft,
+  accentDark: BRAND.accentDark,
+  accentSoft: 'rgba(11, 91, 211, 0.25)',
   
   // Backgrounds - deep and rich
   background: '#0f172a', // Deep slate blue
@@ -226,7 +224,7 @@ const darkColors = {
   // Form elements
   inputBackground: '#1e293b',
   inputBorder: '#334155',
-  inputFocus: '#3b82f6',
+  inputFocus: BRAND.bookingSky,
   inputError: '#f87171',
   disabled: '#334155',
   placeholder: '#64748b',
@@ -243,17 +241,18 @@ const darkColors = {
   // Additional UI colors
   divider: '#334155',
   icon: '#94a3b8',
-  iconActive: '#3b82f6',
+  iconActive: BRAND.bookingSky,
   badge: '#ef4444',
   badgeText: '#ffffff',
   chip: '#334155',
   chipText: '#cbd5e1',
-  chipActive: '#3b82f6',
+  chipActive: BRAND.accent,
   chipActiveText: '#ffffff',
-  // Keep same chrome gradient for consistent cross-platform brand surface
-  chromeStart: '#020617',
-  chromeMid: '#0b2a5c',
-  chromeEnd: '#082f49',
+  chromeStart: BRAND.chromeStart,
+  chromeMid: BRAND.chromeMid,
+  chromeEnd: BRAND.chromeEnd,
+  bookingHeaderGradient: [...GRADIENTS.bookingHeader],
+  chromeGradient: [...GRADIENTS.chrome],
 };
 
 // Font size configurations
@@ -507,3 +506,4 @@ export const useRTL = () => {
 };
 
 export { lightColors, darkColors, FONT_SIZE_CONFIG };
+export { BRAND, GRADIENTS, BOOKING_HEADER_GRADIENT } from '../theme/brandColors';

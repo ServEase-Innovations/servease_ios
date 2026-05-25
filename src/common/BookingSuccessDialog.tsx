@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
+import { BRAND } from "../theme/brandColors";
+import { GRADIENTS } from "../theme/brandColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DIALOG_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 400);
@@ -170,7 +172,7 @@ const BookingSuccessDialog: React.FC<BookingSuccessDialogProps> = ({
           ]}
         >
           <LinearGradient
-            colors={["#0a2a66", "#3b4cca", "#575aff"]}
+            colors={[...GRADIENTS.success]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradient}
@@ -419,7 +421,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1d4ed8",
+    color: BRAND.accent,
   },
 });
 

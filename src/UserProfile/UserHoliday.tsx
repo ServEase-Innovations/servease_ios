@@ -186,7 +186,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
       <SafeAreaView style={dynamicStyles.modalContainer}>
         <View style={dynamicStyles.overlay}>
           <View style={dynamicStyles.dialogContainer}>
-            <LinearGradient colors={["#0a2a66ff", "#004aadff"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dynamicStyles.header}>
+            <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dynamicStyles.header}>
               <Text style={dynamicStyles.dialogTitle}>Schedule Holiday</Text>
               <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
                 <Text style={dynamicStyles.closeIcon}>×</Text>

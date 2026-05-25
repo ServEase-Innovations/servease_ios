@@ -175,7 +175,7 @@ const ProviderAvailabilityDrawer: React.FC<ProviderAvailabilityDrawerProps> = ({
 
   const renderHeader = () => (
     <LinearGradient
-      colors={["#0a2a66", "#328aff"]}
+      colors={["#0b5bd3", "#4f8ff7"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.header}
