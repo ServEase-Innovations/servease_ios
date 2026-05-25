@@ -502,7 +502,7 @@ const MainApp = () => {
       serviceProviderId: appUser.serviceProviderId,
       customerId: appUser.customerid || appUser.customerId,
     });
-  }, [appUser, isUserLoading, user?.email]);
+  }, [appUser?.id, appUser?.userId, appUser?.email, isUserLoading]);
 
   useEffect(() => {
     if (!appUser || appUser?.role?.toUpperCase() !== "CUSTOMER" || hasCheckedMobileNumber) {

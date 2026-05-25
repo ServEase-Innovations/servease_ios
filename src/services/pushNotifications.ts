@@ -11,6 +11,10 @@ const IOS_PERMISSION_KEY = "push_permission_asked_ios_v2";
 const ANDROID_PERMISSION_KEY = "push_permission_rationale_android_v2";
 const ANDROID_CHANNEL_ID = "serveaso_default";
 
+/** Prevent duplicate onMessage handlers (each extra handler = duplicate notification). */
+let listenersAttached = false;
+const listenerUnsubs: Array<() => void> = [];
+
 export type PushUserContext = {
   email?: string | null;
   role?: string | null;
@@ -144,8 +148,14 @@ async function displayForegroundNotification(
 
   if (Platform.OS !== "android") return;
 
+  const notificationId =
+    remoteMessage.messageId ||
+    remoteMessage.data?.collapseId ||
+    "serveaso-push-latest";
+
   await ensureAndroidChannel();
   await notifee.displayNotification({
+    id: String(notificationId),
     title: String(title),
     body: String(body),
     android: {
@@ -153,6 +163,7 @@ async function displayForegroundNotification(
       smallIcon: "ic_stat_serveaso",
       color: "#0B7DD9",
       pressAction: { id: "default" },
+      tag: "serveaso_push",
     },
   });
 }
@@ -194,8 +205,51 @@ async function registerTokenWithBackend(
   );
 }
 
+function detachPushListeners(): void {
+  listenerUnsubs.forEach((unsub) => {
+    try {
+      unsub();
+    } catch {
+      /* ignore */
+    }
+  });
+  listenerUnsubs.length = 0;
+  listenersAttached = false;
+}
+
+function attachPushListeners(
+  user: PushUserContext | null | undefined
+): void {
+  if (listenersAttached) return;
+  listenersAttached = true;
+
+  listenerUnsubs.push(
+    messaging().onTokenRefresh(async (newToken) => {
+      try {
+        await registerTokenWithBackend(newToken, user);
+      } catch (e) {
+        console.warn("[push] token refresh register failed", e);
+      }
+    })
+  );
+
+  listenerUnsubs.push(
+    messaging().onMessage(async (remoteMessage) => {
+      if (Platform.OS === "android") {
+        await displayForegroundNotification(remoteMessage);
+      }
+    })
+  );
+
+  listenerUnsubs.push(
+    messaging().onNotificationOpenedApp((remoteMessage) => {
+      console.log("[push] opened from background", remoteMessage?.messageId);
+    })
+  );
+}
+
 /**
- * Initialize FCM: token registration + permission prompt + message handlers.
+ * Initialize FCM: token registration + permission prompt + message handlers (once).
  */
 export async function setupPushNotifications(
   user: PushUserContext | null | undefined
@@ -227,24 +281,7 @@ export async function setupPushNotifications(
       console.log("[push] notifications not permitted — token still registered for admin push");
     }
 
-    messaging().onTokenRefresh(async (newToken) => {
-      try {
-        await registerTokenWithBackend(newToken, user);
-      } catch (e) {
-        console.warn("[push] token refresh register failed", e);
-      }
-    });
-
-    messaging().onMessage(async (remoteMessage) => {
-      // Android: system tray notification (not Alert). iOS: native banner via presentation options above.
-      if (Platform.OS === "android") {
-        await displayForegroundNotification(remoteMessage);
-      }
-    });
-
-    messaging().onNotificationOpenedApp((remoteMessage) => {
-      console.log("[push] opened from background", remoteMessage?.messageId);
-    });
+    attachPushListeners(user);
 
     const initial = await messaging().getInitialNotification();
     if (initial) {
@@ -257,6 +294,7 @@ export async function setupPushNotifications(
 }
 
 export async function unregisterPushNotifications(): Promise<void> {
+  detachPushListeners();
   try {
     await messaging().deleteToken();
   } catch {
