@@ -209,7 +209,6 @@ metro-cache/
 /android/build/
 /android/app/build/
 android/local.properties
-android/app/google-services.json
 android/app/app-debug.keystore
 android/app/app-release.keystore
 android/app/app.jks
