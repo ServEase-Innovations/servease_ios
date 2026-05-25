@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { Clock, MapPin, Phone, Play } from "lucide-react-native";
+import LinearGradient from "react-native-linear-gradient";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from "../common/BookingUtils";
 
 export interface TodayBookingSlot {
@@ -66,26 +67,38 @@ export default function TodayVisitsCard({
 }: Props) {
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>Today&apos;s visits</Text>
-          <Text style={styles.subtitle}>
-            Booked slots for today (India time), ordered by start time.
-          </Text>
+      <LinearGradient
+        colors={["#1e3a5f", "#1e40af"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
+        <View style={styles.headerLeft}>
+          <View style={styles.headerIcon}>
+            <MaterialIcon name="today" size={20} color="#ffffff" />
+          </View>
+          <View>
+            <Text style={styles.title}>Today's Visits</Text>
+            <Text style={styles.subtitle}>
+              {loading ? "Loading schedule..." : `${todaySchedule.length} visit${todaySchedule.length !== 1 ? 's' : ''} scheduled for today`}
+            </Text>
+          </View>
         </View>
-        <View style={styles.headerIcon}>
-          <Clock size={20} color="#0369a1" />
-        </View>
-      </View>
+      </LinearGradient>
 
       <View style={styles.body}>
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="small" color="#0284c7" />
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text style={styles.loadingText}>Loading today's schedule...</Text>
           </View>
         ) : todaySchedule.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No visits on your calendar for today.</Text>
+            <MaterialIcon name="event-busy" size={48} color="#cbd5e1" />
+            <Text style={styles.emptyTitle}>No Visits Today</Text>
+            <Text style={styles.emptyText}>
+              You have no scheduled visits for today. Enjoy your day off!
+            </Text>
           </View>
         ) : (
           todaySchedule.map((b, index) => {
@@ -122,61 +135,81 @@ export default function TodayVisitsCard({
             return (
               <View
                 key={`${b.availability_id}-${b.engagement_id}`}
-                style={[styles.row, index > 0 && styles.rowBorder]}
+                style={[styles.visitItem, index > 0 && styles.visitItemBorder]}
               >
-                <View style={styles.rowMain}>
-                  <Text style={styles.timeRange}>{timeRange}</Text>
-                  <Text style={styles.clientName} numberOfLines={1}>
-                    {clientName}
-                  </Text>
-                  <Text style={styles.meta} numberOfLines={1}>
-                    #{b.engagement_id} · {getServiceTitle(b.service_type || "")}
-                    {amountLabel ? ` · ${amountLabel}` : ""}
-                  </Text>
+                {/* Time Badge */}
+                <View style={styles.timeBadge}>
+                  <MaterialIcon name="schedule" size={14} color="#3b82f6" />
+                  <Text style={styles.timeRangeText}>{timeRange}</Text>
+                </View>
+
+                {/* Client Info */}
+                <View style={styles.clientInfo}>
+                  <Text style={styles.clientName}>{clientName}</Text>
+                  <View style={styles.detailsRow}>
+                    <View style={styles.detailChip}>
+                      <MaterialIcon name="receipt" size={12} color="#64748b" />
+                      <Text style={styles.detailText}>#{b.engagement_id}</Text>
+                    </View>
+                    <View style={styles.detailChip}>
+                      <MaterialIcon name="build" size={12} color="#64748b" />
+                      <Text style={styles.detailText}>{getServiceTitle(b.service_type || "")}</Text>
+                    </View>
+                    {amountLabel && (
+                      <View style={styles.detailChip}>
+                        <MaterialIcon name="currency-rupee" size={12} color="#64748b" />
+                        <Text style={styles.detailText}>{amountLabel}</Text>
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.badgeRow}>
                     {getBookingTypeBadge(b.booking_type)}
                     {getStatusBadge(b.task_status)}
                   </View>
                 </View>
 
-                <View style={styles.actions}>
-                  {b.mobileno ? (
+                {/* Action Buttons */}
+                <View style={styles.actionButtons}>
+                  {b.mobileno && (
                     <TouchableOpacity
-                      style={styles.actionBtn}
+                      style={styles.actionButton}
                       onPress={() => onCallCustomer(b.mobileno!, clientName)}
                     >
-                      <Phone size={14} color="#334155" />
-                      <Text style={styles.actionBtnText}>Call</Text>
+                      <MaterialIcon name="phone" size={16} color="#3b82f6" />
+                      <Text style={styles.actionButtonText}>Call</Text>
                     </TouchableOpacity>
-                  ) : null}
-                  {b.address ? (
+                  )}
+                  
+                  {b.address && (
                     <TouchableOpacity
-                      style={styles.actionBtn}
+                      style={styles.actionButton}
                       onPress={() => onTrackAddress(b.address!)}
                     >
-                      <MapPin size={14} color="#334155" />
-                      <Text style={styles.actionBtnText}>Map</Text>
+                      <MaterialIcon name="location-on" size={16} color="#3b82f6" />
+                      <Text style={styles.actionButtonText}>Map</Text>
                     </TouchableOpacity>
-                  ) : null}
-                  {showStart ? (
+                  )}
+                  
+                  {showStart && (
                     <TouchableOpacity
-                      style={styles.actionBtn}
+                      style={[styles.actionButton, styles.startButton]}
                       disabled={busy}
                       onPress={() => void onStartTodayVisit(b)}
                     >
                       {busy ? (
-                        <ActivityIndicator size="small" color="#334155" />
+                        <ActivityIndicator size="small" color="#ffffff" />
                       ) : (
                         <>
-                          <Play size={14} color="#334155" />
-                          <Text style={styles.actionBtnText}>Start</Text>
+                          <MaterialIcon name="play-arrow" size={16} color="#ffffff" />
+                          <Text style={[styles.actionButtonText, styles.startButtonText]}>Start</Text>
                         </>
                       )}
                     </TouchableOpacity>
-                  ) : null}
-                  {showComplete ? (
+                  )}
+                  
+                  {showComplete && (
                     <TouchableOpacity
-                      style={[styles.actionBtn, styles.completeBtn]}
+                      style={[styles.actionButton, styles.completeButton]}
                       onPress={() =>
                         onStopTask(String(b.engagement_id), {
                           today_service: {
@@ -186,9 +219,10 @@ export default function TodayVisitsCard({
                         })
                       }
                     >
-                      <Text style={styles.completeBtnText}>Complete</Text>
+                      <MaterialIcon name="check-circle" size={16} color="#ffffff" />
+                      <Text style={[styles.actionButtonText, styles.completeButtonText]}>Complete</Text>
                     </TouchableOpacity>
-                  ) : null}
+                  )}
                 </View>
               </View>
             );
@@ -202,72 +236,165 @@ export default function TodayVisitsCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#ffffff",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(226, 232, 240, 0.9)",
+    borderRadius: 20,
     marginBottom: 16,
     overflow: "hidden",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-    backgroundColor: "rgba(240, 249, 255, 0.6)",
+    paddingVertical: 16,
   },
-  headerText: { flex: 1, paddingRight: 12 },
-  title: { fontSize: 17, fontWeight: "700", color: "#0f172a" },
-  subtitle: { fontSize: 12, color: "#64748b", marginTop: 4, lineHeight: 17 },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   headerIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#e0f2fe",
+    backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#bae6fd",
   },
-  body: { padding: 16 },
-  centered: { minHeight: 72, alignItems: "center", justifyContent: "center" },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
+    marginTop: 2,
+  },
+  body: {
+    padding: 16,
+  },
+  centered: {
+    paddingVertical: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#64748b",
+  },
   empty: {
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(248, 250, 252, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
   },
-  emptyText: { textAlign: "center", fontSize: 14, color: "#64748b" },
-  row: { paddingVertical: 14 },
-  rowBorder: { borderTopWidth: 1, borderTopColor: "#f1f5f9" },
-  rowMain: { marginBottom: 10 },
-  timeRange: { fontSize: 14, fontWeight: "700", color: "#0f172a", marginBottom: 4 },
-  clientName: { fontSize: 14, fontWeight: "600", color: "#1e293b" },
-  meta: { fontSize: 12, color: "#64748b", marginTop: 2 },
-  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  actionBtn: {
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1e293b",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: "#64748b",
+    textAlign: "center",
+  },
+  visitItem: {
+    paddingVertical: 14,
+  },
+  visitItemBorder: {
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+  },
+  timeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: "#eff6ff",
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  timeRangeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#3b82f6",
+  },
+  clientInfo: {
+    marginBottom: 12,
+  },
+  clientName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1e293b",
+    marginBottom: 6,
+  },
+  detailsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  detailChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 10,
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  detailText: {
+    fontSize: 11,
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  badgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
-  actionBtnText: { fontSize: 12, fontWeight: "600", color: "#334155" },
-  completeBtn: { backgroundColor: "#ef4444", borderColor: "#ef4444" },
-  completeBtnText: { fontSize: 12, fontWeight: "600", color: "#fff" },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  startButton: {
+    backgroundColor: "#3b82f6",
+    borderColor: "#3b82f6",
+  },
+  startButtonText: {
+    color: "#ffffff",
+  },
+  completeButton: {
+    backgroundColor: "#ef4444",
+    borderColor: "#ef4444",
+  },
+  completeButtonText: {
+    color: "#ffffff",
+  },
 });

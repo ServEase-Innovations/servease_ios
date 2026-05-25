@@ -9,18 +9,15 @@ import {
   Alert,
   Platform,
   Linking,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useTranslation } from 'react-i18next';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
-// Barasat, West Bengal coordinates (fixed destination)
-const BARASAT_LOCATION = {
-  latitude: 22.7249,
-  longitude: 88.4786,
-  address: 'Barasat, West Bengal, India',
-};
+const { width, height } = Dimensions.get('window');
 
 interface Location {
   latitude: number;
@@ -38,21 +35,27 @@ const TrackAddress: React.FC<TrackAddressProps> = ({
   googleMapsApiKey,
   destinationAddress,
 }) => {
-  const { t } = useTranslation();
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [routeCoordinates, setRouteCoordinates] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [destination, setDestination] = useState(BARASAT_LOCATION);
+  const [destination, setDestination] = useState<Location | null>(null);
+  const [destinationAddressText, setDestinationAddressText] = useState<string>('');
+  const [routeDistance, setRouteDistance] = useState<string>('');
+  const [routeDuration, setRouteDuration] = useState<string>('');
+  const [isRoutingComplete, setIsRoutingComplete] = useState<boolean>(false);
   const mapRef = useRef<MapView>(null);
 
+  // Geocode destination address
   useEffect(() => {
-    const resolveDestination = async () => {
+    const geocodeDestination = async () => {
       if (!destinationAddress?.trim()) {
-        setDestination(BARASAT_LOCATION);
+        Alert.alert('Error', 'No destination address provided');
+        onClose();
         return;
       }
+      
       try {
         const encoded = encodeURIComponent(destinationAddress.trim());
         const res = await fetch(
@@ -60,35 +63,37 @@ const TrackAddress: React.FC<TrackAddressProps> = ({
         );
         const json = await res.json();
         const loc = json?.results?.[0]?.geometry?.location;
+        
         if (loc?.lat != null && loc?.lng != null) {
           setDestination({
             latitude: loc.lat,
             longitude: loc.lng,
-            address: destinationAddress.trim(),
           });
+          setDestinationAddressText(destinationAddress.trim());
         } else {
-          setDestination({ ...BARASAT_LOCATION, address: destinationAddress.trim() });
+          Alert.alert('Error', 'Could not find the destination address');
+          onClose();
         }
-      } catch {
-        setDestination({ ...BARASAT_LOCATION, address: destinationAddress.trim() });
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        Alert.alert('Error', 'Failed to find destination address');
+        onClose();
       }
     };
-    void resolveDestination();
+    
+    geocodeDestination();
   }, [destinationAddress, googleMapsApiKey]);
 
   useEffect(() => {
     getCurrentLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (currentLocation) {
-      calculateRouteToDestination(currentLocation);
+    if (currentLocation && destination) {
+      fetchRealRouteFromGoogleMaps();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination.latitude, destination.longitude]);
+  }, [currentLocation, destination]);
 
-  // Get current location using React Native Geolocation API
   const getCurrentLocation = () => {
     setIsLoading(true);
     setLocationError(null);
@@ -98,20 +103,18 @@ const TrackAddress: React.FC<TrackAddressProps> = ({
         const { latitude, longitude } = position.coords;
         setCurrentLocation({ latitude, longitude });
         setIsLoading(false);
-        // Calculate route after getting location
-        calculateRouteToDestination({ latitude, longitude });
       },
       (error) => {
         console.log('Error getting location:', error);
-        setLocationError(t('trackAddress.error.locationError'));
+        setLocationError('Unable to get your current location');
         setIsLoading(false);
         
         Alert.alert(
-          t('trackAddress.error.locationError'),
-          t('trackAddress.error.locationError'),
+          'Location Error',
+          'Unable to get your current location. Please enable location services and try again.',
           [
             {
-              text: t('trackAddress.error.openSettings'),
+              text: 'Open Settings',
               onPress: () => {
                 if (Platform.OS === 'ios') {
                   Linking.openURL('app-settings:');
@@ -120,7 +123,7 @@ const TrackAddress: React.FC<TrackAddressProps> = ({
                 }
               },
             },
-            { text: t('common.close'), onPress: onClose },
+            { text: 'Close', onPress: onClose },
           ]
         );
       },
@@ -132,100 +135,98 @@ const TrackAddress: React.FC<TrackAddressProps> = ({
     );
   };
 
-  const calculateRouteToDestination = (start: Location) => {
+  const fetchRealRouteFromGoogleMaps = async () => {
+    if (!currentLocation || !destination) return;
+    
     setIsCalculatingRoute(true);
+    setIsRoutingComplete(false);
     
-    const route = generateRoutePoints(start, destination);
-    setRouteCoordinates(route);
-    
-    // Fit map to show the entire route
-    setTimeout(() => {
-      if (mapRef.current && route.length > 0) {
-        mapRef.current.fitToCoordinates(route, {
-          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-          animated: true,
-        });
+    try {
+      const origin = `${currentLocation.latitude},${currentLocation.longitude}`;
+      const dest = `${destination.latitude},${destination.longitude}`;
+      
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&key=${googleMapsApiKey}&mode=driving&alternatives=true`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+        // Use the first route (recommended)
+        const route = data.routes[0];
+        const leg = route.legs[0];
+        
+        // Extract route points for polyline
+        const points = decodePolyline(route.overview_polyline.points);
+        setRouteCoordinates(points);
+        
+        // Set distance and duration
+        setRouteDistance(leg.distance.text);
+        setRouteDuration(leg.duration.text);
+        
+        setIsRoutingComplete(true);
+        
+        // Fit map to show the entire route
+        setTimeout(() => {
+          if (mapRef.current && points.length > 0) {
+            mapRef.current.fitToCoordinates(points, {
+              edgePadding: { top: 80, right: 50, bottom: 80, left: 50 },
+              animated: true,
+            });
+          }
+        }, 500);
+      } else {
+        console.error('Directions API error:', data.status);
+        setLocationError('Could not find a route to destination');
       }
+    } catch (error) {
+      console.error('Error fetching route:', error);
+      setLocationError('Failed to calculate route');
+    } finally {
       setIsCalculatingRoute(false);
-    }, 500);
+    }
   };
 
-  // Generate route points with intermediate points for curved route
-  const generateRoutePoints = (start: Location, end: Location): Location[] => {
-    const points: Location[] = [start];
+  // Helper function to decode Google Maps polyline
+  const decodePolyline = (encoded: string): Location[] => {
+    const points: Location[] = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0;
+    let lng = 0;
     
-    // Calculate distance
-    const latDiff = end.latitude - start.latitude;
-    const lngDiff = end.longitude - start.longitude;
-    
-    // Add intermediate points for curved effect (more realistic route)
-    const numPoints = 5;
-    for (let i = 1; i <= numPoints; i++) {
-      const factor = i / (numPoints + 1);
+    while (index < len) {
+      let b;
+      let shift = 0;
+      let result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
       
-      // Add slight randomness for natural curve
-      const randomLat = (Math.random() * 0.02 - 0.01);
-      const randomLng = (Math.random() * 0.02 - 0.01);
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
       
-      const intermediatePoint: Location = {
-        latitude: start.latitude + latDiff * factor + randomLat,
-        longitude: start.longitude + lngDiff * factor + randomLng,
-      };
-      points.push(intermediatePoint);
+      points.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
     }
     
-    points.push(end);
     return points;
   };
 
-  // Calculate distance between two points (Haversine formula)
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const getDistanceToDestination = (): number => {
-    if (!currentLocation) return 0;
-    return calculateDistance(
-      currentLocation.latitude,
-      currentLocation.longitude,
-      destination.latitude,
-      destination.longitude
-    );
-  };
-
-  // Get estimated travel time
-  const getTravelTime = (distance: number): string => {
-    const avgSpeed = 40; // km/h
-    const timeInHours = distance / avgSpeed;
-    const minutes = Math.round(timeInHours * 60);
-    
-    if (minutes < 60) {
-      return t('time.minutes', { count: minutes });
-    } else {
-      const hours = Math.floor(minutes / 60);
-      const remainingMinutes = minutes % 60;
-      return remainingMinutes > 0 
-        ? `${hours}${t('common.hour')} ${remainingMinutes}${t('common.minute')}`
-        : `${hours}${t('common.hour')}`;
-    }
-  };
-
-  // Format distance
-  const formatDistance = (distance: number): string => {
-    return t('provider.kmAway', { distance: distance.toFixed(1) });
-  };
-
-  // Open in external maps app for navigation
   const openInMaps = () => {
-    if (!currentLocation) return;
+    if (!currentLocation || !destination) return;
     
     const url = Platform.select({
       ios: `http://maps.apple.com/?saddr=${currentLocation.latitude},${currentLocation.longitude}&daddr=${destination.latitude},${destination.longitude}&dirflg=d`,
@@ -234,254 +235,365 @@ const TrackAddress: React.FC<TrackAddressProps> = ({
     
     if (url) {
       Linking.openURL(url).catch(() => {
-        Alert.alert(t('common.error'), t('trackAddress.error.mapsError'));
+        Alert.alert('Error', 'Unable to open maps application');
       });
     }
   };
 
-  // Refresh location and route
   const refreshRoute = () => {
     getCurrentLocation();
   };
 
-  if (isLoading) {
+  if (isLoading || !destination) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>{t('trackAddress.gettingLocation')}</Text>
-      </View>
+      <LinearGradient
+        colors={["#1e3a5f", "#1e40af"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.loadingContainer}
+      >
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={styles.loadingText}>
+          {!destination ? 'Finding destination...' : 'Getting your location...'}
+        </Text>
+      </LinearGradient>
     );
   }
 
-  const distance = getDistanceToDestination();
-  const travelTime = getTravelTime(distance);
-
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={["#1e3a5f", "#1e40af"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
         <View style={styles.headerLeft}>
-          <Icon name="location-on" size={24} color="#2196F3" />
-          <Text style={styles.headerTitle}>{t('trackAddress.title')}</Text>
+          <View style={styles.headerIcon}>
+            <MaterialIcon name="navigation" size={22} color="#ffffff" />
+          </View>
+          <Text style={styles.headerTitle}>Track Route</Text>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Icon name="close" size={24} color="#666" />
+          <MaterialIcon name="close" size={24} color="#ffffff" />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
-      {/* Location Info */}
-      <View style={styles.locationInfo}>
-        <View style={styles.locationRow}>
-          <Icon name="my-location" size={16} color="#4CAF50" />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {t('trackAddress.from', { 
-              location: currentLocation 
-                ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` 
-                : t('common.unknown')
-            })}
-          </Text>
-        </View>
-        <View style={styles.locationRow}>
-          <Icon name="flag" size={16} color="#FF5252" />
-          <Text style={styles.locationText} numberOfLines={2}>
-            {destination.address || t('trackAddress.to')}
-          </Text>
-        </View>
-      </View>
-
-      {/* Map View */}
-      <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={styles.map}
-          initialRegion={{
-            latitude: currentLocation?.latitude || destination.latitude,
-            longitude: currentLocation?.longitude || destination.longitude,
-            latitudeDelta: 0.5,
-            longitudeDelta: 0.5,
-          }}
-          showsUserLocation={true}
-          showsMyLocationButton={false}
-          showsCompass={true}
-          showsScale={true}
-          mapType="standard"
-        >
-          {/* Current Location Marker */}
-          {currentLocation && (
-            <Marker
-              coordinate={currentLocation}
-              title={t('common.currentLocation')}
-              description={t('common.currentPosition')}
-            >
-              <View style={styles.currentLocationMarker}>
-                <Icon name="person-pin-circle" size={40} color="#2196F3" />
-              </View>
-            </Marker>
-          )}
-
-          <Marker
-            coordinate={destination}
-            title={t('trackAddress.destination')}
-            description={destination.address}
-          >
-            <View style={styles.destinationMarker}>
-              <Icon name="location-on" size={30} color="#FF5252" />
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Location Info */}
+        <View style={styles.locationInfo}>
+          <View style={styles.locationRow}>
+            <View style={[styles.locationDot, styles.startDot]} />
+            <View style={styles.locationContent}>
+              <Text style={styles.locationLabel}>From (Your Location)</Text>
+              <Text style={styles.locationValue} numberOfLines={1}>
+                {currentLocation 
+                  ? `${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}` 
+                  : 'Unknown location'}
+              </Text>
             </View>
-          </Marker>
-
-          {/* Route Line */}
-          {!isCalculatingRoute && routeCoordinates.length > 0 && (
-            <Polyline
-              coordinates={routeCoordinates}
-              strokeWidth={4}
-              strokeColor="#2196F3"
-              lineDashPattern={[10, 10]}
-            />
-          )}
-        </MapView>
-
-        {/* Map Controls */}
-        <View style={styles.mapControls}>
-          <TouchableOpacity 
-            style={styles.mapControlButton}
-            onPress={refreshRoute}
-          >
-            <Icon name="refresh" size={24} color="#333" />
-          </TouchableOpacity>
+          </View>
           
-          <TouchableOpacity 
-            style={styles.mapControlButton}
-            onPress={openInMaps}
-          >
-            <Icon name="navigation" size={24} color="#FF5252" />
-          </TouchableOpacity>
+          <View style={styles.locationConnector} />
+          
+          <View style={styles.locationRow}>
+            <View style={[styles.locationDot, styles.endDot]} />
+            <View style={styles.locationContent}>
+              <Text style={styles.locationLabel}>To (Destination)</Text>
+              <Text style={styles.locationValue} numberOfLines={2}>
+                {destinationAddressText}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Loading overlay for route calculation */}
-        {isCalculatingRoute && (
-          <View style={styles.calculatingOverlay}>
-            <ActivityIndicator size="small" color="#2196F3" />
-            <Text style={styles.calculatingText}>{t('trackAddress.calculatingRoute')}</Text>
+        {/* Map View */}
+        <View style={styles.mapContainer}>
+          <MapView
+            ref={mapRef}
+            provider={PROVIDER_GOOGLE}
+            style={styles.map}
+            initialRegion={{
+              latitude: currentLocation?.latitude || destination.latitude,
+              longitude: currentLocation?.longitude || destination.longitude,
+              latitudeDelta: 0.5,
+              longitudeDelta: 0.5,
+            }}
+            showsUserLocation={true}
+            showsMyLocationButton={false}
+            showsCompass={true}
+            showsScale={true}
+            mapType="standard"
+          >
+            {/* Current Location Marker */}
+            {currentLocation && (
+              <Marker coordinate={currentLocation}>
+                <View style={styles.currentLocationMarker}>
+                  <View style={styles.markerPulse} />
+                  <MaterialIcon name="my-location" size={40} color="#3b82f6" />
+                  <View style={styles.markerLabel}>
+                    <Text style={styles.markerLabelText}>📍 You are here</Text>
+                  </View>
+                </View>
+              </Marker>
+            )}
+
+            {/* Destination Marker */}
+            {destination && (
+              <Marker coordinate={destination}>
+                <View style={styles.destinationMarker}>
+                  <MaterialIcon name="location-on" size={40} color="#ef4444" />
+                  <View style={styles.markerLabelDestination}>
+                    <Text style={styles.markerLabelText}>🎯 Destination</Text>
+                  </View>
+                </View>
+              </Marker>
+            )}
+
+            {/* Route Polyline - This is the key part */}
+            {!isCalculatingRoute && routeCoordinates.length > 0 && isRoutingComplete && (
+              <>
+                {/* Main route line */}
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeWidth={6}
+                  strokeColor="#2563eb"
+                  lineCap="round"
+                  lineJoin="round"
+                  zIndex={10}
+                />
+                {/* Shadow/Glow effect for route */}
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeWidth={10}
+                  strokeColor="rgba(37, 99, 235, 0.2)"
+                  lineCap="round"
+                  lineJoin="round"
+                  zIndex={5}
+                />
+              </>
+            )}
+          </MapView>
+
+          {/* Map Controls */}
+          <View style={styles.mapControls}>
+            <TouchableOpacity style={styles.mapControlButton} onPress={refreshRoute}>
+              <MaterialIcon name="refresh" size={22} color="#475569" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.mapControlButton} onPress={() => {
+              if (routeCoordinates.length > 0) {
+                mapRef.current?.fitToCoordinates(routeCoordinates, {
+                  edgePadding: { top: 80, right: 50, bottom: 80, left: 50 },
+                  animated: true,
+                });
+              }
+            }}>
+              <MaterialIcon name="zoom-out-map" size={22} color="#475569" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.mapControlButton} onPress={openInMaps}>
+              <MaterialIcon name="directions" size={22} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+
+          {isCalculatingRoute && (
+            <View style={styles.calculatingOverlay}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+              <Text style={styles.calculatingText}>Finding best route...</Text>
+            </View>
+          )}
+
+          {/* Route Legend */}
+          {isRoutingComplete && routeCoordinates.length > 0 && (
+            <View style={styles.routeLegend}>
+              <View style={styles.routeLegendLine} />
+              <Text style={styles.routeLegendText}>Recommended Route</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Route Statistics */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <View style={styles.statIconBg}>
+              <MaterialIcon name="straighten" size={20} color="#3b82f6" />
+            </View>
+            <Text style={styles.statValue}>{routeDistance || 'Calculating...'}</Text>
+            <Text style={styles.statLabel}>Total Distance</Text>
+          </View>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <View style={styles.statIconBg}>
+              <MaterialIcon name="schedule" size={20} color="#3b82f6" />
+            </View>
+            <Text style={styles.statValue}>{routeDuration || 'Calculating...'}</Text>
+            <Text style={styles.statLabel}>Est. Travel Time</Text>
+          </View>
+        </View>
+
+        {/* Info Note */}
+        {isRoutingComplete && (
+          <View style={styles.infoNote}>
+            <MaterialIcon name="info" size={18} color="#3b82f6" />
+            <Text style={styles.infoNoteText}>
+              Blue line shows the recommended driving route. Tap the map or use "Start Navigation" for turn-by-turn directions.
+            </Text>
           </View>
         )}
-      </View>
 
-      {/* Route Statistics */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Icon name="straighten" size={20} color="#666" />
-          <Text style={styles.statValue}>{formatDistance(distance)}</Text>
-          <Text style={styles.statLabel}>{t('trackAddress.distance')}</Text>
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.navigateButton} onPress={openInMaps}>
+            <MaterialIcon name="navigation" size={18} color="#ffffff" />
+            <Text style={styles.navigateButtonText}>Start Navigation</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.refreshButton} onPress={refreshRoute}>
+            <MaterialIcon name="gps-fixed" size={18} color="#3b82f6" />
+            <Text style={styles.refreshButtonText}>Refresh</Text>
+          </TouchableOpacity>
         </View>
-        
-        <View style={styles.statItem}>
-          <Icon name="schedule" size={20} color="#666" />
-          <Text style={styles.statValue}>{travelTime}</Text>
-          <Text style={styles.statLabel}>{t('trackAddress.estimatedTime')}</Text>
-        </View>
-      </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.navigateButton}
-          onPress={openInMaps}
-        >
-          <Icon name="directions" size={20} color="#fff" />
-          <Text style={styles.navigateButtonText}>{t('trackAddress.startNavigation')}</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.refreshButton}
-          onPress={refreshRoute}
-        >
-          <Icon name="gps-fixed" size={20} color="#2196F3" />
-          <Text style={styles.refreshButtonText}>{t('trackAddress.refreshLocation')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Error Message */}
-      {locationError && (
-        <View style={styles.errorContainer}>
-          <Icon name="error" size={20} color="#F44336" />
-          <Text style={styles.errorText}>{locationError}</Text>
-        </View>
-      )}
+        {locationError && (
+          <View style={styles.errorContainer}>
+            <MaterialIcon name="error" size={20} color="#ef4444" />
+            <Text style={styles.errorText}>{locationError}</Text>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#fff',
-    zIndex: 1000,
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#fff',
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
   },
   loadingText: {
-    marginTop: 15,
+    marginTop: 16,
     fontSize: 16,
-    color: '#333',
+    color: '#ffffff',
     fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 55 : 20,
+    paddingBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: -0.3,
   },
   closeButton: {
-    padding: 5,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   locationInfo: {
-    padding: 15,
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    backgroundColor: '#ffffff',
+    margin: 16,
+    marginTop: -8,
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   locationRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 3,
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  locationText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
+  locationDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 3,
+  },
+  startDot: {
+    backgroundColor: '#3b82f6',
+  },
+  endDot: {
+    backgroundColor: '#ef4444',
+  },
+  locationConnector: {
+    width: 2,
+    height: 24,
+    backgroundColor: '#cbd5e1',
+    marginLeft: 4,
+    marginVertical: 4,
+  },
+  locationContent: {
     flex: 1,
   },
+  locationLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  locationValue: {
+    fontSize: 13,
+    color: '#1e293b',
+    fontWeight: '500',
+  },
   mapContainer: {
-    height: '50%',
-    width: '100%',
+    height: height * 0.45,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
     position: 'relative',
   },
   map: {
@@ -489,123 +601,236 @@ const styles = StyleSheet.create({
   },
   mapControls: {
     position: 'absolute',
-    right: 15,
-    top: 15,
-    gap: 10,
+    right: 12,
+    top: 12,
+    gap: 8,
   },
   mapControlButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 25,
-    backgroundColor: '#fff',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
-    elevation: 5,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   calculatingOverlay: {
     position: 'absolute',
-    top: 15,
-    left: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 15,
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     elevation: 3,
   },
   calculatingText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
+    fontSize: 13,
+    color: '#1e293b',
     fontWeight: '500',
+  },
+  routeLegend: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  routeLegendLine: {
+    width: 30,
+    height: 4,
+    backgroundColor: '#2563eb',
+    borderRadius: 2,
+  },
+  routeLegendText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   currentLocationMarker: {
     alignItems: 'center',
-    justifyContent: 'center',
   },
   destinationMarker: {
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  markerPulse: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(59, 130, 246, 0.3)',
+    top: -10,
+    left: -10,
+  },
+  markerLabel: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  markerLabelDestination: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  markerLabelText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: 'row',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    backgroundColor: '#ffffff',
+    margin: 16,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
+  statIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 5,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 2,
   },
   statLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#e2e8f0',
+    marginHorizontal: 8,
+  },
+  infoNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  infoNoteText: {
+    flex: 1,
+    color: '#3b82f6',
     fontSize: 12,
-    color: '#666',
-    marginTop: 2,
+    fontWeight: '500',
   },
   actionButtons: {
     flexDirection: 'row',
-    padding: 20,
-    gap: 10,
+    marginHorizontal: 16,
+    gap: 12,
+    marginBottom: 16,
   },
   navigateButton: {
     flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 10,
+    gap: 8,
+    backgroundColor: '#3b82f6',
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   navigateButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '600',
-    marginLeft: 8,
   },
   refreshButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: 15,
-    borderRadius: 10,
+    gap: 6,
+    backgroundColor: '#eff6ff',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
   },
   refreshButtonText: {
-    color: '#2196F3',
-    fontSize: 14,
+    color: '#3b82f6',
+    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 5,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEBEE',
-    padding: 15,
-    marginHorizontal: 20,
-    borderRadius: 10,
+    backgroundColor: '#fef2f2',
+    marginHorizontal: 16,
+    padding: 14,
+    borderRadius: 12,
     gap: 10,
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
   errorText: {
     flex: 1,
-    color: '#F44336',
-    fontSize: 14,
+    color: '#dc2626',
+    fontSize: 13,
+    fontWeight: '500',
   },
 });
 

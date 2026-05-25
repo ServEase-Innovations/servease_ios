@@ -1,5 +1,5 @@
-// Settings.tsx - Updated to work with light theme default
-import React, { useState, useEffect } from 'react';
+// Settings.tsx - Modern Redesign with Gradient Navy Blue Theme
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   Alert,
   TextInput,
   TouchableWithoutFeedback,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -22,7 +24,9 @@ import AboutUs from '../AboutUs/AboutPage';
 import TnC from '../TermsAndConditions/TnC';
 import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
 import { useTranslation } from 'react-i18next';
-import { changeLanguage, getSupportedLanguages } from '../../i18n';
+import { changeLanguage } from '../../i18n';
+
+const { width, height } = Dimensions.get('window');
 
 interface SettingsProps {
   visible: boolean;
@@ -46,6 +50,9 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     setCompactMode,
   } = useTheme();
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showFontSizeModal, setShowFontSizeModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
@@ -53,11 +60,8 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [showTnCModal, setShowTnCModal] = useState(false);
   const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
-  
-  // Language search state
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Define languages array before using it
+
   const languages = [
     { code: 'en', name: 'English', nativeName: 'English' },
     { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
@@ -65,22 +69,42 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
   ];
 
-  // Initialize filteredLanguages state after languages is defined
   const [filteredLanguages, setFilteredLanguages] = useState(languages);
 
   const fontSizes = [
-    { value: 'small', label: t('settings.small'), icon: 'text-fields', size: 14 },
-    { value: 'medium', label: t('settings.medium'), icon: 'text-fields', size: 16 },
-    { value: 'large', label: t('settings.large'), icon: 'text-fields', size: 18 },
+    { value: 'small', label: 'Small', icon: 'format-size', size: 14, preview: 'Aa' },
+    { value: 'medium', label: 'Medium', icon: 'format-size', size: 16, preview: 'Aa' },
+    { value: 'large', label: 'Large', icon: 'format-size', size: 18, preview: 'Aa' },
   ];
 
   const themeOptions = [
-    { value: 'light', label: t('settings.light'), icon: 'wb-sunny' },
-    { value: 'dark', label: t('settings.dark'), icon: 'nights-stay' },
-    { value: 'system', label: t('settings.system'), icon: 'settings-overscan' },
+    { value: 'light', label: 'Light Mode', icon: 'wb-sunny', description: 'Bright and清新' },
+    { value: 'dark', label: 'Dark Mode', icon: 'nights-stay', description: 'Easy on eyes' },
+    { value: 'system', label: 'System Default', icon: 'settings-overscan', description: 'Follow device' },
   ];
 
-  // Filter languages based on search query
+  // Animate modal entrance
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(300);
+    }
+  }, [visible]);
+
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredLanguages(languages);
@@ -110,12 +134,12 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
 
   const clearAllPreferences = async () => {
     Alert.alert(
-      t('settings.resetConfirm'),
-      t('settings.resetMessage'),
+      'Reset Settings',
+      'Are you sure you want to reset all settings to default?',
       [
-        { text: t('common.cancel'), style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: t('common.confirm'),
+          text: 'Reset',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -126,7 +150,6 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                 'notifications',
                 'compactMode',
               ]);
-              // Reset to light theme (not system)
               setTheme('light');
               setFontSize('medium');
               setLanguage('en');
@@ -146,87 +169,130 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     setLanguage(code);
     await changeLanguage(code);
     setShowLanguageModal(false);
-    setSearchQuery(''); // Reset search when closing
+    setSearchQuery('');
   };
 
-  const handleAboutPress = () => {
-    setShowAboutModal(true);
+  // Modern Animated Setting Item
+  const SettingItem = ({ icon, label, value, onPress, rightIcon = 'chevron-right', showSwitch = false, switchValue = false, onSwitchChange, isLast = false }: any) => {
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        friction: 5,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 5,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    return (
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <TouchableOpacity
+          style={[
+            styles.settingItem,
+            { 
+              borderBottomWidth: isLast ? 0 : 1,
+              borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+              backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.7)',
+            }
+          ]}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          disabled={showSwitch}
+          activeOpacity={0.7}
+        >
+          <View style={styles.settingItemLeft}>
+            <LinearGradient
+              colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
+              style={styles.settingIconBg}
+            >
+              <MaterialIcon name={icon} size={22} color="#ffffff" />
+            </LinearGradient>
+            <Text style={[styles.settingLabel, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+              {label}
+            </Text>
+          </View>
+          <View style={styles.settingItemRight}>
+            {value && !showSwitch && (
+              <Text style={[styles.settingValue, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
+                {value}
+              </Text>
+            )}
+            {showSwitch ? (
+              <Switch
+                value={switchValue}
+                onValueChange={onSwitchChange}
+                trackColor={{ false: isDarkMode ? '#334155' : '#e2e8f0', true: '#3b82f6' }}
+                thumbColor={switchValue ? '#ffffff' : isDarkMode ? '#94a3b8' : '#ffffff'}
+                ios_backgroundColor={isDarkMode ? '#334155' : '#e2e8f0'}
+              />
+            ) : (
+              <MaterialIcon name={rightIcon} size={20} color={isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
   };
 
-  const handleContactPress = () => {
-    setShowContactModal(true);
-  };
-
-  const handleTnCPress = () => {
-    setShowTnCModal(true);
-  };
-
-  const handlePrivacyPolicyPress = () => {
-    setShowPrivacyPolicyModal(true);
-  };
-
-  const handleCloseAbout = () => {
-    setShowAboutModal(false);
-  };
-
-  const handleCloseContact = () => {
-    setShowContactModal(false);
-  };
-
-  const handleCloseTnC = () => {
-    setShowTnCModal(false);
-  };
-
-  const handleClosePrivacyPolicy = () => {
-    setShowPrivacyPolicyModal(false);
-  };
-
-  const handleCloseLanguageModal = () => {
-    setShowLanguageModal(false);
-    setSearchQuery(''); // Reset search when closing
-  };
-
-  const SettingItem = ({
-    icon,
-    label,
-    value,
-    onPress,
-    rightIcon = 'chevron-right',
-    showSwitch = false,
-    switchValue = false,
-    onSwitchChange,
-  }: any) => (
-    <TouchableOpacity
-      style={[styles.settingItem, { borderBottomColor: colors.border }]}
-      onPress={onPress}
-      disabled={showSwitch}
-    >
-      <View style={styles.settingItemLeft}>
-        <MaterialIcon name={icon} size={24} color={colors.primary} />
-        <Text style={[styles.settingLabel, { color: colors.text, fontSize: fontStyles.textSize }]}>
-          {label}
-        </Text>
-      </View>
-      <View style={styles.settingItemRight}>
-        {value && <Text style={[styles.settingValue, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>{value}</Text>}
-        {showSwitch ? (
-          <Switch
-            value={switchValue}
-            onValueChange={onSwitchChange}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={isDarkMode ? colors.text : '#ffffff'}
-          />
-        ) : (
-          <MaterialIcon name={rightIcon} size={22} color={colors.textSecondary} />
-        )}
-      </View>
-    </TouchableOpacity>
+  const SectionHeader = ({ title, icon }: { title: string; icon?: string }) => (
+    <View style={styles.sectionHeaderContainer}>
+      {icon && (
+        <LinearGradient
+          colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
+          style={styles.sectionIconBg}
+        >
+          <MaterialIcon name={icon} size={16} color="#ffffff" />
+        </LinearGradient>
+      )}
+      <Text style={[styles.sectionHeader, { color: isDarkMode ? '#38bdf8' : '#1e3a8a', fontSize: fontStyles.headingSize }]}>
+        {title}
+      </Text>
+    </View>
   );
 
-  const SectionHeader = ({ title }: { title: string }) => (
-    <Text style={[styles.sectionHeader, { color: colors.primary, fontSize: fontStyles.headingSize }]}>
-      {title}
-    </Text>
+  // Modal Component
+  const CustomModal = ({ visible, onClose, title, children }: any) => (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <Animated.View 
+              style={[
+                styles.modalContent, 
+                { 
+                  backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                  transform: [{ scale: fadeAnim }],
+                }
+              ]}
+            >
+              <LinearGradient
+                colors={["#1e3a5f", "#1e40af"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalHeader}
+              >
+                <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+                  {title}
+                </Text>
+                <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
+                  <MaterialIcon name="close" size={22} color="#ffffff" />
+                </TouchableOpacity>
+              </LinearGradient>
+              {children}
+            </Animated.View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 
   return (
@@ -234,404 +300,326 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
       visible={visible}
       animationType="slide"
       onRequestClose={onClose}
+      transparent={false}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Header with LinearGradient */}
+      <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}>
+        {/* Header with Gradient */}
         <LinearGradient
-          colors={["#0a2a66ff", "#004aadff"]}
+          colors={["#1e3a5f", "#1e40af", "#1e3a5f"]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.header}
         >
-          <TouchableOpacity onPress={onClose} style={styles.headerButton}>
-            <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-            {t('settings.title')}
-          </Text>
-          <TouchableOpacity onPress={clearAllPreferences} style={styles.headerButton}>
-            <MaterialIcon name="refresh" size={24} color="#ffffff" />
-          </TouchableOpacity>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={onClose} style={styles.headerButton}>
+              <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+              Settings
+            </Text>
+            <TouchableOpacity onPress={clearAllPreferences} style={styles.headerButton}>
+              <MaterialIcon name="refresh" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.headerSubtitle}>Customize your app experience</Text>
         </LinearGradient>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <Animated.ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
           {/* Appearance Section */}
-          <SectionHeader title={t('settings.appearance')} />
-          
-          <SettingItem
-            icon="palette"
-            label={t('settings.theme')}
-            value={themeOptions.find(t => t.value === theme)?.label}
-            onPress={() => setShowThemeModal(true)}
-          />
-          
-          <SettingItem
-            icon="format-size"
-            label={t('settings.fontSize')}
-            value={fontSizes.find(f => f.value === fontSize)?.label}
-            onPress={() => setShowFontSizeModal(true)}
-          />
-          
-          <SettingItem
-            icon="language"
-            label={t('settings.language')}
-            value={languages.find(l => l.code === language)?.nativeName}
-            onPress={() => setShowLanguageModal(true)}
-          />
+          <SectionHeader title="Appearance" icon="palette" />
+          <View style={styles.card}>
+            <SettingItem
+              icon="palette"
+              label="Theme"
+              value={themeOptions.find(t => t.value === theme)?.label}
+              onPress={() => setShowThemeModal(true)}
+            />
+            <SettingItem
+              icon="format-size"
+              label="Font Size"
+              value={fontSizes.find(f => f.value === fontSize)?.label}
+              onPress={() => setShowFontSizeModal(true)}
+            />
+            <SettingItem
+              icon="language"
+              label="Language"
+              value={languages.find(l => l.code === language)?.nativeName}
+              onPress={() => setShowLanguageModal(true)}
+              isLast
+            />
+          </View>
 
           {/* Preferences Section */}
-          <SectionHeader title={t('settings.preferences')} />
-          
-          <SettingItem
-            icon="notifications"
-            label={t('settings.notifications')}
-            showSwitch={true}
-            switchValue={notifications}
-            onSwitchChange={setNotifications}
-          />
-          
-          <SettingItem
-            icon="dashboard"
-            label={t('settings.compactMode')}
-            showSwitch={true}
-            switchValue={compactMode}
-            onSwitchChange={setCompactMode}
-          />
+          <SectionHeader title="Preferences" icon="tune" />
+          <View style={styles.card}>
+            <SettingItem
+              icon="notifications"
+              label="Push Notifications"
+              showSwitch={true}
+              switchValue={notifications}
+              onSwitchChange={setNotifications}
+            />
+            <SettingItem
+              icon="dashboard"
+              label="Compact Mode"
+              showSwitch={true}
+              switchValue={compactMode}
+              onSwitchChange={setCompactMode}
+              isLast
+            />
+          </View>
 
           {/* Privacy & Security Section */}
-          <SectionHeader title={t('settings.privacy')} />
-          
-          <SettingItem
-            icon="lock"
-            label={t('settings.privacyPolicy')}
-            onPress={handlePrivacyPolicyPress}
-          />
-          
-          <SettingItem
-            icon="security"
-            label={t('settings.security')}
-            onPress={() => Alert.alert(t('settings.security'), 'Manage your security preferences.')}
-          />
-          
-          <SettingItem
-            icon="gpp-good"
-            label={t('settings.dataSharing')}
-            value={t('settings.disabled')}
-            onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon.')}
-          />
+          <SectionHeader title="Privacy & Security" icon="lock" />
+          <View style={styles.card}>
+            <SettingItem
+              icon="lock"
+              label="Privacy Policy"
+              onPress={() => setShowPrivacyPolicyModal(true)}
+            />
+            <SettingItem
+              icon="security"
+              label="Security"
+              onPress={() => Alert.alert('Security', 'Manage your security preferences.')}
+            />
+            <SettingItem
+              icon="gpp-good"
+              label="Data Sharing"
+              value="Disabled"
+              onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon.')}
+              isLast
+            />
+          </View>
 
           {/* About Section */}
-          <SectionHeader title={t('settings.about')} />
-          
-          <SettingItem
-            icon="info"
-            label={t('settings.aboutApp')}
-            onPress={handleAboutPress}
-          />
-          
-          <SettingItem
-            icon="phone"
-            label={t('settings.contactUs')}
-            onPress={handleContactPress}
-          />
-          
-          <SettingItem
-            icon="update"
-            label={t('settings.appVersion')}
-            value="1.0.0 (Build 101)"
-            onPress={() => {}}
-          />
-          
-          <SettingItem
-            icon="description"
-            label={t('settings.termsConditions')}
-            onPress={handleTnCPress}
-          />
-          
-          <SettingItem
-            icon="star"
-            label={t('settings.rateApp')}
-            onPress={() => Alert.alert('Rate Us', 'Thank you for rating our app!')}
-          />
+          <SectionHeader title="About" icon="info" />
+          <View style={styles.card}>
+            <SettingItem
+              icon="info"
+              label="About App"
+              onPress={() => setShowAboutModal(true)}
+            />
+            <SettingItem
+              icon="phone"
+              label="Contact Us"
+              onPress={() => setShowContactModal(true)}
+            />
+            <SettingItem
+              icon="description"
+              label="Terms & Conditions"
+              onPress={() => setShowTnCModal(true)}
+            />
+            <SettingItem
+              icon="star"
+              label="Rate App"
+              onPress={() => Alert.alert('Rate Us', 'Thank you for rating our app!')}
+            />
+            <SettingItem
+              icon="update"
+              label="App Version"
+              value="1.0.0 (Build 101)"
+              onPress={() => {}}
+              isLast
+            />
+          </View>
 
-          {/* Support Section */}
-          <SectionHeader title={t('settings.support')} />
-          
-          <SettingItem
-            icon="help"
-            label={t('settings.helpCenter')}
-            onPress={() => Alert.alert(t('settings.helpCenter'), 'How can we help you?')}
-          />
-          
-          <SettingItem
-            icon="feedback"
-            label={t('settings.sendFeedback')}
-            onPress={() => Alert.alert('Feedback', 'Thank you for your feedback!')}
-          />
-          
-          <SettingItem
-            icon="bug-report"
-            label={t('settings.reportProblem')}
-            onPress={() => Alert.alert('Report Issue', 'Please describe the issue you encountered.')}
-          />
 
-          {/* Reset Settings Button */}
+          {/* Reset Button */}
           <TouchableOpacity
-            style={[styles.resetButton, { borderColor: colors.error }]}
+            style={[styles.resetButton, { borderColor: '#ef4444' }]}
             onPress={clearAllPreferences}
           >
-            <MaterialIcon name="settings-backup-restore" size={22} color={colors.error} />
-            <Text style={[styles.resetButtonText, { color: colors.error, fontSize: fontStyles.textSize }]}>
-              {t('settings.resetSettings')}
+            <MaterialIcon name="settings-backup-restore" size={22} color="#ef4444" />
+            <Text style={[styles.resetButtonText, { color: '#ef4444', fontSize: fontStyles.textSize }]}>
+              Reset All Settings
             </Text>
           </TouchableOpacity>
-
-          <View style={styles.footer} />
-        </ScrollView>
+        </Animated.ScrollView>
 
         {/* Theme Selection Modal */}
-        <Modal visible={showThemeModal} transparent animationType="fade">
-          <TouchableWithoutFeedback onPress={() => setShowThemeModal(false)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-                  <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.modalHeader, { borderBottomWidth: 0 }]}
-                  >
-                    <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                      {t('settings.selectTheme')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowThemeModal(false)}>
-                      <MaterialIcon name="close" size={24} color="#ffffff" />
-                    </TouchableOpacity>
-                  </LinearGradient>
-                  {themeOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.modalItem,
-                        { borderBottomColor: colors.border },
-                        theme === option.value && { backgroundColor: colors.primary + '20' }
-                      ]}
-                      onPress={() => {
-                        setTheme(option.value as 'light' | 'dark' | 'system');
-                        setShowThemeModal(false);
-                      }}
-                    >
-                      <View style={styles.modalItemLeft}>
-                        <MaterialIcon name={option.icon} size={22} color={colors.primary} />
-                        <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                          {option.label}
-                        </Text>
-                      </View>
-                      {theme === option.value && (
-                        <MaterialIcon name="check" size={22} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
+        <CustomModal visible={showThemeModal} onClose={() => setShowThemeModal(false)} title="Select Theme">
+          {themeOptions.map((option, idx) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.modalItem,
+                { borderBottomWidth: idx === themeOptions.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
+                theme === option.value && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.15)' : 'rgba(59,130,246,0.1)' }
+              ]}
+              onPress={() => {
+                setTheme(option.value as 'light' | 'dark' | 'system');
+                setShowThemeModal(false);
+              }}
+            >
+              <View style={styles.modalItemLeft}>
+                <LinearGradient
+                  colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
+                  style={styles.modalIconBg}
+                >
+                  <MaterialIcon name={option.icon} size={20} color="#ffffff" />
+                </LinearGradient>
+                <View>
+                  <Text style={[styles.modalItemText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[styles.modalItemSubText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
+                    {option.description}
+                  </Text>
                 </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
+              </View>
+              {theme === option.value && (
+                <MaterialIcon name="check-circle" size={22} color="#3b82f6" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </CustomModal>
 
         {/* Font Size Selection Modal */}
-        <Modal visible={showFontSizeModal} transparent animationType="fade">
-          <TouchableWithoutFeedback onPress={() => setShowFontSizeModal(false)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-                  <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.modalHeader, { borderBottomWidth: 0 }]}
-                  >
-                    <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                      {t('settings.selectFontSize')}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowFontSizeModal(false)}>
-                      <MaterialIcon name="close" size={24} color="#ffffff" />
-                    </TouchableOpacity>
-                  </LinearGradient>
-                  {fontSizes.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.modalItem,
-                        { borderBottomColor: colors.border },
-                        fontSize === option.value && { backgroundColor: colors.primary + '20' }
-                      ]}
-                      onPress={() => {
-                        setFontSize(option.value as 'small' | 'medium' | 'large');
-                        setShowFontSizeModal(false);
-                      }}
+        <CustomModal visible={showFontSizeModal} onClose={() => setShowFontSizeModal(false)} title="Font Size">
+          {fontSizes.map((option, idx) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.modalItem,
+                { borderBottomWidth: idx === fontSizes.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
+                fontSize === option.value && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.15)' : 'rgba(59,130,246,0.1)' }
+              ]}
+              onPress={() => {
+                setFontSize(option.value as 'small' | 'medium' | 'large');
+                setShowFontSizeModal(false);
+              }}
+            >
+              <View style={styles.modalItemLeft}>
+                <LinearGradient
+                  colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
+                  style={styles.modalIconBg}
+                >
+                  <Text style={[styles.previewText, { fontSize: option.size }]}>{option.preview}</Text>
+                </LinearGradient>
+                <Text style={[styles.modalItemText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: option.size }]}>
+                  {option.label}
+                </Text>
+              </View>
+              {fontSize === option.value && (
+                <MaterialIcon name="check-circle" size={22} color="#3b82f6" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </CustomModal>
+
+        {/* Language Selection Modal */}
+        <CustomModal visible={showLanguageModal} onClose={() => { setShowLanguageModal(false); setSearchQuery(''); }} title="Select Language">
+          <View style={[styles.searchContainer, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+            <MaterialIcon name="search" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+            <TextInput
+              style={[styles.searchInput, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}
+              placeholder="Search language..."
+              placeholderTextColor={isDarkMode ? '#94a3b8' : '#64748b'}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <MaterialIcon name="clear" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <ScrollView style={{ maxHeight: 400 }}>
+            {filteredLanguages.length > 0 ? (
+              filteredLanguages.map((lang, idx) => (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.modalItem,
+                    { borderBottomWidth: idx === filteredLanguages.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
+                    language === lang.code && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.15)' : 'rgba(59,130,246,0.1)' }
+                  ]}
+                  onPress={() => handleLanguageChange(lang.code)}
+                >
+                  <View style={styles.modalItemLeft}>
+                    <LinearGradient
+                      colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
+                      style={styles.modalIconBg}
                     >
-                      <View style={styles.modalItemLeft}>
-                        <MaterialIcon name={option.icon} size={22} color={colors.primary} />
-                        <Text style={[styles.modalItemText, { color: colors.text, fontSize: option.size }]}>
-                          {option.label}
-                        </Text>
-                      </View>
-                      {fontSize === option.value && (
-                        <MaterialIcon name="check" size={22} color={colors.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-
-        {/* Language Selection Modal with Search */}
-        <Modal visible={showLanguageModal} transparent animationType="fade">
-          <TouchableWithoutFeedback onPress={handleCloseLanguageModal}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View style={[styles.modalContent, { backgroundColor: colors.surface, maxHeight: '80%' }]}>
-                  <LinearGradient
-                    colors={["#0a2a66ff", "#004aadff"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.modalHeader, { borderBottomWidth: 0 }]}
-                  >
-                    <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                      {t('settings.selectLanguage')}
-                    </Text>
-                    <TouchableOpacity onPress={handleCloseLanguageModal}>
-                      <MaterialIcon name="close" size={24} color="#ffffff" />
-                    </TouchableOpacity>
-                  </LinearGradient>
-                  
-                  {/* Search Input */}
-                  <View style={[styles.searchContainer, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-                    <MaterialIcon name="search" size={20} color={colors.textSecondary} />
-                    <TextInput
-                      style={[styles.searchInput, { color: colors.text, fontSize: fontStyles.textSize }]}
-                      placeholder={t('settings.searchLanguage')}
-                      placeholderTextColor={colors.textSecondary}
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      autoFocus
-                    />
-                    {searchQuery.length > 0 && (
-                      <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <MaterialIcon name="clear" size={20} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                    )}
+                      <MaterialIcon name="language" size={20} color="#ffffff" />
+                    </LinearGradient>
+                    <View>
+                      <Text style={[styles.modalItemText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+                        {lang.name}
+                      </Text>
+                      <Text style={[styles.modalItemSubText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
+                        {lang.nativeName}
+                      </Text>
+                    </View>
                   </View>
-
-                  <ScrollView style={{ maxHeight: 400 }}>
-                    {filteredLanguages.length > 0 ? (
-                      filteredLanguages.map((lang) => (
-                        <TouchableOpacity
-                          key={lang.code}
-                          style={[
-                            styles.modalItem,
-                            { borderBottomColor: colors.border },
-                            language === lang.code && { backgroundColor: colors.primary + '20' }
-                          ]}
-                          onPress={() => handleLanguageChange(lang.code)}
-                        >
-                          <View style={styles.modalItemLeft}>
-                            <MaterialIcon name="language" size={22} color={colors.primary} />
-                            <View>
-                              <Text style={[styles.modalItemText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                                {lang.name}
-                              </Text>
-                              <Text style={[styles.modalItemSubText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
-                                {lang.nativeName}
-                              </Text>
-                            </View>
-                          </View>
-                          {language === lang.code && (
-                            <MaterialIcon name="check" size={22} color={colors.primary} />
-                          )}
-                        </TouchableOpacity>
-                      ))
-                    ) : (
-                      <View style={styles.noResultsContainer}>
-                        <MaterialIcon name="search-off" size={48} color={colors.textSecondary} />
-                        <Text style={[styles.noResultsText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                          {t('settings.noLanguagesFound')}
-                        </Text>
-                        <Text style={[styles.noResultsSubText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
-                          {t('settings.tryDifferentSearch')}
-                        </Text>
-                      </View>
-                    )}
-                  </ScrollView>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
+                  {language === lang.code && (
+                    <MaterialIcon name="check-circle" size={22} color="#3b82f6" />
+                  )}
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <MaterialIcon name="search-off" size={48} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                <Text style={[styles.noResultsText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+                  No languages found
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </CustomModal>
 
         {/* About Us Modal */}
-        <Modal
-          visible={showAboutModal}
-          animationType="slide"
-          onRequestClose={handleCloseAbout}
-        >
-          <AboutUs onBack={handleCloseAbout} visible={showAboutModal} />
+        <Modal visible={showAboutModal} animationType="slide" onRequestClose={() => setShowAboutModal(false)}>
+          <AboutUs onBack={() => setShowAboutModal(false)} visible={showAboutModal} />
         </Modal>
 
         {/* Contact Us Modal */}
-        <Modal
-          visible={showContactModal}
-          animationType="slide"
-          onRequestClose={handleCloseContact}
-        >
-          <ContactUs onBack={handleCloseContact} />
+        <Modal visible={showContactModal} animationType="slide" onRequestClose={() => setShowContactModal(false)}>
+          <ContactUs onBack={() => setShowContactModal(false)} />
         </Modal>
 
         {/* Terms & Conditions Modal */}
-        <Modal
-          visible={showTnCModal}
-          animationType="slide"
-          onRequestClose={handleCloseTnC}
-        >
-          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <Modal visible={showTnCModal} animationType="slide" onRequestClose={() => setShowTnCModal(false)}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={["#1e3a5f", "#1e40af"]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.modalHeader, { justifyContent: 'flex-start', gap: 16 }]}
+              end={{ x: 1, y: 1 }}
+              style={styles.modalPageHeader}
             >
-              <TouchableOpacity onPress={handleCloseTnC} style={styles.headerButton}>
+              <TouchableOpacity onPress={() => setShowTnCModal(false)} style={styles.modalPageBackBtn}>
                 <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
               </TouchableOpacity>
-              <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                {t('settings.termsConditions')}
+              <Text style={[styles.modalPageTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+                Terms & Conditions
               </Text>
+              <View style={{ width: 40 }} />
             </LinearGradient>
             <TnC />
           </SafeAreaView>
         </Modal>
 
         {/* Privacy Policy Modal */}
-        <Modal
-          visible={showPrivacyPolicyModal}
-          animationType="slide"
-          onRequestClose={handleClosePrivacyPolicy}
-        >
-          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <Modal visible={showPrivacyPolicyModal} animationType="slide" onRequestClose={() => setShowPrivacyPolicyModal(false)}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={["#1e3a5f", "#1e40af"]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.modalHeader, { justifyContent: 'flex-start', gap: 16 }]}
+              end={{ x: 1, y: 1 }}
+              style={styles.modalPageHeader}
             >
-              <TouchableOpacity onPress={handleClosePrivacyPolicy} style={styles.headerButton}>
+              <TouchableOpacity onPress={() => setShowPrivacyPolicyModal(false)} style={styles.modalPageBackBtn}>
                 <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
               </TouchableOpacity>
-              <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                {t('settings.privacyPolicy')}
+              <Text style={[styles.modalPageTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
+                Privacy Policy
               </Text>
+              <View style={{ width: 40 }} />
             </LinearGradient>
             <PrivacyPolicy />
           </SafeAreaView>
@@ -646,50 +634,96 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    paddingTop: 12,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   headerButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   headerTitle: {
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    // justifyContent: 'center',
+    // alignItems: 'center',
+    marginTop: 8,
+    marginLeft: 100,
   },
   content: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  sectionHeader: {
-    fontWeight: '600',
+  card: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 24,
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  sectionIconBg: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  sectionHeader: {
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
   },
   settingItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+  },
+  settingIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   settingLabel: {
-    fontWeight: '500',
+    fontWeight: '600',
   },
   settingItemRight: {
     flexDirection: 'row',
@@ -697,90 +731,126 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   settingValue: {
-    maxWidth: 150,
-    textAlign: 'right',
+    fontWeight: '500',
   },
   resetButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 32,
+    gap: 10,
+    marginTop: 16,
     marginBottom: 24,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderRadius: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   resetButtonText: {
-    fontWeight: '600',
-  },
-  footer: {
-    height: 40,
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    width: '80%',
-    maxHeight: '70%',
-    borderRadius: 12,
+    width: width * 0.85,
+    maxHeight: height * 0.7,
+    borderRadius: 20,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   modalTitle: {
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   modalItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderBottomWidth: 1,
   },
   modalItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+  },
+  modalIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalItemText: {
-    fontWeight: '500',
+    fontWeight: '600',
   },
   modalItemSubText: {
     marginTop: 2,
+  },
+  previewText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
     paddingVertical: 8,
   },
   noResultsContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
+    padding: 40,
   },
   noResultsText: {
     marginTop: 16,
     fontWeight: '600',
   },
-  noResultsSubText: {
-    marginTop: 8,
-    textAlign: 'center',
+  modalPageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  modalPageBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  modalPageTitle: {
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
 });
 
