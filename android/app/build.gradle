@@ -28,6 +28,25 @@ project.ext.react = [
 def enableHermes = project.ext.react.get("enableHermes", false)
 def hermesEnabled = enableHermes
 
+def versionPropsFile = rootProject.file("version.properties")
+def versionProps = new Properties()
+if (versionPropsFile.exists()) {
+    versionProps.load(new FileInputStream(versionPropsFile))
+}
+
+/** CI sets VERSION_CODE / VERSION_NAME env; local builds use version.properties */
+def appVersionCode = {
+    def fromEnv = System.getenv("VERSION_CODE")?.trim()
+    if (fromEnv) return fromEnv.toInteger()
+    return (versionProps.getProperty("VERSION_CODE", "1") as Integer)
+}
+
+def appVersionName = {
+    def fromEnv = System.getenv("VERSION_NAME")?.trim()
+    if (fromEnv) return fromEnv
+    return versionProps.getProperty("VERSION_NAME", "1.0.${appVersionCode()}")
+}
+
 android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
@@ -38,8 +57,8 @@ android {
         applicationId "com.serveaso"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode()
+        versionName appVersionName()
 
         manifestPlaceholders = [
             auth0Domain: "dev-y0yafxo2cjqtu8y2.us.auth0.com",
@@ -100,6 +119,18 @@ dependencies {
 configurations.all {
     resolutionStrategy {
         force "com.razorpay:checkout:1.6.20"
+    }
+}
+
+/** Bump version.properties after a local release APK (optional). */
+tasks.register("bumpAndroidVersion") {
+    doLast {
+        def code = (versionProps.getProperty("VERSION_CODE", "1") as Integer) + 1
+        def name = "1.0.${code}"
+        versionProps.setProperty("VERSION_CODE", code.toString())
+        versionProps.setProperty("VERSION_NAME", name)
+        versionProps.store(versionPropsFile.newWriter(), "Auto-incremented by bumpAndroidVersion\n")
+        println "Android version → ${name} (${code})"
     }
 }
 
