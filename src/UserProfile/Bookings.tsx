@@ -950,7 +950,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           <Icon name="arrow-left" size={22} color="#ffffff" />
         </TouchableOpacity>
         <Text
-          style={[styles.headerTitleSimple, { fontSize: fontSizes.headerTitle + 2, marginLeft: 4 }]}
+          style={[styles.headerTitleSimple, { fontSize: fontSizes.headerTitle + 2, marginLeft: 4, paddingLeft: 105 }]}
           numberOfLines={1}
         >
           My Bookings
@@ -1783,6 +1783,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.2,
     lineHeight: 28,
+    
   },
   headerTitleSpacer: {
     width: 40,
@@ -2227,19 +2228,19 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
-  statusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  statusChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
+  // statusChip: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   paddingHorizontal: 10,
+  //   paddingVertical: 6,
+  //   borderRadius: 20,
+  //   gap: 6,
+  // },
+  // statusChipText: {
+  //   fontSize: 12,
+  //   fontWeight: '600',
+  //   flexShrink: 1,
+  // },
   
   // Details Grid
   detailsGrid: {
