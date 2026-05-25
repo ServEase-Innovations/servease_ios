@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Modal,
   Alert,
   useWindowDimensions,
+  Animated,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
@@ -71,6 +72,13 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
+  // Animation values for each service card
+  const scaleAnimations = useRef({
+    COOK: new Animated.Value(1),
+    MAID: new Animated.Value(1),
+    NANNY: new Animated.Value(1),
+  }).current;
+
   useEffect(() => {
     setIsAuthenticated(!!auth0User);
   }, [auth0User]);
@@ -84,14 +92,50 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
 
   const services = useMemo(
     () => [
-      { key: "COOK" as ServiceType, title: t("home.services.homeCook"), subtitle: "Daily and custom meals", image: cookImage },
-      { key: "MAID" as ServiceType, title: t("home.services.cleaningHelp"), subtitle: "Cleaning and upkeep", image: maidImage },
-      { key: "NANNY" as ServiceType, title: t("home.services.caregiver"), subtitle: "Child and elder care", image: nannyImage },
+      { 
+        key: "COOK" as ServiceType, 
+        title: t("home.services.homeCook"), 
+        subtitle: "Daily and custom meals", 
+        image: cookImage,
+        gradientColors: ['#1e3a8a', '#3b82f6'],
+      },
+      { 
+        key: "MAID" as ServiceType, 
+        title: t("home.services.cleaningHelp"), 
+        subtitle: "Cleaning and upkeep", 
+        image: maidImage,
+        gradientColors: ['#1e40af', '#3b82f6'],
+      },
+      { 
+        key: "NANNY" as ServiceType, 
+        title: t("home.services.caregiver"), 
+        subtitle: "Child and elder care", 
+        image: nannyImage,
+        gradientColors: ['#1e3a8a', '#2563eb'],
+      },
     ],
     [t]
   );
 
   const isServiceDisabled = role === "SERVICE_PROVIDER";
+
+  const handlePressIn = (serviceKey: string) => {
+    Animated.spring(scaleAnimations[serviceKey as keyof typeof scaleAnimations], {
+      toValue: 0.97,
+      friction: 5,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = (serviceKey: string) => {
+    Animated.spring(scaleAnimations[serviceKey as keyof typeof scaleAnimations], {
+      toValue: 1,
+      friction: 5,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const handleClick = (data: ServiceType) => {
     if (isServiceDisabled) {
@@ -176,6 +220,108 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     setServiceDetailsOpen(true);
   };
 
+  const ServiceCard = ({ service, index }: { service: typeof services[0], index: number }) => {
+    const slideAnim = useRef(new Animated.Value(50)).current;
+    const opacityAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 400,
+          delay: index * 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 400,
+          delay: index * 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, []);
+
+    return (
+      <Animated.View
+        style={{
+          transform: [{ translateX: slideAnim }],
+          opacity: opacityAnim,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => handleClick(service.key)}
+          onLongPress={() => handleLearnMore(service.key)}
+          onPressIn={() => handlePressIn(service.key)}
+          onPressOut={() => handlePressOut(service.key)}
+          disabled={isServiceDisabled}
+          activeOpacity={0.9}
+        >
+          <Animated.View
+            style={[
+              styles.serviceCardWrapper,
+              {
+                transform: [{ scale: scaleAnimations[service.key as keyof typeof scaleAnimations] }],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={service.gradientColors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.serviceCardGradient}
+            >
+              <View style={styles.serviceCardInner}>
+                <View style={styles.serviceImageContainer}>
+                  <View style={styles.serviceImageGlow}>
+                    <Image source={service.image} style={styles.serviceImage} />
+                  </View>
+                </View>
+                
+                <View style={styles.serviceContent}>
+                  <View style={styles.serviceHeader}>
+                    <Text style={[styles.serviceTitle, { color: '#1e293b' }]} numberOfLines={1}>
+                      {service.title}
+                    </Text>
+                    <LinearGradient
+                      colors={['#2563eb', '#1e3a8a']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.serviceBadge}
+                    >
+                      <Text style={styles.serviceBadgeText}>⭐ Top Rated</Text>
+                    </LinearGradient>
+                  </View>
+                  
+                  <Text style={[styles.serviceSub, { color: '#475569' }]} numberOfLines={2}>
+                    {service.subtitle}
+                  </Text>
+                  
+                  <View style={styles.serviceFeatures}>
+                    <View style={styles.featureChip}>
+                      <Text style={styles.featureChipText}>✓ Verified</Text>
+                    </View>
+                    <View style={styles.featureChip}>
+                      <Text style={styles.featureChipText}>✓ Insured</Text>
+                    </View>
+                  </View>
+                  
+                  <LinearGradient
+                    colors={service.gradientColors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.bookButton}
+                  >
+                    <Text style={styles.bookButtonText}>Book Now →</Text>
+                  </LinearGradient>
+                </View>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
       <ScrollView
@@ -221,38 +367,8 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           </Text>
 
           <View style={styles.serviceGrid}>
-            {services.map((service) => (
-              <TouchableOpacity
-                key={service.key}
-                onPress={() => handleClick(service.key)}
-                onLongPress={() => handleLearnMore(service.key)}
-                disabled={isServiceDisabled}
-                activeOpacity={0.9}
-                style={[
-                  styles.serviceCard,
-                  { backgroundColor: isDarkMode ? colors.surface : "#f8fafc", borderColor: colors.border + "66" },
-                ]}
-              >
-                <View style={styles.serviceCardRow}>
-                  <View style={styles.serviceImageWrap}>
-                    <Image source={service.image} style={styles.serviceImage} />
-                    <View style={styles.serviceBadge}>
-                      <Text style={styles.serviceBadgeText}>Top Rated</Text>
-                    </View>
-                  </View>
-                  <View style={styles.serviceContent}>
-                    <Text style={[styles.serviceTitle, { color: colors.text }]} numberOfLines={1}>
-                      {service.title}
-                    </Text>
-                    <Text style={[styles.serviceSub, { color: colors.textSecondary }]} numberOfLines={2}>
-                      {service.subtitle}
-                    </Text>
-                    <View style={[styles.bookChip, { backgroundColor: isDarkMode ? "#1e3a8a" : "#dbeafe" }]}>
-                      <Text style={[styles.bookChipText, { color: isDarkMode ? "#bfdbfe" : "#1e3a8a" }]}>Tap to book</Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
+            {services.map((service, index) => (
+              <ServiceCard key={service.key} service={service} index={index} />
             ))}
           </View>
 
@@ -375,10 +491,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   hero: {
     marginHorizontal: 6,
-    marginTop: 12,
+    marginTop: 25,
     borderRadius: 20,
     paddingHorizontal: 0,
-    paddingTop: 7,
+    paddingTop: 10,
     paddingBottom: 8,
     minHeight: 205,
     alignItems: "center",
@@ -452,68 +568,113 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   serviceGrid: {
-    gap: 10,
+    gap: 16,
   },
-  serviceCard: {
+  serviceCardWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  serviceCardGradient: {
+    borderRadius: 16,
+    padding: 2,
+  },
+  serviceCardInner: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
     borderRadius: 14,
-    padding: 9,
-    borderWidth: 1,
-    shadowColor: "#0f172a",
+    padding: 12,
+    alignItems: "center",
+  },
+  serviceImageContainer: {
+    marginRight: 12,
+  },
+  serviceImageGlow: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#e0e7ff",
+    shadowColor: "#3b82f6",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
     elevation: 4,
   },
-  serviceCardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  serviceImageWrap: {
-    position: "relative",
-    width: 110,
-    flexShrink: 0,
-  },
   serviceImage: {
-    width: 110,
-    height: 84,
-    borderRadius: 10,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
   },
   serviceContent: {
     flex: 1,
-    justifyContent: "center",
+  },
+  serviceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+    gap: 8,
+  },
+  serviceTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    flex: 1,
   },
   serviceBadge: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    backgroundColor: "rgba(10,42,102,0.9)",
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   serviceBadgeText: {
     color: "#fff",
     fontSize: 10,
-    fontWeight: "700",
-  },
-  serviceTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   serviceSub: {
-    fontSize: 12,
-    marginTop: 3,
+    fontSize: 13,
+    marginBottom: 8,
   },
-  bookChip: {
+  serviceFeatures: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  featureChip: {
+    backgroundColor: "#e0e7ff",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  featureChipText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#1e3a8a",
+  },
+  bookButton: {
     alignSelf: "flex-start",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 8,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  bookChipText: {
-    fontSize: 11,
+  bookButtonText: {
+    color: "#fff",
+    fontSize: 12,
     fontWeight: "700",
   },
   helperText: {

@@ -153,7 +153,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
         >
           <Icon name="arrow-left" size={22} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { fontSize: fontSizes.header + 2 }]}>My Wallet</Text>
+        <Text style={[styles.headerTitle, { fontSize: fontSizes.header + 2, paddingLeft: 105  }]}>My Wallet</Text>
         <View style={styles.headerSpacer} />
       </View>
     </View>
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '600',
     lineHeight: 40,
   },
   headerSpacer: { width: 40 },

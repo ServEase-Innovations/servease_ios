@@ -555,12 +555,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           iconName: "dashboard",
           onPress: handleDashboardButtonClick,
         });
-        tabs.push({
-          key: "NOTIFICATIONS",
-          label: t("navigation.alerts"),
-          iconName: "notifications-none",
-          onPress: () => setShowNotifications(true),
-        });
+        // REMOVED: Notifications/Alerts button for service providers
       }
 
       if (isVendor) {
@@ -812,14 +807,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           </View>
 
           <View style={styles.desktopActionIcons}>
-            {isServiceProvider && isAuthenticated && (
-              <TouchableOpacity
-                onPress={() => setShowNotifications(true)}
-                style={styles.desktopActionIcon}
-              >
-                <MaterialIcon name="notifications" size={22} color="#fff" />
-              </TouchableOpacity>
-            )}
+            {/* REMOVED: Notifications bell icon for service providers */}
             
             <TouchableOpacity 
               onPress={handleProfileButtonClick}

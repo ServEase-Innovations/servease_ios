@@ -985,7 +985,7 @@ const MainApp = () => {
               )}
             </View>
 
-          {/* Chat Button - Positioned above Navigation Footer */}
+          {/* Chat Button - Positioned above Navigation Footer - Shifted more to the left */}
           {!chatbotOpen && isMobile && (
             <TouchableOpacity 
               style={[
@@ -993,7 +993,7 @@ const MainApp = () => {
                 {
                   backgroundColor: colors.secondary,
                   bottom: mobileTabBarClearance + 10,
-                  right: 76,
+                  left: 20, // Changed from right to left positioning
                 },
               ]} 
               onPress={() => setChatbotOpen(true)}

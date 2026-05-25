@@ -19,6 +19,7 @@ import { useTheme } from "../Settings/ThemeContext";
 import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 import LinearGradient from "react-native-linear-gradient";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
+import ContactUs from "../ContactUs/ContactUs"; // Import the ContactUs component
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_DRAG = 72;
@@ -76,6 +77,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
 
   const [showSettings, setShowSettings] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
+  const [showContactUs, setShowContactUs] = useState(false); // State for ContactUs modal
   const [mounted, setMounted] = useState(visible);
 
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -124,6 +126,15 @@ const ProfileMenuSheet: React.FC<Props> = ({
   const dismissSheet = () => {
     dragY.setValue(0);
     onClose();
+  };
+
+  const handleContactPress = () => {
+    dismissSheet();
+    setShowContactUs(true); // Show ContactUs component instead of calling onContact directly
+  };
+
+  const handleCloseContactUs = () => {
+    setShowContactUs(false);
   };
 
   const panResponder = useMemo(
@@ -238,10 +249,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
       label: "Help & contact",
       subtitle: "Reach our support team",
       icon: "support-agent",
-      onPress: () => {
-        dismissSheet();
-        onContact();
-      },
+      onPress: handleContactPress, // Updated to use the new handler
     },
     {
       key: "settings",
@@ -265,6 +273,14 @@ const ProfileMenuSheet: React.FC<Props> = ({
             onClose={() => setShowAgentRegistration(false)}
           />
         )}
+        {/* ContactUs Modal */}
+        <Modal
+          visible={showContactUs}
+          animationType="slide"
+          onRequestClose={handleCloseContactUs}
+        >
+          <ContactUs onBack={handleCloseContactUs} />
+        </Modal>
       </>
     );
   }
@@ -301,14 +317,14 @@ const ProfileMenuSheet: React.FC<Props> = ({
             >
               <View style={styles.headerToolbar}>
                 <View style={styles.handle} />
-                <TouchableOpacity
+                {/* <TouchableOpacity
                   onPress={dismissSheet}
                   style={styles.closeBtn}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   accessibilityLabel="Close menu"
                 >
                   <MaterialIcon name="close" size={22} color="#0f172a" />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
 
               <View style={styles.profileRow}>
@@ -377,6 +393,15 @@ const ProfileMenuSheet: React.FC<Props> = ({
           onClose={() => setShowAgentRegistration(false)}
         />
       )}
+
+      {/* ContactUs Modal - Displayed when Help & Contact is clicked */}
+      <Modal
+        visible={showContactUs}
+        animationType="slide"
+        onRequestClose={handleCloseContactUs}
+      >
+        <ContactUs onBack={handleCloseContactUs} />
+      </Modal>
     </>
   );
 };
