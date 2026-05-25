@@ -1,4 +1,5 @@
 // index.js
+import '@react-native-firebase/app';
 import 'react-native-gesture-handler'; // keep at top if you use gesture-handler anywhere
 import { AppRegistry } from 'react-native';
 import React from 'react';

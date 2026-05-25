@@ -70,6 +70,10 @@ import {
   disconnectProviderBookingSocket,
   useProviderBookingSocket,
 } from "./src/hooks/useProviderBookingSocket";
+import {
+  setupPushNotifications,
+  unregisterPushNotifications,
+} from "./src/services/pushNotifications";
 import { AppUserProvider, useAppUser } from "./src/context/AppUserContext";
 import axios from "axios";
 import { useDispatch } from "react-redux";
@@ -365,6 +369,7 @@ const MainApp = () => {
       }
       
       disconnectProviderBookingSocket();
+      await unregisterPushNotifications();
       console.log("✅ Provider booking socket disconnected");
       
       const newKey = Date.now();
@@ -487,6 +492,17 @@ const MainApp = () => {
       }
     }
   }, [appUser]);
+
+  useEffect(() => {
+    if (!appUser || isUserLoading) return;
+    void setupPushNotifications({
+      email: appUser.email || user?.email,
+      role: appUser.role,
+      userId: appUser.id || appUser.userId,
+      serviceProviderId: appUser.serviceProviderId,
+      customerId: appUser.customerid || appUser.customerId,
+    });
+  }, [appUser, isUserLoading, user?.email]);
 
   useEffect(() => {
     if (!appUser || appUser?.role?.toUpperCase() !== "CUSTOMER" || hasCheckedMobileNumber) {

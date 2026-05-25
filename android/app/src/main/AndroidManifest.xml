@@ -18,6 +18,7 @@
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
 <!-- For Android 13+ -->
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
@@ -83,5 +84,15 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="serveaso_default"
+            tools:replace="android:value" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_serveaso" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
     </application>
 </manifest>

@@ -368,3 +368,9 @@ coverage/
 # =====================
 *.swp
 *.swo
+
+# Local API host override (physical device → Mac LAN IP)
+src/config/devApi.local.ts
+
+# Local Xcode signing (machine-specific)
+ios/Signing.local.xcconfig

@@ -12,10 +12,15 @@ require Pod::Executable.execute_command(
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
+# React Native Firebase (static frameworks)
+$RNFirebaseAsStaticFramework = true
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
+else
+  use_frameworks! :linkage => :static
 end
 
 target 'Serveaso' do
@@ -27,6 +32,14 @@ target 'Serveaso' do
   )
 
   post_install do |installer|
+    installer.pods_project.targets.each do |target|
+      if target.name.start_with?('GoogleUtilities') || target.name.start_with?('Firebase') || target.name.start_with?('GoogleDataTransport') || target.name.start_with?('nanopb')
+        target.build_configurations.each do |config|
+          config.build_settings['DEFINES_MODULE'] = 'YES'
+        end
+      end
+    end
+
     # Standard RN post install
     react_native_post_install(
       installer,
