@@ -24,6 +24,7 @@ import ProviderDetailsComponent from "../DetailsView/ProviderDetails";
 import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
 import { ServiceProviderDTO } from "../types/ProviderDetailsType";
+import { resolveProviderId } from "../utils/providerId";
 import ProviderFilter, { FilterCriteria } from "./ProviderFilter";
 import { useTheme } from '../Settings/ThemeContext';
 import { SkeletonLoader } from '../common/SkeletonLoader';
@@ -375,7 +376,15 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
       console.log("API Response:", response.data);
 
-      const newProviders = response.data.providers || [];
+      const rawProviders = response.data.providers || [];
+      const newProviders: ServiceProviderDTO[] = rawProviders.map((p: ServiceProviderDTO) => {
+        const id = resolveProviderId(p as unknown as Record<string, unknown>);
+        return {
+          ...p,
+          serviceproviderid: id ?? "",
+          serviceProviderId: id ?? (p as { serviceProviderId?: string }).serviceProviderId,
+        };
+      });
       const total = response.data.count || 0;
       setTotalCount(total);
 

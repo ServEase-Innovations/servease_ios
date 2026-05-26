@@ -27,6 +27,7 @@ import { ServiceProviderDTO, EnhancedProviderDetails } from "../types/ProviderDe
 import ProviderAvailabilityDrawer from "./ProviderAvailabilityDrawer";
 import { CONFIRMATION, BOOKINGS } from "../Constants/pagesConstants";
 import { useTheme } from '../Settings/ThemeContext';
+import { resolveProviderId } from '../utils/providerId';
 
 interface BookingType {
   serviceproviderId: string;
@@ -328,11 +329,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     setIsFavorite(!isFavorite);
   };
 
-  // Get provider ID
-  const getProviderId = () => {
-    const id = props.serviceproviderid;
-    return id ? String(id) : undefined;
-  };
+  const getProviderId = () => resolveProviderId(props as Record<string, unknown>);
 
   // Get first name
   const getFirstName = () => {
@@ -385,8 +382,11 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     console.log("Book Now clicked for provider ID:", providerId);
     
     if (!providerId) {
-      console.error("No provider ID found!");
-      Alert.alert('Error', 'An error occurred. Please try again.');
+      console.error("No provider ID found!", props);
+      Alert.alert(
+        "Provider unavailable",
+        "We could not load this provider's profile. Please go back and try another provider."
+      );
       return;
     }
 
@@ -513,6 +513,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Render service dialog - Updated to handle multiple roles
   const renderServiceDialog = () => {
     const providerId = getProviderId();
+    if (!providerId) return null;
     const housekeepingRoles = getHousekeepingRoles();
     const primaryRole = getPrimaryHousekeepingRole();
     const firstName = getFirstName();

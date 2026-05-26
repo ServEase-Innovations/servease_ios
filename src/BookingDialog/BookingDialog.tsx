@@ -24,6 +24,10 @@ import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import {
+  formatMonthlyExtraHourPromo,
+  formatMonthlyHourlyRateBand,
+} from "../Constants/servicePricing";
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
@@ -1221,7 +1225,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     {
       value: "Monthly",
       label: "Monthly",
-      subtitle: "Recurring monthly plan",
+      subtitle: `${formatMonthlyHourlyRateBand()} · ${formatMonthlyExtraHourPromo()}`,
       icon: "calendar-month",
     },
   ];

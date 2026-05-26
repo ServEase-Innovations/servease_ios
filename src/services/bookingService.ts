@@ -4,6 +4,7 @@ import PaymentInstance from "./paymentInstance";
 import store from "../store/userStore";
 import RazorpayCheckout from "react-native-razorpay";
 import dayjs from "dayjs";
+import { resolveProviderId } from "../utils/providerId";
 
 export interface BookingPayload {
   customerid: number;
@@ -31,17 +32,15 @@ export interface RazorpayPaymentResponse {
 
 export function resolveServiceProviderIdForPayload(
   details: {
+    id?: string | number | null;
     serviceProviderId?: string | number | null;
     serviceproviderId?: string | number | null;
     serviceproviderid?: string | number | null;
   } | null | undefined
 ): number | null {
-  const raw =
-    details?.serviceProviderId ??
-    details?.serviceproviderId ??
-    details?.serviceproviderid;
-  if (raw == null || raw === "") return null;
-  const n = Number(raw);
+  const resolved = resolveProviderId(details as Record<string, unknown>);
+  if (!resolved) return null;
+  const n = Number(resolved);
   if (!Number.isFinite(n) || n <= 0) return null;
   return n;
 }
@@ -291,9 +290,11 @@ export const BookingService = {
       // Try to extract amount from various possible locations
       if (engagementData?.razorpayOrder?.amount) {
         amountPaise = Number(engagementData.razorpayOrder.amount);
+      } else if (engagementData?.total_amount != null) {
+        amountPaise = Math.round(Number(engagementData.total_amount) * 100);
       } else if (engagementData?.payment?.total_amount) {
         amountPaise = Math.round(Number(engagementData.payment.total_amount) * 100);
-      } else if (engagementData?.amount) {
+      } else if (engagementData?.amount != null) {
         amountPaise = Math.round(Number(engagementData.amount) * 100);
       } else {
         amountPaise = Math.round(payload.base_amount * 100);
