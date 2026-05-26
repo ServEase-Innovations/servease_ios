@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Dimensions, StyleSheet, View, PanResponder } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -14,9 +14,10 @@ const BTN_SIZE = 56;
 const EDGE = 16;
 
 const ChatbotButton: React.FC<ChatbotButtonProps> = ({ onPress, bottomInset = 88 }) => {
+  const defaultY = SCREEN_H - BTN_SIZE - bottomInset;
   const positionRef = useRef({
     x: SCREEN_W - BTN_SIZE - EDGE,
-    y: SCREEN_H - BTN_SIZE - bottomInset,
+    y: defaultY,
   });
   const dragStart = useRef({ x: 0, y: 0 });
   const [, forceRender] = React.useState(0);
@@ -24,8 +25,13 @@ const ChatbotButton: React.FC<ChatbotButtonProps> = ({ onPress, bottomInset = 88
 
   const clampPosition = (x: number, y: number) => ({
     x: Math.max(EDGE, Math.min(x, SCREEN_W - BTN_SIZE - EDGE)),
-    y: Math.max(EDGE + 48, Math.min(y, SCREEN_H - BTN_SIZE - EDGE)),
+    y: Math.max(EDGE + 48, Math.min(y, SCREEN_H - BTN_SIZE - bottomInset)),
   });
+
+  useEffect(() => {
+    positionRef.current.y = SCREEN_H - BTN_SIZE - bottomInset;
+    forceRender((n) => n + 1);
+  }, [bottomInset]);
 
   const panResponder = useRef(
     PanResponder.create({

@@ -902,20 +902,12 @@ const MainApp = () => {
             styles.safeArea,
             {
               backgroundColor:
-                currentView === BOOKINGS || currentView === WALLET
-                  ? colors.headerBackground
-                  : currentView === PROFILE
-                    ? colors.background
-                    : colors.headerBackground,
+                currentView === BOOKINGS || currentView === WALLET || currentView === PROFILE
+                  ? colors.background
+                  : colors.headerBackground,
             },
           ]}
-          edges={
-            currentView === BOOKINGS || currentView === WALLET
-              ? ["bottom"]
-              : currentView === PROFILE
-                ? []
-                : ["top"]
-          }
+          edges={["top"]}
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>
@@ -1034,7 +1026,7 @@ const MainApp = () => {
 
           {!chatbotOpen && isMobile && (
             <ChatbotButton
-              bottomInset={mobileTabBarClearance + 12}
+              bottomInset={mobileTabBarClearance + 20}
               onPress={() => setChatbotOpen(true)}
             />
           )}

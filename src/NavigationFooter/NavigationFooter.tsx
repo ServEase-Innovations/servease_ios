@@ -600,25 +600,22 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     const navBorder = isDarkMode ? colors.border : "#e2e8f0";
     const textMuted = isDarkMode ? "#94a3b8" : "#64748b";
     const textActiveColor = colors.primary;
-    const bottomPad = Math.max(safeBottom, MOBILE_TAB_BAR_EDGE_PAD);
+    // Keep enough home-indicator clearance without creating a large empty footer gap.
+    const bottomPad = safeBottom > 0 ? Math.max(4, safeBottom - 18) : MOBILE_TAB_BAR_EDGE_PAD;
 
     return (
       <>
         <View
           style={[
             styles.mobileNavShell,
-            { backgroundColor: navSurface, borderTopColor: navBorder },
+            {
+              backgroundColor: navSurface,
+              borderTopColor: navBorder,
+              paddingBottom: bottomPad,
+            },
           ]}
         >
-          <View
-            style={[
-              styles.mobileNavContainer,
-              {
-                paddingTop: MOBILE_TAB_BAR_EDGE_PAD,
-                paddingBottom: bottomPad,
-              },
-            ]}
-          >
+          <View style={styles.mobileNavContainer}>
             {tabs.map((tab) => {
               const isActive =
                 tab.variant !== "destructive" &&
@@ -912,18 +909,19 @@ const styles = StyleSheet.create({
   },
   mobileNavContainer: {
     width: "100%",
+    height: MOBILE_TAB_BAR_CONTENT_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
   mobileNavItem: {
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
+    minWidth: 0,
     paddingHorizontal: 2,
-    minHeight: MOBILE_TAB_BAR_CONTENT_HEIGHT,
-    gap: 3,
+    gap: 2,
   },
   navIconSlot: {
     width: 28,
@@ -964,11 +962,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   mobileNavText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
     textAlign: "center",
     letterSpacing: 0.1,
     maxWidth: "100%",
+    flexShrink: 1,
   },
   mobileNavTextDestructive: {
     color: "#ef4444",

@@ -40,6 +40,7 @@ import GlassCard from '../design-system/GlassCard';
 import SegmentedRail from '../design-system/SegmentedRail';
 import ActionRow from '../design-system/ActionRow';
 import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -363,8 +364,7 @@ const hasVacation = (booking: Booking): boolean => {
 };
 
 // ---------- Main Booking Component ----------
-const HORIZONTAL_GUTTER = 16;
-const FOOTER_CLEARANCE = 96;
+const HORIZONTAL_GUTTER = 10;
 
 const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
@@ -456,14 +456,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
-        return { headerTitle: 16, headerSubtitle: 14, sectionTitle: 14, sectionSubtitle: 13, serviceTitle: 17, infoText: 14, viewDetailsText: 12, buttonText: 12, badgeText: 11, emptyStateTitle: 20, emptyStateText: 15, searchInput: 15, tooltipText: 11 };
+        return { headerTitle: 18, headerSubtitle: 14, sectionTitle: 14, sectionSubtitle: 13, serviceTitle: 17, infoText: 14, viewDetailsText: 12, buttonText: 12, badgeText: 11, emptyStateTitle: 20, emptyStateText: 15, searchInput: 15, tooltipText: 11 };
       case 'large':
-        return { headerTitle: 16, headerSubtitle: 17, sectionTitle: 14, sectionSubtitle: 15, serviceTitle: 19, infoText: 16, viewDetailsText: 14, buttonText: 14, badgeText: 13, emptyStateTitle: 24, emptyStateText: 17, searchInput: 17, tooltipText: 13 };
+        return { headerTitle: 22, headerSubtitle: 17, sectionTitle: 14, sectionSubtitle: 15, serviceTitle: 19, infoText: 16, viewDetailsText: 14, buttonText: 14, badgeText: 13, emptyStateTitle: 24, emptyStateText: 17, searchInput: 17, tooltipText: 13 };
       default:
-        return { headerTitle: 16, headerSubtitle: 15, sectionTitle: 14, sectionSubtitle: 14, serviceTitle: 18, infoText: 15, viewDetailsText: 13, buttonText: 13, badgeText: 12, emptyStateTitle: 22, emptyStateText: 16, searchInput: 16, tooltipText: 12 };
+        return { headerTitle: 20, headerSubtitle: 15, sectionTitle: 14, sectionSubtitle: 14, serviceTitle: 18, infoText: 15, viewDetailsText: 13, buttonText: 13, badgeText: 12, emptyStateTitle: 22, emptyStateText: 16, searchInput: 16, tooltipText: 12 };
     }
   };
   const fontSizes = getFontSizes();
+  const footerClearance = getMobileTabBarHeight(insets.bottom) + 28;
 
   const convertBookingForChildComponents = (booking: Booking | null): any => {
     if (!booking) return null;
@@ -1149,26 +1150,30 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     <LinearGradient
       colors={[...BOOKING_HEADER_GRADIENT]}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.headerGradient, { paddingTop: insets.top }]}
+      end={{ x: 1, y: 0 }}
+      style={styles.headerGradient}
     >
       <View style={styles.headerContent}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.headerSideSlot, styles.headerBackBtn]}
           onPress={handleBackPress}
           accessibilityLabel="Go back"
         >
-          <Icon name="arrow-left" size={22} color="#ffffff" />
+          <Icon name="arrow-left" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text
-          style={[styles.headerTitle, { fontSize: fontSizes.headerTitle + 2 }]}
-          numberOfLines={1}
-        >
-          My Bookings
-        </Text>
-        <View style={styles.headerTitleSpacer} />
+        <View style={styles.headerTitleBlock} pointerEvents="none">
+          <Text
+            style={[styles.headerTitle, { fontSize: fontSizes.headerTitle + 2 }]}
+            numberOfLines={1}
+          >
+            My Bookings
+          </Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            Manage your service bookings
+          </Text>
+        </View>
+        <View style={styles.headerSideSlot} />
       </View>
-      <Text style={styles.headerSubtitle}>Manage your service bookings</Text>
     </LinearGradient>
   );
 
@@ -1813,7 +1818,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + FOOTER_CLEARANCE }}
+          contentContainerStyle={{ paddingBottom: footerClearance }}
         >
           <View style={styles.section}>
             {[1, 2, 3].map((item) => (
@@ -1838,7 +1843,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         style={styles.mainScrollView}
         contentContainerStyle={[
           styles.scrollContentContainer,
-          { paddingBottom: insets.bottom + FOOTER_CLEARANCE },
+          { paddingBottom: footerClearance },
         ]}
         refreshControl={
           <RefreshControl
@@ -1960,51 +1965,56 @@ const styles = StyleSheet.create({
   headerGradient: {
     width: '100%',
     alignSelf: 'stretch',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingBottom: 16,
+    backgroundColor: 'transparent',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    paddingBottom: 12,
+    paddingTop: 6,
+    overflow: 'hidden',
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    minHeight: 52,
+    minHeight: 68,
     paddingHorizontal: HORIZONTAL_GUTTER,
-    paddingTop: 10,
-    paddingBottom: 6,
   },
-  backButton: {
-    width: 40,
-    height: 40,
+  headerSideSlot: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     flexShrink: 0,
+  },
+  headerBackBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  headerTitleBlock: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    minWidth: 0,
   },
   headerTitle: {
-    flex: 1,
     color: '#ffffff',
     fontWeight: '700',
-    letterSpacing: -0.2,
-    lineHeight: 28,
+    letterSpacing: -0.3,
     textAlign: 'center',
-  },
-  headerTitleSpacer: {
-    width: 40,
-    flexShrink: 0,
+    width: '100%',
   },
   headerSubtitle: {
     color: 'rgba(219, 234, 254, 0.95)',
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 13,
     marginTop: 4,
     fontWeight: '500',
-    paddingHorizontal: 12,
   },
 
   searchSection: {
     width: '100%',
+    alignSelf: 'stretch',
     paddingHorizontal: HORIZONTAL_GUTTER,
     paddingTop: 12,
     paddingBottom: 4,
@@ -2031,6 +2041,8 @@ const styles = StyleSheet.create({
   },
   bookingTypeFilterWrap: {
     marginTop: 8,
+    width: '100%',
+    alignSelf: 'stretch',
     paddingHorizontal: HORIZONTAL_GUTTER,
   },
   bookingTypeChip: {
@@ -2053,7 +2065,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: HORIZONTAL_GUTTER,
     paddingTop: 16,
     paddingBottom: 12,
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   
   upcomingFiltersBlock: {
