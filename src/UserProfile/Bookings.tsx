@@ -165,6 +165,29 @@ interface TodayService {
   otp_active: boolean;
 }
 
+interface CustomerTodayBookingSlot {
+  availability_id: number;
+  engagement_id: number;
+  start_time_ist: string | null;
+  end_time_ist: string | null;
+  booking_type: string;
+  service_type: string;
+  task_status: string;
+  address: string | null;
+  base_amount?: number | null;
+  provider_firstname: string | null;
+  provider_lastname: string | null;
+  provider_mobileno: string | null;
+  service_day_id: number | null;
+  service_day_status: string | null;
+  today_service?: {
+    service_day_id: number;
+    status: string;
+    can_generate_otp?: boolean;
+    otp_active?: boolean;
+  } | null;
+}
+
 interface Task {
   taskType: string;
   [key: string]: any;
@@ -295,6 +318,20 @@ const formatTimeToAMPM = (timeString: string): string => {
   }
 };
 
+const getEffectiveTaskStatus = (booking: Booking): string => {
+  const visit = booking.today_service?.status?.toUpperCase();
+  if (visit === 'IN_PROGRESS' || visit === 'STARTED') return 'IN_PROGRESS';
+  if (visit === 'COMPLETED' || visit === 'DONE') return 'COMPLETED';
+  return booking.taskStatus;
+};
+
+const mapTodaySlotTaskStatus = (slot: CustomerTodayBookingSlot): string => {
+  const sd = String(slot.service_day_status ?? slot.today_service?.status ?? '').toUpperCase();
+  if (sd === 'IN_PROGRESS' || sd === 'STARTED') return 'IN_PROGRESS';
+  if (sd === 'COMPLETED' || sd === 'DONE') return 'COMPLETED';
+  return slot.task_status || 'NOT_STARTED';
+};
+
 const formatTimeRange = (startTime: string, endTime: string): string => {
   return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
 };
@@ -341,8 +378,11 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [bookingTypeFilter, setBookingTypeFilter] = useState<'ALL' | 'ON_DEMAND' | 'RECURRING'>('ALL');
+  const [bookingTypeFilter, setBookingTypeFilter] = useState<
+    'TODAY' | 'ON_DEMAND' | 'RECURRING'
+  >('TODAY');
   const [generatedOTPs, setGeneratedOTPs] = useState<Record<number, string>>({});
+  const [todaySchedule, setTodaySchedule] = useState<CustomerTodayBookingSlot[]>([]);
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -562,14 +602,20 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     const effectiveId = id || customerId;
     if (!effectiveId) return;
     try {
-      const response = await PaymentInstance.get(`/api/customers/${effectiveId}/engagements`, {
-        timeout: 45000,
-      });
-      const { past = [], ongoing = [], upcoming = [], cancelled = [] } = response.data || {};
+      const [engagementsRes, todayRes] = await Promise.all([
+        PaymentInstance.get(`/api/customers/${effectiveId}/engagements`, {
+          timeout: 45000,
+        }),
+        PaymentInstance.get(`/api/customers/${effectiveId}/today-bookings`, {
+          timeout: 45000,
+        }).catch(() => ({ data: { bookings: [] } })),
+      ]);
+      const { past = [], ongoing = [], upcoming = [], cancelled = [] } = engagementsRes.data || {};
       setPastBookings(mapBookingData(past));
       setCurrentBookings(mapBookingData(ongoing));
       setFutureBookings(mapBookingData(upcoming));
       setCancelledBookings(mapBookingData(cancelled));
+      setTodaySchedule(todayRes.data?.bookings ?? []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       throw error;
@@ -652,6 +698,37 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     };
   }, [appUser?.customerId, appUser?.customerid, isAuthenticated]);
 
+  // [Keep all existing handler functions unchanged]
+  const applyOtpGenerated = (engagementId: number, otp: string) => {
+    setGeneratedOTPs((prev) => ({ ...prev, [engagementId]: otp }));
+    const patch = (ts: TodayService | undefined) =>
+      ts ? { ...ts, otp_active: true, can_generate_otp: false } : ts;
+    setCurrentBookings((prev) =>
+      prev.map((b) =>
+        b.id === engagementId ? { ...b, today_service: patch(b.today_service) } : b
+      )
+    );
+    setFutureBookings((prev) =>
+      prev.map((b) =>
+        b.id === engagementId ? { ...b, today_service: patch(b.today_service) } : b
+      )
+    );
+    setTodaySchedule((prev) =>
+      prev.map((slot) =>
+        slot.engagement_id === engagementId && slot.today_service
+          ? {
+              ...slot,
+              today_service: {
+                ...slot.today_service,
+                otp_active: true,
+                can_generate_otp: false,
+              },
+            }
+          : slot
+      )
+    );
+  };
+
   const handleGenerateOTP = async (booking: Booking) => {
     if (!booking.today_service?.service_day_id) {
       Alert.alert('Error', 'Failed to generate OTP');
@@ -659,10 +736,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
     try {
       setOtpLoading(booking.id);
-      const response = await PaymentInstance.post(`/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`);
+      const response = await PaymentInstance.post(
+        `/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`
+      );
       if (response.status === 200 || response.status === 201) {
         const otp = response.data.otp || response.data.data?.otp || '123456';
-        setGeneratedOTPs(prev => ({ ...prev, [booking.id]: otp }));
+        applyOtpGenerated(booking.id, otp);
         Alert.alert('Success', 'OTP generated successfully');
       }
     } catch (error: any) {
@@ -830,12 +909,185 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   };
   
   const filterByBookingType = (bookings: Booking[]) => {
-    if (bookingTypeFilter === 'ALL') return bookings;
+    if (bookingTypeFilter === 'TODAY') return [];
     if (bookingTypeFilter === 'ON_DEMAND') {
       return bookings.filter((booking) => booking.bookingType === 'ON_DEMAND');
     }
-    return bookings.filter((booking) => booking.bookingType === 'MONTHLY' || booking.bookingType === 'SHORT_TERM');
+    return bookings.filter(
+      (booking) => booking.bookingType === 'MONTHLY' || booking.bookingType === 'SHORT_TERM'
+    );
   };
+
+  const filteredTodaySchedule = (() => {
+    if (!searchTerm.trim()) return todaySchedule;
+    const term = searchTerm.toLowerCase();
+    return todaySchedule.filter((slot) => {
+      const providerName = [slot.provider_firstname, slot.provider_lastname]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return (
+        getServiceTitle(slot.service_type || '').toLowerCase().includes(term) ||
+        providerName.includes(term) ||
+        String(slot.engagement_id).includes(term) ||
+        (slot.address || '').toLowerCase().includes(term)
+      );
+    });
+  })();
+
+  const slotToTodayBooking = (slot: CustomerTodayBookingSlot): Booking => {
+    const existing = [...currentBookings, ...futureBookings].find(
+      (b) => b.id === slot.engagement_id
+    );
+    const providerName =
+      [slot.provider_firstname, slot.provider_lastname].filter(Boolean).join(' ').trim() ||
+      'Provider';
+    const todayYmd = dayjs().format('YYYY-MM-DD');
+    const taskStatus = mapTodaySlotTaskStatus(slot);
+    const todayService: TodayService | undefined = slot.today_service
+      ? {
+          service_day_id: String(slot.today_service.service_day_id),
+          status: slot.today_service.status,
+          can_start: false,
+          can_generate_otp: !!slot.today_service.can_generate_otp,
+          can_complete: false,
+          otp_active: !!slot.today_service.otp_active,
+        }
+      : slot.service_day_id
+        ? {
+            service_day_id: String(slot.service_day_id),
+            status: slot.service_day_status || 'SCHEDULED',
+            can_start: false,
+            can_generate_otp: false,
+            can_complete: false,
+            otp_active: false,
+          }
+        : undefined;
+
+    if (existing) {
+      return {
+        ...existing,
+        date: todayYmd,
+        startDate: todayYmd,
+        start_time: slot.start_time_ist || existing.start_time,
+        end_time: slot.end_time_ist || existing.end_time,
+        taskStatus,
+        today_service: todayService ?? existing.today_service,
+        serviceProviderName: existing.serviceProviderName || providerName,
+        monthlyAmount:
+          slot.base_amount != null ? Number(slot.base_amount) : existing.monthlyAmount,
+        address: slot.address || existing.address,
+      };
+    }
+
+    const serviceType = (slot.service_type || 'other').toLowerCase();
+    return {
+      id: slot.engagement_id,
+      name: '',
+      serviceProviderId: 0,
+      timeSlot: slot.start_time_ist || '',
+      date: todayYmd,
+      startDate: todayYmd,
+      endDate: todayYmd,
+      start_time: slot.start_time_ist || '',
+      end_time: slot.end_time_ist || '',
+      bookingType: slot.booking_type || 'ON_DEMAND',
+      monthlyAmount: slot.base_amount != null ? Number(slot.base_amount) : 0,
+      paymentMode: '',
+      address: slot.address || '',
+      customerName: '',
+      serviceProviderName: providerName,
+      providerRating: 0,
+      taskStatus,
+      bookingDate: new Date().toISOString(),
+      engagements: '',
+      service_type: serviceType,
+      serviceType,
+      childAge: '',
+      experience: '',
+      noOfPersons: '',
+      mealType: '',
+      modifiedDate: new Date().toISOString(),
+      responsibilities: { tasks: [] },
+      assignmentStatus: 'ASSIGNED',
+      modifications: [],
+      today_service: todayService,
+    };
+  };
+
+  const todayBookings = filteredTodaySchedule.map(slotToTodayBooking);
+
+  const renderBookingTypeChips = () => (
+    <View style={styles.bookingTypeFilterWrap}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.bookingTypeFilterRow}
+      >
+        <TouchableOpacity
+          style={[
+            styles.bookingTypeChip,
+            { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
+            bookingTypeFilter === 'TODAY' && {
+              backgroundColor: colors.primary + 'E8',
+              borderColor: colors.primary,
+            },
+          ]}
+          onPress={() => setBookingTypeFilter('TODAY')}
+        >
+          <Text
+            style={[
+              styles.bookingTypeChipText,
+              { color: bookingTypeFilter === 'TODAY' ? '#fff' : colors.textSecondary },
+            ]}
+          >
+            Today&apos;s service
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.bookingTypeChip,
+            { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
+            bookingTypeFilter === 'ON_DEMAND' && {
+              backgroundColor: colors.primary + 'E8',
+              borderColor: colors.primary,
+            },
+          ]}
+          onPress={() => setBookingTypeFilter('ON_DEMAND')}
+        >
+          <Text
+            style={[
+              styles.bookingTypeChipText,
+              { color: bookingTypeFilter === 'ON_DEMAND' ? '#fff' : colors.textSecondary },
+            ]}
+          >
+            One-time (On-demand)
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.bookingTypeChip,
+            { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
+            bookingTypeFilter === 'RECURRING' && {
+              backgroundColor: colors.primary + 'E8',
+              borderColor: colors.primary,
+            },
+          ]}
+          onPress={() => setBookingTypeFilter('RECURRING')}
+        >
+          <Text
+            style={[
+              styles.bookingTypeChipText,
+              { color: bookingTypeFilter === 'RECURRING' ? '#fff' : colors.textSecondary },
+            ]}
+          >
+            Recurring
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+
 
   const sortUpcomingBookings = (bookings: Booking[]): Booking[] => {
     const statusOrder: Record<string, number> = { 'NOT_STARTED': 2, 'IN_PROGRESS': 1, 'COMPLETED': 3, 'CANCELLED': 4 };
@@ -1023,6 +1275,24 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           })}
         </ScrollView>
       </View>
+    </View>
+  );
+
+  const renderTodayEmptyState = () => (
+    <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+      <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
+        <Icon name="calendar-today" size={48} color={colors.primary} />
+      </View>
+      <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>
+        No service today
+      </Text>
+      <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+        You do not have any visits scheduled for today
+      </Text>
+      <GradientButton style={styles.emptyStateButton} onPress={() => setServicesDialogOpen(true)}>
+        <Icon name="plus" size={20} color="#fff" />
+        <Text style={{ color: '#fff', fontSize: fontSizes.buttonText, fontWeight: '600' }}>Book a Service</Text>
+      </GradientButton>
     </View>
   );
 
@@ -1278,9 +1548,93 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
   };
 
+  const renderTodayServicePanel = (item: Booking) => {
+    const ts = item.today_service;
+    if (!ts || bookingTypeFilter !== 'TODAY') return null;
+
+    const status = String(ts.status || '').toUpperCase();
+    const otp = generatedOTPs[item.id];
+
+    if (status === 'SCHEDULED') {
+      return (
+        <View style={[styles.todayPanel, { backgroundColor: colors.info + '12', borderColor: colors.info + '35' }]}>
+          <View style={styles.todayPanelRow}>
+            <Icon name="clock-check-outline" size={18} color={colors.info} />
+            <Text style={[styles.todayPanelText, styles.todayPanelTextInRow, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+              Scheduled for today — your provider will start at {formatTimeRange(item.start_time, item.end_time)}.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (status === 'IN_PROGRESS') {
+      const otpDisabled = otpLoading === item.id || !ts.can_generate_otp;
+      return (
+        <View style={[styles.todayPanel, { backgroundColor: colors.success + '12', borderColor: colors.success + '35' }]}>
+          <Text style={[styles.todayPanelTitle, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+            Service in progress
+          </Text>
+          <Text style={[styles.todayPanelText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+            Generate an OTP for your provider to complete the visit.
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[
+              styles.todayOtpButton,
+              { backgroundColor: colors.primary },
+              otpDisabled && styles.todayOtpButtonDisabled,
+            ]}
+            onPress={() => handleGenerateOTP(item)}
+            disabled={otpDisabled}
+          >
+            {otpLoading === item.id ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <View style={styles.todayOtpButtonContent}>
+                <Icon name="shield-key" size={18} color="#fff" />
+                <Text
+                  style={[styles.todayOtpButtonText, { fontSize: fontSizes.buttonText }]}
+                  includeFontPadding={false}
+                >
+                  Generate OTP
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {ts.otp_active && otp ? (
+            <View style={[styles.todayOtpDisplay, { backgroundColor: colors.card, borderColor: colors.border + '40' }]}>
+              <Text style={[styles.todayOtpLabel, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+                Share with provider:
+              </Text>
+              <Text style={[styles.todayOtpCode, { color: colors.text }]}>{otp}</Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+
+    if (status === 'COMPLETED') {
+      return (
+        <View style={[styles.todayPanel, { backgroundColor: colors.success + '12', borderColor: colors.success + '35' }]}>
+          <View style={styles.todayPanelRow}>
+            <Icon name="check-circle" size={18} color={colors.success} />
+            <Text style={[styles.todayPanelText, styles.todayPanelTextInRow, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+              Today&apos;s visit is complete.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const serviceType = item.serviceType || item.service_type;
     const isPaymentPending = item.payment && item.payment.status === "PENDING";
+    const displayTaskStatus =
+      bookingTypeFilter === 'TODAY' ? getEffectiveTaskStatus(item) : item.taskStatus;
     const compactPrimaryText = colors.text;
     const compactSecondaryText = colors.textSecondary;
     const amountValue =
@@ -1289,6 +1643,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         : Number(item.payment?.total_amount || item.payment?.base_amount || 0);
     const amountText = amountValue > 0 ? `₹${amountValue.toFixed(2)}` : '—';
     const getUrgencyLabel = () => {
+      if (bookingTypeFilter === 'TODAY' && item.today_service) {
+        const visit = String(item.today_service.status || '').toUpperCase();
+        if (visit === 'IN_PROGRESS') return 'In progress today';
+        if (visit === 'SCHEDULED') return 'Scheduled today';
+        if (visit === 'COMPLETED') return 'Completed today';
+      }
       if (isPaymentPending && item.taskStatus !== 'CANCELLED') return 'Payment due';
       if (item.assignmentStatus === 'UNASSIGNED') return 'Provider assigning';
       if (item.taskStatus === 'NOT_STARTED') {
@@ -1303,6 +1663,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       return null;
     };
     const urgencyLabel = getUrgencyLabel();
+    const hasTodayPanel =
+      bookingTypeFilter === 'TODAY' &&
+      Boolean(item.today_service?.status);
     
     return (
       <TouchableOpacity
@@ -1313,6 +1676,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         <View
           style={[
             styles.bookingCardCompact,
+            hasTodayPanel && styles.bookingCardCompactWithPanel,
             {
               borderColor: colors.border + '25',
               backgroundColor: isDarkMode ? colors.card : colors.card,
@@ -1355,7 +1719,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               </View>
               <View style={styles.compactMetaTextWrap}>
                 <Text style={[styles.compactMetaText, { color: compactSecondaryText }]}>
-                  {dayjs(item.date).format('dddd, MMMM D, YYYY')}
+                  {bookingTypeFilter === 'TODAY'
+                    ? `Today · ${dayjs(item.date).format('dddd, MMMM D')}`
+                    : dayjs(item.date).format('dddd, MMMM D, YYYY')}
                 </Text>
               </View>
             </View>
@@ -1379,6 +1745,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
             </View>
           </View>
 
+          {renderTodayServicePanel(item)}
+
           <View style={styles.compactFooterRow}>
             <View style={styles.compactBadgeRow}>
               <Badge variant={item.bookingType === 'MONTHLY' ? 'info' : item.bookingType === 'ON_DEMAND' ? 'warning' : 'success'}>
@@ -1386,7 +1754,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
                   {item.bookingType === 'ON_DEMAND' ? 'ON DEMAND' : item.bookingType === 'MONTHLY' ? 'MONTHLY' : 'SHORT TERM'}
                 </Text>
               </Badge>
-              <StatusChip status={item.taskStatus} />
+              <StatusChip status={displayTaskStatus} />
               {urgencyLabel && (
                 <Badge variant="warning">
                   <Text style={[styles.badgeText, styles.badgeMultilineLabel, { color: colors.warning, fontSize: fontSizes.badgeText }]}>
@@ -1437,7 +1805,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
         <View style={styles.bookingTypeFilterWrap}>
           <View style={styles.bookingTypeFilterRow}>
-            <SkeletonLoader width={82} height={36} variant="rectangular" style={{ borderRadius: 999 }} />
+            <SkeletonLoader width={120} height={36} variant="rectangular" style={{ borderRadius: 999 }} />
             <SkeletonLoader width={180} height={36} variant="rectangular" style={{ borderRadius: 999 }} />
             <SkeletonLoader width={110} height={36} variant="rectangular" style={{ borderRadius: 999 }} />
           </View>
@@ -1462,48 +1830,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {renderBookingsHeader()}
       {renderBookingsSearch()}
-      <View style={styles.bookingTypeFilterWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bookingTypeFilterRow}
-        >
-          <TouchableOpacity
-            style={[
-              styles.bookingTypeChip,
-              { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
-              bookingTypeFilter === 'ALL' && { backgroundColor: colors.primary + 'E8', borderColor: colors.primary },
-            ]}
-            onPress={() => setBookingTypeFilter('ALL')}
-          >
-            <Text style={[styles.bookingTypeChipText, { color: bookingTypeFilter === 'ALL' ? '#fff' : colors.textSecondary }]}>All</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.bookingTypeChip,
-              { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
-              bookingTypeFilter === 'ON_DEMAND' && { backgroundColor: colors.primary + 'E8', borderColor: colors.primary },
-            ]}
-            onPress={() => setBookingTypeFilter('ON_DEMAND')}
-          >
-            <Text style={[styles.bookingTypeChipText, { color: bookingTypeFilter === 'ON_DEMAND' ? '#fff' : colors.textSecondary }]}>
-              One-time (On-demand)
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.bookingTypeChip,
-              { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
-              bookingTypeFilter === 'RECURRING' && { backgroundColor: colors.primary + 'E8', borderColor: colors.primary },
-            ]}
-            onPress={() => setBookingTypeFilter('RECURRING')}
-          >
-            <Text style={[styles.bookingTypeChipText, { color: bookingTypeFilter === 'RECURRING' ? '#fff' : colors.textSecondary }]}>
-              Recurring
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
+      {renderBookingTypeChips()}
       <RefreshTooltip />
 
       {/* Content without wrapping ScrollView - using FlatList alternative */}
@@ -1525,9 +1852,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         showsVerticalScrollIndicator={true}
         nestedScrollEnabled={true}
       >
-        {renderSectionTabs()}
+        {bookingTypeFilter !== 'TODAY' && renderSectionTabs()}
 
-        {activeSectionTab === 'action_needed' && (
+        {bookingTypeFilter === 'TODAY' && (
+          <View style={styles.section}>
+            {renderBookingsList(todayBookings, renderTodayEmptyState())}
+          </View>
+        )}
+
+        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'action_needed' && (
           <View style={styles.section}>
             {renderBookingsList(
               actionNeededBookings,
@@ -1544,14 +1877,14 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           </View>
         )}
 
-        {activeSectionTab === 'upcoming' && (
+        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'upcoming' && (
           <View style={styles.section}>
             {renderUpcomingStatusFilter()}
             {renderBookingsList(filteredUpcomingBookings, renderUpcomingEmptyState())}
           </View>
         )}
 
-        {activeSectionTab === 'past' && (
+        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'past' && (
           <View style={styles.section}>
             {renderBookingsList(
               filteredPastBookings,
@@ -1568,7 +1901,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           </View>
         )}
 
-        {activeSectionTab === 'cancelled' && (
+        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'cancelled' && (
           <View style={styles.section}>
             {renderBookingsList(
               filteredCancelledBookings,
@@ -1801,7 +2134,6 @@ const styles = StyleSheet.create({
   bookingCardCompact: {
     width: '100%',
     borderRadius: 18,
-    overflow: 'hidden',
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingTop: 12,
@@ -1811,6 +2143,70 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 4,
+  },
+  bookingCardCompactWithPanel: {
+    paddingBottom: 16,
+  },
+  todayPanel: {
+    marginTop: 10,
+    marginBottom: 2,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  todayPanelRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  todayPanelTitle: {
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  todayPanelText: {
+    lineHeight: 18,
+  },
+  todayPanelTextInRow: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  todayOtpButton: {
+    marginTop: 10,
+    height: 48,
+    width: '100%',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  todayOtpButtonDisabled: {
+    opacity: 0.5,
+  },
+  todayOtpButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  todayOtpButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  todayOtpDisplay: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  todayOtpLabel: {
+    marginBottom: 4,
+  },
+  todayOtpCode: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 4,
   },
   compactHeaderBlock: {
     width: '100%',
@@ -1988,9 +2384,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
     minHeight: 44,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     gap: 8,
   },
   iconButton: {
