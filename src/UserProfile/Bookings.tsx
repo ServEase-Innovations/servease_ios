@@ -38,6 +38,9 @@ import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 import GlassCard from '../design-system/GlassCard';
 import SegmentedRail from '../design-system/SegmentedRail';
 import ActionRow from '../design-system/ActionRow';
+import CustomerTodayTasksCard, {
+  CustomerTodayBookingSlot,
+} from './CustomerTodayTasksCard';
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -343,6 +346,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [searchTerm, setSearchTerm] = useState('');
   const [bookingTypeFilter, setBookingTypeFilter] = useState<'ALL' | 'ON_DEMAND' | 'RECURRING'>('ALL');
   const [generatedOTPs, setGeneratedOTPs] = useState<Record<number, string>>({});
+  const [todaySchedule, setTodaySchedule] = useState<CustomerTodayBookingSlot[]>([]);
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -567,14 +571,20 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     const effectiveId = id || customerId;
     if (!effectiveId) return;
     try {
-      const response = await PaymentInstance.get(`/api/customers/${effectiveId}/engagements`, {
-        timeout: 45000,
-      });
-      const { past = [], ongoing = [], upcoming = [], cancelled = [] } = response.data || {};
+      const [engagementsRes, todayRes] = await Promise.all([
+        PaymentInstance.get(`/api/customers/${effectiveId}/engagements`, {
+          timeout: 45000,
+        }),
+        PaymentInstance.get(`/api/customers/${effectiveId}/today-bookings`, {
+          timeout: 45000,
+        }).catch(() => ({ data: { bookings: [] } })),
+      ]);
+      const { past = [], ongoing = [], upcoming = [], cancelled = [] } = engagementsRes.data || {};
       setPastBookings(mapBookingData(past));
       setCurrentBookings(mapBookingData(ongoing));
       setFutureBookings(mapBookingData(upcoming));
       setCancelledBookings(mapBookingData(cancelled));
+      setTodaySchedule(todayRes.data?.bookings ?? []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       throw error;
@@ -690,6 +700,36 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   }, [appUser?.customerId, appUser?.customerid, isAuthenticated]);
 
   // [Keep all existing handler functions unchanged]
+  const applyOtpGenerated = (engagementId: number, otp: string) => {
+    setGeneratedOTPs((prev) => ({ ...prev, [engagementId]: otp }));
+    const patch = (ts: TodayService | undefined) =>
+      ts ? { ...ts, otp_active: true, can_generate_otp: false } : ts;
+    setCurrentBookings((prev) =>
+      prev.map((b) =>
+        b.id === engagementId ? { ...b, today_service: patch(b.today_service) } : b
+      )
+    );
+    setFutureBookings((prev) =>
+      prev.map((b) =>
+        b.id === engagementId ? { ...b, today_service: patch(b.today_service) } : b
+      )
+    );
+    setTodaySchedule((prev) =>
+      prev.map((slot) =>
+        slot.engagement_id === engagementId && slot.today_service
+          ? {
+              ...slot,
+              today_service: {
+                ...slot.today_service,
+                otp_active: true,
+                can_generate_otp: false,
+              },
+            }
+          : slot
+      )
+    );
+  };
+
   const handleGenerateOTP = async (booking: Booking) => {
     if (!booking.today_service?.service_day_id) {
       Alert.alert('Error', 'Failed to generate OTP');
@@ -697,12 +737,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
     try {
       setOtpLoading(booking.id);
-      const response = await PaymentInstance.post(`/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`);
+      const response = await PaymentInstance.post(
+        `/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`
+      );
       if (response.status === 200 || response.status === 201) {
         const otp = response.data.otp || response.data.data?.otp || '123456';
-        setGeneratedOTPs(prev => ({ ...prev, [booking.id]: otp }));
-        setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
-        setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
+        applyOtpGenerated(booking.id, otp);
         Alert.alert('Success', 'OTP generated successfully');
       }
     } catch (error: any) {
@@ -710,6 +750,42 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       Alert.alert('Error', error.response?.data?.message || 'Failed to generate OTP');
     } finally {
       setOtpLoading(null);
+    }
+  };
+
+  const handleGenerateOtpFromToday = async (slot: CustomerTodayBookingSlot) => {
+    const serviceDayId =
+      slot.today_service?.service_day_id ?? slot.service_day_id ?? null;
+    if (!serviceDayId) {
+      Alert.alert('Error', 'Failed to generate OTP');
+      return;
+    }
+    try {
+      setOtpLoading(slot.engagement_id);
+      const response = await PaymentInstance.post(
+        `/api/engagement-service/service-days/${serviceDayId}/otp`
+      );
+      if (response.status === 200 || response.status === 201) {
+        const otp = response.data.otp || response.data.data?.otp || '123456';
+        applyOtpGenerated(slot.engagement_id, otp);
+        Alert.alert('Success', 'OTP generated successfully');
+      }
+    } catch (error: any) {
+      console.error('Error generating OTP:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to generate OTP');
+    } finally {
+      setOtpLoading(null);
+    }
+  };
+
+  const openTodayBooking = (engagementId: number) => {
+    setActiveSectionTab('upcoming');
+    setStatusFilter('ALL');
+    const booking =
+      [...currentBookings, ...futureBookings].find((b) => b.id === engagementId) ||
+      null;
+    if (booking) {
+      handleViewDetails(booking);
     }
   };
 
@@ -1586,6 +1662,20 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         nestedScrollEnabled={false}
       >
         {renderSectionTabs()}
+
+        {(activeSectionTab === 'upcoming' || activeSectionTab === 'action_needed') && (
+          <View style={styles.section}>
+            <CustomerTodayTasksCard
+              loading={isLoading}
+              todaySchedule={todaySchedule}
+              otpLoadingId={otpLoading}
+              generatedOTPs={generatedOTPs}
+              colors={colors}
+              onGenerateOtp={handleGenerateOtpFromToday}
+              onOpenBooking={openTodayBooking}
+            />
+          </View>
+        )}
 
         {activeSectionTab === 'action_needed' && (
           <View style={styles.section}>
