@@ -224,6 +224,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const headerOpacity = useRef(new Animated.Value(0)).current;
   const avatarGlow = useRef(new Animated.Value(0)).current;
   const statsOpacity = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Handle device back button
   useEffect(() => {
@@ -547,15 +548,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       />
 
       <Animated.ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 30 }}
+        contentContainerStyle={{ 
+          paddingBottom: insets.bottom + 30,
+          paddingTop: 0,
+        }}
+        contentInset={{ top: 0 }}
+        contentOffset={{ y: 0 }}
+        automaticallyAdjustContentInsets={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
       >
-        {/* Hero Header Section */}
+        {/* Hero Header Section - No extra spacing */}
         <View style={styles.heroContainer}>
           <LinearGradient
             colors={
@@ -676,7 +684,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </View>
 
         {/* Menu Sections */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
           {/* Primary Menu Section */}
           <View style={styles.menuSection}>
             {primary.map((item, idx) => (
@@ -764,11 +772,11 @@ const styles = StyleSheet.create({
     width: 40,
   },
   heroContainer: {
-    minHeight: 560,
     overflow: "hidden",
+    width: "100%",
   },
   heroGradient: {
-    flex: 1,
+    width: "100%",
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     overflow: "hidden",

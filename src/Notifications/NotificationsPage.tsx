@@ -11,6 +11,8 @@ import {
   ScrollView,
   Dimensions,
   useWindowDimensions,
+  Animated,
+  RefreshControl,
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
@@ -31,6 +33,8 @@ import {
   timeAgo,
   typeMeta,
 } from "./inAppNotificationUtils";
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { useTheme } from "../../src/Settings/ThemeContext";
 
 type Props = {
   visible: boolean;
@@ -52,16 +56,33 @@ export default function NotificationsPage({
 }: Props) {
   const { t } = useTranslation();
   const { appUser } = useAppUser();
+  const { colors, isDarkMode } = useTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const sheetHeight = Math.round(windowHeight * 0.82);
-  const bodyMinHeight = Math.round(windowHeight * 0.48);
+  const sheetHeight = Math.round(windowHeight * 0.85);
   const [items, setItems] = useState<InAppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<InAppNotification | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'read'>('all');
+  
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      slideAnim.setValue(0);
+    }
+  }, [visible]);
 
   const r = useMemo(() => recipientParams(appUser), [appUser]);
 
@@ -93,7 +114,7 @@ export default function NotificationsPage({
         params: {
           recipientType: r.recipientType,
           recipientId: r.recipientId,
-          limit: 50,
+          limit: 100,
         },
       });
       const list = (data?.notifications || []) as InAppNotification[];
@@ -104,6 +125,7 @@ export default function NotificationsPage({
       setError(e?.message || "Could not load notifications");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [r, setUnreadSafe]);
 
@@ -112,13 +134,10 @@ export default function NotificationsPage({
     void fetchList();
   }, [visible, r, fetchList]);
 
-  useEffect(() => {
-    if (!visible || !r) return;
-    const refreshTimer = setInterval(() => {
-      void fetchList();
-    }, 10000);
-    return () => clearInterval(refreshTimer);
-  }, [visible, r, fetchList]);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    void fetchList();
+  }, [fetchList]);
 
   const markRead = useCallback(
     async (n: InAppNotification) => {
@@ -161,6 +180,11 @@ export default function NotificationsPage({
         prev.map((x) => ({ ...x, readAt: x.readAt || new Date().toISOString() }))
       );
       setUnreadSafe(0);
+      Snackbar.show({
+        text: "All notifications marked as read",
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#4caf50",
+      });
     } catch (e) {
       console.error(e);
     }
@@ -210,17 +234,46 @@ export default function NotificationsPage({
 
   const detailPayload = detailFor ? inAppToBookingRequestPayload(detailFor) : null;
 
-  const renderGuest = () => (
-    <View style={styles.guestBody}>
-      <MaterialIcon name="inbox" size={40} color="#94a3b8" />
-      <Text style={styles.guestTitle}>Stay updated</Text>
-      <Text style={styles.guestText}>
-        Sign in as a customer or service provider to see booking and service updates here.
+  const filteredItems = useMemo(() => {
+    if (selectedFilter === 'unread') {
+      return items.filter(item => !item.readAt);
+    } else if (selectedFilter === 'read') {
+      return items.filter(item => item.readAt);
+    }
+    return items;
+  }, [items, selectedFilter]);
+
+  const FilterChip = ({ label, value, count }: { label: string; value: 'all' | 'unread' | 'read'; count: number }) => (
+    <TouchableOpacity
+      style={[
+        styles.filterChip,
+        selectedFilter === value && styles.filterChipActive,
+      ]}
+      onPress={() => setSelectedFilter(value)}
+    >
+      <Text style={[
+        styles.filterChipText,
+        selectedFilter === value && styles.filterChipTextActive,
+      ]}>
+        {label}
       </Text>
-    </View>
+      {count > 0 && (
+        <View style={[
+          styles.filterBadge,
+          selectedFilter === value && styles.filterBadgeActive,
+        ]}>
+          <Text style={[
+            styles.filterBadgeText,
+            selectedFilter === value && styles.filterBadgeTextActive,
+          ]}>
+            {count}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
   );
 
-  const renderItem = ({ item: n }: { item: InAppNotification }) => {
+  const renderItem = ({ item: n, index }: { item: InAppNotification; index: number }) => {
     const unreadItem = !n.readAt;
     const meta = typeMeta(n.type);
     const metaRow = asMetaRecord(n.metadata);
@@ -236,129 +289,254 @@ export default function NotificationsPage({
     const canQuickAct = isSpOndemandNewBooking && unreadItem && hasBookingDetailPanel;
 
     return (
-      <TouchableOpacity
-        style={[styles.itemCard, unreadItem && styles.itemUnread]}
-        activeOpacity={0.85}
-        onPress={() => {
-          if (isSpAssignedConfirmed && hasBookingDetailPanel) {
-            setDetailError(null);
-            setDetailFor(n);
-            if (unreadItem) void markRead(n);
-            return;
+      <Animated.View
+        style={[
+          styles.itemWrapper,
+          {
+            opacity: slideAnim,
+            transform: [{
+              translateX: slideAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [50, 0],
+              })
+            }]
           }
-          if (isSpOndemandNewBooking) return;
-          if (unreadItem) void markRead(n);
-        }}
+        ]}
       >
-        <View style={styles.itemRow}>
-          <View style={[styles.iconWrap, { backgroundColor: `${meta.color}18` }]}>
-            <MaterialIcon name={meta.icon} size={20} color={meta.color} />
-          </View>
-          <View style={styles.itemContent}>
-            <View style={styles.titleRow}>
-              <Text style={[styles.itemTitle, unreadItem && styles.itemTitleBold]} numberOfLines={2}>
-                {n.title}
-              </Text>
-              {unreadItem && (
-                <View style={styles.newBadge}>
-                  <Text style={styles.newBadgeText}>New</Text>
-                </View>
-              )}
+        <TouchableOpacity
+          style={[
+            styles.itemCard,
+            unreadItem && styles.itemUnread,
+            { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }
+          ]}
+          activeOpacity={0.85}
+          onPress={() => {
+            if (isSpAssignedConfirmed && hasBookingDetailPanel) {
+              setDetailError(null);
+              setDetailFor(n);
+              if (unreadItem) void markRead(n);
+              return;
+            }
+            if (isSpOndemandNewBooking) return;
+            if (unreadItem) void markRead(n);
+          }}
+        >
+          <View style={styles.itemRow}>
+            <View style={[styles.iconWrap, { backgroundColor: `${meta.color}15` }]}>
+              <LinearGradient
+                colors={[meta.color, meta.color + 'CC']}
+                style={styles.iconGradient}
+              >
+                <MaterialIcon name={meta.icon} size={22} color="#ffffff" />
+              </LinearGradient>
             </View>
-            {n.body ? <Text style={styles.itemBody}>{n.body}</Text> : null}
-            {metaRow?.address ? (
-              <Text style={styles.metaLine}>
-                <Text style={styles.metaBold}>Location: </Text>
-                {String(metaRow.address)}
-              </Text>
-            ) : null}
-            {hasBookingDetailPanel && (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={styles.smallBtn}
-                  onPress={() => {
-                    setDetailError(null);
-                    setDetailFor(n);
-                    if (unreadItem && isSpAssignedConfirmed) void markRead(n);
-                  }}
-                >
-                  <Text style={styles.smallBtnText}>View details</Text>
-                </TouchableOpacity>
-                {canQuickAct && (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.smallBtn, styles.smallBtnPrimary]}
-                      disabled={acceptingId === n.id}
-                      onPress={() => void acceptFromList(n)}
-                    >
-                      <Text style={styles.smallBtnPrimaryText}>
-                        {acceptingId === n.id ? "…" : "Accept"}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.smallBtn}
-                      disabled={acceptingId === n.id}
-                      onPress={() => void notInterested(n)}
-                    >
-                      <Text style={styles.smallBtnText}>Not interested</Text>
-                    </TouchableOpacity>
-                  </>
+            <View style={styles.itemContent}>
+              <View style={styles.titleRow}>
+                <Text style={[styles.itemTitle, unreadItem && styles.itemTitleBold, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]} numberOfLines={2}>
+                  {n.title}
+                </Text>
+                {unreadItem && (
+                  <View style={styles.newBadge}>
+                    <Text style={styles.newBadgeText}>New</Text>
+                  </View>
                 )}
               </View>
-            )}
-            <Text style={styles.itemMeta}>
-              {meta.label}
-              {n.engagementId ? ` · #${n.engagementId}` : ""} · {timeAgo(n.createdAt)}
-            </Text>
+              {n.body ? (
+                <Text style={[styles.itemBody, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                  {n.body}
+                </Text>
+              ) : null}
+              {metaRow?.address ? (
+                <View style={styles.metaLine}>
+                  <MaterialIcon name="location-on" size={14} color={meta.color} />
+                  <Text style={[styles.metaText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                    {String(metaRow.address)}
+                  </Text>
+                </View>
+              ) : null}
+              {hasBookingDetailPanel && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.viewButton]}
+                    onPress={() => {
+                      setDetailError(null);
+                      setDetailFor(n);
+                      if (unreadItem && isSpAssignedConfirmed) void markRead(n);
+                    }}
+                  >
+                    <MaterialIcon name="visibility" size={16} color="#3b82f6" />
+                    <Text style={styles.viewButtonText}>View details</Text>
+                  </TouchableOpacity>
+                  {canQuickAct && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.acceptButton]}
+                        disabled={acceptingId === n.id}
+                        onPress={() => void acceptFromList(n)}
+                      >
+                        {acceptingId === n.id ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <>
+                            <MaterialIcon name="check" size={16} color="#ffffff" />
+                            <Text style={styles.acceptButtonText}>Accept</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.declineButton]}
+                        disabled={acceptingId === n.id}
+                        onPress={() => void notInterested(n)}
+                      >
+                        <MaterialIcon name="close" size={16} color="#ef4444" />
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              )}
+              <View style={styles.itemFooter}>
+                <View style={styles.categoryBadge}>
+                  <MaterialIcon name={meta.icon} size={12} color={meta.color} />
+                  <Text style={[styles.categoryText, { color: meta.color }]}>
+                    {meta.label}
+                  </Text>
+                </View>
+                <Text style={[styles.timeText, { color: isDarkMode ? '#64748b' : '#94a3b8' }]}>
+                  {timeAgo(n.createdAt)}
+                </Text>
+              </View>
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
+  const renderGuest = () => (
+    <View style={[styles.guestContainer, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }]}>
+      <View style={styles.guestIconWrapper}>
+        <LinearGradient
+          colors={[...BOOKING_HEADER_GRADIENT]}
+          style={styles.guestIconGradient}
+        >
+          <MaterialIcon name="notifications-none" size={48} color="#ffffff" />
+        </LinearGradient>
+      </View>
+      <Text style={[styles.guestTitle, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
+        Stay updated
+      </Text>
+      <Text style={[styles.guestText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+        Sign in as a customer or service provider to see booking and service updates here.
+      </Text>
+    </View>
+  );
+
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [windowHeight, 0],
+  });
+
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
         <View style={styles.overlay}>
-          <View style={[styles.dialog, { height: sheetHeight, width: windowWidth }]}>
-            <View style={styles.sheetTop}>
-              <View style={styles.sheetHandle} />
-            </View>
-
-            <View style={[styles.headerWrap, { width: windowWidth }]}>
-              <LinearGradient
-                colors={["#0369a1", "#1e3a5f", "#0f172a"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.headerGradientBg}
-              />
-              <View style={styles.headerRow}>
-                <View style={styles.headerTextBlock}>
-                  <Text style={styles.headerEyebrow}>ACTIVITY</Text>
-                  <Text style={styles.headerTitle} numberOfLines={1}>
-                    {t("common.notifications")}
-                  </Text>
+          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+          <Animated.View
+            style={[
+              styles.dialog,
+              {
+                transform: [{ translateY }],
+                height: sheetHeight,
+                width: windowWidth,
+                backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+              }
+            ]}
+          >
+            {/* Header */}
+            <LinearGradient
+              colors={[...BOOKING_HEADER_GRADIENT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.header}
+            >
+              <View style={styles.sheetHandle}>
+                <View style={styles.sheetHandleBar} />
+              </View>
+              <View style={styles.headerContent}>
+                <View style={styles.headerLeft}>
+                  <Text style={styles.headerBadge}>NOTIFICATIONS</Text>
+                  <Text style={styles.headerTitle}>Activity Center</Text>
                 </View>
                 <TouchableOpacity
-                  style={styles.closeHeader}
+                  style={styles.closeButton}
                   onPress={onClose}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityLabel="Close notifications"
                 >
-                  <Text style={styles.closeHeaderText}>✕</Text>
+                  <MaterialIcon name="close" size={24} color="#ffffff" />
                 </TouchableOpacity>
               </View>
-            </View>
+              <Text style={styles.headerSubtitle}>
+                {r
+                  ? unread > 0
+                    ? `You have ${unread} unread notification${unread > 1 ? 's' : ''}`
+                    : "All caught up! No unread notifications"
+                  : "Sign in to see your activity"}
+              </Text>
+            </LinearGradient>
 
-            <Text style={styles.subHeader}>
-              {r
-                ? unread > 0
-                  ? `${unread} unread — tap an item to mark read`
-                  : "Bookings, visits, and acceptances appear here in real time."
-                : "Sign in to see your activity"}
-            </Text>
+            {/* Stats Bar */}
+            {r && items.length > 0 && (
+              <View style={[styles.statsBar, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }]}>
+                <View style={styles.statItem}>
+                  <MaterialIcon name="notifications" size={18} color="#3b82f6" />
+                  <Text style={[styles.statNumber, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
+                    {items.length}
+                  </Text>
+                  <Text style={[styles.statLabel, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                    Total
+                  </Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <MaterialIcon name="markunread" size={18} color="#f59e0b" />
+                  <Text style={[styles.statNumber, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
+                    {unread}
+                  </Text>
+                  <Text style={[styles.statLabel, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                    Unread
+                  </Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <MaterialIcon name="done-all" size={18} color="#10b981" />
+                  <Text style={[styles.statNumber, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
+                    {items.length - unread}
+                  </Text>
+                  <Text style={[styles.statLabel, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                    Read
+                  </Text>
+                </View>
+              </View>
+            )}
 
-            <View style={[styles.body, { minHeight: bodyMinHeight }]}>
+            {/* Filter Chips */}
+            {r && items.length > 0 && (
+              <View style={styles.filterContainer}>
+                <FilterChip label="All" value="all" count={items.length} />
+                <FilterChip label="Unread" value="unread" count={unread} />
+                <FilterChip label="Read" value="read" count={items.length - unread} />
+                {unread > 0 && (
+                  <TouchableOpacity style={styles.markAllButton} onPress={markAll}>
+                    <MaterialIcon name="done-all" size={18} color="#3b82f6" />
+                    <Text style={styles.markAllText}>Mark all read</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Content */}
+            <View style={[styles.body, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]}>
               {!r ? (
                 <ScrollView
                   contentContainerStyle={styles.centeredScroll}
@@ -368,50 +546,56 @@ export default function NotificationsPage({
                 </ScrollView>
               ) : loading && items.length === 0 ? (
                 <View style={styles.centered}>
-                  <ActivityIndicator size="large" color="#0284c7" />
-                  <Text style={styles.loadingText}>Loading your activity…</Text>
+                  <ActivityIndicator size="large" color="#3b82f6" />
+                  <Text style={[styles.loadingText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                    Loading your activity…
+                  </Text>
                 </View>
               ) : error ? (
                 <View style={styles.centered}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <MaterialIcon name="error-outline" size={48} color="#ef4444" />
+                  <Text style={[styles.errorText, { color: '#ef4444' }]}>{error}</Text>
                   <TouchableOpacity style={styles.retryBtn} onPress={() => void fetchList()}>
                     <Text style={styles.retryText}>Try again</Text>
                   </TouchableOpacity>
                 </View>
-              ) : items.length === 0 ? (
+              ) : filteredItems.length === 0 ? (
                 <View style={styles.centered}>
-                  <MaterialIcon name="inbox" size={48} color="#cbd5e1" />
-                  <Text style={styles.emptyTitle}>Nothing new yet</Text>
-                  <Text style={styles.emptyText}>
-                    When a booking is accepted, a visit starts, or a service completes, you will see it here.
+                  <View style={styles.emptyIconWrapper}>
+                    <MaterialIcon name={selectedFilter === 'unread' ? "markunread" : "inbox"} size={56} color="#cbd5e1" />
+                  </View>
+                  <Text style={[styles.emptyTitle, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
+                    {selectedFilter === 'unread' ? 'No unread notifications' : 'Nothing new yet'}
+                  </Text>
+                  <Text style={[styles.emptyText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                    {selectedFilter === 'unread'
+                      ? "You've read all your notifications. Great job staying updated!"
+                      : "When a booking is accepted, a visit starts, or a service completes, you will see it here."}
                   </Text>
                 </View>
               ) : (
                 <FlatList
-                  data={items}
+                  data={filteredItems}
                   keyExtractor={(item) => String(item.id)}
                   renderItem={renderItem}
                   contentContainerStyle={styles.listContent}
-                  style={styles.list}
-                  showsVerticalScrollIndicator
+                  showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={onRefresh}
+                      tintColor="#3b82f6"
+                      colors={["#3b82f6"]}
+                    />
+                  }
                 />
               )}
             </View>
-
-            <View style={styles.footer}>
-              <TouchableOpacity style={styles.footerBtnOutline} onPress={onClose}>
-                <Text style={styles.footerBtnOutlineText}>{t("common.cancel")}</Text>
-              </TouchableOpacity>
-              {r && unread > 0 && (
-                <TouchableOpacity style={styles.footerBtnPrimary} onPress={() => void markAll()}>
-                  <Text style={styles.footerBtnPrimaryText}>Mark all as read</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
+      {/* Detail Modal */}
       <Modal
         visible={visible && detailFor != null}
         animationType="slide"
@@ -422,54 +606,61 @@ export default function NotificationsPage({
         }}
       >
         <View style={styles.overlay}>
-          <View style={[styles.dialog, styles.detailDialog]}>
+          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => {
+            setDetailFor(null);
+            setDetailError(null);
+          }} />
+          <View style={[styles.detailDialog, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]}>
+            <TouchableOpacity
+              style={styles.detailClose}
+              onPress={() => {
+                setDetailFor(null);
+                setDetailError(null);
+              }}
+            >
+              <LinearGradient
+                colors={[...BOOKING_HEADER_GRADIENT]}
+                style={styles.detailCloseGradient}
+              >
+                <MaterialIcon name="close" size={20} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
             {detailFor && !detailPayload ? (
               <ScrollView contentContainerStyle={styles.centered}>
-                <Text style={styles.emptyText}>
-                  Booking details are not available for this item. Engagement #
-                  {String(detailFor.engagementId || "—")}
+                <MaterialIcon name="info-outline" size={48} color="#94a3b8" />
+                <Text style={[styles.emptyText, { marginTop: 16 }]}>
+                  Booking details are not available for this item.
                 </Text>
                 <TouchableOpacity
-                  style={styles.footerBtnOutline}
+                  style={styles.closeDetailButton}
                   onPress={() => {
                     setDetailFor(null);
                     setDetailError(null);
                   }}
                 >
-                  <Text style={styles.footerBtnOutlineText}>Close</Text>
+                  <Text style={styles.closeDetailButtonText}>Close</Text>
                 </TouchableOpacity>
               </ScrollView>
             ) : null}
             {detailFor && detailPayload ? (
-              <>
-                <TouchableOpacity
-                  style={styles.detailClose}
-                  onPress={() => {
-                    setDetailFor(null);
-                    setDetailError(null);
-                  }}
-                >
-                  <MaterialIcon name="close" size={22} color="#64748b" />
-                </TouchableOpacity>
-                <BookingRequestPanel
-                  engagement={detailPayload}
-                  onAccept={() => {
-                    if (detailFor) void acceptFromList(detailFor);
-                  }}
-                  onReject={(engId) => {
-                    if (detailFor && Number(detailFor.engagementId) === engId) {
-                      void notInterested(detailFor);
-                    }
-                  }}
-                  actionBusy={
-                    detailFor != null &&
-                    acceptingId != null &&
-                    String(acceptingId) === String(detailFor.id)
+              <BookingRequestPanel
+                engagement={detailPayload}
+                onAccept={() => {
+                  if (detailFor) void acceptFromList(detailFor);
+                }}
+                onReject={(engId) => {
+                  if (detailFor && Number(detailFor.engagementId) === engId) {
+                    void notInterested(detailFor);
                   }
-                  errorText={detailError}
-                  headerCaption={`Engagement #${detailPayload.engagement_id}`}
-                />
-              </>
+                }}
+                actionBusy={
+                  detailFor != null &&
+                  acceptingId != null &&
+                  String(acceptingId) === String(detailFor.id)
+                }
+                errorText={detailError}
+                headerCaption={`Engagement #${detailPayload.engagement_id}`}
+              />
             ) : null}
           </View>
         </View>
@@ -481,207 +672,393 @@ export default function NotificationsPage({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(15,23,42,0.45)",
     justifyContent: "flex-end",
-    alignItems: "stretch",
-    width: "100%",
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   dialog: {
-    alignSelf: "stretch",
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: "hidden",
-    flexDirection: "column",
+    alignSelf: "center",
   },
-  detailDialog: { maxHeight: Math.round(Dimensions.get("window").height * 0.92) },
-  sheetTop: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: "#fff",
+  detailDialog: {
+    alignSelf: "center",
+    width: "90%",
+    maxHeight: "80%",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  header: {
+    paddingTop: 12,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   sheetHandle: {
-    width: 44,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sheetHandleBar: {
+    width: 48,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "#cbd5e1",
+    backgroundColor: "rgba(255,255,255,0.4)",
   },
-  headerWrap: {
-    minHeight: 96,
-    position: "relative",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  headerGradientBg: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  headerRow: {
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: "100%",
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-    zIndex: 1,
   },
-  headerTextBlock: {
+  headerLeft: {
     flex: 1,
-    minWidth: 0,
-    paddingRight: 16,
-    justifyContent: "center",
   },
-  headerEyebrow: {
-    color: "rgba(186,230,253,0.95)",
+  headerBadge: {
+    color: "rgba(255,255,255,0.8)",
     fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 1.4,
+    letterSpacing: 1,
+    marginBottom: 6,
   },
   headerTitle: {
-    color: "#fff",
-    fontSize: 20,
+    color: "#ffffff",
+    fontSize: 24,
     fontWeight: "700",
-    marginTop: 6,
-    paddingBottom: 2,
   },
-  closeHeader: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    flexShrink: 0,
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
-  closeHeaderText: {
-    color: "#fff",
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 13,
+    marginTop: 8,
+  },
+  statsBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginTop: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statNumber: {
     fontSize: 18,
     fontWeight: "700",
-    lineHeight: 20,
-    marginTop: -1,
   },
-  body: {
-    flex: 1,
-    width: "100%",
-    backgroundColor: "#fff",
+  statLabel: {
+    fontSize: 12,
+    fontWeight: "500",
   },
-  subHeader: {
-    width: "100%",
-    paddingHorizontal: 20,
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "rgba(0,0,0,0.1)",
+  },
+  filterContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#e2e8f0",
+    gap: 6,
+  },
+  filterChipActive: {
+    backgroundColor: "#3b82f6",
+  },
+  filterChipText: {
     fontSize: 13,
-    lineHeight: 18,
-    color: "#475569",
-    backgroundColor: "#f8fafc",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    fontWeight: "600",
+    color: "#64748b",
   },
-  list: { flex: 1, width: "100%" },
-  listContent: { padding: 12, paddingBottom: 16, flexGrow: 1 },
-  itemCard: {
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    backgroundColor: "#fff",
+  filterChipTextActive: {
+    color: "#ffffff",
   },
-  itemUnread: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#0284c7",
-    backgroundColor: "rgba(37,99,235,0.04)",
-  },
-  itemRow: { flexDirection: "row", gap: 10 },
-  iconWrap: { padding: 8, borderRadius: 10 },
-  itemContent: { flex: 1 },
-  titleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 },
-  itemTitle: { fontSize: 15, color: "#0f172a", flex: 1 },
-  itemTitleBold: { fontWeight: "800" },
-  newBadge: {
-    backgroundColor: "#0284c7",
+  filterBadge: {
+    backgroundColor: "rgba(0,0,0,0.1)",
+    borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
   },
-  newBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
-  itemBody: { fontSize: 13, color: "#64748b", marginTop: 4, lineHeight: 18 },
-  metaLine: { fontSize: 12, color: "#64748b", marginTop: 4 },
-  metaBold: { fontWeight: "700", color: "#334155" },
-  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
-  smallBtn: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
+  filterBadgeActive: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#64748b",
+  },
+  filterBadgeTextActive: {
+    color: "#ffffff",
+  },
+  markAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: "auto",
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  smallBtnPrimary: { backgroundColor: "#0284c7", borderColor: "#0284c7" },
-  smallBtnText: { fontSize: 12, fontWeight: "600", color: "#334155" },
-  smallBtnPrimaryText: { fontSize: 12, fontWeight: "600", color: "#fff" },
-  itemMeta: { fontSize: 11, color: "#94a3b8", marginTop: 8 },
+  markAllText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#3b82f6",
+  },
+  body: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 20,
+  },
+  itemWrapper: {
+    marginBottom: 12,
+  },
+  itemCard: {
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  itemUnread: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#3b82f6",
+  },
+  itemRow: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  iconWrap: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  iconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  itemContent: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  itemTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    flex: 1,
+    lineHeight: 20,
+  },
+  itemTitleBold: {
+    fontWeight: "800",
+  },
+  newBadge: {
+    backgroundColor: "#3b82f6",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  newBadgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  itemBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  metaLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 12,
+  },
+  metaText: {
+    fontSize: 12,
+    flex: 1,
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 12,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  viewButton: {
+    backgroundColor: "rgba(59,130,246,0.1)",
+  },
+  viewButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#3b82f6",
+  },
+  acceptButton: {
+    backgroundColor: "#10b981",
+  },
+  acceptButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  declineButton: {
+    backgroundColor: "rgba(239,68,68,0.1)",
+  },
+  declineButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ef4444",
+  },
+  itemFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  categoryBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  timeText: {
+    fontSize: 11,
+  },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 32,
-    width: "100%",
   },
   centeredScroll: {
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 32,
-    minHeight: 240,
   },
-  loadingText: { marginTop: 12, color: "#64748b" },
-  errorText: { color: "#dc2626", marginBottom: 12, textAlign: "center" },
+  loadingText: {
+    marginTop: 12,
+  },
+  errorText: {
+    marginBottom: 12,
+    textAlign: "center",
+  },
   retryBtn: {
     borderWidth: 1,
-    borderColor: "#0284c7",
+    borderColor: "#3b82f6",
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
-  retryText: { color: "#0284c7", fontWeight: "600" },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#1e293b", marginTop: 12 },
-  emptyText: { fontSize: 14, color: "#64748b", textAlign: "center", marginTop: 8, lineHeight: 20 },
-  guestBody: { alignItems: "center", padding: 32 },
-  guestTitle: { fontSize: 18, fontWeight: "700", color: "#1e293b", marginTop: 12 },
-  guestText: { fontSize: 14, color: "#64748b", textAlign: "center", marginTop: 8, lineHeight: 22 },
-  footer: {
-    flexDirection: "row",
-    gap: 10,
-    padding: 14,
-    paddingBottom: 18,
-    borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    backgroundColor: "#f8fafc",
-    flexShrink: 0,
+  retryText: {
+    color: "#3b82f6",
+    fontWeight: "600",
   },
-  footerBtnOutline: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
+  emptyIconWrapper: {
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  guestContainer: {
     alignItems: "center",
+    padding: 32,
+    borderRadius: 20,
+    margin: 16,
   },
-  footerBtnOutlineText: { color: "#475569", fontWeight: "600" },
-  footerBtnPrimary: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "#0284c7",
+  guestIconWrapper: {
+    marginBottom: 20,
+  },
+  guestIconGradient: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     alignItems: "center",
+    justifyContent: "center",
   },
-  footerBtnPrimaryText: { color: "#fff", fontWeight: "700" },
+  guestTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  guestText: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+  },
   detailClose: {
     position: "absolute",
     right: 12,
     top: 12,
-    zIndex: 5,
-    padding: 4,
+    zIndex: 10,
+  },
+  detailCloseGradient: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeDetailButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: "#3b82f6",
+    borderRadius: 10,
+  },
+  closeDetailButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
   },
 });

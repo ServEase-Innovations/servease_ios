@@ -381,14 +381,20 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           </View>
         </View>
 
-        {!isServiceDisabled && showOffer ? (
-          <View style={styles.promoWrap}>
-            <FirstBookingOffer onPress={() => setShowServiceSelection(true)} />
-            <View style={{ marginTop: 8 }}>
-              <BroadcastMessage onCouponApplied={() => null} />
-            </View>
-          </View>
-        ) : null}
+
+{!isServiceDisabled && showOffer ? (
+  <View style={styles.promoWrap}>
+    <FirstBookingOffer onPress={() => setShowServiceSelection(true)} />
+    {/* <View style={{ marginTop: 8 }}>
+      <BroadcastMessage 
+        onCouponApplied={(couponCode) => {
+          // Handle coupon application if needed
+          console.log('Coupon applied:', couponCode);
+        }} 
+      />
+    </View> */}
+  </View>
+) : null}
 
         <View style={[styles.stepsCard, { backgroundColor: isDarkMode ? colors.card : "#ffffff", borderColor: colors.border + "55" }]}>
           <Text style={[styles.stepsTitle, { color: colors.text }]}>{t("home.howItWorks.title")}</Text>

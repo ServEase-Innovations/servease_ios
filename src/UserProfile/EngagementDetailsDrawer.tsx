@@ -1,16 +1,18 @@
 /* eslint-disable */
 import React from 'react';
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Dimensions,
   Alert,
   ActivityIndicator,
   Platform,
+  ScrollView,
+  Animated,
+  TouchableWithoutFeedback,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import dayjs from 'dayjs';
@@ -24,9 +26,9 @@ import { useTheme } from '../../src/Settings/ThemeContext';
 import Invoice from '../Invoice/Invoice';
 import UserHoliday from './UserHoliday';
 import VacationManagementDialog from './VacationManagement';
-import BottomSheetScaffold from '../design-system/BottomSheetScaffold';
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // ==================== Types ====================
 interface EngagementDetailsDrawerProps {
@@ -80,11 +82,16 @@ const CancelDialog: React.FC<{
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <View style={cancelDialogStyles.overlay}>
         <View style={[cancelDialogStyles.dialogContainer, { backgroundColor: colors.card }]}>
           <LinearGradient 
-            colors={["#0b5bd3", "#4f8ff7"]} 
+            colors={[...BOOKING_HEADER_GRADIENT]} 
             start={{ x: 0, y: 0 }} 
             end={{ x: 1, y: 0 }} 
             style={cancelDialogStyles.header}
@@ -147,12 +154,10 @@ const formatTimeToAMPM = (timeString: string): string => {
 
 const formatDate = (dateString: string) => dayjs(dateString).format('MMMM D, YYYY');
 
-// Helper function to check if booking has vacation
 const hasVacation = (booking: any): boolean => {
   return booking.hasVacation || (booking.vacationDetails && (booking.vacationDetails.total_days || 0) > 0) || false;
 };
 
-// Helper function to check modification time allowance
 const isModificationTimeAllowed = (startEpoch: any): boolean => {
   if (!startEpoch) return false;
   const now = dayjs().unix();
@@ -160,7 +165,6 @@ const isModificationTimeAllowed = (startEpoch: any): boolean => {
   return now < cutoff;
 };
 
-// Helper function to check if booking is already modified
 const isBookingAlreadyModified = (booking: any | null): boolean => {
   if (!booking) return false;
   return !!(booking.modifications?.some((mod: any) =>
@@ -171,13 +175,11 @@ const isBookingAlreadyModified = (booking: any | null): boolean => {
   ));
 };
 
-// Helper function to check if modification is disabled
 const isModificationDisabled = (booking: any | null): boolean => {
   if (!booking) return true;
   return !isModificationTimeAllowed(booking.start_epoch) || isBookingAlreadyModified(booking);
 };
 
-// Helper function to get service title
 const getServiceTitle = (type: string) => {
   const serviceType = type || 'other';
   switch (serviceType) {
@@ -189,81 +191,7 @@ const getServiceTitle = (type: string) => {
   }
 };
 
-// Helper function to get booking type badge
-const getBookingTypeBadge = (type: string) => {
-  const { colors } = useTheme();
-  switch (type) {
-    case 'ON_DEMAND':
-      return (
-        <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-          <Text style={[styles.onDemandBadgeText, { color: colors.info }]}>On Demand</Text>
-        </Badge>
-      );
-    case 'MONTHLY':
-      return (
-        <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-          <Text style={[styles.monthlyBadgeText, { color: colors.primary }]}>Monthly</Text>
-        </Badge>
-      );
-    case 'SHORT_TERM':
-      return (
-        <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-          <Text style={[styles.shortTermBadgeText, { color: colors.success }]}>Short Term</Text>
-        </Badge>
-      );
-    default:
-      return (
-        <Badge style={[styles.defaultBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-          <Text style={[styles.defaultBadgeText, { color: colors.textSecondary }]}>{type}</Text>
-        </Badge>
-      );
-  }
-};
-
-// Helper function to get status badge
-const getStatusBadge = (status: string) => {
-  const { colors } = useTheme();
-  switch (status) {
-    case 'ACTIVE':
-      return (
-        <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-          <Icon name="alert-circle" size={14} color={colors.primary} />
-          <Text style={[styles.activeBadgeText, { color: colors.primary }]}>Active</Text>
-        </Badge>
-      );
-    case 'COMPLETED':
-      return (
-        <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-          <Icon name="check-circle" size={14} color={colors.success} />
-          <Text style={[styles.completedBadgeText, { color: colors.success }]}>Completed</Text>
-        </Badge>
-      );
-    case 'CANCELLED':
-      return (
-        <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
-          <Icon name="close-circle" size={14} color={colors.error} />
-          <Text style={[styles.cancelledBadgeText, { color: colors.error }]}>Cancelled</Text>
-        </Badge>
-      );
-    case 'IN_PROGRESS':
-      return (
-        <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
-          <Icon name="clock" size={14} color={colors.warning} />
-          <Text style={[styles.inProgressBadgeText, { color: colors.warning }]}>In Progress</Text>
-        </Badge>
-      );
-    case 'NOT_STARTED':
-      return (
-        <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-          <Icon name="clock" size={14} color={colors.textSecondary} />
-          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary }]}>Not Started</Text>
-        </Badge>
-      );
-    default: return null;
-  }
-};
-
-// ==================== Main Component ====================
+// ==================== Main Component - Custom Dialog without Modal ====================
 const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ 
   isOpen, 
   onClose, 
@@ -279,10 +207,64 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = React.useState(false);
   
+  // Animation values
+  const slideAnim = React.useRef(new Animated.Value(height)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  
+  // Create a ref for the ScrollView
+  const scrollViewRef = React.useRef<ScrollView>(null);
+  
   // Vacation states
   const [holidayDialogOpen, setHolidayDialogOpen] = React.useState(false);
   const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Handle animation when isOpen changes
+  React.useEffect(() => {
+    if (isOpen) {
+      // Animate in
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Scroll to bottom after animation completes
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      });
+    } else {
+      // Animate out
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: height,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isOpen]);
+
+  // Scroll to bottom when content changes
+  React.useEffect(() => {
+    if (isOpen && booking) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 200);
+    }
+  }, [isOpen, booking?.payment?.status, booking?.modifications?.length]);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -309,7 +291,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   
   const fontSizes = getFontSizes();
 
-  if (!isOpen || !booking) return null;
+  if (!booking) return null;
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
@@ -324,6 +306,76 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     }
   };
 
+  const getBookingTypeBadge = (type: string) => {
+    switch (type) {
+      case 'ON_DEMAND':
+        return (
+          <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
+            <Text style={[styles.onDemandBadgeText, { color: colors.info }]}>On Demand</Text>
+          </Badge>
+        );
+      case 'MONTHLY':
+        return (
+          <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+            <Text style={[styles.monthlyBadgeText, { color: colors.primary }]}>Monthly</Text>
+          </Badge>
+        );
+      case 'SHORT_TERM':
+        return (
+          <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+            <Text style={[styles.shortTermBadgeText, { color: colors.success }]}>Short Term</Text>
+          </Badge>
+        );
+      default:
+        return (
+          <Badge style={[styles.defaultBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+            <Text style={[styles.defaultBadgeText, { color: colors.textSecondary }]}>{type}</Text>
+          </Badge>
+        );
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return (
+          <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+            <Icon name="alert-circle" size={14} color={colors.primary} />
+            <Text style={[styles.activeBadgeText, { color: colors.primary }]}>Active</Text>
+          </Badge>
+        );
+      case 'COMPLETED':
+        return (
+          <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
+            <Icon name="check-circle" size={14} color={colors.success} />
+            <Text style={[styles.completedBadgeText, { color: colors.success }]}>Completed</Text>
+          </Badge>
+        );
+      case 'CANCELLED':
+        return (
+          <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
+            <Icon name="close-circle" size={14} color={colors.error} />
+            <Text style={[styles.cancelledBadgeText, { color: colors.error }]}>Cancelled</Text>
+          </Badge>
+        );
+      case 'IN_PROGRESS':
+        return (
+          <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
+            <Icon name="clock" size={14} color={colors.warning} />
+            <Text style={[styles.inProgressBadgeText, { color: colors.warning }]}>In Progress</Text>
+          </Badge>
+        );
+      case 'NOT_STARTED':
+        return (
+          <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
+            <Icon name="clock" size={14} color={colors.textSecondary} />
+            <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary }]}>Not Started</Text>
+          </Badge>
+        );
+      default: return null;
+    }
+  };
+
   const isProviderAssigned = () => {
     const notAssignedString = 'Not Assigned';
     return !!(
@@ -335,7 +387,12 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   const handleDownloadInvoice = () => {
+    console.log('Opening invoice modal for booking:', booking.id);
     setShowInvoiceModal(true);
+  };
+
+  const handleCloseInvoice = () => {
+    setShowInvoiceModal(false);
   };
 
   const handleCompletePayment = async () => {
@@ -487,9 +544,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   const handleModifyClick = () => {
-    // Close the drawer and let the parent component handle the modify dialog
     onClose();
-    // You can emit an event or directly call a callback if needed
     setTimeout(() => {
       Alert.alert('Modify Booking', 'Please use the modify button from the main booking screen');
     }, 500);
@@ -510,11 +565,9 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
   const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
   
-  // Determine which action buttons to show based on booking status
   const shouldShowModifyButton = booking.bookingType === "MONTHLY" && booking.taskStatus === 'NOT_STARTED';
   const shouldShowVacationButton = booking.bookingType === "MONTHLY" && booking.taskStatus !== 'CANCELLED' && booking.taskStatus !== 'COMPLETED';
 
-  // Convert booking for child components
   const convertBookingForChildComponents = (bookingData: any): any => {
     if (!bookingData) return null;
     return {
@@ -528,624 +581,668 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     };
   };
 
-  // ==================== Styles ====================
-  const dynamicStyles = StyleSheet.create({
-    modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
-    overlayTouchable: { flex: 1 },
-    drawerContainer: { 
-      backgroundColor: colors.card, 
-      borderTopLeftRadius: 20, 
-      borderTopRightRadius: 20, 
-      height: '90%', 
-      width: '100%' 
-    },
-    header: { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    headerContent: { 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'space-between', 
-      paddingHorizontal: 16, 
-      paddingVertical: 12, 
-      width: '100%' 
-    },
-    headerLeftPlaceholder: { width: 40 },
-    headerTitle: { 
-      fontSize: fontSizes.headerTitle, 
-      fontWeight: '600', 
-      color: '#FFFFFF', 
-      textAlign: 'center', 
-      flex: 1 
-    },
-    closeButton: { padding: 8, width: 40, alignItems: 'center', justifyContent: 'center' },
-    content: { flex: 1, padding: 20 },
-    bookingIdContainer: { 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      marginBottom: 20 
-    },
-    labelText: { fontSize: fontSizes.labelText, color: colors.textSecondary },
-    bookingIdText: { fontSize: fontSizes.bookingIdText, fontWeight: '500', color: colors.text },
-    statusContainer: { flexDirection: 'row', gap: 8 },
-    serviceTypeContainer: { 
-      backgroundColor: colors.primary + '15', 
-      padding: 16, 
-      borderRadius: 8, 
-      marginBottom: 20, 
-      flexDirection: 'row', 
-      alignItems: 'center' 
-    },
-    serviceIconContainer: { padding: 8, backgroundColor: colors.card, borderRadius: 8, marginRight: 12 },
-    serviceIcon: { fontSize: 24 },
-    serviceTextContainer: { flex: 1 },
-    serviceLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary },
-    serviceTitle: { fontSize: fontSizes.serviceTitle, fontWeight: '700', color: colors.text },
-    actionButtonsContainer: { 
-      flexDirection: 'row', 
-      flexWrap: 'wrap',
-      justifyContent: 'space-between', 
-      gap: 10, 
-      marginBottom: 20 
-    },
-    actionButton: { 
-      flex: 1, 
-      minWidth: '30%',
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      paddingVertical: 12, 
-      paddingHorizontal: 8, 
-      borderRadius: 8, 
-      gap: 6, 
-      minHeight: 44 
-    },
-    actionButtonText: { fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    callButton: { backgroundColor: colors.primary },
-    callButtonText: { color: '#FFFFFF' },
-    // Payment Button Outline Style
-    paymentButtonOutline: { 
-      backgroundColor: colors.card, 
-      borderWidth: 2, 
-      borderColor: colors.error,
-      flex: 1 
-    },
-    paymentButtonOutlineText: { 
-      color: colors.error, 
-      fontSize: fontSizes.actionButtonText, 
-      fontWeight: '600' 
-    },
-    // Cancel Button Outline Style
-    cancelButtonOutline: { 
-      backgroundColor: colors.card, 
-      borderWidth: 2, 
-      borderColor: colors.error,
-      flex: 1 
-    },
-    cancelButtonOutlineText: { 
-      color: colors.error, 
-      fontSize: fontSizes.actionButtonText, 
-      fontWeight: '600' 
-    },
-    modifyButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary },
-    modifyButtonText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    vacationButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary },
-    vacationButtonText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    vacationModifiedButton: { backgroundColor: colors.infoLight, borderColor: colors.info },
-    vacationModifiedText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    disabledButton: { opacity: 0.6 },
-    section: { marginBottom: 24 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-    sectionTitle: { fontSize: fontSizes.sectionTitle, fontWeight: '500', color: colors.text },
-    scheduleGrid: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    scheduleItem: { flex: 1, backgroundColor: colors.surface, padding: 12, borderRadius: 8 },
-    scheduleLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 4 },
-    scheduleValue: { fontSize: fontSizes.scheduleValue, fontWeight: '500', color: colors.text },
-    timeSlotContainer: { backgroundColor: colors.surface, padding: 12, borderRadius: 8 },
-    timeSlotValueContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    providerContainer: { 
-      backgroundColor: colors.surface, 
-      padding: 16, 
-      borderRadius: 8, 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      alignItems: 'center' 
-    },
-    providerInfo: { flex: 1 },
-    providerName: { fontSize: fontSizes.providerName, fontWeight: '500', color: colors.text },
-    ratingBadge: { backgroundColor: colors.warningLight },
-    tasksContainer: { gap: 12 },
-    tasksSubLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 8 },
-    tasksList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    mainTaskBadge: { backgroundColor: colors.primary + '15' },
-    addonBadge: { backgroundColor: colors.successLight },
-    paymentContainer: { backgroundColor: colors.surface, padding: 16, borderRadius: 8 },
-    paymentRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    paymentLabel: { fontSize: fontSizes.scheduleValue, color: colors.textSecondary },
-    paymentValue: { fontSize: fontSizes.paymentValue, fontWeight: '500', color: colors.text },
-    separator: { height: 1, marginVertical: 8 },
-    paymentTotalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-    paymentTotalLabel: { fontSize: fontSizes.sectionTitle, fontWeight: '700', color: colors.text },
-    paymentTotalValue: { fontSize: fontSizes.paymentTotalValue, fontWeight: '700', color: colors.primary },
-    paymentStatusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    paymentStatusBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-    paymentModeValue: { fontSize: fontSizes.paymentValue, fontWeight: '500', color: colors.text, textTransform: 'capitalize' },
-    completePaymentContainer: { marginTop: 16 },
-    // Complete Payment Button Outline Style
-    completePaymentButtonOutline: { 
-      backgroundColor: colors.card, 
-      borderWidth: 2, 
-      borderColor: colors.error,
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      padding: 16, 
-      borderRadius: 8, 
-      gap: 8 
-    },
-    completePaymentButtonOutlineText: { 
-      color: colors.error, 
-      fontSize: fontSizes.sectionTitle, 
-      fontWeight: '600' 
-    },
-    completePaymentNote: { fontSize: fontSizes.labelText, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
-    invoiceButtonContainer: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
-    invoiceButton: { 
-      backgroundColor: 'transparent', 
-      borderWidth: 1, 
-      borderColor: colors.primary, 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      padding: 16, 
-      borderRadius: 8, 
-      gap: 8 
-    },
-    invoiceButtonText: { color: colors.primary, fontSize: fontSizes.sectionTitle, fontWeight: '600' },
-    invoiceNote: { fontSize: fontSizes.labelText, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
-    modificationsContainer: { gap: 8 },
-    modificationItem: { backgroundColor: colors.warningLight, padding: 12, borderRadius: 8 },
-    modificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
-    modificationBadge: { backgroundColor: colors.warning },
-    modificationDate: { fontSize: fontSizes.labelText, color: colors.textSecondary },
-    refundText: { fontSize: fontSizes.labelText, color: colors.success },
-    penaltyText: { fontSize: fontSizes.labelText, color: colors.error },
-    additionalInfoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    additionalInfoItem: { flex: 1, minWidth: '40%' },
-    additionalInfoLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 2 },
-    additionalInfoValue: { fontSize: fontSizes.additionalInfoValue, fontWeight: '500', color: colors.text, textTransform: 'capitalize' },
-  });
+  // Don't render if not open
+  if (!isOpen) return null;
 
-  // ==================== Render ====================
+  // ==================== Render Custom Dialog ====================
   return (
     <>
-      <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
-        <View style={dynamicStyles.modalOverlay}>
-          <TouchableOpacity style={dynamicStyles.overlayTouchable} onPress={onClose} />
-          <BottomSheetScaffold
-            backgroundColor={colors.background}
-            borderColor={colors.border}
-            style={dynamicStyles.drawerContainer}
-          >
-            <LinearGradient 
-              colors={["#0b5bd3", "#4f8ff7"]} 
-              start={{ x: 0, y: 0 }} 
-              end={{ x: 1, y: 0 }} 
-              style={dynamicStyles.header}
-            >
-              <View style={dynamicStyles.headerContent}>
-                <View style={dynamicStyles.headerLeftPlaceholder} />
-                <Text style={dynamicStyles.headerTitle}>Booking Details</Text>
-                <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
-                  <Icon name="x" size={24} color="#FFFFFF" />
+      {/* Overlay and Drawer */}
+      <Animated.View 
+        style={[
+          styles.overlay, 
+          { 
+            opacity: fadeAnim,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+          }
+        ]}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.overlayTouchable} />
+        </TouchableWithoutFeedback>
+      </Animated.View>
+      
+      <Animated.View 
+        style={[
+          styles.drawerContainer,
+          {
+            transform: [{ translateY: slideAnim }],
+            backgroundColor: colors.card,
+          }
+        ]}
+      >
+        {/* Header with BOOKING_HEADER_GRADIENT */}
+        <LinearGradient 
+          colors={[...BOOKING_HEADER_GRADIENT]} 
+          start={{ x: 0, y: 0 }} 
+          end={{ x: 1, y: 0 }} 
+          style={styles.header}
+        >
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeftPlaceholder} />
+            <Text style={[styles.headerTitle, { fontSize: fontSizes.headerTitle }]}>Booking Details</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Icon name="x" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+
+        {/* Scrollable Content */}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={true}
+          bounces={true}
+          overScrollMode="always"
+          nestedScrollEnabled={true}
+        >
+          {/* Booking ID and Status */}
+          <View style={styles.rowBetween}>
+            <View>
+              <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Booking ID</Text>
+              <Text style={[styles.bookingIdText, { fontSize: fontSizes.bookingIdText, color: colors.text }]}>#{booking.id}</Text>
+            </View>
+            <View style={styles.statusContainer}>
+              {getBookingTypeBadge(booking.bookingType)}
+              {getStatusBadge(booking.taskStatus)}
+            </View>
+          </View>
+
+          {/* Service Type */}
+          <View style={[styles.serviceCard, { backgroundColor: colors.primary + '15', marginTop: 20 }]}>
+            <View style={[styles.serviceIconContainer, { backgroundColor: colors.card }]}>
+              <Text style={styles.serviceIcon}>{getServiceIcon(booking.service_type)}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Service Type</Text>
+              <Text style={[styles.serviceTitle, { fontSize: fontSizes.serviceTitle, color: colors.text }]}>{getServiceTitle(booking.service_type)}</Text>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={{ marginTop: 20 }}>
+            {!canShowPaymentButton ? (
+              <View style={styles.buttonGrid}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary }]} 
+                  onPress={handleCallProvider} 
+                  disabled={isCallLoading}
+                >
+                  {isCallLoading ? 
+                    <ActivityIndicator size="small" color="#FFFFFF" /> : 
+                    <Icon name="phone" size={18} color="#FFFFFF" />
+                  }
+                  <Text style={[styles.actionButtonText, { color: '#FFFFFF', fontSize: fontSizes.actionButtonText }]}>Call</Text>
                 </TouchableOpacity>
-              </View>
-            </LinearGradient>
-            
-            <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
-              {/* Booking ID and Status */}
-              <View style={dynamicStyles.bookingIdContainer}>
-                <View>
-                  <Text style={dynamicStyles.labelText}>Booking ID</Text>
-                  <Text style={dynamicStyles.bookingIdText}>#{booking.id}</Text>
-                </View>
-                <View style={dynamicStyles.statusContainer}>
-                  {getBookingTypeBadge(booking.bookingType)}
-                  {getStatusBadge(booking.taskStatus)}
-                </View>
-              </View>
-
-              {/* Service Type */}
-              <View style={dynamicStyles.serviceTypeContainer}>
-                <View style={dynamicStyles.serviceIconContainer}>
-                  <Text style={dynamicStyles.serviceIcon}>{getServiceIcon(booking.service_type)}</Text>
-                </View>
-                <View style={dynamicStyles.serviceTextContainer}>
-                  <Text style={dynamicStyles.serviceLabel}>Service Type</Text>
-                  <Text style={dynamicStyles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
-                </View>
-              </View>
-
-              {/* Action Buttons - Updated with red border style for payment and cancel */}
-              {!canShowPaymentButton ? (
-                <View style={dynamicStyles.actionButtonsContainer}>
-                  {/* Call Button */}
+                
+                {isCancellable() && (
                   <TouchableOpacity 
-                    style={[dynamicStyles.actionButton, dynamicStyles.callButton]} 
-                    onPress={handleCallProvider} 
-                    disabled={isCallLoading}
+                    style={[styles.outlineButton, { borderColor: colors.error }]} 
+                    onPress={handleCancelBooking} 
+                    disabled={isCancelLoading}
                   >
-                    {isCallLoading ? 
-                      <ActivityIndicator size="small" color="#FFFFFF" /> : 
-                      <Icon name="phone" size={18} color="#FFFFFF" />
+                    {isCancelLoading ? 
+                      <ActivityIndicator size="small" color={colors.error} /> : 
+                      <Icon name="x-circle" size={18} color={colors.error} />
                     }
-                    <Text style={[dynamicStyles.actionButtonText, dynamicStyles.callButtonText]}>Call</Text>
+                    <Text style={[styles.outlineButtonText, { color: colors.error, fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
                   </TouchableOpacity>
-                  
-                  {/* Cancel Button (if cancellable) - Now with red border and red text */}
-                  {isCancellable() && (
-                    <TouchableOpacity 
-                      style={[dynamicStyles.actionButton, dynamicStyles.cancelButtonOutline]} 
-                      onPress={handleCancelBooking} 
-                      disabled={isCancelLoading}
-                    >
-                      {isCancelLoading ? 
-                        <ActivityIndicator size="small" color={colors.error} /> : 
-                        <Icon name="x-circle" size={18} color={colors.error} />
-                      }
-                      <Text style={dynamicStyles.cancelButtonOutlineText}>Cancel</Text>
-                    </TouchableOpacity>
-                  )}
-                  
-                  {/* Modify Button - Only for MONTHLY and NOT_STARTED */}
-                  {shouldShowModifyButton && (
-                    <TouchableOpacity 
-                      style={[dynamicStyles.actionButton, dynamicStyles.modifyButton, modificationDisabled && dynamicStyles.disabledButton]} 
-                      onPress={handleModifyClick}
-                      disabled={modificationDisabled}
-                    >
-                      <Icon name="edit-2" size={18} color={modificationDisabled ? colors.textSecondary : colors.primary} />
-                      <Text style={[dynamicStyles.modifyButtonText, modificationDisabled && { color: colors.textSecondary }]}>Modify</Text>
-                    </TouchableOpacity>
-                  )}
-                  
-                  {/* Vacation Button - For MONTHLY bookings that are not cancelled/completed */}
-                  {shouldShowVacationButton && (
+                )}
+                
+                {shouldShowModifyButton && (
+                  <TouchableOpacity 
+                    style={[styles.outlineButton, { borderColor: colors.primary, opacity: modificationDisabled ? 0.5 : 1 }]} 
+                    onPress={handleModifyClick}
+                    disabled={modificationDisabled}
+                  >
+                    <Icon name="edit-2" size={18} color={modificationDisabled ? colors.textSecondary : colors.primary} />
+                    <Text style={[styles.outlineButtonText, { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.actionButtonText }]}>Modify</Text>
+                  </TouchableOpacity>
+                )}
+                
+                {shouldShowVacationButton && (
+                  <>
+                    {hasExistingVacation ? (
+                      <TouchableOpacity 
+                        style={[styles.outlineButton, { borderColor: colors.primary }]} 
+                        onPress={handleModifyVacation}
+                        disabled={isRefreshing}
+                      >
+                        <Icon name="edit-2" size={18} color={colors.primary} />
+                        <Text style={[styles.outlineButtonText, { color: colors.primary, fontSize: fontSizes.actionButtonText }]}>Modify Vacation</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity 
+                        style={[styles.outlineButton, { borderColor: colors.primary }]} 
+                        onPress={handleAddVacation}
+                        disabled={isRefreshing}
+                      >
+                        <Icon name="calendar" size={18} color={colors.primary} />
+                        <Text style={[styles.outlineButtonText, { color: colors.primary, fontSize: fontSizes.actionButtonText }]}>Add Vacation</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </View>
+            ) : (
+              <View style={styles.buttonGrid}>
+                <TouchableOpacity 
+                  style={[styles.outlineButton, { borderColor: colors.error, flex: 1 }]} 
+                  onPress={handleCompletePayment} 
+                  disabled={isProcessingPayment}
+                >
+                  {isProcessingPayment ? 
+                    <ActivityIndicator size="small" color={colors.error} /> : (
                     <>
-                      {hasExistingVacation ? (
-                        <TouchableOpacity 
-                          style={[dynamicStyles.actionButton, dynamicStyles.vacationModifiedButton]} 
-                          onPress={handleModifyVacation}
-                          disabled={isRefreshing}
-                        >
-                          <Icon name="edit-2" size={18} color={colors.primary} />
-                          <Text style={dynamicStyles.vacationModifiedText}>Modify Vacation</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity 
-                          style={[dynamicStyles.actionButton, dynamicStyles.vacationButton]} 
-                          onPress={handleAddVacation}
-                          disabled={isRefreshing}
-                        >
-                          <Icon name="calendar" size={18} color={colors.primary} />
-                          <Text style={dynamicStyles.vacationButtonText}>Add Vacation</Text>
-                        </TouchableOpacity>
-                      )}
+                      <Icon name="credit-card" size={18} color={colors.error} />
+                      <Text style={[styles.outlineButtonText, { color: colors.error, fontSize: fontSizes.actionButtonText }]}>Complete Payment</Text>
                     </>
                   )}
-                </View>
-              ) : (
-                /* Payment Button for pending payments - Now with red border and red text */
-                <View style={dynamicStyles.actionButtonsContainer}>
+                </TouchableOpacity>
+                
+                {isCancellable() && (
                   <TouchableOpacity 
-                    style={[dynamicStyles.actionButton, dynamicStyles.paymentButtonOutline]} 
+                    style={[styles.outlineButton, { borderColor: colors.error, flex: 1 }]} 
+                    onPress={handleCancelBooking} 
+                    disabled={isCancelLoading}
+                  >
+                    {isCancelLoading ? 
+                      <ActivityIndicator size="small" color={colors.error} /> : 
+                      <Icon name="x-circle" size={18} color={colors.error} />
+                    }
+                    <Text style={[styles.outlineButtonText, { color: colors.error, fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Schedule */}
+          <View style={{ marginTop: 24 }}>
+            <View style={styles.sectionHeader}>
+              <Icon name="calendar" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Schedule</Text>
+            </View>
+            <View style={styles.grid2}>
+              <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Start Date</Text>
+                <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue, color: colors.text }]}>{formatDate(booking.startDate)}</Text>
+              </View>
+              <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>End Date</Text>
+                <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue, color: colors.text }]}>{formatDate(booking.endDate)}</Text>
+              </View>
+            </View>
+            <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Time Slot</Text>
+              <View style={styles.rowGap8}>
+                <Icon name="clock" size={16} color={colors.textSecondary} />
+                <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue, color: colors.text }]}>
+                  {formatTimeToAMPM(booking.start_time)} - {formatTimeToAMPM(booking.end_time)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Provider */}
+          {isProviderAssigned() && (
+            <View style={{ marginTop: 24 }}>
+              <View style={styles.sectionHeader}>
+                <Icon name="user" size={20} color={colors.success} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Service Provider</Text>
+              </View>
+              <View style={[styles.providerCard, { backgroundColor: colors.surface }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.providerName, { fontSize: fontSizes.providerName, color: colors.text }]}>{booking.serviceProviderName}</Text>
+                </View>
+                {booking.providerRating > 0 && (
+                  <Badge style={{ backgroundColor: colors.warningLight }}>
+                    ⭐ {booking.providerRating.toFixed(1)}
+                  </Badge>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Tasks */}
+          <View style={{ marginTop: 24 }}>
+            <View style={styles.sectionHeader}>
+              <Icon name="file-text" size={20} color={colors.info} />
+              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Tasks & Responsibilities</Text>
+            </View>
+            
+            {booking.responsibilities?.tasks?.length > 0 && (
+              <View>
+                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 8 }]}>Main Tasks</Text>
+                <View style={styles.wrapContainer}>
+                  {booking.responsibilities.tasks.map((task: any, index: number) => {
+                    const taskDetails = Object.entries(task)
+                      .filter(([key]) => key !== 'taskType')
+                      .map(([key, value]) => `${value} ${key}`)
+                      .join(', ');
+                    return (
+                      <Badge key={index} variant="outline" style={{ backgroundColor: colors.primary + '15' }}>
+                        {task.taskType} {taskDetails && `- ${taskDetails}`}
+                      </Badge>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+            
+            {booking.responsibilities?.add_ons?.length > 0 && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 8 }]}>Add-ons</Text>
+                <View style={styles.wrapContainer}>
+                  {booking.responsibilities.add_ons.map((addon: any, index: number) => (
+                    <Badge key={index} variant="outline" style={{ backgroundColor: colors.successLight }}>
+                      {addon.taskType}
+                    </Badge>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Payment Details */}
+          {booking.payment && (
+            <View style={{ marginTop: 24 }}>
+              <View style={styles.sectionHeader}>
+                <Icon name="credit-card" size={20} color={colors.warning} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Payment Details</Text>
+              </View>
+              <View style={[styles.paymentCard, { backgroundColor: colors.surface }]}>
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Base Amount</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>₹{booking.payment.base_amount}</Text>
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Platform Fee</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>₹{booking.payment.platform_fee}</Text>
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>GST</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>₹{booking.payment.gst}</Text>
+                </View>
+                <Separator />
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Total</Text>
+                  <Text style={[styles.totalAmount, { fontSize: fontSizes.paymentTotalValue, color: colors.primary }]}>₹{booking.payment.total_amount}</Text>
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Payment Status</Text>
+                  <Badge style={[getPaymentStatusColor(booking.payment.status)]}>
+                    {booking.payment.status}
+                  </Badge>
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Payment Mode</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text, textTransform: 'capitalize' }]}>{booking.payment.payment_mode}</Text>
+                </View>
+                {booking.payment.transaction_id && (
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Transaction ID</Text>
+                    <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>{booking.payment.transaction_id}</Text>
+                  </View>
+                )}
+                
+                {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
+                  <TouchableOpacity 
+                    style={[styles.fullButton, { borderColor: colors.error, marginTop: 16 }]} 
                     onPress={handleCompletePayment} 
                     disabled={isProcessingPayment}
                   >
                     {isProcessingPayment ? 
                       <ActivityIndicator size="small" color={colors.error} /> : (
                       <>
-                        <Icon name="credit-card" size={18} color={colors.error} />
-                        <Text style={dynamicStyles.paymentButtonOutlineText}>Complete Payment</Text>
+                        <Icon name="credit-card" size={20} color={colors.error} />
+                        <Text style={[styles.fullButtonText, { color: colors.error, fontSize: fontSizes.sectionTitle }]}>Complete Payment Now</Text>
                       </>
                     )}
                   </TouchableOpacity>
-                  
-                  {isCancellable() && (
-                    <TouchableOpacity 
-                      style={[dynamicStyles.actionButton, dynamicStyles.cancelButtonOutline]} 
-                      onPress={handleCancelBooking} 
-                      disabled={isCancelLoading}
-                    >
-                      {isCancelLoading ? 
-                        <ActivityIndicator size="small" color={colors.error} /> : 
-                        <Icon name="x-circle" size={18} color={colors.error} />
-                      }
-                      <Text style={dynamicStyles.cancelButtonOutlineText}>Cancel</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
+                )}
+                
+                {booking.payment.status === 'SUCCESS' && (
+                  <TouchableOpacity 
+                    style={[styles.fullButton, { borderColor: colors.primary, marginTop: 16 }]} 
+                    onPress={handleDownloadInvoice}
+                  >
+                    <Icon name="file-text" size={20} color={colors.primary} />
+                    <Text style={[styles.fullButtonText, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>View & Download Invoice</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
 
-              {/* Schedule Information */}
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="calendar" size={20} color={colors.primary} />
-                  <Text style={dynamicStyles.sectionTitle}>Schedule</Text>
-                </View>
-                <View style={dynamicStyles.scheduleGrid}>
-                  <View style={dynamicStyles.scheduleItem}>
-                    <Text style={dynamicStyles.scheduleLabel}>Start Date</Text>
-                    <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.startDate)}</Text>
-                  </View>
-                  <View style={dynamicStyles.scheduleItem}>
-                    <Text style={dynamicStyles.scheduleLabel}>End Date</Text>
-                    <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.endDate)}</Text>
-                  </View>
-                </View>
-                <View style={dynamicStyles.timeSlotContainer}>
-                  <Text style={dynamicStyles.scheduleLabel}>Time Slot</Text>
-                  <View style={dynamicStyles.timeSlotValueContainer}>
-                    <Icon name="clock" size={16} color={colors.textSecondary} />
-                    <Text style={dynamicStyles.scheduleValue}>
-                      {formatTimeToAMPM(booking.start_time)} - {formatTimeToAMPM(booking.end_time)}
+          {/* Modification History */}
+          {booking.modifications?.length > 0 && (
+            <View style={{ marginTop: 24 }}>
+              <View style={styles.sectionHeader}>
+                <Icon name="alert-circle" size={20} color={colors.warning} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Modification History</Text>
+              </View>
+              {booking.modifications.map((mod: any, index: number) => (
+                <View key={index} style={[styles.modificationCard, { backgroundColor: colors.warningLight, marginBottom: 8 }]}>
+                  <View style={styles.wrapContainer}>
+                    <Badge style={{ backgroundColor: colors.warning }}>{mod.action}</Badge>
+                    <Text style={[styles.smallText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>
+                      {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
                     </Text>
                   </View>
+                  {mod.refund && <Text style={[styles.successText, { fontSize: fontSizes.labelText, marginTop: 4 }]}>Refund: ₹{mod.refund}</Text>}
+                  {mod.penalty && <Text style={[styles.errorText, { fontSize: fontSizes.labelText, marginTop: 4 }]}>Penalty: ₹{mod.penalty}</Text>}
                 </View>
-              </View>
+              ))}
+            </View>
+          )}
 
-              {/* Provider Information */}
-              {isProviderAssigned() && (
-                <View style={dynamicStyles.section}>
-                  <View style={dynamicStyles.sectionHeader}>
-                    <Icon name="user" size={20} color={colors.success} />
-                    <Text style={dynamicStyles.sectionTitle}>Service Provider</Text>
-                  </View>
-                  <View style={dynamicStyles.providerContainer}>
-                    <View style={dynamicStyles.providerInfo}>
-                      <Text style={dynamicStyles.providerName}>{booking.serviceProviderName}</Text>
-                    </View>
-                    {booking.providerRating > 0 && (
-                      <Badge style={dynamicStyles.ratingBadge}>
-                        ⭐ {booking.providerRating.toFixed(1)}
-                      </Badge>
-                    )}
-                  </View>
+          {/* Additional Info */}
+          <View style={{ marginTop: 24, marginBottom: 20 }}>
+            <View style={styles.sectionHeader}>
+              <Icon name="tag" size={20} color={colors.textSecondary} />
+              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Additional Information</Text>
+            </View>
+            <View style={styles.grid2}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Booking Date</Text>
+                <Text style={[styles.valueText, { fontSize: fontSizes.additionalInfoValue, color: colors.text }]}>
+                  {dayjs(booking.bookingDate).format('MMM D, YYYY')}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Assignment Status</Text>
+                <Text style={[styles.valueText, { fontSize: fontSizes.additionalInfoValue, color: colors.text, textTransform: 'capitalize' }]}>{booking.assignmentStatus}</Text>
+              </View>
+              {booking.leave_days > 0 && (
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Leave Days</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.additionalInfoValue, color: colors.text }]}>{booking.leave_days}</Text>
                 </View>
               )}
+            </View>
+          </View>
 
-              {/* Tasks & Responsibilities */}
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="file-text" size={20} color={colors.info} />
-                  <Text style={dynamicStyles.sectionTitle}>Tasks & Responsibilities</Text>
-                </View>
-                <View style={dynamicStyles.tasksContainer}>
-                  {booking.responsibilities?.tasks?.length > 0 && (
-                    <View>
-                      <Text style={dynamicStyles.tasksSubLabel}>Main Tasks</Text>
-                      <View style={dynamicStyles.tasksList}>
-                        {booking.responsibilities.tasks.map((task: any, index: number) => {
-                          const taskDetails = Object.entries(task)
-                            .filter(([key]) => key !== 'taskType')
-                            .map(([key, value]) => `${value} ${key}`)
-                            .join(', ');
-                          return (
-                            <Badge key={index} variant="outline" style={dynamicStyles.mainTaskBadge}>
-                              {task.taskType} {taskDetails && `- ${taskDetails}`}
-                            </Badge>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  )}
-                  {booking.responsibilities?.add_ons?.length > 0 && (
-                    <View>
-                      <Text style={dynamicStyles.tasksSubLabel}>Add-ons</Text>
-                      <View style={dynamicStyles.tasksList}>
-                        {booking.responsibilities.add_ons.map((addon: any, index: number) => (
-                          <Badge key={index} variant="outline" style={dynamicStyles.addonBadge}>
-                            {addon.taskType}
-                          </Badge>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </View>
+          {/* Bottom spacer */}
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Animated.View>
 
-              {/* Payment Details */}
-              {booking.payment && (
-                <View style={dynamicStyles.section}>
-                  <View style={dynamicStyles.sectionHeader}>
-                    <Icon name="credit-card" size={20} color={colors.warning} />
-                    <Text style={dynamicStyles.sectionTitle}>Payment Details</Text>
-                  </View>
-                  <View style={dynamicStyles.paymentContainer}>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Base Amount</Text>
-                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.base_amount}</Text>
-                    </View>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Platform Fee</Text>
-                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.platform_fee}</Text>
-                    </View>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>GST</Text>
-                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.gst}</Text>
-                    </View>
-                    <Separator style={dynamicStyles.separator} />
-                    <View style={dynamicStyles.paymentTotalRow}>
-                      <Text style={dynamicStyles.paymentTotalLabel}>Total</Text>
-                      <Text style={dynamicStyles.paymentTotalValue}>₹{booking.payment.total_amount}</Text>
-                    </View>
-                    <View style={dynamicStyles.paymentStatusRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Payment Status</Text>
-                      <Badge style={[dynamicStyles.paymentStatusBadge, getPaymentStatusColor(booking.payment.status)]}>
-                        {booking.payment.status}
-                      </Badge>
-                    </View>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Payment Mode</Text>
-                      <Text style={dynamicStyles.paymentModeValue}>{booking.payment.payment_mode}</Text>
-                    </View>
-                    {booking.payment.transaction_id && (
-                      <View style={dynamicStyles.paymentRow}>
-                        <Text style={dynamicStyles.paymentLabel}>Transaction ID</Text>
-                        <Text style={dynamicStyles.paymentValue}>{booking.payment.transaction_id}</Text>
-                      </View>
-                    )}
-                    
-                    {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
-                      <View style={dynamicStyles.completePaymentContainer}>
-                        <TouchableOpacity 
-                          style={dynamicStyles.completePaymentButtonOutline} 
-                          onPress={handleCompletePayment} 
-                          disabled={isProcessingPayment}
-                        >
-                          {isProcessingPayment ? 
-                            <ActivityIndicator size="small" color={colors.error} /> : (
-                            <>
-                              <Icon name="credit-card" size={20} color={colors.error} />
-                              <Text style={dynamicStyles.completePaymentButtonOutlineText}>Complete Payment Now</Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
-                        <Text style={dynamicStyles.completePaymentNote}>Complete payment to confirm your booking</Text>
-                      </View>
-                    )}
-                    
-                    {booking.payment.status === 'SUCCESS' && (
-                      <View style={dynamicStyles.invoiceButtonContainer}>
-                        <TouchableOpacity 
-                          style={dynamicStyles.invoiceButton} 
-                          onPress={handleDownloadInvoice}
-                        >
-                          <Icon name="file-text" size={20} color={colors.primary} />
-                          <Text style={dynamicStyles.invoiceButtonText}>View & Download Invoice</Text>
-                        </TouchableOpacity>
-                        <Text style={dynamicStyles.invoiceNote}>Click to view full invoice and download PDF</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Modification History */}
-              {booking.modifications?.length > 0 && (
-                <View style={dynamicStyles.section}>
-                  <View style={dynamicStyles.sectionHeader}>
-                    <Icon name="alert-circle" size={20} color={colors.warning} />
-                    <Text style={dynamicStyles.sectionTitle}>Modification History</Text>
-                  </View>
-                  <View style={dynamicStyles.modificationsContainer}>
-                    {booking.modifications.map((mod: any, index: number) => (
-                      <View key={index} style={dynamicStyles.modificationItem}>
-                        <View style={dynamicStyles.modificationHeader}>
-                          <Badge style={dynamicStyles.modificationBadge}>{mod.action}</Badge>
-                          <Text style={dynamicStyles.modificationDate}>
-                            {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
-                          </Text>
-                        </View>
-                        {mod.refund && <Text style={dynamicStyles.refundText}>Refund: ₹{mod.refund}</Text>}
-                        {mod.penalty && <Text style={dynamicStyles.penaltyText}>Penalty: ₹{mod.penalty}</Text>}
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Additional Information */}
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="tag" size={20} color={colors.textSecondary} />
-                  <Text style={dynamicStyles.sectionTitle}>Additional Information</Text>
-                </View>
-                <View style={dynamicStyles.additionalInfoGrid}>
-                  <View style={dynamicStyles.additionalInfoItem}>
-                    <Text style={dynamicStyles.additionalInfoLabel}>Booking Date</Text>
-                    <Text style={dynamicStyles.additionalInfoValue}>
-                      {dayjs(booking.bookingDate).format('MMM D, YYYY')}
-                    </Text>
-                  </View>
-                  <View style={dynamicStyles.additionalInfoItem}>
-                    <Text style={dynamicStyles.additionalInfoLabel}>Assignment Status</Text>
-                    <Text style={dynamicStyles.additionalInfoValue}>{booking.assignmentStatus}</Text>
-                  </View>
-                  {booking.leave_days > 0 && (
-                    <View style={dynamicStyles.additionalInfoItem}>
-                      <Text style={dynamicStyles.additionalInfoLabel}>Leave Days</Text>
-                      <Text style={dynamicStyles.additionalInfoValue}>{booking.leave_days}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </ScrollView>
-          </BottomSheetScaffold>
-        </View>
-      </Modal>
-
-      {/* Invoice Modal */}
+      {/* Invoice Modal - Rendered at the highest level */}
       <Modal
         visible={showInvoiceModal}
+        transparent={true}
         animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowInvoiceModal(false)}
+        onRequestClose={handleCloseInvoice}
       >
-        <Invoice booking={booking} onClose={() => setShowInvoiceModal(false)} />
+        <Invoice 
+          booking={booking} 
+          onClose={handleCloseInvoice} 
+        />
       </Modal>
 
-      {/* Vacation Dialogs */}
-      <UserHoliday 
-        open={holidayDialogOpen} 
-        onClose={() => setHolidayDialogOpen(false)} 
-        booking={convertBookingForChildComponents(booking)} 
-        onLeaveSubmit={handleLeaveSubmit} 
-      />
+      {/* Holiday Dialog */}
+      {holidayDialogOpen && (
+        <UserHoliday 
+          open={holidayDialogOpen} 
+          onClose={() => setHolidayDialogOpen(false)} 
+          booking={convertBookingForChildComponents(booking)} 
+          onLeaveSubmit={handleLeaveSubmit} 
+        />
+      )}
       
-      <VacationManagementDialog 
-        open={vacationManagementDialogOpen} 
-        onClose={() => { 
-          setVacationManagementDialogOpen(false); 
-        }} 
-        booking={convertBookingForChildComponents(booking)} 
-        customerId={customerId ?? null}
-        onSuccess={handleVacationSuccess} 
-      />
+      {/* Vacation Management Dialog */}
+      {vacationManagementDialogOpen && (
+        <VacationManagementDialog 
+          open={vacationManagementDialogOpen} 
+          onClose={() => setVacationManagementDialogOpen(false)} 
+          booking={convertBookingForChildComponents(booking)} 
+          customerId={customerId ?? null}
+          onSuccess={handleVacationSuccess} 
+        />
+      )}
 
       {/* Cancel Dialog */}
-      <CancelDialog
-        visible={showCancelDialog}
-        onClose={() => setShowCancelDialog(false)}
-        onConfirm={confirmCancelBooking}
-        serviceName={getServiceTitle(booking.service_type)}
-        isLoading={isCancelLoading}
-      />
+      {showCancelDialog && (
+        <CancelDialog
+          visible={showCancelDialog}
+          onClose={() => setShowCancelDialog(false)}
+          onConfirm={confirmCancelBooking}
+          serviceName={getServiceTitle(booking.service_type)}
+          isLoading={isCancelLoading}
+        />
+      )}
     </>
   );
 };
 
-// ==================== Global Styles ====================
+// ==================== Styles ====================
 const styles = StyleSheet.create({
-  badge: { 
-    paddingHorizontal: 8, 
-    paddingVertical: 4, 
-    borderRadius: 4, 
-    alignSelf: 'flex-start' 
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
   },
-  badgeOutline: { 
-    backgroundColor: 'transparent', 
-    borderWidth: 1 
+  overlayTouchable: {
+    flex: 1,
   },
-  badgeText: { 
-    fontWeight: '500' 
+  drawerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '90%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  badgeOutlineText: { 
-    fontWeight: '500' 
+  header: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  separator: { 
-    height: 1 
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  // Badge styles for booking type
+  headerLeftPlaceholder: {
+    width: 40,
+  },
+  headerTitle: {
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    flex: 1,
+  },
+  closeButton: {
+    padding: 8,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowGap8: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  grid2: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  wrapContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  labelText: {
+    fontWeight: '500',
+  },
+  bookingIdText: {
+    fontWeight: '500',
+  },
+  serviceCard: {
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  serviceIconContainer: {
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  serviceIcon: {
+    fontSize: 24,
+  },
+  serviceTitle: {
+    fontWeight: '700',
+  },
+  buttonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: '30%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  outlineButton: {
+    flex: 1,
+    minWidth: '30%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    gap: 6,
+    borderWidth: 2,
+  },
+  actionButtonText: {
+    fontWeight: '600',
+  },
+  outlineButtonText: {
+    fontWeight: '600',
+  },
+  callButton: {
+    backgroundColor: '#0b5bd3',
+  },
+  sectionTitle: {
+    fontWeight: '500',
+  },
+  infoCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+  },
+  valueText: {
+    fontWeight: '500',
+  },
+  providerCard: {
+    padding: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  providerName: {
+    fontWeight: '500',
+  },
+  paymentCard: {
+    padding: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  totalAmount: {
+    fontWeight: '700',
+  },
+  fullButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 2,
+  },
+  fullButtonText: {
+    fontWeight: '600',
+  },
+  modificationCard: {
+    padding: 12,
+    borderRadius: 8,
+  },
+  smallText: {
+    fontWeight: '500',
+  },
+  successText: {
+    color: '#4CAF50',
+  },
+  errorText: {
+    color: '#F44336',
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  badgeOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontWeight: '500',
+  },
+  badgeOutlineText: {
+    fontWeight: '500',
+  },
+  separator: {
+    height: 1,
+    marginVertical: 8,
+  },
   onDemandBadge: { paddingHorizontal: 8, paddingVertical: 4 },
   onDemandBadgeText: { fontWeight: '600' },
   monthlyBadge: { paddingHorizontal: 8, paddingVertical: 4 },
@@ -1154,7 +1251,6 @@ const styles = StyleSheet.create({
   shortTermBadgeText: { fontWeight: '600' },
   defaultBadge: { paddingHorizontal: 8, paddingVertical: 4 },
   defaultBadgeText: { fontWeight: '600' },
-  // Badge styles for status
   activeBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
   activeBadgeText: { marginLeft: 4, fontWeight: '600' },
   completedBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
@@ -1168,64 +1264,64 @@ const styles = StyleSheet.create({
 });
 
 const cancelDialogStyles = StyleSheet.create({
-  overlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  dialogContainer: { 
-    width: width - 48, 
-    borderRadius: 12, 
-    overflow: 'hidden', 
-    elevation: 5, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.25, 
-    shadowRadius: 3.84 
+  dialogContainer: {
+    width: width - 48,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  header: { 
-    paddingVertical: 16, 
-    paddingHorizontal: 20 
+  header: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
-  headerContent: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 12 
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  headerTitle: { 
-    fontWeight: '600', 
-    color: '#FFFFFF' 
+  headerTitle: {
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
-  content: { 
-    padding: 20 
+  content: {
+    padding: 20,
   },
-  message: { 
-    lineHeight: 20, 
-    marginBottom: 24, 
-    textAlign: 'center' 
+  message: {
+    lineHeight: 20,
+    marginBottom: 24,
+    textAlign: 'center',
   },
-  buttonContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    gap: 12 
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  button: { 
-    flex: 1, 
-    paddingVertical: 12, 
-    borderRadius: 8, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cancelButton: { 
-    borderWidth: 1, 
-    backgroundColor: 'transparent' 
+  cancelButton: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
-  confirmButton: { 
-    backgroundColor: '#FF3B30' 
+  confirmButton: {
+    backgroundColor: '#FF3B30',
   },
-  buttonText: { 
-    fontWeight: '600' 
+  buttonText: {
+    fontWeight: '600',
   },
 });
 

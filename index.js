@@ -1,6 +1,4 @@
 // index.js
-import '@react-native-firebase/app';
-import 'react-native-gesture-handler'; // keep at top if you use gesture-handler anywhere
 import { AppRegistry } from 'react-native';
 import React from 'react';
 import App from './App';
@@ -9,6 +7,8 @@ import { Provider } from 'react-redux';
 import store from './src/store/userStore';
 import { AppUserProvider } from './src/context/AppUserContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+// import '@react-native-firebase/app';
+import 'react-native-gesture-handler'; // keep at top if you use gesture-handler anywhere
 
 const Root = () => (
   <Provider store={store}>

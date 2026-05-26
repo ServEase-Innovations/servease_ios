@@ -19,6 +19,7 @@ import {
   Linking,
   BackHandler,
   Animated,
+  Modal as RNModal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth0 } from 'react-native-auth0';
@@ -38,6 +39,7 @@ import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 import GlassCard from '../design-system/GlassCard';
 import SegmentedRail from '../design-system/SegmentedRail';
 import ActionRow from '../design-system/ActionRow';
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -121,7 +123,7 @@ const StatusChip: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-// ---------- Skeleton Loaders (Enhanced) ----------
+// ---------- Skeleton Loaders ----------
 const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
   return (
     <View style={[styles.bookingCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
@@ -154,7 +156,6 @@ export interface BookingRef {
   forceRefresh: () => Promise<void>;
 }
 
-// [Keep all existing interface definitions unchanged]
 interface TodayService {
   service_day_id: string;
   status: string;
@@ -332,7 +333,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const { colors, fontSize, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // [Keep all existing state declarations unchanged]
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [futureBookings, setFutureBookings] = useState<Booking[]>([]);
@@ -352,8 +352,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
-  const [showRefreshAnimation, setShowRefreshAnimation] = useState(false);
   const [showRefreshTooltip, setShowRefreshTooltip] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState<number | null>(null);
@@ -361,7 +359,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [timeSlots] = useState<string[]>([]);
   const [reviewDialogVisible, setReviewDialogVisible] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const tooltipAnim = useRef(new Animated.Value(0)).current;
   const lastLoadedCustomerIdRef = useRef<string | null>(null);
 
@@ -385,7 +382,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const isAuthenticated = auth0User !== undefined && auth0User !== null;
   const { appUser } = useAppUser();
 
-  // [Keep all existing useEffect hooks unchanged]
   useEffect(() => {
     if (showRefreshTooltip) {
       Animated.sequence([
@@ -409,11 +405,11 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   useImperativeHandle(ref, () => ({
     refreshBookings: async () => {
       console.log("🔄 Manual refresh triggered from parent");
-      await performRefresh(false);
+      await performRefresh();
     },
     forceRefresh: async () => {
       console.log("💪 Force refresh triggered from parent");
-      await performRefresh(true);
+      await performRefresh();
     }
   }));
 
@@ -442,7 +438,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     };
   };
 
-  // [Keep all existing data mapping functions unchanged]
   const mapBookingData = (data: any[]): Booking[] => {
     if (!Array.isArray(data)) return [];
 
@@ -581,27 +576,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
   };
 
-  const fetchBookings = async (id: string) => {
-    try {
-      await refreshBookings(id);
-    } catch (error) {
-      console.error('Error fetching booking details:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const performRefresh = async (showFullAnimation = true) => {
-    if (showFullAnimation) {
-      setIsForceRefreshing(true);
-      setShowRefreshAnimation(true);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-    
+  const performRefresh = async () => {
     try {
       if (customerId) {
         await refreshBookings();
@@ -614,17 +589,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       setSnackbarMessage('Failed to refresh bookings');
       setOpenSnackbar(true);
       setTimeout(() => setOpenSnackbar(false), 3000);
-    } finally {
-      if (showFullAnimation) {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          setIsForceRefreshing(false);
-          setShowRefreshAnimation(false);
-        });
-      }
     }
   };
 
@@ -656,7 +620,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       return;
     }
 
-    // Avoid duplicate initial requests when appUser object identity changes.
     if (lastLoadedCustomerIdRef.current === nextCustomerId) {
       return;
     }
@@ -689,7 +652,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     };
   }, [appUser?.customerId, appUser?.customerid, isAuthenticated]);
 
-  // [Keep all existing handler functions unchanged]
   const handleGenerateOTP = async (booking: Booking) => {
     if (!booking.today_service?.service_day_id) {
       Alert.alert('Error', 'Failed to generate OTP');
@@ -701,8 +663,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       if (response.status === 200 || response.status === 201) {
         const otp = response.data.otp || response.data.data?.otp || '123456';
         setGeneratedOTPs(prev => ({ ...prev, [booking.id]: otp }));
-        setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
-        setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
         Alert.alert('Success', 'OTP generated successfully');
       }
     } catch (error: any) {
@@ -792,8 +752,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       setTimeout(() => setOpenSnackbar(false), 3000);
     } catch (error) {
       console.error('Error cancelling engagement:', error);
-      setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
-      setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
     } finally {
       setActionLoading(false);
     }
@@ -846,7 +804,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
   const handleReviewSubmitted = (bookingId: number) => {
     setReviewedBookings(prev => [...prev, bookingId]);
-    performRefresh(false);
+    performRefresh();
   };
 
   const hasReview = (booking: Booking): boolean => reviewedBookings.includes(booking.id);
@@ -858,10 +816,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
   const handleSaveModifiedBooking = async () => {
     setModifyDialogOpen(false);
-    await performRefresh(false);
+    await performRefresh();
   };
 
-  // [Keep all existing filter functions unchanged]
   const filterBookings = (bookings: Booking[], term: string) => {
     if (!term) return bookings;
     return bookings.filter(booking =>
@@ -871,6 +828,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       booking.bookingType.toLowerCase().includes(term.toLowerCase())
     );
   };
+  
   const filterByBookingType = (bookings: Booking[]) => {
     if (bookingTypeFilter === 'ALL') return bookings;
     if (bookingTypeFilter === 'ON_DEMAND') {
@@ -878,7 +836,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
     return bookings.filter((booking) => booking.bookingType === 'MONTHLY' || booking.bookingType === 'SHORT_TERM');
   };
-
 
   const sortUpcomingBookings = (bookings: Booking[]): Booking[] => {
     const statusOrder: Record<string, number> = { 'NOT_STARTED': 2, 'IN_PROGRESS': 1, 'COMPLETED': 3, 'CANCELLED': 4 };
@@ -894,9 +851,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const filteredUpcomingBookings = filterBookings(filterByBookingType(filteredByStatus), searchTerm);
   const filteredPastBookings = filterBookings(filterByBookingType(pastBookings), searchTerm);
   const filteredCancelledBookings = filterBookings(filterByBookingType(cancelledBookings), searchTerm);
-  const pendingPaymentsCount = upcomingBookings.filter(
-    (booking) => booking.payment && booking.payment.status === "PENDING" && booking.taskStatus !== 'CANCELLED'
-  ).length;
+  
   const actionNeededBookings = filterBookings(
     filterByBookingType(upcomingBookings.filter((booking) =>
       (booking.payment && booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED') ||
@@ -937,11 +892,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
   };
 
- 
-
+  // Updated header with LinearGradient from BookingDialog
   const renderBookingsHeader = () => (
-    <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: insets.top }]}>
-      <View style={styles.headerTopRow}>
+    <LinearGradient
+      colors={[...BOOKING_HEADER_GRADIENT]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.headerGradient, { paddingTop: insets.top }]}
+    >
+      <View style={styles.headerContent}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBackPress}
@@ -950,14 +909,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           <Icon name="arrow-left" size={22} color="#ffffff" />
         </TouchableOpacity>
         <Text
-          style={[styles.headerTitleSimple, { fontSize: fontSizes.headerTitle + 2, marginLeft: 4, paddingLeft: 105 }]}
+          style={[styles.headerTitle, { fontSize: fontSizes.headerTitle + 2 }]}
           numberOfLines={1}
         >
           My Bookings
         </Text>
         <View style={styles.headerTitleSpacer} />
       </View>
-    </View>
+      <Text style={styles.headerSubtitle}>Manage your service bookings</Text>
+    </LinearGradient>
   );
 
   const renderBookingsSearch = (skeleton?: boolean) => (
@@ -1004,7 +964,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           showsHorizontalScrollIndicator={false}
           style={styles.statusFilterScroll}
           contentContainerStyle={styles.statusFilterScrollContent}
-          nestedScrollEnabled
         >
           {upcomingStatusTabs.map((tab) => {
           const selected = statusFilter === tab.value;
@@ -1162,23 +1121,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     );
   };
 
-  // Refresh Animation Overlay Component
-  const RefreshAnimationOverlay = () => {
-    if (!showRefreshAnimation) return null;
-    
-    return (
-      <Animated.View style={[styles.refreshOverlay, { backgroundColor: colors.background + 'CC', opacity: fadeAnim }]}>
-        <View style={[styles.refreshAnimationContainer, { backgroundColor: colors.card }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.refreshAnimationText, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-            Refreshing Bookings...
-          </Text>
-        </View>
-      </Animated.View>
-    );
-  };
-
-  // Refresh Tooltip Component
   const RefreshTooltip = () => {
     if (!showRefreshTooltip) return null;
     
@@ -1208,7 +1150,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     );
   };
 
-  // ---------- Enhanced Render Helpers ----------
   const renderActionButtons = (booking: Booking) => {
     const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
     const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
@@ -1463,7 +1404,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     );
   };
 
-  // [Keep existing back button handling]
   const handleBackPress = () => {
     if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
     if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
@@ -1479,7 +1419,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     return () => backHandler.remove();
   }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, confirmationDialog.open, onBackToHome]);
 
-  // [Keep existing deep linking]
   useEffect(() => {
     const getInitialUrl = async () => {
       const initialUrl = await Linking.getInitialURL();
@@ -1518,7 +1457,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     );
   }
 
-  // Main Render
+  // Main Render - REMOVED the outer ScrollView that was blocking the modal
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {renderBookingsHeader()}
@@ -1567,6 +1506,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       </View>
       <RefreshTooltip />
 
+      {/* Content without wrapping ScrollView - using FlatList alternative */}
       <ScrollView 
         style={styles.mainScrollView}
         contentContainerStyle={[
@@ -1582,30 +1522,13 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
             progressBackgroundColor={colors.card}
           />
         }
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled={false}
+        showsVerticalScrollIndicator={true}
+        nestedScrollEnabled={true}
       >
         {renderSectionTabs()}
 
         {activeSectionTab === 'action_needed' && (
           <View style={styles.section}>
-            {/* <View style={[styles.sectionHeader, { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderLeftColor: colors.warning, borderColor: colors.border + '45' }]}>
-              <View style={[styles.sectionIconContainer, { backgroundColor: colors.warning + '18' }]}>
-                <Icon name="alert-circle" size={24} color={colors.warning} />
-              </View>
-              <View style={styles.sectionHeaderContent}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Action Needed</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                  Important bookings that need attention first
-                </Text>
-              </View>
-              <View style={[styles.sectionBadge, { backgroundColor: colors.warning + '18' }]}>
-                <Text style={[styles.sectionBadgeText, { color: colors.warning, fontSize: fontSizes.badgeText, fontWeight: '700' }]}>
-                  {actionNeededBookings.length}
-                </Text>
-              </View>
-            </View> */}
-
             {renderBookingsList(
               actionNeededBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
@@ -1623,48 +1546,13 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
         {activeSectionTab === 'upcoming' && (
           <View style={styles.section}>
-            {/* <View style={[styles.sectionHeader, { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderLeftColor: colors.primary, borderColor: colors.border + '45' }]}>
-              <View style={[styles.sectionIconContainer, { backgroundColor: colors.primary + '16' }]}>
-                <Icon name="calendar-clock" size={24} color={colors.primary} />
-              </View>
-              <View style={styles.sectionHeaderContent}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Upcoming Bookings</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                  {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? 'upcoming booking' : 'upcoming bookings'}
-                </Text>
-              </View>
-              <View style={[styles.sectionBadge, { backgroundColor: colors.primary + '18' }]}>
-                <Text style={[styles.sectionBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText, fontWeight: '700' }]}>
-                  {upcomingBookings.length}
-                </Text>
-              </View>
-            </View> */}
-
             {renderUpcomingStatusFilter()}
-
             {renderBookingsList(filteredUpcomingBookings, renderUpcomingEmptyState())}
           </View>
         )}
 
         {activeSectionTab === 'past' && (
           <View style={styles.section}>
-            {/* <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '10', borderLeftColor: colors.textSecondary }]}>
-              <View style={[styles.sectionIconContainer, { backgroundColor: colors.textSecondary + '20' }]}>
-                <Icon name="history" size={24} color={colors.textSecondary} />
-              </View>
-              <View style={styles.sectionHeaderContent}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Past Bookings</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                  {filteredPastBookings.length} {filteredPastBookings.length === 1 ? 'past booking' : 'past bookings'}
-                </Text>
-              </View>
-              <View style={[styles.sectionBadge, { backgroundColor: colors.textSecondary + '15' }]}>
-                <Text style={[styles.sectionBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText, fontWeight: '700' }]}>
-                  {pastBookings.length}
-                </Text>
-              </View>
-            </View> */}
-
             {renderBookingsList(
               filteredPastBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
@@ -1682,23 +1570,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
         {activeSectionTab === 'cancelled' && (
           <View style={styles.section}>
-            {/* <View style={[styles.sectionHeader, { backgroundColor: colors.error + '10', borderLeftColor: colors.error }]}>
-              <View style={[styles.sectionIconContainer, { backgroundColor: colors.error + '20' }]}>
-                <Icon name="close-circle" size={24} color={colors.error} />
-              </View>
-              <View style={styles.sectionHeaderContent}>
-                <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Cancelled Bookings</Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                  {filteredCancelledBookings.length} {filteredCancelledBookings.length === 1 ? 'cancelled booking' : 'cancelled bookings'}
-                </Text>
-              </View>
-              <View style={[styles.sectionBadge, { backgroundColor: colors.error + '15' }]}>
-                <Text style={[styles.sectionBadgeText, { color: colors.error, fontSize: fontSizes.badgeText, fontWeight: '700' }]}>
-                  {cancelledBookings.length}
-                </Text>
-              </View>
-            </View> */}
-
             {renderBookingsList(
               filteredCancelledBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
@@ -1714,15 +1585,14 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           </View>
         )}
       </ScrollView>
-      
 
-      <RefreshAnimationOverlay />
-
-      {/* Dialogs */}
+      {/* Dialogs - These are Modals and won't be affected by parent ScrollView */}
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
       <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? 'Confirm Cancellation' : 'Pay Now'} loading={actionLoading} severity={confirmationDialog.severity} />
       <AddReviewDialog visible={reviewDialogVisible} onClose={closeReviewDialog} booking={convertBookingForChildComponents(selectedReviewBooking)} onReviewSubmitted={handleReviewSubmitted} />
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
+      
+      {/* EngagementDetailsDrawer - This is a Modal, it will render on top independently */}
       <EngagementDetailsDrawer 
         isOpen={detailsDrawerOpen} 
         onClose={() => { 
@@ -1750,23 +1620,25 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   );
 });
 
-// ---------- Enhanced Styles ----------
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   container: { flex: 1 },
   
-  // Header Styles
-  header: {
+  headerGradient: {
     width: '100%',
     alignSelf: 'stretch',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    paddingBottom: 16,
   },
-  headerTopRow: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
     minHeight: 52,
     paddingHorizontal: HORIZONTAL_GUTTER,
     paddingTop: 10,
-    paddingBottom: 14,
+    paddingBottom: 6,
   },
   backButton: {
     width: 40,
@@ -1777,20 +1649,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
     flexShrink: 0,
   },
-  headerTitleSimple: {
+  headerTitle: {
     flex: 1,
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: -0.2,
     lineHeight: 28,
-    
+    textAlign: 'center',
   },
   headerTitleSpacer: {
     width: 40,
     flexShrink: 0,
   },
+  headerSubtitle: {
+    color: 'rgba(219, 234, 254, 0.95)',
+    textAlign: 'center',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+    paddingHorizontal: 12,
+  },
 
-  // Search (below header)
   searchSection: {
     width: '100%',
     paddingHorizontal: HORIZONTAL_GUTTER,
@@ -1832,96 +1711,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   
-  // Main Content
   mainScrollView: { flex: 1 },
   scrollContentContainer: { flexGrow: 1 },
-  overviewStatsWrap: {
-    paddingTop: 16,
-    paddingHorizontal: 14,
-  },
-  overviewStatsContent: {
-    gap: 12,
-    paddingRight: 8,
-  },
-  overviewStatCard: {
-    minWidth: 156,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  overviewStatHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  overviewStatIconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overviewStatPill: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  overviewStatPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  overviewStatValue: {
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  overviewStatLabel: {
-    marginTop: 4,
-    fontWeight: '600',
-  },
-  overviewStatHint: {
-    marginTop: 2,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  sectionTabsWrap: {
-    paddingTop: 10,
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-    zIndex: 20,
-  },
-  sectionTabsRail: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 6,
-    gap: 6,
-  },
-  sectionTabBtn: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  sectionTabBtnText: {
-    fontWeight: '700',
-  },
-  sectionTabCount: {
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    minWidth: 18,
-    alignItems: 'center',
-  },
-  sectionTabCountText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
+  
   section: {
     width: '100%',
     alignSelf: 'stretch',
@@ -1930,36 +1722,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: 'center',
   },
-  
-  // Section Header
-  sectionHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 16, 
-    padding: 16, 
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    borderWidth: 1,
-  },
-  pastSectionHeader: { borderLeftColor: 'rgba(156, 163, 175, 0.4)' },
-  sectionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionHeaderContent: { flex: 1, marginLeft: 16 },
-  sectionTitle: { fontWeight: '700', letterSpacing: -0.3 },
-  sectionSubtitle: { marginTop: 4, opacity: 0.7 },
-  sectionBadge: { 
-    paddingHorizontal: 12, 
-    paddingVertical: 8, 
-    borderRadius: 20,
-    minWidth: 48,
-    alignItems: 'center',
-  },
-  sectionBadgeText: { fontWeight: '700' },
   
   upcomingFiltersBlock: {
     width: '100%',
@@ -1971,7 +1733,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
-  // Upcoming status filter (fixed height — avoids stretch in nested ScrollView)
   statusFilterWrap: {
     width: '100%',
     height: 40,
@@ -2014,7 +1775,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Booking Card
   bookingsList: {
     width: '100%',
     alignSelf: 'stretch',
@@ -2025,10 +1785,8 @@ const styles = StyleSheet.create({
   },
   bookingCard: {
     marginBottom: 16,
-    // borderRadius: 22,
     overflow: 'hidden',
     borderWidth: 1,
-    // padding: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
@@ -2173,38 +1931,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  serviceIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
   serviceTitle: {
     fontWeight: '700',
     letterSpacing: -0.3,
   },
-  providerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  providerName: {
-    opacity: 0.7,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginLeft: 8,
-  },
-  ratingText: {
-    opacity: 0.7,
-  },
   
-  // Badge Styles
   badgeBase: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -2221,60 +1952,13 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   
-  // Status Row
-  statusRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  // statusChip: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   paddingHorizontal: 10,
-  //   paddingVertical: 6,
-  //   borderRadius: 20,
-  //   gap: 6,
-  // },
-  // statusChipText: {
-  //   fontSize: 12,
-  //   fontWeight: '600',
-  //   flexShrink: 1,
-  // },
-  
-  // Details Grid
   detailsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
     marginBottom: 16,
   },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    width: '48.5%',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  detailIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    opacity: 0.6,
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontWeight: '500',
-  },
   
-  // Action Buttons
   actionButtonsContainer: {
     width: '100%',
     marginBottom: 12,
@@ -2369,21 +2053,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   
-  // View Details Indicator
-  viewDetailsIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 6,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    gap: 4,
-  },
-  viewDetailsText: {
-    opacity: 0.6,
-  },
-  
-  // Empty State
   emptyStateCard: {
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -2427,7 +2096,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   
-  // Snackbar
   snackbar: {
     position: 'absolute',
     left: HORIZONTAL_GUTTER,
@@ -2447,33 +2115,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Refresh Overlay
-  refreshOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 9999,
-  },
-  refreshAnimationContainer: {
-    padding: 30,
-    borderRadius: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  refreshAnimationText: {
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  
-  // Tooltip
   tooltipContainer: {
     alignItems: 'center',
     marginTop: 8,
@@ -2502,12 +2143,8 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   
-  // Misc
-  separator: { height: 1, marginVertical: 12 },
   card: { borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, marginBottom: 16, padding: 16 },
-  button: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderWidth: 1, minHeight: 40 },
   disabledButton: { opacity: 0.6 },
-  separatorBase: { height: 1, marginVertical: 16 },
 });
 
 export default Booking;

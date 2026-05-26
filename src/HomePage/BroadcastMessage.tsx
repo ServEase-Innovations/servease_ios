@@ -13,6 +13,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   InteractionManager,
+  BackHandler,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -72,8 +73,40 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
   const bannerSlideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const shineAnim = useRef(new Animated.Value(0)).current;
+  
+  // Track if component is mounted to prevent state updates after unmount
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      // Clean up any ongoing animations
+      fadeAnim.stopAnimation();
+      bannerSlideAnim.stopAnimation();
+      pulseAnim.stopAnimation();
+      shineAnim.stopAnimation();
+      slideAnim.stopAnimation();
+      switchAnim.stopAnimation();
+    };
+  }, [fadeAnim, bannerSlideAnim, pulseAnim, shineAnim, slideAnim, switchAnim]);
+
+  // Handle back button press - close modal first
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (modalVisible) {
+        closeModal();
+        return true; // Prevent default behavior (going back)
+      }
+      return false; // Let default behavior happen (go back to previous screen)
+    });
+
+    return () => backHandler.remove();
+  }, [modalVisible]);
 
   const advanceBanner = useCallback(() => {
+    if (!isMounted.current) return;
+    
     setCurrentIndex((prev) => (prev + 1) % coupons.length);
     bannerSlideAnim.setValue(50);
     Animated.parallel([
@@ -90,9 +123,11 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
     ]).start();
   }, [fadeAnim, bannerSlideAnim]);
 
-  // Rotate through messages every 2 seconds
+  // Rotate through messages every 3 seconds
   useEffect(() => {
     const interval = setInterval(() => {
+      if (!isMounted.current) return;
+      
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -105,10 +140,14 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
           useNativeDriver: true,
         }),
       ]).start(({ finished }) => {
-        if (!finished) return;
-        runAfterFrame(advanceBanner);
+        if (!finished || !isMounted.current) return;
+        runAfterFrame(() => {
+          if (isMounted.current) {
+            advanceBanner();
+          }
+        });
       });
-    }, 2000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [fadeAnim, bannerSlideAnim, advanceBanner]);
@@ -154,6 +193,8 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
   }, [pulseAnim, shineAnim]);
 
   const openModal = (coupon: Coupon) => {
+    if (!isMounted.current) return;
+    
     setSelectedCoupon(coupon);
     setModalVisible(true);
     Animated.spring(slideAnim, {
@@ -165,14 +206,18 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
   };
 
   const closeModal = () => {
+    if (!isMounted.current) return;
+    
     Animated.timing(slideAnim, {
       toValue: height,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
       runAfterFrame(() => {
-        setModalVisible(false);
-        setSelectedCoupon(null);
+        if (isMounted.current) {
+          setModalVisible(false);
+          setSelectedCoupon(null);
+        }
       });
     });
   };
@@ -182,6 +227,8 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
       await Clipboard.setString(couponCode);
       
       runAfterFrame(() => {
+        if (!isMounted.current) return;
+        
         Snackbar.show({
           text: `🎉 Coupon "${couponCode}" copied! Get ${selectedCoupon?.discount}% OFF`,
           duration: Snackbar.LENGTH_LONG,
@@ -191,7 +238,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
             text: 'USE NOW',
             textColor: '#FFD700',
             onPress: () => {
-              if (onCouponApplied) {
+              if (onCouponApplied && isMounted.current) {
                 onCouponApplied(couponCode);
               }
             },
@@ -199,12 +246,14 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
         });
       });
 
-      if (onCouponApplied) {
+      if (onCouponApplied && isMounted.current) {
         onCouponApplied(couponCode);
       }
       closeModal();
     } catch (error) {
       runAfterFrame(() => {
+        if (!isMounted.current) return;
+        
         Snackbar.show({
           text: '❌ Failed to copy coupon. Please try again!',
           duration: Snackbar.LENGTH_SHORT,
@@ -235,6 +284,8 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
 
   // Switch between coupons
   const switchToCoupon = (coupon: Coupon) => {
+    if (!isMounted.current) return;
+    
     // Animate switch
     Animated.sequence([
       Animated.timing(switchAnim, {
@@ -252,6 +303,8 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
     setSelectedCoupon(coupon);
 
     runAfterFrame(() => {
+      if (!isMounted.current) return;
+      
       Snackbar.show({
         text: `Switched to ${coupon.discount}% OFF coupon`,
         duration: Snackbar.LENGTH_SHORT,

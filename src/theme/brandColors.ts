@@ -5,11 +5,11 @@
  * - Header.css / BookingSuccessDialog (logo blues)
  */
 export const BRAND = {
-  accent: "#0b5bd3",
+  accent: "#193f79",
   accentSoft: "#e8f1ff",
   accentDark: "#0848b0",
-  logoLight: "#0683f9",
-  logoDark: "#075aa8",
+  logoLight: "#246097",
+  logoDark: "#0b375f",
   bookingNavy: "#0c1e3d",
   bookingSky: "#4f8ff7",
   skyCta: "#0ea5e9",

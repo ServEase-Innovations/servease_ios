@@ -760,7 +760,7 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
     <ScrollView style={styles.container}>
       <View style={styles.content}>
         <LinearGradient
-          colors={["#0b5bd3", "#4f8ff7"]}
+          colors={["#062a61", "#3680f8"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.headerGradient}

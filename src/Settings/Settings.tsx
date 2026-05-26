@@ -25,6 +25,7 @@ import TnC from '../TermsAndConditions/TnC';
 import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
+import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -275,7 +276,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               ]}
             >
               <LinearGradient
-                colors={["#1e3a5f", "#1e40af"]}
+                colors={[...BOOKING_HEADER_GRADIENT]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.modalHeader}
@@ -303,9 +304,9 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
       transparent={false}
     >
       <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}>
-        {/* Header with Gradient */}
+        {/* Header with BOOKING_HEADER_GRADIENT */}
         <LinearGradient
-          colors={["#1e3a5f", "#1e40af", "#1e3a5f"]}
+          colors={[...BOOKING_HEADER_GRADIENT]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
@@ -587,7 +588,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
         <Modal visible={showTnCModal} animationType="slide" onRequestClose={() => setShowTnCModal(false)}>
           <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }}>
             <LinearGradient
-              colors={["#1e3a5f", "#1e40af"]}
+              colors={[...BOOKING_HEADER_GRADIENT]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.modalPageHeader}
@@ -608,7 +609,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
         <Modal visible={showPrivacyPolicyModal} animationType="slide" onRequestClose={() => setShowPrivacyPolicyModal(false)}>
           <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }}>
             <LinearGradient
-              colors={["#1e3a5f", "#1e40af"]}
+              colors={[...BOOKING_HEADER_GRADIENT]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.modalPageHeader}
@@ -665,8 +666,6 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.7)',
-    // justifyContent: 'center',
-    // alignItems: 'center',
     marginTop: 8,
     marginLeft: 100,
   },

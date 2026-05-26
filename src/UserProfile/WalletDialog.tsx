@@ -9,12 +9,13 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  BackHandler,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/Settings/ThemeContext';
-import { GRADIENTS } from '../theme/brandColors';
+import { GRADIENTS, BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
 import PaymentInstance from '../services/paymentInstance';
 
@@ -131,6 +132,23 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
     void fetchWalletData(true);
   }, [fetchWalletData]);
 
+  // Handle back button press - returns to homepage
+  const handleBackPress = () => {
+    if (onBack) {
+      onBack();
+      return true;
+    }
+    return false;
+  };
+
+  // Set up back handler when component mounts
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    
+    // Clean up the event listener when component unmounts
+    return () => backHandler.remove();
+  }, [onBack]);
+
   const onRefresh = () => {
     setIsRefreshing(true);
     void fetchWalletData(false);
@@ -144,20 +162,27 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
     .filter((t) => t.transaction_type !== 'credit')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
+  // Updated header with BOOKING_HEADER_GRADIENT
   const renderHeader = () => (
-    <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: insets.top }]}>
+    <LinearGradient
+      colors={[...BOOKING_HEADER_GRADIENT]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.headerGradient, { paddingTop: insets.top }]}
+    >
       <View style={styles.headerRow}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={onBack}
+          onPress={handleBackPress}
           accessibilityLabel="Go back"
         >
           <Icon name="arrow-left" size={22} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { fontSize: fontSizes.header + 2, paddingLeft: 105  }]}>My Wallet</Text>
+        <Text style={[styles.headerTitle, { fontSize: fontSizes.header + 2 }]}>My Wallet</Text>
         <View style={styles.headerSpacer} />
       </View>
-    </View>
+      <Text style={styles.headerSubtitle}>Manage your balance and rewards</Text>
+    </LinearGradient>
   );
 
   const renderTabSwitcher = () => (
@@ -408,13 +433,18 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { width: '100%' },
+  headerGradient: {
+    width: '100%',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    paddingBottom: 16,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: HORIZONTAL_GUTTER,
     paddingTop: 10,
-    paddingBottom: 14,
+    paddingBottom: 6,
     minHeight: 56,
   },
   backButton: {
@@ -427,12 +457,20 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    marginLeft: 12,
     color: '#fff',
-    fontWeight: '600',
-    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    textAlign: 'center',
   },
   headerSpacer: { width: 40 },
+  headerSubtitle: {
+    color: 'rgba(219, 234, 254, 0.95)',
+    textAlign: 'center',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+    paddingHorizontal: 12,
+  },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   contentPad: {
