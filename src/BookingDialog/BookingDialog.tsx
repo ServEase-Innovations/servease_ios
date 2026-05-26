@@ -23,6 +23,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
@@ -1176,9 +1177,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               <View style={[styles.sheetHandleBar, { backgroundColor: colors.border }]} />
             </View>
             <LinearGradient
-              colors={["#0b5bd3", "#4f8ff7"]}
+              colors={[...BOOKING_HEADER_GRADIENT]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.headerContainer}
             >
               <View style={styles.headerContent}>
@@ -1238,9 +1239,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           ]}
         >
           <LinearGradient
-            colors={["#0b5bd3", "#4f8ff7"]}
+            colors={[...BOOKING_HEADER_GRADIENT]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.headerContainer}
             {...panResponder.panHandlers}
           >
@@ -1256,7 +1257,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   style={[styles.title, { color: "#fff", fontSize: headerTitleSize }]}
                   numberOfLines={1}
                 >
-                  Start booking
+                  Select your Booking Option
                 </Text>
               </View>
               <View style={[styles.headerSideCol, styles.headerRightAlign]} />

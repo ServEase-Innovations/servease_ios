@@ -399,9 +399,9 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       <View style={styles.root}>
         {!hideHeader && (
           <LinearGradient
-            colors={BOOKING_HEADER_GRADIENT}
+            colors={[...BOOKING_HEADER_GRADIENT]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.header}
           >
             <View style={styles.headerRow}>
