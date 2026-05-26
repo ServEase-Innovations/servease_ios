@@ -63,20 +63,12 @@ type MenuItem = {
 // Modern Profile Top Bar with Glass Effect - No Title
 const ProfileTopBar = ({
   onBack,
-  isDarkMode,
   scrollY,
 }: {
   onBack: () => void;
-  isDarkMode: boolean;
   scrollY: Animated.Value;
 }) => {
   const insets = useSafeAreaInsets();
-  
-  const headerBackground = scrollY.interpolate({
-    inputRange: [0, 80],
-    outputRange: ['rgba(0,0,0,0)', isDarkMode ? 'rgba(15,23,42,0.95)' : 'rgba(255,255,255,0.95)'],
-    extrapolate: 'clamp',
-  });
 
   return (
     <Animated.View
@@ -84,7 +76,6 @@ const ProfileTopBar = ({
         styles.topBar,
         {
           paddingTop: insets.top > 0 ? insets.top : 8,
-          backgroundColor: headerBackground,
         },
       ]}
     >
@@ -543,7 +534,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       <ProfileTopBar
         onBack={onBack}
-        isDarkMode={isDarkMode}
         scrollY={scrollY}
       />
 
@@ -667,17 +657,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 onPress={() => setSubView("edit")}
                 activeOpacity={0.85}
               >
-                <LinearGradient
-                  colors={isDarkMode ? ["#38bdf8", "#818cf8"] : ["#ffffff", "#f1f5f9"]}
-                  style={styles.editProfileGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={[styles.editProfileBtnText, { color: isDarkMode ? "#1e293b" : "#1e3a8a" }]}>
-                    Edit Profile
-                  </Text>
-                  <MaterialIcon name="edit" size={18} color={isDarkMode ? "#1e293b" : "#1e3a8a"} />
-                </LinearGradient>
+                <Text style={styles.editProfileBtnText}>
+                  Edit Profile
+                </Text>
+                <View style={styles.editIconChip}>
+                  <MaterialIcon name="edit" size={14} color="#ffffff" />
+                </View>
               </TouchableOpacity>
             </Animated.View>
           </LinearGradient>
@@ -777,10 +762,10 @@ const styles = StyleSheet.create({
   },
   heroGradient: {
     width: "100%",
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     overflow: "hidden",
-    paddingBottom: 40,
+    paddingBottom: 34,
   },
   decorCircle1: {
     position: "absolute",
@@ -821,26 +806,26 @@ const styles = StyleSheet.create({
   identitySection: {
     alignItems: "center",
     paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingTop: 36,
+    paddingBottom: 16,
   },
   avatarWrapper: {
-    marginBottom: 20,
+    marginBottom: 14,
     position: "relative",
   },
   avatarGlowRing: {
     position: "absolute",
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 118,
+    height: 118,
+    borderRadius: 59,
     backgroundColor: "#38bdf8",
-    top: -10,
-    left: -10,
+    top: -9,
+    left: -9,
   },
   avatarGradientRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     padding: 3,
     shadowColor: "#38bdf8",
     shadowOffset: { width: 0, height: 4 },
@@ -849,40 +834,40 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   avatarRingInner: {
-    width: 114,
-    height: 114,
-    borderRadius: 57,
+    width: 94,
+    height: 94,
+    borderRadius: 47,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   avatarImage: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
   },
   avatarFallback: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarInitial: {
-    fontSize: 42,
+    fontSize: 34,
     fontWeight: "700",
     color: "#ffffff",
   },
   displayName: {
-    marginTop: 8,
-    fontSize: 26,
+    marginTop: 4,
+    fontSize: 20,
     fontWeight: "800",
     letterSpacing: -0.5,
     textAlign: "center",
   },
   handle: {
-    marginTop: 4,
-    fontSize: 14,
+    marginTop: 2,
+    fontSize: 13,
     textAlign: "center",
     opacity: 0.8,
   },
@@ -890,31 +875,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
-    gap: 20,
+    marginTop: 14,
+    gap: 16,
   },
   statItem: {
     alignItems: "center",
   },
   statNumber: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
     color: "#ffffff",
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: "rgba(255,255,255,0.7)",
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    height: 30,
+    height: 26,
     backgroundColor: "rgba(255,255,255,0.2)",
   },
   contactRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 14,
+    marginTop: 10,
   },
   contactChip: {
     flexDirection: "row",
@@ -933,9 +918,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 14,
+    marginTop: 10,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 30,
     backgroundColor: "rgba(251, 191, 36, 0.2)",
     borderWidth: 1,
@@ -947,26 +932,38 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   editProfileBtn: {
-    marginTop: 24,
-    borderRadius: 40,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  editProfileGradient: {
+    marginTop: 14,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
+    gap: 8,
+    paddingHorizontal: 20,
+    minHeight: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    elevation: 4,
   },
   editProfileBtnText: {
-    fontSize: 16,
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 0.2,
+  },
+  editIconChip: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.22)",
   },
   menuSection: {
     marginBottom: 16,

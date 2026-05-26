@@ -15,12 +15,12 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/Settings/ThemeContext';
-import { GRADIENTS, BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
 import PaymentInstance from '../services/paymentInstance';
+import { getMobileTabBarHeight } from '../Constants/mobileLayout';
 
 const HORIZONTAL_GUTTER = 16;
-const FOOTER_CLEARANCE = 150;
 
 interface WalletPageProps {
   onBack?: () => void;
@@ -72,6 +72,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   const { colors, isDarkMode, fontSize } = useTheme();
   const { appUser } = useAppUser();
   const insets = useSafeAreaInsets();
+  const footerClearance = getMobileTabBarHeight(insets.bottom) + 28;
 
   const [activeTab, setActiveTab] = useState<'transactions' | 'rewards'>('transactions');
   const [isLoading, setIsLoading] = useState(true);
@@ -155,33 +156,33 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   };
 
   const transactions = wallet?.transactions ?? [];
-  const creditTotal = transactions
-    .filter((t) => t.transaction_type === 'credit')
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-  const debitTotal = transactions
-    .filter((t) => t.transaction_type !== 'credit')
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
   // Updated header with BOOKING_HEADER_GRADIENT
   const renderHeader = () => (
     <LinearGradient
       colors={[...BOOKING_HEADER_GRADIENT]}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.headerGradient, { paddingTop: insets.top }]}
+      end={{ x: 1, y: 0 }}
+      style={styles.headerGradient}
     >
-      <View style={styles.headerRow}>
+      <View style={styles.headerContent}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.headerSideSlot, styles.headerBackBtn]}
           onPress={handleBackPress}
           accessibilityLabel="Go back"
         >
-          <Icon name="arrow-left" size={22} color="#ffffff" />
+          <Icon name="arrow-left" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { fontSize: fontSizes.header + 2 }]}>My Wallet</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerTitleBlock} pointerEvents="none">
+          <Text style={[styles.headerTitle, { fontSize: fontSizes.header + 2 }]} numberOfLines={1}>
+            My Wallet
+          </Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            Manage your balance and rewards
+          </Text>
+        </View>
+        <View style={styles.headerSideSlot} />
       </View>
-      <Text style={styles.headerSubtitle}>Manage your balance and rewards</Text>
     </LinearGradient>
   );
 
@@ -220,74 +221,68 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
     </View>
   );
 
-  const renderBalanceCard = () => (
-    <View style={styles.balanceCardShell}>
-      <LinearGradient
-        colors={isDarkMode ? [...GRADIENTS.walletDark] : [...GRADIENTS.walletLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-      <View style={styles.balanceCardContent}>
-        <View style={styles.balanceTop}>
-          <View style={styles.balanceMain}>
-            <Text style={[styles.balanceLabel, { fontSize: fontSizes.small }]}>Available balance</Text>
-            <Text
-              style={[styles.balanceAmount, { fontSize: fontSizes.balance }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.65}
+  const renderBalanceCard = () => {
+    const cardBg = isDarkMode ? colors.card : '#ffffff';
+    return (
+      <View
+        style={[
+          styles.balanceCardShell,
+          {
+            backgroundColor: cardBg,
+            borderColor: colors.border + (isDarkMode ? '55' : '35'),
+          },
+        ]}
+      >
+        <View style={styles.balanceCardContent}>
+          <View style={styles.balanceTop}>
+            <View style={styles.balanceMain}>
+              <Text style={[styles.balanceLabel, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+                Available balance
+              </Text>
+              <Text
+                style={[styles.balanceAmount, { color: colors.text, fontSize: fontSizes.balance }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.65}
+              >
+                {formatMoney(wallet?.balance ?? 0)}
+              </Text>
+            </View>
+            <View style={[styles.walletIconWrap, { backgroundColor: colors.primary + '12' }]}>
+              <Icon name="wallet-outline" size={24} color={colors.primary} />
+            </View>
+          </View>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.primaryAction, { backgroundColor: colors.primary }]}
+              onPress={() => Alert.alert('Add money', 'This feature will be available soon.')}
+              activeOpacity={0.9}
             >
-              {formatMoney(wallet?.balance ?? 0)}
-            </Text>
+              <Icon name="plus" size={18} color="#ffffff" />
+              <Text style={[styles.primaryActionText, { color: '#ffffff', fontSize: fontSizes.button }]}>Add money</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.secondaryAction,
+                {
+                  backgroundColor: isDarkMode ? colors.surface : '#f8fafc',
+                  borderColor: colors.primary + '45',
+                },
+              ]}
+              onPress={() => Alert.alert('Transfer', 'This feature will be available soon.')}
+              activeOpacity={0.9}
+            >
+              <Icon name="swap-horizontal" size={18} color={colors.primary} />
+              <Text style={[styles.secondaryActionText, { color: colors.primary, fontSize: fontSizes.button }]}>
+                Transfer
+              </Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.walletIconWrap}>
-            <Icon name="wallet-outline" size={26} color="#ffffff" />
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statPill}>
-            <Icon name="arrow-down-circle" size={14} color="#86efac" />
-            <Text style={[styles.statText, { fontSize: fontSizes.small }]} numberOfLines={1}>
-              In {formatMoneyCompact(creditTotal)}
-            </Text>
-          </View>
-          <View style={styles.statPill}>
-            <Icon name="arrow-up-circle" size={14} color="#fca5a5" />
-            <Text style={[styles.statText, { fontSize: fontSizes.small }]} numberOfLines={1}>
-              Out {formatMoneyCompact(debitTotal)}
-            </Text>
-          </View>
-          <View style={styles.statPill}>
-            <Icon name="star" size={14} color="#fde68a" />
-            <Text style={[styles.statText, { fontSize: fontSizes.small }]} numberOfLines={1}>
-              {wallet?.rewards ?? 0} pts
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.primaryAction}
-            onPress={() => Alert.alert('Add money', 'This feature will be available soon.')}
-            activeOpacity={0.9}
-          >
-            <Icon name="plus" size={18} color={colors.primary} />
-            <Text style={[styles.primaryActionText, { color: colors.primary, fontSize: fontSizes.button }]}>Add money</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryAction}
-            onPress={() => Alert.alert('Transfer', 'This feature will be available soon.')}
-            activeOpacity={0.9}
-          >
-            <Icon name="swap-horizontal" size={18} color="#fff" />
-            <Text style={[styles.secondaryActionText, { fontSize: fontSizes.button }]}>Transfer</Text>
-          </TouchableOpacity>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderTransactionItem = (transaction: WalletTransaction) => {
     const isCredit = transaction.transaction_type === 'credit';
@@ -404,7 +399,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + FOOTER_CLEARANCE }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: footerClearance }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -435,41 +430,59 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerGradient: {
     width: '100%',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingBottom: 16,
+    alignSelf: 'stretch',
+    backgroundColor: 'transparent',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingBottom: 12,
+    paddingTop: 6,
+    overflow: 'hidden',
   },
-  headerRow: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
+    minHeight: 68,
     paddingHorizontal: HORIZONTAL_GUTTER,
-    paddingTop: 10,
-    paddingBottom: 6,
-    minHeight: 56,
   },
-  backButton: {
+  headerSideSlot: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  headerBackBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.20)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  headerTitleBlock: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 8,
+    minWidth: 0,
   },
   headerTitle: {
-    flex: 1,
-    color: '#fff',
+    color: '#ffffff',
     fontWeight: '700',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
     textAlign: 'center',
+    width: '100%',
   },
-  headerSpacer: { width: 40 },
   headerSubtitle: {
     color: 'rgba(219, 234, 254, 0.95)',
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 13,
     marginTop: 4,
     fontWeight: '500',
-    paddingHorizontal: 12,
   },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
@@ -486,31 +499,34 @@ const styles = StyleSheet.create({
   },
   balanceCardShell: {
     width: '100%',
-    borderRadius: 18,
-    overflow: 'hidden',
-    position: 'relative',
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   balanceCardContent: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   balanceTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
     gap: 12,
   },
   balanceMain: {
     flex: 1,
     minWidth: 0,
   },
-  balanceLabel: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', letterSpacing: 0.2 },
+  balanceLabel: { fontWeight: '600', letterSpacing: 0.2 },
   balanceAmount: {
-    color: '#fff',
     fontWeight: '800',
-    marginTop: 6,
+    marginTop: 4,
     letterSpacing: -0.5,
     lineHeight: 38,
   },
@@ -518,30 +534,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 8,
-    marginBottom: 18,
-  },
-  statPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    minWidth: 0,
-  },
-  statText: { color: '#fff', fontWeight: '600', flexShrink: 1, fontSize: 11 },
   actionRow: {
     flexDirection: 'row',
     gap: 10,
@@ -552,9 +548,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#fff',
     minHeight: 46,
-    paddingVertical: 12,
+    paddingVertical: 11,
     paddingHorizontal: 8,
     borderRadius: 12,
   },
@@ -565,15 +560,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
     minHeight: 46,
-    paddingVertical: 12,
+    paddingVertical: 11,
     paddingHorizontal: 8,
     borderRadius: 12,
   },
-  secondaryActionText: { color: '#fff', fontWeight: '700' },
+  secondaryActionText: { fontWeight: '700' },
   tabRow: {
     flexDirection: 'row',
     gap: 10,
