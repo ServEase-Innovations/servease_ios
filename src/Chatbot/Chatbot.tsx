@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,21 +12,31 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
+  PanResponder,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import FeatherIcon from 'react-native-vector-icons/Feather';
 import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
 import io, { Socket } from 'socket.io-client';
 import { useAppUser } from '../context/AppUserContext';
+import { BRAND, GRADIENTS } from '../theme/brandColors';
 
-const ENDPOINT = "https://chat-b3wl.onrender.com";
-const ADMIN_ID = "698ace8b8ea84c91bdc93678";
+const ENDPOINT = 'https://chat-b3wl.onrender.com';
+const ADMIN_ID = '698ace8b8ea84c91bdc93678';
+
+const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
+const SHEET_MIN = SCREEN_H * 0.46;
+const SHEET_DEFAULT = SCREEN_H * 0.72;
+const SHEET_MAX = SCREEN_H * 0.9;
+const DISMISS_DRAG = 100;
 
 interface MessageType {
   _id?: string;
   content: string;
-  sender: "user" | "admin" | "bot";
+  sender: 'user' | 'admin' | 'bot';
 }
 
 interface ChatbotProps {
@@ -35,661 +45,697 @@ interface ChatbotProps {
 }
 
 const generalFaqData = [
-  { question: "What services do you offer?", answer: "We offer services for HomeCook, Cleanning Help, and Caregiver." },
-  { question: "How do I book a service?", answer: "You can book a service by selecting a provider and scheduling a time." },
-  { question: "Are the service providers verified?", answer: "Yes, all our service providers go through a verification process." },
-  { question: "Can I cancel a booking?", answer: "Yes, you can cancel a booking from your profile under 'My Bookings'." },
-  { question: "How do I contact customer support?", answer: "You can reach out to our support team via chat or email." }
+  { question: 'What services do you offer?', answer: 'We offer Home Cook, Cleaning Help, and Caregiver services.' },
+  { question: 'How do I book a service?', answer: 'Choose a provider, pick a time slot, and confirm payment.' },
+  { question: 'Are providers verified?', answer: 'Yes — every provider completes our verification process.' },
+  { question: 'Can I cancel a booking?', answer: 'Yes, from My Bookings in your profile.' },
+  { question: 'How do I contact support?', answer: 'Use live chat below, email, or phone.' },
 ];
 
 const customerFaqData = [
-  { question: "How do I track my booking?", answer: "You can track your booking status in the 'My Bookings' section." },
-  { question: "Can I reschedule my service?", answer: "Yes, you can reschedule your service from the booking details page." },
-  { question: "How do I make a payment?", answer: "Payments can be made via credit card, debit card, or UPI." }
+  { question: 'How do I track my booking?', answer: "Open My Bookings to see today's visit and status." },
+  { question: 'Can I reschedule?', answer: 'Yes — open the booking and tap Modify (where available).' },
+  { question: 'How do I pay?', answer: 'Card, UPI, and wallet options appear at checkout.' },
 ];
 
 const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   const { appUser } = useAppUser();
+  const insets = useSafeAreaInsets();
 
   const [chatOpen, setChatOpen] = useState(false);
   const [isLiveChat, setIsLiveChat] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([
-    { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
+    { content: 'Namaste! Welcome to ServEaso. How can we help you today?', sender: 'bot' },
   ]);
   const [inputText, setInputText] = useState('');
-  
-  const [showViewAllBtn, setShowViewAllBtn] = useState(false);
   const [showAccordion, setShowAccordion] = useState(true);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [mongoUser, setMongoUser] = useState<any>(null);
+  const [startingChat, setStartingChat] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const sheetHeight = useRef(new Animated.Value(0)).current;
+  const dragStartHeight = useRef(SHEET_DEFAULT);
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const allFaqs =
+    appUser?.role === 'CUSTOMER' ? [...generalFaqData, ...customerFaqData] : generalFaqData;
 
-  /* ---------------- DETECT MOBILE DEVICE ---------------- */
-  useEffect(() => {
-    const checkMobile = () => {
-      const isMobileDevice = Dimensions.get('window').width <= 768 || 
-        Platform.OS !== 'web';
-      setIsMobile(isMobileDevice);
-    };
-    
-    checkMobile();
+  const scrollToEnd = useCallback(() => {
+    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 80);
   }, []);
 
-  /* ---------------- SOCKET CONNECT ---------------- */
   useEffect(() => {
-    socketRef.current = io(ENDPOINT, { transports: ["websocket"] });
-
-    socketRef.current.on("message recieved", (newMessage: any) => {
-      setMessages((prev) => [
-        ...prev,
-        { content: newMessage.content, sender: "admin" }
-      ]);
+    socketRef.current = io(ENDPOINT, { transports: ['websocket'] });
+    socketRef.current.on('message recieved', (newMessage: any) => {
+      setMessages((prev) => [...prev, { content: newMessage.content, sender: 'admin' }]);
     });
-
     return () => {
       socketRef.current?.disconnect();
     };
   }, []);
 
-  /* ---------------- AUTO SCROLL ---------------- */
   useEffect(() => {
-    if (scrollViewRef.current) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages]);
+    scrollToEnd();
+  }, [messages, showAccordion, expandedFaq, scrollToEnd]);
 
-  /* ---------------- AUTO SCROLL TO ACCORDION ---------------- */
-  useEffect(() => {
-    if (showAccordion && scrollViewRef.current) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [showAccordion]);
+  const resetChat = useCallback(() => {
+    setChatOpen(false);
+    setIsLiveChat(false);
+    setShowAccordion(true);
+    setExpandedFaq(null);
+    setMessages([
+      { content: 'Namaste! Welcome to ServEaso. How can we help you today?', sender: 'bot' },
+    ]);
+    setInputText('');
+  }, []);
 
   useEffect(() => {
     if (open) {
       Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 3,
-          useNativeDriver: true,
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(sheetHeight, {
+          toValue: SHEET_DEFAULT,
+          friction: 9,
+          tension: 65,
+          useNativeDriver: false,
         }),
       ]).start();
     } else {
-      setChatOpen(false);
-      setIsLiveChat(false);
-      setShowAccordion(true);
-      setShowViewAllBtn(false);
-      setExpandedFaq(null);
-      setMessages([
-        { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
-      ]);
+      Animated.parallel([
+        Animated.timing(backdropOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(sheetHeight, { toValue: 0, duration: 200, useNativeDriver: false }),
+      ]).start();
+      resetChat();
     }
-  }, [open]);
+  }, [open, backdropOpacity, sheetHeight, resetChat]);
 
-  /* ---------------- FAQ CLICK - Modified to only toggle accordion ---------------- */
-  const handleQuestionClick = (index: number) => {
-    // Just toggle the accordion expansion without adding to chat
-    setExpandedFaq(expandedFaq === index ? null : index);
+  const animateSheetTo = (height: number, onDone?: () => void) => {
+    Animated.spring(sheetHeight, {
+      toValue: height,
+      friction: 9,
+      tension: 70,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) onDone?.();
+    });
   };
 
-  /* ---------------- BACK BUTTON HANDLER ---------------- */
-  const handleBackClick = () => {
-    setChatOpen(false);
-    setIsLiveChat(false);
-    setShowAccordion(true);
-    setShowViewAllBtn(false);
-    setExpandedFaq(null);
-    setMessages([
-      { content: "Namaste! Welcome to ServEaso. How can we assist you today?", sender: "bot" }
-    ]);
+  const closeSheet = () => {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(sheetHeight, { toValue: 0, duration: 220, useNativeDriver: false }),
+    ]).start(() => onClose());
   };
 
-  /* ---------------- START LIVE CHAT ---------------- */
-  const startLiveChat = async () => {
-    if (!appUser) return;
-
-    try {
-      const { data: userData } = await axios.post(
-        `${ENDPOINT}/api/user/find-or-create`,
-        {
-          name: appUser.name,
-          email: appUser.email,
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderGrant: () => {
+        sheetHeight.stopAnimation((value) => {
+          dragStartHeight.current = typeof value === 'number' ? value : SHEET_DEFAULT;
+        });
+      },
+      onPanResponderMove: (_, g) => {
+        const next = Math.min(SHEET_MAX, Math.max(80, dragStartHeight.current - g.dy));
+        sheetHeight.setValue(next);
+      },
+      onPanResponderRelease: (_, g) => {
+        const current = dragStartHeight.current - g.dy;
+        if (current < SHEET_MIN - DISMISS_DRAG || g.vy > 1.5) {
+          closeSheet();
+          return;
         }
-      );
+        if (current < (SHEET_MIN + SHEET_DEFAULT) / 2) {
+          animateSheetTo(SHEET_MIN);
+        } else if (current > (SHEET_DEFAULT + SHEET_MAX) / 2) {
+          animateSheetTo(SHEET_MAX);
+        } else {
+          animateSheetTo(SHEET_DEFAULT);
+        }
+      },
+    })
+  ).current;
 
+  const showBackButton = isLiveChat || chatOpen;
+
+  const handleBackClick = () => {
+    setIsLiveChat(false);
+    setChatOpen(false);
+    setShowAccordion(true);
+    setExpandedFaq(null);
+    setSelectedChat(null);
+    setMessages([
+      { content: 'Namaste! Welcome to ServEaso. How can we help you today?', sender: 'bot' },
+    ]);
+    setInputText('');
+  };
+
+  const startLiveChat = async () => {
+    if (!appUser || startingChat) return;
+    setStartingChat(true);
+    try {
+      const { data: userData } = await axios.post(`${ENDPOINT}/api/user/find-or-create`, {
+        name: appUser.name,
+        email: appUser.email,
+      });
       setMongoUser(userData);
 
-      const { data: chatData } = await axios.post(
-        `${ENDPOINT}/api/chat`,
-        {
-          userId: ADMIN_ID,
-          currentUserId: userData._id,
-        }
-      );
-
+      const { data: chatData } = await axios.post(`${ENDPOINT}/api/chat`, {
+        userId: ADMIN_ID,
+        currentUserId: userData._id,
+      });
       setSelectedChat(chatData);
+      socketRef.current?.emit('join chat', chatData._id);
 
-      socketRef.current?.emit("join chat", chatData._id);
-
-      const messageData = await axios.get(
-        `${ENDPOINT}/api/message/${chatData._id}`
-      );
-
+      const messageData = await axios.get(`${ENDPOINT}/api/message/${chatData._id}`);
       const formatted = messageData.data.map((m: any) => ({
         content: m.content,
-        sender: m.sender._id === userData._id ? "user" : "admin"
+        sender: m.sender._id === userData._id ? 'user' : 'admin',
       }));
 
       setMessages((prev) => [...prev, ...formatted]);
-
       setIsLiveChat(true);
       setChatOpen(true);
-      
-      setShowViewAllBtn(false);
       setShowAccordion(false);
       setExpandedFaq(null);
-
     } catch (err) {
       console.error(err);
       Alert.alert('Error', 'Failed to start live chat. Please try again.');
+    } finally {
+      setStartingChat(false);
     }
   };
 
-  /* ---------------- SEND MESSAGE ---------------- */
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
     if (!isLiveChat) {
-      setMessages((prev) => [
-        ...prev,
-        { content: inputText, sender: "user" }
-      ]);
-      setInputText("");
+      setMessages((prev) => [...prev, { content: inputText.trim(), sender: 'user' }]);
+      setInputText('');
       return;
     }
 
     try {
-      const { data } = await axios.post(
-        `${ENDPOINT}/api/message`,
-        {
-          content: inputText,
-          chatId: selectedChat._id,
-          senderId: mongoUser._id,
-        }
-      );
-
-      socketRef.current?.emit("new message", data);
-
-      setMessages((prev) => [
-        ...prev,
-        { content: data.content, sender: "user" }
-      ]);
-
-      setInputText("");
-
+      const { data } = await axios.post(`${ENDPOINT}/api/message`, {
+        content: inputText.trim(),
+        chatId: selectedChat._id,
+        senderId: mongoUser._id,
+      });
+      socketRef.current?.emit('new message', data);
+      setMessages((prev) => [...prev, { content: data.content, sender: 'user' }]);
+      setInputText('');
     } catch (err) {
       console.error(err);
       Alert.alert('Error', 'Failed to send message. Please try again.');
     }
   };
 
-  const handleEmailSupport = () => {
-    Linking.openURL('mailto:support@serveaso.com').catch(err => 
-      Alert.alert('Error', 'Could not open email client')
-    );
-  };
-
-  const handleCallSupport = () => {
-    Linking.openURL('tel:080123456789').catch(err => 
-      Alert.alert('Error', 'Could not make a call')
-    );
-  };
-
-  if (!open) return null;
-
-  const allFaqs = appUser?.role === "CUSTOMER" 
-    ? [...generalFaqData, ...customerFaqData]
-    : generalFaqData;
-
-  return (
-    <Animated.View
-      style={[
-        styles.chatContainer,
-        { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-      ]}
-    >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.chatContent}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+  const renderMessage = (msg: MessageType, index: number) => {
+    const isUser = msg.sender === 'user';
+    const isAdmin = msg.sender === 'admin';
+    return (
+      <View
+        key={`msg-${index}`}
+        style={[styles.messageRow, isUser ? styles.messageRowUser : styles.messageRowOther]}
       >
-        {/* Header Section */}
-        <LinearGradient
-          colors={["#0b5bd3", "#4f8ff7"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.header}
-        >
-          {chatOpen && (
-            <TouchableOpacity 
-              onPress={handleBackClick} 
-              style={styles.backButton}
-            >
-              <Icon name="arrow-left" size={24} color="#fff" />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.headerText}>Chat Support</Text>
-          <View style={styles.headerRightButtons}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-
-        {/* Messages and FAQ Section */}
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {messages.map((msg, index) => (
-            <View
-              key={index}
-              style={[
-                styles.messageBubble,
-                msg.sender === 'user' ? styles.userMessage : 
-                msg.sender === 'admin' ? styles.adminMessage : styles.botMessage,
-              ]}
-            >
-              <Text 
-                style={
-                  msg.sender === 'user' ? styles.userMessageText : 
-                  msg.sender === 'admin' ? styles.adminMessageText : styles.botMessageText
-                }
-              >
-                {msg.content}
-              </Text>
-            </View>
-          ))}
-
-          {/* FAQ SECTION (Only before live chat starts) */}
-          {!isLiveChat && (
-            <>
-              {showAccordion && (
-                <View style={styles.faqContainer}>
-                  <Text style={styles.faqTitle}>FAQs:</Text>
-                  {allFaqs.map((faq, index) => (
-                    <View key={index} style={styles.accordionItem}>
-                      <TouchableOpacity
-                        style={styles.accordionHeader}
-                        onPress={() => handleQuestionClick(index)}
-                      >
-                        <Text style={styles.accordionQuestion}>{faq.question}</Text>
-                        <Icon 
-                          name={expandedFaq === index ? "chevron-up" : "chevron-down"} 
-                          size={20} 
-                          color="#666" 
-                        />
-                      </TouchableOpacity>
-                      {expandedFaq === index && (
-                        <View style={styles.accordionContent}>
-                          <Text style={styles.accordionAnswer}>{faq.answer}</Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {showViewAllBtn && !showAccordion && (
-                <TouchableOpacity
-                  style={styles.viewAllButton}
-                  onPress={() => {
-                    setShowAccordion(true);
-                    setExpandedFaq(null);
-                  }}
-                >
-                  <Text style={styles.viewAllButtonText}>View All FAQs</Text>
-                </TouchableOpacity>
-              )}
-
-              {showViewAllBtn && showAccordion && (
-                <TouchableOpacity
-                  style={styles.viewAllButton}
-                  onPress={() => {
-                    setShowAccordion(false);
-                    setExpandedFaq(null);
-                  }}
-                >
-                  <Text style={styles.viewAllButtonText}>Hide FAQs</Text>
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.divider} />
-
-              {/* Live Chat Button */}
-              {appUser ? (
-                <TouchableOpacity
-                  style={styles.chatAssistantButton}
-                  onPress={startLiveChat}
-                >
-                  <FeatherIcon name="message-circle" size={16} color="#fff" />
-                  <Text style={styles.chatAssistantButtonText}>Chat with Assistant</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.loginMessage}>
-                  <Text style={styles.loginMessageText}>
-                    Please login to chat with our support team.
-                  </Text>
-                </View>
-              )}
-
-              {/* Contact Options */}
-              <View style={styles.contactContainer}>
-                <TouchableOpacity
-                  style={styles.supportButton}
-                  onPress={handleEmailSupport}
-                >
-                  <FeatherIcon name="mail" size={18} color="#3b82f6" />
-                  <Text style={styles.supportButtonText}>support@serveaso.com</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.supportButton}
-                  onPress={handleCallSupport}
-                >
-                  <FeatherIcon name="phone" size={18} color="#10b981" />
-                  <Text style={styles.supportButtonText}>080-123456789</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </ScrollView>
-
-        {/* Chat Input Section */}
-        {chatOpen && (
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.textInput}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Type your message..."
-              placeholderTextColor="#999"
-              onSubmitEditing={handleSendMessage}
-              returnKeyType="send"
+        {!isUser && (
+          <View style={[styles.avatar, isAdmin ? styles.avatarAdmin : styles.avatarBot]}>
+            <Icon
+              name={isAdmin ? 'headset' : 'robot-outline'}
+              size={16}
+              color={isAdmin ? BRAND.accent : BRAND.textMuted}
             />
-            <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-              <FeatherIcon name="send" size={20} color="#fff" />
-            </TouchableOpacity>
           </View>
         )}
-      </KeyboardAvoidingView>
-    </Animated.View>
+        <View
+          style={[
+            styles.messageBubble,
+            isUser ? styles.userBubble : isAdmin ? styles.adminBubble : styles.botBubble,
+          ]}
+        >
+          {!isUser && (
+            <Text style={styles.senderLabel}>{isAdmin ? 'Support' : 'ServEaso'}</Text>
+          )}
+          <Text style={[styles.messageText, isUser && styles.userMessageText]}>{msg.content}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <Modal visible={open} transparent animationType="none" onRequestClose={closeSheet}>
+      <View style={styles.modalRoot}>
+        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
+        </Animated.View>
+
+        <Animated.View style={[styles.sheet, { height: sheetHeight }]}>
+          <View style={styles.sheetColumn}>
+            <LinearGradient
+              colors={[...GRADIENTS.bookingHeader]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.header}
+            >
+              <View style={styles.dragZone} {...panResponder.panHandlers}>
+                <View style={styles.dragHandle} />
+              </View>
+              <View style={styles.headerRow}>
+                {showBackButton ? (
+                  <TouchableOpacity
+                    onPress={handleBackClick}
+                    style={styles.headerIconBtn}
+                    hitSlop={12}
+                    accessibilityLabel="Back to help options"
+                    accessibilityRole="button"
+                  >
+                    <Icon name="arrow-left" size={24} color="#ffffff" />
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.headerIconSpacer} />
+                )}
+                <View style={styles.headerTitles}>
+                  <Text style={styles.headerText} numberOfLines={1}>
+                    {isLiveChat ? 'Live support' : 'Chat Support'}
+                  </Text>
+                  <Text style={styles.headerSubtext} numberOfLines={1}>
+                    {isLiveChat ? 'Chat with our team' : 'FAQs & live assistance'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={closeSheet}
+                  style={styles.headerIconBtn}
+                  hitSlop={12}
+                  accessibilityLabel="Close chat"
+                  accessibilityRole="button"
+                >
+                  <Icon name="close" size={24} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+
+            <KeyboardAvoidingView
+              style={styles.body}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+            >
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.messagesScroll}
+              contentContainerStyle={styles.messagesContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {messages.map(renderMessage)}
+
+              {!isLiveChat && (
+                <>
+                  {showAccordion && (
+                    <View style={styles.faqBlock}>
+                      <Text style={styles.faqHeading}>Quick answers</Text>
+                      {allFaqs.map((faq, index) => (
+                        <View key={index} style={styles.faqItem}>
+                          <TouchableOpacity
+                            style={styles.faqQuestionRow}
+                            onPress={() =>
+                              setExpandedFaq(expandedFaq === index ? null : index)
+                            }
+                          >
+                            <Text style={styles.faqQuestion}>{faq.question}</Text>
+                            <Icon
+                              name={expandedFaq === index ? 'chevron-up' : 'chevron-down'}
+                              size={20}
+                              color={BRAND.textMuted}
+                            />
+                          </TouchableOpacity>
+                          {expandedFaq === index && (
+                            <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    onPress={() => setShowAccordion((v) => !v)}
+                    style={styles.faqToggle}
+                  >
+                    <Text style={styles.faqToggleText}>
+                      {showAccordion ? 'Hide quick answers' : 'Show quick answers'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {appUser ? (
+                    <TouchableOpacity
+                      style={[styles.liveChatBtn, startingChat && styles.liveChatBtnDisabled]}
+                      onPress={startLiveChat}
+                      disabled={startingChat}
+                    >
+                      <Icon name="message-processing-outline" size={20} color="#fff" />
+                      <Text style={styles.liveChatBtnText}>
+                        {startingChat ? 'Connecting…' : 'Chat with support'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.loginHint}>Sign in to start a live chat with our team.</Text>
+                  )}
+
+                  <View style={styles.contactRow}>
+                    <TouchableOpacity
+                      style={styles.contactChip}
+                      onPress={() => Linking.openURL('mailto:support@serveaso.com')}
+                    >
+                      <Icon name="email-outline" size={18} color={BRAND.accent} />
+                      <Text style={styles.contactChipText}>Email</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.contactChip}
+                      onPress={() => Linking.openURL('tel:080123456789')}
+                    >
+                      <Icon name="phone-outline" size={18} color={BRAND.accent} />
+                      <Text style={styles.contactChipText}>Call</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+              <TextInput
+                style={styles.textInput}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder={isLiveChat ? 'Type a message…' : 'Ask a question…'}
+                placeholderTextColor={BRAND.textMuted}
+                onSubmitEditing={handleSendMessage}
+                returnKeyType="send"
+                multiline
+                maxLength={2000}
+              />
+              <TouchableOpacity
+                style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
+                onPress={handleSendMessage}
+                disabled={!inputText.trim()}
+              >
+                <Icon name="send" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  chatContainer: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: Dimensions.get('window').width * 0.9,
-    maxWidth: 380,
-    height: Dimensions.get('window').height * 0.7,
-    zIndex: 1000,
-  },
-  chatContent: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  sheet: {
+    width: SCREEN_W,
+    backgroundColor: BRAND.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  sheetColumn: {
+    flex: 1,
+    flexDirection: 'column',
   },
   header: {
+    width: '100%',
+    flexShrink: 0,
+    backgroundColor: BRAND.bookingNavy,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  dragZone: {
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    minHeight: 48,
   },
-  backButton: {
-    marginRight: 10,
-    padding: 4,
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  headerIconSpacer: {
+    width: 40,
+    height: 40,
+  },
+  headerTitles: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
   headerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#ffffff',
+  },
+  headerSubtext: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
+  },
+  body: {
     flex: 1,
-    textAlign: 'center',
+    minHeight: 0,
+    backgroundColor: BRAND.canvas,
   },
-  headerRightButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  messagesContainer: {
+  messagesScroll: {
     flex: 1,
-    backgroundColor: '#f9fafb',
   },
   messagesContent: {
-    padding: 10,
-    paddingBottom: 15,
+    padding: 14,
+    paddingBottom: 8,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    maxWidth: '92%',
+  },
+  messageRowUser: {
+    alignSelf: 'flex-end',
+  },
+  messageRowOther: {
+    alignSelf: 'flex-start',
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+    marginTop: 2,
+  },
+  avatarBot: {
+    backgroundColor: BRAND.accentSoft,
+  },
+  avatarAdmin: {
+    backgroundColor: '#e0e7ff',
   },
   messageBubble: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    flexShrink: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    maxWidth: '100%',
   },
-  botMessage: {
-    backgroundColor: '#e5e7eb',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 0,
+  botBubble: {
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    borderBottomLeftRadius: 4,
   },
-  adminMessage: {
-    backgroundColor: '#d1d5db',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 0,
+  adminBubble: {
+    backgroundColor: '#eef2ff',
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    borderBottomLeftRadius: 4,
   },
-  userMessage: {
-    backgroundColor: '#3b82f6',
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 0,
+  userBubble: {
+    backgroundColor: BRAND.accent,
+    borderBottomRightRadius: 4,
   },
-  botMessageText: {
-    color: '#374151',
-    fontSize: 14,
-    lineHeight: 20,
+  senderLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BRAND.textMuted,
+    marginBottom: 4,
   },
-  adminMessageText: {
-    color: '#1f2937',
-    fontSize: 14,
-    lineHeight: 20,
+  messageText: {
+    fontSize: 15,
+    lineHeight: 21,
+    color: BRAND.text,
   },
   userMessageText: {
     color: '#fff',
-    fontSize: 14,
-    lineHeight: 20,
   },
-  faqContainer: {
-    marginTop: 10,
-  },
-  faqTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-  },
-  accordionItem: {
+  faqBlock: {
+    marginTop: 8,
     marginBottom: 8,
+  },
+  faqHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BRAND.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  faqItem: {
+    backgroundColor: BRAND.surface,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    borderColor: BRAND.line,
+    marginBottom: 8,
     overflow: 'hidden',
   },
-  accordionHeader: {
+  faqQuestionRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 12,
-    backgroundColor: '#fff',
   },
-  accordionQuestion: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+  faqQuestion: {
     flex: 1,
-    marginRight: 10,
-  },
-  accordionContent: {
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-  },
-  accordionAnswer: {
-    fontSize: 13,
-    color: '#6b7280',
-    lineHeight: 18,
-  },
-  viewAllButton: {
-    paddingVertical: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  viewAllButtonText: {
-    color: '#3b82f6',
     fontSize: 14,
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#d1d5db',
-    marginVertical: 15,
-  },
-  chatAssistantButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  chatAssistantButtonText: {
-    fontSize: 14,
-    color: '#fff',
     fontWeight: '600',
-    marginLeft: 8,
+    color: BRAND.text,
+    marginRight: 8,
   },
-  loginMessage: {
-    padding: 15,
-    alignItems: 'center',
-    marginBottom: 15,
+  faqAnswer: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: BRAND.textMuted,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
-  loginMessageText: {
+  faqToggle: {
+    alignSelf: 'center',
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  faqToggleText: {
+    color: BRAND.accent,
     fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
+    fontWeight: '600',
   },
-  contactContainer: {
-    marginTop: 10,
-  },
-  supportButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    width: '100%',
+  liveChatBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
+    gap: 8,
+    backgroundColor: BRAND.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 12,
   },
-  supportButtonText: {
+  liveChatBtnDisabled: {
+    opacity: 0.7,
+  },
+  liveChatBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  loginHint: {
+    textAlign: 'center',
+    color: BRAND.textMuted,
     fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-    marginLeft: 8,
+    marginBottom: 12,
+    paddingHorizontal: 12,
   },
-  inputContainer: {
+  contactRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  contactChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+  },
+  contactChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND.accent,
+  },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    backgroundColor: '#f3f4f6',
+    borderTopColor: BRAND.line,
+    backgroundColor: BRAND.surface,
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#fff',
+    minHeight: 44,
+    maxHeight: 100,
+    backgroundColor: BRAND.canvas,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 20,
+    borderColor: BRAND.line,
+    borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 14,
-    marginRight: 10,
+    fontSize: 15,
+    color: BRAND.text,
+    marginRight: 8,
   },
-  sendButton: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+  sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: BRAND.accent,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    justifyContent: 'center',
+  },
+  sendBtnDisabled: {
+    opacity: 0.45,
   },
 });
 

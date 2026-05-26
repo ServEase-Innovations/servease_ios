@@ -47,6 +47,7 @@ import HomePage from "./src/HomePage/HomePage";
 import DetailsView from "./src/DetailsView/DetailsView";
 import Footer from "./src/Footer/Footer";
 import Chatbot from "./src/Chatbot/Chatbot";
+import ChatbotButton from "./src/Chatbot/ChatbotButton";
 import Booking, { BookingRef } from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
@@ -1031,21 +1032,11 @@ const MainApp = () => {
               )}
             </View>
 
-          {/* Chat Button - Positioned above Navigation Footer - Shifted more to the left */}
           {!chatbotOpen && isMobile && (
-            <TouchableOpacity 
-              style={[
-                styles.chatButton,
-                {
-                  backgroundColor: colors.secondary,
-                  bottom: mobileTabBarClearance + 10,
-                  left: 20, // Changed from right to left positioning
-                },
-              ]} 
+            <ChatbotButton
+              bottomInset={mobileTabBarClearance + 12}
               onPress={() => setChatbotOpen(true)}
-            >
-              <Icon name="chat" size={26} color="#fff" />
-            </TouchableOpacity>
+            />
           )}
 
           {/* Modals and Dialogs */}
@@ -1239,20 +1230,6 @@ const styles = StyleSheet.create({
     width: "100%",
     zIndex: 100,
     backgroundColor: "transparent",
-  },
-  chatButton: {
-    position: "absolute",
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 2000,
   },
   deepLinkLoadingOverlay: {
     position: 'absolute',

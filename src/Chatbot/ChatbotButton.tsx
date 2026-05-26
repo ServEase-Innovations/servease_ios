@@ -1,105 +1,95 @@
-import React, { useState, useRef } from 'react';
-import { View, TouchableOpacity, Dimensions, StyleSheet, Animated, PanResponder } from 'react-native';
-import MessageCircle from 'react-native-vector-icons/Feather';
+import React, { useRef } from 'react';
+import { Dimensions, StyleSheet, View, PanResponder } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BRAND, GRADIENTS } from '../theme/brandColors';
 
 interface ChatbotButtonProps {
-  open: boolean;
-  onToggle: () => void;
+  onPress: () => void;
+  bottomInset?: number;
 }
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const BTN_SIZE = 56;
+const EDGE = 16;
 
-const ChatbotButton: React.FC<ChatbotButtonProps> = ({ open, onToggle }) => {
-  const [buttonPosition, setButtonPosition] = useState({
-    x: screenWidth - 80,
-    y: screenHeight - 80,
+const ChatbotButton: React.FC<ChatbotButtonProps> = ({ onPress, bottomInset = 88 }) => {
+  const positionRef = useRef({
+    x: SCREEN_W - BTN_SIZE - EDGE,
+    y: SCREEN_H - BTN_SIZE - bottomInset,
   });
+  const dragStart = useRef({ x: 0, y: 0 });
+  const [, forceRender] = React.useState(0);
+  const didDrag = useRef(false);
 
-  const pan = useRef(new Animated.ValueXY(buttonPosition)).current;
+  const clampPosition = (x: number, y: number) => ({
+    x: Math.max(EDGE, Math.min(x, SCREEN_W - BTN_SIZE - EDGE)),
+    y: Math.max(EDGE + 48, Math.min(y, SCREEN_H - BTN_SIZE - EDGE)),
+  });
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
       onPanResponderGrant: () => {
-        pan.extractOffset(); // Reset the offset when gesture starts
+        didDrag.current = false;
+        dragStart.current = { ...positionRef.current };
       },
-      onPanResponderMove: Animated.event(
-        [
-          null,
-          {
-            dx: pan.x,
-            dy: pan.y,
-          },
-        ],
-        { useNativeDriver: false } // Must be false for PanResponder
-      ),
-      onPanResponderRelease: (e, gesture) => {
-        const currentX = buttonPosition.x + gesture.dx;
-        const currentY = buttonPosition.y + gesture.dy;
-
-        // Boundary constraints
-        const newX = Math.max(0, Math.min(currentX, screenWidth - 60));
-        const newY = Math.max(0, Math.min(currentY, screenHeight - 60));
-
-        setButtonPosition({ x: newX, y: newY });
-        
-        // Animate to final position
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false, // Must be false
-        }).start(() => {
-          // After animation, set the base position and reset the animated values
-          pan.flattenOffset();
-        });
+      onPanResponderMove: (_, g) => {
+        if (Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5) {
+          didDrag.current = true;
+        }
+        positionRef.current = clampPosition(
+          dragStart.current.x + g.dx,
+          dragStart.current.y + g.dy
+        );
+        forceRender((n) => n + 1);
+      },
+      onPanResponderRelease: () => {
+        if (!didDrag.current) {
+          onPress();
+        }
       },
     })
   ).current;
 
-  const animatedStyle = {
-    transform: [
-      { translateX: Animated.add(pan.x, new Animated.Value(buttonPosition.x)) },
-      { translateY: Animated.add(pan.y, new Animated.Value(buttonPosition.y)) },
-    ],
-  };
+  const pos = positionRef.current;
 
   return (
-    <Animated.View
-      style={[styles.draggableContainer, animatedStyle]}
+    <View
+      style={[styles.draggableContainer, { left: pos.x, top: pos.y }]}
       {...panResponder.panHandlers}
     >
-      <TouchableOpacity
-        onPress={onToggle}
-        style={styles.chatButton}
-        activeOpacity={0.8}
-        accessibilityLabel="Need Help? Chat with us"
-        accessibilityRole="button"
-      >
-        <MessageCircle name="message-circle" size={28} color="#ffffff" />
-      </TouchableOpacity>
-    </Animated.View>
+      <View accessibilityRole="button" accessibilityLabel="Open chat support">
+        <LinearGradient
+          colors={[...GRADIENTS.bookingHeader]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.chatButton}
+        >
+          <Icon name="message-text-outline" size={26} color="#ffffff" />
+        </LinearGradient>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   draggableContainer: {
     position: 'absolute',
-    zIndex: 50,
+    zIndex: 2000,
   },
   chatButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#3b82f6',
+    width: BTN_SIZE,
+    height: BTN_SIZE,
+    borderRadius: BTN_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowColor: BRAND.bookingNavy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
 
