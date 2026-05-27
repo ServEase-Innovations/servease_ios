@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Dimensions,
 } from "react-native";
@@ -33,6 +32,7 @@ const generateTimeSlots = () => {
 };
 
 const TIMES = generateTimeSlots();
+const INITIAL_AVAILABLE_COUNT = 9;
 
 /* -------------------- Types -------------------- */
 
@@ -62,7 +62,8 @@ export default function DribbbleDateTimePicker(props: Props) {
   
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [showTimeHint, setShowTimeHint] = useState(false);
+  const [showAllAvailable, setShowAllAvailable] = useState(false);
+  const [showUnavailable, setShowUnavailable] = useState(false);
 
   /* ---------- Single Date Only ---------- */
   const [selectedDate, setSelectedDate] = useState<Dayjs>(() => {
@@ -118,7 +119,6 @@ export default function DribbbleDateTimePicker(props: Props) {
     // ✅ Strict parsing with validation
     const parsedTime = dayjs(time, "h:mm A", true);
     if (!parsedTime.isValid()) {
-      console.log("Invalid time format:", time);
       return true;
     }
 
@@ -129,12 +129,7 @@ export default function DribbbleDateTimePicker(props: Props) {
       .second(0)
       .millisecond(0);
 
-    const isDisabled = timeDateTime.isBefore(now.add(30, "minute"));
-    
-    // Debug log
-    console.log(`Time: ${time}, Hour: ${parsedTime.hour()}, Minute: ${parsedTime.minute()}, Disabled: ${isDisabled}`);
-    
-    return isDisabled;
+    return timeDateTime.isBefore(now.add(30, "minute"));
   };
 
   const isDisabledDate = (day: number) => {
@@ -179,6 +174,8 @@ export default function DribbbleDateTimePicker(props: Props) {
     if (mode === "single") {
       setSelectedDate(date);
       setSelectedTime(null);
+      setShowAllAvailable(false);
+      setShowUnavailable(false);
     } else if (mode === "range") {
       if (!isSelectingEnd || !rangeStart) {
         // Start selecting range
@@ -186,6 +183,8 @@ export default function DribbbleDateTimePicker(props: Props) {
         setRangeEnd(null);
         setIsSelectingEnd(true);
         setSelectedTime(null);
+        setShowAllAvailable(false);
+        setShowUnavailable(false);
       } else {
         // Complete the range
         let start = rangeStart;
@@ -200,6 +199,8 @@ export default function DribbbleDateTimePicker(props: Props) {
         setRangeEnd(end);
         setIsSelectingEnd(false);
         setSelectedTime(null);
+        setShowAllAvailable(false);
+        setShowUnavailable(false);
         
         // For range mode, if we have a time selected, trigger onChange with range object
         if (start && end && selectedTime) {
@@ -242,10 +243,6 @@ export default function DribbbleDateTimePicker(props: Props) {
       return;
     }
 
-    // Debug log to verify parsing
-    console.log(`Selected time: ${time}`);
-    console.log(`Parsed - Hour: ${parsedTime.hour()}, Minute: ${parsedTime.minute()}`);
-    
     // ✅ Build final date
     const finalDate = effectiveDate
       .hour(parsedTime.hour())
@@ -253,10 +250,6 @@ export default function DribbbleDateTimePicker(props: Props) {
       .second(0)
       .millisecond(0)
       .toDate();
-
-    // Debug log to verify final date
-    console.log(`Final date: ${finalDate}`);
-    console.log(`Formatted time: ${dayjs(finalDate).format("h:mm A")}`);
 
     if (mode === "range") {
       if (rangeStart && rangeEnd) {
@@ -281,6 +274,42 @@ export default function DribbbleDateTimePicker(props: Props) {
     const newMonth = currentMonth.add(increment, "month");
     if (increment === -1 && isPastMonth(newMonth)) return;
     setCurrentMonth(newMonth);
+  };
+
+  const availableTimes = TIMES.filter((time) => !isTimeSlotDisabled(time));
+  const unavailableTimes = TIMES.filter((time) => isTimeSlotDisabled(time));
+  const hiddenAvailableCount = Math.max(0, availableTimes.length - INITIAL_AVAILABLE_COUNT);
+  const visibleAvailableTimes = showAllAvailable
+    ? availableTimes
+    : availableTimes.slice(0, INITIAL_AVAILABLE_COUNT);
+
+  const renderTimeChip = (time: string, isDisabled: boolean) => {
+    const isSelected = selectedTime === time;
+
+    return (
+      <TouchableOpacity
+        key={time}
+        style={[
+          styles.timeSlot,
+          isSelected && styles.activeTimeSlot,
+          isDisabled && styles.disabledTimeSlot,
+        ]}
+        onPress={() => selectTime(time)}
+        disabled={isDisabled}
+        activeOpacity={isDisabled ? 1 : 0.7}
+      >
+        <Text
+          style={[
+            styles.timeSlotText,
+            isSelected && styles.activeTimeSlotText,
+            isDisabled && styles.disabledTimeSlotText,
+          ]}
+        >
+          {time}
+        </Text>
+        {isDisabled && <Text style={styles.unavailableLabel}>Unavailable</Text>}
+      </TouchableOpacity>
+    );
   };
 
   /* -------------------- Render -------------------- */
@@ -386,47 +415,75 @@ export default function DribbbleDateTimePicker(props: Props) {
 
       {/* Select Time Header */}
       <View style={styles.timeHeader}>
-        <Text style={styles.timeTitle}>Select Time</Text>
-        {getDisabledTimeMessage() && (
-          <Text style={styles.timeHint}>{getDisabledTimeMessage()}</Text>
+        <View style={styles.timeHeaderTextWrap}>
+          <Text style={styles.timeTitle}>Select Time</Text>
+          {getDisabledTimeMessage() && (
+            <Text style={styles.timeHint}>{getDisabledTimeMessage()}</Text>
+          )}
+        </View>
+        {availableTimes.length > 0 && (
+          <View style={styles.availableCountPill}>
+            <Text style={styles.availableCountText}>{availableTimes.length} available</Text>
+          </View>
         )}
       </View>
 
-      {/* Time Grid */}
-      <ScrollView
-        style={styles.timeGrid}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.timeGridContent}
-        nestedScrollEnabled={true}
-      >
-        {TIMES.map((time) => {
-          const isDisabled = isTimeSlotDisabled(time);
-          const isSelected = selectedTime === time;
+      {availableTimes.length === 0 ? (
+        <View style={styles.emptyTimesBox}>
+          <Text style={styles.emptyTimesTitle}>No times available for this date</Text>
+          <Text style={styles.emptyTimesSubtext}>
+            Pick another date or check unavailable slots below.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.timeGridContent}>
+          {visibleAvailableTimes.map((time) => renderTimeChip(time, false))}
+        </View>
+      )}
 
-          return (
-            <TouchableOpacity
-              key={time}
-              style={[
-                styles.timeSlot,
-                isSelected && styles.activeTimeSlot,
-                isDisabled && styles.disabledTimeSlot,
-              ]}
-              onPress={() => selectTime(time)}
-              disabled={isDisabled}
-            >
-              <Text
-                style={[
-                  styles.timeSlotText,
-                  isSelected && styles.activeTimeSlotText,
-                  isDisabled && styles.disabledTimeSlotText,
-                ]}
-              >
-                {time}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {!showAllAvailable && hiddenAvailableCount > 0 && (
+        <TouchableOpacity
+          style={styles.expandButton}
+          onPress={() => setShowAllAvailable(true)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.expandButtonText}>
+            Show more times ({hiddenAvailableCount} more)
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {showAllAvailable && hiddenAvailableCount > 0 && (
+        <TouchableOpacity
+          style={styles.collapseButton}
+          onPress={() => setShowAllAvailable(false)}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.collapseButtonText}>Show fewer times</Text>
+        </TouchableOpacity>
+      )}
+
+      {unavailableTimes.length > 0 && (
+        <View style={styles.unavailableSection}>
+          <TouchableOpacity
+            style={styles.expandButtonSecondary}
+            onPress={() => setShowUnavailable((prev) => !prev)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.expandButtonSecondaryText}>
+              {showUnavailable
+                ? "Hide unavailable times"
+                : `Show unavailable times (${unavailableTimes.length})`}
+            </Text>
+          </TouchableOpacity>
+
+          {showUnavailable && (
+            <View style={[styles.timeGridContent, styles.unavailableGrid]}>
+              {unavailableTimes.map((time) => renderTimeChip(time, true))}
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -559,8 +616,13 @@ const styles = StyleSheet.create({
   timeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+    alignItems: "flex-start",
+    marginBottom: 12,
+    gap: 8,
+  },
+  timeHeaderTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   timeTitle: {
     fontSize: 16,
@@ -570,15 +632,84 @@ const styles = StyleSheet.create({
   timeHint: {
     fontSize: 12,
     color: "#FF9800",
+    marginTop: 4,
   },
-  timeGrid: {
-    maxHeight: 220,
+  availableCountPill: {
+    backgroundColor: "#E8F1FF",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  availableCountText: {
+    fontSize: 11,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+  emptyTimesBox: {
+    backgroundColor: "#FFF8E8",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FFE2A8",
+    padding: 12,
+    marginBottom: 8,
+  },
+  emptyTimesTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#9A6700",
+  },
+  emptyTimesSubtext: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#B7791F",
   },
   timeGridContent: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
     gap: 8,
+  },
+  unavailableSection: {
+    marginTop: 8,
+  },
+  unavailableGrid: {
+    marginTop: 8,
+  },
+  expandButton: {
+    marginTop: 10,
+    alignSelf: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: "#E8F1FF",
+    borderWidth: 1,
+    borderColor: "#B9D6FF",
+  },
+  expandButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#007AFF",
+  },
+  collapseButton: {
+    marginTop: 8,
+    alignSelf: "center",
+    paddingVertical: 4,
+  },
+  collapseButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  expandButtonSecondary: {
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+  },
+  expandButtonSecondaryText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    textDecorationLine: "underline",
   },
   timeSlot: {
     width: "30%",
@@ -589,14 +720,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#F5F5F5",
+    minHeight: 40,
+    justifyContent: "center",
   },
   activeTimeSlot: {
     backgroundColor: "#007AFF",
     borderColor: "#007AFF",
   },
   disabledTimeSlot: {
-    backgroundColor: "#FAFAFA",
-    opacity: 0.5,
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderStyle: "dashed",
   },
   timeSlotText: {
     fontSize: 13,
@@ -608,6 +742,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   disabledTimeSlotText: {
-    color: "#999",
+    color: "#94A3B8",
+    textDecorationLine: "line-through",
+  },
+  unavailableLabel: {
+    marginTop: 2,
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
 });

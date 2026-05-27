@@ -83,6 +83,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [localEndDate, setLocalEndDate] = useState<string | null>(null);
   const [localStartTime, setLocalStartTime] = useState<Dayjs | null>(null);
   const [localEndTime, setLocalEndTime] = useState<Dayjs | null>(null);
+  const [serviceDurationHours, setServiceDurationHours] = useState(1);
   const [tempSelectedTime, setTempSelectedTime] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(null);
@@ -145,6 +146,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const today = dayjs();
   const maxDate21Days = today.add(21, "day");
   const maxDate90Days = today.add(89, "day");
+  const MAX_SERVICE_DURATION_HOURS = BUSINESS_HOURS.cutoffHour - BUSINESS_HOURS.openingHour;
+
+  const applyEndFromStartAndDuration = (start: Dayjs, hours: number) => {
+    let end = start.add(hours, "hour");
+    if (end.hour() >= BUSINESS_HOURS.cutoffHour) {
+      end = start.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
+    }
+    return end;
+  };
+
+  const commitEndTimeForOption = (start: Dayjs, end: Dayjs) => {
+    setLocalEndTime(end);
+    setEndTime(end);
+
+    if (selectedOption === "Date") {
+      setLocalEndDate(end.format("YYYY-MM-DD"));
+      setEndDate(end.format("YYYY-MM-DD"));
+    } else if (selectedOption === "Monthly") {
+      const endDateValue = start.add(1, "month");
+      setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
+      setEndDate(endDateValue.format("YYYY-MM-DD"));
+    } else if (selectedOption === "Short term") {
+      if (!localEndDate) {
+        const endDateValue = start.add(1, "day");
+        setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
+        setEndDate(endDateValue.format("YYYY-MM-DD"));
+      }
+    }
+  };
 
   useEffect(() => {
     if (appUser) {
@@ -161,6 +191,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setLocalEndDate(endDate);
       setLocalStartTime(startTime);
       setLocalEndTime(endTime);
+      if (startTime && endTime) {
+        const hours = Math.max(1, Math.round(endTime.diff(startTime, "hour", true)));
+        setServiceDurationHours(hours);
+      } else {
+        setServiceDurationHours(1);
+      }
       // Soft snap-in animation for modern drawer feel
       sheetTranslateY.setValue(28);
       Animated.spring(sheetTranslateY, {
@@ -198,6 +234,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     if (isDateChanged) {
       setLocalStartTime(null);
       setLocalEndTime(null);
+      setServiceDurationHours(1);
       setCustomHours(12);
       setCustomMinutes(0);
       setCustomAmPm("AM");
@@ -385,33 +422,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setStartDate(adjustedDateTime.format("YYYY-MM-DD"));
     setStartTime(adjustedDateTime);
 
-    const defaultEndTime = adjustedDateTime.add(1, "hour");
-    let finalEndTime = defaultEndTime;
-    
-    if (defaultEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
-      finalEndTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
-    }
-    
-    if (selectedOption === "Date") {
-      setLocalEndDate(finalEndTime.format("YYYY-MM-DD"));
-      setLocalEndTime(finalEndTime);
-      setEndDate(finalEndTime.format("YYYY-MM-DD"));
-      setEndTime(finalEndTime);
-    } else if (selectedOption === "Monthly") {
-      const endDateValue = adjustedDateTime.add(1, "month");
-      setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-      setLocalEndTime(finalEndTime);
-      setEndDate(endDateValue.format("YYYY-MM-DD"));
-      setEndTime(finalEndTime);
-    } else if (selectedOption === "Short term") {
-      setLocalEndTime(finalEndTime);
-      setEndTime(finalEndTime);
-      if (!localEndDate) {
-        const endDateValue = adjustedDateTime.add(1, "day");
-        setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-        setEndDate(endDateValue.format("YYYY-MM-DD"));
-      }
-    }
+    const finalEndTime = applyEndFromStartAndDuration(adjustedDateTime, serviceDurationHours);
+    commitEndTimeForOption(adjustedDateTime, finalEndTime);
   };
 
   const updateEndDateTime = (newDateTime: Dayjs) => {
@@ -465,34 +477,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setStartDate(adjustedTime.format("YYYY-MM-DD"));
     setStartTime(adjustedTime);
 
-    const defaultEndTime = adjustedTime.add(1, 'hour');
-    let finalEndTime = defaultEndTime;
-    
-    if (defaultEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
-      finalEndTime = adjustedTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
-    }
-    
-    setLocalEndTime(finalEndTime);
-    setEndTime(finalEndTime);
-    
-    if (selectedOption === "Date") {
-      setLocalEndDate(finalEndTime.format("YYYY-MM-DD"));
-      setEndDate(finalEndTime.format("YYYY-MM-DD"));
-    } else if (selectedOption === "Monthly") {
-      const endDateValue = adjustedTime.add(1, "month");
-      setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-      setEndDate(endDateValue.format("YYYY-MM-DD"));
-      setLocalEndTime(finalEndTime);
-      setEndTime(finalEndTime);
-    } else if (selectedOption === "Short term") {
-      if (!localEndDate) {
-        const endDateValue = adjustedTime.add(1, "day");
-        setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-        setEndDate(endDateValue.format("YYYY-MM-DD"));
-      }
-      setLocalEndTime(finalEndTime);
-      setEndTime(finalEndTime);
-    }
+    const finalEndTime = applyEndFromStartAndDuration(adjustedTime, serviceDurationHours);
+    commitEndTimeForOption(adjustedTime, finalEndTime);
   };
 
   const handleDateTimeChange = (date: Date, time?: string, isRange?: boolean, startDateObj?: Date, endDateObj?: Date) => {
@@ -598,53 +584,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
   };
 
-  const getDuration = () => {
-    if (!localStartTime || !localEndTime) return 1;
-    const durationHours = localEndTime.diff(localStartTime, "hour", true);
-    return Math.max(1, Math.round(durationHours));
-  };
-
-  const duration = getDuration();
+  const duration = serviceDurationHours;
 
   const canIncreaseDuration = () => {
-    if (!localStartTime) return false;
-    const newEndTime = localStartTime.add(duration + 1, 'hour');
-    return newEndTime.hour() < BUSINESS_HOURS.cutoffHour;
+    if (localStartTime) {
+      const newEndTime = localStartTime.add(serviceDurationHours + 1, "hour");
+      return newEndTime.hour() < BUSINESS_HOURS.cutoffHour;
+    }
+    return serviceDurationHours < MAX_SERVICE_DURATION_HOURS;
   };
 
-  const canDecreaseDuration = () => {
-    return localStartTime && duration > 1;
-  };
+  const canDecreaseDuration = () => serviceDurationHours > 1;
 
   const handleIncreaseDuration = () => {
-    if (!localStartTime) return;
-    const newEndTime = localStartTime.add(duration + 1, 'hour');
-    if (newEndTime.hour() >= BUSINESS_HOURS.cutoffHour) return;
-    
-    setLocalEndTime(newEndTime);
-    setEndTime(newEndTime);
-    if (selectedOption === "Date") {
-      setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-      setEndDate(newEndTime.format("YYYY-MM-DD"));
-    } else if (selectedOption === "Short term") {
-      setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-      setEndDate(newEndTime.format("YYYY-MM-DD"));
+    if (!canIncreaseDuration()) return;
+    const nextDuration = serviceDurationHours + 1;
+    setServiceDurationHours(nextDuration);
+    if (localStartTime) {
+      const newEndTime = applyEndFromStartAndDuration(localStartTime, nextDuration);
+      commitEndTimeForOption(localStartTime, newEndTime);
     }
   };
 
   const handleDecreaseDuration = () => {
-    if (!localStartTime) return;
-    if (duration > 1) {
-      const newEndTime = localStartTime.add(duration - 1, 'hour');
-      setLocalEndTime(newEndTime);
-      setEndTime(newEndTime);
-      if (selectedOption === "Date") {
-        setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-        setEndDate(newEndTime.format("YYYY-MM-DD"));
-      } else if (selectedOption === "Short term") {
-        setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-        setEndDate(newEndTime.format("YYYY-MM-DD"));
-      }
+    if (!canDecreaseDuration()) return;
+    const nextDuration = serviceDurationHours - 1;
+    setServiceDurationHours(nextDuration);
+    if (localStartTime) {
+      const newEndTime = applyEndFromStartAndDuration(localStartTime, nextDuration);
+      commitEndTimeForOption(localStartTime, newEndTime);
     }
   };
 
@@ -670,6 +638,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setLocalEndDate(null);
     setLocalStartTime(null);
     setLocalEndTime(null);
+    setServiceDurationHours(1);
     setLastSelectedDate(null);
     setTempSelectedTime(null);
     setShowDatePicker(null);
@@ -765,7 +734,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   // Render Duration Control (appears first in the dialog)
   const renderDurationControl = () => {
     const hasStartTime = !!localStartTime;
-    const currentDuration = (hasStartTime && localEndTime) ? localEndTime.diff(localStartTime, 'hour') : 1;
     
     const getDurationMessage = () => {
       if (selectedOption === "Short term") {
@@ -805,7 +773,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
           <View style={styles.durationDisplay}>
             <Text style={[styles.durationDisplayText, { color: colors.text, fontSize: fontSizes.title }]}>
-              {currentDuration} hour{currentDuration > 1 ? "s" : ""}
+              {duration} hour{duration > 1 ? "s" : ""}
             </Text>
             {hasStartTime && localEndTime && (
               <Text style={[styles.durationEndTime, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
@@ -814,7 +782,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             )}
             {!hasStartTime && (
               <Text style={[styles.selectTimeHint, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
-                Select a start time to adjust duration
+                Applies when you pick a start time below
               </Text>
             )}
           </View>
@@ -1363,7 +1331,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
             {selectedOption === "Date" && (
               <>
-                {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
                     mode="single"
@@ -1389,13 +1356,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     }}
                   />
                 </View>
+                {renderDurationControl()}
                 {renderBookingDetails()}
               </>
             )}
 
             {selectedOption === "Short term" && (
               <>
-                {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
                     mode="range"
@@ -1418,20 +1385,23 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                         setLocalEndDate(end.format("YYYY-MM-DD"));
                         setEndDate(end.format("YYYY-MM-DD"));
 
-                        const defaultEndTime = startWithTime.add(1, "hour");
+                        const defaultEndTime = applyEndFromStartAndDuration(
+                          startWithTime,
+                          serviceDurationHours
+                        );
                         setLocalEndTime(defaultEndTime);
                         setEndTime(defaultEndTime);
                       }
                     }}
                   />
                 </View>
+                {renderDurationControl()}
                 {renderBookingDetails()}
               </>
             )}
 
             {selectedOption === "Monthly" && (
               <>
-                {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
                     mode="single"
@@ -1461,6 +1431,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                     }}
                   />
                 </View>
+                {renderDurationControl()}
                 {renderBookingDetails()}
                 {localStartDate && localEndDate && (
                   <View style={[styles.endDateInfo, { backgroundColor: colors.primary + "10" }]}>

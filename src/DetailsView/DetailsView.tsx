@@ -499,7 +499,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           </View>
 
           <View style={styles.headerBottomRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
+            <Text
+              style={[styles.sectionTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}
+              numberOfLines={2}
+            >
               Available Providers
             </Text>
             <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
@@ -551,7 +554,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       return renderSkeletonLoader();
     } else if (hasFetchedOnce && filteredProviders.length === 0 && !loading) {
       return (
-        <View style={[styles.centerContainer, { minHeight: 400, paddingHorizontal: 20 }]}>
+        <View style={styles.emptyStateWrap}>
           <LinearGradient
             colors={['#F8FAFC', '#FFFFFF']}
             style={styles.emptyGradientContainer}
@@ -563,16 +566,21 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
                 <Icon name="location-off" size={40} color="#0b5bd3" />
               )}
             </View>
-            <Text style={[styles.emptyTitle, { color: '#0F172A', fontSize: fontStyles.headingSize }]}>
+            <Text
+              style={[styles.emptyTitle, { color: '#0F172A', fontSize: fontStyles.headingSize }]}
+              numberOfLines={3}
+            >
               {activeFilters ? 'No Providers Match Your Filters' : 'Service Not Available in Your Area'}
             </Text>
-            <Text style={[styles.emptyMessage, { color: '#64748B', fontSize: fontStyles.textSize }]}>
+            <Text
+              style={[styles.emptyMessage, { color: '#64748B', fontSize: fontStyles.textSize }]}
+            >
               {activeFilters 
                 ? 'Try adjusting your filters to see more providers.'
                 : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
             </Text>
             
-            <View style={{ gap: 12 * spacingMultiplier, marginTop: 24 }}>
+            <View style={styles.emptyActions}>
               {activeFilters && (
                 <TouchableOpacity
                   style={[styles.emptyButton, { backgroundColor: '#0b5bd3' }]}
@@ -699,7 +707,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingVertical: 16,
-    paddingHorizontal: 6,
+    paddingHorizontal: 12,
     paddingBottom: 130,
   },
   headerShell: {
@@ -725,7 +733,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   headerLeft: {
     flex: 1,
@@ -742,6 +750,7 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -754,21 +763,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   resultsPill: {
+    flex: 1,
+    marginLeft: 8,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
+    alignItems: "flex-end",
   },
   resultsCountText: {
     fontWeight: '600',
+    textAlign: "right",
   },
   sectionTitle: {
     fontWeight: "700",
     flex: 1,
+    flexShrink: 1,
+    marginRight: 4,
   },
   filterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   filterButton: {
     flexDirection: 'row',
@@ -817,9 +833,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  emptyStateWrap: {
+    width: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 16,
+    paddingBottom: 24,
+  },
   emptyGradientContainer: {
+    width: '100%',
+    alignSelf: 'stretch',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: 20,
+    paddingTop: 28,
+    paddingBottom: 28,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -841,28 +867,39 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyTitle: {
+    width: '100%',
     fontWeight: '700',
     marginBottom: 10,
     textAlign: 'center',
+    lineHeight: 28,
   },
   emptyMessage: {
+    width: '100%',
     lineHeight: 22,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
+  },
+  emptyActions: {
+    width: '100%',
+    marginTop: 20,
+    gap: 12,
+    alignItems: 'center',
   },
   emptyButton: {
+    width: '100%',
+    maxWidth: 280,
     paddingVertical: 12,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    minWidth: 180,
     alignItems: 'center',
   },
   emptyButtonOutline: {
+    width: '100%',
+    maxWidth: 280,
     paddingVertical: 12,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     borderRadius: 12,
     borderWidth: 2,
-    minWidth: 180,
     alignItems: 'center',
   },
   emptyButtonText: {
