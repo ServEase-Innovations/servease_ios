@@ -321,94 +321,118 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
         contentContainerStyle={{ paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={[...GRADIENTS.hero]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-          <Text style={styles.heroEyebrow}>SERVEASO HOME SERVICES</Text>
-          <Text
-            style={[
-              styles.heroTitle,
-              {
-                fontSize: fontSize === "large" ? heroTitleSize + 2 : heroTitleSize,
-                lineHeight: (fontSize === "large" ? heroTitleSize + 2 : heroTitleSize) + 3,
-              },
-            ]}
-            numberOfLines={3}
-            allowFontScaling={false}
-          >
-            {t("home.hero.title")}
-          </Text>
-          <Text
-            style={[styles.heroSubtitle, { fontSize: heroSubtitleSize, lineHeight: heroSubtitleSize + 6 }]}
-            numberOfLines={4}
-            allowFontScaling={false}
-          >
-            {t("home.hero.subtitle")}
-          </Text>
-          <View style={styles.heroPills}>
-            <Text style={styles.heroPill}>Trusted Pros</Text>
-            <Text style={styles.heroPill}>Easy Booking</Text>
-            <Text style={styles.heroPill}>Flexible Slots</Text>
-          </View>
-        </LinearGradient>
-
-        <View style={[styles.sectionWrap, { backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {isServiceDisabled ? t("home.hero.exploreServices") : t("home.hero.whatService")}
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-            {isServiceDisabled ? t("home.hero.learnAboutServices") : t("home.hero.tapToBook")}
-          </Text>
-
-          <View style={styles.serviceGrid}>
-            {services.map((service, index) => (
-              <ServiceCard key={service.key} service={service} index={index} />
-            ))}
-          </View>
-
-          <Text style={[styles.helperText, { color: colors.textSecondary }]}>Long press a card to view details</Text>
-          <View style={styles.quickStats}>
-            <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
-              <Text style={[styles.quickStatValue, { color: colors.text }]}>4.8</Text>
-              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Avg Rating</Text>
-            </View>
-            <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
-              <Text style={[styles.quickStatValue, { color: colors.text }]}>30m</Text>
-              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Fast Match</Text>
-            </View>
-            <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
-              <Text style={[styles.quickStatValue, { color: colors.text }]}>10k+</Text>
-              <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Bookings</Text>
+        {/* Hero Section - Extreme deep shadow */}
+        <View style={styles.heroOuter}>
+          <View style={styles.heroShadowLayer}>
+            <View style={styles.hero}>
+              <Text style={styles.heroEyebrow}>SERVEASO HOME SERVICES</Text>
+              <Text
+                style={[
+                  styles.heroTitle,
+                  {
+                    fontSize: fontSize === "large" ? heroTitleSize + 2 : heroTitleSize,
+                    lineHeight: (fontSize === "large" ? heroTitleSize + 2 : heroTitleSize) + 3,
+                  },
+                ]}
+                numberOfLines={3}
+                allowFontScaling={false}
+              >
+                {t("home.hero.title")}
+              </Text>
+              <Text
+                style={[styles.heroSubtitle, { fontSize: heroSubtitleSize, lineHeight: heroSubtitleSize + 6 }]}
+                numberOfLines={4}
+                allowFontScaling={false}
+              >
+                {t("home.hero.subtitle")}
+              </Text>
+              <View style={styles.heroPills}>
+                <Text style={styles.heroPill}>Trusted Pros</Text>
+                <Text style={styles.heroPill}>Easy Booking</Text>
+                <Text style={styles.heroPill}>Flexible Slots</Text>
+              </View>
             </View>
           </View>
         </View>
 
+        {/* Section Wrap with deep shadow */}
+        <View style={styles.sectionWrapOuter}>
+          <View style={styles.sectionWrapShadowLayer}>
+            <View style={[styles.sectionWrap, { backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {isServiceDisabled ? t("home.hero.exploreServices") : t("home.hero.whatService")}
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+                {isServiceDisabled ? t("home.hero.learnAboutServices") : t("home.hero.tapToBook")}
+              </Text>
 
-{!isServiceDisabled && showOffer ? (
-  <View style={styles.promoWrap}>
-    <FirstBookingOffer onPress={() => setShowServiceSelection(true)} />
-    {/* <View style={{ marginTop: 8 }}>
-      <BroadcastMessage 
-        onCouponApplied={(couponCode) => {
-          // Handle coupon application if needed
-          console.log('Coupon applied:', couponCode);
-        }} 
-      />
-    </View> */}
-  </View>
-) : null}
+              <View style={styles.serviceGrid}>
+                {services.map((service, index) => (
+                  <ServiceCard key={service.key} service={service} index={index} />
+                ))}
+              </View>
 
-        <View style={[styles.stepsCard, { backgroundColor: isDarkMode ? colors.card : "#ffffff", borderColor: colors.border + "55" }]}>
-          <Text style={[styles.stepsTitle, { color: colors.text }]}>{t("home.howItWorks.title")}</Text>
-          <View style={styles.stepRow}>
-            <Text style={styles.stepDot}>1</Text>
-            <Text style={[styles.stepText, { color: colors.textSecondary }]}>Choose a service</Text>
+              <Text style={[styles.helperText, { color: colors.textSecondary }]}>Long press a card to view details</Text>
+              
+              {/* Quick Stats with individual deep shadows */}
+              <View style={styles.quickStats}>
+                <View style={styles.quickStatOuter}>
+                  <View style={styles.quickStatShadowLayer}>
+                    <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
+                      <Text style={[styles.quickStatValue, { color: colors.text }]}>4.8</Text>
+                      <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Avg Rating</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.quickStatOuter}>
+                  <View style={styles.quickStatShadowLayer}>
+                    <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
+                      <Text style={[styles.quickStatValue, { color: colors.text }]}>30m</Text>
+                      <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Fast Match</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.quickStatOuter}>
+                  <View style={styles.quickStatShadowLayer}>
+                    <View style={[styles.quickStatCard, { backgroundColor: isDarkMode ? colors.surface : "#f1f5f9" }]}>
+                      <Text style={[styles.quickStatValue, { color: colors.text }]}>10k+</Text>
+                      <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Bookings</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
-          <View style={styles.stepRow}>
-            <Text style={styles.stepDot}>2</Text>
-            <Text style={[styles.stepText, { color: colors.textSecondary }]}>Select date and time</Text>
+        </View>
+
+        {!isServiceDisabled && showOffer ? (
+          <View style={styles.promoOuter}>
+            <View style={styles.promoShadowLayer}>
+              <View style={styles.promoWrap}>
+                <FirstBookingOffer onPress={() => setShowServiceSelection(true)} />
+              </View>
+            </View>
           </View>
-          <View style={styles.stepRow}>
-            <Text style={styles.stepDot}>3</Text>
-            <Text style={[styles.stepText, { color: colors.textSecondary }]}>Confirm and relax</Text>
+        ) : null}
+
+        {/* Steps Card with deep shadow */}
+        <View style={styles.stepsCardOuter}>
+          <View style={styles.stepsCardShadowLayer}>
+            <View style={[styles.stepsCard, { backgroundColor: isDarkMode ? colors.card : "#ffffff", borderColor: colors.border + "55" }]}>
+              <Text style={[styles.stepsTitle, { color: colors.text }]}>{t("home.howItWorks.title")}</Text>
+              <View style={styles.stepRow}>
+                <Text style={styles.stepDot}>1</Text>
+                <Text style={[styles.stepText, { color: colors.textSecondary }]}>Choose a service</Text>
+              </View>
+              <View style={styles.stepRow}>
+                <Text style={styles.stepDot}>2</Text>
+                <Text style={[styles.stepText, { color: colors.textSecondary }]}>Select date and time</Text>
+              </View>
+              <View style={styles.stepRow}>
+                <Text style={styles.stepDot}>3</Text>
+                <Text style={[styles.stepText, { color: colors.textSecondary }]}>Confirm and relax</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -487,24 +511,33 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
 const styles = StyleSheet.create({
   mainContainer: { flex: 1 },
   container: { flex: 1 },
-  hero: {
-    marginHorizontal: 6,
+  
+  // Hero Section with extreme deep shadow
+  heroOuter: {
+    marginHorizontal: 14,
     marginTop: 25,
-    borderRadius: 20,
-    paddingHorizontal: 0,
-    paddingTop: 10,
-    paddingBottom: 8,
-    minHeight: 205,
-    alignItems: "center",
+    marginBottom: 12,
+  },
+  heroShadowLayer: {
+    borderRadius: 24,
+    backgroundColor: "#ffffff",
     shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 20,
+  },
+  hero: {
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+    alignItems: "center",
     overflow: "hidden",
   },
   heroEyebrow: {
-    color: "rgba(255,255,255,0.82)",
+    color: "#1e3a8a",
     letterSpacing: 3.2,
     fontSize: 15,
     fontWeight: "700",
@@ -514,7 +547,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   heroTitle: {
-    color: "#fff",
+    color: "#0f172a",
     fontWeight: "800",
     textAlign: "center",
     marginBottom: 4,
@@ -522,7 +555,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   heroSubtitle: {
-    color: "rgba(255,255,255,0.95)",
+    color: "#334155",
     textAlign: "center",
     marginBottom: 4,
     fontWeight: "500",
@@ -538,9 +571,9 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   heroPill: {
-    color: "#fff",
-    backgroundColor: "rgba(255,255,255,0.16)",
-    borderColor: "rgba(255,255,255,0.28)",
+    color: "#1e3a8a",
+    backgroundColor: "#e0e7ff",
+    borderColor: "#c7d2fe",
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 9,
@@ -548,9 +581,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-  sectionWrap: {
+  
+  // Section Wrap with deep shadow
+  sectionWrapOuter: {
     marginHorizontal: 14,
     marginTop: 6,
+    marginBottom: 4,
+  },
+  sectionWrapShadowLayer: {
+    borderRadius: 18,
+    backgroundColor: "#ffffff",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  sectionWrap: {
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 16,
@@ -568,17 +615,19 @@ const styles = StyleSheet.create({
   serviceGrid: {
     gap: 16,
   },
+  
+  // Service Cards with extremely deep shadow
   serviceCardWrapper: {
     borderRadius: 16,
     ...Platform.select({
       ios: {},
       android: { overflow: "hidden" as const },
     }),
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowColor: "#0a0f1e",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 18,
   },
   serviceCardBorder: {
     borderRadius: 16,
@@ -602,11 +651,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#e0e7ff",
-    shadowColor: "#3b82f6",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: "#1e3a8a",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 10,
   },
   serviceImage: {
     width: 70,
@@ -690,14 +739,27 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 12,
   },
+  
+  // Quick Stats with deep shadow
   quickStats: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 12,
     gap: 8,
   },
-  quickStatCard: {
+  quickStatOuter: {
     flex: 1,
+  },
+  quickStatShadowLayer: {
+    borderRadius: 10,
+    backgroundColor: "#f1f5f9",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  quickStatCard: {
     borderRadius: 10,
     paddingVertical: 8,
     alignItems: "center",
@@ -710,13 +772,43 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "500",
   },
-  promoWrap: {
+  
+  // Promo section with deep shadow
+  promoOuter: {
     marginHorizontal: 14,
     marginTop: 10,
+    marginBottom: 4,
   },
-  stepsCard: {
+  promoShadowLayer: {
+    borderRadius: 16,
+    backgroundColor: "transparent",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  promoWrap: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  
+  // Steps Card with deep shadow
+  stepsCardOuter: {
     marginHorizontal: 14,
     marginTop: 12,
+    marginBottom: 4,
+  },
+  stepsCardShadowLayer: {
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  stepsCard: {
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
@@ -739,7 +831,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     color: "#fff",
-    backgroundColor: "#0b5bd3",
+    backgroundColor: "#1e3a8a",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -760,11 +852,11 @@ const styles = StyleSheet.create({
   dialogBox: {
     borderRadius: 12,
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 15,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 20,
   },
 });
 
