@@ -1,4 +1,4 @@
-// ForgotPassword.tsx - React Native CLI version with inline styles
+// ForgotPassword.tsx - React Native CLI version with gradient header and modern redesign
 /* eslint-disable */
 import React, { useState } from 'react';
 import {
@@ -13,12 +13,33 @@ import {
   StyleSheet,
   Dimensions,
   Animated,
+  Image,
+  StatusBar,
+  SafeAreaView,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import axiosInstance from '../services/axiosInstance';
+import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import { useTheme } from '../Settings/ThemeContext';
 
-const { width, height } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// Custom Snackbar Component
+// Responsive sizing functions
+const scale = (size: number) => {
+  const baseWidth = 375; // iPhone 6/7/8 width
+  return (SCREEN_WIDTH / baseWidth) * size;
+};
+
+const verticalScale = (size: number) => {
+  const baseHeight = 667; // iPhone 6/7/8 height
+  return (SCREEN_HEIGHT / baseHeight) * size;
+};
+
+const moderateScale = (size: number, factor = 0.5) => {
+  return size + (scale(size) - size) * factor;
+};
+
+// Custom Snackbar Component with Gradient
 const CustomSnackbar: React.FC<{
   visible: boolean;
   message: string;
@@ -27,15 +48,23 @@ const CustomSnackbar: React.FC<{
   autoHideDuration?: number;
 }> = ({ visible, message, severity, onDismiss, autoHideDuration = 6000 }) => {
   const translateY = new Animated.Value(100);
+  const fadeAnim = new Animated.Value(0);
 
   React.useEffect(() => {
     if (visible) {
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        speed: 12,
-        bounciness: 4,
-      }).start();
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 12,
+          bounciness: 4,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
       const timer = setTimeout(() => {
         handleDismiss();
@@ -61,7 +90,9 @@ const CustomSnackbar: React.FC<{
 
   if (!visible) return null;
 
-  const backgroundColor = severity === "success" ? "#10b981" : "#ef4444";
+  const gradientColors = severity === "success" 
+    ? ["#10b981", "#059669"] 
+    : ["#ef4444", "#dc2626"];
 
   return (
     <Animated.View
@@ -69,14 +100,24 @@ const CustomSnackbar: React.FC<{
         styles.snackbarContainer,
         {
           transform: [{ translateY }],
-          backgroundColor,
+          opacity: fadeAnim,
+          left: moderateScale(20),
+          right: moderateScale(20),
+          bottom: verticalScale(20),
         },
       ]}
     >
-      <Text style={styles.snackbarMessage}>{message}</Text>
-      <TouchableOpacity onPress={handleDismiss} style={styles.snackbarCloseButton}>
-        <Text style={styles.snackbarCloseText}>✕</Text>
-      </TouchableOpacity>
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.snackbarGradient}
+      >
+        <Text style={[styles.snackbarMessage, { fontSize: moderateScale(14) }]}>{message}</Text>
+        <TouchableOpacity onPress={handleDismiss} style={styles.snackbarCloseButton}>
+          <Text style={[styles.snackbarCloseText, { fontSize: moderateScale(16) }]}>✕</Text>
+        </TouchableOpacity>
+      </LinearGradient>
     </Animated.View>
   );
 };
@@ -86,6 +127,7 @@ interface ForgotPasswordProps {
 }
 
 const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
+  const { colors, isDarkMode } = useTheme();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -114,12 +156,25 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
     }
   };
 
+  const getPasswordStrengthColor = () => {
+    if (newPassword.length === 0) return '#e2e8f0';
+    if (passwordStrengthMessage === '') return '#10b981';
+    if (newPassword.length < 8) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const getPasswordStrengthText = () => {
+    if (newPassword.length === 0) return '';
+    if (passwordStrengthMessage === '') return 'Strong password ✓';
+    if (newPassword.length < 8) return 'Weak - Add more characters';
+    return 'Weak - Add complexity';
+  };
+
   const handleSnackbarClose = () => {
     setOpenSnackbar(false);
   };
   
   const handleUpdatePassword = async () => {
-    // Validation: Ensure fields are filled and password is strong
     if (!emailOrUsername || !newPassword) {
       setSnackbarMessage('Please fill out all fields.');
       setSnackbarSeverity('error');
@@ -127,7 +182,6 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
       return;
     }
   
-    // Check password strength
     if (passwordStrengthMessage) {
       setSnackbarMessage(passwordStrengthMessage);
       setSnackbarSeverity('error');
@@ -137,13 +191,11 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
   
     try {
       setIsUpdating(true);
-      // Prepare data to send in the request body
       const requestData = {
         username: emailOrUsername,
         password: newPassword,
       };
   
-      // Sending the PUT request using axiosInstance
       const response = await axiosInstance.put('/api/user/update', requestData);
   
       if (response.status === 200) {
@@ -151,10 +203,9 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
         setSnackbarSeverity('success');
         setOpenSnackbar(true);
         setEmailOrUsername('');
-        setNewPassword(''); // Reset fields
+        setNewPassword('');
         setPasswordStrengthMessage('');
         
-        // Navigate back to login after successful update
         setTimeout(() => {
           onBackToLogin();
         }, 2000);
@@ -174,114 +225,303 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
   };
   
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? '#0f172a' : '#f3f4f6' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <KeyboardAvoidingView
+        style={[styles.container, { backgroundColor: isDarkMode ? '#0f172a' : '#f3f4f6' }]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : verticalScale(20)}
       >
-        <View style={styles.mainContainer}>
-          <View style={styles.wrapper}>
-            <View style={styles.card}>
-              <Text style={styles.title}>Update Password</Text>
-              <Text style={styles.subtitle}>
-                Enter your email/username and new password to update your account.
-              </Text>
-              
-              <View style={styles.form}>
-                <View>
-                  <Text style={styles.label}>Email/Username</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your email or username"
-                    placeholderTextColor="#9ca3af"
-                    value={emailOrUsername}
-                    onChangeText={setEmailOrUsername}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
+        <LinearGradient
+          colors={[...BOOKING_HEADER_GRADIENT]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.headerGradient, { paddingTop: Platform.OS === "ios" ? verticalScale(50) : verticalScale(40) }]}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity 
+              onPress={onBackToLogin} 
+              style={[styles.backButton, { width: moderateScale(40), height: moderateScale(40), borderRadius: moderateScale(20) }]}
+            >
+              <Text style={[styles.backButtonText, { fontSize: moderateScale(24) }]}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.backButtonPlaceholder} />
+          </View>
+          <Text style={[styles.headerTitle, { fontSize: moderateScale(28), marginTop: verticalScale(12) }]}>
+            Reset Password
+          </Text>
+          <Text style={[styles.headerSubtitle, { fontSize: moderateScale(14), marginTop: verticalScale(4), paddingHorizontal: moderateScale(20) }]}>
+            Create a new secure password for your account
+          </Text>
+        </LinearGradient>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.mainContainer}>
+            <View style={[styles.wrapper, { maxWidth: moderateScale(400) }]}>
+              <View style={[styles.card, { 
+                backgroundColor: isDarkMode ? colors.card : '#ffffff', 
+                borderColor: colors.border + '30',
+                padding: moderateScale(24),
+                borderRadius: moderateScale(24),
+              }]}>
+                <View style={[styles.iconContainer, { marginBottom: verticalScale(20) }]}>
+                  <LinearGradient
+                    colors={["#3b82f6", "#1e40af"]}
+                    style={[styles.iconGradient, { width: moderateScale(72), height: moderateScale(72), borderRadius: moderateScale(36) }]}
+                  >
+                    <Text style={[styles.iconText, { fontSize: moderateScale(32) }]}>🔒</Text>
+                  </LinearGradient>
                 </View>
                 
-                <View>
-                  <Text style={styles.label}>New Password</Text>
-                  <View style={styles.passwordContainer}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      placeholder="Enter your new password"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry={!showPassword}
-                      value={newPassword}
-                      onChangeText={(text) => {
-                        setNewPassword(text);
-                        validatePassword(text);
-                      }}
-                    />
-                    <TouchableOpacity
-                      style={styles.eyeIcon}
-                      onPress={() => setShowPassword(!showPassword)}
-                    >
-                      <Text style={styles.eyeIconText}>
-                        {showPassword ? '👁️' : '👁️‍🗨️'}
-                      </Text>
-                    </TouchableOpacity>
+                <Text style={[styles.title, { 
+                  color: isDarkMode ? '#f8fafc' : '#1f2937',
+                  fontSize: moderateScale(24),
+                  marginBottom: verticalScale(8),
+                }]}>
+                  Update Password
+                </Text>
+                <Text style={[styles.subtitle, { 
+                  color: isDarkMode ? '#94a3b8' : '#6b7280',
+                  fontSize: moderateScale(14),
+                  marginBottom: verticalScale(24),
+                  lineHeight: moderateScale(20),
+                }]}>
+                  Enter your email/username and create a new strong password
+                </Text>
+                
+                <View style={[styles.form, { gap: verticalScale(20) }]}>
+                  <View>
+                    <Text style={[styles.label, { 
+                      color: isDarkMode ? '#94a3b8' : '#374151',
+                      fontSize: moderateScale(14),
+                      marginBottom: verticalScale(8),
+                    }]}>
+                      Email / Username
+                    </Text>
+                    <View style={[styles.inputWrapper, { 
+                      borderColor: colors.border, 
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      borderRadius: moderateScale(12),
+                      paddingHorizontal: moderateScale(14),
+                      height: verticalScale(52),
+                    }]}>
+                      <Text style={[styles.inputIcon, { fontSize: moderateScale(18), marginRight: moderateScale(10) }]}>📧</Text>
+                      <TextInput
+                        style={[styles.input, { 
+                          color: isDarkMode ? '#f8fafc' : '#1f2937',
+                          fontSize: moderateScale(15),
+                          paddingVertical: verticalScale(12),
+                        }]}
+                        placeholder="Enter your email or username"
+                        placeholderTextColor={isDarkMode ? '#64748b' : '#9ca3af'}
+                        value={emailOrUsername}
+                        onChangeText={setEmailOrUsername}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
                   </View>
+                  
+                  <View>
+                    <Text style={[styles.label, { 
+                      color: isDarkMode ? '#94a3b8' : '#374151',
+                      fontSize: moderateScale(14),
+                      marginBottom: verticalScale(8),
+                    }]}>
+                      New Password
+                    </Text>
+                    <View style={[styles.inputWrapper, { 
+                      borderColor: colors.border, 
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      borderRadius: moderateScale(12),
+                      paddingHorizontal: moderateScale(14),
+                      height: verticalScale(52),
+                    }]}>
+                      <Text style={[styles.inputIcon, { fontSize: moderateScale(18), marginRight: moderateScale(10) }]}>🔐</Text>
+                      <TextInput
+                        style={[styles.passwordInput, { 
+                          color: isDarkMode ? '#f8fafc' : '#1f2937',
+                          fontSize: moderateScale(15),
+                          paddingVertical: verticalScale(12),
+                        }]}
+                        placeholder="Enter your new password"
+                        placeholderTextColor={isDarkMode ? '#64748b' : '#9ca3af'}
+                        secureTextEntry={!showPassword}
+                        value={newPassword}
+                        onChangeText={(text) => {
+                          setNewPassword(text);
+                          validatePassword(text);
+                        }}
+                      />
+                      <TouchableOpacity
+                        style={[styles.eyeIcon, { padding: moderateScale(8) }]}
+                        onPress={() => setShowPassword(!showPassword)}
+                      >
+                        <Text style={[styles.eyeIconText, { fontSize: moderateScale(20) }]}>
+                          {showPassword ? '👁️' : '👁️‍🗨️'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  {newPassword.length > 0 && (
+                    <View style={[styles.strengthContainer, { marginTop: verticalScale(-8) }]}>
+                      <View style={[styles.strengthBar, { 
+                        backgroundColor: getPasswordStrengthColor(), 
+                        width: `${Math.min((newPassword.length / 20) * 100, 100)}%`,
+                        height: verticalScale(4),
+                        borderRadius: moderateScale(2),
+                        marginBottom: verticalScale(6),
+                      }]} />
+                      <Text style={[styles.strengthText, { 
+                        color: getPasswordStrengthColor(),
+                        fontSize: moderateScale(11),
+                      }]}>
+                        {getPasswordStrengthText()}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {passwordStrengthMessage !== '' && (
+                    <View style={[styles.strengthMessageContainer, { 
+                      marginTop: verticalScale(-8),
+                      gap: moderateScale(6),
+                    }]}>
+                      <Text style={[styles.strengthIcon, { fontSize: moderateScale(12) }]}>⚠️</Text>
+                      <Text style={[styles.passwordStrengthMessage, { 
+                        color: '#ef4444',
+                        fontSize: moderateScale(12),
+                      }]}>
+                        {passwordStrengthMessage}
+                      </Text>
+                    </View>
+                  )}
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.updateButton,
+                      (passwordStrengthMessage !== '' || isUpdating) && styles.updateButtonDisabled,
+                      { borderRadius: moderateScale(12), marginTop: verticalScale(8) }
+                    ]}
+                    onPress={handleUpdatePassword}
+                    disabled={passwordStrengthMessage !== '' || isUpdating}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={passwordStrengthMessage === '' && newPassword.length > 0 ? ["#10b981", "#059669"] : ["#3b82f6", "#1e40af"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.updateButtonGradient, { 
+                        paddingVertical: verticalScale(14),
+                        gap: moderateScale(8),
+                      }]}
+                    >
+                      {isUpdating ? (
+                        <ActivityIndicator color="#ffffff" size={moderateScale(20)} />
+                      ) : (
+                        <>
+                          <Text style={[styles.updateButtonIcon, { fontSize: moderateScale(18) }]}>✓</Text>
+                          <Text style={[styles.updateButtonText, { fontSize: moderateScale(16) }]}>Update Password</Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
                 
-                {passwordStrengthMessage !== '' && (
-                  <Text style={styles.passwordStrengthMessage}>
-                    {passwordStrengthMessage}
-                  </Text>
-                )}
-                
-                <TouchableOpacity
-                  style={[
-                    styles.updateButton,
-                    (passwordStrengthMessage !== '' || isUpdating) && styles.updateButtonDisabled
-                  ]}
-                  onPress={handleUpdatePassword}
-                  disabled={passwordStrengthMessage !== '' || isUpdating}
-                >
-                  {isUpdating ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.updateButtonText}>Update</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.backLinkContainer}>
-                <TouchableOpacity onPress={onBackToLogin}>
-                  <Text style={styles.backLinkText}>Back to Login</Text>
-                </TouchableOpacity>
+                <View style={[styles.backLinkContainer, { marginTop: verticalScale(24) }]}>
+                  <TouchableOpacity 
+                    onPress={onBackToLogin} 
+                    style={[styles.backLinkButton, { gap: moderateScale(6) }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.backLinkIcon, { fontSize: moderateScale(16) }]}>←</Text>
+                    <Text style={[styles.backLinkText, { 
+                      color: colors.primary,
+                      fontSize: moderateScale(14),
+                    }]}>
+                      Back to Login
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
-      
-      <CustomSnackbar
-        visible={openSnackbar}
-        message={snackbarMessage}
-        severity={snackbarSeverity}
-        onDismiss={handleSnackbarClose}
-        autoHideDuration={6000}
-      />
-    </KeyboardAvoidingView>
+        </ScrollView>
+        
+        <CustomSnackbar
+          visible={openSnackbar}
+          message={snackbarMessage}
+          severity={snackbarSeverity}
+          onDismiss={handleSnackbarClose}
+          autoHideDuration={6000}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
+  },
+  headerGradient: {
+    paddingBottom: verticalScale(24),
+    borderBottomLeftRadius: moderateScale(24),
+    borderBottomRightRadius: moderateScale(24),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: verticalScale(4) },
+    shadowOpacity: 0.15,
+    shadowRadius: verticalScale(12),
+    elevation: 8,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: moderateScale(20),
+  },
+  backButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  backButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
+  backButtonPlaceholder: {
+    width: moderateScale(40),
+  },
+  headerLogoContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerLogo: {
+    width: moderateScale(100),
+    height: verticalScale(50),
+  },
+  headerTitle: {
+    color: "#ffffff",
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.85)",
+    textAlign: "center",
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
+    padding: moderateScale(20),
   },
   mainContainer: {
     width: "100%",
@@ -290,149 +530,120 @@ const styles = StyleSheet.create({
   },
   wrapper: {
     width: "100%",
-    maxWidth: width * 0.9,
   },
   card: {
-    borderRadius: 26,
-    backgroundColor: "#ffffff",
-    padding: 16,
+    borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: verticalScale(4) },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: verticalScale(12),
+    elevation: 5,
   },
+  iconContainer: {
+    alignItems: "center",
+  },
+  iconGradient: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconText: {},
   title: {
-    fontSize: 36,
     fontWeight: "bold",
     textAlign: "center",
-    marginVertical: 0,
-    color: "#1f2937",
   },
   subtitle: {
     textAlign: "center",
-    color: "#6b7280",
-    marginVertical: 16,
-    fontSize: 14,
   },
-  form: {
-    marginTop: 8,
-    gap: 16,
-  },
+  form: {},
   label: {
-    marginBottom: 8,
-    fontSize: 18,
-    fontWeight: "400",
-    color: "#374151",
+    fontWeight: "600",
   },
-  input: {
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  passwordContainer: {
-    position: "relative",
-    width: "100%",
+  inputIcon: {},
+  input: {
+    flex: 1,
   },
   passwordInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-    paddingRight: 48,
+    flex: 1,
   },
-  eyeIcon: {
-    position: "absolute",
-    right: 12,
-    top: "50%",
-    transform: [{ translateY: -12 }],
-    padding: 4,
+  eyeIcon: {},
+  eyeIconText: {},
+  strengthContainer: {},
+  strengthBar: {},
+  strengthText: {
+    fontWeight: "500",
   },
-  eyeIconText: {
-    fontSize: 20,
+  strengthMessageContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
+  strengthIcon: {},
   passwordStrengthMessage: {
-    color: "#ef4444",
-    fontSize: 12,
-    marginTop: -8,
+    flex: 1,
   },
   updateButton: {
-    backgroundColor: "transparent",
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginTop: 4,
+    overflow: "hidden",
+  },
+  updateButtonGradient: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   updateButtonDisabled: {
     opacity: 0.6,
   },
+  updateButtonIcon: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
   updateButtonText: {
     color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "center",
+    fontWeight: "700",
   },
   backLinkContainer: {
-    textAlign: "center",
-    marginTop: 16,
     alignItems: "center",
   },
+  backLinkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backLinkIcon: {},
   backLinkText: {
-    color: "#60a5fa",
-    textDecorationLine: "underline",
-    fontSize: 14,
+    fontWeight: "600",
   },
   snackbarContainer: {
     position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: moderateScale(12),
+    overflow: "hidden",
+    zIndex: 9999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: verticalScale(4) },
+    shadowOpacity: 0.2,
+    shadowRadius: verticalScale(8),
+    elevation: 8,
+  },
+  snackbarGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    zIndex: 9999,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingHorizontal: moderateScale(16),
+    paddingVertical: verticalScale(14),
   },
   snackbarMessage: {
     color: "#ffffff",
-    fontSize: 14,
     flex: 1,
-    marginRight: 12,
+    marginRight: moderateScale(12),
+    fontWeight: "500",
   },
   snackbarCloseButton: {
-    padding: 4,
+    padding: moderateScale(4),
   },
   snackbarCloseText: {
     color: "#ffffff",
-    fontSize: 16,
     fontWeight: "bold",
   },
 });
