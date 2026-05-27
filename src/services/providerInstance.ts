@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const providerInstance = axios.create({
   baseURL: 'https://providers-08ug.onrender.com',
   // Add timeout to prevent hanging requests
-  timeout: 30000, // 30 seconds
+  timeout: 90000, // nearby-monthly can be slow on cold Render instances
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

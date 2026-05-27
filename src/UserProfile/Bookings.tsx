@@ -815,6 +815,20 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
   };
 
+  const afterPaymentSuccess = async () => {
+    const effectiveCustomerId =
+      customerId ?? appUser?.customerId ?? appUser?.customerid;
+    if (effectiveCustomerId) {
+      await refreshBookings(effectiveCustomerId);
+    }
+    setDetailsDrawerOpen(false);
+    setSelectedBooking(null);
+    setActiveSectionTab('upcoming');
+    setSnackbarMessage('Payment completed successfully');
+    setOpenSnackbar(true);
+    setTimeout(() => setOpenSnackbar(false), 3000);
+  };
+
   const handleCompletePayment = async (booking: Booking) => {
     const engagementId = booking.payment?.engagement_id ?? booking.id;
     if (!engagementId) {
@@ -829,6 +843,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       );
       const {
         razorpay_order_id,
+        razorpay_key_id,
         amount,
         amount_inr,
         currency,
@@ -842,8 +857,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         const inr = Number(amount_inr);
         amountPaise = Math.round(inr * 100);
       }
+      if (!razorpay_order_id) {
+        Alert.alert('Error', 'Payment order could not be created. Please try again.');
+        return;
+      }
       const options = {
-        key: "rzp_test_lTdgjtSRlEwreA",
+        key: razorpay_key_id || 'rzp_test_lTdgjtSRlEwreA',
         amount: amountPaise,
         currency: currency || 'INR',
         order_id: razorpay_order_id,
@@ -865,8 +884,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
               razorpay_payment_id: data.razorpay_payment_id,
               razorpay_signature: data.razorpay_signature,
             });
-            Alert.alert('Success', 'Payment completed successfully');
-            if (customerId) await refreshBookings();
+            await afterPaymentSuccess();
           } catch (verifyError) {
             console.error('Payment verification error:', verifyError);
             Alert.alert('Error', 'Payment verification failed');
@@ -2016,8 +2034,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           setSelectedBooking(null); 
         }} 
         booking={selectedBooking} 
-        onPaymentComplete={refreshBookings}
-        refreshBookings={refreshBookings}
+        onPaymentComplete={afterPaymentSuccess}
+        refreshBookings={afterPaymentSuccess}
         customerId={customerId}
       />
 

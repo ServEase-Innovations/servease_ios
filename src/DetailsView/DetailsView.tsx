@@ -72,6 +72,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [hasMore, setHasMore] = useState(true);
   const [allProviders, setAllProviders] = useState<ServiceProviderDTO[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<null | 'timeout' | 'network' | 'generic'>(null);
   
   const flatListRef = useRef<FlatList>(null);
   
@@ -179,6 +180,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     setHasMore(true);
     setAllProviders([]);
     setHasFetchedOnce(false);
+    setFetchError(null);
     performSearch(true);
   };
 
@@ -369,12 +371,12 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
       const response = await providerInstance.post(
         `/api/service-providers/nearby-monthly?page=${page}&limit=10`,
-        payload
+        payload,
+        { timeout: 90000 }
       );
 
-      await new Promise(resolve => setTimeout(resolve, 300));
-
       console.log("API Response:", response.data);
+      setFetchError(null);
 
       const rawProviders = response.data.providers || [];
       const newProviders: ServiceProviderDTO[] = rawProviders.map((p: ServiceProviderDTO) => {
@@ -400,8 +402,19 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       setCurrentPage(page);
 
     } catch (error: any) {
-      console.error("API error:", error.message || error);
-      Alert.alert('Error', error.response?.data?.message || 'An error occurred. Please try again.');
+      const message = String(error?.message || '');
+      const isTimeout =
+        error?.code === 'ECONNABORTED' || message.toLowerCase().includes('timeout');
+      const isNetwork = !error?.response && (error?.code === 'ERR_NETWORK' || message.includes('Network'));
+
+      if (isTimeout) {
+        setFetchError('timeout');
+      } else if (isNetwork) {
+        setFetchError('network');
+      } else {
+        setFetchError('generic');
+      }
+
       if (reset) {
         setAllProviders([]);
         setTotalCount(0);
@@ -478,7 +491,15 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const renderHeader = () => {
     if (filteredProviders.length === 0 && !loading && !hasFetchedOnce) return null;
     
-    const resultsLabel = totalCount === 1 ? "1 service provider found" : `${totalCount} service providers found`;
+    const resultsLabel = fetchError
+      ? fetchError === 'timeout'
+        ? 'Search timed out — try again'
+        : fetchError === 'network'
+          ? 'Connection problem'
+          : 'Could not load providers'
+      : totalCount === 1
+        ? '1 service provider found'
+        : `${totalCount} service providers found`;
     
     return (
       <>
@@ -491,8 +512,29 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               <Icon name="arrow-back" size={20} color={colors.text} />
               <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.smallText }]}>Back</Text>
             </TouchableOpacity>
-            <View style={[styles.resultsPill, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#F8FAFC" }]}>
-              <Text style={[styles.resultsCountText, { fontSize: fontStyles.smallText, color: colors.textSecondary }]}>
+            <View
+              style={[
+                styles.resultsPill,
+                {
+                  borderColor: fetchError ? colors.error + '40' : colors.border,
+                  backgroundColor: fetchError
+                    ? colors.error + '12'
+                    : isDarkMode
+                      ? colors.card
+                      : '#F8FAFC',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.resultsCountText,
+                  {
+                    fontSize: fontStyles.smallText,
+                    color: fetchError ? colors.error : colors.textSecondary,
+                  },
+                ]}
+                numberOfLines={2}
+              >
                 {resultsLabel}
               </Text>
             </View>
@@ -552,52 +594,84 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const renderEmptyComponent = () => {
     if (loading && !hasFetchedOnce) {
       return renderSkeletonLoader();
-    } else if (hasFetchedOnce && filteredProviders.length === 0 && !loading) {
+    }
+
+    if (hasFetchedOnce && filteredProviders.length === 0 && !loading) {
+      const isLoadError = Boolean(fetchError);
+
       return (
         <View style={styles.emptyStateWrap}>
-          <LinearGradient
-            colors={['#F8FAFC', '#FFFFFF']}
-            style={styles.emptyGradientContainer}
+          <View
+            style={[
+              styles.emptyGradientContainer,
+              { backgroundColor: isDarkMode ? colors.card : '#FFFFFF', borderColor: colors.border },
+            ]}
           >
-            <View style={styles.emptyIconContainer}>
-              {activeFilters ? (
-                <FontAwesome name="sliders" size={40} color="#0b5bd3" />
+            <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
+              {isLoadError ? (
+                <Icon name="wifi-off" size={40} color={colors.primary} />
+              ) : activeFilters ? (
+                <FontAwesome name="sliders" size={40} color={colors.primary} />
               ) : (
-                <Icon name="location-off" size={40} color="#0b5bd3" />
+                <Icon name="location-off" size={40} color={colors.primary} />
               )}
             </View>
             <Text
-              style={[styles.emptyTitle, { color: '#0F172A', fontSize: fontStyles.headingSize }]}
+              style={[styles.emptyTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}
               numberOfLines={3}
             >
-              {activeFilters ? 'No Providers Match Your Filters' : 'Service Not Available in Your Area'}
+              {isLoadError
+                ? fetchError === 'timeout'
+                  ? 'Search Timed Out'
+                  : fetchError === 'network'
+                    ? 'Connection Problem'
+                    : 'Unable to Load Providers'
+                : activeFilters
+                  ? 'No Providers Match Your Filters'
+                  : 'Service Not Available in Your Area'}
             </Text>
             <Text
-              style={[styles.emptyMessage, { color: '#64748B', fontSize: fontStyles.textSize }]}
+              style={[styles.emptyMessage, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}
             >
-              {activeFilters 
-                ? 'Try adjusting your filters to see more providers.'
-                : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
+              {isLoadError
+                ? 'The provider search is taking longer than usual. Check your connection and try again.'
+                : activeFilters
+                  ? 'Try adjusting your filters to see more providers.'
+                  : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
             </Text>
-            
+
             <View style={styles.emptyActions}>
-              {activeFilters && (
+              {isLoadError && (
                 <TouchableOpacity
-                  style={[styles.emptyButton, { backgroundColor: '#0b5bd3' }]}
-                  onPress={handleClearFilters}
+                  style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+                  onPress={resetAndSearch}
                 >
-                  <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>Clear Filters</Text>
+                  <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>
+                    Try Again
+                  </Text>
                 </TouchableOpacity>
               )}
-              
+              {activeFilters && !isLoadError && (
+                <TouchableOpacity
+                  style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+                  onPress={handleClearFilters}
+                >
+                  <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>
+                    Clear Filters
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
-                style={[styles.emptyButtonOutline, { borderColor: '#0b5bd3' }]}
-                onPress={() => sendDataToParent("")}
+                style={[styles.emptyButtonOutline, { borderColor: colors.primary }]}
+                onPress={() => sendDataToParent('')}
               >
-                <Text style={[styles.emptyButtonOutlineText, { fontSize: fontStyles.textSize, color: '#0b5bd3' }]}>Go Back</Text>
+                <Text style={[styles.emptyButtonOutlineText, { fontSize: fontStyles.textSize, color: colors.primary }]}>
+                  Go Back
+                </Text>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </View>
       );
     }
@@ -669,7 +743,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.contentContainer,
-              filteredProviders.length === 0 && { flexGrow: 1 }
+              filteredProviders.length === 0 && styles.contentContainerEmpty,
             ]}
             ListHeaderComponent={renderHeader}
             ListEmptyComponent={renderEmptyComponent}
@@ -710,6 +784,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 130,
   },
+  contentContainerEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   headerShell: {
     borderWidth: 1,
     borderRadius: 16,
@@ -723,16 +801,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 10,
     gap: 10,
   },
   headerBottomRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: 12,
   },
   headerLeft: {
@@ -764,16 +841,16 @@ const styles = StyleSheet.create({
   },
   resultsPill: {
     flex: 1,
-    marginLeft: 8,
+    minWidth: 0,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 7,
-    alignItems: "flex-end",
+    paddingVertical: 8,
+    justifyContent: 'center',
   },
   resultsCountText: {
     fontWeight: '600',
-    textAlign: "right",
+    textAlign: 'center',
   },
   sectionTitle: {
     fontWeight: "700",
@@ -835,9 +912,9 @@ const styles = StyleSheet.create({
   },
   emptyStateWrap: {
     width: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 16,
-    paddingBottom: 24,
+    alignSelf: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   emptyGradientContainer: {
     width: '100%',
@@ -846,11 +923,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 28,
     paddingBottom: 28,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     borderStyle: 'dashed',
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
