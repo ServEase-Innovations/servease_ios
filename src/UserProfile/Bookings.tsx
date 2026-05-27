@@ -479,6 +479,55 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     };
   };
 
+  /** True when DB lifecycle or stored task marks the engagement cancelled (works before API `cancelled` bucket is deployed). */
+  const isCancelledEngagementItem = (item: any): boolean => {
+    const life = String(item?.engagement_status ?? '').toUpperCase();
+    const stored = String(item?.task_status_stored ?? item?.task_status ?? '').toUpperCase();
+    return life === 'CANCELLED' || stored === 'CANCELLED';
+  };
+
+  const resolveTaskStatusFromEngagement = (item: any): string => {
+    if (isCancelledEngagementItem(item)) return 'CANCELLED';
+    return item?.task_status || '';
+  };
+
+  const partitionEngagementLists = (
+    upcoming: any[],
+    ongoing: any[],
+    past: any[],
+    cancelledFromApi: any[] = []
+  ) => {
+    const cancelled: any[] = [...cancelledFromApi];
+    const activeUpcoming: any[] = [];
+    const activeOngoing: any[] = [];
+    const activePast: any[] = [];
+
+    upcoming.forEach((item) =>
+      (isCancelledEngagementItem(item) ? cancelled : activeUpcoming).push(item)
+    );
+    ongoing.forEach((item) =>
+      (isCancelledEngagementItem(item) ? cancelled : activeOngoing).push(item)
+    );
+    past.forEach((item) =>
+      (isCancelledEngagementItem(item) ? cancelled : activePast).push(item)
+    );
+
+    const seen = new Set<number>();
+    const dedupedCancelled = cancelled.filter((item) => {
+      const id = Number(item?.engagement_id);
+      if (!Number.isFinite(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    return {
+      upcoming: activeUpcoming,
+      ongoing: activeOngoing,
+      past: activePast,
+      cancelled: dedupedCancelled,
+    };
+  };
+
   const mapBookingData = (data: any[]): Booking[] => {
     if (!Array.isArray(data)) return [];
 
@@ -574,7 +623,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         customerName: item.customerName || '',
         serviceProviderName: serviceProviderName,
         providerRating: providerRating,
-        taskStatus: item.task_status || '',
+        taskStatus: resolveTaskStatusFromEngagement(item),
         engagements: item.engagements || '',
         bookingDate: item.created_at || new Date().toISOString(),
         service_type: serviceType,
@@ -611,11 +660,24 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           timeout: 45000,
         }).catch(() => ({ data: { bookings: [] } })),
       ]);
-      const { past = [], ongoing = [], upcoming = [], cancelled = [] } = engagementsRes.data || {};
-      setPastBookings(mapBookingData(past));
-      setCurrentBookings(mapBookingData(ongoing));
-      setFutureBookings(mapBookingData(upcoming));
-      setCancelledBookings(mapBookingData(cancelled));
+      const {
+        past = [],
+        ongoing = [],
+        upcoming = [],
+        cancelled: cancelledFromApi = [],
+      } = engagementsRes.data || {};
+
+      const partitioned = partitionEngagementLists(
+        upcoming,
+        ongoing,
+        past,
+        cancelledFromApi
+      );
+
+      setPastBookings(mapBookingData(partitioned.past));
+      setCurrentBookings(mapBookingData(partitioned.ongoing));
+      setFutureBookings(mapBookingData(partitioned.upcoming));
+      setCancelledBookings(mapBookingData(partitioned.cancelled));
       setTodaySchedule(todayRes.data?.bookings ?? []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -823,18 +885,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   };
 
   const handleCancelBooking = async (booking: Booking) => {
-    try {
-      setActionLoading(true);
-      await PaymentInstance.put(`/api/engagements/${booking.id}`, { task_status: "CANCELLED" });
-      await refreshBookings();
-      setSnackbarMessage('Booking cancelled successfully');
-      setOpenSnackbar(true);
-      setTimeout(() => setOpenSnackbar(false), 3000);
-    } catch (error) {
-      console.error('Error cancelling engagement:', error);
-    } finally {
-      setActionLoading(false);
-    }
+    await PaymentInstance.post(`/api/v2/engagements/${booking.id}/cancel`, {});
+    await refreshBookings();
+    setActiveSectionTab('cancelled');
+    setSnackbarMessage('Booking cancelled successfully');
+    setOpenSnackbar(true);
+    setTimeout(() => setOpenSnackbar(false), 3000);
   };
 
   const showConfirmation = (type: 'cancel' | 'modify' | 'payment', booking: Booking, title: string, message: string, severity: 'info' | 'warning' | 'error' | 'success' = 'info') => {
@@ -851,8 +907,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         case 'modify': setModifyDialogOpen(true); setSelectedBooking(booking); break;
         case 'payment': await handleCompletePayment(booking); break;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error performing action:', error);
+      if (type === 'cancel') {
+        const msg =
+          error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          'Failed to cancel booking. Please try again.';
+        setSnackbarMessage(msg);
+        setOpenSnackbar(true);
+        setTimeout(() => setOpenSnackbar(false), 4000);
+      }
     } finally {
       setActionLoading(false);
       setConfirmationDialog(prev => ({ ...prev, open: false }));
@@ -899,14 +964,25 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     await performRefresh();
   };
 
-  const filterBookings = (bookings: Booking[], term: string) => {
-    if (!term) return bookings;
-    return bookings.filter(booking =>
-      getServiceTitle(booking.service_type).toLowerCase().includes(term.toLowerCase()) ||
-      booking.serviceProviderName.toLowerCase().includes(term.toLowerCase()) ||
-      booking.address.toLowerCase().includes(term.toLowerCase()) ||
-      booking.bookingType.toLowerCase().includes(term.toLowerCase())
+  const normalizeSearchQuery = (term: string) =>
+    term.trim().toLowerCase().replace(/^#/, '');
+
+  const bookingMatchesSearch = (booking: Booking, term: string): boolean => {
+    const q = normalizeSearchQuery(term);
+    if (!q) return true;
+    const idStr = String(booking.id ?? '');
+    if (idStr === q || idStr.includes(q)) return true;
+    return (
+      getServiceTitle(booking.service_type).toLowerCase().includes(q) ||
+      booking.serviceProviderName.toLowerCase().includes(q) ||
+      booking.address.toLowerCase().includes(q) ||
+      booking.bookingType.toLowerCase().includes(q)
     );
+  };
+
+  const filterBookings = (bookings: Booking[], term: string) => {
+    if (!term.trim()) return bookings;
+    return bookings.filter((booking) => bookingMatchesSearch(booking, term));
   };
   
   const filterByBookingType = (bookings: Booking[]) => {
@@ -1099,7 +1175,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     });
   };
 
-  const upcomingBookings = sortUpcomingBookings([...currentBookings, ...futureBookings]);
+  const upcomingBookings = sortUpcomingBookings(
+    [...currentBookings, ...futureBookings].filter((b) => b.taskStatus !== 'CANCELLED')
+  );
   const filteredByStatus = statusFilter === 'ALL' ? upcomingBookings : upcomingBookings.filter(booking => booking.taskStatus === statusFilter);
   const filteredUpcomingBookings = filterBookings(filterByBookingType(filteredByStatus), searchTerm);
   const filteredPastBookings = filterBookings(filterByBookingType(pastBookings), searchTerm);

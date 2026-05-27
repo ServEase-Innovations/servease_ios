@@ -84,23 +84,33 @@ const CancelDialog: React.FC<{
   return (
     <Modal
       visible={visible}
-      transparent={true}
+      transparent
       animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={cancelDialogStyles.overlay}>
         <View style={[cancelDialogStyles.dialogContainer, { backgroundColor: colors.card }]}>
-          <LinearGradient 
-            colors={[...BOOKING_HEADER_GRADIENT]} 
-            start={{ x: 0, y: 0 }} 
-            end={{ x: 1, y: 0 }} 
-            style={cancelDialogStyles.header}
-          >
+          <View style={cancelDialogStyles.headerShell}>
+            <LinearGradient
+              colors={[...BOOKING_HEADER_GRADIENT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={cancelDialogStyles.headerContent}>
-              <Icon name="alert-triangle" size={24} color="#FFFFFF" />
-              <Text style={[cancelDialogStyles.headerTitle, { fontSize: fontSizes.title }]}>Cancel Booking</Text>
+              <Icon name="alert-triangle" size={22} color="#FFFFFF" />
+              <Text
+                style={[
+                  cancelDialogStyles.headerTitle,
+                  { fontSize: fontSizes.title, lineHeight: fontSizes.title + 8 },
+                ]}
+              >
+                Cancel Booking
+              </Text>
             </View>
-          </LinearGradient>
+          </View>
           <View style={cancelDialogStyles.content}>
             <Text style={[cancelDialogStyles.message, { fontSize: fontSizes.message, color: colors.text }]}>
               Are you sure you want to cancel the {serviceName} service? This action cannot be undone.
@@ -462,7 +472,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const confirmCancelBooking = async () => {
     setIsCancelLoading(true);
     try {
-      await PaymentInstance.put(`/api/engagements/${booking.id}`, { task_status: "CANCELLED" });
+      await PaymentInstance.post(`/api/v2/engagements/${booking.id}/cancel`, {});
       setShowCancelDialog(false);
       Snackbar.show({
         text: `${getServiceTitle(booking.service_type)} service cancelled successfully`,
@@ -475,7 +485,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       setTimeout(() => onClose(), 500);
     } catch (error: any) {
       Snackbar.show({
-        text: error?.response?.data?.message || 'Failed to cancel booking. Please try again.',
+        text:
+          error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          'Failed to cancel booking. Please try again.',
         duration: Snackbar.LENGTH_LONG,
         backgroundColor: colors.error,
         textColor: '#FFFFFF',
@@ -559,7 +572,12 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     }
   };
 
-  const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(booking.taskStatus);
+  const isEngagementCancelled = () => {
+    const life = String((booking as any)?.engagement_status ?? '').toUpperCase();
+    return life === 'CANCELLED' || booking.taskStatus === 'CANCELLED';
+  };
+
+  const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(booking.taskStatus) && !isEngagementCancelled();
   const hasExistingVacation = hasVacation(booking);
   const modificationDisabled = isModificationDisabled(booking);
   const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
@@ -1269,47 +1287,62 @@ const cancelDialogStyles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   dialogContainer: {
-    width: width - 48,
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 5,
+    width: '100%',
+    maxWidth: width - 48,
+    borderRadius: 16,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowRadius: 8,
+    overflow: 'hidden',
   },
-  header: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+  headerShell: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+    minHeight: 56,
+    justifyContent: 'center',
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 10,
   },
   headerTitle: {
     fontWeight: '600',
     color: '#FFFFFF',
+    flexShrink: 1,
+    textAlign: 'center',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   message: {
-    lineHeight: 20,
+    lineHeight: 22,
     marginBottom: 24,
     textAlign: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'stretch',
     gap: 12,
   },
   button: {
     flex: 1,
+    minHeight: 48,
     paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
