@@ -627,7 +627,11 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   key={tab.key}
                   onPress={tab.onPress}
                   disabled={isDisabled}
-                  style={[styles.mobileNavItem, isDisabled && styles.disabledTab]}
+                  style={[
+                    styles.mobileNavItem,
+                    isActive && { backgroundColor: `${colors.primary}1A` },
+                    isDisabled && styles.disabledTab,
+                  ]}
                   activeOpacity={0.72}
                   accessibilityRole="button"
                   accessibilityState={{ selected: isActive, disabled: isDisabled }}
@@ -921,6 +925,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     paddingHorizontal: 2,
+    paddingVertical: 4,
+    borderRadius: 12,
     gap: 2,
   },
   navIconSlot: {
