@@ -287,6 +287,9 @@ export default function NotificationsPage({
     const hasBookingDetailPanel =
       (isSpOndemandNewBooking || isSpAssignedConfirmed) && eid != null;
     const canQuickAct = isSpOndemandNewBooking && unreadItem && hasBookingDetailPanel;
+    const hasBody = Boolean(n.body?.trim());
+    const hasAddress = Boolean(metaRow?.address);
+    const mainContentShort = !hasBody && !hasAddress && !hasBookingDetailPanel;
 
     return (
       <Animated.View
@@ -321,7 +324,12 @@ export default function NotificationsPage({
             if (unreadItem) void markRead(n);
           }}
         >
-          <View style={styles.itemRow}>
+          <View
+            style={[
+              styles.itemMainRow,
+              mainContentShort ? styles.itemMainRowCompact : null,
+            ]}
+          >
             <View style={[styles.iconWrap, { backgroundColor: `${meta.color}15` }]}>
               <LinearGradient
                 colors={[meta.color, meta.color + 'CC']}
@@ -332,81 +340,88 @@ export default function NotificationsPage({
             </View>
             <View style={styles.itemContent}>
               <View style={styles.titleRow}>
-                <Text style={[styles.itemTitle, unreadItem && styles.itemTitleBold, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]} numberOfLines={2}>
+                <Text
+                  style={[
+                    styles.itemTitle,
+                    unreadItem && styles.itemTitleBold,
+                    { color: isDarkMode ? '#f8fafc' : '#0f172a' },
+                  ]}
+                  numberOfLines={2}
+                >
                   {n.title}
                 </Text>
-                {unreadItem && (
+                {unreadItem ? (
                   <View style={styles.newBadge}>
                     <Text style={styles.newBadgeText}>New</Text>
                   </View>
-                )}
+                ) : null}
               </View>
-              {n.body ? (
+              {hasBody ? (
                 <Text style={[styles.itemBody, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
                   {n.body}
                 </Text>
               ) : null}
-              {metaRow?.address ? (
+              {hasAddress ? (
                 <View style={styles.metaLine}>
                   <MaterialIcon name="location-on" size={14} color={meta.color} />
                   <Text style={[styles.metaText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
-                    {String(metaRow.address)}
+                    {String(metaRow?.address)}
                   </Text>
                 </View>
               ) : null}
-              {hasBookingDetailPanel && (
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.viewButton]}
-                    onPress={() => {
-                      setDetailError(null);
-                      setDetailFor(n);
-                      if (unreadItem && isSpAssignedConfirmed) void markRead(n);
-                    }}
-                  >
-                    <MaterialIcon name="visibility" size={16} color="#3b82f6" />
-                    <Text style={styles.viewButtonText}>View details</Text>
-                  </TouchableOpacity>
-                  {canQuickAct && (
-                    <>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.acceptButton]}
-                        disabled={acceptingId === n.id}
-                        onPress={() => void acceptFromList(n)}
-                      >
-                        {acceptingId === n.id ? (
-                          <ActivityIndicator size="small" color="#ffffff" />
-                        ) : (
-                          <>
-                            <MaterialIcon name="check" size={16} color="#ffffff" />
-                            <Text style={styles.acceptButtonText}>Accept</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.declineButton]}
-                        disabled={acceptingId === n.id}
-                        onPress={() => void notInterested(n)}
-                      >
-                        <MaterialIcon name="close" size={16} color="#ef4444" />
-                        <Text style={styles.declineButtonText}>Decline</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              )}
-              <View style={styles.itemFooter}>
-                <View style={styles.categoryBadge}>
-                  <MaterialIcon name={meta.icon} size={12} color={meta.color} />
-                  <Text style={[styles.categoryText, { color: meta.color }]}>
-                    {meta.label}
-                  </Text>
-                </View>
-                <Text style={[styles.timeText, { color: isDarkMode ? '#64748b' : '#94a3b8' }]}>
-                  {timeAgo(n.createdAt)}
-                </Text>
-              </View>
             </View>
+          </View>
+          {hasBookingDetailPanel ? (
+            <View style={styles.actionRowIndented}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.viewButton]}
+                onPress={() => {
+                  setDetailError(null);
+                  setDetailFor(n);
+                  if (unreadItem && isSpAssignedConfirmed) void markRead(n);
+                }}
+              >
+                <MaterialIcon name="visibility" size={16} color="#3b82f6" />
+                <Text style={styles.viewButtonText}>View details</Text>
+              </TouchableOpacity>
+              {canQuickAct ? (
+                <>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.acceptButton]}
+                    disabled={acceptingId === n.id}
+                    onPress={() => void acceptFromList(n)}
+                  >
+                    {acceptingId === n.id ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <MaterialIcon name="check" size={16} color="#ffffff" />
+                        <Text style={styles.acceptButtonText}>Accept</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.declineButton]}
+                    disabled={acceptingId === n.id}
+                    onPress={() => void notInterested(n)}
+                  >
+                    <MaterialIcon name="close" size={16} color="#ef4444" />
+                    <Text style={styles.declineButtonText}>Decline</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
+            </View>
+          ) : null}
+          <View style={styles.itemFooter}>
+            <View style={styles.categoryBadge}>
+              <MaterialIcon name={meta.icon} size={12} color={meta.color} />
+              <Text style={[styles.categoryText, { color: meta.color }]}>
+                {meta.label}
+              </Text>
+            </View>
+            <Text style={[styles.timeText, { color: isDarkMode ? '#64748b' : '#94a3b8' }]}>
+              {timeAgo(n.createdAt)}
+            </Text>
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -852,13 +867,18 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#3b82f6",
   },
-  itemRow: {
+  itemMainRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
     gap: 14,
+  },
+  itemMainRowCompact: {
+    alignItems: "center",
   },
   iconWrap: {
     borderRadius: 12,
     overflow: "hidden",
+    flexShrink: 0,
   },
   iconGradient: {
     width: 48,
@@ -872,15 +892,15 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   itemTitle: {
     fontSize: 15,
     fontWeight: "600",
-    flex: 1,
+    flexShrink: 1,
+    flexGrow: 1,
     lineHeight: 20,
   },
   itemTitleBold: {
@@ -889,34 +909,40 @@ const styles = StyleSheet.create({
   newBadge: {
     backgroundColor: "#3b82f6",
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 12,
+    flexShrink: 0,
+    alignSelf: "center",
   },
   newBadgeText: {
     color: "#ffffff",
     fontSize: 10,
     fontWeight: "700",
+    lineHeight: 12,
+    includeFontPadding: false,
   },
   itemBody: {
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 8,
+    marginTop: 2,
+    marginBottom: 0,
   },
   metaLine: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 12,
+    marginTop: 6,
   },
   metaText: {
     fontSize: 12,
     flex: 1,
   },
-  actionRow: {
+  actionRowIndented: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
-    marginBottom: 12,
+    marginTop: 10,
+    marginLeft: 62,
   },
   actionButton: {
     flexDirection: "row",
@@ -954,19 +980,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 10,
+    marginLeft: 62,
+    minHeight: 18,
   },
   categoryBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    flexShrink: 1,
   },
   categoryText: {
     fontSize: 11,
     fontWeight: "600",
+    lineHeight: 14,
+    includeFontPadding: false,
   },
   timeText: {
     fontSize: 11,
+    lineHeight: 14,
+    includeFontPadding: false,
+    flexShrink: 0,
+    marginLeft: 8,
   },
   centered: {
     flex: 1,
