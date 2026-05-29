@@ -11,18 +11,14 @@ import {
   Dimensions,
   Platform,
   SafeAreaView,
+  useWindowDimensions,
 } from "react-native";
 import Icon from 'react-native-vector-icons/Feather';
 import StarIcon from 'react-native-vector-icons/FontAwesome';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { Picker } from '@react-native-picker/picker';
-import { Chip } from 'react-native-paper';
-import { useToast } from "../hooks/useToast";
-import reviewsInstance from "../services/reviewsInstance";
-import { useTranslation } from 'react-i18next';
-import i18n from "../../i18n";
 import LinearGradient from "react-native-linear-gradient";
-// import i18n from '../i18n'; // Import i18n instance
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import reviewsInstance from "../services/reviewsInstance";
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,12 +59,12 @@ interface ReviewsDialogProps {
   serviceProviderId: number | null;
 }
 
-// Service type options with translations
-const getServiceTypeOptions = (t: any) => [
-  { value: "ALL", label: t('reviewsDialog.allServices') },
-  { value: "ON_DEMAND", label: t('booking.options.onDemand') },
-  { value: "MONTHLY", label: t('booking.options.monthly') },
-  { value: "SHORT_TERM", label: t('booking.options.shortTerm') }
+// Service type options
+const SERVICE_TYPES = [
+  { value: "ALL", label: "All Services" },
+  { value: "ON_DEMAND", label: "On Demand" },
+  { value: "MONTHLY", label: "Monthly" },
+  { value: "SHORT_TERM", label: "Short Term" }
 ];
 
 // Get emoji based on rating
@@ -93,39 +89,35 @@ const getGradeColor = (grade: string): string => {
     case 'A-': return '#059669';
     case 'B':
     case 'B+':
-    case 'B-': return '#2563eb';
+    case 'B-': return '#3b82f6';
     case 'C':
     case 'C+':
-    case 'C-': return '#d97706';
+    case 'C-': return '#f59e0b';
     case 'D': return '#ea580c';
     case 'F': return '#dc2626';
-    default: return '#7c3aed';
+    default: return '#8b5cf6';
   }
 };
 
-const SkeletonLoader = () => {
-  const { t } = useTranslation();
-  
-  return (
-    <View style={styles.skeletonContainer}>
-      {[1, 2, 3].map((item) => (
-        <View key={item} style={styles.skeletonItem}>
-          <View style={styles.skeletonHeader}>
-            <View style={styles.skeletonAvatar} />
-            <View style={styles.skeletonContent}>
-              <View style={styles.skeletonLine} />
-              <View style={styles.skeletonStars} />
-            </View>
+const SkeletonLoader = () => (
+  <View style={styles.skeletonContainer}>
+    {[1, 2, 3].map((item) => (
+      <View key={item} style={styles.skeletonItem}>
+        <View style={styles.skeletonHeader}>
+          <View style={styles.skeletonAvatar} />
+          <View style={styles.skeletonContent}>
+            <View style={styles.skeletonLine} />
+            <View style={styles.skeletonStars} />
           </View>
-          <View style={styles.skeletonText} />
         </View>
-      ))}
-    </View>
-  );
-};
+        <View style={styles.skeletonText} />
+      </View>
+    ))}
+  </View>
+);
 
 export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDialogProps) {
-  const { t } = useTranslation();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,15 +125,15 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
   const [selectedServiceType, setSelectedServiceType] = useState<string>("ALL");
   const [averageRating, setAverageRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
-  const { toast } = useToast();
 
-  const SERVICE_TYPES = getServiceTypeOptions(t);
+  // Responsive dimensions
+  const modalWidth = Math.min(windowWidth * 0.92, 500);
+  const modalHeight = windowHeight * 0.85;
 
   useEffect(() => {
     if (visible && serviceProviderId) {
       fetchReviews();
     } else {
-      // Reset state when modal closes
       resetState();
     }
   }, [visible, serviceProviderId]);
@@ -183,7 +175,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
         
         const processedReviews = reviewsData.map(review => ({
           ...review,
-          customerName: `${t('reviewsDialog.review.anonymous')} ${review.review_id}`
+          customerName: `Customer ${review.review_id}`
         }));
 
         const sortedReviews = processedReviews.sort((a, b) => b.created_at - a.created_at);
@@ -193,11 +185,6 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
       }
     } catch (error) {
       console.error("Failed to fetch reviews:", error);
-      toast({
-        title: t('common.error'),
-        description: t('errors.failedToLoadReviews'),
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
@@ -207,36 +194,29 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
     setSelectedServiceType(serviceType);
   };
 
-  const renderStars = (rating: number, size: number = 12) => {
-    return (
-      <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map((index) => (
-          <StarIcon
-            key={index}
-            name="star"
-            size={size}
-            color={index <= rating ? "#facc15" : "#d1d5db"}
-            style={styles.star}
-          />
-        ))}
-      </View>
-    );
-  };
+  const renderStars = (rating: number, size: number = 12) => (
+    <View style={styles.starsContainer}>
+      {[1, 2, 3, 4, 5].map((index) => (
+        <StarIcon
+          key={index}
+          name="star"
+          size={size}
+          color={index <= rating ? "#facc15" : "#cbd5e1"}
+          style={styles.star}
+        />
+      ))}
+    </View>
+  );
 
-  // FIXED: Use i18n.language for locale, not translation key
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil(Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 1) return t('time.yesterday');
-    if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
     
-    // Use the current language from i18n for locale
-    const currentLanguage = i18n.language || 'en';
-    
-    return date.toLocaleDateString(currentLanguage, { 
+    return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
@@ -245,9 +225,9 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
 
   const getServiceTypeLabel = (type: string): string => {
     switch (type) {
-      case 'ON_DEMAND': return t('booking.options.onDemand');
-      case 'MONTHLY': return t('booking.options.monthly');
-      case 'SHORT_TERM': return t('booking.options.shortTerm');
+      case 'ON_DEMAND': return 'On Demand';
+      case 'MONTHLY': return 'Monthly';
+      case 'SHORT_TERM': return 'Short Term';
       default: return type;
     }
   };
@@ -257,7 +237,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
       case 'ON_DEMAND': return { bg: '#dbeafe', text: '#1e40af' };
       case 'MONTHLY': return { bg: '#dcfce7', text: '#166534' };
       case 'SHORT_TERM': return { bg: '#f3e8ff', text: '#6b21a8' };
-      default: return { bg: '#f3f4f6', text: '#1f2937' };
+      default: return { bg: '#f1f5f9', text: '#475569' };
     }
   };
 
@@ -276,32 +256,33 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
       statusBarTranslucent
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Header - Fixed at top */}
+        <View style={[styles.modalContainer, { width: modalWidth, height: modalHeight }]}>
+          
+          {/* Gradient Header */}
           <LinearGradient
-                    colors={["#0b5bd3", "#4f8ff7"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.header}
-                  >
-          {/* <View style={styles.header}> */}
+            colors={[...BOOKING_HEADER_GRADIENT]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
             <View style={styles.headerContent}>
               <View style={styles.titleSection}>
-                <StarIcon name="star" size={24} color="#ffffff" />
-                <Text style={styles.title}>{t('reviewsDialog.title')}</Text>
+                <View style={styles.titleIconContainer}>
+                  <StarIcon name="star" size={22} color="#ffffff" />
+                </View>
+                <Text style={styles.title}>Reviews & Ratings</Text>
                 {providerRating && (
                   <View style={[styles.gradeBadge, { backgroundColor: getGradeColor(providerRating.grade) }]}>
                     <Text style={styles.gradeText}>{providerRating.grade}</Text>
                   </View>
                 )}
               </View>
-              <Text style={styles.subtitle}>{t('reviewsDialog.subtitle')}</Text>
+              <Text style={styles.subtitle}>What customers are saying</Text>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <Icon name="x" size={24} color="#ffffff" />
             </TouchableOpacity>
-          {/* </View> */}
-</LinearGradient>
+          </LinearGradient>
 
           {/* Scrollable Content */}
           <ScrollView 
@@ -311,34 +292,40 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
           >
             {loading && reviews.length === 0 ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2563eb" />
-                <Text style={styles.loadingText}>{t('reviewsDialog.loading')}</Text>
+                <ActivityIndicator size="large" color="#3b82f6" />
+                <Text style={styles.loadingText}>Loading reviews...</Text>
               </View>
             ) : (
               <>
-                {/* Rating Summary */}
+                {/* Rating Summary Card */}
                 {providerRating && (
-                  <View style={styles.ratingCard}>
+                  <LinearGradient
+                    colors={["#ffffff", "#f8fafc"]}
+                    style={styles.ratingCard}
+                  >
                     <View style={styles.ratingHeader}>
                       <View style={styles.ratingMain}>
                         <Text style={styles.averageRating}>{averageRating.toFixed(1)}</Text>
                         {renderStars(Math.round(averageRating), 16)}
                         <Text style={styles.ratingCount}>
-                          {t('reviewsDialog.totalReviews', { count: totalReviews })}
+                          {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
                         </Text>
                       </View>
                       
                       <View style={styles.gradeContainer}>
-                        <Text style={styles.gradeLabel}>{t('reviewsDialog.providerGrade')}</Text>
-                        <View style={[styles.gradeCircle, { backgroundColor: getGradeColor(providerRating?.grade || 'B') }]}>
+                        <Text style={styles.gradeLabel}>Provider Grade</Text>
+                        <LinearGradient
+                          colors={[getGradeColor(providerRating?.grade || 'B'), getGradeColor(providerRating?.grade || 'B') + 'CC']}
+                          style={[styles.gradeCircle]}
+                        >
                           <Text style={styles.gradeCircleText}>{providerRating?.grade}</Text>
-                        </View>
+                        </LinearGradient>
                       </View>
                     </View>
 
-                    {/* Distribution */}
+                    {/* Rating Distribution */}
                     <View style={styles.distributionContainer}>
-                      <Text style={styles.distributionTitle}>{t('reviewsDialog.ratingDistribution')}</Text>
+                      <Text style={styles.distributionTitle}>Rating Distribution</Text>
                       {[5, 4, 3, 2, 1].map((stars) => {
                         const count = providerRating.distribution[stars.toString() as keyof typeof providerRating.distribution] || 0;
                         const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
@@ -347,26 +334,30 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                           <View key={stars} style={styles.distributionRow}>
                             <Text style={styles.distributionStar}>{stars} ★</Text>
                             <View style={styles.progressContainer}>
-                              <View style={[styles.progressFill, { width: `${percentage}%` }]} />
+                              <LinearGradient
+                                colors={["#facc15", "#fbbf24"]}
+                                style={[styles.progressFill, { width: `${percentage}%` }]}
+                              />
                             </View>
                             <Text style={styles.distributionCount}>{count}</Text>
                           </View>
                         );
                       })}
                     </View>
-                  </View>
+                  </LinearGradient>
                 )}
 
                 {/* Filter Section */}
                 <View style={styles.filterSection}>
                   <View style={styles.filterLabelContainer}>
-                    <Icon name="filter" size={16} color="#6b7280" />
-                    <Text style={styles.filterTitle}>{t('reviewsDialog.filterByService')}</Text>
+                    <Icon name="filter" size={16} color="#64748b" />
+                    <Text style={styles.filterTitle}>Filter by service type</Text>
                   </View>
                   <ScrollView 
                     horizontal 
                     showsHorizontalScrollIndicator={false}
                     style={styles.filterScroll}
+                    contentContainerStyle={styles.filterScrollContent}
                   >
                     {SERVICE_TYPES.map((type) => (
                       <TouchableOpacity
@@ -377,12 +368,19 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                         ]}
                         onPress={() => handleServiceTypeChange(type.value)}
                       >
-                        <Text style={[
-                          styles.filterChipText,
-                          selectedServiceType === type.value && styles.filterChipTextSelected
-                        ]}>
-                          {type.label}
-                        </Text>
+                        <LinearGradient
+                          colors={selectedServiceType === type.value ? [...BOOKING_HEADER_GRADIENT] : ["#f1f5f9", "#f1f5f9"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.filterChipGradient}
+                        >
+                          <Text style={[
+                            styles.filterChipText,
+                            selectedServiceType === type.value && styles.filterChipTextSelected
+                          ]}>
+                            {type.label}
+                          </Text>
+                        </LinearGradient>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -392,11 +390,8 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                 <View style={styles.resultsContainer}>
                   <Text style={styles.resultsText}>
                     {selectedServiceType === 'ALL' 
-                      ? t('reviewsDialog.showingReviews', { count: filteredReviews.length })
-                      : t('reviewsDialog.showingFor', { 
-                          count: filteredReviews.length, 
-                          service: getServiceTypeLabel(selectedServiceType) 
-                        })
+                      ? `Showing ${filteredReviews.length} ${filteredReviews.length === 1 ? 'review' : 'reviews'}`
+                      : `${filteredReviews.length} ${filteredReviews.length === 1 ? 'review' : 'reviews'} for ${getServiceTypeLabel(selectedServiceType)}`
                     }
                   </Text>
                 </View>
@@ -405,16 +400,14 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                 <View style={styles.reviewsContainer}>
                   {filteredReviews.length === 0 ? (
                     <View style={styles.emptyState}>
-                      <Icon name="message-circle" size={64} color="#d1d5db" />
-                      <Text style={styles.emptyStateTitle}>
-                        {selectedServiceType !== 'ALL' 
-                          ? t('reviewsDialog.empty.noReviewsForService', { service: getServiceTypeLabel(selectedServiceType) })
-                          : t('reviewsDialog.empty.title')}
-                      </Text>
+                      <View style={styles.emptyStateIconContainer}>
+                        <Icon name="message-circle" size={48} color="#cbd5e1" />
+                      </View>
+                      <Text style={styles.emptyStateTitle}>No reviews yet</Text>
                       <Text style={styles.emptyStateText}>
                         {selectedServiceType !== 'ALL' 
-                          ? t('reviewsDialog.empty.noReviewsForService', { service: getServiceTypeLabel(selectedServiceType) })
-                          : t('reviewsDialog.empty.description')}
+                          ? `No reviews available for ${getServiceTypeLabel(selectedServiceType)} service`
+                          : "Be the first to leave a review for this provider"}
                       </Text>
                     </View>
                   ) : (
@@ -424,12 +417,15 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                         <View key={review.review_id} style={styles.reviewCard}>
                           <View style={styles.reviewHeader}>
                             <View style={styles.reviewerInfo}>
-                              <View style={styles.avatar}>
+                              <LinearGradient
+                                colors={["#f1f5f9", "#e2e8f0"]}
+                                style={styles.avatar}
+                              >
                                 <Text style={styles.avatarText}>{getRatingEmoji(review.rating)}</Text>
-                              </View>
+                              </LinearGradient>
                               <View style={styles.reviewerDetails}>
                                 <Text style={styles.reviewerName}>
-                                  {review.customerName || t('reviewsDialog.review.anonymous')}
+                                  {review.customerName || "Anonymous Customer"}
                                 </Text>
                                 <View style={styles.reviewMeta}>
                                   {renderStars(review.rating, 12)}
@@ -445,7 +441,7 @@ export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDi
                           </View>
                           
                           <Text style={styles.reviewContent}>
-                            {review.review || t('reviewsDialog.review.noComment')}
+                            {review.review || "No comment provided"}
                           </Text>
                         </View>
                       );
@@ -469,27 +465,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContainer: {
-    width: width * 0.95,
-    maxWidth: 600,
-    height: height * 0.85,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 5,
+        elevation: 8,
       },
     }),
   },
   header: {
-    backgroundColor: '#2563eb',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -502,37 +495,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    gap: 8,
+    gap: 10,
     flexWrap: 'wrap',
+  },
+  titleIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#ffffff',
   },
   gradeBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 16,
+    borderRadius: 20,
   },
   gradeText: {
     color: '#ffffff',
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontSize: 12,
   },
   subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 18,
   },
   closeButton: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#f8fafc',
   },
   scrollContentContainer: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -544,39 +551,31 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#6b7280',
+    color: '#64748b',
   },
   ratingCard: {
-    backgroundColor: '#ffffff',
-    padding: 20,
     margin: 16,
-    marginBottom: 8,
-    borderRadius: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginBottom: 12,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   ratingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    flexWrap: 'wrap',
+    gap: 16,
   },
   ratingMain: {
     alignItems: 'center',
   },
   averageRating: {
     fontSize: 48,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '800',
+    color: '#0f172a',
   },
   starsContainer: {
     flexDirection: 'row',
@@ -588,15 +587,15 @@ const styles = StyleSheet.create({
   },
   ratingCount: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#64748b',
   },
   gradeContainer: {
     alignItems: 'center',
   },
   gradeLabel: {
     fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
+    color: '#64748b',
+    marginBottom: 6,
   },
   gradeCircle: {
     width: 60,
@@ -607,45 +606,44 @@ const styles = StyleSheet.create({
   },
   gradeCircleText: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#ffffff',
   },
   distributionContainer: {
-    marginTop: 16,
+    marginTop: 8,
   },
   distributionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#334155',
     marginBottom: 12,
   },
   distributionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginVertical: 4,
+    gap: 10,
+    marginVertical: 6,
   },
   distributionStar: {
     fontSize: 12,
-    color: '#4b5563',
-    width: 40,
+    color: '#475569',
+    width: 42,
   },
   progressContainer: {
     flex: 1,
     height: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#e2e8f0',
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#facc15',
     borderRadius: 4,
   },
   distributionCount: {
     fontSize: 12,
-    color: '#6b7280',
-    width: 30,
+    color: '#64748b',
+    width: 32,
     textAlign: 'right',
   },
   filterSection: {
@@ -661,39 +659,45 @@ const styles = StyleSheet.create({
   filterTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: '#334155',
   },
   filterScroll: {
     flexGrow: 0,
   },
+  filterScrollContent: {
+    paddingRight: 16,
+  },
   filterChip: {
-    paddingHorizontal: 16,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginRight: 10,
+  },
+  filterChipGradient: {
+    paddingHorizontal: 18,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   filterChipSelected: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   filterChipText: {
-    fontSize: 14,
-    color: '#4b5563',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#475569',
   },
   filterChipTextSelected: {
     color: '#ffffff',
-    fontWeight: '500',
   },
   resultsContainer: {
     paddingHorizontal: 16,
     marginBottom: 12,
   },
   resultsText: {
-    fontSize: 14,
-    color: '#6b7280',
+    fontSize: 13,
+    color: '#64748b',
   },
   reviewsContainer: {
     paddingHorizontal: 16,
@@ -701,17 +705,19 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#e2e8f0',
   },
   reviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   reviewerInfo: {
     flexDirection: 'row',
@@ -719,17 +725,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   avatarText: {
-    fontSize: 20,
+    fontSize: 22,
   },
   reviewerDetails: {
     flex: 1,
@@ -737,7 +740,7 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    color: '#0f172a',
     marginBottom: 4,
   },
   reviewMeta: {
@@ -753,50 +756,58 @@ const styles = StyleSheet.create({
   },
   serviceBadgeText: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   reviewDate: {
-    fontSize: 12,
-    color: '#9ca3af',
+    fontSize: 11,
+    color: '#94a3b8',
   },
   reviewContent: {
     fontSize: 14,
-    color: '#4b5563',
+    color: '#475569',
     lineHeight: 20,
-    marginLeft: 52,
+    marginLeft: 56,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    minHeight: 200,
+    borderColor: '#e2e8f0',
+  },
+  emptyStateIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
+    color: '#334155',
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#94a3b8',
     textAlign: 'center',
+    lineHeight: 20,
   },
   skeletonContainer: {
-    padding: 20,
+    padding: 16,
     gap: 16,
   },
   skeletonItem: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#e2e8f0',
   },
   skeletonHeader: {
     flexDirection: 'row',
@@ -804,10 +815,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   skeletonAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e5e7eb',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#e2e8f0',
   },
   skeletonContent: {
     flex: 1,
@@ -816,19 +827,21 @@ const styles = StyleSheet.create({
   skeletonLine: {
     height: 16,
     width: '60%',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#e2e8f0',
     borderRadius: 4,
   },
   skeletonStars: {
     height: 14,
     width: '40%',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#e2e8f0',
     borderRadius: 4,
   },
   skeletonText: {
     height: 40,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#e2e8f0',
     borderRadius: 4,
-    marginLeft: 52,
+    marginLeft: 56,
   },
 });
+
+export default ReviewsDialog;

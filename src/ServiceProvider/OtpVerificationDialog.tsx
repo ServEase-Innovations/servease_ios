@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,8 +8,13 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
+  Dimensions,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
-import { useTranslation } from 'react-i18next';
+import LinearGradient from "react-native-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
 interface OtpVerificationDialogProps {
   open: boolean;
@@ -30,7 +35,7 @@ export function OtpVerificationDialog({
   verifying,
   bookingInfo,
 }: OtpVerificationDialogProps) {
-  const { t } = useTranslation();
+  const { width: windowWidth } = useWindowDimensions();
   const [otpValue, setOtpValue] = useState("");
   const verificationCompletedRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
@@ -39,7 +44,6 @@ export function OtpVerificationDialog({
   useEffect(() => {
     if (open) {
       verificationCompletedRef.current = false;
-      // Focus input when dialog opens
       setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
@@ -48,7 +52,6 @@ export function OtpVerificationDialog({
 
   // Handle successful verification completion
   useEffect(() => {
-    // Only run when verifying changes from true to false AND we were previously verifying
     if (!verifying && verificationCompletedRef.current) {
       const timer = setTimeout(() => {
         handleClose();
@@ -61,7 +64,6 @@ export function OtpVerificationDialog({
   const handleVerify = async () => {
     if (!otpValue.trim()) return;
     
-    // Mark that verification is starting
     verificationCompletedRef.current = true;
     await onVerify(otpValue.trim());
   };
@@ -72,81 +74,132 @@ export function OtpVerificationDialog({
   };
 
   const handleOtpChange = (text: string) => {
-    // Only allow numbers
     const numericText = text.replace(/[^0-9]/g, '');
     setOtpValue(numericText);
   };
 
+  // Responsive modal width
+  const modalWidth = Math.min(windowWidth * 0.9, 420);
+
   return (
     <Modal
       visible={open}
-      animationType="slide"
+      animationType="fade"
       transparent={true}
       onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
+        <View style={[styles.modalContent, { width: modalWidth }]}>
+          
+          {/* Header with BOOKING_HEADER_GRADIENT */}
+          <LinearGradient
+            colors={[...BOOKING_HEADER_GRADIENT]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
             <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>{t('otpVerification.title')}</Text>
+              <View style={styles.headerIconContainer}>
+                <Icon name="shield-check" size={24} color="#ffffff" />
+              </View>
+              <Text style={styles.headerTitle}>Verify Service</Text>
               <TouchableOpacity 
                 onPress={handleClose}
                 style={styles.closeButton}
                 disabled={verifying}
               >
-                <Text style={styles.closeIcon}>✕</Text>
+                <Icon name="close" size={22} color="#ffffff" />
               </TouchableOpacity>
             </View>
-          </View>
+            <Text style={styles.headerSubtitle}>
+              Enter the verification code to confirm service completion
+            </Text>
+          </LinearGradient>
 
           <View style={styles.content}>
+            {/* Booking Info Card with Gradient */}
             {bookingInfo && (
-              <View style={styles.bookingInfoCard}>
-                <Text style={styles.bookingInfoTitle}>
-                  {t('otpVerification.serviceFor', { clientName: bookingInfo.clientName || t('common.client') })}
-                </Text>
-                <Text style={styles.bookingInfoSubtitle}>
-                  {t('otpVerification.bookingInfo', { 
-                    id: bookingInfo.bookingId || t('common.na'), 
-                    service: bookingInfo.service || t('common.service') 
-                  })}
-                </Text>
-              </View>
+              <LinearGradient
+                colors={['#eff6ff', '#dbeafe']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.bookingInfoCard}
+              >
+                <View style={styles.bookingInfoIcon}>
+                  <Icon name="calendar-check" size={20} color="#1e40af" />
+                </View>
+                <View style={styles.bookingInfoText}>
+                  <Text style={styles.bookingInfoTitle}>
+                    Service for {bookingInfo.clientName || 'Client'}
+                  </Text>
+                  <Text style={styles.bookingInfoSubtitle}>
+                    {bookingInfo.service || 'Service'} • #{bookingInfo.bookingId || 'N/A'}
+                  </Text>
+                </View>
+              </LinearGradient>
             )}
             
+            {/* OTP Section */}
             <View style={styles.otpSection}>
-              <Text style={styles.instructions}>
-                {t('otpVerification.instructions')}
-              </Text>
-              
-              <View style={styles.otpInputContainer}>
-                <TextInput
-                  ref={inputRef}
-                  placeholder={t('otpVerification.enterOtp')}
-                  placeholderTextColor="#9CA3AF"
-                  value={otpValue}
-                  onChangeText={handleOtpChange}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  style={styles.otpInput}
-                  editable={!verifying}
-                  selectionColor="#3B82F6"
-                />
+              <View style={styles.instructionIconContainer}>
+                <Icon name="cellphone-key" size={20} color="#3b82f6" />
+                <Text style={styles.instructions}>
+                  Please enter the 6-digit verification code sent to your registered mobile number
+                </Text>
               </View>
               
-              <Text style={styles.verificationNote}>
-                {t('otpVerification.verificationNote')}
-              </Text>
+              <View style={styles.otpInputContainer}>
+                <View style={styles.otpInputWrapper}>
+                  <TextInput
+                    ref={inputRef}
+                    placeholder="000000"
+                    placeholderTextColor="#cbd5e1"
+                    value={otpValue}
+                    onChangeText={handleOtpChange}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    style={styles.otpInput}
+                    editable={!verifying}
+                    selectionColor="#3B82F6"
+                  />
+                  {otpValue.length > 0 && (
+                    <View style={styles.inputIndicator}>
+                      <Icon name="check-circle" size={16} color="#10b981" />
+                    </View>
+                  )}
+                </View>
+                
+                {/* OTP Dots Indicator */}
+                <View style={styles.otpDotsContainer}>
+                  {[1, 2, 3, 4, 5, 6].map((index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.otpDot,
+                        otpValue.length >= index && styles.otpDotFilled,
+                        otpValue.length + 1 === index && styles.otpDotActive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+              
+              <View style={styles.verificationNoteContainer}>
+                <Icon name="information" size={14} color="#94a3b8" />
+                <Text style={styles.verificationNote}>
+                  This code verifies that the service has been completed successfully
+                </Text>
+              </View>
             </View>
             
+            {/* Action Buttons */}
             <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={handleClose}
                 disabled={verifying}
               >
-                <Text style={styles.cancelButtonText}>{t('otpVerification.cancel')}</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -158,14 +211,24 @@ export function OtpVerificationDialog({
                 onPress={handleVerify}
                 disabled={verifying || !otpValue.trim() || otpValue.length < 4}
               >
-                {verifying ? (
-                  <View style={styles.verifyingContainer}>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.verifyingText}>{t('otpVerification.verifying')}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.verifyButtonText}>{t('otpVerification.verify')}</Text>
-                )}
+                <LinearGradient
+                  colors={(!verifying && otpValue.trim() && otpValue.length >= 4) ? [...BOOKING_HEADER_GRADIENT] : ['#94a3b8', '#64748b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.verifyButtonGradient}
+                >
+                  {verifying ? (
+                    <View style={styles.verifyingContainer}>
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                      <Text style={styles.verifyingText}>Verifying...</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.verifyButtonContent}>
+                      <Icon name="check-decagram" size={18} color="#ffffff" />
+                      <Text style={styles.verifyButtonText}>Verify Code</Text>
+                    </View>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -178,135 +241,226 @@ export function OtpVerificationDialog({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    width: "100%",
-    maxWidth: 400,
-    maxHeight: "80%",
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
   },
   header: {
-    backgroundColor: "#1E40AF",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
   headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
+  },
+  headerIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#FFFFFF",
+    fontWeight: "700",
+    color: "#ffffff",
     flex: 1,
+    textAlign: "center",
   },
   closeButton: {
-    padding: 4,
-    marginLeft: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  closeIcon: {
-    fontSize: 20,
-    fontWeight: "300",
-    color: "#FFFFFF",
+  headerSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.85)",
+    lineHeight: 18,
+    textAlign: "center",
   },
   content: {
     padding: 20,
   },
   bookingInfoCard: {
-    backgroundColor: "#EFF6FF",
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  bookingInfoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  bookingInfoText: {
+    flex: 1,
   },
   bookingInfoTitle: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#1E40AF",
-    marginBottom: 4,
+    fontWeight: "600",
+    color: "#1e40af",
+    marginBottom: 2,
   },
   bookingInfoSubtitle: {
     fontSize: 12,
-    color: "#4B5563",
+    color: "#3b82f6",
   },
   otpSection: {
     marginBottom: 24,
   },
+  instructionIconContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 20,
+    gap: 10,
+    backgroundColor: "#f8fafc",
+    padding: 12,
+    borderRadius: 12,
+  },
   instructions: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 16,
-    lineHeight: 20,
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 18,
+    flex: 1,
   },
   otpInputContainer: {
     marginBottom: 16,
   },
+  otpInputWrapper: {
+    position: "relative",
+  },
   otpInput: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 20,
+    borderWidth: 2,
+    borderColor: "#e2e8f0",
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    fontSize: 24,
     textAlign: "center",
-    letterSpacing: 8,
-    color: "#111827",
-    fontWeight: "500",
-    backgroundColor: "#FFFFFF",
+    letterSpacing: 12,
+    color: "#0f172a",
+    fontWeight: "700",
+    backgroundColor: "#ffffff",
+  },
+  inputIndicator: {
+    position: "absolute",
+    right: 16,
+    top: "50%",
+    transform: [{ translateY: -8 }],
+  },
+  otpDotsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 16,
+  },
+  otpDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#e2e8f0",
+  },
+  otpDotFilled: {
+    backgroundColor: "#3b82f6",
+  },
+  otpDotActive: {
+    backgroundColor: "#93c5fd",
+    transform: [{ scale: 1.2 }],
+  },
+  verificationNoteContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fef3c7",
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 8,
   },
   verificationNote: {
-    fontSize: 13,
-    color: "#6B7280",
-    lineHeight: 18,
+    fontSize: 12,
+    color: "#92400e",
+    flex: 1,
+    lineHeight: 16,
   },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    gap: 12,
     marginTop: 8,
   },
   button: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    minWidth: 120,
-    alignItems: "center",
+    flex: 1,
+    borderRadius: 14,
+    overflow: "hidden",
   },
   cancelButton: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#ffffff",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cancelButtonText: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
+    fontWeight: "600",
+    color: "#64748b",
   },
   verifyButton: {
-    backgroundColor: "#3B82F6",
+    overflow: "hidden",
+  },
+  verifyButtonGradient: {
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verifyButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   disabledButton: {
-    backgroundColor: "#D1D5DB",
+    opacity: 0.6,
   },
   verifyButtonText: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#FFFFFF",
+    fontWeight: "700",
+    color: "#ffffff",
   },
   verifyingContainer: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
   },
   verifyingText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#FFFFFF",
-    marginLeft: 8,
+    color: "#ffffff",
   },
 });
+
+export default OtpVerificationDialog;

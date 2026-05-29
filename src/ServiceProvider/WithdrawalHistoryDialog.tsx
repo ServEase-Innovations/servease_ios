@@ -10,10 +10,13 @@ import {
   RefreshControl,
   Alert,
   Dimensions,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import PaymentInstance from '../services/paymentInstance';
+import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
 
 // Types
 interface LedgerEntry {
@@ -58,163 +61,53 @@ interface WithdrawalHistoryDialogProps {
   serviceProviderId: number | null;
 }
 
-const { width: screenWidth } = Dimensions.get('window');
-
-// Common Badge Component
+// Common Badge Component with Gradient
 const Badge: React.FC<{
   children: React.ReactNode;
   variant?: 'success' | 'warning' | 'danger' | 'default';
 }> = ({ children, variant = 'default' }) => {
-  const getBadgeStyle = () => {
+  const getBadgeGradient = () => {
     switch (variant) {
       case 'success':
-        return { backgroundColor: '#d1fae5', color: '#065f46' };
+        return ['#d1fae5', '#a7f3d0'];
       case 'warning':
-        return { backgroundColor: '#fef3c7', color: '#92400e' };
+        return ['#fef3c7', '#fde68a'];
       case 'danger':
-        return { backgroundColor: '#fee2e2', color: '#991b1b' };
+        return ['#fee2e2', '#fecaca'];
       default:
-        return { backgroundColor: '#e5e7eb', color: '#374151' };
+        return ['#f1f5f9', '#e2e8f0'];
     }
   };
 
-  const badgeStyle = getBadgeStyle();
+  const getTextColor = () => {
+    switch (variant) {
+      case 'success': return '#065f46';
+      case 'warning': return '#92400e';
+      case 'danger': return '#991b1b';
+      default: return '#475569';
+    }
+  };
+
+  const gradientColors = getBadgeGradient();
   
   return (
-    <View
+    <LinearGradient
+      colors={gradientColors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
       style={{
-        paddingHorizontal: 8,
+        paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 12,
-        backgroundColor: badgeStyle.backgroundColor,
       }}>
-      <Text style={{ fontSize: 12, fontWeight: '500', color: badgeStyle.color }}>
+      <Text style={{ fontSize: 11, fontWeight: '600', color: getTextColor() }}>
         {children}
       </Text>
-    </View>
+    </LinearGradient>
   );
 };
 
-// Common Button Component
-const Button: React.FC<{
-  title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'outline' | 'secondary';
-  size?: 'sm' | 'md' | 'lg';
-  disabled?: boolean;
-  loading?: boolean;
-  containerStyle?: any;
-}> = ({ title, onPress, variant = 'primary', size = 'md', disabled = false, loading = false, containerStyle }) => {
-  const getButtonStyle = () => {
-    let backgroundColor = '#0848b0';
-    let borderColor = '#0848b0';
-    let textColor = '#ffffff';
-
-    if (variant === 'outline') {
-      backgroundColor = 'transparent';
-      borderColor = '#0848b0';
-      textColor = '#0848b0';
-    } else if (variant === 'secondary') {
-      backgroundColor = '#6c757d';
-      borderColor = '#6c757d';
-      textColor = '#ffffff';
-    }
-
-    let paddingVertical = 8;
-    let paddingHorizontal = 16;
-    
-    if (size === 'sm') {
-      paddingVertical = 6;
-      paddingHorizontal = 12;
-    } else if (size === 'lg') {
-      paddingVertical = 12;
-      paddingHorizontal = 24;
-    }
-
-    return {
-      backgroundColor,
-      borderColor,
-      textColor,
-      paddingVertical,
-      paddingHorizontal,
-    };
-  };
-
-  const styleObj = getButtonStyle();
-
-  return (
-    <View style={containerStyle}>
-      <TouchableOpacity
-        onPress={onPress}
-        disabled={disabled || loading}
-        style={{
-          backgroundColor: styleObj.backgroundColor,
-          borderWidth: variant === 'outline' ? 1 : 0,
-          borderColor: styleObj.borderColor,
-          paddingVertical: styleObj.paddingVertical,
-          paddingHorizontal: styleObj.paddingHorizontal,
-          borderRadius: 8,
-          opacity: disabled ? 0.5 : 1,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        {loading && (
-          <ActivityIndicator
-            size="small"
-            color={styleObj.textColor}
-            style={{ marginRight: 8 }}
-          />
-        )}
-        <Text style={{ color: styleObj.textColor, fontWeight: '600', fontSize: 14 }}>
-          {title}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
-// Common Filter Button Component
-const FilterButton: React.FC<{
-  title: string;
-  active: boolean;
-  onPress: () => void;
-  icon?: string;
-  iconColor?: string;
-}> = ({ title, active, onPress, icon, iconColor }) => {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={{
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: active ? '#0848b0' : '#f3f4f6',
-        marginRight: 8,
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}>
-      {icon && (
-        <Icon
-          name={icon}
-          size={16}
-          color={active ? '#ffffff' : iconColor || '#6b7280'}
-          style={{ marginRight: 6 }}
-        />
-      )}
-      <Text
-        style={{
-          color: active ? '#ffffff' : '#374151',
-          fontWeight: active ? '600' : '500',
-          fontSize: 13,
-        }}>
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
-};
-
-// Summary Card Component
+// Summary Card Component with Gradient
 const SummaryCard: React.FC<{
   title: string;
   amount: number;
@@ -231,25 +124,72 @@ const SummaryCard: React.FC<{
     <LinearGradient
       colors={gradientColors}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
+      end={{ x: 1, y: 1 }}
       style={{
-        borderRadius: 12,
+        borderRadius: 16,
         padding: 16,
         flex: 1,
         marginHorizontal: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowRadius: 8,
+        elevation: 4,
       }}>
-      <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', marginBottom: 4 }}>
+      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginBottom: 6, fontWeight: '500' }}>
         {title}
       </Text>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#ffffff' }}>
+      <Text style={{ fontSize: 20, fontWeight: '800', color: '#ffffff' }}>
         {formatAmount(amount)}
       </Text>
     </LinearGradient>
+  );
+};
+
+// Filter Button Component with Gradient
+const FilterButton: React.FC<{
+  title: string;
+  active: boolean;
+  onPress: () => void;
+  icon?: string;
+  iconColor?: string;
+}> = ({ title, active, onPress, icon, iconColor }) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        borderRadius: 24,
+        overflow: 'hidden',
+        marginRight: 10,
+      }}>
+      <LinearGradient
+        colors={active ? [...BOOKING_HEADER_GRADIENT] : ['#f1f5f9', '#f1f5f9']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{
+          paddingHorizontal: 18,
+          paddingVertical: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}>
+        {icon && (
+          <Icon
+            name={icon}
+            size={16}
+            color={active ? '#ffffff' : iconColor || '#64748b'}
+            style={{ marginRight: 8 }}
+          />
+        )}
+        <Text
+          style={{
+            color: active ? '#ffffff' : '#475569',
+            fontWeight: active ? '600' : '500',
+            fontSize: 13,
+          }}>
+          {title}
+        </Text>
+      </LinearGradient>
+    </TouchableOpacity>
   );
 };
 
@@ -258,10 +198,14 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
   onClose,
   serviceProviderId,
 }) => {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [historyData, setHistoryData] = useState<PayoutHistoryResponse | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'credit' | 'debit'>('all');
+
+  // Responsive dimensions
+  const modalWidth = Math.min(windowWidth * 0.92, 500);
 
   useEffect(() => {
     if (visible && serviceProviderId) {
@@ -334,6 +278,23 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
     }
   };
 
+  const getReasonIcon = (reason: LedgerEntry['reason']) => {
+    switch (reason) {
+      case 'DAILY_EARNED':
+        return 'cash-plus';
+      case 'WITHDRAWAL':
+        return 'cash-minus';
+      case 'SERVICE_FEE':
+        return 'hand-coin';
+      case 'SECURITY_DEPOSIT':
+        return 'shield-check';
+      case 'REFUND':
+        return 'cash-refund';
+      default:
+        return 'receipt';
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-IN', {
@@ -365,18 +326,24 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
       animationType="slide"
       transparent={false}
       onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
-        {/* Header with Gradient */}
+      <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+        
+        {/* Header with BOOKING_HEADER_GRADIENT */}
         <LinearGradient
-          colors={['#0b5bd3', '#4f8ff7']}
+          colors={[...BOOKING_HEADER_GRADIENT]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={{
-            paddingTop: 48,
-            paddingBottom: 16,
+            paddingTop: Platform.OS === 'ios' ? 50 : 40,
+            paddingBottom: 24,
             paddingHorizontal: 20,
-            borderBottomLeftRadius: 20,
-            borderBottomRightRadius: 20,
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+            elevation: 8,
           }}>
           <View
             style={{
@@ -384,27 +351,27 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
               alignItems: 'center',
               justifyContent: 'space-between',
             }}>
-            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
-              <Icon name="close" size={24} color="#ffffff" />
+            <TouchableOpacity onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 20 }}>
+              <Icon name="close" size={22} color="#ffffff" />
             </TouchableOpacity>
             <Text
               style={{
                 fontSize: 20,
-                fontWeight: 'bold',
+                fontWeight: '700',
                 color: '#ffffff',
                 textAlign: 'center',
                 flex: 1,
               }}>
               Withdrawal History
             </Text>
-            <View style={{ width: 32 }} />
+            <View style={{ width: 36 }} />
           </View>
           <Text
             style={{
-              fontSize: 14,
-              color: 'rgba(255,255,255,0.9)',
+              fontSize: 13,
+              color: 'rgba(255,255,255,0.85)',
               textAlign: 'center',
-              marginTop: 8,
+              marginTop: 12,
             }}>
             View your earnings, withdrawals, and transaction history
           </Text>
@@ -413,41 +380,49 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
         {/* Content */}
         {loading && !refreshing ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#0848b0" />
+            <ActivityIndicator size="large" color="#3b82f6" />
+            <Text style={{ marginTop: 12, fontSize: 14, color: '#64748b' }}>Loading history...</Text>
           </View>
         ) : !historyData ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <Icon name="receipt" size={48} color="#d1d5db" />
-            <Text style={{ fontSize: 16, color: '#6b7280', marginTop: 12 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Icon name="receipt" size={40} color="#94a3b8" />
+            </View>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#334155', marginBottom: 8 }}>
               No history data available
             </Text>
-            <View style={{ marginTop: 16 }}>
-              <Button
-                title="Retry"
-                onPress={fetchWithdrawalHistory}
-                variant="outline"
-              />
-            </View>
+            <Text style={{ fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 20 }}>
+              Your transaction history will appear here
+            </Text>
+            <TouchableOpacity onPress={fetchWithdrawalHistory}>
+              <LinearGradient
+                colors={[...BOOKING_HEADER_GRADIENT]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ paddingHorizontal: 24, paddingVertical: 10, borderRadius: 24 }}>
+                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Retry</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         ) : (
           <ScrollView
             style={{ flex: 1 }}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" colors={["#3b82f6"]} />
             }
             showsVerticalScrollIndicator={false}>
             <View style={{ padding: 16 }}>
               {/* Summary Cards */}
-              <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', marginBottom: 24, flexWrap: 'wrap', gap: 8 }}>
                 <SummaryCard
                   title="Total Earned"
                   amount={historyData.summary.total_earned}
-                  gradientColors={['#3b82f6', '#2563eb']}
+                  gradientColors={['#3b82f6', '#1e40af']}
                 />
                 <SummaryCard
                   title="Available Balance"
                   amount={historyData.summary.available_to_withdraw}
-                  gradientColors={['#10b981', '#059669']}
+                  gradientColors={['#10b981', '#047857']}
                 />
                 <SummaryCard
                   title="Total Withdrawn"
@@ -460,7 +435,8 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={{ marginBottom: 16 }}>
+                style={{ marginBottom: 20 }}
+                contentContainerStyle={{ paddingRight: 16 }}>
                 <FilterButton
                   title="All Transactions"
                   active={selectedFilter === 'all'}
@@ -486,20 +462,25 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
               <View
                 style={{
                   backgroundColor: '#ffffff',
-                  borderRadius: 12,
+                  borderRadius: 20,
                   borderWidth: 1,
-                  borderColor: '#e5e7eb',
+                  borderColor: '#e2e8f0',
                   overflow: 'hidden',
                   marginBottom: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.04,
+                  shadowRadius: 4,
+                  elevation: 2,
                 }}>
                 {filteredLedger && filteredLedger.length > 0 ? (
-                  filteredLedger.map((entry) => (
+                  filteredLedger.map((entry, index) => (
                     <View
                       key={entry.ledger_id}
                       style={{
                         padding: 16,
-                        borderBottomWidth: 1,
-                        borderBottomColor: '#f3f4f6',
+                        borderBottomWidth: index === filteredLedger.length - 1 ? 0 : 1,
+                        borderBottomColor: '#f1f5f9',
                       }}>
                       <View
                         style={{
@@ -508,61 +489,47 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                           alignItems: 'flex-start',
                         }}>
                         <View style={{ flexDirection: 'row', flex: 1 }}>
-                          <View
+                          <LinearGradient
+                            colors={entry.direction === 'CREDIT' ? ['#d1fae5', '#a7f3d0'] : ['#fee2e2', '#fecaca']}
                             style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 20,
-                              backgroundColor:
-                                entry.direction === 'CREDIT'
-                                  ? '#d1fae5'
-                                  : '#fee2e2',
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
                               justifyContent: 'center',
                               alignItems: 'center',
-                              marginRight: 12,
+                              marginRight: 14,
                             }}>
                             <Icon
-                              name={
-                                entry.direction === 'CREDIT'
-                                  ? 'arrow-up'
-                                  : 'arrow-down'
-                              }
-                              size={20}
-                              color={
-                                entry.direction === 'CREDIT'
-                                  ? '#059669'
-                                  : '#dc2626'
-                              }
+                              name={getReasonIcon(entry.reason)}
+                              size={22}
+                              color={entry.direction === 'CREDIT' ? '#059669' : '#dc2626'}
                             />
-                          </View>
+                          </LinearGradient>
                           <View style={{ flex: 1 }}>
                             <Text
                               style={{
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: '600',
-                                color: '#111827',
+                                color: '#0f172a',
+                                marginBottom: 4,
                               }}>
                               {getReasonText(entry.reason)}
                             </Text>
                             <Text
                               style={{
                                 fontSize: 12,
-                                color: '#6b7280',
-                                marginTop: 2,
+                                color: '#64748b',
                               }}>
                               {formatDate(entry.created_at)}
-                              {entry.engagement_id && (
-                                <Text> • Engagement #{entry.engagement_id}</Text>
-                              )}
                             </Text>
-                            {entry.reference_type && (
+                            {entry.engagement_id && (
                               <Text
                                 style={{
                                   fontSize: 11,
-                                  color: '#9ca3af',
+                                  color: '#94a3b8',
                                   marginTop: 4,
                                 }}>
-                                Ref: {entry.reference_type} #{entry.reference_id}
+                                Engagement #{entry.engagement_id}
                               </Text>
                             )}
                           </View>
@@ -570,12 +537,10 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                         <View style={{ alignItems: 'flex-end' }}>
                           <Text
                             style={{
-                              fontSize: 16,
-                              fontWeight: 'bold',
-                              color:
-                                entry.direction === 'CREDIT'
-                                  ? '#059669'
-                                  : '#dc2626',
+                              fontSize: 17,
+                              fontWeight: '700',
+                              color: entry.direction === 'CREDIT' ? '#059669' : '#dc2626',
+                              marginBottom: 4,
                             }}>
                             {entry.direction === 'CREDIT' ? '+' : '-'}
                             {formatAmount(entry.amount)}
@@ -583,8 +548,7 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                           <Text
                             style={{
                               fontSize: 11,
-                              color: '#6b7280',
-                              marginTop: 2,
+                              color: '#64748b',
                             }}>
                             {entry.direction === 'CREDIT' ? 'Credit' : 'Debit'}
                           </Text>
@@ -595,27 +559,30 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                 ) : (
                   <View
                     style={{
-                      padding: 40,
+                      padding: 48,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}>
-                    <Icon name="receipt" size={48} color="#d1d5db" />
+                    <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                      <Icon name="receipt" size={32} color="#94a3b8" />
+                    </View>
                     <Text
                       style={{
-                        fontSize: 14,
-                        color: '#6b7280',
-                        marginTop: 12,
+                        fontSize: 15,
+                        fontWeight: '600',
+                        color: '#334155',
+                        marginBottom: 6,
                       }}>
                       No transactions found
                     </Text>
                     <Text
                       style={{
-                        fontSize: 12,
-                        color: '#9ca3af',
-                        marginTop: 4,
+                        fontSize: 13,
+                        color: '#94a3b8',
+                        textAlign: 'center',
                       }}>
                       {selectedFilter !== 'all'
-                        ? `No ${selectedFilter} transactions`
+                        ? `No ${selectedFilter} transactions available`
                         : 'Start providing services to see transactions'}
                     </Text>
                   </View>
@@ -624,31 +591,37 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
 
               {/* Payout History Section */}
               {historyData.payouts && historyData.payouts.length > 0 && (
-                <View style={{ marginBottom: 20 }}>
+                <View style={{ marginBottom: 24 }}>
                   <Text
                     style={{
                       fontSize: 16,
-                      fontWeight: '600',
-                      color: '#111827',
-                      marginBottom: 12,
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      marginBottom: 14,
+                      paddingHorizontal: 4,
                     }}>
                     Payout Requests
                   </Text>
                   <View
                     style={{
                       backgroundColor: '#ffffff',
-                      borderRadius: 12,
+                      borderRadius: 20,
                       borderWidth: 1,
-                      borderColor: '#e5e7eb',
+                      borderColor: '#e2e8f0',
                       overflow: 'hidden',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.04,
+                      shadowRadius: 4,
+                      elevation: 2,
                     }}>
-                    {historyData.payouts.map((payout) => (
+                    {historyData.payouts.map((payout, index) => (
                       <View
                         key={payout.payout_id}
                         style={{
                           padding: 16,
-                          borderBottomWidth: 1,
-                          borderBottomColor: '#f3f4f6',
+                          borderBottomWidth: index === historyData.payouts!.length - 1 ? 0 : 1,
+                          borderBottomColor: '#f1f5f9',
                         }}>
                         <View
                           style={{
@@ -656,29 +629,29 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                             justifyContent: 'space-between',
                             alignItems: 'flex-start',
                           }}>
-                          <View>
+                          <View style={{ flex: 1 }}>
                             <Text
                               style={{
                                 fontSize: 14,
                                 fontWeight: '600',
-                                color: '#111827',
+                                color: '#0f172a',
+                                marginBottom: 4,
                               }}>
-                              Payout #{payout.payout_id}
+                              Payout Request
                             </Text>
                             <Text
                               style={{
                                 fontSize: 12,
-                                color: '#6b7280',
-                                marginTop: 2,
+                                color: '#64748b',
+                                marginBottom: 4,
                               }}>
                               {formatDate(payout.created_at)}
                             </Text>
                             {payout.engagement_id && (
                               <Text
                                 style={{
-                                  fontSize: 12,
-                                  color: '#6b7280',
-                                  marginTop: 4,
+                                  fontSize: 11,
+                                  color: '#94a3b8',
                                 }}>
                                 Engagement #{payout.engagement_id}
                               </Text>
@@ -687,15 +660,14 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                           <View style={{ alignItems: 'flex-end' }}>
                             <Text
                               style={{
-                                fontSize: 16,
-                                fontWeight: 'bold',
-                                color: '#111827',
+                                fontSize: 17,
+                                fontWeight: '700',
+                                color: '#0f172a',
+                                marginBottom: 6,
                               }}>
                               {formatAmount(payout.net_amount)}
                             </Text>
-                            <View style={{ marginTop: 4 }}>
-                              {getStatusBadge(payout.status)}
-                            </View>
+                            {getStatusBadge(payout.status)}
                           </View>
                         </View>
                       </View>
@@ -710,3 +682,5 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
     </Modal>
   );
 };
+
+export default WithdrawalHistoryDialog;

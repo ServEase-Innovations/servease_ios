@@ -479,7 +479,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
       value: `₹${payout?.summary?.total_earned?.toLocaleString("en-IN") || 0}`,
       icon: "rupee" as const,
       description: "This month (credited to wallet)",
-      gradient: ['#3b82f6', '#1e3a8a'],
+      // gradient: ['#3b82f6', '#1e3a8a'],
     },
     {
       title: "Security Deposit",
@@ -488,21 +488,21 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
       changeType: payout?.summary?.security_deposit_paid ? ("neutral" as const) : ("negative" as const),
       icon: "shield" as const,
       description: "For active bookings",
-      gradient: ['#8b5cf6', '#5b21b6'],
+      // gradient: ['#8b5cf6', '#5b21b6'],
     },
     {
       title: "Total Withdrawn",
       value: `₹${(payout?.summary?.total_withdrawn ?? 0).toLocaleString("en-IN")}`,
       icon: "credit-card" as const,
       description: "Already withdrawn or deducted",
-      gradient: ['#10b981', '#047857'],
+      // gradient: ['#10b981', '#047857'],
     },
     {
       title: "Available Balance",
       value: `₹${payout?.summary?.available_to_withdraw?.toLocaleString("en-IN") || 0}`,
       icon: "wallet" as const,
       description: "After service charges and TDS",
-      gradient: ['#f59e0b', '#d97706'],
+      // gradient: ['#f59e0b', '#d97706'],
     },
   ];
 
@@ -848,7 +848,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
             </Card>
 
             {/* Service Status Card */}
-            <Card gradient>
+            {/* <Card gradient>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>Service Status</Text>
                 <MaterialIcon name="check-circle" size={20} color="#10b981" />
@@ -871,7 +871,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                   <Badge variant="warning">12 This Week</Badge>
                 </View>
               </View>
-            </Card>
+            </Card> */}
           </View>
 
           {/* Calendar Section */}

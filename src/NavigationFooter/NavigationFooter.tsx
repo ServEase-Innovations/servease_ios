@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LinearGradient from "react-native-linear-gradient";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FeatherIcon from "react-native-vector-icons/Feather";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationsDialog from "../Notifications/NotificationsPage";
 import { useAuth0 } from "react-native-auth0";
 import { useDispatch } from "react-redux";
@@ -98,13 +99,14 @@ const moderateScale = (size: number, factor = 0.5) => {
 // Professional Login Method Card Component
 const ProfessionalMethodCard: React.FC<{
   icon: string;
+  iconSet?: "material" | "feather" | "community";
   title: string;
   description: string;
   onPress: () => void;
   colors: any;
   gradientColors: string[];
   isHighlighted?: boolean;
-}> = ({ icon, title, description, onPress, colors, gradientColors, isHighlighted = false }) => {
+}> = ({ icon, iconSet = "community", title, description, onPress, colors, gradientColors, isHighlighted = false }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
@@ -148,6 +150,19 @@ const ProfessionalMethodCard: React.FC<{
     outputRange: [0, 0.15],
   });
 
+  const renderIcon = () => {
+    const iconSize = moderateScale(26);
+    const iconColor = "#ffffff";
+    
+    if (iconSet === "material") {
+      return <MaterialIcon name={icon} size={iconSize} color={iconColor} />;
+    } else if (iconSet === "feather") {
+      return <FeatherIcon name={icon} size={iconSize} color={iconColor} />;
+    } else {
+      return <Icon name={icon} size={iconSize} color={iconColor} />;
+    }
+  };
+
   return (
     <Animated.View
       style={[
@@ -183,7 +198,7 @@ const ProfessionalMethodCard: React.FC<{
             { width: moderateScale(52), height: moderateScale(52), borderRadius: moderateScale(26) }
           ]}
         >
-          <Text style={[styles.proMethodIcon, { fontSize: moderateScale(26) }]}>{icon}</Text>
+          {renderIcon()}
         </LinearGradient>
         <View style={styles.proMethodContent}>
           <Text style={[styles.proMethodTitle, { color: colors.text, fontSize: moderateScale(16) }]}>
@@ -539,7 +554,8 @@ const AuthModal: React.FC<{
                       </Text>
 
                       <ProfessionalMethodCard
-                        icon="📱"
+                        icon="cellphone-arrow-down"
+                        iconSet="community"
                         title="Mobile OTP Login"
                         description="Instant login with one-time password"
                         onPress={() => setShowMobileForm(true)}
@@ -549,7 +565,8 @@ const AuthModal: React.FC<{
                       />
 
                       <ProfessionalMethodCard
-                        icon="✉️"
+                        icon="email-outline"
+                        iconSet="community"
                         title="Email Login"
                         description="Continue with your email address"
                         onPress={() => {
@@ -557,19 +574,9 @@ const AuthModal: React.FC<{
                           onEmailLogin();
                         }}
                         colors={colors}
-                        gradientColors={["#8b5cf6", "#6d28d9"]}
+                        gradientColors={["#3b82f6", "#1e40af"]}
                       />
 
-                      <View style={[styles.signupPrompt, { marginTop: verticalScale(24), paddingVertical: verticalScale(16) }]}>
-                        <Text style={[styles.signupPromptText, { color: colors.textSecondary, fontSize: moderateScale(14) }]}>
-                          Don't have an account?{" "}
-                        </Text>
-                        <TouchableOpacity onPress={() => {}}>
-                          <Text style={[styles.signupLink, { color: colors.primary, fontSize: moderateScale(14), fontWeight: "600" }]}>
-                            Sign Up
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
                     </View>
                   ) : (
                     <View style={[styles.mobileFormContainer, { padding: moderateScale(24) }]}>
@@ -580,7 +587,7 @@ const AuthModal: React.FC<{
                           end={{ x: 1, y: 1 }}
                           style={[styles.mobileIconCircle, { width: moderateScale(80), height: moderateScale(80), borderRadius: moderateScale(40) }]}
                         >
-                          <Text style={[styles.mobileIconEmoji, { fontSize: moderateScale(40) }]}>📱</Text>
+                          <Icon name="cellphone-check" size={moderateScale(42)} color="#ffffff" />
                         </LinearGradient>
                       </View>
 
@@ -596,6 +603,7 @@ const AuthModal: React.FC<{
                           Mobile Number
                         </Text>
                         <View style={[styles.inputWrapper, { borderColor: colors.border, backgroundColor: colors.surface, height: verticalScale(54), borderRadius: moderateScale(16), paddingHorizontal: moderateScale(16) }]}>
+                          <Icon name="phone-outline" size={moderateScale(20)} color={colors.textSecondary} style={{ marginRight: moderateScale(12) }} />
                           <Text style={[styles.countryCode, { fontSize: moderateScale(16), marginRight: moderateScale(12) }]}>+91</Text>
                           <TextInput
                             style={[styles.input, { color: colors.text, fontSize: moderateScale(16) }]}
@@ -616,7 +624,7 @@ const AuthModal: React.FC<{
                             Verification Code
                           </Text>
                           <View style={[styles.inputWrapper, { borderColor: colors.border, backgroundColor: colors.surface, height: verticalScale(54), borderRadius: moderateScale(16), paddingHorizontal: moderateScale(16) }]}>
-                            <Text style={[styles.otpIcon, { fontSize: moderateScale(18), marginRight: moderateScale(12) }]}>🔐</Text>
+                            <Icon name="keyboard-settings-outline" size={moderateScale(20)} color={colors.textSecondary} style={{ marginRight: moderateScale(12) }} />
                             <TextInput
                               style={[styles.input, styles.otpInput, { color: colors.text, fontSize: moderateScale(16), letterSpacing: moderateScale(4) }]}
                               placeholder="Enter 6-digit OTP"
@@ -646,7 +654,10 @@ const AuthModal: React.FC<{
                             {sendingOtp ? (
                               <ActivityIndicator color="#fff" size="small" />
                             ) : (
-                              <Text style={[styles.submitButtonText, { fontSize: moderateScale(16) }]}>Send OTP</Text>
+                              <>
+                                <Icon name="shield-check" size={moderateScale(18)} color="#ffffff" style={{ marginRight: moderateScale(8) }} />
+                                <Text style={[styles.submitButtonText, { fontSize: moderateScale(16) }]}>Send OTP</Text>
+                              </>
                             )}
                           </LinearGradient>
                         </TouchableOpacity>
@@ -666,7 +677,10 @@ const AuthModal: React.FC<{
                               {verifyingOtp ? (
                                 <ActivityIndicator color="#fff" size="small" />
                               ) : (
-                                <Text style={[styles.submitButtonText, { fontSize: moderateScale(16) }]}>Verify & Login</Text>
+                                <>
+                                  <Icon name="login" size={moderateScale(18)} color="#ffffff" style={{ marginRight: moderateScale(8) }} />
+                                  <Text style={[styles.submitButtonText, { fontSize: moderateScale(16) }]}>Verify & Login</Text>
+                                </>
                               )}
                             </LinearGradient>
                           </TouchableOpacity>
@@ -680,6 +694,7 @@ const AuthModal: React.FC<{
                             }}
                             disabled={resendIn > 0 || sendingOtp}
                           >
+                            <Icon name="refresh-circle" size={moderateScale(16)} color={colors.primary} style={{ marginRight: moderateScale(6) }} />
                             <Text
                               style={[
                                 styles.resendText,
@@ -1616,7 +1631,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 16,
   },
-  proMethodIcon: {},
   proMethodContent: {
     flex: 1,
   },
@@ -1650,7 +1664,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  mobileIconEmoji: {},
   mobileFormTitle: {
     fontWeight: "700",
     textAlign: "center",
@@ -1672,7 +1685,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#64748b",
   },
-  otpIcon: {},
   input: {
     flex: 1,
   },
@@ -1683,6 +1695,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   submitGradient: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1694,7 +1707,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   resendButton: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   resendText: {
     fontWeight: "600",

@@ -545,7 +545,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           paddingTop: 0,
         }}
         contentInset={{ top: 0 }}
-        contentOffset={{ y: 0 }}
+        contentOffset={{ x: 0, y: 0 }}
         automaticallyAdjustContentInsets={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],

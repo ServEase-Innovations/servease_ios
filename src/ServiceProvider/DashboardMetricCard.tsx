@@ -223,11 +223,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   changePositive: {
-    backgroundColor: "rgba(16, 185, 129, 0.15)",
+    backgroundColor: "rgba(10, 204, 139, 0.88)",
     borderColor: "rgba(16, 185, 129, 0.3)",
   },
   changeNegative: {
-    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.88)",
     borderColor: "rgba(239, 68, 68, 0.3)",
   },
   changeNeutral: {
