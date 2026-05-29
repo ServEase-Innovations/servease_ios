@@ -1,5 +1,4 @@
-// ServiceSelectionDialog.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,21 +6,51 @@ import {
   TouchableOpacity,
   Modal,
   Dimensions,
-  Animated,
   ScrollView,
   BackHandler,
   Clipboard,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import Snackbar from 'react-native-snackbar';
-import { useTheme } from '../Settings/ThemeContext';
+  TouchableWithoutFeedback,
+  Platform,
+  Animated,
+  PanResponder,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import Snackbar from "react-native-snackbar";
+import { useTheme } from "../Settings/ThemeContext";
+import { FIRST_BOOKING_COUPON_CODE } from "../services/couponService";
 
-const { width, height } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const SHEET_MAX_HEIGHT = Math.min(SCREEN_HEIGHT * 0.88, 640);
+const DISMISS_DRAG = 72;
+const HEADER_DRAG_ZONE = 112;
 
-// Fixed dialog dimensions - consistent across all devices
-const DIALOG_WIDTH = Math.min(width * 0.9, 400);
-const DIALOG_MAX_HEIGHT = Math.min(height * 0.85, 600);
+const SERVICES = [
+  {
+    id: "COOK",
+    title: "Home Cook",
+    icon: "👩‍🍳",
+    subtitle: "Daily & custom meals",
+    accent: "#0EA5E9",
+    tint: "#E0F2FE",
+  },
+  {
+    id: "MAID",
+    title: "Cleaning Help",
+    icon: "🧹",
+    subtitle: "Home cleaning & upkeep",
+    accent: "#059669",
+    tint: "#D1FAE5",
+  },
+  {
+    id: "NANNY",
+    title: "Caregiver",
+    icon: "👶",
+    subtitle: "Child & elder care",
+    accent: "#7C3AED",
+    tint: "#EDE9FE",
+  },
+] as const;
 
 interface ServiceSelectionDialogProps {
   visible: boolean;
@@ -35,246 +64,298 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
   onSelectService,
 }) => {
   const { colors, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [couponCopied, setCouponCopied] = useState(false);
+  const [mounted, setMounted] = useState(visible);
 
-  // Animation values
-  const pricePulse = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const dragY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scrollOffsetY = useRef(0);
+  const dragStartY = useRef(0);
 
-  // Handle back button press
+  const dismissSheet = useCallback(() => {
+    dragY.setValue(0);
+    onClose();
+  }, [dragY, onClose]);
+
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
       if (visible) {
-        onClose();
+        dismissSheet();
         return true;
       }
       return false;
     });
-
     return () => backHandler.remove();
-  }, [visible, onClose]);
+  }, [visible, dismissSheet]);
 
   useEffect(() => {
     if (visible) {
-      // Pulse animation for price badge only
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pricePulse, {
-            toValue: 1.08,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pricePulse, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pricePulse.setValue(1);
+      setMounted(true);
+      scrollOffsetY.current = 0;
+      dragY.setValue(0);
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 9,
+          tension: 70,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (mounted) {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 240,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setMounted(false);
+        dragY.setValue(0);
+        setCouponCopied(false);
+      });
     }
+  }, [visible, mounted, slideAnim, dragY, fadeAnim]);
 
-    return () => {
-      pricePulse.stopAnimation();
-    };
-  }, [visible, pricePulse]);
+  const finishDismiss = useCallback(() => {
+    Animated.timing(slideAnim, {
+      toValue: SCREEN_HEIGHT,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      dragY.setValue(0);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      dismissSheet();
+    });
+  }, [slideAnim, dragY, dismissSheet]);
 
-  const services = [
-    {
-      id: 'COOK',
-      title: 'Home Cook',
-      icon: '👩‍🍳',
-      description: 'Professional chefs for delicious home-cooked meals',
-      gradient: ['#0f2027', '#203a43', '#2c5364'] as const,
-    },
-    {
-      id: 'MAID',
-      title: 'Cleaning Help',
-      icon: '🧹',
-      description: 'Professional cleaning services for your home',
-      gradient: ['#0b3b5c', '#1c5985', '#2a7a9e'] as const,
-    },
-    {
-      id: 'NANNY',
-      title: 'Caregiver',
-      icon: '👶',
-      description: 'Experienced caregivers for your loved ones',
-      gradient: ['#42275a', '#734b6d', '#b4869f'] as const,
-    },
-  ];
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gesture) => {
+          const inHeader = dragStartY.current <= HEADER_DRAG_ZONE;
+          const downward = gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx);
+          if (!downward) return false;
+          return inHeader || scrollOffsetY.current <= 0;
+        },
+        onMoveShouldSetPanResponderCapture: (_, gesture) => {
+          const inHeader = dragStartY.current <= HEADER_DRAG_ZONE;
+          const downward = gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx);
+          if (!downward) return false;
+          return inHeader || scrollOffsetY.current <= 0;
+        },
+        onPanResponderGrant: (evt) => {
+          dragStartY.current = evt.nativeEvent.locationY;
+        },
+        onPanResponderMove: (_, gesture) => {
+          if (gesture.dy > 0) {
+            dragY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > DISMISS_DRAG || gesture.vy > 0.45) {
+            finishDismiss();
+            return;
+          }
+          Animated.spring(dragY, {
+            toValue: 0,
+            useNativeDriver: true,
+            friction: 8,
+            tension: 80,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(dragY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    [dragY, finishDismiss]
+  );
 
   const handleSelectService = (serviceId: string) => {
     onSelectService(serviceId);
-    onClose();
+    dismissSheet();
   };
 
-  const copyCouponToClipboard = async (couponCode: string) => {
+  const copyCoupon = async () => {
     try {
-      await Clipboard.setString(couponCode);
-      
+      await Clipboard.setString(FIRST_BOOKING_COUPON_CODE);
+      setCouponCopied(true);
       Snackbar.show({
-        text: `🎉 Coupon "${couponCode}" copied! Get your first service at just ₹99`,
-        duration: Snackbar.LENGTH_LONG,
-        backgroundColor: '#4caf50',
-        textColor: '#ffffff',
-        action: {
-          text: 'USE NOW',
-          textColor: '#FFD700',
-          onPress: () => {},
-        },
-      });
-    } catch (error) {
-      Snackbar.show({
-        text: '❌ Failed to copy coupon. Please try again!',
+        text: `Coupon ${FIRST_BOOKING_COUPON_CODE} copied — apply at checkout`,
         duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: '#f44336',
-        textColor: '#ffffff',
+        backgroundColor: "#059669",
+        textColor: "#ffffff",
+      });
+      setTimeout(() => setCouponCopied(false), 2200);
+    } catch {
+      Snackbar.show({
+        text: "Could not copy coupon. Please try again.",
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#DC2626",
+        textColor: "#ffffff",
       });
     }
   };
 
+  if (!mounted) return null;
+
+  const surface = isDarkMode ? colors.surface : "#FFFFFF";
+  const textPrimary = isDarkMode ? colors.textPrimary : "#0F172A";
+  const textMuted = isDarkMode ? colors.textSecondary : "#64748B";
+  const borderColor = isDarkMode ? colors.border : "#E2E8F0";
+  const sheetTranslateY = Animated.add(slideAnim, dragY);
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={[styles.overlay, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.6)' }]}>
-        <View style={[
-          styles.container, 
-          { 
-            backgroundColor: isDarkMode ? colors.surface : '#fff',
-            width: DIALOG_WIDTH,
-            maxHeight: DIALOG_MAX_HEIGHT,
-          }
-        ]}>
-          {/* Header with Linear Gradient */}
-          <LinearGradient
-            colors={["#0b5bd3", "#4f8ff7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.headerContainer}
-          >
-            <View style={styles.headerContent}>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Icon name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Select Service</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Icon name="arrow-back" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={dismissSheet}>
+      <View style={styles.overlay}>
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+          <TouchableWithoutFeedback onPress={dismissSheet}>
+            <View style={styles.backdropTap} />
+          </TouchableWithoutFeedback>
+        </Animated.View>
 
-          <ScrollView 
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: surface,
+              maxHeight: SHEET_MAX_HEIGHT,
+              paddingBottom: Math.max(insets.bottom, 16),
+              transform: [{ translateY: sheetTranslateY }],
+            },
+          ]}
+          {...panResponder.panHandlers}
+        >
+          <View style={styles.handleWrap}>
+            <View style={[styles.handle, { backgroundColor: borderColor }]} />
+          </View>
+
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextWrap}>
+              <Text style={[styles.headerEyebrow, { color: textMuted }]}>Limited offer</Text>
+              <Text style={[styles.headerTitle, { color: textPrimary }]}>Pick a service</Text>
+            </View>
+            <TouchableOpacity
+              onPress={dismissSheet}
+              style={[styles.closeBtn, { backgroundColor: isDarkMode ? colors.card : "#F1F5F9" }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Close"
+            >
+              <Icon name="close" size={20} color={textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
             showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={(e) => {
+              scrollOffsetY.current = e.nativeEvent.contentOffset.y;
+            }}
             contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.content}>
-              {/* SIMPLE OFFER TEXT - Compact */}
-              <View style={styles.offerWrapper}>
-                <Text style={[styles.offerText, { color: isDarkMode ? colors.textPrimary : '#333' }]}>
-                  Book any service at just 
-                  <Animated.Text style={[styles.priceText, { transform: [{ scale: pricePulse }] }]}>
-                    {' '}₹99{' '}
-                  </Animated.Text>
-                  only!
-                </Text>
-                
-                <View style={styles.couponRow}>
-                  <Text style={[styles.useCouponText, { color: isDarkMode ? colors.textSecondary : '#666' }]}>
-                    Use coupon
+            <View
+              style={[
+                styles.offerCard,
+                { borderColor: "#FDE68A", backgroundColor: isDarkMode ? colors.card : "#FFFBEB" },
+              ]}
+            >
+              <View style={styles.offerTop}>
+                <View style={styles.hotPill}>
+                  <Text style={styles.hotPillText}>🔥 HOT DEAL</Text>
+                </View>
+                <Text style={[styles.offerHint, { color: textMuted }]}>First booking only</Text>
+              </View>
+
+              <View style={styles.offerMain}>
+                <View style={styles.priceBlock}>
+                  <Text style={[styles.priceLabel, { color: textMuted }]}>Book any service at</Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceValue}>₹99</Text>
+                    <Text style={[styles.priceSuffix, { color: textMuted }]}>flat</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => void copyCoupon()}
+                  activeOpacity={0.85}
+                  style={[styles.couponChip, couponCopied && styles.couponChipCopied]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Copy coupon code ${FIRST_BOOKING_COUPON_CODE}`}
+                >
+                  <Text style={[styles.couponLabel, { color: textMuted }]}>
+                    {couponCopied ? "Copied!" : "Tap to copy"}
                   </Text>
-                  <TouchableOpacity 
-                    onPress={() => copyCouponToClipboard('NEWUSER')}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={['#FFD700', '#FFA500']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.couponButton}
-                    >
-                      <Text style={styles.couponCodeText}>NEWUSER</Text>
-                      <Icon name="content-copy" size={14} color="#fff" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* CHOOSE YOUR SERVICE SECTION */}
-              <View style={styles.servicesSection}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="handyman" size={18} color="#0b5bd3" />
-                  <Text style={styles.sectionTitle}>Choose your service</Text>
-                </View>
-                
-                {services.map((service) => (
-                  <TouchableOpacity
-                    key={service.id}
-                    style={[styles.serviceCard, { backgroundColor: isDarkMode ? colors.card : '#f8f9fa' }]}
-                    onPress={() => handleSelectService(service.id)}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={[...service.gradient]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.serviceGradient}
-                    >
-                      <View style={styles.serviceIconContainer}>
-                        <Text style={styles.serviceIcon}>{service.icon}</Text>
-                      </View>
-                      <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceTitle}>{service.title}</Text>
-                        <Text style={styles.serviceDescription}>{service.description}</Text>
-                      </View>
-                      <View style={styles.arrowContainer}>
-                        <Icon name="chevron-right" size={24} color="#fff" />
-                      </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* HOW TO BOOK SECTION - Compact */}
-              <View style={styles.howToBookContainer}>
-                <View style={styles.howToBookHeader}>
-                  <Icon name="help-outline" size={18} color="#0b5bd3" />
-                  <Text style={styles.howToBookTitle}>How to book your service?</Text>
-                </View>
-                
-                <View style={styles.stepsList}>
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepDot} />
-                    <Text style={styles.stepText}>Tap on NEWUSER coupon to copy</Text>
+                  <View style={styles.couponCodeRow}>
+                    <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODE}</Text>
+                    <Icon
+                      name={couponCopied ? "check" : "content-copy"}
+                      size={15}
+                      color={couponCopied ? "#059669" : "#92400E"}
+                    />
                   </View>
-                  
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepDot} />
-                    <Text style={styles.stepText}>Select your preferred service below</Text>
-                  </View>
-                  
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepDot} />
-                    <Text style={styles.stepText}>Proceed to booking & apply coupon</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* POPULAR SERVICES SECTION */}
-              <View style={styles.popularSection}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="stars" size={18} color="#FFA500" />
-                  <Text style={styles.popularTitle}>Popular Services</Text>
-                </View>
-                <Text style={[styles.popularDescription, { color: isDarkMode ? colors.textSecondary : '#666' }]}>
-                  Choose from our trusted professional services.
-                </Text>
+                </TouchableOpacity>
               </View>
             </View>
+
+            <Text style={[styles.sectionLabel, { color: textPrimary }]}>Choose your service</Text>
+
+            <View style={styles.serviceList}>
+              {SERVICES.map((service) => (
+                <TouchableOpacity
+                  key={service.id}
+                  style={[
+                    styles.serviceRow,
+                    {
+                      backgroundColor: isDarkMode ? colors.card : "#FFFFFF",
+                      borderColor,
+                    },
+                  ]}
+                  onPress={() => handleSelectService(service.id)}
+                  activeOpacity={0.82}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Book ${service.title}`}
+                >
+                  <View style={[styles.serviceIconWrap, { backgroundColor: service.tint }]}>
+                    <Text style={styles.serviceEmoji}>{service.icon}</Text>
+                  </View>
+
+                  <View style={styles.serviceCopy}>
+                    <Text style={[styles.serviceTitle, { color: textPrimary }]} numberOfLines={1}>
+                      {service.title}
+                    </Text>
+                    <Text style={[styles.serviceSubtitle, { color: textMuted }]} numberOfLines={2}>
+                      {service.subtitle}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.serviceCta, { backgroundColor: service.tint }]}>
+                    <Icon name="arrow-forward" size={18} color={service.accent} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.footerNote, { color: textMuted }]}>
+              Copy {FIRST_BOOKING_COUPON_CODE}, pick a service, then apply the coupon at checkout.
+            </Text>
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -283,192 +364,217 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "flex-end",
   },
-  container: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.52)",
   },
-  headerContainer: {
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    padding: 20,
-  },
-  // Simple Offer Wrapper - Compact
-  offerWrapper: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  offerText: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 12,
-  },
-  priceText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF4444',
-  },
-  couponRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  useCouponText: {
-    fontSize: 14,
-  },
-  couponButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  couponCodeText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 1,
-  },
-  // Services Section
-  servicesSection: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0b5bd3',
-  },
-  serviceCard: {
-    borderRadius: 12,
-    marginBottom: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  serviceGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-  },
-  serviceIconContainer: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  serviceIcon: {
-    fontSize: 24,
-  },
-  serviceInfo: {
+  backdropTap: {
     flex: 1,
   },
-  serviceTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#fff',
+  sheet: {
+    width: "100%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: { elevation: 16 },
+    }),
+  },
+  handleWrap: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 999,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  headerTextWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  headerEyebrow: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
     marginBottom: 2,
   },
-  serviceDescription: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.8)',
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.3,
   },
-  arrowContainer: {
-    width: 30,
-    alignItems: 'flex-end',
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  // How to Book - Compact
-  howToBookContainer: {
-    marginBottom: 24,
-    padding: 12,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
-  howToBookHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  offerCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 18,
+  },
+  offerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 10,
+  },
+  hotPill: {
+    backgroundColor: "#DC2626",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  hotPillText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  offerHint: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  offerMain: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  priceBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  priceLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  priceValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#DC2626",
+    lineHeight: 36,
+    letterSpacing: -0.5,
+  },
+  priceSuffix: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginLeft: 6,
+    marginBottom: 5,
+  },
+  couponChip: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+    minWidth: 96,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  couponChipCopied: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+  },
+  couponLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  couponCodeRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
-  howToBookTitle: {
+  couponCode: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#0b5bd3',
+    fontWeight: "800",
+    color: "#92400E",
+    letterSpacing: 1,
   },
-  stepsList: {
-    gap: 8,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stepDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#FFA500',
-    marginRight: 10,
-  },
-  stepText: {
-    fontSize: 12,
-    color: '#555',
-    flex: 1,
-  },
-  // Popular Services Section
-  popularSection: {
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: "700",
     marginBottom: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
-  popularTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFA500',
+  serviceList: {
+    gap: 10,
   },
-  popularDescription: {
+  serviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 12,
+  },
+  serviceIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  serviceEmoji: {
+    fontSize: 24,
+  },
+  serviceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  serviceTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  serviceSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  serviceCta: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerNote: {
+    marginTop: 14,
     fontSize: 12,
-    marginTop: 4,
+    lineHeight: 17,
+    textAlign: "center",
   },
 });
 

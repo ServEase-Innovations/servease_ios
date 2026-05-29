@@ -272,8 +272,12 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
           token: payload.token,
           role: "CUSTOMER",
           customerid: customerId,
+          customerId,
+          customerId,
           name: customerData
-            ? [customerData.firstname, customerData.lastname].filter(Boolean).join(" ")
+            ? [customerData.firstName ?? customerData.firstname, customerData.lastName ?? customerData.lastname]
+                .filter(Boolean)
+                .join(" ")
             : "Customer",
           email: customerData?.emailid ?? customerData?.emailId ?? null,
           mobileNo: loginMobile || null,

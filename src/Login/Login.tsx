@@ -364,18 +364,29 @@ export const Login: React.FC<ChildComponentProps> = ({
         };
       }
       else if (role === "CUSTOMER") {
-        const customerId = payload.customerId ? Number(payload.customerId) : null;
+        const customerIdRaw =
+          payload.customerId ??
+          payload.customer?.customerId ??
+          payload.customer?.customerid ??
+          payload.customer?.id;
+        const customerId =
+          customerIdRaw != null && customerIdRaw !== "" ? Number(customerIdRaw) : null;
         const customerData = payload.customer;
+        const loginMobile = mobile.replace(/\D/g, "");
         userData = {
           ...userData,
           customerid: customerId,
+          customerId: customerId,
           name: customerData
-            ? [customerData.firstname, customerData.lastname].filter(Boolean).join(" ")
+            ? [customerData.firstName ?? customerData.firstname, customerData.lastName ?? customerData.lastname]
+                .filter(Boolean)
+                .join(" ")
             : "Customer",
-          email: customerData?.emailid ?? null,
-          firstName: customerData?.firstname,
-          lastName: customerData?.lastname,
-          mobile: mobile.replace(/\D/g, ""),
+          email: customerData?.emailId ?? customerData?.emailid ?? null,
+          firstName: customerData?.firstName ?? customerData?.firstname,
+          lastName: customerData?.lastName ?? customerData?.lastname,
+          mobileNo: loginMobile || null,
+          mobile: loginMobile || null,
         };
       }
       else {

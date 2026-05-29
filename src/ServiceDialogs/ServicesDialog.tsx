@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Modal,
   View,
@@ -11,7 +11,12 @@ import {
   Dimensions,
   Platform,
   Alert,
+  Animated,
+  PanResponder,
+  TouchableWithoutFeedback,
+  BackHandler,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch } from 'react-redux';
 import { add, add as addBooking } from "../features/bookingTypeSlice";
@@ -20,25 +25,27 @@ import BookingDialog from '../BookingDialog/BookingDialog';
 import CookServicesDialog from '../ServiceDialogs/CookServiceDialog';
 import MaidServiceDialog from '../ServiceDialogs/MaidServiceDialog';
 import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
-import { useAppUser } from '../context/AppUserContext'; // Import the context
+import { useAppUser } from '../context/AppUserContext';
 import { useTheme } from '../Settings/ThemeContext';
-
-// Import DETAILS constant
 import { DETAILS } from '../Constants/pagesConstants';
+import { BRAND } from '../theme/brandColors';
 
-// Import local images - same as in HomePage
 const cookImage = require("../../assets/images/Cooknew.png");
 const maidImage = require("../../assets/images/Maidnew.png");
 const nannyImage = require("../../assets/images/Nannynew.png");
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SHEET_MAX_HEIGHT = Math.min(SCREEN_HEIGHT * 0.82, 560);
+const DISMISS_DRAG = 72;
+const HEADER_DRAG_ZONE = 96;
 
 interface ServiceOption {
   id: string;
   title: string;
   description: string;
-  imageSource: any;
-  iconColor: string;
-  bgColor: string;
-  accentColor: string;
+  imageSource: ReturnType<typeof require>;
+  accent: string;
+  tint: string;
 }
 
 interface ServicesDialogProps {
@@ -55,47 +62,190 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   sendDataToParent
 }) => {
   const dispatch = useDispatch();
-  const screenWidth = Dimensions.get('window').width;
-  const isMobile = screenWidth < 600;
-
-  // Use AppUserContext instead of useAuth0
+  const insets = useSafeAreaInsets();
   const { appUser } = useAppUser();
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const [role, setRole] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(open);
 
-  // Check user role from context
-  useEffect(() => {
-    if (appUser) {
-      // Get role from appUser - adjust based on your appUser structure
-      const userRole = appUser.role || "CUSTOMER";
-      setRole(userRole);
-      console.log("ServicesDialog - User role from context:", userRole);
-    } else {
-      setRole(null);
-    }
-  }, [appUser]);
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const dragY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scrollOffsetY = useRef(0);
+  const dragStartY = useRef(0);
 
-  // Booking states - SIMILAR TO HOMEPAGE
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<'COOK' | 'MAID' | 'NANNY' | ''>('');
   const [selectedService, setSelectedService] = useState('');
-
   const [selectedOption, setSelectedOption] = useState<string>("Date");
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<dayjs.Dayjs | null>(null);
   const [endTime, setEndTime] = useState<dayjs.Dayjs | null>(null);
-
-  // Service dialogs states - SIMILAR TO HOMEPAGE
   const [showCookDialog, setShowCookDialog] = useState(false);
   const [showMaidServiceDialog, setShowMaidServiceDialog] = useState(false);
   const [showNannyServicesDialog, setShowNannyServicesDialog] = useState(false);
 
-  // Check if user is a service provider
   const isServiceDisabled = role === "SERVICE_PROVIDER";
 
+  useEffect(() => {
+    if (appUser) {
+      setRole(appUser.role || "CUSTOMER");
+    } else {
+      setRole(null);
+    }
+  }, [appUser]);
+
+  const dismissSheet = useCallback(() => {
+    dragY.setValue(0);
+    onClose();
+  }, [dragY, onClose]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (bookingDialogOpen) {
+        return false;
+      }
+      if (open || mounted) {
+        dismissSheet();
+        return true;
+      }
+      return false;
+    });
+    return () => backHandler.remove();
+  }, [open, mounted, bookingDialogOpen, dismissSheet]);
+
+  const sheetVisible = (open || mounted) && !bookingDialogOpen;
+
+  useLayoutEffect(() => {
+    if (open && !bookingDialogOpen) {
+      setMounted(true);
+      scrollOffsetY.current = 0;
+      dragY.setValue(0);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      fadeAnim.setValue(0);
+    }
+  }, [open, bookingDialogOpen, slideAnim, dragY, fadeAnim]);
+
+  useEffect(() => {
+    if (bookingDialogOpen) {
+      setMounted(false);
+      dragY.setValue(0);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      fadeAnim.setValue(0);
+    }
+  }, [bookingDialogOpen, slideAnim, dragY, fadeAnim]);
+
+  useEffect(() => {
+    if (!open || bookingDialogOpen) {
+      return;
+    }
+
+    const animation = Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 70,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start();
+    return () => animation.stop();
+  }, [open, slideAnim, fadeAnim]);
+
+  useEffect(() => {
+    if (open || !mounted || bookingDialogOpen) {
+      return;
+    }
+
+    const animation = Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        setMounted(false);
+        dragY.setValue(0);
+      }
+    });
+
+    return () => animation.stop();
+  }, [open, mounted, bookingDialogOpen, slideAnim, dragY, fadeAnim]);
+
+  const finishDismiss = useCallback(() => {
+    Animated.timing(slideAnim, {
+      toValue: SCREEN_HEIGHT,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      dragY.setValue(0);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      dismissSheet();
+    });
+  }, [slideAnim, dragY, dismissSheet]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gesture) => {
+          const inHeader = dragStartY.current <= HEADER_DRAG_ZONE;
+          const downward = gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx);
+          if (!downward) return false;
+          return inHeader || scrollOffsetY.current <= 0;
+        },
+        onMoveShouldSetPanResponderCapture: (_, gesture) => {
+          const inHeader = dragStartY.current <= HEADER_DRAG_ZONE;
+          const downward = gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx);
+          if (!downward) return false;
+          return inHeader || scrollOffsetY.current <= 0;
+        },
+        onPanResponderGrant: (evt) => {
+          dragStartY.current = evt.nativeEvent.locationY;
+        },
+        onPanResponderMove: (_, gesture) => {
+          if (gesture.dy > 0) {
+            dragY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > DISMISS_DRAG || gesture.vy > 0.45) {
+            finishDismiss();
+            return;
+          }
+          Animated.spring(dragY, {
+            toValue: 0,
+            useNativeDriver: true,
+            friction: 8,
+            tension: 80,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(dragY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    [dragY, finishDismiss]
+  );
+
   const handleServiceSelect = (serviceId: string) => {
-    // Don't open booking dialog for service providers
     if (isServiceDisabled) {
       Alert.alert(
         "Service Provider Account",
@@ -121,20 +271,19 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
 
     setSelectedType(serviceType);
     setSelectedService(serviceName);
-
-    // OPEN BOOKING DIALOG FIRST (like HomePage)
+    dragY.setValue(0);
+    slideAnim.setValue(SCREEN_HEIGHT);
+    fadeAnim.setValue(0);
+    setMounted(false);
     setBookingDialogOpen(true);
+    onClose();
 
     if (onServiceSelect) {
       onServiceSelect(serviceId);
     }
   };
 
-  // HANDLE BOOKING SAVE - UPDATED TO MATCH REACT CODE
   const handleBookingSave = (bookingDetails: any) => {
-    console.log("📝 handleBookingSave called with:", bookingDetails);
-    
-    // Helper functions to format date and time
     const formatDate = (value: any) => {
       if (!value) return "";
       if (typeof value === 'string') {
@@ -145,44 +294,37 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
 
     const formatTime = (value: any) => {
       if (!value) return "";
-      
-      console.log("🔧 formatTime input:", value, typeof value);
-      
-      // If it's a dayjs object
+
       if (value && typeof value === 'object' && value.format) {
         return value.format("HH:mm");
       }
-      
-      // If it's a Date object
+
       if (value instanceof Date) {
         return value.toTimeString().slice(0, 5);
       }
-      
-      // If it's already a string
+
       if (typeof value === 'string') {
         let timeStr = value.trim();
-        
-        // Handle 12-hour format with AM/PM
+
         if (timeStr.includes('AM') || timeStr.includes('PM')) {
           const [timePart, period] = timeStr.split(/\s+/);
           let [hours, minutes] = timePart.split(':').map(Number);
-          
+
           if (period === 'PM' && hours < 12) {
             hours += 12;
           } else if (period === 'AM' && hours === 12) {
             hours = 0;
           }
-          
+
           return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         }
-        
+
         return timeStr.replace(/\s+/g, '');
       }
-      
+
       return "";
     };
 
-    // NEW LOGIC: Create booking object matching React code structure
     let timeRange = "";
     let timeSlot = "";
 
@@ -208,18 +350,10 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
       timeSlot: timeSlot
     };
 
-    console.log("✅ Final booking object (React Native):", JSON.stringify(booking, null, 2));
-
-    // Dispatch booking to Redux - match React code
     dispatch(addBooking(booking));
-    
-    // Close booking dialog
     setBookingDialogOpen(false);
 
-    // Handle navigation based on booking type - match React code logic
     if (selectedOption === "Date") {
-      console.log("Opening service-specific dialog for Date booking");
-      // Open appropriate service dialog
       switch (selectedType) {
         case "COOK":
           setShowCookDialog(true);
@@ -231,35 +365,22 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
           setShowNannyServicesDialog(true);
           break;
       }
-    } else {
-      console.log(`Non-Date booking (${selectedOption}), navigating to ${DETAILS}`);
-      if (sendDataToParent) {
-        sendDataToParent(DETAILS);
-      } else {
-        console.error("sendDataToParent is undefined in handleBookingSave");
-      }
+    } else if (sendDataToParent) {
+      sendDataToParent(DETAILS);
     }
   };
 
-  // NEW FUNCTION: Handle service dialog close - match React code
   const handleServiceDialogClose = () => {
-    console.log("handleServiceDialogClose called");
     setShowCookDialog(false);
     setShowMaidServiceDialog(false);
     setShowNannyServicesDialog(false);
-    
-    // Always navigate to DETAILS after service dialog closes
+
     if (sendDataToParent) {
-      console.log("Calling sendDataToParent(DETAILS) from handleServiceDialogClose");
       sendDataToParent(DETAILS);
-    } else {
-      console.error("ERROR: sendDataToParent is undefined in handleServiceDialogClose");
     }
   };
 
-  // FIXED: Create proper booking type object to pass to service dialogs
   const getBookingType = () => {
-    // Create a booking type object similar to HomePage
     const formatDateForBooking = (date: string | null) => {
       if (!date) return "";
       try {
@@ -278,7 +399,6 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
       }
     };
 
-    // Create time range string
     let timeRange = "";
     if (startTime && endTime) {
       timeRange = `${formatTimeForBooking(startTime)} - ${formatTimeForBooking(endTime)}`;
@@ -292,7 +412,6 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
       timeRange: timeRange,
       bookingPreference: selectedOption,
       housekeepingRole: selectedType,
-      // Add all expected properties to avoid undefined errors
       startTime: formatTimeForBooking(startTime),
       endTime: formatTimeForBooking(endTime),
       start_date: formatDateForBooking(startDate),
@@ -302,22 +421,16 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
     };
   };
 
-  // HANDLE OPTION CHANGE - SIMILAR TO HOMEPAGE
   const handleOptionChange = (value: string) => {
-    console.log("📋 Option changed to:", value);
     setSelectedOption(value);
-    // Reset date/time when option changes
     setStartDate(null);
     setEndDate(null);
     setStartTime(null);
     setEndTime(null);
   };
 
-  // NEW FUNCTION: Handle booking dialog close - match React code
   const handleBookingDialogClose = () => {
-    console.log("Booking dialog closed");
     setBookingDialogOpen(false);
-    // Reset states when booking dialog is closed without saving
     setSelectedType('');
     setSelectedOption("Date");
     setStartDate(null);
@@ -326,207 +439,192 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
     setEndTime(null);
   };
 
-  const themeColors = {
-    headerBg: colors.primaryDark,
-    primary: colors.primary,
-    textPrimary: colors.text,
-    textSecondary: colors.textTertiary,
-    border: colors.border,
-    background: colors.surface,
-  };
-
-  const cleaningHelpColors = {
-    iconColor: colors.primary,
-    bgColor: colors.accentSoft ?? colors.accentLight,
-    accentColor: colors.primary,
-  };
-
   const serviceOptions: ServiceOption[] = [
     {
       id: 'home-cook',
       title: 'Home Cook',
       description: 'Verified cooks for hygienic, home-style meals',
       imageSource: cookImage,
-      iconColor: cleaningHelpColors.iconColor,
-      bgColor: cleaningHelpColors.bgColor,
-      accentColor: cleaningHelpColors.accentColor
+      accent: '#0EA5E9',
+      tint: '#E0F2FE',
     },
     {
       id: 'cleaning-help',
       title: 'Cleaning Help',
       description: 'Trained maids for thorough home cleaning',
       imageSource: maidImage,
-      iconColor: cleaningHelpColors.iconColor,
-      bgColor: cleaningHelpColors.bgColor,
-      accentColor: cleaningHelpColors.accentColor
+      accent: '#059669',
+      tint: '#D1FAE5',
     },
     {
       id: 'caregiver',
       title: 'Caregiver',
-      description: 'Compassionate caregivers for children & elderly',
+      description: 'Compassionate care for children & elderly',
       imageSource: nannyImage,
-      iconColor: cleaningHelpColors.iconColor,
-      bgColor: cleaningHelpColors.bgColor,
-      accentColor: cleaningHelpColors.accentColor
+      accent: '#7C3AED',
+      tint: '#EDE9FE',
     },
   ];
 
+  const surface = isDarkMode ? colors.surface : '#FFFFFF';
+  const textPrimary = isDarkMode ? colors.textPrimary : BRAND.text;
+  const textMuted = isDarkMode ? colors.textSecondary : BRAND.textMuted;
+  const borderColor = isDarkMode ? colors.border : BRAND.line;
+  const sheetTranslateY = Animated.add(slideAnim, dragY);
+
   return (
     <>
-      {/* Services Dialog */}
-      <Modal
-        visible={open}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={onClose}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[
-            styles.modalContainer,
-            { maxWidth: 900, width: screenWidth > 900 ? '80%' : '95%' }
-          ]}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerContent}>
-                <Text style={styles.headerTitle}>
-                  {isServiceDisabled ? "Explore Our Services" : "Select Your Service"}
-                </Text>
+      {sheetVisible && (
+        <Modal
+          visible={sheetVisible}
+          transparent
+          animationType="none"
+          onRequestClose={dismissSheet}
+          statusBarTranslucent
+          presentationStyle="overFullScreen"
+        >
+          <View style={styles.overlay}>
+            <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+              <TouchableWithoutFeedback onPress={dismissSheet}>
+                <View style={styles.backdropTap} />
+              </TouchableWithoutFeedback>
+            </Animated.View>
 
+            <Animated.View
+              style={[
+                styles.sheet,
+                {
+                  backgroundColor: surface,
+                  maxHeight: SHEET_MAX_HEIGHT,
+                  paddingBottom: Math.max(insets.bottom, 16),
+                  transform: [{ translateY: sheetTranslateY }],
+                },
+              ]}
+              {...panResponder.panHandlers}
+            >
+              <View style={styles.handleWrap}>
+                <View style={[styles.handle, { backgroundColor: borderColor }]} />
+              </View>
+
+              <View style={styles.headerRow}>
+                <View style={styles.headerTextWrap}>
+                  <Text style={[styles.headerEyebrow, { color: textMuted }]}>
+                    {isServiceDisabled ? 'Browse only' : 'New booking'}
+                  </Text>
+                  <Text style={[styles.headerTitle, { color: textPrimary }]}>
+                    {isServiceDisabled ? 'Our services' : 'Select a service'}
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  style={[
-                    styles.closeButton,
-                    isMobile && styles.closeButtonMobile
-                  ]}
-                  onPress={onClose}
+                  onPress={dismissSheet}
+                  style={[styles.closeBtn, { backgroundColor: isDarkMode ? colors.card : '#F1F5F9' }]}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Close"
                 >
-                  <Icon
-                    name="close"
-                    size={isMobile ? 20 : 24}
-                    color="white"
-                  />
+                  <Icon name="close" size={20} color={textPrimary} />
                 </TouchableOpacity>
               </View>
-            </View>
 
-            {/* Content */}
-            <ScrollView style={styles.content}>
-              <View style={styles.servicesGrid}>
-                {serviceOptions.map((service) => (
-                  <TouchableOpacity
-                    key={service.id}
-                    style={[
-                      styles.serviceCard,
-                      { borderLeftColor: service.accentColor },
-                      isServiceDisabled && styles.disabledServiceCard
-                    ]}
-                    onPress={() => handleServiceSelect(service.id)}
-                    activeOpacity={0.7}
-                    disabled={isServiceDisabled}
-                  >
-                    <View style={styles.cardContent}>
-                      {/* Circular Image Container */}
-                      <View style={styles.imageContainer}>
-                        <View style={[
-                          styles.circleImageWrapper,
-                          { backgroundColor: alpha(service.accentColor, 0.2) },
-                          isServiceDisabled && styles.disabledImageWrapper
-                        ]}>
-                          <Image
-                            source={service.imageSource}
-                            style={[
-                              styles.serviceImage,
-                              isServiceDisabled && styles.disabledService
-                            ]}
-                            resizeMode="cover"
-                          />
-                          <View style={styles.imageOverlay} />
-                        </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={(e) => {
+                  scrollOffsetY.current = e.nativeEvent.contentOffset.y;
+                }}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {isServiceDisabled && (
+                  <View style={styles.providerBanner}>
+                    <Icon name="info-outline" size={18} color="#B45309" />
+                    <Text style={styles.providerBannerText}>
+                      Service provider accounts cannot book. Switch to a customer account to book.
+                    </Text>
+                  </View>
+                )}
+
+                <Text style={[styles.sectionLabel, { color: textPrimary }]}>
+                  What do you need help with?
+                </Text>
+
+                <View style={styles.serviceList}>
+                  {serviceOptions.map((service) => (
+                    <TouchableOpacity
+                      key={service.id}
+                      style={[
+                        styles.serviceRow,
+                        {
+                          backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
+                          borderColor,
+                        },
+                        isServiceDisabled && styles.serviceRowDisabled,
+                      ]}
+                      onPress={() => handleServiceSelect(service.id)}
+                      activeOpacity={0.82}
+                      disabled={isServiceDisabled}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${service.title}`}
+                    >
+                      <View style={[styles.serviceThumbWrap, { backgroundColor: service.tint }]}>
+                        <Image
+                          source={service.imageSource}
+                          style={styles.serviceThumb}
+                          resizeMode="cover"
+                        />
                       </View>
 
-                      {/* Title and Description */}
-                      <View style={styles.textContainer}>
-                        <Text style={[
-                          styles.serviceTitle,
-                          isServiceDisabled && styles.disabledText
-                        ]}>
+                      <View style={styles.serviceCopy}>
+                        <Text style={[styles.serviceTitle, { color: textPrimary }]} numberOfLines={1}>
                           {service.title}
                         </Text>
-                        
-                        <Text style={[
-                          styles.serviceDescription,
-                          isServiceDisabled && styles.disabledText
-                        ]}>
+                        <Text style={[styles.serviceSubtitle, { color: textMuted }]} numberOfLines={2}>
                           {service.description}
                         </Text>
                       </View>
 
-                      {/* Select Service Button - Shows different text for service providers */}
-                      <TouchableOpacity
-                        style={[
-                          styles.selectButton,
-                          { backgroundColor: service.accentColor },
-                          isServiceDisabled && styles.disabledSelectButton
-                        ]}
-                        onPress={() => handleServiceSelect(service.id)}
-                        activeOpacity={0.8}
-                        disabled={isServiceDisabled}
-                      >
-                        <Text style={styles.buttonText}>
-                          {isServiceDisabled ? "View Only" : "Select Service"}
-                        </Text>
-                      </TouchableOpacity>
+                      <View style={[styles.serviceCta, { borderColor: service.accent }]}>
+                        <Icon name="arrow-forward" size={18} color={service.accent} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-                      {/* Show service provider message if applicable */}
-                      {isServiceDisabled && (
-                        <View style={styles.serviceProviderBadge}>
-                          <Icon name="info-outline" size={16} color="#FFA500" />
-                          <Text style={styles.serviceProviderBadgeText}>
-                            Service Provider - Booking Disabled
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
+                <Text style={[styles.footerNote, { color: textMuted }]}>
+                  Tap a service to choose dates and continue booking.
+                </Text>
+              </ScrollView>
+            </Animated.View>
           </View>
-        </View>
-      </Modal>
-
-      {/* Booking Dialog - Only render for non-service providers */}
-      {!isServiceDisabled && (
-        <BookingDialog
-          open={bookingDialogOpen}
-          onClose={handleBookingDialogClose}
-          onSave={handleBookingSave}
-          selectedOption={selectedOption}
-          onOptionChange={handleOptionChange}
-          startDate={startDate}
-          endDate={endDate}
-          startTime={startTime}
-          endTime={endTime}
-          setStartDate={setStartDate}
-          setEndDate={setEndDate}
-          setStartTime={setStartTime}
-          setEndTime={setEndTime}
-        />
+        </Modal>
       )}
 
-      {/* Service Dialogs - Only render for non-service providers */}
       {!isServiceDisabled && (
         <>
-          {/* CookServicesDialog - uses onClose prop (no open prop) */}
+          <BookingDialog
+            open={bookingDialogOpen}
+            onClose={handleBookingDialogClose}
+            onSave={handleBookingSave}
+            selectedOption={selectedOption}
+            onOptionChange={handleOptionChange}
+            startDate={startDate}
+            endDate={endDate}
+            startTime={startTime}
+            endTime={endTime}
+            setStartDate={setStartDate}
+            setEndDate={setEndDate}
+            setStartTime={setStartTime}
+            setEndTime={setEndTime}
+          />
+
           <CookServicesDialog
             open={showCookDialog}
             handleClose={handleServiceDialogClose}
             sendDataToParent={sendDataToParent}
           />
 
-          {/* NannyServicesDialog - uses open and handleClose props */}
           {showNannyServicesDialog && (
-            <View style={styles.dialogOverlay}>
-              <View style={styles.dialogBox}>
+            <View style={styles.nestedDialogOverlay}>
+              <View style={styles.nestedDialogBox}>
                 <NannyServicesDialog
                   open={showNannyServicesDialog}
                   handleClose={handleServiceDialogClose}
@@ -537,10 +635,9 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
             </View>
           )}
 
-          {/* MaidServiceDialog - uses open and handleClose props */}
           {showMaidServiceDialog && (
-            <View style={styles.dialogOverlay}>
-              <View style={styles.dialogBox}>
+            <View style={styles.nestedDialogOverlay}>
+              <View style={styles.nestedDialogBox}>
                 <MaidServiceDialog
                   open={showMaidServiceDialog}
                   handleClose={handleServiceDialogClose}
@@ -556,182 +653,156 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   );
 };
 
-// Helper function for alpha colors
-const alpha = (color: string, opacity: number) => {
-  if (color.startsWith('rgb')) {
-    const rgb = color.match(/\d+/g);
-    if (rgb) {
-      return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`;
-    }
-  }
-  return color;
-};
-
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  modalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    overflow: 'hidden',
-    maxHeight: '90%',
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.52)',
   },
-  header: {
-    backgroundColor: 'rgb(14, 48, 92)',
+  backdropTap: {
+    flex: 1,
+  },
+  sheet: {
     width: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0f172a',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: { elevation: 16 },
+    }),
   },
-  headerContent: {
+  handleWrap: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 999,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  headerTextWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  headerEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   headerTitle: {
-    color: 'white',
-    opacity: 0.9,
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
-  closeButton: {
-    position: 'absolute',
-    right: 7,
-    top: 7,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    borderRadius: 20,
-    zIndex: 1300,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
   },
-  closeButtonMobile: {
-    width: 32,
-    height: 32,
-  },
-  content: {
+  scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingBottom: 8,
   },
-  servicesGrid: {
-    marginTop: 16,
-  },
-  serviceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderLeftWidth: 2,
-    marginBottom: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  disabledServiceCard: {
-    opacity: 0.8,
-    backgroundColor: '#f5f5f5',
-  },
-  cardContent: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  imageContainer: {
-    marginBottom: 20,
-  },
-  circleImageWrapper: {
-    borderRadius: 70,
-    width: 140,
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(47, 179, 255, 0.3)',
-    overflow: 'hidden',
-    shadowColor: '#0b5bd3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  disabledImageWrapper: {
-    opacity: 0.6,
-    borderColor: '#ccc',
-  },
-  serviceImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-  disabledService: {
-    opacity: 0.5,
-  },
-  imageOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 70,
-    backgroundColor: 'rgba(47, 179, 255, 0.1)',
-  },
-  textContainer: {
-    width: '100%',
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  serviceTitle: {
-    fontWeight: '600',
-    fontSize: 16,
-    color: 'rgba(21, 57, 104, 1)',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  serviceDescription: {
-    color: '#64748B',
-    fontSize: 13,
-    lineHeight: 19.5,
-    textAlign: 'center',
-  },
-  disabledText: {
-    color: '#999',
-  },
-  selectButton: {
-    marginTop: 'auto',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-    minWidth: 140,
-  },
-  disabledSelectButton: {
-    backgroundColor: '#ccc',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  serviceProviderBadge: {
+  providerBanner: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 16,
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    marginBottom: 16,
   },
-  serviceProviderBadgeText: {
-    fontSize: 12,
-    color: '#FFA500',
+  providerBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#92400E',
     fontWeight: '500',
   },
-  dialogOverlay: {
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  serviceList: {
+    gap: 10,
+  },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 12,
+  },
+  serviceRowDisabled: {
+    opacity: 0.55,
+  },
+  serviceThumbWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceThumb: {
+    width: 52,
+    height: 52,
+  },
+  serviceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  serviceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  serviceSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  serviceCta: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  footerNote: {
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginTop: 16,
+    paddingHorizontal: 8,
+  },
+  nestedDialogOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -742,7 +813,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  dialogBox: {
+  nestedDialogBox: {
     width: '90%',
     maxHeight: '80%',
     backgroundColor: '#fff',

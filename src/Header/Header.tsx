@@ -39,6 +39,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Snackbar from "react-native-snackbar";
 import { useAppUser } from "../context/AppUserContext";
+import { resolveCustomerId } from "../services/couponService";
 import NotificationsDialog from "../Notifications/NotificationsPage";
 import PaymentInstance from "../services/paymentInstance";
 import { recipientParams } from "../Notifications/inAppNotificationUtils";
@@ -91,6 +92,7 @@ const Head: React.FC<ChildComponentProps> = ({
   const dispatch = useDispatch();
   const { setAppUser, clearAppUser, appUser } = useAppUser();
   const dropdownRef = useRef<View>(null);
+  const loadedPreferencesForRef = useRef<number | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("");
   const [userPreference, setUserPreference] = useState<any>([]);
@@ -293,6 +295,7 @@ const Head: React.FC<ChildComponentProps> = ({
             vendorId: response.data.id,
           });
         } else {
+          loadedPreferencesForRef.current = Number(response.data.id);
           setAppUser({
             ...auth0User,
             role: "CUSTOMER",
@@ -332,8 +335,9 @@ const Head: React.FC<ChildComponentProps> = ({
 
       console.log("User creation response:", response.data);
 
-      if (response.data && response.data.id) {
+        if (response.data && response.data.id) {
         const customerId = Number(response.data.id);
+        loadedPreferencesForRef.current = customerId;
         setAppUser({
           ...user,
           role: "CUSTOMER",
@@ -366,9 +370,14 @@ const Head: React.FC<ChildComponentProps> = ({
             role: "CUSTOMER",
             customerid: customerId,
           });
-        }
-        if (auth0User) {
           showSuccessSnackbar(`Welcome back, ${auth0User.name || auth0User.email}!`);
+        } else if (appUser) {
+          setAppUser({
+            ...appUser,
+            role: "CUSTOMER",
+            customerid: customerId,
+            customerId,
+          });
         }
       }
     } catch (error: any) {
@@ -409,6 +418,26 @@ const Head: React.FC<ChildComponentProps> = ({
       showErrorSnackbar("Failed to save user settings");
     }
   };
+
+  useEffect(() => {
+    if (auth0Loading || auth0User?.email) {
+      return;
+    }
+
+    const customerId = resolveCustomerId(appUser);
+    const role = String(appUser?.role || "").toUpperCase();
+    if (role !== "CUSTOMER" || !customerId || !appUser?.token) {
+      return;
+    }
+
+    const idNum = Number(customerId);
+    if (loadedPreferencesForRef.current === idNum) {
+      return;
+    }
+
+    loadedPreferencesForRef.current = idNum;
+    void getCustomerPreferences(idNum);
+  }, [appUser, auth0User, auth0Loading]);
 
   const handleClick = (e: string) => {
     setCurrentPage(e);

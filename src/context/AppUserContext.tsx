@@ -1,6 +1,14 @@
 // AppUserContext.tsx - Updated with AsyncStorage persistence
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useCallback,
+  useEffect,
+  SetStateAction,
+} from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface AppUserContextType {
   appUser: any | null;
@@ -15,13 +23,20 @@ interface AppUserProviderProps {
   children: ReactNode;
 }
 
-const STORAGE_KEY = '@app_user_data';
+const STORAGE_KEY = "@app_user_data";
+
+async function persistAppUser(user: unknown): Promise<void> {
+  if (user == null) {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    return;
+  }
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+}
 
 export const AppUserProvider: React.FC<AppUserProviderProps> = ({ children }) => {
-  const [appUser, setAppUser] = useState<any | null>(null);
+  const [appUser, setAppUserState] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load saved user data on startup
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -29,7 +44,7 @@ export const AppUserProvider: React.FC<AppUserProviderProps> = ({ children }) =>
         if (savedUser) {
           const userData = JSON.parse(savedUser);
           console.log("📀 Loaded saved user data:", userData);
-          setAppUser(userData);
+          setAppUserState(userData);
         }
       } catch (error) {
         console.error("Error loading user data:", error);
@@ -37,28 +52,30 @@ export const AppUserProvider: React.FC<AppUserProviderProps> = ({ children }) =>
         setIsLoading(false);
       }
     };
-    loadUserData();
+    void loadUserData();
   }, []);
 
-  // Save user data whenever it changes
-  const setAppUserAndSave = useCallback(async (user: any | null) => {
-    setAppUser(user);
-    try {
-      if (user) {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  const setAppUser = useCallback((value: SetStateAction<any | null>) => {
+    setAppUserState((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+
+      void persistAppUser(next).catch((error) => {
+        console.error("Error saving user data:", error);
+      });
+
+      if (next != null) {
         console.log("💾 Saved user data to storage");
       } else {
-        await AsyncStorage.removeItem(STORAGE_KEY);
         console.log("🗑️ Removed user data from storage");
       }
-    } catch (error) {
-      console.error("Error saving user data:", error);
-    }
+
+      return next ?? null;
+    });
   }, []);
 
   const clearAppUser = useCallback(async () => {
     console.log("🧹 Clearing AppUser context");
-    setAppUser(null);
+    setAppUserState(null);
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
       console.log("🗑️ Cleared user data from storage");
@@ -68,12 +85,14 @@ export const AppUserProvider: React.FC<AppUserProviderProps> = ({ children }) =>
   }, []);
 
   return (
-    <AppUserContext.Provider value={{ 
-      appUser, 
-      setAppUser: setAppUserAndSave,
-      clearAppUser,
-      isLoading
-    }}>
+    <AppUserContext.Provider
+      value={{
+        appUser,
+        setAppUser,
+        clearAppUser,
+        isLoading,
+      }}
+    >
       {children}
     </AppUserContext.Provider>
   );

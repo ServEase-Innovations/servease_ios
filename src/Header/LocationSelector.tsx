@@ -32,6 +32,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
+import { resolveCustomerId } from "../services/couponService";
 import LinearGradient from "react-native-linear-gradient";
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { GRADIENTS } from "../theme/brandColors";
@@ -61,6 +62,51 @@ function getSavedLocationsList(pref: any): any[] {
   if (Array.isArray(pref) && pref[0]?.savedLocations) return pref[0].savedLocations;
   if (pref.savedLocations && Array.isArray(pref.savedLocations)) return pref.savedLocations;
   return [];
+}
+
+function pickDefaultSavedLocation(savedLocations: any[]): any | null {
+  if (!savedLocations?.length) return null;
+  return (
+    savedLocations.find((loc) => loc.name === "Home") ||
+    savedLocations.find((loc) => String(loc.name || "").toLowerCase() === "home") ||
+    savedLocations[0]
+  );
+}
+
+function extractAddressFromSavedEntry(savedLocation: any): {
+  address: string;
+  lat: number | null;
+  lng: number | null;
+} | null {
+  const locationData = savedLocation?.location;
+  if (!locationData) return null;
+
+  let address = "";
+  let lat: number | null = null;
+  let lng: number | null = null;
+
+  if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
+    address = locationData.address[0].formatted_address;
+    if (locationData.address[0]?.geometry?.location) {
+      lat = locationData.address[0].geometry.location.lat;
+      lng = locationData.address[0].geometry.location.lng;
+    }
+  } else if (locationData.formatted_address) {
+    address = locationData.formatted_address;
+    if (locationData.geometry?.location) {
+      lat = locationData.geometry.location.lat;
+      lng = locationData.geometry.location.lng;
+    }
+  } else if (typeof locationData === "string") {
+    address = locationData;
+  } else if (locationData.lat != null && locationData.lng != null) {
+    lat = Number(locationData.lat);
+    lng = Number(locationData.lng);
+    address = savedLocation.name ? `${savedLocation.name} location` : "";
+  }
+
+  if (!address) return null;
+  return { address, lat, lng };
 }
 
 async function resolveAddressFromCoords(lat: number, lng: number): Promise<string> {
@@ -163,7 +209,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const [locationMethod, setLocationMethod] = useState<'auto' | 'manual' | null>(null);
 
-  const isAuthenticated = appUser && appUser.customerid;
+  const appliedSavedLocationRef = useRef(false);
+  const triedGpsForCustomerRef = useRef(false);
+
+  const customerId = resolveCustomerId(appUser);
+  const isAuthenticated = !!customerId;
 
   const headerDisplayText = (() => {
     const raw = address || location || currentLocationText;
@@ -919,7 +969,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       throw new Error(t('errors.authenticationRequired'));
     }
 
-    if (!appUser.customerid) {
+    if (!customerId) {
       throw new Error(t('errors.profileNotLoaded'));
     }
 
@@ -958,18 +1008,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
 
     const payload = {
-      customerId: appUser.customerid,
+      customerId,
       savedLocations: updatedLocations,
     };
     
     const response = await axios.put(
-      `https://utils-ndt3.onrender.com/user-settings/${appUser.customerid}`,
+      `https://utils-ndt3.onrender.com/user-settings/${customerId}`,
       payload
     );
 
     if (response.status === 200 || response.status === 201) {
       const updatedUserPreference = {
-        customerId: appUser.customerid,
+        customerId,
         savedLocations: updatedLocations
       };
       
@@ -1005,14 +1055,58 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   useEffect(() => {
+    if (!customerId) return;
+
+    const saved = getSavedLocationsList(userPreference);
+    if (!saved.length) {
+      if (!triedGpsForCustomerRef.current) {
+        triedGpsForCustomerRef.current = true;
+        fetchLocationWithChecks();
+      }
+      return;
+    }
+
+    if (appliedSavedLocationRef.current) return;
+
+    const preferred = pickDefaultSavedLocation(saved);
+    const extracted = preferred ? extractAddressFromSavedEntry(preferred) : null;
+    if (!extracted) return;
+
+    appliedSavedLocationRef.current = true;
+    setLoading(false);
+    setIsCheckingLocation(false);
+    setShowGPSButton(false);
+
+    if (extracted.lat != null && extracted.lng != null) {
+      updateLocationInStore(extracted.lat, extracted.lng, extracted.address);
+      return;
+    }
+
+    setLocation(shortenAddress(extracted.address, 3));
+    setAddress(extracted.address);
+    if (preferred.location) {
+      dispatch(add(preferred.location));
+      locationDispatch(addLocation(preferred.location));
+      if (onLocationChange) {
+        onLocationChange(extracted.address, preferred.location);
+      }
+    }
+  }, [customerId, userPreference, updateLocationInStore, dispatch, locationDispatch, onLocationChange]);
+
+  useEffect(() => {
+    if (customerId) {
+      setLoading(false);
+      return;
+    }
+
     fetchLocationWithChecks();
-    
+
     return () => {
       if (locationWatchId !== null) {
         Geolocation.clearWatch(locationWatchId);
       }
     };
-  }, []);
+  }, [customerId]);
 
   const updateSuggestions = () => {
     const baseSuggestions = [

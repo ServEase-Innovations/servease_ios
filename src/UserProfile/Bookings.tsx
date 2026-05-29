@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable */
 
-import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,8 +40,9 @@ import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 import GlassCard from '../design-system/GlassCard';
 import SegmentedRail from '../design-system/SegmentedRail';
 import ActionRow from '../design-system/ActionRow';
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { BOOKING_HEADER_GRADIENT, BRAND } from "../theme/brandColors";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
+import { resolveCustomerId } from "../services/couponService";
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -62,16 +63,16 @@ const GradientButton: React.FC<{
   children: React.ReactNode;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
+  innerStyle?: StyleProp<ViewStyle>;
   disabled?: boolean;
   gradientColors?: string[];
-}> = ({ children, onPress, style, disabled = false, gradientColors }) => {
-  const { colors } = useTheme();
-  const defaultGradient = [colors.primary, colors.primary + 'DD'];
+}> = ({ children, onPress, style, innerStyle, disabled = false, gradientColors }) => {
+  const defaultGradient = [...BOOKING_HEADER_GRADIENT];
   
   if (disabled) {
     return (
       <View style={[styles.gradientButton, { opacity: 0.5 }, style]}>
-        <LinearGradient colors={['#9CA3AF', '#6B7280']} style={styles.gradientInner}>
+        <LinearGradient colors={['#9CA3AF', '#6B7280']} style={[styles.gradientInner, innerStyle]}>
           {children}
         </LinearGradient>
       </View>
@@ -86,13 +87,38 @@ const GradientButton: React.FC<{
     >
       <LinearGradient
         colors={gradientColors || defaultGradient}
-        style={[styles.gradientInner, styles.gradientInnerFill]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.gradientInner, styles.gradientInnerFill, innerStyle]}
       >
         {children}
       </LinearGradient>
     </TouchableOpacity>
   );
 };
+
+const EmptyStateBookButton: React.FC<{
+  onPress: () => void;
+  labelFontSize: number;
+}> = ({ onPress, labelFontSize }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    activeOpacity={0.7}
+    style={styles.emptyStateCta}
+    accessibilityRole="button"
+    accessibilityLabel="Book a Service"
+  >
+    <View style={styles.emptyStateCtaContent}>
+      <Icon name="plus" size={20} color={BRAND.accent} />
+      <Text
+        allowFontScaling={false}
+        style={[styles.emptyStateButtonText, { fontSize: labelFontSize, color: BRAND.accent }]}
+      >
+        Book a Service
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
 
 const Badge: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; variant?: 'success' | 'warning' | 'info' | 'error' }> = ({ children, style, variant = 'info' }) => {
   const { colors } = useTheme();
@@ -427,8 +453,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   });
 
   const { user: auth0User } = useAuth0();
-  const isAuthenticated = auth0User !== undefined && auth0User !== null;
-  const { appUser } = useAppUser();
+  const { appUser, isLoading: isUserLoading } = useAppUser();
+  const isAuthenticated = useMemo(
+    () => !!(auth0User || appUser?.token),
+    [auth0User, appUser?.token]
+  );
+  const resolvedCustomerId = useMemo(() => resolveCustomerId(appUser), [appUser]);
 
   useEffect(() => {
     if (showRefreshTooltip) {
@@ -729,7 +759,11 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   };
 
   useEffect(() => {
-    const nextCustomerId = appUser?.customerId ?? appUser?.customerid;
+    if (isUserLoading) {
+      return;
+    }
+
+    const nextCustomerId = resolvedCustomerId;
 
     if (!isAuthenticated || !nextCustomerId) {
       lastLoadedCustomerIdRef.current = null;
@@ -743,7 +777,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
     let isActive = true;
     lastLoadedCustomerIdRef.current = nextCustomerId;
-    setCustomerId(nextCustomerId);
+    setCustomerId(Number(nextCustomerId));
     setIsLoading(true);
 
     (async () => {
@@ -767,7 +801,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     return () => {
       isActive = false;
     };
-  }, [appUser?.customerId, appUser?.customerid, isAuthenticated]);
+  }, [isUserLoading, resolvedCustomerId, isAuthenticated]);
 
   // [Keep all existing handler functions unchanged]
   const applyOtpGenerated = (engagementId: number, otp: string) => {
@@ -1388,44 +1422,60 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   );
 
   const renderTodayEmptyState = () => (
-    <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
-      <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
-        <Icon name="calendar-today" size={48} color={colors.primary} />
-      </View>
-      <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>
-        No service today
-      </Text>
-      <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-        You do not have any visits scheduled for today
-      </Text>
-      <GradientButton style={styles.emptyStateButton} onPress={() => setServicesDialogOpen(true)}>
-        <Icon name="plus" size={20} color="#fff" />
-        <Text style={[styles.emptyStateButtonText, { fontSize: fontSizes.buttonText }]}>
-          Book a Service
+    <View style={styles.emptyStateWrap}>
+      <View
+        style={[
+          styles.emptyStateCard,
+          {
+            backgroundColor: colors.surfaceElevated ?? colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.accentSoft }]}>
+          <Icon name="calendar-today" size={40} color={colors.primary} />
+        </View>
+        <Text style={[styles.emptyStateTitle, { color: colors.textPrimary, fontSize: fontSizes.emptyStateTitle }]}>
+          No service today
         </Text>
-      </GradientButton>
+        <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+          You do not have any visits scheduled for today
+        </Text>
+      </View>
+      <EmptyStateBookButton
+        onPress={() => setServicesDialogOpen(true)}
+        labelFontSize={fontSizes.buttonText}
+      />
     </View>
   );
 
   const renderUpcomingEmptyState = () => {
     if (upcomingBaseBookings.length === 0) {
       return (
-        <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
-          <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
-            <Icon name="calendar-check" size={48} color={colors.primary} />
-          </View>
-          <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>
-            No Upcoming Bookings
-          </Text>
-          <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-            You do not have any upcoming service bookings
-          </Text>
-          <GradientButton style={styles.emptyStateButton} onPress={() => setServicesDialogOpen(true)}>
-            <Icon name="plus" size={20} color="#fff" />
-            <Text style={[styles.emptyStateButtonText, { fontSize: fontSizes.buttonText }]}>
-              Book a Service
+        <View style={styles.emptyStateWrap}>
+          <View
+            style={[
+              styles.emptyStateCard,
+              {
+                backgroundColor: colors.surfaceElevated ?? colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.accentSoft }]}>
+              <Icon name="calendar-check" size={40} color={colors.primary} />
+            </View>
+            <Text style={[styles.emptyStateTitle, { color: colors.textPrimary, fontSize: fontSizes.emptyStateTitle }]}>
+              No Upcoming Bookings
             </Text>
-          </GradientButton>
+            <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+              You do not have any upcoming service bookings
+            </Text>
+          </View>
+          <EmptyStateBookButton
+            onPress={() => setServicesDialogOpen(true)}
+            labelFontSize={fontSizes.buttonText}
+          />
         </View>
       );
     }
@@ -2172,14 +2222,14 @@ const styles = StyleSheet.create({
   },
   
   mainScrollView: { flex: 1 },
-  scrollContentContainer: { flexGrow: 1 },
+  scrollContentContainer: { flexGrow: 1, paddingBottom: 16 },
   
   section: {
     width: '100%',
     alignSelf: 'stretch',
     paddingHorizontal: HORIZONTAL_GUTTER,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: 12,
+    paddingBottom: 20,
     alignItems: 'stretch',
   },
   
@@ -2511,10 +2561,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     gap: 8,
-    minHeight: 48,
+    minHeight: 52,
   },
   gradientInnerFill: {
     width: '100%',
@@ -2579,15 +2629,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   
+  emptyStateWrap: {
+    width: '100%',
+    alignItems: 'stretch',
+    paddingBottom: 12,
+  },
   emptyStateCard: {
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 32,
-    borderRadius: 20,
+    paddingTop: 28,
+    paddingBottom: 28,
+    borderRadius: 16,
     borderWidth: 1,
     marginTop: 8,
     width: '100%',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
   clearFilterBtn: {
     marginTop: 8,
@@ -2600,12 +2660,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   emptyStateIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   emptyStateTitle: {
     fontWeight: '700',
@@ -2613,21 +2673,35 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: 0,
     opacity: 0.7,
   },
-  emptyStateButton: {
+  emptyStateCta: {
     width: '100%',
-    maxWidth: 280,
-    marginTop: 4,
+    marginTop: 16,
+    alignSelf: 'stretch',
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: BRAND.accent,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  emptyStateCtaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   emptyStateButtonText: {
-    color: '#fff',
     fontWeight: '600',
     lineHeight: 22,
     textAlign: 'center',
-    ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
+    includeFontPadding: false,
+    letterSpacing: 0.2,
   },
   
   snackbar: {
