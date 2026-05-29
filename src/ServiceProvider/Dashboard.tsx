@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { DashboardMetricCard } from './DashboardMetricCard';
+import { DashboardMetricCard, METRIC_CARD_WIDTH } from './DashboardMetricCard';
 import TodayVisitsCard, { TodayBookingSlot } from './TodayVisitsCard';
 import { useAuth0 } from 'react-native-auth0';
 import { AllBookingsDialog } from './AllBookingsDialog';
@@ -30,6 +30,8 @@ import { ReviewsDialog } from './ReviewDialog';
 import axios, { AxiosResponse } from 'axios';
 import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
+import { useTheme } from '../Settings/ThemeContext';
+import { BRAND, GRADIENTS, PRIMARY_BUTTON_GRADIENT } from '../theme/brandColors';
 import ProviderCalendarBig from './ProviderCalendarBig';
 import { OtpVerificationDialog } from './OtpVerificationDialog';
 import WithdrawalDialog from './WithdrawalDialog';
@@ -313,11 +315,13 @@ function QuickActionRow({
   icon,
   iconBg,
   label,
+  subtitle,
   onPress,
 }: {
   icon: React.ReactNode;
   iconBg: string;
   label: string;
+  subtitle?: string;
   onPress: () => void;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -348,7 +352,10 @@ function QuickActionRow({
         activeOpacity={0.7}
       >
         <View style={[styles.quickActionIcon, { backgroundColor: iconBg }]}>{icon}</View>
-        <Text style={styles.quickActionLabel}>{label}</Text>
+        <View style={styles.quickActionTextCol}>
+          <Text style={styles.quickActionLabel}>{label}</Text>
+          {subtitle ? <Text style={styles.quickActionSubtitle}>{subtitle}</Text> : null}
+        </View>
         <MaterialIcon name="chevron-right" size={20} color="#94a3b8" />
       </TouchableOpacity>
     </Animated.View>
@@ -363,6 +370,7 @@ interface DashboardProps {
 export default function Dashboard({ onProfilePress, onBackToHome }: DashboardProps) {
   const { user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
+  const { colors } = useTheme();
   const [bookings, setBookings] = useState<BookingHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -473,36 +481,52 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
     }
   }, [isAuthenticated, auth0User, appUser]);
 
+  const availableBalance = payout?.summary?.available_to_withdraw ?? 0;
+  const depositPaid = Boolean(payout?.summary?.security_deposit_paid);
+
+  const formatInr = (amount: number) => {
+    const abs = Math.abs(amount);
+    const hasFraction = Math.abs(amount - Math.trunc(amount)) > 0.001;
+    const formatted = abs.toLocaleString("en-IN", {
+      minimumFractionDigits: hasFraction ? 2 : 0,
+      maximumFractionDigits: 2,
+    });
+    return amount < 0 ? `-₹${formatted}` : `₹${formatted}`;
+  };
+
   const metrics = [
     {
       title: "Total Earnings",
-      value: `₹${payout?.summary?.total_earned?.toLocaleString("en-IN") || 0}`,
+      value: formatInr(payout?.summary?.total_earned ?? 0),
       icon: "rupee" as const,
-      description: "This month (credited to wallet)",
-      // gradient: ['#3b82f6', '#1e3a8a'],
+      variant: "earnings" as const,
+      hint: "This month",
+      hintVariant: "default" as const,
     },
     {
       title: "Security Deposit",
-      value: `₹${payout?.summary?.security_deposit_amount?.toLocaleString("en-IN") || 0}`,
-      change: payout?.summary?.security_deposit_paid ? "Paid" : "Not paid",
-      changeType: payout?.summary?.security_deposit_paid ? ("neutral" as const) : ("negative" as const),
+      value: formatInr(payout?.summary?.security_deposit_amount ?? 0),
       icon: "shield" as const,
-      description: "For active bookings",
-      // gradient: ['#8b5cf6', '#5b21b6'],
+      variant: "deposit" as const,
+      hint: depositPaid ? "Paid" : "Pending",
+      hintVariant: depositPaid ? ("success" as const) : ("warning" as const),
     },
     {
       title: "Total Withdrawn",
-      value: `₹${(payout?.summary?.total_withdrawn ?? 0).toLocaleString("en-IN")}`,
+      value: formatInr(payout?.summary?.total_withdrawn ?? 0),
       icon: "credit-card" as const,
-      description: "Already withdrawn or deducted",
-      // gradient: ['#10b981', '#047857'],
+      variant: "withdrawn" as const,
+      hint: "All time",
+      hintVariant: "default" as const,
     },
     {
       title: "Available Balance",
-      value: `₹${payout?.summary?.available_to_withdraw?.toLocaleString("en-IN") || 0}`,
+      value: formatInr(availableBalance),
       icon: "wallet" as const,
-      description: "After service charges and TDS",
-      // gradient: ['#f59e0b', '#d97706'],
+      variant: "balance" as const,
+      hint: availableBalance < 0 ? "Negative" : "Net available",
+      hintVariant: availableBalance < 0 ? ("danger" as const) : ("default" as const),
+      valueTone: availableBalance < 0 ? ("negative" as const) : ("default" as const),
     },
   ];
 
@@ -720,7 +744,12 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
   };
 
   const userDisplayName = userName || auth0User?.name || "Guest";
-  const userEmail = appUser?.email || auth0User?.email;
+  const welcomeName = (() => {
+    const raw = userDisplayName.trim();
+    if (!raw) return "there";
+    if (raw.includes("@")) return raw.split("@")[0] || "there";
+    return raw.split(/\s+/)[0] || "there";
+  })();
   const avatarUrl = (appUser?.picture as string) || (auth0User?.picture as string) || null;
   const userInitials = userDisplayName
     .split(/\s+/)
@@ -732,44 +761,48 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Good Morning" : currentHour < 17 ? "Good Afternoon" : "Good Evening";
 
+  const bookingPreviewCount =
+    (bookings?.current?.length ?? 0) +
+    (bookings?.upcoming?.length ?? 0) +
+    (bookings?.past?.length ?? 0);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f0f9ff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={BRAND.bookingNavy}
+      />
       
       <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={BRAND.bookingSky}
+            colors={[BRAND.bookingSky]}
+          />
+        }
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Modern Header with Gradient */}
         <LinearGradient
-          colors={['#1e3a5f', '#1e40af', '#1e3a5f']}
+          colors={[...GRADIENTS.bookingHeader]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 1, y: 0 }}
           style={styles.gradientHeader}
         >
           <View style={styles.headerTop}>
-            {/* <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-              <MaterialIcon name="arrow-back" size={22} color="#ffffff" />
-            </TouchableOpacity> */}
-            <View style={styles.brandContainer}>
-              <LinearGradient
-                colors={['#38bdf8', '#818cf8']}
-                style={styles.brandIcon}
-              >
-                <MaterialIcon name="home" size={22} color="#ffffff" />
-              </LinearGradient>
-              <View>
-                <Text style={styles.brandTitle}>Serveaso Provider</Text>
-                <Text style={styles.brandSubtitle}>SERVICE DASHBOARD</Text>
-              </View>
+            <View style={styles.headerTitleBlock}>
+              <Text style={styles.headerEyebrow}>Service Provider</Text>
+              <Text style={styles.headerTitle}>Dashboard</Text>
             </View>
             <TouchableOpacity style={styles.profileButton} onPress={onProfilePress}>
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatar} />
               ) : (
                 <LinearGradient
-                  colors={['#38bdf8', '#818cf8']}
+                  colors={[...PRIMARY_BUTTON_GRADIENT]}
                   style={styles.avatarFallback}
                 >
                   <Text style={styles.avatarInitials}>{userInitials}</Text>
@@ -780,18 +813,17 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
           <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <Text style={styles.heroGreeting}>{greeting}</Text>
-            <Text style={styles.heroTitle}>Welcome back, {userDisplayName.split(' ')[0]}!</Text>
+            <Text style={styles.heroTitle}>Welcome back, {welcomeName}!</Text>
             <Text style={styles.heroSubtitle}>
-              Here's your service overview. Manage bookings, track earnings, and stay on top of your day.
+              Track earnings, manage today's visits, and stay on top of your schedule.
             </Text>
           </Animated.View>
         </LinearGradient>
 
         <View style={styles.mainContent}>
-          {/* Metrics Grid with Gradient Cards */}
           <View style={styles.metricsGrid}>
             {metrics.map((metric, index) => (
-              <DashboardMetricCard key={index} {...metric} />
+              <DashboardMetricCard key={metric.title} {...metric} />
             ))}
           </View>
 
@@ -815,9 +847,14 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
               </View>
               <View style={styles.cardContent}>
                 <QuickActionRow
-                  iconBg="#dbeafe"
-                  icon={<MaterialIcon name="people" size={18} color="#2563eb" />}
+                  iconBg={BRAND.accentSoft}
+                  icon={<MaterialIcon name="calendar-month" size={18} color={BRAND.accent} />}
                   label="View all bookings"
+                  subtitle={
+                    bookingPreviewCount > 0
+                      ? `${bookingPreviewCount} booking${bookingPreviewCount !== 1 ? "s" : ""} this month`
+                      : "Browse current, upcoming & past"
+                  }
                   onPress={() => setShowAllBookings(true)}
                 />
                 <QuickActionRow
@@ -957,62 +994,49 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
   },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
   gradientHeader: {
-    paddingTop: Platform.OS === "android" ? 12 : 8,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingTop: Platform.OS === "android" ? 8 : 4,
+    paddingBottom: 36,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 5,
   },
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: Platform.OS === "android" ? 16 : 12,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+  headerTitleBlock: {
+    flex: 1,
+    paddingRight: 12,
   },
-  brandContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  brandIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brandTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#ffffff",
-    letterSpacing: -0.3,
-  },
-  brandSubtitle: {
-    fontSize: 9,
+  headerEyebrow: {
+    fontSize: 11,
     fontWeight: "600",
     letterSpacing: 0.8,
-    color: "rgba(255,255,255,0.7)",
-    marginTop: 2,
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.65)",
+    marginBottom: 2,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#ffffff",
+    letterSpacing: -0.4,
   },
   profileButton: {
     width: 38,
@@ -1040,36 +1064,44 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   heroSection: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   heroGreeting: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "rgba(255,255,255,0.8)",
-    letterSpacing: 0.5,
-    marginBottom: 8,
+    color: "rgba(255,255,255,0.75)",
+    letterSpacing: 0.4,
+    marginBottom: 4,
   },
   heroTitle: {
-    fontSize: 26,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#ffffff",
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    letterSpacing: -0.3,
+    marginBottom: 6,
   },
   heroSubtitle: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-    lineHeight: 20,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.72)",
+    lineHeight: 19,
+    maxWidth: "92%",
   },
   mainContent: {
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingTop: 0,
+    paddingBottom: 24,
+    marginTop: -18,
   },
   metricsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 8,
+    columnGap: 10,
+    rowGap: 10,
+    marginBottom: 20,
+    width: METRIC_CARD_WIDTH * 2 + 10,
+    alignSelf: "center",
   },
   quickActions: {
     width: '100%',
@@ -1098,11 +1130,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 14,
   },
-  quickActionLabel: {
+  quickActionTextCol: {
     flex: 1,
+  },
+  quickActionLabel: {
     fontSize: 14,
     fontWeight: "600",
     color: "#1e293b",
+  },
+  quickActionSubtitle: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
+    fontWeight: "500",
   },
   cardHeader: {
     flexDirection: "row",

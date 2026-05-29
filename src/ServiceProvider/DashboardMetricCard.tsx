@@ -1,247 +1,311 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, Animated, Dimensions } from "react-native";
-import LinearGradient from "react-native-linear-gradient";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { useTheme } from "../Settings/ThemeContext";
+import { BRAND } from "../theme/brandColors";
 
-const { width } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-export type MetricIcon =
-  | "rupee"
-  | "shield"
-  | "credit-card"
-  | "wallet"
-  | "calendar"
-  | "star"
-  | "trending-up"
-  | "users"
-  | "clock"
-  | "home"
-  | "bell";
+export type MetricIcon = "rupee" | "shield" | "credit-card" | "wallet";
+export type MetricVariant = "earnings" | "deposit" | "withdrawn" | "balance";
+
+const GRID_PADDING = 12;
+const GRID_GAP = 10;
+export const METRIC_CARD_WIDTH =
+  (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
+export const METRIC_CARD_HEIGHT = 178;
 
 interface DashboardMetricCardProps {
   title: string;
   value: string;
-  change?: string;
-  changeType?: "positive" | "negative" | "neutral";
   icon: MetricIcon;
-  description?: string;
+  variant: MetricVariant;
+  hint?: string;
+  hintVariant?: "default" | "success" | "warning" | "danger";
+  valueTone?: "default" | "negative" | "positive";
+}
+
+const ICON_NAME: Record<MetricIcon, string> = {
+  rupee: "currency-rupee",
+  shield: "verified-user",
+  "credit-card": "payments",
+  wallet: "account-balance-wallet",
+};
+
+type VariantAccent = {
+  accent: string;
+  iconBg: string;
+  iconColor: string;
+};
+
+const VARIANT_ACCENT: Record<MetricVariant, VariantAccent> = {
+  earnings: {
+    accent: BRAND.accent,
+    iconBg: BRAND.accentSoft,
+    iconColor: BRAND.accent,
+  },
+  deposit: {
+    accent: BRAND.accentDark,
+    iconBg: "#dbeafe",
+    iconColor: BRAND.accentDark,
+  },
+  withdrawn: {
+    accent: BRAND.logoLight,
+    iconBg: BRAND.accentSoft,
+    iconColor: BRAND.logoDark,
+  },
+  balance: {
+    accent: BRAND.bookingSky,
+    iconBg: "#dbeafe",
+    iconColor: BRAND.accentDark,
+  },
+};
+
+function getHintIcon(variant: DashboardMetricCardProps["hintVariant"]) {
+  switch (variant) {
+    case "success":
+      return "check-circle";
+    case "warning":
+      return "schedule";
+    case "danger":
+      return "error-outline";
+    default:
+      return null;
+  }
 }
 
 export function DashboardMetricCard({
   title,
   value,
-  change,
-  changeType = "neutral",
   icon,
-  description,
+  variant,
+  hint = "",
+  hintVariant = "default",
+  valueTone = "default",
 }: DashboardMetricCardProps) {
-  // Animation values
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const { colors, isDarkMode } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(0.97)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 8,
-        tension: 40,
+        friction: 9,
+        tension: 50,
         useNativeDriver: true,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 500,
+        duration: 400,
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
-  const getChangeBadgeStyle = () => {
-    switch (changeType) {
-      case "positive":
-        return styles.changePositive;
-      case "negative":
-        return styles.changeNegative;
-      default:
-        return styles.changeNeutral;
-    }
-  };
+  const variantAccent = VARIANT_ACCENT[variant];
+  const isNegativeBalance = valueTone === "negative" && variant === "balance";
 
-  const getChangeTextColor = () => {
-    switch (changeType) {
-      case "positive":
-        return "#065f46";
-      case "negative":
-        return "#9f1239";
-      default:
-        return "#475569";
+  const cardTheme = useMemo(() => {
+    if (isNegativeBalance) {
+      return {
+        cardBg: isDarkMode ? "rgba(127, 29, 29, 0.35)" : colors.errorLight,
+        border: isDarkMode ? "#991b1b" : "#fecaca",
+        accent: colors.error,
+        iconBg: isDarkMode ? "rgba(127, 29, 29, 0.5)" : "#ffe4e6",
+        iconColor: colors.errorDark,
+        valueColor: colors.error,
+      };
     }
-  };
 
-  const getChangeIcon = () => {
-    switch (changeType) {
-      case "positive":
-        return <MaterialIcon name="arrow-upward" size={10} color="#065f46" />;
-      case "negative":
-        return <MaterialIcon name="arrow-downward" size={10} color="#9f1239" />;
+    return {
+      cardBg: isDarkMode ? colors.surface : BRAND.accentSoft,
+      border: isDarkMode ? colors.border : BRAND.line,
+      accent: variantAccent.accent,
+      iconBg: isDarkMode ? "rgba(25, 63, 121, 0.35)" : variantAccent.iconBg,
+      iconColor: isDarkMode ? BRAND.bookingSky : variantAccent.iconColor,
+      valueColor: colors.textPrimary,
+    };
+  }, [colors, isDarkMode, isNegativeBalance, variantAccent]);
+
+  const hintStyle = useMemo(() => {
+    switch (hintVariant) {
+      case "success":
+        return {
+          bg: isDarkMode ? "rgba(16, 185, 129, 0.2)" : colors.successLight,
+          text: isDarkMode ? colors.success : colors.successDark,
+          border: isDarkMode ? colors.success : "#a7f3d0",
+        };
+      case "warning":
+        return {
+          bg: isDarkMode ? "rgba(245, 158, 11, 0.2)" : colors.warningLight,
+          text: isDarkMode ? colors.warning : colors.warningDark,
+          border: isDarkMode ? colors.warning : "#fde68a",
+        };
+      case "danger":
+        return {
+          bg: isDarkMode ? "rgba(239, 68, 68, 0.2)" : colors.errorLight,
+          text: isDarkMode ? "#fca5a5" : colors.errorDark,
+          border: isDarkMode ? colors.error : "#fecaca",
+        };
       default:
         return null;
     }
-  };
+  }, [colors, hintVariant, isDarkMode]);
 
-  const renderIcon = () => {
-    const size = 22;
-    const iconMap: Record<MetricIcon, React.ReactNode> = {
-      rupee: <MaterialIcon name="currency-rupee" size={size} color="#ffffff" />,
-      shield: <MaterialIcon name="security" size={size} color="#ffffff" />,
-      "credit-card": <MaterialIcon name="credit-card" size={size} color="#ffffff" />,
-      wallet: <MaterialIcon name="account-balance-wallet" size={size} color="#ffffff" />,
-      calendar: <Icon name="calendar" size={size} color="#ffffff" />,
-      star: <Icon name="star" size={size} color="#ffffff" />,
-      "trending-up": <MaterialIcon name="trending-up" size={size} color="#ffffff" />,
-      users: <Icon name="users" size={size} color="#ffffff" />,
-      clock: <Icon name="clock-o" size={size} color="#ffffff" />,
-      home: <Icon name="home" size={size} color="#ffffff" />,
-      bell: <MaterialIcon name="notifications" size={size} color="#ffffff" />,
-    };
-    return iconMap[icon] || <MaterialIcon name="info" size={size} color="#ffffff" />;
-  };
-
-  // Determine gradient based on title for subtle variation
-  const getGradientColors = () => {
-    if (title === "Total Earnings") {
-      return ["#1e3a5f", "#1e40af"];
-    }
-    if (title === "Security Deposit") {
-      return ["#1e3a5f", "#1e40af"];
-    }
-    if (title === "Total Withdrawn") {
-      return ["#1e3a5f", "#1e40af"];
-    }
-    if (title === "Available Balance") {
-      return ["#1e3a5f", "#1e40af"];
-    }
-    return ["#1e3a5f", "#1e40af"];
-  };
+  const hintIcon = getHintIcon(hintVariant);
+  const showHintPill = hintVariant !== "default" && hint.length > 0;
 
   return (
     <Animated.View
       style={[
         styles.container,
-        {
-          opacity: opacityAnim,
-          transform: [{ scale: scaleAnim }],
-        },
+        { opacity: opacityAnim, transform: [{ scale: scaleAnim }] },
       ]}
     >
-      <LinearGradient
-        colors={getGradientColors()}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.card}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: cardTheme.cardBg,
+            borderColor: cardTheme.border,
+          },
+        ]}
       >
-        <View style={styles.topRow}>
-          <Text style={styles.title}>{title.toUpperCase()}</Text>
-          <View style={styles.iconWrapper}>{renderIcon()}</View>
-        </View>
+        <View style={[styles.accentBar, { backgroundColor: cardTheme.accent }]} />
 
-        <Text style={styles.value} numberOfLines={1}>
-          {value}
-        </Text>
-
-        <View style={styles.bottomRow}>
-          {change && (
-            <View style={[styles.changeBadge, getChangeBadgeStyle()]}>
-              {getChangeIcon()}
-              <Text style={[styles.changeText, { color: getChangeTextColor() }]}>
-                {change}
-              </Text>
+        <View style={styles.cardBody}>
+          <View style={styles.topRow}>
+            <View style={[styles.iconBadge, { backgroundColor: cardTheme.iconBg }]}>
+              <MaterialIcon name={ICON_NAME[icon]} size={20} color={cardTheme.iconColor} />
             </View>
-          )}
-          {description && <Text style={styles.description}>{description}</Text>}
+            <Text style={[styles.title, { color: colors.textSecondary }]} numberOfLines={2}>
+              {title}
+            </Text>
+          </View>
+
+          <Text
+            style={[styles.value, { color: cardTheme.valueColor }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+          >
+            {value}
+          </Text>
+
+          <View style={styles.footerSlot}>
+            {showHintPill && hintStyle ? (
+              <View
+                style={[
+                  styles.hintPill,
+                  {
+                    backgroundColor: hintStyle.bg,
+                    borderColor: hintStyle.border,
+                  },
+                ]}
+              >
+                {hintIcon ? (
+                  <MaterialIcon name={hintIcon} size={12} color={hintStyle.text} />
+                ) : null}
+                <Text
+                  style={[styles.hintPillText, { color: hintStyle.text }]}
+                  numberOfLines={1}
+                >
+                  {hint}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.hintCaption, { color: colors.textTertiary }]} numberOfLines={2}>
+                {hint || "\u00A0"}
+              </Text>
+            )}
+          </View>
         </View>
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: "48%",
-    marginBottom: 12,
+    width: METRIC_CARD_WIDTH,
+    height: METRIC_CARD_HEIGHT,
   },
   card: {
+    flex: 1,
     borderRadius: 16,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    borderWidth: 1,
+    overflow: "hidden",
+    shadowColor: BRAND.bookingNavy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 2,
+  },
+  accentBar: {
+    height: 3,
+    width: "100%",
+  },
+  cardBody: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+    justifyContent: "space-between",
   },
   topRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    gap: 10,
+    minHeight: 40,
   },
-  title: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    color: "rgba(255,255,255,0.7)",
-  },
-  iconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.15)",
+  iconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+  },
+  title: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+    lineHeight: 15,
   },
   value: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#ffffff",
     letterSpacing: -0.5,
-    marginBottom: 10,
+    lineHeight: 28,
+    marginTop: 4,
+    marginBottom: 4,
   },
-  bottomRow: {
+  footerSlot: {
+    minHeight: 28,
+    justifyContent: "flex-end",
+  },
+  hintCaption: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "500",
+  },
+  hintPill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  changeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+    alignSelf: "flex-start",
     gap: 4,
-    borderRadius: 8,
+    maxWidth: "100%",
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
+    borderRadius: 999,
     borderWidth: 1,
   },
-  changePositive: {
-    backgroundColor: "rgba(10, 204, 139, 0.88)",
-    borderColor: "rgba(16, 185, 129, 0.3)",
-  },
-  changeNegative: {
-    backgroundColor: "rgba(255, 255, 255, 0.88)",
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
-  changeNeutral: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderColor: "rgba(255, 255, 255, 0.2)",
-  },
-  changeText: {
+  hintPillText: {
+    flexShrink: 1,
     fontSize: 10,
-    fontWeight: "600",
-  },
-  description: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.6)",
-    flex: 1,
-    textAlign: "right",
+    fontWeight: "700",
+    lineHeight: 13,
   },
 });

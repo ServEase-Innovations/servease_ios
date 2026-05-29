@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import LinearGradient from "react-native-linear-gradient";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import { BRAND } from "../theme/brandColors";
 import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from "../common/BookingUtils";
 
 export interface TodayBookingSlot {
@@ -65,31 +65,44 @@ export default function TodayVisitsCard({
   onStartTodayVisit,
   onStopTask,
 }: Props) {
+  const visitCount = todaySchedule.length;
+  const subtitle = loading
+    ? "Loading schedule..."
+    : visitCount === 0
+      ? "No visits scheduled today"
+      : visitCount === 1
+        ? "1 visit scheduled today"
+        : `${visitCount} visits scheduled today`;
+
   return (
     <View style={styles.card}>
-      <LinearGradient
-        colors={["#1e3a5f", "#1e40af"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <View style={styles.headerLeft}>
+      <View style={styles.accentBar} />
+
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
           <View style={styles.headerIcon}>
-            <MaterialIcon name="today" size={20} color="#ffffff" />
+            <MaterialIcon name="event-available" size={20} color={BRAND.accent} />
           </View>
-          <View>
+
+          <View style={styles.headerTextCol}>
             <Text style={styles.title}>Today's Visits</Text>
-            <Text style={styles.subtitle}>
-              {loading ? "Loading schedule..." : `${todaySchedule.length} visit${todaySchedule.length !== 1 ? 's' : ''} scheduled for today`}
+            <Text style={styles.subtitle} numberOfLines={2}>
+              {subtitle}
             </Text>
           </View>
+
+          {!loading ? (
+            <View style={styles.countBadge}>
+              <Text style={styles.countText}>{visitCount}</Text>
+            </View>
+          ) : null}
         </View>
-      </LinearGradient>
+      </View>
 
       <View style={styles.body}>
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#3b82f6" />
+            <ActivityIndicator size="large" color={BRAND.bookingSky} />
             <Text style={styles.loadingText}>Loading today's schedule...</Text>
           </View>
         ) : todaySchedule.length === 0 ? (
@@ -137,38 +150,38 @@ export default function TodayVisitsCard({
                 key={`${b.availability_id}-${b.engagement_id}`}
                 style={[styles.visitItem, index > 0 && styles.visitItemBorder]}
               >
-                {/* Time Badge */}
-                <View style={styles.timeBadge}>
-                  <MaterialIcon name="schedule" size={14} color="#3b82f6" />
-                  <Text style={styles.timeRangeText}>{timeRange}</Text>
+                <View style={styles.visitTopRow}>
+                  <View style={styles.timeBadge}>
+                    <MaterialIcon name="schedule" size={14} color="#3b82f6" />
+                    <Text style={styles.timeRangeText}>{timeRange}</Text>
+                  </View>
+                  {amountLabel ? (
+                    <View style={styles.amountPill}>
+                      <Text style={styles.amountText}>{amountLabel}</Text>
+                    </View>
+                  ) : null}
                 </View>
 
-                {/* Client Info */}
-                <View style={styles.clientInfo}>
-                  <Text style={styles.clientName}>{clientName}</Text>
-                  <View style={styles.detailsRow}>
-                    <View style={styles.detailChip}>
-                      <MaterialIcon name="receipt" size={12} color="#64748b" />
-                      <Text style={styles.detailText}>#{b.engagement_id}</Text>
-                    </View>
-                    <View style={styles.detailChip}>
-                      <MaterialIcon name="build" size={12} color="#64748b" />
-                      <Text style={styles.detailText}>{getServiceTitle(b.service_type || "")}</Text>
-                    </View>
-                    {amountLabel && (
-                      <View style={styles.detailChip}>
-                        <MaterialIcon name="currency-rupee" size={12} color="#64748b" />
-                        <Text style={styles.detailText}>{amountLabel}</Text>
-                      </View>
-                    )}
+                <Text style={styles.clientName}>{clientName}</Text>
+
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailChip}>
+                    <MaterialIcon name="receipt" size={12} color="#64748b" />
+                    <Text style={styles.detailText}>#{b.engagement_id}</Text>
                   </View>
-                  <View style={styles.badgeRow}>
-                    {getBookingTypeBadge(b.booking_type)}
-                    {getStatusBadge(b.task_status)}
+                  <View style={styles.detailChip}>
+                    <MaterialIcon name="build" size={12} color="#64748b" />
+                    <Text style={styles.detailText} numberOfLines={1}>
+                      {getServiceTitle(b.service_type || "")}
+                    </Text>
                   </View>
                 </View>
 
-                {/* Action Buttons */}
+                <View style={styles.badgeRow}>
+                  {getBookingTypeBadge(b.booking_type)}
+                  {getStatusBadge(b.task_status)}
+                </View>
+
                 <View style={styles.actionButtons}>
                   {b.mobileno && (
                     <TouchableOpacity
@@ -235,48 +248,86 @@ export default function TodayVisitsCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    marginBottom: 16,
+    width: "100%",
+    alignSelf: "stretch",
+    backgroundColor: BRAND.surface,
+    borderRadius: 16,
+    marginBottom: 20,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: BRAND.bookingNavy,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: BRAND.line,
+  },
+  accentBar: {
+    height: 3,
+    width: "100%",
+    backgroundColor: BRAND.accent,
   },
   header: {
+    backgroundColor: BRAND.accentSoft,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: BRAND.line,
   },
-  headerLeft: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
   },
   headerIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 11,
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
     alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  headerTextCol: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+    marginRight: 10,
     justifyContent: "center",
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#ffffff",
-    letterSpacing: -0.3,
+    color: BRAND.text,
+    letterSpacing: -0.2,
+    lineHeight: 21,
   },
   subtitle: {
     fontSize: 12,
-    color: "rgba(255,255,255,0.7)",
+    lineHeight: 16,
+    color: BRAND.textMuted,
     marginTop: 2,
+    fontWeight: "500",
+  },
+  countBadge: {
+    minWidth: 32,
+    height: 32,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    backgroundColor: BRAND.accent,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  countText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#ffffff",
   },
   body: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   centered: {
     paddingVertical: 40,
@@ -306,77 +357,103 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   visitItem: {
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   visitItemBorder: {
     borderTopWidth: 1,
     borderTopColor: "#f1f5f9",
+    marginTop: 4,
+    paddingTop: 16,
+  },
+  visitTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 10,
   },
   timeBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 10,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     backgroundColor: "#eff6ff",
-    borderRadius: 12,
-    alignSelf: "flex-start",
+    borderRadius: 999,
+    flexShrink: 1,
   },
   timeRangeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#3b82f6",
+    color: "#2563eb",
   },
-  clientInfo: {
-    marginBottom: 12,
+  amountPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#ecfdf5",
+    borderRadius: 999,
+  },
+  amountText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0f766e",
   },
   clientName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
-    color: "#1e293b",
-    marginBottom: 6,
+    color: "#0f172a",
+    marginBottom: 8,
   },
   detailsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   detailChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     backgroundColor: "#f8fafc",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    maxWidth: "100%",
   },
   detailText: {
-    fontSize: 11,
-    color: "#64748b",
+    fontSize: 12,
+    color: "#475569",
     fontWeight: "500",
+    flexShrink: 1,
   },
   badgeRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 8,
+    marginBottom: 12,
   },
   actionButtons: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
   },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
+    borderColor: "#dbeafe",
+    backgroundColor: "#f8fafc",
+    minWidth: 72,
   },
   actionButtonText: {
     fontSize: 13,
@@ -384,8 +461,8 @@ const styles = StyleSheet.create({
     color: "#475569",
   },
   startButton: {
-    backgroundColor: "#3b82f6",
-    borderColor: "#3b82f6",
+    backgroundColor: BRAND.accent,
+    borderColor: BRAND.accent,
   },
   startButtonText: {
     color: "#ffffff",

@@ -28,7 +28,7 @@ import Geocoder from "react-native-geocoding";
 import MapView, { Marker } from "react-native-maps";
 import { NativeModules } from "react-native";
 import Geolocation from "@react-native-community/geolocation";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
@@ -150,6 +150,8 @@ interface LocationSelectorProps {
   onLocationChange?: (location: string, locationData?: LocationData) => void;
   currentLocationText?: string;
   closeDropdown?: boolean;
+  locationPreferencesReady?: boolean;
+  isUserLoading?: boolean;
 }
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
@@ -158,6 +160,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   onLocationChange,
   currentLocationText = "",
   closeDropdown = false,
+  locationPreferencesReady = false,
+  isUserLoading = false,
 }) => {
   const { t } = useTranslation();
   const { colors, fontSize, isDarkMode } = useTheme();
@@ -165,9 +169,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const dispatch = useDispatch();
   const locationDispatch = useDispatch();
   const { appUser } = useAppUser();
-  const geoFromRedux = useSelector((state: { geoLocation?: { value?: LocationData } }) =>
-    state.geoLocation?.value ?? null
-  );
   
   const [location, setLocation] = useState(currentLocationText || "");
   const [locationAs, setLocationAs] = useState("");
@@ -211,13 +212,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const appliedSavedLocationRef = useRef(false);
   const triedGpsForCustomerRef = useRef(false);
+  const guestGpsStartedRef = useRef(false);
 
   const customerId = resolveCustomerId(appUser);
   const isAuthenticated = !!customerId;
 
   const headerDisplayText = (() => {
     const raw = address || location || currentLocationText;
-    if (loading && !raw) return t("locationSelector.gettingYourLocation");
+    const waitingForSavedLocation = !!customerId && !locationPreferencesReady;
+    if ((loading || isUserLoading || waitingForSavedLocation) && !raw) {
+      return t("locationSelector.gettingYourLocation");
+    }
     if (!raw || isCoordinateLike(raw)) return t("locationSelector.tapToChooseLocation");
     return shortenAddress(raw, 3);
   })();
@@ -241,18 +246,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }));
     setSuggestions([...base, ...savedSuggestions]);
   }, [userPreference, t]);
-
-  useEffect(() => {
-    if (!geoFromRedux) return;
-    const addr = geoFromRedux.formatted_address;
-    if (!addr || isCoordinateLike(addr)) return;
-    setAddress(addr);
-    setLocation(shortenAddress(addr, 3));
-    if (geoFromRedux.geometry?.location) {
-      setLatitude(geoFromRedux.geometry.location.lat);
-      setLongitude(geoFromRedux.geometry.location.lng);
-    }
-  }, [geoFromRedux]);
 
   // Animate dropdown
   useEffect(() => {
@@ -1055,10 +1048,47 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   useEffect(() => {
-    if (!customerId) return;
+    if (isUserLoading) {
+      return;
+    }
 
-    const saved = getSavedLocationsList(userPreference);
-    if (!saved.length) {
+    if (customerId) {
+      if (!locationPreferencesReady) {
+        return;
+      }
+
+      const saved = getSavedLocationsList(userPreference);
+      if (saved.length > 0) {
+        if (appliedSavedLocationRef.current) {
+          return;
+        }
+
+        const preferred = pickDefaultSavedLocation(saved);
+        const extracted = preferred ? extractAddressFromSavedEntry(preferred) : null;
+        if (!extracted) {
+          return;
+        }
+
+        appliedSavedLocationRef.current = true;
+        setLoading(false);
+        setIsCheckingLocation(false);
+        setShowGPSButton(false);
+
+        if (extracted.lat != null && extracted.lng != null) {
+          updateLocationInStore(extracted.lat, extracted.lng, extracted.address);
+          return;
+        }
+
+        setLocation(shortenAddress(extracted.address, 3));
+        setAddress(extracted.address);
+        if (preferred.location) {
+          dispatch(add(preferred.location));
+          locationDispatch(addLocation(preferred.location));
+          onLocationChange?.(extracted.address, preferred.location);
+        }
+        return;
+      }
+
       if (!triedGpsForCustomerRef.current) {
         triedGpsForCustomerRef.current = true;
         fetchLocationWithChecks();
@@ -1066,47 +1096,28 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       return;
     }
 
-    if (appliedSavedLocationRef.current) return;
-
-    const preferred = pickDefaultSavedLocation(saved);
-    const extracted = preferred ? extractAddressFromSavedEntry(preferred) : null;
-    if (!extracted) return;
-
-    appliedSavedLocationRef.current = true;
-    setLoading(false);
-    setIsCheckingLocation(false);
-    setShowGPSButton(false);
-
-    if (extracted.lat != null && extracted.lng != null) {
-      updateLocationInStore(extracted.lat, extracted.lng, extracted.address);
-      return;
+    if (!guestGpsStartedRef.current) {
+      guestGpsStartedRef.current = true;
+      fetchLocationWithChecks();
     }
-
-    setLocation(shortenAddress(extracted.address, 3));
-    setAddress(extracted.address);
-    if (preferred.location) {
-      dispatch(add(preferred.location));
-      locationDispatch(addLocation(preferred.location));
-      if (onLocationChange) {
-        onLocationChange(extracted.address, preferred.location);
-      }
-    }
-  }, [customerId, userPreference, updateLocationInStore, dispatch, locationDispatch, onLocationChange]);
+  }, [
+    customerId,
+    isUserLoading,
+    locationPreferencesReady,
+    userPreference,
+    updateLocationInStore,
+    dispatch,
+    locationDispatch,
+    onLocationChange,
+  ]);
 
   useEffect(() => {
-    if (customerId) {
-      setLoading(false);
-      return;
-    }
-
-    fetchLocationWithChecks();
-
     return () => {
       if (locationWatchId !== null) {
         Geolocation.clearWatch(locationWatchId);
       }
     };
-  }, [customerId]);
+  }, [locationWatchId]);
 
   const updateSuggestions = () => {
     const baseSuggestions = [

@@ -43,7 +43,7 @@ import { resolveCustomerId } from "../services/couponService";
 import NotificationsDialog from "../Notifications/NotificationsPage";
 import PaymentInstance from "../services/paymentInstance";
 import { recipientParams } from "../Notifications/inAppNotificationUtils";
-import { addLocation } from "../features/geoLocationSlice";
+import { addLocation, remove as clearGeoLocation } from "../features/geoLocationSlice";
 import Booking from "../UserProfile/Bookings";
 import { useTheme } from "../../src/Settings/ThemeContext";
 
@@ -90,9 +90,10 @@ const Head: React.FC<ChildComponentProps> = ({
   } = useAuth0();
 
   const dispatch = useDispatch();
-  const { setAppUser, clearAppUser, appUser } = useAppUser();
+  const { setAppUser, clearAppUser, appUser, isLoading: isUserLoading } = useAppUser();
   const dropdownRef = useRef<View>(null);
   const loadedPreferencesForRef = useRef<number | null>(null);
+  const postLoginHandledForRef = useRef<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("");
   const [userPreference, setUserPreference] = useState<any>([]);
@@ -104,6 +105,7 @@ const Head: React.FC<ChildComponentProps> = ({
   const [showBookings, setShowBookings] = useState(false);
   const [selectedService, setSelectedService] = useState("");
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
+  const [locationPreferencesReady, setLocationPreferencesReady] = useState(false);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -254,11 +256,23 @@ const Head: React.FC<ChildComponentProps> = ({
   };
 
   useEffect(() => {
+    if (!auth0User) {
+      postLoginHandledForRef.current = null;
+    }
+  }, [auth0User]);
+
+  useEffect(() => {
     const run = async () => {
       if (!auth0User || auth0Loading || !auth0User?.email) {
         console.log("Auth0 user not available yet");
         return;
       }
+
+      const userKey = auth0User.sub ?? auth0User.email;
+      if (postLoginHandledForRef.current === userKey) {
+        return;
+      }
+      postLoginHandledForRef.current = userKey;
 
       try {
         const token = await getCredentials();
@@ -307,15 +321,17 @@ const Head: React.FC<ChildComponentProps> = ({
         console.log("Post-login steps complete ✅");
       } catch (error) {
         console.error("Error during post-login API call:", error);
+        postLoginHandledForRef.current = null;
         showErrorSnackbar("Failed to complete login process");
       }
     };
 
     run().catch((error) => {
       console.error("Error in run function:", error);
+      postLoginHandledForRef.current = null;
       showErrorSnackbar("Login process failed");
     });
-  }, [auth0User, auth0Loading, getCredentials]);
+  }, [auth0User?.sub, auth0User?.email, auth0Loading, getCredentials]);
 
   const createUser = async (user: any) => {
     try {
@@ -355,6 +371,7 @@ const Head: React.FC<ChildComponentProps> = ({
   };
 
   const getCustomerPreferences = async (customerId: number) => {
+    setLocationPreferencesReady(false);
     try {
       const response = await axios.get(
         `https://utils-ndt3.onrender.com/user-settings/${customerId}`
@@ -363,30 +380,21 @@ const Head: React.FC<ChildComponentProps> = ({
 
       if (response.status === 200) {
         console.log("Customer preferences fetched successfully:", response.data);
+        loadedPreferencesForRef.current = customerId;
         setUserPreference(response.data);
         if (auth0User) {
-          setAppUser({
-            ...auth0User,
-            role: "CUSTOMER",
-            customerid: customerId,
-          });
           showSuccessSnackbar(`Welcome back, ${auth0User.name || auth0User.email}!`);
-        } else if (appUser) {
-          setAppUser({
-            ...appUser,
-            role: "CUSTOMER",
-            customerid: customerId,
-            customerId,
-          });
         }
       }
     } catch (error: any) {
       if (error.response?.status === 404) {
-        createUserPreferences(customerId);
+        await createUserPreferences(customerId);
       } else {
         console.error("Unexpected error fetching user settings:", error);
         showErrorSnackbar("Failed to load user preferences");
       }
+    } finally {
+      setLocationPreferencesReady(true);
     }
   };
 
@@ -455,8 +463,18 @@ const Head: React.FC<ChildComponentProps> = ({
     }
   };
 
+  const resetHeaderLocationSession = useCallback(() => {
+    setUserPreference([]);
+    loadedPreferencesForRef.current = null;
+    postLoginHandledForRef.current = null;
+    setLocationPreferencesReady(false);
+    setCurrentLocation(null);
+    dispatch(clearGeoLocation());
+  }, [dispatch]);
+
   const handleSignOut = async () => {
     try {
+      resetHeaderLocationSession();
       await clearMobileAuthStorage();
       await clearAppUser();
       await tryClearAuth0Session(clearSession);
@@ -465,7 +483,6 @@ const Head: React.FC<ChildComponentProps> = ({
       dispatch(clearCustomer());
 
       setMenuVisible(false);
-      setCurrentLocation(null);
 
       if (onSignOutComplete) {
         await onSignOutComplete();
@@ -594,10 +611,13 @@ const Head: React.FC<ChildComponentProps> = ({
         {/* Location Selector - Pass closeDropdowns prop */}
         <View style={styles.locationContainer}>
           <LocationSelector
+            key={String(resolveCustomerId(appUser) ?? "guest")}
             userPreference={userPreference}
             setUserPreference={setUserPreference}
             onLocationChange={handleLocationChange}
-            closeDropdown={closeDropdowns} // Pass the prop here
+            closeDropdown={closeDropdowns}
+            locationPreferencesReady={locationPreferencesReady}
+            isUserLoading={isUserLoading}
           />
         </View>
 
