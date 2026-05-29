@@ -13,10 +13,10 @@ export function formatMonthlyHourlyRateBand(): string {
   return `₹${fmt(min)} – ₹${fmt(max)} per hour · ${daysLabel}`;
 }
 
-export function formatMonthlyExtraHourPromo(
+export function formatMonthlyExtraHourCoupon(
   pct: number = MONTHLY_EXTRA_HOUR_DISCOUNT_PCT
 ): string {
-  return `${pct}% off each additional hour (added to 1st-hour rate)`;
+  return `${pct}% coupon on each additional hour (added to 1st-hour rate)`;
 }
 
 export function formatMonthlyTotalHint(hoursPerDay: number, midBase = 4999): string | null {

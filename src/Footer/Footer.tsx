@@ -169,7 +169,7 @@ const Footer = () => {
               styles.rightSection,
               shouldUseColumnLayout && styles.rightSectionColumn,
               {
-                alignItems: 'flex-start',
+                alignItems: 'center',
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 borderColor: 'rgba(255,255,255,0.18)',
                 borderWidth: 1,
@@ -181,7 +181,7 @@ const Footer = () => {
                   color: '#FFFFFF',
                   fontSize: fontStyles.textSize,
                   marginBottom: isSmallScreen ? 8 : 12,
-                  textAlign: shouldUseColumnLayout ? 'left' : 'right',
+                  textAlign: 'center',
                   fontWeight: '600',
                 }
               ]}>
@@ -190,7 +190,7 @@ const Footer = () => {
               <View style={[
                 styles.contactButtonsContainer,
                 shouldUseColumnLayout && styles.contactButtonsContainerColumn,
-                { alignItems: shouldUseColumnLayout ? 'flex-start' : 'flex-end' }
+                { alignItems: 'center' }
               ]}>
                 <TouchableOpacity 
                   style={[
@@ -422,8 +422,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
     paddingTop: 12,
@@ -440,6 +440,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderRadius: 12,
     padding: 10,
+    alignItems: 'center',
   },
   leftSectionColumn: {
     marginRight: 0,
@@ -447,7 +448,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   rightSection: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     minWidth: 172,
     borderRadius: 12,
     padding: 10,
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     flexDirection: 'column',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 6,
   },
   logoImage: {
@@ -472,30 +473,34 @@ const styles = StyleSheet.create({
   brandSubtitle: {
     fontWeight: '700',
     marginLeft: 0,
-    textAlign: 'left',
+    textAlign: 'center',
     letterSpacing: 0.25,
   },
   companyInfo: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   infoText: {
     fontWeight: '500',
     opacity: 0.86,
+    textAlign: 'center',
   },
   tncText: {
     fontWeight: '600',
     textDecorationLine: 'underline',
+    textAlign: 'center',
   },
   contactTitle: {
     fontWeight: '600',
     letterSpacing: 0.2,
+    textAlign: 'center',
+    width: '100%',
   },
   contactButtonsContainer: {
     width: '100%',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   contactButtonsContainerColumn: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   contactButton: {
     flexDirection: 'row',
@@ -509,7 +514,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
   },
   phoneIcon: {
     marginRight: 7,
@@ -517,7 +522,7 @@ const styles = StyleSheet.create({
   contactText: {
     fontWeight: '500',
     flex: 1,
-    textAlign: 'left',
+    textAlign: 'center',
   },
   followSection: {
     borderTopWidth: 1,

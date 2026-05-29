@@ -20,6 +20,7 @@ import {
   BackHandler,
   Animated,
   Modal as RNModal,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth0 } from 'react-native-auth0';
@@ -78,8 +79,15 @@ const GradientButton: React.FC<{
   }
   
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.gradientButton, style]} activeOpacity={0.85}>
-      <LinearGradient colors={gradientColors || defaultGradient} style={styles.gradientInner}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.gradientButton, style]}
+      activeOpacity={0.85}
+    >
+      <LinearGradient
+        colors={gradientColors || defaultGradient}
+        style={[styles.gradientInner, styles.gradientInnerFill]}
+      >
         {children}
       </LinearGradient>
     </TouchableOpacity>
@@ -1392,7 +1400,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       </Text>
       <GradientButton style={styles.emptyStateButton} onPress={() => setServicesDialogOpen(true)}>
         <Icon name="plus" size={20} color="#fff" />
-        <Text style={{ color: '#fff', fontSize: fontSizes.buttonText, fontWeight: '600' }}>Book a Service</Text>
+        <Text style={[styles.emptyStateButtonText, { fontSize: fontSizes.buttonText }]}>
+          Book a Service
+        </Text>
       </GradientButton>
     </View>
   );
@@ -1412,7 +1422,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           </Text>
           <GradientButton style={styles.emptyStateButton} onPress={() => setServicesDialogOpen(true)}>
             <Icon name="plus" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: fontSizes.buttonText, fontWeight: '600' }}>Book a Service</Text>
+            <Text style={[styles.emptyStateButtonText, { fontSize: fontSizes.buttonText }]}>
+              Book a Service
+            </Text>
           </GradientButton>
         </View>
       );
@@ -2488,7 +2500,7 @@ const styles = StyleSheet.create({
   gradientButton: {
     borderRadius: 14,
     overflow: 'hidden',
-    minHeight: 44,
+    alignSelf: 'stretch',
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -2499,12 +2511,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'stretch',
-    width: '100%',
-    minHeight: 44,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     gap: 8,
+    minHeight: 48,
+  },
+  gradientInnerFill: {
+    width: '100%',
   },
   iconButton: {
     flexDirection: 'row',
@@ -2605,8 +2618,16 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   emptyStateButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
+    width: '100%',
+    maxWidth: 280,
+    marginTop: 4,
+  },
+  emptyStateButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    lineHeight: 22,
+    textAlign: 'center',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
   },
   
   snackbar: {

@@ -13,10 +13,15 @@ import {
   Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import axios from 'axios';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import LinearGradient from 'react-native-linear-gradient';
-import { useAppUser } from '../context/AppUserContext';    // Import AppUser context
+import { useAppUser } from '../context/AppUserContext';
+import {
+  displayCouponSavings,
+  fetchCustomerCoupons,
+  resolveCustomerId,
+  type CustomerCoupon,
+} from '../services/couponService';
 
 const { width } = Dimensions.get('window');
 
@@ -25,14 +30,14 @@ export interface Coupon {
   coupon_code: string;
   description: string;
   service_type: string;
-  discount_type: 'PERCENTAGE' | 'FIXED';
+  discount_type: 'PERCENTAGE' | 'FIXED' | 'FLAT' | string;
   discount_value: number;
   minimum_order_value: number;
   usage_limit: number;
   usage_per_user: number;
   start_date: string;
   end_date: string;
-  city: string;
+  city: string | null;
   isActive: boolean;
   created_at: string;
 }
@@ -66,43 +71,45 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [fetchingCoupons, setFetchingCoupons] = useState(false);
 
-  // Get customer ID from appUser
-  const customerId = appUser?.customerid || null;
+  const customerId = resolveCustomerId(appUser);
 
-  // Fetch coupons from API when dialog opens - using customer ID from appUser
   useEffect(() => {
     if (open && customerId) {
       fetchCoupons();
+    } else if (open && !customerId) {
+      setCoupons([]);
     }
-  }, [open, customerId]);
+  }, [open, customerId, serviceType, userCity]);
+
+  const toLegacyCoupon = (c: CustomerCoupon): Coupon => ({
+    coupon_id: c.code,
+    coupon_code: c.code,
+    description: c.description || `${c.code} discount`,
+    service_type: c.serviceType,
+    discount_type: c.discountType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FLAT',
+    discount_value: c.discountValue,
+    minimum_order_value: c.minimumOrderValue ?? 0,
+    usage_limit: 0,
+    usage_per_user: 0,
+    start_date: new Date().toISOString(),
+    end_date: new Date(Date.now() + 86400000).toISOString(),
+    city: c.city ?? null,
+    isActive: true,
+    created_at: new Date().toISOString(),
+  });
 
   const fetchCoupons = async () => {
+    if (!customerId) return;
     setFetchingCoupons(true);
     setError(null);
     try {
-      // Use customer-specific API endpoint with the customer ID from appUser
-      const response = await axios.get(`https://coupons-o26r.onrender.com/api/coupons/customer/${customerId}`);
-      if (response.data.success) {
-        const now = new Date();
-        // Filter coupons by service type, city, active status, and date range
-        const filteredCoupons = response.data.data.coupons.filter((coupon: Coupon) => {
-          const startDate = new Date(coupon.start_date);
-          const endDate = new Date(coupon.end_date);
-          return (
-            coupon.isActive &&
-            (coupon.service_type === serviceType || coupon.service_type === 'ALL') &&
-            coupon.city === userCity &&
-            startDate <= now &&
-            endDate >= now
-          );
-        });
-        setCoupons(filteredCoupons);
-      } else {
-        setError('Failed to load coupons');
-      }
-    } catch (error) {
-      console.error('Error fetching coupons:', error);
+      const st = (serviceType === 'MAID' ? 'MAID' : 'COOK') as 'COOK' | 'MAID';
+      const rows = await fetchCustomerCoupons(customerId, st, { userCity });
+      setCoupons(rows.map(toLegacyCoupon));
+    } catch (err) {
+      console.error('Error fetching coupons:', err);
       setError('Failed to load coupons. Please try again.');
+      setCoupons([]);
     } finally {
       setFetchingCoupons(false);
     }
@@ -132,11 +139,6 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
         valid: false, 
         message: `Minimum order of ₹${coupon.minimum_order_value} required for this coupon` 
       };
-    }
-
-    // Check service type
-    if (coupon.service_type !== serviceType && coupon.service_type !== 'ALL') {
-      return { valid: false, message: `This coupon is only valid for ${coupon.service_type} services` };
     }
 
     return { valid: true };
@@ -191,13 +193,15 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
   };
 
   const calculateDiscount = (coupon: Coupon): number => {
-    if (coupon.discount_type === 'PERCENTAGE') {
-      let discount = (currentTotal * coupon.discount_value) / 100;
-      // You can add max discount logic here if needed
-      return discount;
-    } else {
-      return coupon.discount_value;
-    }
+    const mapped: CustomerCoupon = {
+      code: coupon.coupon_code,
+      serviceType: coupon.service_type,
+      discountType: String(coupon.discount_type).toUpperCase() === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED_AMOUNT',
+      discountValue: Number(coupon.discount_value) || 0,
+      minimumOrderValue: coupon.minimum_order_value,
+      city: coupon.city,
+    };
+    return displayCouponSavings(mapped, currentTotal);
   };
 
   const formatDate = (dateString: string): string => {
@@ -402,6 +406,11 @@ export const CouponDialog: React.FC<CouponDialogProps> = ({
                           </Text>
                           <Text style={styles.couponDescription}>
                             {coupon.description}
+                          </Text>
+                          <Text style={styles.couponDetail}>
+                            {String(coupon.discount_type).toUpperCase() === 'PERCENTAGE'
+                              ? `${coupon.discount_value}% off`
+                              : `₹${coupon.discount_value} off`}
                           </Text>
                           {coupon.minimum_order_value > 0 && (
                             <Text style={styles.couponDetail}>

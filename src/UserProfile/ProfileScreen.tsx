@@ -826,12 +826,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const fetchCustomerDetails = async (customerId: number) => {
     try {
       console.log("Fetching customer details for ID:", customerId);
-      const response = await axiosInstance.get(
-        `/api/customer/get-customer-by-id/${customerId}`,
-      );
+      const response = await axiosInstance.get(`/api/customer/${customerId}`);
       console.log("API Response:", response.data);
 
-      const customer = response.data;
+      const customer = response.data?.data ?? response.data;
       setCustomerData(customer);
 
       const mobileNoFromApi =

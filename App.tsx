@@ -461,6 +461,8 @@ const MainApp = () => {
   const { height, width } = Dimensions.get('window');
   const isMobile = width < 768;
   const mobileTabBarClearance = isMobile ? getMobileTabBarHeight(safeBottom) : 0;
+  const needsMobileTabBarScrollInset =
+    isMobile && currentView !== BOOKINGS && currentView !== WALLET;
 
   const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
     setShowSignupDrawer(false);
@@ -541,25 +543,41 @@ const MainApp = () => {
     }
 
     const fetchCustomerDetails = async () => {
-      try {
-        console.log("📱 Fetching customer details for ID:", appUser.customerid);
-        const response = await axiosInstance.get(`/api/customer/get-customer-by-id/${appUser.customerid}`);
+      const customerId = appUser.customerid ?? appUser.customerId;
+      if (!customerId) {
+        console.warn("⚠️ No customer id on app user; skipping profile fetch.");
+        setHasCheckedMobileNumber(true);
+        return;
+      }
 
-        const customer = response.data;
+      try {
+        console.log("📱 Fetching customer details for ID:", customerId);
+        const response = await axiosInstance.get(`/api/customer/${customerId}`);
+        const customer = response.data?.data ?? response.data;
         setCustomerData(customer);
 
-        if (!customer?.mobileNo) {
-          console.warn("⚠️ Customer mobile number is missing (null). Showing dialog...");
+        const mobile =
+          customer?.mobileNo ?? customer?.mobileno ?? customer?.mobile ?? null;
+
+        if (!mobile) {
+          console.warn("⚠️ Customer mobile number is missing. Showing dialog...");
           setShouldShowMobileDialog(true);
         } else {
-          console.log("✅ Customer has mobile number:", customer.mobileNo);
+          console.log("✅ Customer has mobile number:", mobile);
           setShouldShowMobileDialog(false);
         }
 
         setHasCheckedMobileNumber(true);
       } catch (error: any) {
-        console.error("❌ Error fetching customer details:", error);
-        if (error.response?.status === 404) {
+        const status = error.response?.status;
+        if (__DEV__) {
+          console.warn(
+            "Customer details fetch failed:",
+            status ?? "network",
+            error?.message ?? error
+          );
+        }
+        if (status === 404) {
           setCustomerData(null);
           setShouldShowMobileDialog(true);
         } else {
@@ -941,15 +959,7 @@ const MainApp = () => {
               <View
                 style={[
                   styles.contentContainer,
-                  {
-                    backgroundColor: colors.background,
-                    paddingBottom:
-                      isMobile &&
-                      currentView !== BOOKINGS &&
-                      currentView !== WALLET
-                        ? mobileTabBarClearance
-                        : 0,
-                  },
+                  { backgroundColor: colors.background },
                   (currentView === BOOKINGS ||
                     currentView === WALLET ||
                     currentView === PROFILE ||
@@ -958,7 +968,14 @@ const MainApp = () => {
                 ]}
               >
                 {shouldRenderWithoutParentScroll ? (
-                  <View style={styles.mainScrollView}>
+                  <View
+                    style={[
+                      styles.mainScrollView,
+                      needsMobileTabBarScrollInset && {
+                        paddingBottom: mobileTabBarClearance,
+                      },
+                    ]}
+                  >
                     {renderContent()}
                     {currentView === HOME &&
                       (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
@@ -968,6 +985,10 @@ const MainApp = () => {
                     style={styles.mainScrollView}
                     contentContainerStyle={[
                       styles.scrollContent,
+                      isMobile && styles.scrollContentMobile,
+                      needsMobileTabBarScrollInset && {
+                        paddingBottom: mobileTabBarClearance,
+                      },
                       (currentView === BOOKINGS || currentView === DASHBOARD || currentView === AGENT_DASHBOARD) &&
                         styles.fullScreenScrollContent,
                     ]}
@@ -1193,6 +1214,11 @@ const styles = StyleSheet.create({
     flexGrow: 1, 
     justifyContent: "space-between", 
     minHeight: "100%",
+  },
+  scrollContentMobile: {
+    flexGrow: 0,
+    justifyContent: "flex-start",
+    minHeight: undefined,
   },
   fullScreenScrollContent: { 
     paddingBottom: 0 

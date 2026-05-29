@@ -25,7 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 import {
-  formatMonthlyExtraHourPromo,
+  formatMonthlyExtraHourCoupon,
   formatMonthlyHourlyRateBand,
 } from "../Constants/servicePricing";
 
@@ -1194,7 +1194,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     {
       value: "Monthly",
       label: "Monthly",
-      subtitle: `${formatMonthlyHourlyRateBand()} · ${formatMonthlyExtraHourPromo()}`,
+      subtitle: `${formatMonthlyHourlyRateBand()} · ${formatMonthlyExtraHourCoupon()}`,
       icon: "calendar-month",
     },
   ];

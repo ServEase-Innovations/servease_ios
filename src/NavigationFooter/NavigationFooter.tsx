@@ -7,17 +7,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Modal,
-  Pressable,
   Animated,
-  TextInput,
-  ActivityIndicator,
-  StatusBar,
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  Keyboard,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LinearGradient from "react-native-linear-gradient";
@@ -27,7 +18,7 @@ import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationsDialog from "../Notifications/NotificationsPage";
 import { useAuth0 } from "react-native-auth0";
 import { useDispatch } from "react-redux";
-import { add, remove } from "../features/userSlice";
+import { remove } from "../features/userSlice";
 import Snackbar from "react-native-snackbar";
 import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
@@ -35,9 +26,8 @@ import { useTranslation } from 'react-i18next';
 import Settings from "../Settings/Settings";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from "../Settings/ThemeContext";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 import { useAppUser } from "../context/AppUserContext";
-import providerInstance from "../services/providerInstance";
+import LoginDrawer from "../LoginDrawer/LoginDrawer";
 
 type MobileTab = {
   key: string;
@@ -52,12 +42,15 @@ type MobileTab = {
 import {
   MOBILE_TAB_BAR_CONTENT_HEIGHT,
   MOBILE_TAB_BAR_EDGE_PAD,
+  MOBILE_TAB_BAR_TOP_PAD,
+  getMobileTabBarBottomPad,
   getMobileTabBarHeight,
 } from "../Constants/mobileLayout";
 
 export {
   MOBILE_TAB_BAR_CONTENT_HEIGHT,
   MOBILE_TAB_BAR_EDGE_PAD,
+  MOBILE_TAB_BAR_TOP_PAD,
   getMobileTabBarHeight,
 };
 
@@ -94,636 +87,6 @@ const verticalScale = (size: number) => {
 
 const moderateScale = (size: number, factor = 0.5) => {
   return size + (scale(size) - size) * factor;
-};
-
-// Professional Login Method Card Component
-const ProfessionalMethodCard: React.FC<{
-  icon: string;
-  iconSet?: "material" | "feather" | "community";
-  title: string;
-  description: string;
-  onPress: () => void;
-  colors: any;
-  gradientColors: string[];
-  isHighlighted?: boolean;
-}> = ({ icon, iconSet = "community", title, description, onPress, colors, gradientColors, isHighlighted = false }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (isHighlighted) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowAnim, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: false,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0,
-            duration: 1500,
-            useNativeDriver: false,
-          }),
-        ])
-      ).start();
-    }
-  }, [isHighlighted]);
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.98,
-      friction: 5,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 5,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const glowIntensity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0.15],
-  });
-
-  const renderIcon = () => {
-    const iconSize = moderateScale(26);
-    const iconColor = "#ffffff";
-    
-    if (iconSet === "material") {
-      return <MaterialIcon name={icon} size={iconSize} color={iconColor} />;
-    } else if (iconSet === "feather") {
-      return <FeatherIcon name={icon} size={iconSize} color={iconColor} />;
-    } else {
-      return <Icon name={icon} size={iconSize} color={iconColor} />;
-    }
-  };
-
-  return (
-    <Animated.View
-      style={[
-        {
-          transform: [{ scale: scaleAnim }],
-          shadowColor: gradientColors[0],
-          shadowOffset: { width: 0, height: verticalScale(4) },
-          shadowOpacity: glowIntensity,
-          shadowRadius: moderateScale(12),
-          elevation: glowAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [2, 8],
-          }),
-        },
-      ]}
-    >
-      <TouchableOpacity
-        style={[
-          styles.proMethodCard,
-          { backgroundColor: colors.card, padding: moderateScale(16) }
-        ]}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.95}
-      >
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.proMethodIconContainer,
-            { width: moderateScale(52), height: moderateScale(52), borderRadius: moderateScale(26) }
-          ]}
-        >
-          {renderIcon()}
-        </LinearGradient>
-        <View style={styles.proMethodContent}>
-          <Text style={[styles.proMethodTitle, { color: colors.text, fontSize: moderateScale(16) }]}>
-            {title}
-          </Text>
-          <Text style={[styles.proMethodDescription, { color: colors.textSecondary, fontSize: moderateScale(13) }]}>
-            {description}
-          </Text>
-        </View>
-        <View style={styles.proMethodArrow}>
-          <MaterialIcon name="arrow-forward-ios" size={moderateScale(16)} color={colors.textSecondary} />
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
-
-// Custom Snackbar Component
-const CustomSnackbar: React.FC<{
-  visible: boolean;
-  message: string;
-  severity: "success" | "error" | "info";
-  onDismiss: () => void;
-  autoHideDuration?: number;
-}> = ({ visible, message, severity, onDismiss, autoHideDuration = 4000 }) => {
-  const translateY = useRef(new Animated.Value(100)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          speed: 12,
-          bounciness: 4,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      const timer = setTimeout(() => {
-        handleDismiss();
-      }, autoHideDuration);
-
-      return () => clearTimeout(timer);
-    }
-  }, [visible, autoHideDuration]);
-
-  const handleDismiss = () => {
-    Animated.timing(translateY, {
-      toValue: 100,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => onDismiss());
-  };
-
-  if (!visible) return null;
-
-  const gradientColors =
-    severity === "success"
-      ? ["#10b981", "#059669"]
-      : severity === "error"
-      ? ["#ef4444", "#dc2626"]
-      : ["#3b82f6", "#1e40af"];
-
-  return (
-    <Animated.View
-      style={[
-        styles.snackbarContainer,
-        {
-          transform: [{ translateY }],
-          opacity: fadeAnim,
-          left: moderateScale(20),
-          right: moderateScale(20),
-          bottom: verticalScale(30),
-        },
-      ]}
-    >
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.snackbarGradient, { paddingHorizontal: moderateScale(18), paddingVertical: verticalScale(14) }]}
-      >
-        <View style={styles.snackbarContent}>
-          <Text style={[styles.snackbarIcon, { fontSize: moderateScale(18) }]}>
-            {severity === "success" ? "✓" : severity === "error" ? "⚠" : "ℹ"}
-          </Text>
-          <Text style={[styles.snackbarMessage, { fontSize: moderateScale(14) }]}>{message}</Text>
-        </View>
-        <TouchableOpacity onPress={handleDismiss} style={styles.snackbarCloseButton}>
-          <FeatherIcon name="x" size={moderateScale(18)} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
-    </Animated.View>
-  );
-};
-
-// Main Auth Modal Component
-const AuthModal: React.FC<{
-  visible: boolean;
-  onClose: () => void;
-  onEmailLogin: () => Promise<void>;
-  colors: any;
-  isDarkMode: boolean;
-  setAppUser: any;
-  dispatch: any;
-  sendDataToParent?: (data: string) => void;
-}> = ({ visible, onClose, onEmailLogin, colors, isDarkMode, setAppUser, dispatch, sendDataToParent }) => {
-  const [showMobileForm, setShowMobileForm] = useState(false);
-  const [mobile, setMobile] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
-  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; severity: "success" | "error" | "info" }>({
-    visible: false,
-    message: "",
-    severity: "info",
-  });
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(verticalScale(30))).current;
-  const insets = useSafeAreaInsets();
-
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      setShowMobileForm(false);
-      resetForm();
-    }
-  }, [visible]);
-
-  const resetForm = () => {
-    setMobile("");
-    setOtp("");
-    setOtpSent(false);
-  };
-
-  const showSnackbar = (message: string, severity: "success" | "error" | "info") => {
-    setSnackbar({ visible: true, message, severity });
-    setTimeout(() => {
-      setSnackbar((prev) => ({ ...prev, visible: false }));
-    }, 4000);
-  };
-
-  const handleSendOtp = async () => {
-    const sanitizedMobile = mobile.replace(/\D/g, "");
-    if (!/^\d{10}$/.test(sanitizedMobile)) {
-      showSnackbar("Please enter a valid 10-digit mobile number.", "error");
-      return;
-    }
-
-    try {
-      setSendingOtp(true);
-      const response = await providerInstance.post("/api/auth/otp/send", {
-        mobile: sanitizedMobile,
-      });
-      setOtpSent(true);
-      setResendIn(30);
-      showSnackbar(
-        response?.data?.data?.devOtp ? `OTP sent. Dev OTP: ${response.data.data.devOtp}` : "OTP sent successfully!",
-        "success"
-      );
-      setOtp("");
-    } catch (error: any) {
-      showSnackbar(error.response?.data?.message || "Failed to send OTP.", "error");
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!otp.trim()) {
-      showSnackbar("Please enter OTP.", "error");
-      return;
-    }
-
-    try {
-      setVerifyingOtp(true);
-      const response = await providerInstance.post("/api/auth/otp/verify", {
-        mobile: mobile.replace(/\D/g, ""),
-        otp: otp.trim(),
-      });
-
-      const payload = response?.data?.data;
-      const role = payload?.role;
-
-      if (!role || !payload?.token) {
-        throw new Error("Invalid response from OTP login.");
-      }
-
-      await AsyncStorage.setItem("token", payload.token);
-      await AsyncStorage.setItem("userRole", role);
-
-      dispatch(add(payload));
-
-      let userData: any = {
-        token: payload.token,
-        role: role,
-        email: null,
-        name: "",
-      };
-
-      if (role === "SERVICE_PROVIDER") {
-        const providerData = payload.serviceProvider;
-        userData = {
-          ...userData,
-          name: providerData ? [providerData.firstName, providerData.lastName].filter(Boolean).join(" ") : "Service Provider",
-          email: providerData?.emailId ?? null,
-        };
-      } else if (role === "VENDOR") {
-        const vendorData = payload.vendor;
-        userData = {
-          ...userData,
-          name: vendorData ? [vendorData.firstName, vendorData.lastName].filter(Boolean).join(" ") : "Vendor",
-          email: vendorData?.emailId ?? null,
-        };
-      } else if (role === "CUSTOMER") {
-        const customerData = payload.customer;
-        userData = {
-          ...userData,
-          name: customerData ? [customerData.firstname, customerData.lastname].filter(Boolean).join(" ") : "Customer",
-          email: customerData?.emailid ?? null,
-          mobile: mobile.replace(/\D/g, ""),
-        };
-      }
-
-      setAppUser(userData);
-      showSnackbar("Login successful! Welcome back.", "success");
-
-      setTimeout(() => {
-        onClose();
-        if (sendDataToParent) {
-          sendDataToParent(
-            role === "SERVICE_PROVIDER" ? "PROFILE" : role === "VENDOR" ? "AGENT_DASHBOARD" : ""
-          );
-        }
-      }, 500);
-    } catch (error: any) {
-      showSnackbar(error.response?.data?.message || "Invalid OTP. Please try again.", "error");
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (otpSent && resendIn > 0) {
-      interval = setInterval(() => {
-        setResendIn((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [otpSent, resendIn]);
-
-  const handleBack = () => {
-    resetForm();
-    setShowMobileForm(false);
-  };
-
-  if (!visible) return null;
-
-  return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.6)" translucent />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.modalKeyboardView}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : verticalScale(20)}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <Pressable style={styles.modalOverlay} onPress={onClose}>
-            <Animated.View
-              style={[
-                styles.modalContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                  marginTop: insets.top > 0 ? verticalScale(20) : verticalScale(40),
-                  marginBottom: insets.bottom > 0 ? verticalScale(20) : verticalScale(40),
-                },
-              ]}
-            >
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-                {/* Gradient Header */}
-                <LinearGradient
-                  colors={[...BOOKING_HEADER_GRADIENT]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.modalHeader, { paddingHorizontal: moderateScale(20), paddingVertical: verticalScale(20) }]}
-                >
-                  <View style={[styles.modalHeaderLeft, { width: moderateScale(40) }]}>
-                    {showMobileForm && (
-                      <TouchableOpacity onPress={handleBack} style={[styles.backButton, { width: moderateScale(36), height: moderateScale(36), borderRadius: moderateScale(18) }]}>
-                        <FeatherIcon name="arrow-left" size={moderateScale(24)} color="#fff" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <Text style={[styles.modalHeaderTitle, { fontSize: moderateScale(20) }]}>
-                    {showMobileForm ? "Mobile Login" : "Welcome Back"}
-                  </Text>
-                  <TouchableOpacity onPress={onClose} style={[styles.modalHeaderRight, { width: moderateScale(40) }]}>
-                    <FeatherIcon name="x" size={moderateScale(24)} color="#fff" />
-                  </TouchableOpacity>
-                </LinearGradient>
-
-                {/* Body */}
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                  contentContainerStyle={styles.modalScrollContent}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {!showMobileForm ? (
-                    <View style={[styles.optionsContainer, { padding: moderateScale(24) }]}>
-                      <Text style={[styles.optionsTitle, { color: colors.text, fontSize: moderateScale(24), marginBottom: verticalScale(8) }]}>
-                        Choose Login Method
-                      </Text>
-                      <Text style={[styles.optionsSubtitle, { color: colors.textSecondary, fontSize: moderateScale(14), marginBottom: verticalScale(32) }]}>
-                        Secure access to your account
-                      </Text>
-
-                      <ProfessionalMethodCard
-                        icon="cellphone-arrow-down"
-                        iconSet="community"
-                        title="Mobile OTP Login"
-                        description="Instant login with one-time password"
-                        onPress={() => setShowMobileForm(true)}
-                        colors={colors}
-                        gradientColors={["#3b82f6", "#1e40af"]}
-                        isHighlighted={true}
-                      />
-
-                      <ProfessionalMethodCard
-                        icon="email-outline"
-                        iconSet="community"
-                        title="Email Login"
-                        description="Continue with your email address"
-                        onPress={() => {
-                          onClose();
-                          onEmailLogin();
-                        }}
-                        colors={colors}
-                        gradientColors={["#3b82f6", "#1e40af"]}
-                      />
-
-                    </View>
-                  ) : (
-                    <View style={[styles.mobileFormContainer, { padding: moderateScale(24) }]}>
-                      <View style={[styles.mobileIconWrapper, { marginBottom: verticalScale(24) }]}>
-                        <LinearGradient
-                          colors={["#3b82f6", "#1e40af"]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={[styles.mobileIconCircle, { width: moderateScale(80), height: moderateScale(80), borderRadius: moderateScale(40) }]}
-                        >
-                          <Icon name="cellphone-check" size={moderateScale(42)} color="#ffffff" />
-                        </LinearGradient>
-                      </View>
-
-                      <Text style={[styles.mobileFormTitle, { color: colors.text, fontSize: moderateScale(22), marginBottom: verticalScale(8) }]}>
-                        Mobile Number Verification
-                      </Text>
-                      <Text style={[styles.mobileFormSubtitle, { color: colors.textSecondary, fontSize: moderateScale(14), marginBottom: verticalScale(32), lineHeight: verticalScale(20) }]}>
-                        We'll send a verification code to your mobile number
-                      </Text>
-
-                      <View style={[styles.inputGroup, { marginBottom: verticalScale(20) }]}>
-                        <Text style={[styles.inputLabel, { color: colors.textSecondary, fontSize: moderateScale(14), marginBottom: verticalScale(8) }]}>
-                          Mobile Number
-                        </Text>
-                        <View style={[styles.inputWrapper, { borderColor: colors.border, backgroundColor: colors.surface, height: verticalScale(54), borderRadius: moderateScale(16), paddingHorizontal: moderateScale(16) }]}>
-                          <Icon name="phone-outline" size={moderateScale(20)} color={colors.textSecondary} style={{ marginRight: moderateScale(12) }} />
-                          <Text style={[styles.countryCode, { fontSize: moderateScale(16), marginRight: moderateScale(12) }]}>+91</Text>
-                          <TextInput
-                            style={[styles.input, { color: colors.text, fontSize: moderateScale(16) }]}
-                            placeholder="Enter 10-digit number"
-                            placeholderTextColor={colors.textSecondary}
-                            keyboardType="phone-pad"
-                            value={mobile}
-                            onChangeText={setMobile}
-                            editable={!otpSent}
-                            maxLength={10}
-                          />
-                        </View>
-                      </View>
-
-                      {otpSent && (
-                        <Animated.View style={[styles.inputGroup, { marginBottom: verticalScale(20), opacity: fadeAnim }]}>
-                          <Text style={[styles.inputLabel, { color: colors.textSecondary, fontSize: moderateScale(14), marginBottom: verticalScale(8) }]}>
-                            Verification Code
-                          </Text>
-                          <View style={[styles.inputWrapper, { borderColor: colors.border, backgroundColor: colors.surface, height: verticalScale(54), borderRadius: moderateScale(16), paddingHorizontal: moderateScale(16) }]}>
-                            <Icon name="keyboard-settings-outline" size={moderateScale(20)} color={colors.textSecondary} style={{ marginRight: moderateScale(12) }} />
-                            <TextInput
-                              style={[styles.input, styles.otpInput, { color: colors.text, fontSize: moderateScale(16), letterSpacing: moderateScale(4) }]}
-                              placeholder="Enter 6-digit OTP"
-                              placeholderTextColor={colors.textSecondary}
-                              keyboardType="number-pad"
-                              value={otp}
-                              onChangeText={setOtp}
-                              maxLength={6}
-                              autoFocus={true}
-                            />
-                          </View>
-                        </Animated.View>
-                      )}
-
-                      {!otpSent ? (
-                        <TouchableOpacity
-                          style={[styles.submitButton, sendingOtp && styles.buttonDisabled, { marginTop: verticalScale(8), borderRadius: moderateScale(16) }]}
-                          onPress={handleSendOtp}
-                          disabled={sendingOtp}
-                        >
-                          <LinearGradient
-                            colors={["#3b82f6", "#1e40af"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={[styles.submitGradient, { paddingVertical: verticalScale(16) }]}
-                          >
-                            {sendingOtp ? (
-                              <ActivityIndicator color="#fff" size="small" />
-                            ) : (
-                              <>
-                                <Icon name="shield-check" size={moderateScale(18)} color="#ffffff" style={{ marginRight: moderateScale(8) }} />
-                                <Text style={[styles.submitButtonText, { fontSize: moderateScale(16) }]}>Send OTP</Text>
-                              </>
-                            )}
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      ) : (
-                        <>
-                          <TouchableOpacity
-                            style={[styles.submitButton, verifyingOtp && styles.buttonDisabled, { marginTop: verticalScale(8), borderRadius: moderateScale(16) }]}
-                            onPress={handleVerifyOtp}
-                            disabled={verifyingOtp}
-                          >
-                            <LinearGradient
-                              colors={["#10b981", "#047857"]}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 0 }}
-                              style={[styles.submitGradient, { paddingVertical: verticalScale(16) }]}
-                            >
-                              {verifyingOtp ? (
-                                <ActivityIndicator color="#fff" size="small" />
-                              ) : (
-                                <>
-                                  <Icon name="login" size={moderateScale(18)} color="#ffffff" style={{ marginRight: moderateScale(8) }} />
-                                  <Text style={[styles.submitButtonText, { fontSize: moderateScale(16) }]}>Verify & Login</Text>
-                                </>
-                              )}
-                            </LinearGradient>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.resendButton, { paddingVertical: verticalScale(16) }]}
-                            onPress={() => {
-                              if (resendIn === 0 && !sendingOtp) {
-                                handleSendOtp();
-                              }
-                            }}
-                            disabled={resendIn > 0 || sendingOtp}
-                          >
-                            <Icon name="refresh-circle" size={moderateScale(16)} color={colors.primary} style={{ marginRight: moderateScale(6) }} />
-                            <Text
-                              style={[
-                                styles.resendText,
-                                { color: colors.primary, fontSize: moderateScale(14) },
-                                (resendIn > 0 || sendingOtp) && styles.resendDisabledText,
-                              ]}
-                            >
-                              {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend verification code"}
-                            </Text>
-                          </TouchableOpacity>
-                        </>
-                      )}
-                    </View>
-                  )}
-                </ScrollView>
-              </Pressable>
-            </Animated.View>
-          </Pressable>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-
-      <CustomSnackbar
-        visible={snackbar.visible}
-        message={snackbar.message}
-        severity={snackbar.severity}
-        onDismiss={() => setSnackbar((prev) => ({ ...prev, visible: false }))}
-      />
-    </Modal>
-  );
 };
 
 const NavigationFooter: React.FC<NavigationFooterProps> = ({
@@ -1012,9 +375,16 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         ? iconActiveColor
         : iconMuted;
 
+    const tabIconSize = moderateScale(22);
+
     return (
       <View style={styles.navIconSlot}>
-        <MaterialIcon name={tab.iconName ?? "circle"} size={moderateScale(24)} color={iconColor} />
+        <MaterialIcon
+          name={tab.iconName ?? "circle"}
+          size={tabIconSize}
+          color={iconColor}
+          style={[styles.tabBarIconGlyph, { lineHeight: tabIconSize }]}
+        />
       </View>
     );
   };
@@ -1158,7 +528,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     const navBorder = isDarkMode ? colors.border : "#e2e8f0";
     const textMuted = isDarkMode ? "#94a3b8" : "#64748b";
     const textActiveColor = colors.primary;
-    const bottomPad = safeBottom > 0 ? Math.max(verticalScale(4), safeBottom - verticalScale(18)) : MOBILE_TAB_BAR_EDGE_PAD;
+    const bottomPad = getMobileTabBarBottomPad(safeBottom);
 
     return (
       <>
@@ -1168,6 +538,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             {
               backgroundColor: navSurface,
               borderTopColor: navBorder,
+              paddingTop: MOBILE_TAB_BAR_TOP_PAD,
               paddingBottom: bottomPad,
             },
           ]}
@@ -1193,19 +564,26 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   accessibilityRole="button"
                   accessibilityState={{ selected: isActive, disabled: isDisabled }}
                 >
-                  {renderMobileTabIcon(tab, isActive)}
-                  <Text
-                    style={[
-                      styles.mobileNavText,
-                      { color: textMuted, fontSize: moderateScale(10) },
-                      isActive && { color: textActiveColor, fontWeight: "600" },
-                      tab.variant === "destructive" && styles.mobileNavTextDestructive,
-                      isDisabled && styles.disabledTabText,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {tab.label}
-                  </Text>
+                  <View style={styles.mobileNavItemContent}>
+                    {renderMobileTabIcon(tab, isActive)}
+                    <Text
+                      style={[
+                        styles.mobileNavText,
+                        {
+                          color: textMuted,
+                          fontSize: moderateScale(10),
+                          lineHeight: moderateScale(12),
+                        },
+                        isActive && { color: textActiveColor, fontWeight: "600" },
+                        tab.variant === "destructive" && styles.mobileNavTextDestructive,
+                        isDisabled && styles.disabledTabText,
+                      ]}
+                      numberOfLines={1}
+                      allowFontScaling={false}
+                    >
+                      {tab.label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -1224,14 +602,11 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           dockAboveTabBar
         />
         <Settings visible={isSettingsVisible} onClose={() => setIsSettingsVisible(false)} />
-        <AuthModal
+        <LoginDrawer
           visible={showAuthModal}
           onClose={() => setShowAuthModal(false)}
           onEmailLogin={handleEmailLogin}
-          colors={colors}
-          isDarkMode={isDarkMode}
           setAppUser={setAppUser}
-          dispatch={dispatch}
           sendDataToParent={(data) => {
             if (data === "PROFILE") {
               onNavigateToPage(PROFILE);
@@ -1337,14 +712,11 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onContact={onContactClick}
       />
       <Settings visible={isSettingsVisible} onClose={() => setIsSettingsVisible(false)} />
-      <AuthModal
+      <LoginDrawer
         visible={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onEmailLogin={handleEmailLogin}
-        colors={colors}
-        isDarkMode={isDarkMode}
         setAppUser={setAppUser}
-        dispatch={dispatch}
       />
     </>
   );
@@ -1356,30 +728,47 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "stretch",
     borderTopWidth: 1,
+    alignItems: "center",
   },
   mobileNavContainer: {
     width: "100%",
     height: MOBILE_TAB_BAR_CONTENT_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
   mobileNavItem: {
-    alignItems: "center",
-    justifyContent: "center",
     flex: 1,
     minWidth: 0,
-    paddingHorizontal: 2,
-    paddingVertical: 4,
+    height: MOBILE_TAB_BAR_CONTENT_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
     borderRadius: 12,
-    gap: 2,
+  },
+  mobileNavItemContent: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
   navIconSlot: {
     width: 28,
     height: 28,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 2,
+  },
+  tabBarIconGlyph: {
+    width: 28,
+    height: 28,
+    textAlign: "center",
+    textAlignVertical: "center",
+    ...Platform.select({
+      android: { includeFontPadding: false },
+      default: {},
+    }),
   },
   compactAvatarRing: {
     width: 28,
@@ -1415,9 +804,17 @@ const styles = StyleSheet.create({
   mobileNavText: {
     fontWeight: "500",
     textAlign: "center",
+    alignSelf: "center",
+    width: "100%",
     letterSpacing: 0.1,
     maxWidth: "100%",
     flexShrink: 1,
+    marginTop: 0,
+    paddingTop: 0,
+    ...Platform.select({
+      android: { includeFontPadding: false, textAlignVertical: "center" },
+      default: {},
+    }),
   },
   mobileNavTextDestructive: {
     color: "#ef4444",
@@ -1578,6 +975,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 32,
     elevation: 16,
+    width: "100%",
+  },
+  modalContentCompact: {
+    backgroundColor: "#ffffff",
   },
   modalHeader: {
     flexDirection: "row",
@@ -1599,32 +1000,61 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#ffffff",
   },
-  modalScrollContent: {
-    flexGrow: 1,
+  modalScrollContentForm: {
+    flexGrow: 0,
+    paddingBottom: 8,
   },
-  optionsContainer: {
-    backgroundColor: "#ffffff",
+  loginMethodSheet: {
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 22,
+  },
+  loginMethodTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  loginMethodTopSpacer: {
+    flex: 1,
+  },
+  loginMethodCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f1f5f9",
+  },
+  loginMethodCards: {
+    marginTop: 4,
   },
   optionsTitle: {
     fontWeight: "700",
     textAlign: "center",
+    marginBottom: 6,
   },
   optionsSubtitle: {
     textAlign: "center",
-    opacity: 0.7,
+    opacity: 0.75,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   proMethodCard: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-    borderRadius: 20,
+    marginBottom: 12,
+    minHeight: 76,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-    shadowColor: "#000",
+    borderColor: "rgba(15, 23, 42, 0.08)",
+    shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
+  },
+  proMethodCardLast: {
+    marginBottom: 0,
   },
   proMethodIconContainer: {
     alignItems: "center",

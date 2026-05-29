@@ -350,7 +350,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   flowBody: {
+    flex: 1,
     flexShrink: 1,
+    minHeight: 0,
     backgroundColor: "#f8fafc",
   },
 });

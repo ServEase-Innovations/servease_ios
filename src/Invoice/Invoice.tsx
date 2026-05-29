@@ -374,13 +374,10 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
   };
 
   const getBookingType = (): string => {
-    if (booking.bookingType) {
-      if (booking.bookingType === 'MONTHLY') return 'Monthly';
-      if (booking.bookingType === 'ON_DEMAND') return 'On Demand';
-      if (booking.bookingType === 'SHORT_TERM') return 'Short Term';
-      return booking.bookingType;
-    }
-    return 'Regular';
+    const rawType = String(booking.bookingType || '').toUpperCase();
+    if (rawType === 'MONTHLY') return 'Monthly';
+    if (rawType === 'SHORT_TERM') return 'Short-term';
+    return 'One Time';
   };
 
   const getCouponDiscount = (): number => {
