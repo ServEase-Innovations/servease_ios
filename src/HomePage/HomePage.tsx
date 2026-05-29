@@ -17,6 +17,8 @@ import { add } from "../features/bookingTypeSlice";
 import { DETAILS } from "../Constants/pagesConstants";
 import LinearGradient from "react-native-linear-gradient";
 import { useAuth0 } from "react-native-auth0";
+import { useAppUser } from "../context/AppUserContext";
+import { useFirstBookingOfferVisible } from "../hooks/useFirstBookingOfferVisible";
 import { useTheme } from "../Settings/ThemeContext";
 import { BRAND, GRADIENTS } from "../theme/brandColors";
 import { useTranslation } from "react-i18next";
@@ -49,7 +51,11 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   const { t } = useTranslation();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { user: auth0User } = useAuth0();
+  const { appUser } = useAppUser();
+  const { showOffer, checking: checkingOffer } = useFirstBookingOfferVisible();
   const dispatch = useDispatch();
+
+  const userRole = String(appUser?.role || auth0User?.role || "").toUpperCase();
 
   const isSmallScreen = screenWidth < 375;
   const heroTitleSize = screenWidth >= 428 ? 24 : screenWidth >= 390 ? 22 : 20;
@@ -69,10 +75,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   const [showNannyServicesDialog, setShowNannyServicesDialog] = useState(false);
   const [showCookDialog, setShowCookDialog] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
-  const [showOffer, setShowOffer] = useState(true);
   const [showServiceSelection, setShowServiceSelection] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
 
   // Animation values for each service card
   const scaleAnimations = useRef({
@@ -80,17 +83,6 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     MAID: new Animated.Value(1),
     NANNY: new Animated.Value(1),
   }).current;
-
-  useEffect(() => {
-    setIsAuthenticated(!!auth0User);
-  }, [auth0User]);
-
-  useEffect(() => {
-    if (isAuthenticated && auth0User) {
-      const userRole = auth0User.role || "CUSTOMER";
-      setRole(userRole);
-    }
-  }, [isAuthenticated, auth0User]);
 
   const services = useMemo(
     () => [
@@ -119,7 +111,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     [t]
   );
 
-  const isServiceDisabled = role === "SERVICE_PROVIDER";
+  const isServiceDisabled = userRole === "SERVICE_PROVIDER";
 
   const handlePressIn = (serviceKey: string) => {
     Animated.spring(scaleAnimations[serviceKey as keyof typeof scaleAnimations], {
@@ -405,7 +397,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           </View>
         </View>
 
-        {!isServiceDisabled && showOffer ? (
+        {!isServiceDisabled && !checkingOffer && showOffer ? (
           <View style={styles.promoOuter}>
             <View style={styles.promoShadowLayer}>
               <View style={styles.promoWrap}>

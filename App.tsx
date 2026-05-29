@@ -77,11 +77,17 @@ import {
   unregisterPushNotifications,
 } from "./src/services/pushApi";
 import { AppUserProvider, useAppUser } from "./src/context/AppUserContext";
+import { useCustomerMobileCheck } from "./src/hooks/useCustomerMobileCheck";
+import {
+  clearCustomer,
+  fetchCustomerDetails,
+  setHasMobileNumber,
+} from "./src/features/customerSlice";
+import { clearMobileAuthStorage } from "./src/utils/signOutSession";
 import axios from "axios";
 import { useDispatch } from "react-redux";
 import { add } from "./src/features/pricingSlice";
 import MobileNumberDialog from "./src/UserProfile/MobileNumberDialog";
-import axiosInstance from "./src/services/axiosInstance";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
@@ -141,9 +147,7 @@ const MainApp = () => {
   const [acceptingEngagementId, setAcceptingEngagementId] = useState<number | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [showNotificationClient, setShowNotificationClient] = useState(false);
-  const [shouldShowMobileDialog, setShouldShowMobileDialog] = useState(false);
-  const [hasCheckedMobileNumber, setHasCheckedMobileNumber] = useState(false);
-  const [customerData, setCustomerData] = useState<any>(null);
+  const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const appState = useRef<AppStateStatus>(AppState.currentState);
@@ -167,6 +171,7 @@ const MainApp = () => {
 
   const dispatch = useDispatch();
   const { appUser, setAppUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
+  const { showMobileDialog } = useCustomerMobileCheck();
   const { authorize, getCredentials, clearSession, user } = useAuth0();
 
   // Get font size styles based on settings
@@ -355,6 +360,8 @@ const MainApp = () => {
     try {
       console.log("🔄 ===== STARTING COMPLETE APP RELAUNCH =====");
       
+      await clearMobileAuthStorage();
+
       try {
         await clearSession({
           returnToUrl: "com.serveaso://logout",
@@ -370,10 +377,9 @@ const MainApp = () => {
       setSelectedBookingType("");
       setShowProfileFromDashboard(false);
       setShowNotificationClient(false);
-      setShouldShowMobileDialog(false);
-      setHasCheckedMobileNumber(false);
-      setCustomerData(null);
+      setMobileDialogOpen(false);
       setShowNotifications(false);
+      dispatch(clearCustomer());
       setShowSignupDrawer(false);
       setShowProviderRegistration(false);
       setShowAgentRegistration(false);
@@ -505,12 +511,10 @@ const MainApp = () => {
 
     if (!appUser) {
       console.log("👤 No user detected, resetting to HOME view");
+      dispatch(clearCustomer());
       setCurrentView(HOME);
       setShowProfileFromDashboard(false);
       setShowNotificationClient(false);
-      setShouldShowMobileDialog(false);
-      setHasCheckedMobileNumber(false);
-      setCustomerData(null);
       setShowNotifications(false);
     } else {
       console.log("✅ User is logged in, role:", appUser.role);
@@ -538,84 +542,17 @@ const MainApp = () => {
   }, [appUser?.id, appUser?.userId, appUser?.email, isUserLoading]);
 
   useEffect(() => {
-    if (!appUser || appUser?.role?.toUpperCase() !== "CUSTOMER" || hasCheckedMobileNumber) {
-      return;
-    }
-
-    const fetchCustomerDetails = async () => {
-      const customerId = appUser.customerid ?? appUser.customerId;
-      if (!customerId) {
-        console.warn("⚠️ No customer id on app user; skipping profile fetch.");
-        setHasCheckedMobileNumber(true);
-        return;
-      }
-
-      try {
-        console.log("📱 Fetching customer details for ID:", customerId);
-        const response = await axiosInstance.get(`/api/customer/${customerId}`);
-        const customer = response.data?.data ?? response.data;
-        setCustomerData(customer);
-
-        const mobile =
-          customer?.mobileNo ?? customer?.mobileno ?? customer?.mobile ?? null;
-
-        if (!mobile) {
-          console.warn("⚠️ Customer mobile number is missing. Showing dialog...");
-          setShouldShowMobileDialog(true);
-        } else {
-          console.log("✅ Customer has mobile number:", mobile);
-          setShouldShowMobileDialog(false);
-        }
-
-        setHasCheckedMobileNumber(true);
-      } catch (error: any) {
-        const status = error.response?.status;
-        if (__DEV__) {
-          console.warn(
-            "Customer details fetch failed:",
-            status ?? "network",
-            error?.message ?? error
-          );
-        }
-        if (status === 404) {
-          setCustomerData(null);
-          setShouldShowMobileDialog(true);
-        } else {
-          setShouldShowMobileDialog(false);
-        }
-        setHasCheckedMobileNumber(true);
-      }
-    };
-
-    const timer = setTimeout(() => {
-      fetchCustomerDetails();
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [appUser, hasCheckedMobileNumber]);
+    setMobileDialogOpen(showMobileDialog);
+  }, [showMobileDialog]);
 
   const handleMobileDialogSuccess = () => {
-    console.log("✅ Mobile dialog completed successfully");
-    setShouldShowMobileDialog(false);
-    setHasCheckedMobileNumber(true);
-    if (appUser?.customerid) {
-      setTimeout(() => {
-        setHasCheckedMobileNumber(false);
-      }, 1000);
+    const customerId = appUser?.customerid ?? appUser?.customerId;
+    if (customerId != null && customerId !== "") {
+      dispatch(fetchCustomerDetails(String(customerId)) as never);
     }
+    dispatch(setHasMobileNumber(true));
+    setMobileDialogOpen(false);
   };
-
-  const handleMobileDialogClose = () => {
-    console.log("📱 Mobile dialog closed");
-    setShouldShowMobileDialog(false);
-    setHasCheckedMobileNumber(true);
-  };
-
-  useEffect(() => {
-    setHasCheckedMobileNumber(false);
-    setShouldShowMobileDialog(false);
-    setCustomerData(null);
-  }, [appUser?.customerid]);
 
   useEffect(() => {
     getPricingData();
@@ -951,6 +888,7 @@ const MainApp = () => {
                     onContactClick={handleContactClick}
                     onLogoClick={handleHomeClick}
                     closeDropdowns={closeAllDropdowns}
+                    onSignOutComplete={handleAppRelaunchAfterSignOut}
                   />
                 </View>
               )}
@@ -1053,11 +991,11 @@ const MainApp = () => {
           )}
 
           {/* Modals and Dialogs */}
-          {shouldShowMobileDialog && (
-            <MobileNumberDialog 
-              visible={shouldShowMobileDialog}
-              onClose={handleMobileDialogClose}
-              customerId={appUser?.customerid}
+          {mobileDialogOpen && (appUser?.customerid ?? appUser?.customerId) && (
+            <MobileNumberDialog
+              visible={mobileDialogOpen}
+              onClose={() => setMobileDialogOpen(false)}
+              customerId={appUser?.customerid ?? appUser?.customerId}
               onSuccess={handleMobileDialogSuccess}
             />
           )}

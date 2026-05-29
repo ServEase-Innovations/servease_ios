@@ -19,12 +19,13 @@ import NotificationsDialog from "../Notifications/NotificationsPage";
 import { useAuth0 } from "react-native-auth0";
 import { useDispatch } from "react-redux";
 import { remove } from "../features/userSlice";
+import { clearCustomer } from "../features/customerSlice";
+import { clearMobileAuthStorage, tryClearAuth0Session } from "../utils/signOutSession";
 import Snackbar from "react-native-snackbar";
 import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
 import Settings from "../Settings/Settings";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from "../Settings/ThemeContext";
 import { useAppUser } from "../context/AppUserContext";
 import LoginDrawer from "../LoginDrawer/LoginDrawer";
@@ -115,7 +116,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const insets = useSafeAreaInsets();
   const safeBottom = Number.isFinite(insets.bottom) ? insets.bottom : 0;
   const { colors, isDarkMode } = useTheme();
-  const { setAppUser } = useAppUser();
+  const { setAppUser, clearAppUser } = useAppUser();
 
   const { authorize, clearSession, getCredentials } = useAuth0();
   const dispatch = useDispatch();
@@ -266,17 +267,12 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         textColor: "#ffffff",
       });
 
-      await AsyncStorage.multiRemove(["token", "userRole", "@app_user_data"]);
-
-      try {
-        await clearSession({
-          returnToUrl: "com.serveaso://logout",
-        });
-      } catch (e) {
-        console.log("No Auth0 session to clear:", e);
-      }
+      await clearMobileAuthStorage();
+      await clearAppUser();
+      await tryClearAuth0Session(clearSession);
 
       dispatch(remove());
+      dispatch(clearCustomer());
 
       if (onSignOutComplete) {
         await onSignOutComplete();

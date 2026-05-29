@@ -18,6 +18,8 @@ import FeatherIcon from "react-native-vector-icons/Feather";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import { useSelector, useDispatch } from "react-redux";
 import { add, remove } from "../features/userSlice";
+import { clearCustomer } from "../features/customerSlice";
+import { clearMobileAuthStorage, tryClearAuth0Session } from "../utils/signOutSession";
 import {
   ADMIN,
   BOOKINGS,
@@ -51,6 +53,7 @@ interface ChildComponentProps {
   onContactClick: () => void;
   onLogoClick: () => void;
   closeDropdowns?: boolean; // Add this prop
+  onSignOutComplete?: () => Promise<void>;
 }
 
 interface LocationData {
@@ -72,7 +75,8 @@ const Head: React.FC<ChildComponentProps> = ({
   onAboutClick,
   onContactClick,
   onLogoClick,
-  closeDropdowns = false // Receive the prop
+  closeDropdowns = false,
+  onSignOutComplete,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
@@ -85,7 +89,7 @@ const Head: React.FC<ChildComponentProps> = ({
   } = useAuth0();
 
   const dispatch = useDispatch();
-  const { setAppUser, appUser } = useAppUser();
+  const { setAppUser, clearAppUser, appUser } = useAppUser();
   const dropdownRef = useRef<View>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("");
@@ -424,14 +428,22 @@ const Head: React.FC<ChildComponentProps> = ({
 
   const handleSignOut = async () => {
     try {
-      await clearSession({
-        returnToUrl: "com.serveaso://logout",
-      });
+      await clearMobileAuthStorage();
+      await clearAppUser();
+      await tryClearAuth0Session(clearSession);
 
       dispatch(remove());
+      dispatch(clearCustomer());
+
       setMenuVisible(false);
       setCurrentLocation(null);
-      handleClick("sign_out");
+
+      if (onSignOutComplete) {
+        await onSignOutComplete();
+      } else {
+        handleClick("sign_out");
+      }
+
       showInfoSnackbar("Signed out successfully");
     } catch (e) {
       console.log("Log out error:", e);

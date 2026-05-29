@@ -231,52 +231,74 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
       await AsyncStorage.setItem("userRole", role);
       dispatch(add(payload));
 
-      let userData: Record<string, unknown> = {
-        token: payload.token,
-        role,
-        email: null,
-        name: "",
-      };
+      const roleKey = String(role).toUpperCase();
 
-      if (role === "SERVICE_PROVIDER") {
+      if (roleKey === "SERVICE_PROVIDER") {
         const providerData = payload.serviceProvider;
-        userData = {
-          ...userData,
+        setAppUser({
+          token: payload.token,
+          role: "SERVICE_PROVIDER",
+          serviceProviderId: payload.serviceProviderId
+            ? Number(payload.serviceProviderId)
+            : null,
           name: providerData
             ? [providerData.firstName, providerData.lastName].filter(Boolean).join(" ")
             : "Service Provider",
           email: providerData?.emailId ?? null,
-        };
-      } else if (role === "VENDOR") {
+        });
+      } else if (roleKey === "VENDOR") {
         const vendorData = payload.vendor;
-        userData = {
-          ...userData,
+        setAppUser({
+          token: payload.token,
+          role: "VENDOR",
+          vendorId: payload.vendorId ? Number(payload.vendorId) : null,
           name: vendorData
             ? [vendorData.firstName, vendorData.lastName].filter(Boolean).join(" ")
             : "Vendor",
           email: vendorData?.emailId ?? null,
-        };
-      } else if (role === "CUSTOMER") {
+        });
+      } else if (roleKey === "CUSTOMER") {
         const customerData = payload.customer;
-        userData = {
-          ...userData,
+        const customerIdRaw =
+          payload.customerId ??
+          customerData?.customerId ??
+          customerData?.customerid ??
+          customerData?.id;
+        const customerId =
+          customerIdRaw != null && customerIdRaw !== "" ? Number(customerIdRaw) : null;
+        const loginMobile = mobile.replace(/\D/g, "");
+
+        setAppUser({
+          token: payload.token,
+          role: "CUSTOMER",
+          customerid: customerId,
           name: customerData
             ? [customerData.firstname, customerData.lastname].filter(Boolean).join(" ")
             : "Customer",
-          email: customerData?.emailid ?? null,
-          mobile: mobile.replace(/\D/g, ""),
-          customerid: customerData?.customerid ?? customerData?.id,
-        };
+          email: customerData?.emailid ?? customerData?.emailId ?? null,
+          mobileNo: loginMobile || null,
+          mobile: loginMobile || null,
+        });
+      } else {
+        setAppUser({
+          token: payload.token,
+          role: roleKey,
+          name: "User",
+          email: null,
+        });
       }
 
-      setAppUser(userData);
       showStatus("Login successful! Welcome back.", "success");
 
       setTimeout(() => {
         handleClose();
         if (sendDataToParent) {
           sendDataToParent(
-            role === "SERVICE_PROVIDER" ? "PROFILE" : role === "VENDOR" ? "AGENT_DASHBOARD" : ""
+            roleKey === "SERVICE_PROVIDER"
+              ? "PROFILE"
+              : roleKey === "VENDOR"
+                ? "AGENT_DASHBOARD"
+                : ""
           );
         }
       }, 400);

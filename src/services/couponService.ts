@@ -67,18 +67,18 @@ export function displayCouponSavings(coupon: CustomerCoupon, orderTotal: number)
   return coupon.discountValue;
 }
 
-export function mapCouponsFromApiPayload(data: unknown): CustomerCoupon[] {
+function unwrapCouponPayload(data: unknown): Record<string, unknown> {
   const root = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   const nested =
     root.data && typeof root.data === "object"
       ? (root.data as Record<string, unknown>)
       : null;
+  return nested ?? root;
+}
 
-  const source = Array.isArray(root.coupons)
-    ? root.coupons
-    : Array.isArray(nested?.coupons)
-      ? nested.coupons
-      : [];
+export function mapCouponsFromApiPayload(data: unknown): CustomerCoupon[] {
+  const payload = unwrapCouponPayload(data);
+  const source = Array.isArray(payload.coupons) ? payload.coupons : [];
 
   return source
     .map((row) => {
@@ -98,6 +98,62 @@ export function mapCouponsFromApiPayload(data: unknown): CustomerCoupon[] {
     .filter((c) => Boolean(c.code) && c.discountValue > 0);
 }
 
+export type CustomerCouponEligibility = {
+  priorBookingCount: number;
+  coupons: CustomerCoupon[];
+};
+
+export const FIRST_BOOKING_COUPON_CODE = "NEWUSER";
+
+async function fetchCustomerCouponPayload(
+  customerId: string | number,
+  params?: Record<string, string>
+): Promise<unknown> {
+  const id = encodeURIComponent(String(customerId));
+  const path = `/api/coupons/customer/${id}`;
+  const couponsBase = API_URLS.coupons.replace(/\/$/, "");
+  const paymentsBase = API_URLS.payments.replace(/\/$/, "");
+
+  if (couponsBase !== paymentsBase) {
+    try {
+      const { data } = await axios.get(`${couponsBase}${path}`, { params, timeout: 30000 });
+      return data;
+    } catch (err) {
+      if (__DEV__) {
+        console.warn("[coupons] direct service failed, using payments proxy:", err);
+      }
+    }
+  }
+
+  const { data } = await PaymentInstance.get(path, { params });
+  return data;
+}
+
+/** Booking count + eligible coupons from coupons service. */
+export async function fetchCustomerCouponEligibility(
+  customerId: string | number
+): Promise<CustomerCouponEligibility> {
+  const data = await fetchCustomerCouponPayload(customerId);
+  const payload = unwrapCouponPayload(data);
+  const priorRaw = payload.prior_booking_count;
+  const priorBookingCount =
+    priorRaw != null && Number.isFinite(Number(priorRaw)) ? Number(priorRaw) : 0;
+
+  return {
+    priorBookingCount,
+    coupons: mapCouponsFromApiPayload(data),
+  };
+}
+
+/** True when customer has no prior bookings and NEWUSER (or first-booking) coupon applies. */
+export async function isEligibleForFirstBookingOffer(
+  customerId: string | number
+): Promise<boolean> {
+  const { priorBookingCount, coupons } = await fetchCustomerCouponEligibility(customerId);
+  if (priorBookingCount > 0) return false;
+  return coupons.some((c) => c.code === FIRST_BOOKING_COUPON_CODE);
+}
+
 /**
  * Load coupons for a customer. Uses payments proxy by default (same host as quote API).
  */
@@ -106,33 +162,12 @@ export async function fetchCustomerCoupons(
   serviceType: "COOK" | "MAID",
   options?: { userCity?: string | null }
 ): Promise<CustomerCoupon[]> {
-  const id = encodeURIComponent(String(customerId));
   const st = serviceType.toUpperCase() as "COOK" | "MAID";
-  const params = { serviceType: st };
-  const path = `/api/coupons/customer/${id}`;
-
-  const couponsBase = API_URLS.coupons.replace(/\/$/, "");
-  const paymentsBase = API_URLS.payments.replace(/\/$/, "");
-  let mapped: CustomerCoupon[] = [];
-
-  if (couponsBase !== paymentsBase) {
-    try {
-      const { data } = await axios.get(`${couponsBase}${path}`, { params, timeout: 30000 });
-      mapped = mapCouponsFromApiPayload(data);
-    } catch (err) {
-      if (__DEV__) {
-        console.warn("[coupons] direct service failed, using payments proxy:", err);
-      }
-    }
-  }
-
-  if (mapped.length === 0) {
-    const { data } = await PaymentInstance.get(path, { params });
-    mapped = mapCouponsFromApiPayload(data);
-  }
-
+  const data = await fetchCustomerCouponPayload(customerId, { serviceType: st });
+  const mapped = mapCouponsFromApiPayload(data);
   const userCity = options?.userCity;
   return mapped
     .filter((c) => couponMatchesServiceType(st, c.serviceType))
     .filter((c) => couponMeetsCity(c.city, userCity));
 }
+

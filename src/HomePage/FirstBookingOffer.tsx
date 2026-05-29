@@ -1,109 +1,41 @@
-// FirstBookingOffer.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useTheme } from '../Settings/ThemeContext';
-
-const { width } = Dimensions.get('window');
+  Platform,
+} from "react-native";
+import LinearGradient from "react-native-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { useTheme } from "../Settings/ThemeContext";
 
 interface FirstBookingOfferProps {
   onPress: () => void;
   visible?: boolean;
 }
 
-const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({ onPress, visible = true }) => {
+const ACCENT = {
+  gold: "#F59E0B",
+  goldLight: "#FEF3C7",
+  red: "#DC2626",
+  redSoft: "#FEE2E2",
+};
+
+const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
+  onPress,
+  visible = true,
+}) => {
   const { colors, isDarkMode } = useTheme();
-  
-  // Animation values
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const glowOpacity = useRef(new Animated.Value(0.3)).current;
-  const hotDealRotate = useRef(new Animated.Value(0)).current;
-  const hotDealScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (!visible) return;
-
-    // Continuous pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.02,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Glow animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOpacity, {
-          toValue: 0.8,
-          duration: 1500,
-          useNativeDriver: false,
-        }),
-        Animated.timing(glowOpacity, {
-          toValue: 0.3,
-          duration: 1500,
-          useNativeDriver: false,
-        }),
-      ])
-    ).start();
-
-    // Hot deal animation - continuous rotation and scale
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(hotDealRotate, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hotDealRotate, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(hotDealScale, {
-          toValue: 1.1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hotDealScale, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    return () => {};
-  }, [visible]);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.98,
       useNativeDriver: true,
-      tension: 150,
-      friction: 3,
+      tension: 200,
+      friction: 8,
     }).start();
   };
 
@@ -111,110 +43,81 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({ onPress, visible 
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 150,
-      friction: 3,
+      tension: 200,
+      friction: 8,
     }).start();
   };
 
-  const hotDealRotateInterpolate = hotDealRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-5deg', '5deg'],
-  });
-
   if (!visible) return null;
+
+  const surfaceBg = isDarkMode ? colors.surface : "#FFFFFF";
+  const titleColor = isDarkMode ? colors.textPrimary : "#1E293B";
+  const mutedColor = isDarkMode ? colors.textSecondary : "#64748B";
+  const dividerColor = isDarkMode ? colors.border : "#E2E8F0";
 
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={1}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      accessibilityRole="button"
+      accessibilityLabel="First booking offer, 99 rupees with code NEWUSER"
       style={styles.container}
     >
-      <Animated.View
-        style={[
-          styles.cardWrapper,
-          {
-            transform: [{ scale: scaleAnim }, { scale: pulseAnim }],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={['#FFD700', '#FFA500', '#FF8C00']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientBorder}
+      <Animated.View style={[styles.cardOuter, { transform: [{ scale: scaleAnim }] }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: surfaceBg,
+              borderColor: isDarkMode ? colors.border : "#FDE68A",
+            },
+          ]}
         >
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                backgroundColor: isDarkMode ? colors.surface : '#fff',
-                shadowOpacity: glowOpacity,
-                shadowRadius: 15,
-              },
-            ]}
-          >
-            <View style={styles.content}>
-              {/* Left side - Offer Text */}
-              <View style={styles.leftContent}>
-                {/* Hot Deal Badge with animation */}
-                <Animated.View
-                  style={[
-                    styles.hotDealBadge,
-                    {
-                      transform: [
-                        { rotate: hotDealRotateInterpolate },
-                        { scale: hotDealScale },
-                      ],
-                    },
-                  ]}
-                >
-                  <LinearGradient
-                    colors={['#FF4444', '#CC0000', '#FF0000']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.hotDealGradient}
-                  >
-                    <Text style={styles.hotDealEmoji}>🔥</Text>
-                    <Text style={styles.hotDealText}>HOT DEAL</Text>
-                    <Text style={styles.hotDealEmoji}>⚡</Text>
-                  </LinearGradient>
-                </Animated.View>
-                
-                <View>
-                  <Text style={styles.mainTitle}>First Booking</Text>
-                  <View style={styles.priceContainer}>
-                    <Text style={styles.priceValue}>₹99</Text>
-                    <Text style={styles.priceLabel}>only!</Text>
-                  </View>
+          <LinearGradient
+            colors={["#F59E0B", "#EA580C"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.accentBar}
+          />
+
+          <View style={styles.cardBody}>
+            <View style={styles.topRow}>
+              <View style={styles.hotDealPill}>
+                <Text style={styles.hotDealIcon}>🔥</Text>
+                <Text style={styles.hotDealLabel}>HOT DEAL</Text>
+              </View>
+              <Text style={[styles.tapHint, { color: mutedColor }]}>Tap to book</Text>
+            </View>
+
+            <View style={styles.mainRow}>
+              <View style={styles.offerBlock}>
+                <Text style={[styles.eyebrow, { color: mutedColor }]}>First booking</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceValue}>₹99</Text>
+                  <Text style={[styles.priceSuffix, { color: mutedColor }]}>flat</Text>
                 </View>
               </View>
 
-              {/* Right side - Coupon Code */}
-              <View style={styles.rightContent}>
-                <LinearGradient
-                  colors={['#FFD700', '#FFA500']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.couponBadge}
-                >
+              <View style={styles.actionBlock}>
+                <View style={styles.couponChip}>
+                  <Text style={[styles.couponLabel, { color: mutedColor }]}>CODE</Text>
                   <Text style={styles.couponCode}>NEWUSER</Text>
-                </LinearGradient>
-                <View style={styles.arrowContainer}>
-                  <Icon name="arrow-forward" size={20} color="#FFA500" />
+                </View>
+                <View style={styles.chevronBtn}>
+                  <Icon name="arrow-forward" size={18} color="#EA580C" />
                 </View>
               </View>
             </View>
-            
-            {/* Terms and Conditions Text */}
-            <View style={styles.termsContainer}>
-              <Text style={styles.termsText}>
-                *T&C applied. Valid for first booking only.
+
+            <View style={[styles.termsRow, { borderTopColor: dividerColor }]}>
+              <Text style={[styles.termsText, { color: mutedColor }]}>
+                T&C apply · Valid on first booking only
               </Text>
             </View>
-          </Animated.View>
-        </LinearGradient>
+          </View>
+        </View>
       </Animated.View>
     </TouchableOpacity>
   );
@@ -222,124 +125,139 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({ onPress, visible 
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    alignItems: 'center',
-    zIndex: 10,
+    width: "100%",
   },
-  cardWrapper: {
-    width: '100%',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  gradientBorder: {
-    borderRadius: 12,
-    padding: 2,
+  cardOuter: {
+    width: "100%",
+    borderRadius: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+    }),
   },
   card: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 10,
-    elevation: 3,
+    flexDirection: "row",
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
   },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  accentBar: {
+    width: 4,
   },
-  leftContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  cardBody: {
     flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  hotDealBadge: {
-    borderRadius: 20,
-    overflow: 'hidden',
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
-  hotDealGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  hotDealPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: ACCENT.red,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
     gap: 4,
   },
-  hotDealEmoji: {
-    fontSize: 12,
+  hotDealIcon: {
+    fontSize: 10,
   },
-  hotDealText: {
+  hotDealLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.6,
+  },
+  tapHint: {
     fontSize: 11,
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 0.5,
+    fontWeight: "500",
   },
-  mainTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+  mainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 2,
+  offerBlock: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 12,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "capitalize",
+    marginBottom: 2,
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
   },
   priceValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FF4444',
-    marginRight: 4,
+    fontSize: 28,
+    fontWeight: "800",
+    color: ACCENT.red,
+    lineHeight: 32,
+    letterSpacing: -0.5,
   },
-  priceLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#666',
+  priceSuffix: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginLeft: 6,
+    marginBottom: 4,
   },
-  rightContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  actionBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 0,
   },
-  couponBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FFD700',
+  couponChip: {
+    backgroundColor: ACCENT.goldLight,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: "center",
+    minWidth: 72,
+  },
+  couponLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    marginBottom: 2,
   },
   couponCode: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#92400E",
+    letterSpacing: 1.2,
   },
-  arrowContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFF3E0',
-    justifyContent: 'center',
-    alignItems: 'center',
+  chevronBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFEDD5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 10,
   },
-  termsContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    borderTopWidth: 0.5,
-    borderTopColor: '#E0E0E0',
-    marginTop: 0,
+  termsRow: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   termsText: {
-    fontSize: 9,
-    color: '#999',
-    textAlign: 'center',
-    fontStyle: 'italic',
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: "left",
   },
 });
 

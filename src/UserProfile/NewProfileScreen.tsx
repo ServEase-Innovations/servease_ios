@@ -18,7 +18,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth0 } from "react-native-auth0";
 import { useDispatch } from "react-redux";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
 import Snackbar from "react-native-snackbar";
@@ -27,6 +26,8 @@ import { useTranslation } from "react-i18next";
 import providerInstance from "../services/providerInstance";
 import { useTheme } from "../Settings/ThemeContext";
 import { remove } from "../features/userSlice";
+import { clearCustomer } from "../features/customerSlice";
+import { clearMobileAuthStorage, tryClearAuth0Session } from "../utils/signOutSession";
 import CustomerProfileSection from "./CustomerProfileSection";
 import ServiceProviderProfileSection from "./ServiceProviderProfileSection";
 import VendorProfileSection from "./VendorProfileSection";
@@ -188,7 +189,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const { t } = useTranslation();
   const { user: auth0User, isLoading: auth0Loading, clearSession } = useAuth0();
-  const { appUser } = useAppUser();
+  const { appUser, clearAppUser } = useAppUser();
   const { isDarkMode } = useTheme();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
@@ -387,13 +388,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         backgroundColor: "#3b82f6",
         textColor: "#ffffff",
       });
-      await AsyncStorage.multiRemove(["token", "userRole", "@app_user_data"]);
-      try {
-        await clearSession({ returnToUrl: "com.serveaso://logout" });
-      } catch (e) {
-        console.log("No Auth0 session to clear:", e);
-      }
+      await clearMobileAuthStorage();
+      await clearAppUser();
+      await tryClearAuth0Session(clearSession);
+
       dispatch(remove());
+      dispatch(clearCustomer());
+
       if (onSignOutComplete) {
         await onSignOutComplete();
       }
@@ -405,6 +406,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         backgroundColor: "#ef4444",
         textColor: "#ffffff",
       });
+    } finally {
       setIsSigningOut(false);
     }
   };
