@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,14 +10,17 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Dimensions,
+  SafeAreaView,
+  KeyboardAvoidingView,
   Platform,
-  useWindowDimensions,
 } from "react-native";
-import LinearGradient from "react-native-linear-gradient";
-import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import PaymentInstance from "../services/paymentInstance";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { BRAND, PRIMARY_BUTTON_GRADIENT } from "../theme/brandColors";
+import LinearGradient from "react-native-linear-gradient";
+
+const MIN_WITHDRAWAL = 500;
+const TDS_RATE = 0.01;
 
 interface WithdrawalDialogProps {
   open: boolean;
@@ -27,6 +30,9 @@ interface WithdrawalDialogProps {
   onWithdrawalSuccess?: () => void;
 }
 
+const formatInr = (value: number) =>
+  `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+
 const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
   open,
   onOpenChange,
@@ -34,43 +40,68 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
   availableBalance,
   onWithdrawalSuccess,
 }) => {
-  const { width: windowWidth } = useWindowDimensions();
-  const [amount, setAmount] = useState<string>("");
+  const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Reset state when modal closes
   useEffect(() => {
-    if (!open) {
-      setAmount("");
-    }
+    if (!open) setAmount("");
   }, [open]);
 
   const numericAmount = parseFloat(amount) || 0;
-  const isValidAmount = numericAmount > 0 && numericAmount <= availableBalance;
-  const minWithdrawal = 500;
+  const canWithdraw = availableBalance >= MIN_WITHDRAWAL;
+  const tdsAmount = useMemo(
+    () => Number((numericAmount * TDS_RATE).toFixed(2)),
+    [numericAmount]
+  );
+  const netAmount = useMemo(
+    () => Math.max(0, numericAmount - tdsAmount),
+    [numericAmount, tdsAmount]
+  );
+
+  const validationMessage = useMemo(() => {
+    if (!amount) return null;
+    if (numericAmount <= 0) return "Enter an amount greater than zero";
+    if (numericAmount < MIN_WITHDRAWAL) return `Minimum withdrawal is ${formatInr(MIN_WITHDRAWAL)}`;
+    if (numericAmount > availableBalance) {
+      return `Amount exceeds available balance of ${formatInr(availableBalance)}`;
+    }
+    return null;
+  }, [amount, numericAmount, availableBalance]);
+
+  const isValidAmount = !validationMessage && numericAmount >= MIN_WITHDRAWAL;
 
   const handleAmountChange = (value: string) => {
-    const regex = /^\d*\.?\d*$/;
-    if (regex.test(value)) {
-      setAmount(value);
-    }
+    if (/^\d*\.?\d*$/.test(value)) setAmount(value);
   };
 
-  const handleMaxAmount = () => {
-    setAmount(availableBalance.toString());
+  const applyAmount = (value: number) => {
+    const clamped = Math.min(Math.max(0, value), availableBalance);
+    setAmount(String(Math.floor(clamped)));
   };
+
+  const quickAmounts = useMemo(() => {
+    const half = Math.floor(availableBalance / 2);
+    const options = [
+      { label: formatInr(MIN_WITHDRAWAL), value: MIN_WITHDRAWAL },
+      { label: formatInr(1000), value: 1000 },
+    ];
+    if (half >= MIN_WITHDRAWAL && half !== 1000 && half !== MIN_WITHDRAWAL) {
+      options.push({ label: "50%", value: half });
+    }
+    options.push({ label: "Max", value: availableBalance });
+    return options.filter((opt, idx, arr) => {
+      if (opt.value > availableBalance || opt.value < MIN_WITHDRAWAL) return false;
+      return arr.findIndex((o) => o.value === opt.value) === idx;
+    });
+  }, [availableBalance]);
 
   const handleConfirmWithdrawal = async () => {
     if (!serviceProviderId) {
-      Alert.alert('Error', 'Service provider ID not found');
+      Alert.alert("Error", "Service provider ID not found");
       return;
     }
-
     if (!isValidAmount) {
-      Alert.alert(
-        'Invalid Amount',
-        `Please enter an amount between 1 and ${availableBalance.toLocaleString("en-IN")}`
-      );
+      Alert.alert("Invalid amount", validationMessage || "Please check the amount and try again");
       return;
     }
 
@@ -78,44 +109,30 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
     try {
       const response = await PaymentInstance.post(
         `/api/service-providers/${serviceProviderId}/withdraw`,
-        {
-          amount: numericAmount,
-          payout_mode: "BANK",
-        }
+        { amount: numericAmount, payout_mode: "BANK" }
       );
 
       if (response.status === 200 || response.status === 201) {
         Alert.alert(
-          'Success',
-          `Withdrawal request of ₹${numericAmount.toLocaleString("en-IN")} has been submitted successfully!`
+          "Request submitted",
+          `Your withdrawal of ${formatInr(numericAmount)} has been submitted. Funds typically arrive in 2–3 business days.`
         );
-
-        if (onWithdrawalSuccess) {
-          onWithdrawalSuccess();
-        }
-
+        onWithdrawalSuccess?.();
         handleClose();
       } else {
-        throw new Error('Withdrawal failed. Please try again.');
+        throw new Error("Withdrawal failed. Please try again.");
       }
     } catch (error: any) {
-      let errorMessage = 'Failed to process withdrawal. Please try again.';
-
+      let errorMessage = "Failed to process withdrawal. Please try again.";
       if (error.response) {
-        if (error.response.status === 400) {
-          errorMessage = error.response.data?.message || 'Invalid withdrawal request';
-        } else if (error.response.status === 402) {
-          errorMessage = 'Insufficient balance for withdrawal';
-        } else if (error.response.status === 422) {
-          errorMessage = 'Please check the amount and try again';
-        } else if (error.response.status === 500) {
-          errorMessage = 'Server error. Please try again later';
-        }
+        errorMessage =
+          error.response.data?.message ||
+          error.response.data?.error ||
+          errorMessage;
       } else if (error.message) {
         errorMessage = error.message;
       }
-
-      Alert.alert('Withdrawal Failed', errorMessage);
+      Alert.alert("Withdrawal failed", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -126,401 +143,469 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
     onOpenChange(false);
   };
 
-  // Responsive modal width
-  const modalWidth = Math.min(windowWidth * 0.92, 450);
-
   return (
-    <Modal
-      visible={open}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { width: modalWidth }]}>
-          
-          {/* Header with BOOKING_HEADER_GRADIENT */}
-          <LinearGradient
-            colors={[...BOOKING_HEADER_GRADIENT]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientHeader}
-          >
+    <Modal visible={open} animationType="slide" onRequestClose={handleClose}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={styles.sheet}>
+            <View style={styles.headerAccent} />
             <View style={styles.header}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Icon name="close" size={24} color="#ffffff" />
+              <View style={styles.headerIcon}>
+                <MaterialIcon name="account-balance-wallet" size={22} color={BRAND.accent} />
+              </View>
+              <View style={styles.headerTextCol}>
+                <Text style={styles.headerTitle}>Request Withdrawal</Text>
+                <Text style={styles.headerSubtitle}>Transfer earnings to your bank account</Text>
+              </View>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={8}>
+                <MaterialIcon name="close" size={22} color={BRAND.textMuted} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Withdraw Funds</Text>
-              <View style={styles.headerRight} />
             </View>
-            <Text style={styles.headerSubtitle}>
-              Request a withdrawal from your available balance
-            </Text>
-          </LinearGradient>
 
-          <ScrollView 
-            style={styles.content}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Available Balance Card with Gradient */}
-            <LinearGradient
-              colors={['#eff6ff', '#dbeafe']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.balanceCard}
+            <ScrollView
+              style={styles.content}
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              <View style={styles.balanceRow}>
-                <View style={styles.balanceLeft}>
-                  <Text style={styles.balanceLabel}>Available Balance</Text>
-                  <View style={styles.balanceAmountContainer}>
-                    <Text style={styles.rupeeIcon}>₹</Text>
-                    <Text style={styles.balanceAmount}>
-                      {availableBalance.toLocaleString("en-IN")}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.minWithdrawalContainer}>
-                  <Text style={styles.balanceLabel}>Minimum Withdrawal</Text>
-                  <View style={styles.balanceAmountContainer}>
-                    <Text style={styles.smallRupeeIcon}>₹</Text>
-                    <Text style={styles.minWithdrawalAmount}>{minWithdrawal}</Text>
-                  </View>
-                </View>
-              </View>
-            </LinearGradient>
-
-            {/* Amount Input Section */}
-            <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>Enter Amount</Text>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.currencySymbol}>₹</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  value={amount}
-                  onChangeText={handleAmountChange}
-                  placeholder="0.00"
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="decimal-pad"
-                />
-                <TouchableOpacity
-                  style={styles.maxButton}
-                  onPress={handleMaxAmount}
-                >
-                  <Text style={styles.maxButtonText}>MAX</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Validation Messages */}
-              {amount && !isValidAmount && (
-                <View style={styles.errorContainer}>
-                  <Icon name="alert-circle" size={16} color="#dc2626" />
-                  <Text style={styles.errorText}>
-                    {numericAmount > availableBalance
-                      ? `Amount exceeds available balance of ₹${availableBalance.toLocaleString("en-IN")}`
-                      : "Amount must be greater than 0"}
+              {/* Balance hero */}
+              <View style={styles.balanceCard}>
+                <View style={styles.balanceCardTop}>
+                  <Text style={styles.balanceEyebrow}>Available to withdraw</Text>
+                  <Text
+                    style={[
+                      styles.balanceValue,
+                      availableBalance < 0 && styles.balanceValueNegative,
+                    ]}
+                  >
+                    {formatInr(availableBalance)}
                   </Text>
                 </View>
-              )}
-
-              {/* Summary Card */}
-              {isValidAmount && (
-                <LinearGradient
-                  colors={['#f8fafc', '#f1f5f9']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.summaryCard}
-                >
-                  <Text style={styles.summaryTitle}>Transaction Summary</Text>
-                  <View style={styles.summaryContent}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Withdrawal Amount</Text>
-                      <Text style={styles.summaryValue}>
-                        ₹{numericAmount.toLocaleString("en-IN")}
-                      </Text>
-                    </View>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Remaining Balance</Text>
-                      <Text style={styles.remainingBalance}>
-                        ₹{(availableBalance - numericAmount).toLocaleString("en-IN")}
-                      </Text>
-                    </View>
-                    <View style={styles.divider} />
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.processingLabel}>Processing Time</Text>
-                      <Text style={styles.processingValue}>2-3 Business Days</Text>
-                    </View>
+                <View style={styles.balanceMetaRow}>
+                  <View style={styles.balanceMetaPill}>
+                    <MaterialIcon name="info-outline" size={14} color={BRAND.accent} />
+                    <Text style={styles.balanceMetaText}>Min {formatInr(MIN_WITHDRAWAL)}</Text>
                   </View>
-                </LinearGradient>
-              )}
-            </View>
+                  <View style={styles.balanceMetaPill}>
+                    <MaterialIcon name="schedule" size={14} color={BRAND.accent} />
+                    <Text style={styles.balanceMetaText}>2–3 business days</Text>
+                  </View>
+                </View>
+              </View>
 
-            {/* Payout Method Info with Gradient */}
-            <LinearGradient
-              colors={['#eff6ff', '#dbeafe']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.payoutCard}
-            >
-              <View style={styles.payoutRow}>
-                <LinearGradient
-                  colors={['#ffffff', '#f8fafc']}
-                  style={styles.payoutIconContainer}
-                >
-                  <Icon name="bank" size={24} color="#1e40af" />
-                </LinearGradient>
-                <View style={styles.payoutInfo}>
-                  <Text style={styles.payoutTitle}>Payout Method</Text>
-                  <Text style={styles.payoutDescription}>
-                    Funds will be transferred to your registered bank account
+              {!canWithdraw ? (
+                <View style={styles.blockedCard}>
+                  <MaterialIcon name="lock" size={28} color={BRAND.textMuted} />
+                  <Text style={styles.blockedTitle}>
+                    {availableBalance < 0 ? "Negative balance" : "Not enough to withdraw"}
+                  </Text>
+                  <Text style={styles.blockedText}>
+                    {availableBalance < 0
+                      ? "Your available balance is negative. Please contact support before requesting a withdrawal."
+                      : `You need at least ${formatInr(MIN_WITHDRAWAL)} available to request a withdrawal.`}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.sectionLabel}>Withdrawal amount</Text>
+                  <View
+                    style={[
+                      styles.inputWrap,
+                      validationMessage && styles.inputWrapError,
+                      isValidAmount && styles.inputWrapValid,
+                    ]}
+                  >
+                    <Text style={styles.currencySymbol}>₹</Text>
+                    <TextInput
+                      style={styles.amountInput}
+                      value={amount}
+                      onChangeText={handleAmountChange}
+                      placeholder="0"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="decimal-pad"
+                      returnKeyType="done"
+                    />
+                    <TouchableOpacity style={styles.maxChip} onPress={() => applyAmount(availableBalance)}>
+                      <Text style={styles.maxChipText}>MAX</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {validationMessage ? (
+                    <View style={styles.errorRow}>
+                      <MaterialIcon name="error-outline" size={16} color="#dc2626" />
+                      <Text style={styles.errorText}>{validationMessage}</Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.quickRow}>
+                    {quickAmounts.map((opt) => {
+                      const selected = numericAmount === opt.value;
+                      return (
+                        <TouchableOpacity
+                          key={opt.label}
+                          style={[styles.quickChip, selected && styles.quickChipActive]}
+                          onPress={() => applyAmount(opt.value)}
+                        >
+                          <Text
+                            style={[styles.quickChipText, selected && styles.quickChipTextActive]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {isValidAmount ? (
+                    <View style={styles.summaryCard}>
+                      <Text style={styles.summaryTitle}>Payout summary</Text>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Withdrawal amount</Text>
+                        <Text style={styles.summaryValue}>{formatInr(numericAmount)}</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>TDS (1%)</Text>
+                        <Text style={styles.summaryMuted}>− {formatInr(tdsAmount)}</Text>
+                      </View>
+                      <View style={styles.summaryDivider} />
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabelStrong}>You'll receive</Text>
+                        <Text style={styles.summaryNet}>{formatInr(netAmount)}</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Balance after</Text>
+                        <Text style={styles.summaryRemaining}>
+                          {formatInr(availableBalance - numericAmount)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </>
+              )}
+
+              <View style={styles.payoutCard}>
+                <View style={styles.payoutIcon}>
+                  <MaterialIcon name="account-balance" size={22} color={BRAND.accent} />
+                </View>
+                <View style={styles.payoutTextCol}>
+                  <Text style={styles.payoutTitle}>Bank transfer</Text>
+                  <Text style={styles.payoutDesc}>
+                    Sent to your registered bank account via standard NEFT/IMPS processing.
                   </Text>
                 </View>
               </View>
-            </LinearGradient>
 
-            {/* Important Notes */}
-            <View style={styles.notesCard}>
-              <View style={styles.notesHeader}>
-                <Icon name="information" size={20} color="#3b82f6" />
-                <Text style={styles.notesTitle}>Important Notes</Text>
+              <View style={styles.notesCard}>
+                <MaterialIcon name="lightbulb-outline" size={18} color={BRAND.accent} />
+                <Text style={styles.notesText}>
+                  Withdrawals are reviewed automatically. You'll see the status under Withdrawal
+                  history on your dashboard.
+                </Text>
               </View>
-              <View style={styles.noteItem}>
-                <View style={styles.noteBullet} />
-                <Text style={styles.noteText}>Minimum withdrawal amount is ₹500</Text>
-              </View>
-              <View style={styles.noteItem}>
-                <View style={styles.noteBullet} />
-                <Text style={styles.noteText}>Withdrawals are processed within 2-3 business days</Text>
-              </View>
-              <View style={styles.noteItem}>
-                <View style={styles.noteBullet} />
-                <Text style={styles.noteText}>A nominal processing fee may apply</Text>
-              </View>
-            </View>
-          </ScrollView>
+            </ScrollView>
 
-          {/* Action Buttons */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={handleClose}
-              disabled={loading}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.withdrawButton,
-                (!isValidAmount || loading) && styles.disabledButton,
-              ]}
-              onPress={handleConfirmWithdrawal}
-              disabled={!isValidAmount || loading}
-            >
-              <LinearGradient
-                colors={isValidAmount && !loading ? [...BOOKING_HEADER_GRADIENT] : ['#94a3b8', '#64748b']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.withdrawButtonGradient}
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={handleClose}
+                disabled={loading}
               >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.withdrawButtonText}>Request Withdrawal</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.submitWrap,
+                  (!isValidAmount || loading || !canWithdraw) && styles.submitDisabled,
+                ]}
+                onPress={handleConfirmWithdrawal}
+                disabled={!isValidAmount || loading || !canWithdraw}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={
+                    isValidAmount && !loading && canWithdraw
+                      ? [...PRIMARY_BUTTON_GRADIENT]
+                      : ["#94a3b8", "#64748b"]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitBtnGradient}
+                />
+                <View style={styles.submitBtnContent}>
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <>
+                      <MaterialIcon name="send" size={18} color="#ffffff" />
+                      <Text style={styles.submitBtnText} numberOfLines={1}>
+                        Request withdrawal
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: BRAND.canvas,
   },
-  modalContent: {
-    backgroundColor: "#ffffff",
-    borderRadius: 24,
-    maxHeight: "90%",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
+  flex: {
+    flex: 1,
   },
-  gradientHeader: {
-    paddingTop: Platform.OS === "ios" ? 20 : 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+  sheet: {
+    flex: 1,
+    backgroundColor: BRAND.canvas,
+  },
+  headerAccent: {
+    height: 3,
+    backgroundColor: BRAND.accent,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: BRAND.accentSoft,
+    borderBottomWidth: 1,
+    borderBottomColor: BRAND.line,
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  headerTextCol: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: BRAND.text,
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: BRAND.textMuted,
+    marginTop: 2,
+    fontWeight: "500",
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#ffffff",
-    textAlign: "center",
+  content: {
     flex: 1,
   },
-  headerRight: {
-    width: 36,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.85)",
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 24,
+    gap: 14,
   },
   balanceCard: {
+    backgroundColor: BRAND.surface,
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: BRAND.line,
+    overflow: "hidden",
+    shadowColor: BRAND.bookingNavy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  balanceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  balanceCardTop: {
+    padding: 16,
+    backgroundColor: BRAND.accentSoft,
+    borderBottomWidth: 1,
+    borderBottomColor: BRAND.line,
   },
-  balanceLeft: {
-    flex: 1,
-  },
-  balanceLabel: {
+  balanceEyebrow: {
     fontSize: 12,
-    fontWeight: "500",
-    color: "#1e40af",
-    marginBottom: 6,
+    fontWeight: "600",
+    color: BRAND.accent,
+    marginBottom: 4,
+    letterSpacing: 0.2,
   },
-  balanceAmountContainer: {
+  balanceValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: BRAND.text,
+    letterSpacing: -0.5,
+  },
+  balanceValueNegative: {
+    color: "#dc2626",
+  },
+  balanceMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    padding: 12,
+  },
+  balanceMetaPill: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: BRAND.canvas,
+    borderWidth: 1,
+    borderColor: BRAND.line,
   },
-  rupeeIcon: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#1e3a8a",
-    marginRight: 4,
+  balanceMetaText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: BRAND.textMuted,
   },
-  smallRupeeIcon: {
+  blockedCard: {
+    alignItems: "center",
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    gap: 8,
+  },
+  blockedTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1e3a8a",
-    marginRight: 2,
+    color: BRAND.text,
+    marginTop: 4,
   },
-  balanceAmount: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#1e3a8a",
+  blockedText: {
+    fontSize: 13,
+    color: BRAND.textMuted,
+    textAlign: "center",
+    lineHeight: 19,
   },
-  minWithdrawalContainer: {
-    alignItems: "flex-end",
-  },
-  minWithdrawalAmount: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1e3a8a",
-  },
-  inputSection: {
-    marginBottom: 20,
-  },
-  inputLabel: {
+  sectionLabel: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#334155",
-    marginBottom: 10,
+    fontWeight: "700",
+    color: BRAND.text,
+    marginBottom: -6,
   },
-  inputContainer: {
+  inputWrap: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: BRAND.surface,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: "#e2e8f0",
-    borderRadius: 16,
-    height: 64,
-    marginBottom: 12,
-    backgroundColor: "#ffffff",
+    borderColor: BRAND.line,
+    minHeight: 64,
+    paddingRight: 8,
+  },
+  inputWrapError: {
+    borderColor: "#fecaca",
+    backgroundColor: "#fffbfb",
+  },
+  inputWrapValid: {
+    borderColor: BRAND.accent,
   },
   currencySymbol: {
-    fontSize: 32,
-    fontWeight: "600",
-    color: "#64748b",
-    marginLeft: 18,
-    marginRight: 10,
+    fontSize: 28,
+    fontWeight: "700",
+    color: BRAND.textMuted,
+    paddingLeft: 16,
+    paddingRight: 4,
   },
   amountInput: {
     flex: 1,
     fontSize: 32,
-    fontWeight: "600",
-    color: "#0f172a",
-    height: "100%",
+    fontWeight: "700",
+    color: BRAND.text,
     paddingVertical: 0,
   },
-  maxButton: {
-    backgroundColor: "#dbeafe",
-    paddingHorizontal: 18,
+  maxChip: {
+    backgroundColor: BRAND.accentSoft,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
-    marginRight: 14,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: BRAND.line,
   },
-  maxButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1d4ed8",
+  maxChipText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: BRAND.accent,
+    letterSpacing: 0.5,
   },
-  errorContainer: {
+  errorRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fef2f2",
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
+    gap: 6,
+    marginTop: -6,
   },
   errorText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#dc2626",
     flex: 1,
+    fontSize: 13,
+    color: "#dc2626",
+    fontWeight: "500",
+  },
+  quickRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  quickChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+  },
+  quickChipActive: {
+    backgroundColor: BRAND.accent,
+    borderColor: BRAND.accent,
+  },
+  quickChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: BRAND.textMuted,
+  },
+  quickChipTextActive: {
+    color: "#ffffff",
   },
   summaryCard: {
-    borderRadius: 16,
-    padding: 18,
-    marginTop: 16,
+    backgroundColor: BRAND.surface,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: BRAND.line,
+    padding: 14,
+    gap: 10,
   },
   summaryTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#334155",
-    marginBottom: 14,
-  },
-  summaryContent: {
-    gap: 10,
+    fontSize: 13,
+    fontWeight: "700",
+    color: BRAND.text,
+    marginBottom: 2,
   },
   summaryRow: {
     flexDirection: "row",
@@ -529,147 +614,144 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: "#64748b",
+    color: BRAND.textMuted,
+  },
+  summaryLabelStrong: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: BRAND.text,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#0f172a",
+    color: BRAND.text,
   },
-  remainingBalance: {
-    fontSize: 14,
-    fontWeight: "700",
+  summaryMuted: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: BRAND.textMuted,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: BRAND.line,
+    marginVertical: 2,
+  },
+  summaryNet: {
+    fontSize: 16,
+    fontWeight: "800",
     color: "#059669",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#e2e8f0",
-    marginVertical: 8,
-  },
-  processingLabel: {
-    fontSize: 12,
-    color: "#94a3b8",
-  },
-  processingValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#475569",
+  summaryRemaining: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: BRAND.accent,
   },
   payoutCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#bfdbfe",
-  },
-  payoutRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
   },
-  payoutIconContainer: {
-    padding: 10,
+  payoutIcon: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: BRAND.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
-  payoutInfo: {
+  payoutTextCol: {
     flex: 1,
   },
   payoutTitle: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#1e40af",
-    marginBottom: 2,
+    fontWeight: "700",
+    color: BRAND.text,
+    marginBottom: 4,
   },
-  payoutDescription: {
+  payoutDesc: {
     fontSize: 12,
-    color: "#2563eb",
-    lineHeight: 16,
+    lineHeight: 17,
+    color: BRAND.textMuted,
   },
   notesCard: {
-    backgroundColor: "#f8fafc",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    backgroundColor: BRAND.accentSoft,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: BRAND.line,
   },
-  notesHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-  notesTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#334155",
-  },
-  noteItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 8,
-  },
-  noteBullet: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#3b82f6",
-  },
-  noteText: {
-    fontSize: 12,
-    color: "#64748b",
+  notesText: {
     flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: BRAND.textMuted,
+    fontWeight: "500",
   },
   footer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    alignItems: "stretch",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === "ios" ? 18 : 16,
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
+    borderTopColor: BRAND.line,
+    backgroundColor: BRAND.surface,
   },
-  button: {
+  cancelBtn: {
     flex: 1,
-    marginHorizontal: 6,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  cancelButton: {
-    borderWidth: 2,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#ffffff",
-    paddingVertical: 12,
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    backgroundColor: BRAND.canvas,
     alignItems: "center",
     justifyContent: "center",
   },
-  cancelButtonText: {
+  cancelBtnText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#64748b",
+    color: BRAND.textMuted,
   },
-  withdrawButton: {
+  submitWrap: {
+    flex: 1.35,
+    minHeight: 52,
+    borderRadius: 12,
     overflow: "hidden",
-  },
-  withdrawButtonGradient: {
-    paddingVertical: 12,
-    alignItems: "center",
+    position: "relative",
     justifyContent: "center",
   },
-  disabledButton: {
-    opacity: 0.6,
+  submitDisabled: {
+    opacity: 0.55,
   },
-  withdrawButtonText: {
-    fontSize: 14,
+  submitBtnGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  submitBtnContent: {
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  submitBtnText: {
+    fontSize: 13,
     fontWeight: "700",
     color: "#ffffff",
+    flexShrink: 1,
   },
 });
 

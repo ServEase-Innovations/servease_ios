@@ -858,15 +858,23 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
                   onPress={() => setShowAllBookings(true)}
                 />
                 <QuickActionRow
-                  iconBg="#f3e8ff"
-                  icon={<MaterialIcon name="currency-rupee" size={18} color="#7c3aed" />}
+                  iconBg="#ecfdf5"
+                  icon={<MaterialIcon name="account-balance-wallet" size={18} color="#059669" />}
                   label="Request withdrawal"
+                  subtitle={
+                    availableBalance >= 500
+                      ? `${formatInr(availableBalance)} available`
+                      : availableBalance < 0
+                        ? "Balance is negative"
+                        : "Minimum ₹500 required"
+                  }
                   onPress={() => setWithdrawalDialogOpen(true)}
                 />
                 <QuickActionRow
-                  iconBg="#fef3c7"
-                  icon={<MaterialIcon name="receipt" size={18} color="#d97706" />}
+                  iconBg={BRAND.accentSoft}
+                  icon={<MaterialIcon name="receipt-long" size={18} color={BRAND.accent} />}
                   label="Withdrawal history"
+                  subtitle="Earnings, withdrawals & payouts"
                   onPress={() => setWithdrawalHistoryDialogOpen(true)}
                 />
                 <QuickActionRow
