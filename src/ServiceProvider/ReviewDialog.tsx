@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,50 +7,18 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
-  Dimensions,
-  Platform,
   SafeAreaView,
-  useWindowDimensions,
+  RefreshControl,
+  Alert,
 } from "react-native";
-import Icon from 'react-native-vector-icons/Feather';
-import StarIcon from 'react-native-vector-icons/FontAwesome';
-import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import LinearGradient from "react-native-linear-gradient";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
-import reviewsInstance from "../services/reviewsInstance";
-
-const { width, height } = Dimensions.get('window');
-
-// Define types based on the API response
-interface ProviderRating {
-  id: number;
-  rating: string;
-  review_count: number;
-  grade: string;
-  distribution: {
-    "1": number;
-    "2": number;
-    "3": number;
-    "4": number;
-    "5": number;
-  };
-}
-
-interface Review {
-  review_id: number;
-  rating: number;
-  review: string;
-  service_type: string;
-  created_at: number;
-  customerName?: string;
-}
-
-interface ReviewsApiResponse {
-  success: boolean;
-  provider: ProviderRating;
-  count: number;
-  reviews: Review[];
-}
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import StarIcon from "react-native-vector-icons/FontAwesome";
+import { BRAND } from "../theme/brandColors";
+import {
+  fetchProviderReviews,
+  type ProviderRatingSummary,
+  type ProviderReview,
+} from "../services/reviewsService";
 
 interface ReviewsDialogProps {
   visible: boolean;
@@ -59,789 +26,479 @@ interface ReviewsDialogProps {
   serviceProviderId: number | null;
 }
 
-// Service type options
-const SERVICE_TYPES = [
-  { value: "ALL", label: "All Services" },
-  { value: "ON_DEMAND", label: "On Demand" },
-  { value: "MONTHLY", label: "Monthly" },
-  { value: "SHORT_TERM", label: "Short Term" }
+type FilterKey = "ALL" | "ON_DEMAND" | "MONTHLY" | "SHORT_TERM";
+
+const FILTER_TABS: { key: FilterKey; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "ON_DEMAND", label: "On demand" },
+  { key: "MONTHLY", label: "Monthly" },
+  { key: "SHORT_TERM", label: "Short term" },
 ];
 
-// Get emoji based on rating
-const getRatingEmoji = (rating: number): string => {
-  switch (rating) {
-    case 5: return "😍";
-    case 4: return "😊";
-    case 3: return "😐";
-    case 2: return "😕";
-    case 1: return "😞";
-    default: return "👤";
+function getGradeColor(grade: string): string {
+  const g = grade.replace(/[^A-Z]/g, "");
+  if (g.startsWith("A")) return "#059669";
+  if (g.startsWith("B")) return BRAND.accent;
+  if (g.startsWith("C")) return "#d97706";
+  if (g === "D") return "#ea580c";
+  if (g === "F") return "#dc2626";
+  return BRAND.textMuted;
+}
+
+function getServiceTypeLabel(type: string): string {
+  switch (type) {
+    case "ON_DEMAND":
+      return "On demand";
+    case "MONTHLY":
+      return "Monthly";
+    case "SHORT_TERM":
+      return "Short term";
+    default:
+      return type;
   }
-};
+}
 
-// Get grade color based on grade value
-const getGradeColor = (grade: string): string => {
-  const gradeValue = grade.replace(/[^A-Z]/g, '');
-  
-  switch(gradeValue) {
-    case 'A':
-    case 'A+':
-    case 'A-': return '#059669';
-    case 'B':
-    case 'B+':
-    case 'B-': return '#3b82f6';
-    case 'C':
-    case 'C+':
-    case 'C-': return '#f59e0b';
-    case 'D': return '#ea580c';
-    case 'F': return '#dc2626';
-    default: return '#8b5cf6';
+function getServiceTypeStyle(type: string): { bg: string; text: string } {
+  switch (type) {
+    case "ON_DEMAND":
+      return { bg: BRAND.accentSoft, text: BRAND.accent };
+    case "MONTHLY":
+      return { bg: "#ecfdf5", text: "#059669" };
+    case "SHORT_TERM":
+      return { bg: "#f5f3ff", text: "#6d28d9" };
+    default:
+      return { bg: BRAND.canvas, text: BRAND.textMuted };
   }
-};
+}
 
-const SkeletonLoader = () => (
-  <View style={styles.skeletonContainer}>
-    {[1, 2, 3].map((item) => (
-      <View key={item} style={styles.skeletonItem}>
-        <View style={styles.skeletonHeader}>
-          <View style={styles.skeletonAvatar} />
-          <View style={styles.skeletonContent}>
-            <View style={styles.skeletonLine} />
-            <View style={styles.skeletonStars} />
-          </View>
-        </View>
-        <View style={styles.skeletonText} />
-      </View>
-    ))}
-  </View>
-);
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDialogProps) {
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [providerRating, setProviderRating] = useState<ProviderRating | null>(null);
-  const [selectedServiceType, setSelectedServiceType] = useState<string>("ALL");
-  const [averageRating, setAverageRating] = useState(0);
-  const [totalReviews, setTotalReviews] = useState(0);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
 
-  // Responsive dimensions
-  const modalWidth = Math.min(windowWidth * 0.92, 500);
-  const modalHeight = windowHeight * 0.85;
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+}
 
-  useEffect(() => {
-    if (visible && serviceProviderId) {
-      fetchReviews();
-    } else {
-      resetState();
-    }
-  }, [visible, serviceProviderId]);
-
-  useEffect(() => {
-    if (selectedServiceType === "ALL") {
-      setFilteredReviews(reviews);
-    } else {
-      const filtered = reviews.filter(
-        review => review.service_type === selectedServiceType
-      );
-      setFilteredReviews(filtered);
-    }
-  }, [selectedServiceType, reviews]);
-
-  const resetState = () => {
-    setReviews([]);
-    setFilteredReviews([]);
-    setProviderRating(null);
-    setAverageRating(0);
-    setTotalReviews(0);
-    setSelectedServiceType("ALL");
-  };
-
-  const fetchReviews = async () => {
-    try {
-      setLoading(true);
-      
-      const response = await reviewsInstance.get<ReviewsApiResponse>(
-        `/reviews/providers/${serviceProviderId}/reviews`
-      );
-      
-      if (response.data.success) {
-        const { provider, reviews: reviewsData } = response.data;
-        
-        setProviderRating(provider);
-        setAverageRating(parseFloat(provider.rating));
-        setTotalReviews(provider.review_count);
-        
-        const processedReviews = reviewsData.map(review => ({
-          ...review,
-          customerName: `Customer ${review.review_id}`
-        }));
-
-        const sortedReviews = processedReviews.sort((a, b) => b.created_at - a.created_at);
-        
-        setReviews(sortedReviews);
-        setFilteredReviews(sortedReviews);
-      }
-    } catch (error) {
-      console.error("Failed to fetch reviews:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleServiceTypeChange = (serviceType: string) => {
-    setSelectedServiceType(serviceType);
-  };
-
-  const renderStars = (rating: number, size: number = 12) => (
-    <View style={styles.starsContainer}>
-      {[1, 2, 3, 4, 5].map((index) => (
+function renderStars(rating: number, size = 14) {
+  return (
+    <View style={styles.starsRow}>
+      {[1, 2, 3, 4, 5].map((i) => (
         <StarIcon
-          key={index}
+          key={i}
           name="star"
           size={size}
-          color={index <= rating ? "#facc15" : "#cbd5e1"}
-          style={styles.star}
+          color={i <= rating ? "#f59e0b" : BRAND.line}
+          style={styles.starGap}
         />
       ))}
     </View>
   );
+}
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diffDays = Math.ceil(Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+export function ReviewsDialog({ visible, onClose, serviceProviderId }: ReviewsDialogProps) {
+  const [reviews, setReviews] = useState<ProviderReview[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [providerRating, setProviderRating] = useState<ProviderRatingSummary | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<FilterKey>("ALL");
+  const [loadError, setLoadError] = useState(false);
+
+  const averageRating = providerRating?.rating ?? 0;
+  const totalReviews = providerRating?.review_count ?? 0;
+
+  const loadReviews = useCallback(async () => {
+    if (!serviceProviderId) return;
+
+    try {
+      setLoadError(false);
+      const data = await fetchProviderReviews(serviceProviderId, { limit: 100 });
+      setProviderRating(data.provider);
+      setReviews(data.reviews);
+    } catch (error) {
+      console.error("Failed to fetch reviews:", error);
+      setLoadError(true);
+      Alert.alert("Error", "Failed to load reviews. Please try again.");
+    }
+  }, [serviceProviderId]);
+
+  useEffect(() => {
+    if (visible && serviceProviderId) {
+      setLoading(true);
+      loadReviews().finally(() => setLoading(false));
+    } else if (!visible) {
+      setReviews([]);
+      setProviderRating(null);
+      setSelectedFilter("ALL");
+      setLoadError(false);
+    }
+  }, [visible, serviceProviderId, loadReviews]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadReviews();
+    setRefreshing(false);
+  };
+
+  const filteredReviews = useMemo(() => {
+    if (selectedFilter === "ALL") return reviews;
+    return reviews.filter((r) => r.service_type === selectedFilter);
+  }, [reviews, selectedFilter]);
+
+  const filterCounts = useMemo(() => {
+    const counts: Record<FilterKey, number> = {
+      ALL: reviews.length,
+      ON_DEMAND: 0,
+      MONTHLY: 0,
+      SHORT_TERM: 0,
+    };
+    reviews.forEach((r) => {
+      const key = r.service_type as FilterKey;
+      if (key in counts && key !== "ALL") counts[key] += 1;
     });
-  };
+    return counts;
+  }, [reviews]);
 
-  const getServiceTypeLabel = (type: string): string => {
-    switch (type) {
-      case 'ON_DEMAND': return 'On Demand';
-      case 'MONTHLY': return 'Monthly';
-      case 'SHORT_TERM': return 'Short Term';
-      default: return type;
-    }
-  };
+  const renderReviewCard = (item: ProviderReview, index: number, total: number) => {
+    const serviceStyle = getServiceTypeStyle(item.service_type);
+    const hasText = Boolean(item.review?.trim());
 
-  const getServiceTypeColor = (type: string): { bg: string; text: string } => {
-    switch (type) {
-      case 'ON_DEMAND': return { bg: '#dbeafe', text: '#1e40af' };
-      case 'MONTHLY': return { bg: '#dcfce7', text: '#166534' };
-      case 'SHORT_TERM': return { bg: '#f3e8ff', text: '#6b21a8' };
-      default: return { bg: '#f1f5f9', text: '#475569' };
-    }
+    return (
+      <View key={item.review_id} style={[styles.reviewCard, index < total - 1 && styles.reviewCardBorder]}>
+        <View style={styles.reviewTop}>
+          <View style={styles.ratingBadge}>
+            <Text style={styles.ratingBadgeValue}>{item.rating.toFixed(1)}</Text>
+            <MaterialIcon name="star" size={12} color="#f59e0b" />
+          </View>
+          <View style={styles.reviewMetaCol}>
+            {renderStars(item.rating, 12)}
+            <View style={[styles.servicePill, { backgroundColor: serviceStyle.bg }]}>
+              <Text style={[styles.servicePillText, { color: serviceStyle.text }]}>
+                {getServiceTypeLabel(item.service_type)}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.reviewDate}>{formatDate(item.created_at)}</Text>
+        </View>
+        {item.customer_name ? (
+          <Text style={styles.customerName}>{item.customer_name}</Text>
+        ) : null}
+        <Text style={[styles.reviewBody, !hasText && styles.reviewBodyMuted]}>
+          {hasText ? item.review : "No written feedback"}
+        </Text>
+      </View>
+    );
   };
-
-  const handleClose = () => {
-    onClose();
-  };
-
-  if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={handleClose}
-      statusBarTranslucent
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContainer, { width: modalWidth, height: modalHeight }]}>
-          
-          {/* Gradient Header */}
-          <LinearGradient
-            colors={[...BOOKING_HEADER_GRADIENT]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.header}
-          >
-            <View style={styles.headerContent}>
-              <View style={styles.titleSection}>
-                <View style={styles.titleIconContainer}>
-                  <StarIcon name="star" size={22} color="#ffffff" />
-                </View>
-                <Text style={styles.title}>Reviews & Ratings</Text>
-                {providerRating && (
-                  <View style={[styles.gradeBadge, { backgroundColor: getGradeColor(providerRating.grade) }]}>
-                    <Text style={styles.gradeText}>{providerRating.grade}</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.subtitle}>What customers are saying</Text>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.sheet}>
+          <View style={styles.headerAccent} />
+          <View style={styles.header}>
+            <View style={styles.headerIcon}>
+              <MaterialIcon name="star-rate" size={22} color={BRAND.accent} />
             </View>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Icon name="x" size={24} color="#ffffff" />
+            <View style={styles.headerTextCol}>
+              <Text style={styles.headerTitle}>Customer reviews</Text>
+              <Text style={styles.headerSubtitle}>Ratings and feedback from your clients</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
+              <MaterialIcon name="close" size={22} color={BRAND.textMuted} />
             </TouchableOpacity>
-          </LinearGradient>
+          </View>
 
-          {/* Scrollable Content */}
-          <ScrollView 
-            style={styles.scrollContent}
-            showsVerticalScrollIndicator={true}
-            contentContainerStyle={styles.scrollContentContainer}
-          >
-            {loading && reviews.length === 0 ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#3b82f6" />
-                <Text style={styles.loadingText}>Loading reviews...</Text>
-              </View>
-            ) : (
-              <>
-                {/* Rating Summary Card */}
-                {providerRating && (
-                  <LinearGradient
-                    colors={["#ffffff", "#f8fafc"]}
-                    style={styles.ratingCard}
-                  >
-                    <View style={styles.ratingHeader}>
-                      <View style={styles.ratingMain}>
-                        <Text style={styles.averageRating}>{averageRating.toFixed(1)}</Text>
-                        {renderStars(Math.round(averageRating), 16)}
-                        <Text style={styles.ratingCount}>
-                          {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
-                        </Text>
-                      </View>
-                      
-                      <View style={styles.gradeContainer}>
-                        <Text style={styles.gradeLabel}>Provider Grade</Text>
-                        <LinearGradient
-                          colors={[getGradeColor(providerRating?.grade || 'B'), getGradeColor(providerRating?.grade || 'B') + 'CC']}
-                          style={[styles.gradeCircle]}
-                        >
-                          <Text style={styles.gradeCircleText}>{providerRating?.grade}</Text>
-                        </LinearGradient>
-                      </View>
-                    </View>
-
-                    {/* Rating Distribution */}
-                    <View style={styles.distributionContainer}>
-                      <Text style={styles.distributionTitle}>Rating Distribution</Text>
-                      {[5, 4, 3, 2, 1].map((stars) => {
-                        const count = providerRating.distribution[stars.toString() as keyof typeof providerRating.distribution] || 0;
-                        const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
-                        
-                        return (
-                          <View key={stars} style={styles.distributionRow}>
-                            <Text style={styles.distributionStar}>{stars} ★</Text>
-                            <View style={styles.progressContainer}>
-                              <LinearGradient
-                                colors={["#facc15", "#fbbf24"]}
-                                style={[styles.progressFill, { width: `${percentage}%` }]}
-                              />
-                            </View>
-                            <Text style={styles.distributionCount}>{count}</Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  </LinearGradient>
-                )}
-
-                {/* Filter Section */}
-                <View style={styles.filterSection}>
-                  <View style={styles.filterLabelContainer}>
-                    <Icon name="filter" size={16} color="#64748b" />
-                    <Text style={styles.filterTitle}>Filter by service type</Text>
-                  </View>
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.filterScroll}
-                    contentContainerStyle={styles.filterScrollContent}
-                  >
-                    {SERVICE_TYPES.map((type) => (
-                      <TouchableOpacity
-                        key={type.value}
-                        style={[
-                          styles.filterChip,
-                          selectedServiceType === type.value && styles.filterChipSelected
-                        ]}
-                        onPress={() => handleServiceTypeChange(type.value)}
-                      >
-                        <LinearGradient
-                          colors={selectedServiceType === type.value ? [...BOOKING_HEADER_GRADIENT] : ["#f1f5f9", "#f1f5f9"]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.filterChipGradient}
-                        >
-                          <Text style={[
-                            styles.filterChipText,
-                            selectedServiceType === type.value && styles.filterChipTextSelected
-                          ]}>
-                            {type.label}
-                          </Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                {/* Results Count */}
-                <View style={styles.resultsContainer}>
-                  <Text style={styles.resultsText}>
-                    {selectedServiceType === 'ALL' 
-                      ? `Showing ${filteredReviews.length} ${filteredReviews.length === 1 ? 'review' : 'reviews'}`
-                      : `${filteredReviews.length} ${filteredReviews.length === 1 ? 'review' : 'reviews'} for ${getServiceTypeLabel(selectedServiceType)}`
-                    }
-                  </Text>
-                </View>
-
-                {/* Reviews List */}
-                <View style={styles.reviewsContainer}>
-                  {filteredReviews.length === 0 ? (
-                    <View style={styles.emptyState}>
-                      <View style={styles.emptyStateIconContainer}>
-                        <Icon name="message-circle" size={48} color="#cbd5e1" />
-                      </View>
-                      <Text style={styles.emptyStateTitle}>No reviews yet</Text>
-                      <Text style={styles.emptyStateText}>
-                        {selectedServiceType !== 'ALL' 
-                          ? `No reviews available for ${getServiceTypeLabel(selectedServiceType)} service`
-                          : "Be the first to leave a review for this provider"}
+          {loading && !refreshing && reviews.length === 0 ? (
+            <View style={styles.centered}>
+              <ActivityIndicator size="large" color={BRAND.bookingSky} />
+              <Text style={styles.centeredText}>Loading reviews...</Text>
+            </View>
+          ) : loadError && reviews.length === 0 ? (
+            <View style={styles.centered}>
+              <MaterialIcon name="error-outline" size={40} color={BRAND.textMuted} />
+              <Text style={styles.emptyTitle}>Could not load reviews</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); loadReviews().finally(() => setLoading(false)); }}>
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND.bookingSky} />
+              }
+            >
+              {providerRating ? (
+                <View style={styles.heroCard}>
+                  <View style={styles.heroAccent} />
+                  <View style={styles.heroRow}>
+                    <View style={styles.heroLeft}>
+                      <Text style={styles.heroScore}>{averageRating.toFixed(1)}</Text>
+                      {renderStars(Math.round(averageRating), 16)}
+                      <Text style={styles.heroCount}>
+                        {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
                       </Text>
                     </View>
-                  ) : (
-                    filteredReviews.map((review) => {
-                      const serviceColors = getServiceTypeColor(review.service_type);
-                      return (
-                        <View key={review.review_id} style={styles.reviewCard}>
-                          <View style={styles.reviewHeader}>
-                            <View style={styles.reviewerInfo}>
-                              <LinearGradient
-                                colors={["#f1f5f9", "#e2e8f0"]}
-                                style={styles.avatar}
-                              >
-                                <Text style={styles.avatarText}>{getRatingEmoji(review.rating)}</Text>
-                              </LinearGradient>
-                              <View style={styles.reviewerDetails}>
-                                <Text style={styles.reviewerName}>
-                                  {review.customerName || "Anonymous Customer"}
-                                </Text>
-                                <View style={styles.reviewMeta}>
-                                  {renderStars(review.rating, 12)}
-                                  <View style={[styles.serviceBadge, { backgroundColor: serviceColors.bg }]}>
-                                    <Text style={[styles.serviceBadgeText, { color: serviceColors.text }]}>
-                                      {getServiceTypeLabel(review.service_type)}
-                                    </Text>
-                                  </View>
-                                </View>
-                              </View>
-                            </View>
-                            <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
-                          </View>
-                          
-                          <Text style={styles.reviewContent}>
-                            {review.review || "No comment provided"}
-                          </Text>
-                        </View>
-                      );
-                    })
-                  )}
+                    <View style={styles.gradeBlock}>
+                      <Text style={styles.gradeLabel}>Provider grade</Text>
+                      <View style={[styles.gradeCircle, { backgroundColor: getGradeColor(providerRating.grade) }]}>
+                        <Text style={styles.gradeText}>{providerRating.grade}</Text>
+                      </View>
+                    </View>
+                  </View>
                 </View>
-              </>
-            )}
-          </ScrollView>
+              ) : null}
+
+              {providerRating && totalReviews > 0 ? (
+                <View style={styles.distCard}>
+                  <Text style={styles.sectionTitle}>Rating breakdown</Text>
+                  {[5, 4, 3, 2, 1].map((stars) => {
+                    const count =
+                      providerRating.distribution[String(stars) as "1" | "2" | "3" | "4" | "5"] ?? 0;
+                    const pct = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                    return (
+                      <View key={stars} style={styles.distRow}>
+                        <Text style={styles.distLabel}>{stars}</Text>
+                        <MaterialIcon name="star" size={12} color="#f59e0b" />
+                        <View style={styles.distTrack}>
+                          <View style={[styles.distFill, { width: `${pct}%` }]} />
+                        </View>
+                        <Text style={styles.distCount}>{count}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              <View style={styles.segmentWrap}>
+                {FILTER_TABS.map(({ key, label }) => {
+                  const active = selectedFilter === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.segment, active && styles.segmentActive]}
+                      onPress={() => setSelectedFilter(key)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>{label}</Text>
+                      <View style={[styles.segmentCount, active && styles.segmentCountActive]}>
+                        <Text style={[styles.segmentCountText, active && styles.segmentCountTextActive]}>
+                          {filterCounts[key]}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.sectionTitle}>
+                {filteredReviews.length} {filteredReviews.length === 1 ? "review" : "reviews"}
+                {selectedFilter !== "ALL" ? ` · ${getServiceTypeLabel(selectedFilter)}` : ""}
+              </Text>
+
+              <View style={styles.listCard}>
+                {filteredReviews.length === 0 ? (
+                  <View style={styles.listEmpty}>
+                    <MaterialIcon name="rate-review" size={36} color={BRAND.textMuted} />
+                    <Text style={styles.emptyTitle}>No reviews yet</Text>
+                    <Text style={styles.emptyDesc}>
+                      {selectedFilter !== "ALL"
+                        ? `No reviews for ${getServiceTypeLabel(selectedFilter)} services yet.`
+                        : "When customers rate your work, reviews will show up here."}
+                    </Text>
+                  </View>
+                ) : (
+                  filteredReviews.map((r, i, arr) => renderReviewCard(r, i, arr.length))
+                )}
+              </View>
+            </ScrollView>
+          )}
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
+  safeArea: { flex: 1, backgroundColor: BRAND.canvas },
+  sheet: { flex: 1, backgroundColor: BRAND.canvas },
+  headerAccent: { height: 3, backgroundColor: BRAND.accent },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: BRAND.accentSoft,
+    borderBottomWidth: 1,
+    borderBottomColor: BRAND.line,
   },
-  headerContent: {
-    flex: 1,
-    marginRight: 40,
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: BRAND.surface,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  titleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  titleIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  gradeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  gradeText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.85)',
-    lineHeight: 18,
-  },
+  headerTextCol: { flex: 1, marginLeft: 12, marginRight: 8 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: BRAND.text },
+  headerSubtitle: { fontSize: 12, color: BRAND.textMuted, marginTop: 2, fontWeight: "500" },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  scrollContentContainer: {
-    paddingBottom: 24,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    minHeight: 300,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#64748b',
-  },
-  ratingCard: {
-    margin: 16,
-    marginBottom: 12,
-    padding: 20,
-    borderRadius: 20,
+    backgroundColor: BRAND.surface,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: BRAND.line,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  ratingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    flexWrap: 'wrap',
-    gap: 16,
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 32 },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
+  centeredText: { fontSize: 14, color: BRAND.textMuted },
+  heroCard: {
+    backgroundColor: BRAND.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    marginBottom: 12,
+    overflow: "hidden",
   },
-  ratingMain: {
-    alignItems: 'center',
+  heroAccent: { height: 4, backgroundColor: BRAND.accent },
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 18,
   },
-  averageRating: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    marginVertical: 8,
-    gap: 2,
-  },
-  star: {
-    marginHorizontal: 1,
-  },
-  ratingCount: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  gradeContainer: {
-    alignItems: 'center',
-  },
-  gradeLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 6,
-  },
+  heroLeft: { alignItems: "flex-start" },
+  heroScore: { fontSize: 42, fontWeight: "800", color: BRAND.text, letterSpacing: -1 },
+  heroCount: { fontSize: 13, color: BRAND.textMuted, marginTop: 6, fontWeight: "500" },
+  starsRow: { flexDirection: "row", marginTop: 6 },
+  starGap: { marginRight: 2 },
+  gradeBlock: { alignItems: "center" },
+  gradeLabel: { fontSize: 11, color: BRAND.textMuted, fontWeight: "600", marginBottom: 8 },
   gradeCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  gradeCircleText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  distributionContainer: {
-    marginTop: 8,
-  },
-  distributionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#334155',
+  gradeText: { fontSize: 20, fontWeight: "800", color: "#fff" },
+  distCard: {
+    backgroundColor: BRAND.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    padding: 16,
     marginBottom: 12,
   },
-  distributionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 6,
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: BRAND.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 10,
   },
-  distributionStar: {
-    fontSize: 12,
-    color: '#475569',
-    width: 42,
-  },
-  progressContainer: {
+  distRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  distLabel: { width: 14, fontSize: 12, fontWeight: "600", color: BRAND.text },
+  distTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: BRAND.canvas,
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  distributionCount: {
-    fontSize: 12,
-    color: '#64748b',
-    width: 32,
-    textAlign: 'right',
-  },
-  filterSection: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  filterLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  filterTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#334155',
-  },
-  filterScroll: {
-    flexGrow: 0,
-  },
-  filterScrollContent: {
-    paddingRight: 16,
-  },
-  filterChip: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginRight: 10,
-  },
-  filterChipGradient: {
-    paddingHorizontal: 18,
+  distFill: { height: "100%", backgroundColor: "#fbbf24", borderRadius: 4 },
+  distCount: { width: 24, fontSize: 12, color: BRAND.textMuted, textAlign: "right" },
+  segmentWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
+  segment: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingVertical: 8,
-  },
-  filterChipSelected: {
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#475569',
-  },
-  filterChipTextSelected: {
-    color: '#ffffff',
-  },
-  resultsContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  resultsText: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  reviewsContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  reviewCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 4,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: BRAND.surface,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: BRAND.line,
   },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-    flexWrap: 'wrap',
-    gap: 8,
+  segmentActive: { backgroundColor: BRAND.accent, borderColor: BRAND.accent },
+  segmentLabel: { fontSize: 13, fontWeight: "600", color: BRAND.textMuted },
+  segmentLabelActive: { color: "#fff" },
+  segmentCount: {
+    minWidth: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: BRAND.canvas,
+    alignItems: "center",
   },
-  reviewerInfo: {
-    flexDirection: 'row',
-    gap: 12,
-    flex: 1,
+  segmentCountActive: { backgroundColor: "rgba(255,255,255,0.25)" },
+  segmentCountText: { fontSize: 11, fontWeight: "700", color: BRAND.textMuted },
+  segmentCountTextActive: { color: "#fff" },
+  listCard: {
+    backgroundColor: BRAND.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    overflow: "hidden",
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+  listEmpty: { alignItems: "center", padding: 32 },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: BRAND.text, marginTop: 12 },
+  emptyDesc: {
+    fontSize: 13,
+    color: BRAND.textMuted,
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 20,
+    paddingHorizontal: 12,
   },
-  avatarText: {
-    fontSize: 22,
-  },
-  reviewerDetails: {
-    flex: 1,
-  },
-  reviewerName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  reviewMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  serviceBadge: {
+  reviewCard: { padding: 16 },
+  reviewCardBorder: { borderBottomWidth: 1, borderBottomColor: BRAND.line },
+  reviewTop: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+  ratingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "#fffbeb",
+    borderWidth: 1,
+    borderColor: "#fde68a",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 8,
   },
-  serviceBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
+  ratingBadgeValue: { fontSize: 14, fontWeight: "800", color: "#b45309" },
+  reviewMetaCol: { flex: 1, gap: 6 },
+  servicePill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  servicePillText: { fontSize: 10, fontWeight: "700" },
+  reviewDate: { fontSize: 11, color: BRAND.textMuted, fontWeight: "500" },
+  customerName: { fontSize: 13, fontWeight: "600", color: BRAND.text, marginBottom: 6 },
+  reviewBody: { fontSize: 14, color: BRAND.text, lineHeight: 21 },
+  reviewBodyMuted: { color: BRAND.textMuted, fontStyle: "italic" },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: BRAND.accent,
   },
-  reviewDate: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  reviewContent: {
-    fontSize: 14,
-    color: '#475569',
-    lineHeight: 20,
-    marginLeft: 56,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  emptyStateIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#334155',
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  skeletonContainer: {
-    padding: 16,
-    gap: 16,
-  },
-  skeletonItem: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  skeletonHeader: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  skeletonAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#e2e8f0',
-  },
-  skeletonContent: {
-    flex: 1,
-    gap: 8,
-  },
-  skeletonLine: {
-    height: 16,
-    width: '60%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonStars: {
-    height: 14,
-    width: '40%',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-  },
-  skeletonText: {
-    height: 40,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 4,
-    marginLeft: 56,
-  },
+  retryBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 });
 
 export default ReviewsDialog;

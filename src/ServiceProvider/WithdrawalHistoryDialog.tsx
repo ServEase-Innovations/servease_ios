@@ -13,8 +13,12 @@ import {
   StyleSheet,
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
-import PaymentInstance from "../services/paymentInstance";
 import { BRAND } from "../theme/brandColors";
+import {
+  fetchWithdrawalHistory as getWithdrawalHistory,
+  type LedgerEntry,
+  type WithdrawalHistoryResponse,
+} from "../services/withdrawalHistoryService";
 
 type FilterKey = "all" | "credit" | "debit";
 
@@ -121,31 +125,24 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
 }) => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [historyData, setHistoryData] = useState<PayoutHistoryResponse | null>(null);
+  const [historyData, setHistoryData] = useState<WithdrawalHistoryResponse | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FilterKey>("all");
 
   useEffect(() => {
     if (visible && serviceProviderId) {
-      fetchWithdrawalHistory();
+      loadWithdrawalHistory();
     } else if (!visible) {
       setSelectedFilter("all");
     }
   }, [visible, serviceProviderId]);
 
-  const fetchWithdrawalHistory = async () => {
+  const loadWithdrawalHistory = async () => {
     if (!serviceProviderId) return;
 
     setLoading(true);
     try {
-      const response = await PaymentInstance.get(
-        `/api/service-providers/${serviceProviderId}/payouts?detailed=true&include_ledger=true`
-      );
-
-      if (response.status === 200 && response.data) {
-        setHistoryData(response.data);
-      } else {
-        throw new Error(`Failed to fetch history: ${response.status}`);
-      }
+      const data = await getWithdrawalHistory(serviceProviderId);
+      setHistoryData(data);
     } catch (error) {
       console.error("Error fetching withdrawal history:", error);
       Alert.alert("Error", "Failed to load withdrawal history. Please try again.");
@@ -157,7 +154,7 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchWithdrawalHistory();
+    loadWithdrawalHistory();
   };
 
   const filteredLedger = useMemo(() => {
@@ -210,7 +207,11 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
     );
   };
 
-  const renderPayoutItem = (payout: NonNullable<PayoutHistoryResponse["payouts"]>[0], index: number, total: number) => {
+  const renderPayoutItem = (
+    payout: WithdrawalHistoryResponse["withdrawals"][0],
+    index: number,
+    total: number
+  ) => {
     const statusStyle = getPayoutStatusStyle(payout.status);
 
     return (
@@ -265,7 +266,7 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
               </View>
               <Text style={styles.emptyTitle}>No history available</Text>
               <Text style={styles.emptyDesc}>Your transaction history will appear here.</Text>
-              <TouchableOpacity style={styles.retryBtn} onPress={fetchWithdrawalHistory}>
+              <TouchableOpacity style={styles.retryBtn} onPress={loadWithdrawalHistory}>
                 <Text style={styles.retryBtnText}>Retry</Text>
               </TouchableOpacity>
             </View>
@@ -386,12 +387,12 @@ export const WithdrawalHistoryDialog: React.FC<WithdrawalHistoryDialogProps> = (
                 </View>
 
                 {/* Payout requests */}
-                {historyData.payouts && historyData.payouts.length > 0 ? (
+                {(historyData.withdrawals?.length ?? historyData.payouts?.length ?? 0) > 0 ? (
                   <>
-                    <Text style={styles.sectionTitle}>Payout requests</Text>
+                    <Text style={styles.sectionTitle}>Withdrawal requests</Text>
                     <View style={styles.sectionCard}>
-                      {historyData.payouts.map((payout, index) =>
-                        renderPayoutItem(payout, index, historyData.payouts!.length)
+                      {(historyData.withdrawals ?? historyData.payouts ?? []).map((payout, index, arr) =>
+                        renderPayoutItem(payout, index, arr.length)
                       )}
                     </View>
                   </>
