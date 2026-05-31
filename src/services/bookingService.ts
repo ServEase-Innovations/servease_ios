@@ -210,6 +210,7 @@ export const BookingService = {
       let latitude = 0;
       let longitude = 0;
       let address: string | null = null;
+      let location: any = null;
 
       // Use provided location data first (preferred method)
       if (locationData) {
@@ -230,7 +231,7 @@ export const BookingService = {
       } else {
         // Fallback to Redux store (backward compatibility)
         const state: any = store.getState();
-        const location = state?.geoLocation?.value ?? null;
+        location = state?.geoLocation?.value ?? null;
 
         console.log("Location from store:", location);
 
@@ -260,21 +261,17 @@ export const BookingService = {
       payload.serviceproviderid = payload.serviceproviderid === 0 ? null : payload.serviceproviderid;
       payload.latitude = latitude;
       payload.longitude = longitude;
-      payload.address = address || null;
-
-      console.log("Final payload with coordinates and address:", {
-        ...payload,
-        latitude,
-        longitude,
-        address
-      });
+      payload.address = location?.formatted_address || location?.address?.[0]?.formatted_address || null;
+      console.log("Location:", location);
+      console.log("Address:", location?.formatted_address);
+      console.log("Payload:", payload);
 
       // Create engagement
       console.log("Creating engagement with payload:", JSON.stringify(payload));
       const engagementData = await BookingService.createEngagement(payload);
       console.log("Engagement data received:", JSON.stringify(engagementData, null, 2));
 
-      // Extract order id using helper function
+      // Extract order id & amount
       const orderId = engagementData?.razorpay_order_id;
 
       if (!orderId) {
