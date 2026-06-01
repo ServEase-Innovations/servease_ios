@@ -5,6 +5,7 @@
 export const API_URLS = {
   payments: "https://payments-j5id.onrender.com",
   reviews: "https://reviews-19oo.onrender.com",
+  tickets: "http://localhost:5006",
   /** Direct coupons service (falls back to payments proxy in couponService). */
   coupons: "https://coupons-o26r.onrender.com",
 } as const;

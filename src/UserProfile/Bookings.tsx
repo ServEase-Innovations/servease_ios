@@ -32,6 +32,8 @@ import { SkeletonLoader } from '../common/SkeletonLoader';
 import ModifyBookingDialog from './ModifyBookingDialog';
 import ConfirmationDialog from './ConfirmationDialog';
 import AddReviewDialog from './AddReviewDialog';
+import RaiseComplaintDialog from './RaiseComplaintDialog';
+import { fetchMyTickets } from '../services/ticketsService';
 import EngagementDetailsDrawer from './EngagementDetailsDrawer';
 import LinearGradient from 'react-native-linear-gradient';
 import PaymentInstance from '../services/paymentInstance';
@@ -433,6 +435,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [timeSlots] = useState<string[]>([]);
   const [reviewDialogVisible, setReviewDialogVisible] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
+  const [complaintDialogVisible, setComplaintDialogVisible] = useState(false);
+  const [selectedComplaintBooking, setSelectedComplaintBooking] = useState<Booking | null>(null);
   const tooltipAnim = useRef(new Animated.Value(0)).current;
   const lastLoadedCustomerIdRef = useRef<string | null>(null);
 
@@ -997,6 +1001,36 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     setReviewDialogVisible(true);
   };
 
+  const handleReportIssueClick = (booking: Booking) => {
+    setSelectedComplaintBooking(booking);
+    setComplaintDialogVisible(true);
+  };
+
+  const handleOpenMyTickets = async () => {
+    const cid = customerId ? Number(customerId) : NaN;
+    if (!Number.isFinite(cid)) {
+      Alert.alert('Sign in required', 'Please sign in to view your support tickets.');
+      return;
+    }
+    try {
+      const tickets = await fetchMyTickets(cid);
+      if (!tickets.length) {
+        Alert.alert('Support tickets', 'No tickets yet. Use Report issue on a booking to raise a complaint.');
+        return;
+      }
+      const lines = tickets
+        .slice(0, 8)
+        .map(
+          (t) =>
+            `${t.ticket_number}: ${t.subject}\n${t.status}${t.is_overdue ? ' (overdue)' : ''}`
+        )
+        .join('\n\n');
+      Alert.alert('My support tickets', lines);
+    } catch {
+      Alert.alert('Error', 'Could not load tickets. Check tickets service URL.');
+    }
+  };
+
   const handleVacationClick = (booking: Booking) => {
     setSelectedBooking(booking);
     setDetailsDrawerOpen(true);
@@ -1310,7 +1344,13 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
             Manage your service bookings
           </Text>
         </View>
-        <View style={styles.headerSideSlot} />
+        <TouchableOpacity
+          style={[styles.headerSideSlot, { alignItems: 'flex-end' }]}
+          onPress={() => void handleOpenMyTickets()}
+          accessibilityLabel="My support tickets"
+        >
+          <Icon name="lifebuoy" size={22} color="#ffffff" />
+        </TouchableOpacity>
       </View>
     </LinearGradient>
   );
@@ -1583,6 +1623,18 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     );
   };
 
+  const reportIssueButton = (booking: Booking) => (
+    <TouchableOpacity
+      style={[styles.iconButton, { backgroundColor: colors.warning + '10' }]}
+      onPress={() => handleReportIssueClick(booking)}
+    >
+      <Icon name="alert-circle-outline" size={20} color={colors.warning} />
+      <Text style={[styles.iconButtonText, { color: colors.warning, fontSize: fontSizes.buttonText }]}>
+        Report issue
+      </Text>
+    </TouchableOpacity>
+  );
+
   const renderActionButtons = (booking: Booking) => {
     const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
     const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
@@ -1645,6 +1697,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
                 {hasExistingVacation ? 'Manage Vacation' : 'Add Vacation'}
               </Text>
             </TouchableOpacity>
+            {reportIssueButton(booking)}
           </ActionRow>
         );
       case 'IN_PROGRESS':
@@ -1675,12 +1728,14 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
                   {hasExistingVacation ? 'Manage Vacation' : 'Add Vacation'}
                 </Text>
               </TouchableOpacity>
+              {reportIssueButton(booking)}
             </ActionRow>
           </View>
         );
       case 'COMPLETED':
         return (
           <ActionRow>
+            {reportIssueButton(booking)}
             {hasReview(booking) ? (
               <View style={[styles.reviewSubmittedBadge, { backgroundColor: colors.success + '10' }]}>
                 <Icon name="check-circle" size={18} color={colors.success} />
@@ -1701,6 +1756,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       case 'CANCELLED':
         return (
           <ActionRow>
+            {reportIssueButton(booking)}
             <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => setServicesDialogOpen(true)}>
               <Icon name="calendar-plus" size={20} color={colors.info} />
               <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>Book Again</Text>
@@ -1939,6 +1995,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
     if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
     if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
+    if (complaintDialogVisible) { setComplaintDialogVisible(false); return true; }
     if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
     if (confirmationDialog.open) { setConfirmationDialog(prev => ({ ...prev, open: false })); return true; }
     if (onBackToHome) { onBackToHome(); return true; }
@@ -1948,7 +2005,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
-  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, confirmationDialog.open, onBackToHome]);
+  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, complaintDialogVisible, servicesDialogOpen, confirmationDialog.open, onBackToHome]);
 
   useEffect(() => {
     const getInitialUrl = async () => {
@@ -2086,6 +2143,14 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
       <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? 'Confirm Cancellation' : 'Pay Now'} loading={actionLoading} severity={confirmationDialog.severity} />
       <AddReviewDialog visible={reviewDialogVisible} onClose={closeReviewDialog} booking={convertBookingForChildComponents(selectedReviewBooking)} onReviewSubmitted={handleReviewSubmitted} />
+      <RaiseComplaintDialog
+        visible={complaintDialogVisible}
+        onClose={() => {
+          setComplaintDialogVisible(false);
+          setSelectedComplaintBooking(null);
+        }}
+        booking={convertBookingForChildComponents(selectedComplaintBooking)}
+      />
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
       
       {/* EngagementDetailsDrawer - This is a Modal, it will render on top independently */}
