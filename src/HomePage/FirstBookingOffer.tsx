@@ -10,6 +10,7 @@ import {
 import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useTheme } from "../Settings/ThemeContext";
+import { FIRST_BOOKING_COUPON_CODES } from "../services/couponService";
 
 interface FirstBookingOfferProps {
   onPress: () => void;
@@ -62,7 +63,7 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       accessibilityRole="button"
-      accessibilityLabel="First booking offer, 99 rupees with code NEWUSER"
+      accessibilityLabel={`First booking offer, 99 rupees with codes ${FIRST_BOOKING_COUPON_CODES.MAID} and ${FIRST_BOOKING_COUPON_CODES.COOK}`}
       style={styles.container}
     >
       <Animated.View style={[styles.cardOuter, { transform: [{ scale: scaleAnim }] }]}>
@@ -102,8 +103,11 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
 
               <View style={styles.actionBlock}>
                 <View style={styles.couponChip}>
-                  <Text style={[styles.couponLabel, { color: mutedColor }]}>CODE</Text>
-                  <Text style={styles.couponCode}>NEWUSER</Text>
+                  <Text style={[styles.couponLabel, { color: mutedColor }]}>CODES</Text>
+                  <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODES.MAID}</Text>
+                  <Text style={[styles.couponCode, styles.couponCodeSecondary]}>
+                    {FIRST_BOOKING_COUPON_CODES.COOK}
+                  </Text>
                 </View>
                 <View style={styles.chevronBtn}>
                   <Icon name="arrow-forward" size={18} color="#EA580C" />
@@ -235,10 +239,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   couponCode: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "800",
     color: "#92400E",
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
+  },
+  couponCodeSecondary: {
+    marginTop: 1,
   },
   chevronBtn: {
     width: 36,

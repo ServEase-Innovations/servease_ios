@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import Snackbar from "react-native-snackbar";
 import { useTheme } from "../Settings/ThemeContext";
-import { FIRST_BOOKING_COUPON_CODE } from "../services/couponService";
+import { FIRST_BOOKING_COUPON_CODES } from "../services/couponService";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SHEET_MAX_HEIGHT = Math.min(SCREEN_HEIGHT * 0.88, 640);
@@ -33,6 +33,7 @@ const SERVICES = [
     subtitle: "Daily & custom meals",
     accent: "#0EA5E9",
     tint: "#E0F2FE",
+    couponCode: FIRST_BOOKING_COUPON_CODES.COOK,
   },
   {
     id: "MAID",
@@ -41,6 +42,7 @@ const SERVICES = [
     subtitle: "Home cleaning & upkeep",
     accent: "#059669",
     tint: "#D1FAE5",
+    couponCode: FIRST_BOOKING_COUPON_CODES.MAID,
   },
   {
     id: "NANNY",
@@ -49,6 +51,7 @@ const SERVICES = [
     subtitle: "Child & elder care",
     accent: "#7C3AED",
     tint: "#EDE9FE",
+    couponCode: null,
   },
 ] as const;
 
@@ -191,12 +194,12 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
     dismissSheet();
   };
 
-  const copyCoupon = async () => {
+  const copyCoupon = async (code: string) => {
     try {
-      await Clipboard.setString(FIRST_BOOKING_COUPON_CODE);
+      await Clipboard.setString(code);
       setCouponCopied(true);
       Snackbar.show({
-        text: `Coupon ${FIRST_BOOKING_COUPON_CODE} copied — apply at checkout`,
+        text: `Coupon ${code} copied — apply at checkout`,
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: "#059669",
         textColor: "#ffffff",
@@ -284,32 +287,41 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
 
               <View style={styles.offerMain}>
                 <View style={styles.priceBlock}>
-                  <Text style={[styles.priceLabel, { color: textMuted }]}>Book any service at</Text>
+                  <Text style={[styles.priceLabel, { color: textMuted }]}>First maid or cook booking</Text>
                   <View style={styles.priceRow}>
                     <Text style={styles.priceValue}>₹99</Text>
                     <Text style={[styles.priceSuffix, { color: textMuted }]}>flat</Text>
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => void copyCoupon()}
-                  activeOpacity={0.85}
-                  style={[styles.couponChip, couponCopied && styles.couponChipCopied]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Copy coupon code ${FIRST_BOOKING_COUPON_CODE}`}
-                >
-                  <Text style={[styles.couponLabel, { color: textMuted }]}>
-                    {couponCopied ? "Copied!" : "Tap to copy"}
-                  </Text>
-                  <View style={styles.couponCodeRow}>
-                    <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODE}</Text>
-                    <Icon
-                      name={couponCopied ? "check" : "content-copy"}
-                      size={15}
-                      color={couponCopied ? "#059669" : "#92400E"}
-                    />
-                  </View>
-                </TouchableOpacity>
+                <View style={styles.couponStack}>
+                  <TouchableOpacity
+                    onPress={() => void copyCoupon(FIRST_BOOKING_COUPON_CODES.MAID)}
+                    activeOpacity={0.85}
+                    style={[styles.couponChip, couponCopied && styles.couponChipCopied]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Copy coupon code ${FIRST_BOOKING_COUPON_CODES.MAID}`}
+                  >
+                    <Text style={[styles.couponLabel, { color: textMuted }]}>Maid</Text>
+                    <View style={styles.couponCodeRow}>
+                      <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODES.MAID}</Text>
+                      <Icon name="content-copy" size={15} color="#92400E" />
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => void copyCoupon(FIRST_BOOKING_COUPON_CODES.COOK)}
+                    activeOpacity={0.85}
+                    style={[styles.couponChip, couponCopied && styles.couponChipCopied]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Copy coupon code ${FIRST_BOOKING_COUPON_CODES.COOK}`}
+                  >
+                    <Text style={[styles.couponLabel, { color: textMuted }]}>Cook</Text>
+                    <View style={styles.couponCodeRow}>
+                      <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODES.COOK}</Text>
+                      <Icon name="content-copy" size={15} color="#92400E" />
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -342,6 +354,11 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
                     <Text style={[styles.serviceSubtitle, { color: textMuted }]} numberOfLines={2}>
                       {service.subtitle}
                     </Text>
+                    {service.couponCode ? (
+                      <Text style={[styles.serviceCoupon, { color: textMuted }]} numberOfLines={1}>
+                        Code: {service.couponCode}
+                      </Text>
+                    ) : null}
                   </View>
 
                   <View style={[styles.serviceCta, { backgroundColor: service.tint }]}>
@@ -352,7 +369,8 @@ const ServiceSelectionDialog: React.FC<ServiceSelectionDialogProps> = ({
             </View>
 
             <Text style={[styles.footerNote, { color: textMuted }]}>
-              Copy {FIRST_BOOKING_COUPON_CODE}, pick a service, then apply the coupon at checkout.
+              Copy {FIRST_BOOKING_COUPON_CODES.MAID} (maid) or {FIRST_BOOKING_COUPON_CODES.COOK} (cook),
+              pick a service, then apply the matching coupon at checkout.
             </Text>
           </ScrollView>
         </Animated.View>
@@ -492,6 +510,10 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     marginBottom: 5,
   },
+  couponStack: {
+    gap: 8,
+    flexShrink: 0,
+  },
   couponChip: {
     backgroundColor: "#FEF3C7",
     borderRadius: 12,
@@ -562,6 +584,11 @@ const styles = StyleSheet.create({
   serviceSubtitle: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  serviceCoupon: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: "600",
   },
   serviceCta: {
     width: 36,

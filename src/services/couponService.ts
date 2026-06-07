@@ -103,7 +103,26 @@ export type CustomerCouponEligibility = {
   coupons: CustomerCoupon[];
 };
 
-export const FIRST_BOOKING_COUPON_CODE = "NEWUSER";
+/** First-booking promo codes (see database/sql/097_maid_cook_promo99_coupons.sql). */
+export const FIRST_BOOKING_COUPON_CODES = {
+  MAID: "MAID99-1ST",
+  COOK: "COOK99-1ST",
+} as const;
+
+export const FIRST_BOOKING_COUPON_LABEL = `${FIRST_BOOKING_COUPON_CODES.MAID} / ${FIRST_BOOKING_COUPON_CODES.COOK}`;
+
+const FIRST_BOOKING_CODE_SET = new Set(
+  Object.values(FIRST_BOOKING_COUPON_CODES).map((c) => c.toUpperCase())
+);
+
+export function isFirstBookingCouponCode(code: string): boolean {
+  return FIRST_BOOKING_CODE_SET.has(String(code || "").trim().toUpperCase());
+}
+
+export function getFirstBookingCouponCode(serviceType: "COOK" | "MAID" | string): string {
+  const st = String(serviceType || "").trim().toUpperCase();
+  return st === "COOK" ? FIRST_BOOKING_COUPON_CODES.COOK : FIRST_BOOKING_COUPON_CODES.MAID;
+}
 
 async function fetchCustomerCouponPayload(
   customerId: string | number,
@@ -145,13 +164,13 @@ export async function fetchCustomerCouponEligibility(
   };
 }
 
-/** True when customer has no prior bookings and NEWUSER (or first-booking) coupon applies. */
+/** True when customer has no prior bookings and a first-booking promo applies. */
 export async function isEligibleForFirstBookingOffer(
   customerId: string | number
 ): Promise<boolean> {
   const { priorBookingCount, coupons } = await fetchCustomerCouponEligibility(customerId);
   if (priorBookingCount > 0) return false;
-  return coupons.some((c) => c.code === FIRST_BOOKING_COUPON_CODE);
+  return coupons.some((c) => isFirstBookingCouponCode(c.code));
 }
 
 /**

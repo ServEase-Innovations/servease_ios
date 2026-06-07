@@ -8,9 +8,9 @@ import {
 } from "../services/couponService";
 
 /**
- * Hot Deal (₹99 / NEWUSER) visibility:
+ * Hot Deal (₹99 / MAID99-1ST & COOK99-1ST) visibility:
  * - Guest (not signed in): show
- * - Signed-in customer with zero prior bookings + NEWUSER eligible: show
+ * - Signed-in customer with zero prior bookings + first-booking promo eligible: show
  * - Everyone else: hide
  */
 export function useFirstBookingOfferVisible() {
