@@ -8,7 +8,9 @@ import { Platform } from "react-native";
  */
 export const DEV_LAN_HOST: string | null = null;
 
-const PROD_UTILS_URL = "https://utils-ndt3.onrender.com";
+import { API_URLS } from "./apiUrls";
+
+const PROD_UTILS_URL = API_URLS.utils;
 
 export function getUtilsApiUrl(): string {
   if (!__DEV__) {

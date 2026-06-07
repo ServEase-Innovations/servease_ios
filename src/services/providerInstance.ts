@@ -1,9 +1,10 @@
 // src/services/providerInstance.ts
 import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URLS } from '../config/apiUrls';
 
 const providerInstance = axios.create({
-  baseURL: 'https://providers-08ug.onrender.com',
+  baseURL: API_URLS.providers,
   // Add timeout to prevent hanging requests
   timeout: 90000, // nearby-monthly can be slow on cold Render instances
   headers: {

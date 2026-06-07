@@ -5,6 +5,7 @@ import { io, Socket } from "socket.io-client";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import axios from "axios";
 import PaymentInstance from "../services/paymentInstance";
+import { API_URLS } from "../config/apiUrls";
 
 interface NotificationPayload {
   engagementId: number;
@@ -28,7 +29,7 @@ export default function ProviderNotifications({ providerId }: { providerId: numb
     if (!providerId) return;
 
     const newSocket = io(
-      process.env.REACT_APP_SOCKET_URL || "https://payments-j5id.onrender.com",
+      process.env.REACT_APP_SOCKET_URL || API_URLS.payments,
       {
         transports: ["websocket"],
         withCredentials: true,
