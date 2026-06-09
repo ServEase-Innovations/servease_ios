@@ -33,6 +33,7 @@ import ServiceProviderRegistration from "../Registration/ServiceProviderRegistra
 import { useAppUser } from "../context/AppUserContext";
 import providerInstance from "../services/providerInstance";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { DASHBOARD } from "../Constants/pagesConstants";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -411,7 +412,7 @@ export const Login: React.FC<ChildComponentProps> = ({
         
         if (role === "SERVICE_PROVIDER") {
           if (sendDataToParent) {
-            sendDataToParent("PROFILE");
+            sendDataToParent(DASHBOARD);
           } else if (bookingPage) {
             bookingPage("SERVICE_PROVIDER");
           }

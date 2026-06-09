@@ -302,12 +302,14 @@ const Head: React.FC<ChildComponentProps> = ({
             accessToken: token?.accessToken,
             token: token?.accessToken,
           });
+          sendDataToParent(DASHBOARD);
         } else if (response.data.user_role === "VENDOR") {
           setAppUser({
             ...auth0User,
             role: "VENDOR",
             vendorId: response.data.id,
           });
+          sendDataToParent(AGENT_DASHBOARD);
         } else {
           loadedPreferencesForRef.current = Number(response.data.id);
           setAppUser({

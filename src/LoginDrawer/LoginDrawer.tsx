@@ -27,6 +27,7 @@ import { add } from "../features/userSlice";
 import providerInstance from "../services/providerInstance";
 import { useTheme } from "../Settings/ThemeContext";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
+import { AGENT_DASHBOARD, DASHBOARD } from "../Constants/pagesConstants";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -299,9 +300,9 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
         if (sendDataToParent) {
           sendDataToParent(
             roleKey === "SERVICE_PROVIDER"
-              ? "PROFILE"
+              ? DASHBOARD
               : roleKey === "VENDOR"
-                ? "AGENT_DASHBOARD"
+                ? AGENT_DASHBOARD
                 : ""
           );
         }

@@ -604,9 +604,9 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onEmailLogin={handleEmailLogin}
           setAppUser={setAppUser}
           sendDataToParent={(data) => {
-            if (data === "PROFILE") {
-              onNavigateToPage(PROFILE);
-            } else if (data === "AGENT_DASHBOARD") {
+            if (data === DASHBOARD) {
+              onNavigateToPage(DASHBOARD);
+            } else if (data === AGENT_DASHBOARD) {
               onNavigateToPage(AGENT_DASHBOARD);
             }
           }}
@@ -713,6 +713,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onClose={() => setShowAuthModal(false)}
         onEmailLogin={handleEmailLogin}
         setAppUser={setAppUser}
+        sendDataToParent={(data) => {
+          if (data === DASHBOARD) {
+            onNavigateToPage(DASHBOARD);
+          } else if (data === AGENT_DASHBOARD) {
+            onNavigateToPage(AGENT_DASHBOARD);
+          }
+        }}
       />
     </>
   );
