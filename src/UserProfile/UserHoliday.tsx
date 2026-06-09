@@ -7,8 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
-  Alert,
-  Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import dayjs from 'dayjs';
@@ -30,8 +28,22 @@ interface UserHolidayProps {
   onLeaveSubmit: (startDate: string, endDate: string, serviceType: string) => Promise<void>;
 }
 
+const MIN_VACATION_DAYS = 10;
+
+const startOfDay = (value: Date): Date => {
+  const normalized = new Date(value);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+};
+
+const countInclusiveDays = (start: Date, end: Date): number => {
+  const startMs = startOfDay(start).getTime();
+  const endMs = startOfDay(end).getTime();
+  return Math.floor((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
+};
+
 const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLeaveSubmit }) => {
-  const { colors, fontSize, isDarkMode } = useTheme();
+  const { colors, fontSize } = useTheme();
   const [leaveStartDate, setLeaveStartDate] = useState<Date | null>(null);
   const [leaveEndDate, setLeaveEndDate] = useState<Date | null>(null);
   const [minDate, setMinDate] = useState<Date | undefined>();
@@ -39,6 +51,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -72,51 +85,71 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
   };
 
   useEffect(() => {
-    if (booking) {
-      const start = new Date(booking.startDate);
-      const end = new Date(booking.endDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const effectiveMin = start < today ? today : start;
-      setMinDate(effectiveMin);
-      setMaxDate(end);
-      setLeaveStartDate(effectiveMin);
-      setLeaveEndDate(null);
-    }
-  }, [booking]);
+    if (!booking) return;
+    const start = startOfDay(dayjs(booking.startDate).toDate());
+    const end = startOfDay(dayjs(booking.endDate).toDate());
+    const today = startOfDay(new Date());
+    const effectiveMin = start < today ? today : start;
+    setMinDate(effectiveMin);
+    setMaxDate(end);
+    setLeaveStartDate(null);
+    setLeaveEndDate(null);
+    setFormError(null);
+  }, [booking, open]);
 
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+  const totalDays =
+    leaveStartDate && leaveEndDate
+      ? countInclusiveDays(leaveStartDate, leaveEndDate)
+      : 0;
+
+  const earliestEndDate = leaveStartDate
+    ? startOfDay(new Date(leaveStartDate.getTime() + (MIN_VACATION_DAYS - 1) * 24 * 60 * 60 * 1000))
+    : null;
+
+  const isValidVacationPeriod =
+    totalDays >= MIN_VACATION_DAYS &&
+    !!leaveStartDate &&
+    !!leaveEndDate &&
+    !!minDate &&
+    !!maxDate &&
+    startOfDay(leaveStartDate) >= minDate &&
+    startOfDay(leaveEndDate) <= maxDate;
+
+  const handleStartDateChange = (_event: unknown, selectedDate?: Date) => {
     setShowStartPicker(false);
     if (selectedDate) {
-      setLeaveStartDate(selectedDate);
+      setLeaveStartDate(startOfDay(selectedDate));
       setLeaveEndDate(null);
+      setFormError(null);
     }
   };
 
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+  const handleEndDateChange = (_event: unknown, selectedDate?: Date) => {
     setShowEndPicker(false);
     if (selectedDate) {
-      setLeaveEndDate(selectedDate);
+      setLeaveEndDate(startOfDay(selectedDate));
+      setFormError(null);
     }
   };
 
   const handleSubmit = async () => {
-    if (!leaveStartDate || !leaveEndDate || !booking?.serviceType) return;
-
-    // Validate within booking period
-    if (leaveStartDate < minDate! || leaveEndDate > maxDate!) {
-      Alert.alert('Error', 'Please select dates within your booking period');
+    if (!leaveStartDate || !leaveEndDate || !booking?.serviceType) {
+      setFormError('Please select both start and end dates.');
       return;
     }
 
-    // Validate minimum 10 days
-    const diffInDays = Math.floor((leaveEndDate.getTime() - leaveStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    if (diffInDays < 10) {
-      Alert.alert('Error', 'Holiday period must be at least 10 days');
+    if (startOfDay(leaveStartDate) < minDate! || startOfDay(leaveEndDate) > maxDate!) {
+      setFormError('Please select dates within your booking period.');
+      return;
+    }
+
+    if (totalDays < MIN_VACATION_DAYS) {
+      setFormError('Leave duration must be at least 10 days.');
       return;
     }
 
     setIsSubmitting(true);
+    setFormError(null);
     try {
       await onLeaveSubmit(
         dayjs(leaveStartDate).format('YYYY-MM-DD'),
@@ -125,8 +158,9 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
       );
       // Success – close dialog (snackbar shown by parent)
       onClose();
-    } catch (error) {
-      // Error is already handled in parent (snackbar or alert)
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.error || error?.response?.data?.message;
+      setFormError(apiMessage || 'Failed to submit leave application. Please try again.');
       console.error("Leave submission error:", error);
     } finally {
       setIsSubmitting(false);
@@ -176,6 +210,16 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
     dateLabel: { fontSize: fontSizes.dateLabel, color: colors.textSecondary, marginBottom: 4 },
     dateValue: { fontSize: fontSizes.dateValue, color: colors.text, fontWeight: '500' },
     helperText: { fontSize: fontSizes.helperText, color: colors.textSecondary, lineHeight: 20, marginTop: 8 },
+    errorText: {
+      fontSize: fontSizes.helperText,
+      color: colors.error || '#dc2626',
+      lineHeight: 20,
+      marginTop: 8,
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: 'rgba(220, 38, 38, 0.08)',
+    },
+    summaryText: { fontSize: fontSizes.helperText, color: colors.text, marginTop: 8 },
     bookingInfo: { marginTop: 16, padding: 12, backgroundColor: colors.surface, borderRadius: 8 },
     bookingText: { fontSize: fontSizes.bookingText, color: colors.textSecondary, marginBottom: 4 },
     actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: colors.border },
@@ -218,15 +262,31 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
                 )}
                 {showEndPicker && (
                   <DateTimePicker
-                    value={leaveEndDate || leaveStartDate || new Date()}
+                    value={leaveEndDate || earliestEndDate || leaveStartDate || new Date()}
                     mode="date"
                     display="default"
-                    minimumDate={leaveStartDate ? new Date(leaveStartDate.getTime() + 9 * 24 * 60 * 60 * 1000) : minDate}
+                    minimumDate={earliestEndDate || minDate}
                     maximumDate={maxDate}
                     onChange={handleEndDateChange}
                   />
                 )}
-                <Text style={dynamicStyles.helperText}>Please select a holiday period of at least 10 consecutive days within your booking period</Text>
+                <Text style={dynamicStyles.helperText}>
+                  Please select a holiday period of at least 10 consecutive days within your booking period
+                  {earliestEndDate && leaveStartDate
+                    ? ` (earliest end date: ${dayjs(earliestEndDate).format('DD/MM/YYYY')})`
+                    : ''}
+                </Text>
+                {totalDays > 0 ? (
+                  <Text
+                    style={[
+                      dynamicStyles.summaryText,
+                      { color: totalDays >= MIN_VACATION_DAYS ? colors.primary : colors.error || '#dc2626' },
+                    ]}
+                  >
+                    Total days: {totalDays}
+                  </Text>
+                ) : null}
+                {formError ? <Text style={dynamicStyles.errorText}>{formError}</Text> : null}
                 {booking && (
                   <View style={dynamicStyles.bookingInfo}>
                     <Text style={dynamicStyles.bookingText}>
@@ -240,7 +300,7 @@ const UserHoliday: React.FC<UserHolidayProps> = ({ open, onClose, booking, onLea
             </ScrollView>
             <View style={dynamicStyles.actions}>
               <Button variant="outline" onPress={onClose} disabled={isSubmitting}>Cancel</Button>
-              <Button onPress={handleSubmit} disabled={isSubmitting || !leaveStartDate || !leaveEndDate}>
+              <Button onPress={handleSubmit} disabled={isSubmitting || !isValidVacationPeriod}>
                 {isSubmitting ? 'Loading...' : 'Submit'}
               </Button>
             </View>
