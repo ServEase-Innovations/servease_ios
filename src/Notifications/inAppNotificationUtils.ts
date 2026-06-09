@@ -34,7 +34,19 @@ export type BookingRequestPayload = {
 const IST_OFFSET_MINUTES = 330;
 
 function asMeta(m: unknown): Record<string, unknown> | null {
-  if (m && typeof m === "object" && !Array.isArray(m)) {
+  if (m == null) return null;
+  if (typeof m === "string") {
+    try {
+      const parsed = JSON.parse(m) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  if (typeof m === "object" && !Array.isArray(m)) {
     return m as Record<string, unknown>;
   }
   return null;
@@ -109,7 +121,79 @@ export function typeMeta(type: string): { label: string; icon: string; color: st
   if (s === "SERVICE_DAY_COMPLETED" || s.includes("COMPLETED")) {
     return { label: "Service done", icon: "celebration", color: "#7c3aed" };
   }
+  if (s === "BOOKING_AUTO_CANCELLED_NO_PROVIDER" || s.includes("AUTO_CANCELLED")) {
+    return { label: "Cancelled", icon: "cancel", color: "#dc2626" };
+  }
   return { label: "Update", icon: "notifications", color: "#64748b" };
+}
+
+export function isAutoCancelledNoProviderType(type: string): boolean {
+  return (type || "").toUpperCase() === "BOOKING_AUTO_CANCELLED_NO_PROVIDER";
+}
+
+export type NotificationBookingLine = { label: string; value: string };
+
+export function notificationBookingLines(metadata: unknown): NotificationBookingLine[] {
+  const m = asMeta(metadata);
+  if (!m) return [];
+
+  const lines: NotificationBookingLine[] = [];
+
+  const serviceType =
+    m.service_type != null
+      ? String(m.service_type)
+      : m.serviceType != null
+        ? String(m.serviceType)
+        : "";
+  if (serviceType.trim()) {
+    lines.push({ label: "Service", value: serviceType.replace(/_/g, " ") });
+  }
+
+  const bookingType =
+    m.booking_type != null
+      ? String(m.booking_type)
+      : m.bookingType != null
+        ? String(m.bookingType)
+        : "";
+  if (bookingType.trim()) {
+    lines.push({ label: "Booking type", value: bookingType.replace(/_/g, " ") });
+  }
+
+  let scheduled = "";
+  const startLabel = m.start_time_label ?? m.startTimeLabel ?? null;
+  const startEpochRaw = m.start_epoch ?? m.startEpoch;
+  if (startLabel && typeof startLabel === "string" && startLabel.trim()) {
+    scheduled = startLabel.trim();
+  } else if (startEpochRaw != null && Number.isFinite(Number(startEpochRaw))) {
+    scheduled = `${formatYmdInTz(Number(startEpochRaw))}, ${formatTimeInTz(Number(startEpochRaw))}`;
+  }
+  if (scheduled) {
+    lines.push({ label: "Scheduled", value: scheduled });
+  }
+
+  const durationRaw = m.duration_minutes ?? m.durationMinutes;
+  if (durationRaw != null && Number(durationRaw) > 0) {
+    lines.push({ label: "Duration", value: `${String(durationRaw)} min` });
+  }
+
+  const address =
+    m.address != null && String(m.address).trim() ? String(m.address).trim() : "";
+  if (address) {
+    lines.push({ label: "Location", value: address });
+  }
+
+  const refundAmount =
+    m.refund_amount_inr ??
+    m.refundAmountInr ??
+    m.total_amount ??
+    m.totalAmount ??
+    m.base_amount ??
+    m.baseAmount;
+  if (refundAmount != null && Number.isFinite(Number(refundAmount))) {
+    lines.push({ label: "Refund amount", value: `₹${Number(refundAmount)}` });
+  }
+
+  return lines;
 }
 
 export function inAppToBookingRequestPayload(n: {
@@ -125,7 +209,13 @@ export function inAppToBookingRequestPayload(n: {
   const m = asMeta(n.metadata) ?? {};
   const serviceType = String(m.service_type ?? n.title ?? "Service");
   const bookingType = String(m.booking_type ?? "ON_DEMAND");
-  const base = m.base_amount != null ? Number(m.base_amount) : 0;
+  const baseRaw =
+    m.base_amount != null
+      ? m.base_amount
+      : m.total_amount != null
+        ? m.total_amount
+        : m.refund_amount_inr;
+  const base = baseRaw != null ? Number(baseRaw) : 0;
   const duration = m.duration_minutes != null ? Number(m.duration_minutes) : undefined;
   const address =
     m.address != null && String(m.address).trim() !== "" ? String(m.address) : undefined;
@@ -172,6 +262,7 @@ export function inAppToBookingRequestPayload(n: {
 
   const typeUpper = String(n.type || "").toUpperCase();
   const isAssignedConfirmed = typeUpper === "ASSIGNED_BOOKING_CONFIRMED";
+  const isAutoCancelledNoProvider = typeUpper === "BOOKING_AUTO_CANCELLED_NO_PROVIDER";
 
   let endDateYmd: string | undefined;
   if (m.end_date != null && String(m.end_date).trim() !== "") {
@@ -195,6 +286,7 @@ export function inAppToBookingRequestPayload(n: {
     ...(m.payment_ready === true ? { payment_ready: true as const } : {}),
     ...(m.payment_pending === true ? { payment_pending: true as const } : {}),
     ...(isAssignedConfirmed ? { payment_completed: true as const } : {}),
+    ...(isAutoCancelledNoProvider ? { payment_completed: true as const } : {}),
   };
 }
 

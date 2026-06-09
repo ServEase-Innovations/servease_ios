@@ -26,9 +26,11 @@ import {
   parseEngagementId,
 } from "../services/engagementService";
 import BookingRequestPanel from "./BookingRequestPanel";
+import AutoCancelledBookingCard from "./AutoCancelledBookingCard";
 import {
   InAppNotification,
   inAppToBookingRequestPayload,
+  isAutoCancelledNoProviderType,
   recipientParams,
   timeAgo,
   typeMeta,
@@ -283,13 +285,19 @@ export default function NotificationsPage({
       (tUpper === "NEW_BOOKING_OPPORTUNITY" || tUpper === "NEW_BOOKING_REQUEST");
     const isSpAssignedConfirmed =
       r?.recipientType === "provider" && tUpper === "ASSIGNED_BOOKING_CONFIRMED";
+    const isCustomerAutoCancelled =
+      r?.recipientType === "customer" && isAutoCancelledNoProviderType(n.type);
     const eid = parseEngagementId(n.engagementId);
     const hasBookingDetailPanel =
       (isSpOndemandNewBooking || isSpAssignedConfirmed) && eid != null;
     const canQuickAct = isSpOndemandNewBooking && unreadItem && hasBookingDetailPanel;
-    const hasBody = Boolean(n.body?.trim());
-    const hasAddress = Boolean(metaRow?.address);
-    const mainContentShort = !hasBody && !hasAddress && !hasBookingDetailPanel;
+    const hasBody = Boolean(n.body?.trim()) && !isCustomerAutoCancelled;
+    const hasAddress = Boolean(metaRow?.address) && !isCustomerAutoCancelled;
+    const mainContentShort =
+      !hasBody &&
+      !hasAddress &&
+      !isCustomerAutoCancelled &&
+      !hasBookingDetailPanel;
 
     return (
       <Animated.View
@@ -320,6 +328,10 @@ export default function NotificationsPage({
               if (unreadItem) void markRead(n);
               return;
             }
+            if (isCustomerAutoCancelled) {
+              if (unreadItem) void markRead(n);
+              return;
+            }
             if (isSpOndemandNewBooking) return;
             if (unreadItem) void markRead(n);
           }}
@@ -339,23 +351,39 @@ export default function NotificationsPage({
               </LinearGradient>
             </View>
             <View style={styles.itemContent}>
-              <View style={styles.titleRow}>
-                <Text
-                  style={[
-                    styles.itemTitle,
-                    unreadItem && styles.itemTitleBold,
-                    { color: isDarkMode ? '#f8fafc' : '#0f172a' },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {n.title}
-                </Text>
-                {unreadItem ? (
+              {!isCustomerAutoCancelled ? (
+                <View style={styles.titleRow}>
+                  <Text
+                    style={[
+                      styles.itemTitle,
+                      unreadItem && styles.itemTitleBold,
+                      { color: isDarkMode ? '#f8fafc' : '#0f172a' },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {n.title}
+                  </Text>
+                  {unreadItem ? (
+                    <View style={styles.newBadge}>
+                      <Text style={styles.newBadgeText}>New</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : unreadItem ? (
+                <View style={[styles.titleRow, { marginBottom: 4 }]}>
                   <View style={styles.newBadge}>
                     <Text style={styles.newBadgeText}>New</Text>
                   </View>
-                ) : null}
-              </View>
+                </View>
+              ) : null}
+              {isCustomerAutoCancelled ? (
+                <AutoCancelledBookingCard
+                  metadata={n.metadata}
+                  engagementId={eid}
+                  isDarkMode={isDarkMode}
+                  variant="compact"
+                />
+              ) : null}
               {hasBody ? (
                 <Text style={[styles.itemBody, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
                   {n.body}
@@ -936,6 +964,40 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     flex: 1,
+  },
+  bookingSummaryBox: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.35)",
+  },
+  bookingSummaryBoxDetail: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  bookingSummaryLabel: {
+    fontWeight: "700",
+    color: "#334155",
+  },
+  cancelledDetailScroll: {
+    padding: 20,
+    paddingTop: 48,
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  detailBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  detailCaption: {
+    fontSize: 12,
+    marginBottom: 4,
   },
   actionRowIndented: {
     flexDirection: "row",
