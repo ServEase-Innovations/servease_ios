@@ -1707,10 +1707,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
                 <Icon name="phone" size={20} color={colors.primary} />
                 <Text style={[styles.iconButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Call</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.success + '10' }]} onPress={() => Alert.alert('Message', `Message ${getServiceTitle(booking.service_type)}`)}>
-                <Icon name="message-text" size={20} color={colors.success} />
-                <Text style={[styles.iconButtonText, { color: colors.success, fontSize: fontSizes.buttonText }]}>Message</Text>
-              </TouchableOpacity>
               <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.error + '10' }]} onPress={() => handleCancelClick(booking)}>
                 <Icon name="close-circle" size={20} color={colors.error} />
                 <Text style={[styles.iconButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Cancel</Text>
