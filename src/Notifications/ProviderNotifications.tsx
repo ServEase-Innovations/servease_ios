@@ -69,7 +69,7 @@ export default function ProviderNotifications({ providerId }: { providerId: numb
         `/api/engagements/${engagementId}/accept`,
         { providerId }
       );
-      Alert.alert("Success", res.data.message || "Engagement accepted!");
+      Alert.alert("Success", res.data.message || "Booking accepted successfully");
       // Update status instead of removing immediately
       setNotifications((prev) =>
         prev.map((n) =>
@@ -88,7 +88,13 @@ export default function ProviderNotifications({ providerId }: { providerId: numb
       
     } catch (err: any) {
       console.error("Error accepting engagement:", err);
-      Alert.alert("Error", err.response?.data?.message || "Failed to accept engagement");
+      const d = err.response?.data;
+      const msg =
+        (typeof d?.error === "string" && d.error) ||
+        (typeof d?.message === "string" && d.message) ||
+        (typeof d?.detail === "string" && d.detail) ||
+        "Failed to accept engagement";
+      Alert.alert("Error", msg);
     }
   };
 
@@ -115,7 +121,13 @@ export default function ProviderNotifications({ providerId }: { providerId: numb
       
     } catch (err: any) {
       console.error("Error rejecting engagement:", err);
-      Alert.alert("Error", err.response?.data?.message || "Failed to reject engagement");
+      const d = err.response?.data;
+      const msg =
+        (typeof d?.error === "string" && d.error) ||
+        (typeof d?.message === "string" && d.message) ||
+        (typeof d?.detail === "string" && d.detail) ||
+        "Failed to reject engagement";
+      Alert.alert("Error", msg);
     }
   };
 
@@ -240,7 +252,7 @@ export default function ProviderNotifications({ providerId }: { providerId: numb
       {item.status === "accepted" && (
         <View style={[styles.statusMessage, { backgroundColor: "#d1fae5" }]}>
           <Text style={[styles.statusMessageText, { color: "#059669" }]}>
-            ✅ Engagement Accepted
+            ✅ Booking Accepted
           </Text>
         </View>
       )}
