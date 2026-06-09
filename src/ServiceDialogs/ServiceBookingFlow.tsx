@@ -55,6 +55,23 @@ import {
   resolveCustomerId,
   type CustomerCoupon,
 } from "../services/couponService";
+import {
+  checkOnDemandProviderAvailability,
+  ON_DEMAND_NO_PROVIDERS_MESSAGE,
+} from "../services/onDemandAvailability";
+
+function resolveBookingCoords(location: unknown): { lat: number; lng: number } | null {
+  if (!location || typeof location !== "object") return null;
+  const loc = location as Record<string, unknown>;
+  const geom = loc.geometry as { location?: { lat?: number; lng?: number } } | undefined;
+  if (geom?.location?.lat != null && geom?.location?.lng != null) {
+    return { lat: Number(geom.location.lat), lng: Number(geom.location.lng) };
+  }
+  if (loc.lat != null && loc.lng != null) {
+    return { lat: Number(loc.lat), lng: Number(loc.lng) };
+  }
+  return null;
+}
 
 export type BookingSuccessDetails = {
   providerName?: string;
@@ -113,8 +130,17 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       state.bookingType?.value ?? null
   );
   const bookingType = normalizeBookingTypeFields(rawBooking);
+  const geoLocation = useSelector(
+    (state: { geoLocation?: { value?: unknown } }) => state?.geoLocation?.value
+  );
+  const bookingCoords = resolveBookingCoords(geoLocation);
 
   const [loading, setLoading] = useState(false);
+  const [onDemandAvailability, setOnDemandAvailability] = useState<{
+    loading: boolean;
+    available: boolean;
+    message?: string;
+  }>({ loading: false, available: true });
   const [quotePreview, setQuotePreview] = useState<{
     total: number;
     loading: boolean;
@@ -171,7 +197,14 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       : bookingTypeCode === "SHORT_TERM"
         ? "Short-term"
         : "One Time";
-  const canCheckout = priceReady && (!providerRequired || providerId != null);
+  const scheduleReady = Boolean(bookingType?.startDate && bookingType?.startTime);
+  const onDemandProviderReady =
+    bookingTypeCode !== "ON_DEMAND" ||
+    (onDemandAvailability.available && !onDemandAvailability.loading);
+  const canCheckout =
+    priceReady &&
+    onDemandProviderReady &&
+    (!providerRequired || providerId != null);
   const couponCountLabel = availableCoupons.length;
   const normalizedCouponInput = couponInput.trim().toUpperCase();
   const estimateCouponSavings = React.useCallback(
@@ -214,9 +247,15 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
           ? quotePreview.error
           : payableTotal <= 0
             ? "Pick a valid date and time to see price"
-            : !providerId && bookingTypeCode === "ON_DEMAND"
-              ? "Pay now to confirm — provider matching after payment"
-              : undefined;
+            : bookingTypeCode === "ON_DEMAND" && !bookingCoords
+              ? "Select a service location before checkout"
+              : onDemandAvailability.loading
+                ? "Checking provider availability in your area…"
+                : bookingTypeCode === "ON_DEMAND" && !onDemandAvailability.available
+                  ? onDemandAvailability.message || ON_DEMAND_NO_PROVIDERS_MESSAGE
+                  : !providerId && bookingTypeCode === "ON_DEMAND"
+                    ? "Pay now to confirm — provider matching after payment"
+                    : undefined;
 
   useEffect(() => {
     if (!active) setLoading(false);
@@ -294,6 +333,83 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       dispatch(removeFromCart({ id: item.id, type: cfg.cartType }));
     });
   }, [active, legacyCartItems, dispatch, cfg.cartType]);
+
+  useEffect(() => {
+    if (!active || bookingTypeCode !== "ON_DEMAND") {
+      setOnDemandAvailability({ loading: false, available: true });
+      return;
+    }
+    if (!scheduleReady || !bookingCoords) {
+      setOnDemandAvailability({
+        loading: false,
+        available: false,
+        message: bookingCoords
+          ? undefined
+          : "Select a service location before checkout.",
+      });
+      return;
+    }
+
+    const startDate =
+      formatDateOnly(String(bookingType?.startDate ?? "")) ||
+      new Date().toISOString().split("T")[0];
+    const startTime = String(bookingType?.startTime ?? "").trim();
+    const endTime = String(bookingType?.endTime ?? "").trim();
+    const durationHours = computeDurationHours(
+      bookingTypeCode,
+      startTime,
+      endTime,
+      startDate,
+      startDate,
+      String(bookingType?.timeRange ?? "")
+    );
+    const durationMinutes =
+      durationHours != null && durationHours > 0
+        ? Math.round(durationHours * 60)
+        : 60;
+
+    let cancelled = false;
+    setOnDemandAvailability((prev) => ({ ...prev, loading: true }));
+    checkOnDemandProviderAvailability({
+      latitude: bookingCoords.lat,
+      longitude: bookingCoords.lng,
+      serviceType: cfg.serviceType,
+      startDate,
+      startTime,
+      durationMinutes,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setOnDemandAvailability({
+          loading: false,
+          available: result.available,
+          message: result.message,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOnDemandAvailability({
+          loading: false,
+          available: false,
+          message: "Could not verify provider availability. Please try again.",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    active,
+    bookingTypeCode,
+    scheduleReady,
+    bookingCoords?.lat,
+    bookingCoords?.lng,
+    bookingType?.startDate,
+    bookingType?.startTime,
+    bookingType?.endTime,
+    bookingType?.timeRange,
+    cfg.serviceType,
+  ]);
 
   useEffect(() => {
     if (!active) return;
@@ -589,6 +705,17 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
             <Text style={styles.priceMeta}>
               {checkoutBlockReason ?? bookingTypeDisplay}
             </Text>
+            {bookingTypeCode === "ON_DEMAND" &&
+            scheduleReady &&
+            bookingCoords &&
+            !onDemandAvailability.loading &&
+            !onDemandAvailability.available ? (
+              <View style={styles.availabilityAlert}>
+                <Text style={styles.availabilityAlertText}>
+                  {onDemandAvailability.message || ON_DEMAND_NO_PROVIDERS_MESSAGE}
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.couponRow}>
               <View style={styles.couponHeaderRow}>
                 <View style={styles.couponTitleWrap}>
@@ -885,6 +1012,19 @@ const styles = StyleSheet.create({
   priceLabel: { fontSize: 13, color: "#64748b", fontWeight: "500" },
   priceHero: { fontSize: 26, fontWeight: "800", color: "#0b5bd3", marginVertical: 2 },
   priceMeta: { fontSize: 13, color: "#64748b" },
+  availabilityAlert: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2",
+  },
+  availabilityAlertText: {
+    fontSize: 13,
+    color: "#991b1b",
+    lineHeight: 18,
+  },
   couponRow: {
     marginTop: 10,
     marginBottom: 6,
