@@ -362,6 +362,11 @@ const getEffectiveTaskStatus = (booking: Booking): string => {
   return booking.taskStatus;
 };
 
+const isUpcomingTabBooking = (booking: Booking): boolean => {
+  const status = getEffectiveTaskStatus(booking);
+  return status !== 'CANCELLED' && status !== 'COMPLETED';
+};
+
 const mapTodaySlotTaskStatus = (slot: CustomerTodayBookingSlot): string => {
   const sd = String(slot.service_day_status ?? slot.today_service?.status ?? '').toUpperCase();
   if (sd === 'IN_PROGRESS' || sd === 'STARTED') return 'IN_PROGRESS';
@@ -1270,7 +1275,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   };
 
   const upcomingBookings = sortUpcomingBookings(
-    [...currentBookings, ...futureBookings].filter((b) => b.taskStatus !== 'CANCELLED')
+    [...currentBookings, ...futureBookings].filter(isUpcomingTabBooking)
   );
   const filteredByStatus = statusFilter === 'ALL' ? upcomingBookings : upcomingBookings.filter(booking => booking.taskStatus === statusFilter);
   const filteredUpcomingBookings = filterBookings(filterByBookingType(filteredByStatus), searchTerm);
@@ -1301,12 +1306,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       label: 'In progress',
       icon: 'progress-clock',
       count: upcomingBaseBookings.filter((b) => b.taskStatus === 'IN_PROGRESS').length,
-    },
-    {
-      value: 'COMPLETED',
-      label: 'Completed',
-      icon: 'check-circle',
-      count: upcomingBaseBookings.filter((b) => b.taskStatus === 'COMPLETED').length,
     },
   ];
 
