@@ -65,6 +65,38 @@ const formatDisplayDate = (value: string | number | null | undefined): string | 
   return parsed.format("DD MMM YYYY");
 };
 
+const serviceStartSortKey = (row: Record<string, unknown>): number => {
+  const startEpoch = Number(row.start_epoch);
+  if (Number.isFinite(startEpoch) && startEpoch > 0) return startEpoch;
+  const raw = (row.start_date ?? row.startDate) as string | undefined;
+  if (raw) return dayjs(raw).startOf("day").unix();
+  return 0;
+};
+
+const serviceEndSortKey = (row: Record<string, unknown>): number => {
+  const endEpoch = Number(row.end_epoch);
+  if (Number.isFinite(endEpoch) && endEpoch > 0) return endEpoch;
+  const raw = (row.end_date ?? row.endDate ?? row.start_date ?? row.startDate) as string | undefined;
+  if (raw) return dayjs(raw).endOf("day").unix();
+  return serviceStartSortKey(row);
+};
+
+const sortProviderEngagements = <T extends Record<string, unknown>>(rows: T[], tab: TabKey): T[] => {
+  const ascending = tab === "ongoing" || tab === "future";
+  const useEnd = tab === "past";
+  return [...rows].sort((a, b) => {
+    const aKey = useEnd ? serviceEndSortKey(a) : serviceStartSortKey(a);
+    const bKey = useEnd ? serviceEndSortKey(b) : serviceStartSortKey(b);
+    const diff = ascending ? aKey - bKey : bKey - aKey;
+    if (diff !== 0) return diff;
+    return String(a.engagement_id ?? a.id ?? "").localeCompare(
+      String(b.engagement_id ?? b.id ?? ""),
+      undefined,
+      { numeric: true }
+    );
+  });
+};
+
 const formatBookingDateRange = (booking: Booking): string => {
   let startRaw = booking.start_date;
   let endRaw = booking.endDate;
@@ -252,7 +284,7 @@ export function AllBookingsDialog({
         : tab === "future"
           ? monthResponse.upcoming
           : monthResponse.past;
-    return (raw || []).map(mapApiBookingToBooking);
+    return sortProviderEngagements(raw || [], tab).map(mapApiBookingToBooking);
   }, [monthResponse, tab, mapApiBookingToBooking]);
 
   const filteredBookings = useMemo(() => {
