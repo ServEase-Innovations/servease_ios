@@ -390,19 +390,13 @@ export function AllBookingsDialog({
           },
         }
       );
-      Alert.alert("Success", "Task completed successfully!");
       setTaskStatus((prev) => ({ ...prev, [currentBooking.bookingId]: "COMPLETED" }));
       await loadMonthBookings(selectedMonth, true);
+      setOtpDialogOpen(false);
     } catch (err) {
-      let errorMessage = "Failed to complete service. Please try again.";
-      if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || err.message || errorMessage;
-      }
-      Alert.alert("Error", errorMessage);
       throw err;
     } finally {
       setVerifyingOtp(false);
-      setOtpDialogOpen(false);
     }
   };
 

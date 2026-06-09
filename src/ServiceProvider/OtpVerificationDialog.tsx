@@ -37,13 +37,27 @@ export function OtpVerificationDialog({
 }: OtpVerificationDialogProps) {
   const { width: windowWidth } = useWindowDimensions();
   const [otpValue, setOtpValue] = useState("");
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const verificationCompletedRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
+
+  const getVerifyErrorMessage = (err: unknown): string => {
+    if (err && typeof err === "object" && "response" in err) {
+      const data = (err as { response?: { data?: { error?: string; message?: string } } })
+        .response?.data;
+      if (data?.error) return data.error;
+      if (data?.message) return data.message;
+    }
+    if (err instanceof Error && err.message) return err.message;
+    return "Invalid or expired OTP. Please check the code and try again.";
+  };
 
   // Reset ref when dialog opens
   useEffect(() => {
     if (open) {
       verificationCompletedRef.current = false;
+      setVerifyError(null);
+      setOtpValue("");
       setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
@@ -63,19 +77,27 @@ export function OtpVerificationDialog({
 
   const handleVerify = async () => {
     if (!otpValue.trim()) return;
-    
-    verificationCompletedRef.current = true;
-    await onVerify(otpValue.trim());
+
+    setVerifyError(null);
+    try {
+      await onVerify(otpValue.trim());
+      verificationCompletedRef.current = true;
+    } catch (err) {
+      verificationCompletedRef.current = false;
+      setVerifyError(getVerifyErrorMessage(err));
+    }
   };
 
   const handleClose = () => {
     setOtpValue("");
+    setVerifyError(null);
     onOpenChange(false);
   };
 
   const handleOtpChange = (text: string) => {
-    const numericText = text.replace(/[^0-9]/g, '');
+    const numericText = text.replace(/[^0-9]/g, "");
     setOtpValue(numericText);
+    if (verifyError) setVerifyError(null);
   };
 
   // Responsive modal width
@@ -139,6 +161,13 @@ export function OtpVerificationDialog({
               </LinearGradient>
             )}
             
+            {verifyError ? (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <Icon name="alert-circle" size={18} color="#b91c1c" />
+                <Text style={styles.errorText}>{verifyError}</Text>
+              </View>
+            ) : null}
+
             {/* OTP Section */}
             <View style={styles.otpSection}>
               <View style={styles.instructionIconContainer}>
@@ -297,6 +326,24 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#b91c1c",
+    fontWeight: "500",
   },
   bookingInfoCard: {
     borderRadius: 16,

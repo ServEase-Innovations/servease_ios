@@ -707,8 +707,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
     }
 
     setVerifyingOtp(true);
-    verificationCompletedRef.current = true;
-    
+
     try {
       await PaymentInstance.post(
         `/api/engagement-service/service-days/${serviceDayId}/complete`,
@@ -721,16 +720,11 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
         }
       );
 
-      Alert.alert("Success", "Task completed successfully!");
       setTaskStatus(prev => ({ ...prev, [currentBooking.bookingId]: "COMPLETED" }));
       await fetchData();
+      verificationCompletedRef.current = true;
       return Promise.resolve();
     } catch (err) {
-      let errorMessage = "Failed to complete service. Please try again.";
-      if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || err.message || errorMessage;
-      }
-      Alert.alert("Error", errorMessage);
       verificationCompletedRef.current = false;
       return Promise.reject(err);
     } finally {
