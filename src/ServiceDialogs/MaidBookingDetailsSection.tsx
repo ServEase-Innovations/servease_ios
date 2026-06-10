@@ -1,5 +1,13 @@
 /* eslint-disable */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   View,
   Text,
@@ -11,7 +19,12 @@ import { useDispatch, useSelector } from "react-redux";
 import dayjs, { Dayjs } from "dayjs";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Icon from "react-native-vector-icons/MaterialIcons";
-import { update } from "../features/bookingTypeSlice";
+import {
+  commitSchedule,
+  openBookingDialog,
+  setScheduleDirty,
+  setScheduleDraft,
+} from "../features/bookingTypeSlice";
 
 const DURATION_OPTIONS = [1, 2, 3, 4, 5, 6];
 
@@ -59,7 +72,7 @@ function buildReduxBookingPatch(
     timeSlot = startTime?.format("HH:mm") || "";
   }
 
-  return {
+  const patch = {
     ...(existing ?? {}),
     startDate: startIso ? startIso.split("T")[0] : "",
     endDate: endIso ? endIso.split("T")[0] : "",
@@ -69,13 +82,44 @@ function buildReduxBookingPatch(
     endTime: endTime?.format("HH:mm") || "",
     timeSlot,
   };
+
+  if (!startTime && !endTime) {
+    patch.timeRange = "";
+    patch.timeSlot = "";
+    patch.startTime = "";
+    patch.endTime = "";
+  }
+
+  return patch;
 }
+
+function schedulePatchKey(patch: Record<string, unknown> | null): string {
+  if (!patch) return "";
+  return [
+    String(patch.startDate ?? "").split("T")[0],
+    String(patch.endDate ?? "").split("T")[0],
+    String(patch.startTime ?? "").trim(),
+    String(patch.endTime ?? "").trim(),
+  ].join("|");
+}
+
+export type MaidBookingDetailsSectionHandle = {
+  checkAvailability: () => Promise<void>;
+};
 
 interface MaidBookingDetailsSectionProps {
   active: boolean;
+  providerId?: number | string | null;
+  onApplyingScheduleChange?: (loading: boolean) => void;
 }
 
-const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ active }) => {
+const MaidBookingDetailsSection = forwardRef<
+  MaidBookingDetailsSectionHandle,
+  MaidBookingDetailsSectionProps
+>(function MaidBookingDetailsSection(
+  { active, providerId, onApplyingScheduleChange },
+  ref
+) {
   const dispatch = useDispatch();
   const rawBooking = useSelector(
     (state: { bookingType?: { value?: Record<string, unknown> } }) =>
@@ -94,6 +138,13 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
   const [pickerMode, setPickerMode] = useState<"date" | "time" | null>(null);
+  const [userTouchedSchedule, setUserTouchedSchedule] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const scheduleBaselineRef = useRef("");
+
+  const markScheduleTouched = useCallback(() => {
+    setUserTouchedSchedule(true);
+  }, []);
 
   const hydrateFromRedux = useCallback(() => {
     const pref = String(rawBooking?.bookingPreference ?? "Date");
@@ -119,14 +170,6 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
       et = et ?? parseTimeOnDate(dateStr, endPart);
     }
 
-    if (pref === "Date" && (!st || !et)) {
-      const adjusted = defaultOnDemandStart();
-      st = adjusted;
-      et = adjusted.add(1, "hour");
-      sd = adjusted;
-      ed = et;
-    }
-
     setStartDate(sd);
     setEndDate(ed ?? sd);
     setStartTime(st);
@@ -137,42 +180,16 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
   useEffect(() => {
     if (active) {
       hydrateFromRedux();
+      setUserTouchedSchedule(false);
+      setHydrated(true);
       setScheduleOpen(false);
       setPickerMode(null);
+      return;
     }
-  }, [active, hydrateFromRedux]);
-
-  const persist = useCallback(
-    (
-      nextStartDate: Dayjs | null,
-      nextEndDate: Dayjs | null,
-      nextStartTime: Dayjs | null,
-      nextEndTime: Dayjs | null
-    ) => {
-      dispatch(
-        update(
-          buildReduxBookingPatch(
-            preference,
-            nextStartDate,
-            nextEndDate,
-            nextStartTime,
-            nextEndTime,
-            rawBooking
-          )
-        )
-      );
-      setValidationMsg(null);
-    },
-    [rawBooking, dispatch, preference]
-  );
-
-  useEffect(() => {
-    if (!active || !startTime || !endTime) return;
-    const reduxStart = String(rawBooking?.startTime ?? "");
-    const reduxEnd = String(rawBooking?.endTime ?? "");
-    if (reduxStart && reduxEnd) return;
-    persist(startDate, endDate, startTime, endTime);
-  }, [active, rawBooking, startDate, endDate, startTime, endTime, persist]);
+    setHydrated(false);
+    dispatch(setScheduleDirty(false));
+    dispatch(setScheduleDraft(null));
+  }, [active, dispatch, hydrateFromRedux]);
 
   const planLabel = useMemo(() => {
     const pref = preference.toLowerCase();
@@ -184,7 +201,88 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
   const durationHours =
     startTime && endTime ? Math.max(1, endTime.diff(startTime, "hour")) : 1;
 
+  const localSchedulePatch = useMemo(
+    () =>
+      buildReduxBookingPatch(preference, startDate, endDate, startTime, endTime, null),
+    [preference, startDate, endDate, startTime, endTime]
+  );
+
+  useEffect(() => {
+    if (!active || !hydrated) return;
+    if (!startTime || !endTime) {
+      dispatch(setScheduleDirty(false));
+      dispatch(setScheduleDraft(null));
+      return;
+    }
+    const localKey = schedulePatchKey(localSchedulePatch);
+    if (!userTouchedSchedule) {
+      scheduleBaselineRef.current = localKey;
+      dispatch(setScheduleDirty(false));
+      dispatch(setScheduleDraft(null));
+      return;
+    }
+    const dirty = localKey !== scheduleBaselineRef.current;
+    dispatch(setScheduleDirty(dirty));
+    dispatch(setScheduleDraft(dirty ? localSchedulePatch : null));
+  }, [
+    active,
+    dispatch,
+    endTime,
+    hydrated,
+    localSchedulePatch,
+    startTime,
+    userTouchedSchedule,
+  ]);
+
+  const applySchedule = useCallback(async () => {
+    if (!startTime || !endTime) {
+      setValidationMsg("Select your date and time before checking availability.");
+      return;
+    }
+    onApplyingScheduleChange?.(true);
+    try {
+      const patch = buildReduxBookingPatch(
+        preference,
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        rawBooking
+      );
+      dispatch(commitSchedule(patch));
+      scheduleBaselineRef.current = schedulePatchKey(patch);
+      setUserTouchedSchedule(false);
+      setScheduleOpen(false);
+      setValidationMsg(null);
+      const pid = Number(providerId);
+      if (Number.isFinite(pid) && pid > 0) {
+        dispatch(openBookingDialog(String(pid)));
+      }
+    } finally {
+      onApplyingScheduleChange?.(false);
+    }
+  }, [
+    dispatch,
+    endDate,
+    endTime,
+    onApplyingScheduleChange,
+    preference,
+    providerId,
+    rawBooking,
+    startDate,
+    startTime,
+  ]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      checkAvailability: () => applySchedule(),
+    }),
+    [applySchedule]
+  );
+
   const setDurationHours = (hours: number) => {
+    markScheduleTouched();
     if (!startTime) return;
     const newEnd = startTime.add(hours, "hour");
     if (newEnd.hour() >= 22) {
@@ -193,10 +291,11 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
     }
     setEndTime(newEnd);
     if (preference === "Date") setEndDate(newEnd);
-    persist(startDate, preference === "Date" ? newEnd : endDate, startTime, newEnd);
+    setValidationMsg("Tap Check availability to search providers for this duration.");
   };
 
   const applyStartDateTime = (selected: Dayjs) => {
+    markScheduleTouched();
     const now = dayjs();
     let adjusted = selected;
     if (selected.isSame(now, "day")) {
@@ -215,12 +314,7 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
     setEndTime(nextEnd);
     if (preference === "Date") setEndDate(nextEnd);
     if (preference === "Monthly") setEndDate(monthlyEnd);
-    persist(
-      adjusted,
-      preference === "Monthly" ? monthlyEnd : preference === "Date" ? nextEnd : endDate,
-      adjusted,
-      nextEnd
-    );
+    setValidationMsg("Tap Check availability to search providers for this schedule.");
   };
 
   const validateSelection = (selected: Dayjs): boolean => {
@@ -265,18 +359,14 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
     if (!date) return;
     const selected = dayjs(date);
     if (pickerMode === "date") {
+      markScheduleTouched();
       const day = selected.startOf("day");
       const monthlyEnd = day.add(1, "month");
       setStartDate(day);
       setStartTime(null);
       setEndTime(null);
       setEndDate(preference === "Monthly" ? monthlyEnd : preference === "Date" ? null : endDate);
-      persist(
-        day,
-        preference === "Monthly" ? monthlyEnd : preference === "Date" ? null : endDate,
-        null,
-        null
-      );
+      setValidationMsg("Select a time for this date to update provider availability.");
       if (preference !== "Short term") {
         setPickerMode("time");
       }
@@ -410,7 +500,7 @@ const MaidBookingDetailsSection: React.FC<MaidBookingDetailsSectionProps> = ({ a
       ) : null}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   badge: {
@@ -470,6 +560,16 @@ const styles = StyleSheet.create({
   },
   pickerBtnText: { fontSize: 15, color: "#0b5bd3", fontWeight: "500" },
   validation: { color: "#dc2626", fontSize: 13, marginTop: 8 },
+  applyButton: {
+    marginTop: 12,
+    alignSelf: "center",
+    backgroundColor: "#0b5bd3",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  applyButtonDisabled: { opacity: 0.45 },
+  applyButtonText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });
 
 export default MaidBookingDetailsSection;
