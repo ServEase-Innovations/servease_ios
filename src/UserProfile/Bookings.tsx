@@ -584,7 +584,16 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
       let vacationDetails = undefined;
       if (hasVacationFlag) {
-        if (item.vacations && item.vacations.length > 0) {
+        if (item.vacation?.start_date && item.vacation?.end_date) {
+          vacationDetails = {
+            leave_type: "VACATION",
+            total_days: item.vacation.leave_days || item.leave_days,
+            leave_start_date: item.vacation.start_date,
+            leave_end_date: item.vacation.end_date,
+            start_date: item.vacation.start_date,
+            end_date: item.vacation.end_date,
+          };
+        } else if (item.vacations && item.vacations.length > 0) {
           const latestVacation = item.vacations[0];
           vacationDetails = {
             leave_type: "VACATION",
@@ -684,7 +693,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         hasVacation: hasVacationFlag,
         assignmentStatus: item.assignment_status || "ASSIGNED",
         start_epoch: startEpoch,
-        vacation: item.vacation || null,
+        vacation: item.vacation?.start_date && item.vacation?.end_date
+          ? item.vacation
+          : vacationDetails
+            ? {
+                start_date: vacationDetails.start_date,
+                end_date: vacationDetails.end_date,
+                leave_days: vacationDetails.total_days,
+              }
+            : null,
         vacationDetails: vacationDetails,
         modifications: modifications,
         today_service: item.today_service,

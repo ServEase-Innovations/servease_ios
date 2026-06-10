@@ -131,7 +131,7 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
   }, [open, booking]);
 
   const handleApplyVacation = async () => {
-    if (!startDate || !endDate || !booking) {
+    if (!startDate || !endDate || !booking || !customerId) {
       setError("Please select both start and end dates");
       return;
     }
@@ -150,29 +150,27 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
     setError(null);
 
     try {
-      const payload = {
-        vacation_start_date: startDate.format("YYYY-MM-DD"),
-        vacation_end_date: endDate.format("YYYY-MM-DD"),
-        modified_by_id: customerId,
-        modified_by_role: "CUSTOMER",
-      };
-
-      console.log("📦 Applying vacation:", payload);
-
-      const response = await PaymentInstance.put(
-        `/api/engagements/${booking.id}`,
-        payload,
-        { headers: { "Content-Type": "application/json" } }
+      await PaymentInstance.post(
+        `api/v2/createEngagements/${booking.id}/vacation`,
+        {
+          customerid: customerId,
+          vacation_start_date: startDate.format("YYYY-MM-DD"),
+          vacation_end_date: endDate.format("YYYY-MM-DD"),
+          leave_type: "VACATION",
+          modified_by_id: customerId,
+          modified_by_role: "CUSTOMER",
+        }
       );
 
-      setSuccess("Vacation applied successfully!");
+      setSuccess(hasExistingVacation ? "Vacation updated successfully!" : "Vacation applied successfully!");
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 1500);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error applying vacation:", error);
-      setError("Failed to apply vacation. Please try again.");
+      const apiMessage = error?.response?.data?.error || error?.response?.data?.message;
+      setError(apiMessage || "Failed to apply vacation. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -204,9 +202,10 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
         onSuccess();
         onClose();
       }, 1500);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error canceling vacation:", error);
-      setError("Failed to cancel vacation. Please try again.");
+      const apiMessage = error?.response?.data?.error || error?.response?.data?.message;
+      setError(apiMessage || "Failed to cancel vacation. Please try again.");
     } finally {
       setIsLoading(false);
     }
