@@ -17,28 +17,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
-import PaymentInstance from '../services/paymentInstance';
 import { getMobileTabBarHeight } from '../Constants/mobileLayout';
+import {
+  CustomerWallet,
+  fetchCustomerWallet,
+  formatWalletTransactionLabel,
+  isCreditTransaction,
+  WalletTransaction,
+} from '../services/walletService';
+import { resolveCustomerId } from '../services/couponService';
 
 const HORIZONTAL_GUTTER = 16;
 
 interface WalletPageProps {
   onBack?: () => void;
-}
-
-interface WalletTransaction {
-  transaction_id: number;
-  transaction_type: string;
-  amount: number;
-  description: string;
-  created_at: string;
-  status: string;
-}
-
-interface Wallet {
-  balance: number;
-  transactions: WalletTransaction[];
-  rewards: number;
 }
 
 const formatMoney = (value: number) => {
@@ -78,9 +70,9 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [wallet, setWallet] = useState<CustomerWallet | null>(null);
 
-  const customerId = appUser?.customerId ?? appUser?.customerid;
+  const customerId = resolveCustomerId(appUser);
 
   const fontSizes = useMemo(() => {
     switch (fontSize) {
@@ -105,22 +97,13 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
       setHasError(false);
 
       try {
-        const response = await PaymentInstance.get(`/api/wallets/${customerId}`);
-        const data = response.data ?? {};
-        setWallet({
-          balance: Number(data.balance ?? 0),
-          rewards: Number(data.rewards ?? 0),
-          transactions: Array.isArray(data.transactions) ? data.transactions : [],
-        });
+        const data = await fetchCustomerWallet(customerId);
+        setWallet(data);
+        setHasError(false);
       } catch (error: unknown) {
-        const err = error as { response?: { data?: { error?: string } }; message?: string };
-        const msg = err.response?.data?.error || err.message || '';
-        if (msg.toLowerCase().includes('wallet not found')) {
-          setHasError(true);
-          setWallet(null);
-        } else {
-          Alert.alert('Wallet', 'Could not load wallet. Pull down to try again.');
-        }
+        console.error('Wallet fetch error:', error);
+        setHasError(true);
+        setWallet(null);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -285,7 +268,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   };
 
   const renderTransactionItem = (transaction: WalletTransaction) => {
-    const isCredit = transaction.transaction_type === 'credit';
+    const isCredit = isCreditTransaction(transaction.transaction_type);
     return (
       <View
         key={String(transaction.transaction_id)}
@@ -305,7 +288,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
         </View>
         <View style={styles.txBody}>
           <Text style={[styles.txTitle, { color: colors.text, fontSize: fontSizes.text }]} numberOfLines={2}>
-            {transaction.description || (isCredit ? 'Credit' : 'Debit')}
+            {formatWalletTransactionLabel(transaction)}
           </Text>
           <Text style={[styles.txMeta, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
             {formatDate(transaction.created_at)} · {transaction.status || 'completed'}
