@@ -19,6 +19,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import TnC from '../TermsAndConditions/TnC';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import utilsInstance from '../services/utilsInstance';
 
 interface ContactUsProps {
   onBack?: () => void;
@@ -31,6 +32,7 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
   const [message, setMessage] = useState('');
   const [isAgreed, setIsAgreed] = useState(false);
   const [showTnC, setShowTnC] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -90,19 +92,52 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
     return () => backHandler.remove();
   }, [onBack]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedMessage = message.trim();
+
+    if (!trimmedName || !trimmedEmail || !trimmedMessage) {
+      Alert.alert("Error", "Please fill in all required fields.");
+      return;
+    }
+
     if (!isAgreed) {
       Alert.alert("Error", "Please agree to the Terms and Conditions");
       return;
     }
-    
-    Alert.alert("Success", "Your request has been submitted!");
-    
-    // Clear the form
-    setName('');
-    setEmail('');
-    setMessage('');
-    setIsAgreed(false);
+
+    setSubmitting(true);
+    try {
+      await utilsInstance.post("/api/contact-us", {
+        name: trimmedName,
+        email: trimmedEmail,
+        message: trimmedMessage,
+        source: "ios",
+      });
+      Alert.alert("Success", "Your request has been submitted!");
+      setName("");
+      setEmail("");
+      setMessage("");
+      setIsAgreed(false);
+    } catch (err: unknown) {
+      const apiMessage =
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        err.response &&
+        typeof err.response === "object" &&
+        "data" in err.response &&
+        err.response.data &&
+        typeof err.response.data === "object" &&
+        "error" in err.response.data &&
+        typeof err.response.data.error === "string"
+          ? err.response.data.error
+          : "We could not send your message. Please try again or email support@serveaso.com directly.";
+      Alert.alert("Error", apiMessage);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const goHome = () => {
@@ -266,12 +301,16 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
                 </Text>
               </View>
 
-              <TouchableOpacity 
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary, opacity: submitting ? 0.65 : 1 },
+                ]}
                 onPress={handleSubmit}
+                disabled={submitting}
               >
                 <Text style={[styles.submitButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                  Send Your Request
+                  {submitting ? "Sending…" : "Send Your Request"}
                 </Text>
               </TouchableOpacity>
             </View>
