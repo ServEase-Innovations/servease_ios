@@ -17,6 +17,7 @@ import VacationManagementDialog from './VacationManagement';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { BrandButton } from '../design-system/BrandButton';
+import { formatDateOnly, parseCalendarDateToDate } from '../utils/maidPricingUtils';
 
 interface Booking {
   bookingType: string;
@@ -81,10 +82,10 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
   const maxDate90Days = dayjs().add(90, 'day');
 
   const [startDate, setStartDate] = useState<Date | null>(
-    booking ? new Date(booking.startDate) : null
+    booking ? parseCalendarDateToDate(booking.startDate) : null
   );
   const [endDate, setEndDate] = useState<Date | null>(
-    booking ? new Date(booking.endDate) : null
+    booking ? parseCalendarDateToDate(booking.endDate) : null
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +173,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     if (period === 'PM' && hours !== 12) hours += 12;
     if (period === 'AM' && hours === 12) hours = 0;
     
-    const bookedDate = new Date(booking.startDate);
+    const bookedDate = parseCalendarDateToDate(booking.startDate) ?? new Date();
     bookedDate.setHours(hours, minutes, 0, 0);
     return bookedDate;
   };
@@ -187,10 +188,12 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     const minutes = parseInt(minutesStr, 10);
     if (period === 'PM' && hours !== 12) hours += 12;
     if (period === 'AM' && hours === 12) hours = 0;
-    const bookingDateTime = dayjs(startDate)
-      .set('hour', hours)
-      .set('minute', minutes)
-      .set('second', 0);
+    const baseDate = parseCalendarDateToDate(startDate);
+    if (!baseDate) return false;
+    const bookingDateTime = dayjs(baseDate)
+      .hour(hours)
+      .minute(minutes)
+      .second(0);
     return now.isBefore(bookingDateTime.subtract(30, 'minute'));
   };
 
@@ -344,7 +347,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     if (open && booking) {
       const bookedTime = getBookedTime();
       setStartDate(bookedTime);
-      setEndDate(new Date(booking.endDate));
+      setEndDate(parseCalendarDateToDate(booking.endDate));
       setError(null);
       setSuccess(null);
       setSelectedSection("OPTIONS");
@@ -444,7 +447,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                   </Text>
                   <Text style={[styles.bookingDetailText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
                     {t('modifyBooking.scheduled', { 
-                      date: dayjs(booking.startDate).format("MMM D, YYYY"), 
+                      date: dayjs(parseCalendarDateToDate(booking.startDate) ?? undefined).format("MMM D, YYYY"), 
                       time: booking.timeSlot 
                     })}
                   </Text>

@@ -27,6 +27,10 @@ import Invoice from '../Invoice/Invoice';
 import UserHoliday from './UserHoliday';
 import VacationManagementDialog from './VacationManagement';
 import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import {
+  getPaymentTimeoutCancellationMessage,
+  isPaymentTimeoutCancellation,
+} from '../utils/bookingCancellation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,6 +42,7 @@ interface EngagementDetailsDrawerProps {
   onPaymentComplete?: () => void | Promise<void>;
   refreshBookings?: () => void | Promise<void>;
   customerId?: number | null;
+  onBookAgain?: (booking: any) => void;
 }
 
 // ==================== Helper Components ====================
@@ -208,7 +213,8 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   booking, 
   onPaymentComplete,
   refreshBookings,
-  customerId
+  customerId,
+  onBookAgain,
 }) => {
   const { colors, fontSize } = useTheme();
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
@@ -611,6 +617,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   
   const shouldShowModifyButton = booking.bookingType === "MONTHLY" && booking.taskStatus === 'NOT_STARTED';
   const shouldShowVacationButton = booking.bookingType === "MONTHLY" && booking.taskStatus !== 'CANCELLED' && booking.taskStatus !== 'COMPLETED';
+  const canBookAgain =
+    Boolean(onBookAgain) &&
+    (booking.taskStatus === 'COMPLETED' || booking.taskStatus === 'CANCELLED');
+  const showPaymentTimeoutNotice = isPaymentTimeoutCancellation(booking);
 
   const convertBookingForChildComponents = (bookingData: any): any => {
     if (!bookingData) return null;
@@ -704,8 +714,33 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             </View>
           </View>
 
+          {showPaymentTimeoutNotice ? (
+            <View style={styles.paymentTimeoutNotice}>
+              <View style={styles.paymentTimeoutIconWrap}>
+                <Icon name="alert-circle" size={18} color="#b45309" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.paymentTimeoutTitle}>Booking cancelled — payment not received</Text>
+                <Text style={styles.paymentTimeoutBody}>
+                  {getPaymentTimeoutCancellationMessage(booking)}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {/* Action Buttons */}
           <View style={{ marginTop: 20 }}>
+            {canBookAgain ? (
+              <TouchableOpacity
+                style={[styles.outlineButton, { borderColor: colors.info, marginBottom: 12 }]}
+                onPress={() => onBookAgain?.(booking)}
+              >
+                <Icon name="calendar" size={18} color={colors.info} />
+                <Text style={[styles.outlineButtonText, { color: colors.info, fontSize: fontSizes.actionButtonText }]}>
+                  Book Again
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             {!canShowPaymentButton ? (
               <View style={styles.buttonGrid}>
                 <TouchableOpacity 
@@ -1203,6 +1238,35 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 6,
     borderWidth: 2,
+  },
+  paymentTimeoutNotice: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#fffbeb',
+  },
+  paymentTimeoutIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#fef3c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentTimeoutTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78350f',
+    marginBottom: 4,
+  },
+  paymentTimeoutBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#92400e',
   },
   actionButtonText: {
     fontWeight: '600',

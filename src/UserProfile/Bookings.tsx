@@ -45,6 +45,27 @@ import ActionRow from '../design-system/ActionRow';
 import { BOOKING_HEADER_GRADIENT, BRAND } from "../theme/brandColors";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 import { resolveCustomerId } from "../services/couponService";
+import { useDispatch } from 'react-redux';
+import { commitSchedule, openBookingDialog, closeBookingDialog } from '../features/bookingTypeSlice';
+import { addLocation } from '../features/geoLocationSlice';
+import {
+  buildRebookPayload,
+  buildRebookGeoLocation,
+  isOnDemandBookingType,
+  type RebookSourceBooking,
+} from '../utils/rebookFromBooking';
+import { buildRebookProviderDetails } from '../utils/rebookProviderDetails';
+import {
+  getPaymentTimeoutCancellationMessage,
+  isPaymentTimeoutCancellation,
+  type BookingCancellationInfo,
+} from '../utils/bookingCancellation';
+import { checkOnDemandProviderAvailability } from '../services/onDemandAvailability';
+import OnDemandRebookDialog from './OnDemandRebookDialog';
+import MaidServiceDialog from '../ServiceDialogs/MaidServiceDialog';
+import CookServiceDialog from '../ServiceDialogs/CookServiceDialog';
+import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
+import { EnhancedProviderDetails } from '../types/ProviderDetailsType';
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -302,10 +323,54 @@ interface Booking {
   payment?: Payment;
   leave_days?: number;
   provider?: any;
+  latitude?: number | null;
+  longitude?: number | null;
+  cancellation?: BookingCancellationInfo | null;
 }
 
 interface BookingProps {
   onBackToHome?: () => void;
+  onNavigateToDetails?: () => void;
+}
+
+function toRebookSource(booking: Booking): RebookSourceBooking {
+  return {
+    service_type: booking.service_type,
+    bookingType: booking.bookingType,
+    startDate: booking.startDate,
+    endDate: booking.endDate,
+    start_time: booking.start_time,
+    end_time: booking.end_time,
+    address: booking.address,
+    latitude: booking.latitude,
+    longitude: booking.longitude,
+    responsibilities: booking.responsibilities,
+  };
+}
+
+function serviceTypeForOnDemandApi(serviceType: string): string {
+  const normalized = String(serviceType || '').toLowerCase();
+  if (normalized === 'cook') return 'COOK';
+  if (normalized === 'nanny') return 'NANNY';
+  return 'MAID';
+}
+
+function rebookServiceKind(serviceType: string): 'maid' | 'cook' | 'nanny' | null {
+  const normalized = String(serviceType || '').toLowerCase();
+  if (normalized === 'maid') return 'maid';
+  if (normalized === 'cook') return 'cook';
+  if (normalized === 'nanny') return 'nanny';
+  return null;
+}
+
+function durationMinutesFromHm(startTime?: string, endTime?: string): number {
+  if (!startTime) return 60;
+  if (!endTime) return 60;
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  const mins = eh * 60 + em - (sh * 60 + sm);
+  if (mins > 0) return Math.min(Math.max(mins, 15), 480);
+  return 60;
 }
 
 // ---------- Utility Functions ----------
@@ -407,9 +472,10 @@ const hasVacation = (booking: Booking): boolean => {
 // ---------- Main Booking Component ----------
 const HORIZONTAL_GUTTER = 10;
 
-const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => {
+const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigateToDetails }, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
+  const dispatch = useDispatch();
 
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -430,6 +496,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
+  const [onDemandRebookOpen, setOnDemandRebookOpen] = useState(false);
+  const [rebookCandidate, setRebookCandidate] = useState<Booking | null>(null);
+  const [checkingSameProviderRebook, setCheckingSameProviderRebook] = useState(false);
+  const [sameProviderRebookError, setSameProviderRebookError] = useState<string | null>(null);
+  const [rebookCheckoutOpen, setRebookCheckoutOpen] = useState(false);
+  const [rebookCheckoutProvider, setRebookCheckoutProvider] = useState<EnhancedProviderDetails | null>(null);
+  const [rebookCheckoutKind, setRebookCheckoutKind] = useState<'maid' | 'cook' | 'nanny' | null>(null);
+  const rebookNavigateToDetailsRef = useRef(false);
+  const rebookCheckoutSucceededRef = useRef(false);
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -708,6 +783,19 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         payment: item.payment,
         leave_days: item.leave_days || 0,
         provider: item.provider,
+        latitude:
+          item.latitude != null && item.latitude !== ''
+            ? Number(item.latitude)
+            : item.lat != null
+              ? Number(item.lat)
+              : null,
+        longitude:
+          item.longitude != null && item.longitude !== ''
+            ? Number(item.longitude)
+            : item.lng != null
+              ? Number(item.lng)
+              : null,
+        cancellation: item.cancellation ?? null,
       };
     });
   };
@@ -1073,6 +1161,242 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const handleViewDetails = (booking: Booking) => {
     setSelectedBooking(booking);
     setDetailsDrawerOpen(true);
+  };
+
+  const commitRebookToStore = (
+    booking: Booking,
+    options?: { serviceProviderId?: number | null; clearProvider?: boolean }
+  ) => {
+    const payload = buildRebookPayload(toRebookSource(booking), {
+      serviceProviderId: options?.serviceProviderId,
+    });
+    if (!payload) return null;
+
+    const schedulePatch: Record<string, unknown> = { ...payload };
+    if (options?.clearProvider) {
+      schedulePatch.serviceproviderId = '';
+      schedulePatch.serviceProviderId = '';
+    }
+
+    dispatch(commitSchedule(schedulePatch));
+    const geo = buildRebookGeoLocation(toRebookSource(booking));
+    if (geo) {
+      dispatch(addLocation(geo));
+    }
+    return payload;
+  };
+
+  const openRebookCheckout = (
+    booking: Booking,
+    options?: {
+      providerDetails?: EnhancedProviderDetails | null;
+      providerId?: number;
+      navigateToDetailsOnClose?: boolean;
+    }
+  ) => {
+    const serviceKind = rebookServiceKind(booking.service_type);
+    if (!serviceKind) return false;
+
+    const hasProvider =
+      options?.providerId != null &&
+      Number.isFinite(options.providerId) &&
+      options.providerId > 0;
+
+    if (
+      !commitRebookToStore(booking, {
+        serviceProviderId: hasProvider ? options?.providerId : undefined,
+        clearProvider: !hasProvider,
+      })
+    ) {
+      return false;
+    }
+
+    if (hasProvider) {
+      dispatch(openBookingDialog(String(options!.providerId)));
+    } else {
+      dispatch(closeBookingDialog());
+    }
+
+    rebookNavigateToDetailsRef.current = options?.navigateToDetailsOnClose === true;
+    rebookCheckoutSucceededRef.current = false;
+    setRebookCheckoutKind(serviceKind);
+    setRebookCheckoutProvider(options?.providerDetails ?? null);
+    setRebookCheckoutOpen(true);
+    return true;
+  };
+
+  const handleBookAgain = (booking: Booking) => {
+    const payload = buildRebookPayload(toRebookSource(booking));
+    if (!payload) {
+      Alert.alert(
+        'Book again',
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    if (isOnDemandBookingType(booking.bookingType)) {
+      setRebookCandidate(booking);
+      setSameProviderRebookError(null);
+      setOnDemandRebookOpen(true);
+      return;
+    }
+
+    const providerId = Number(booking.serviceProviderId);
+    const hasProvider = Number.isFinite(providerId) && providerId > 0;
+
+    if (
+      !openRebookCheckout(booking, {
+        providerId: hasProvider ? providerId : undefined,
+        providerDetails: hasProvider ? buildRebookProviderDetails(booking) : null,
+        navigateToDetailsOnClose: true,
+      })
+    ) {
+      Alert.alert(
+        'Book again',
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+    }
+  };
+
+  const handleOnDemandRebookDifferentProvider = () => {
+    if (!rebookCandidate) return;
+
+    if (!openRebookCheckout(rebookCandidate)) {
+      setSameProviderRebookError(
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    setOnDemandRebookOpen(false);
+    setRebookCandidate(null);
+    setSameProviderRebookError(null);
+  };
+
+  const handleOnDemandRebookSameProvider = async () => {
+    if (!rebookCandidate) return;
+    const providerId = Number(rebookCandidate.serviceProviderId);
+    if (!Number.isFinite(providerId) || providerId < 1) {
+      setSameProviderRebookError(
+        'No provider was assigned on your last booking. Please choose a provider from the list.'
+      );
+      return;
+    }
+
+    const lat = Number(rebookCandidate.latitude);
+    const lng = Number(rebookCandidate.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setSameProviderRebookError(
+        'We need your service location to check provider availability. Choose a different provider and confirm your address on the map.'
+      );
+      return;
+    }
+
+    const payload = buildRebookPayload(toRebookSource(rebookCandidate), {
+      serviceProviderId: providerId,
+    });
+    if (!payload) {
+      setSameProviderRebookError(
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    const serviceKind = rebookServiceKind(rebookCandidate.service_type);
+    if (!serviceKind) {
+      setSameProviderRebookError(
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    setCheckingSameProviderRebook(true);
+    setSameProviderRebookError(null);
+    try {
+      const availability = await checkOnDemandProviderAvailability({
+        latitude: lat,
+        longitude: lng,
+        serviceType: serviceTypeForOnDemandApi(rebookCandidate.service_type),
+        startDate: payload.startDate,
+        startTime: payload.startTime,
+        durationMinutes: durationMinutesFromHm(payload.startTime, payload.endTime),
+        providerId,
+      });
+
+      if (!availability.available) {
+        setSameProviderRebookError(
+          availability.message ||
+            'This provider is not available for your selected schedule. Try another time or choose a different provider.'
+        );
+        return;
+      }
+
+      if (
+        !openRebookCheckout(rebookCandidate, {
+          providerId,
+          providerDetails: buildRebookProviderDetails(rebookCandidate),
+        })
+      ) {
+        setSameProviderRebookError(
+          'This service type cannot be rebooked automatically. Please book from the home page.'
+        );
+        return;
+      }
+
+      setOnDemandRebookOpen(false);
+      setRebookCandidate(null);
+    } catch {
+      setSameProviderRebookError('Could not verify provider availability. Please try again.');
+    } finally {
+      setCheckingSameProviderRebook(false);
+    }
+  };
+
+  const handleCloseRebookCheckout = () => {
+    dispatch(closeBookingDialog());
+    const shouldNavigateToDetails =
+      rebookNavigateToDetailsRef.current && !rebookCheckoutSucceededRef.current;
+    rebookNavigateToDetailsRef.current = false;
+    rebookCheckoutSucceededRef.current = false;
+    setRebookCheckoutOpen(false);
+    setRebookCheckoutProvider(null);
+    setRebookCheckoutKind(null);
+    if (shouldNavigateToDetails && onNavigateToDetails) {
+      onNavigateToDetails();
+    }
+  };
+
+  const handleRebookCheckoutSuccess = () => {
+    rebookCheckoutSucceededRef.current = true;
+    handleCloseRebookCheckout();
+    performRefresh();
+  };
+
+  const renderPaymentTimeoutCancellationNotice = (booking: Booking) => {
+    if (!isPaymentTimeoutCancellation(booking)) return null;
+
+    return (
+      <View
+        style={[
+          styles.paymentTimeoutNotice,
+          {
+            backgroundColor: '#fffbeb',
+            borderColor: '#fcd34d',
+          },
+        ]}
+      >
+        <View style={styles.paymentTimeoutIconWrap}>
+          <Icon name="alert-circle-outline" size={20} color="#b45309" />
+        </View>
+        <View style={styles.paymentTimeoutTextWrap}>
+          <Text style={styles.paymentTimeoutTitle}>Booking cancelled — payment not received</Text>
+          <Text style={styles.paymentTimeoutBody}>
+            {getPaymentTimeoutCancellationMessage(booking)}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   const handleSaveModifiedBooking = async () => {
@@ -1759,7 +2083,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
                 <Text style={[styles.iconButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Write Review</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => setServicesDialogOpen(true)}>
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleBookAgain(booking)}>
               <Icon name="calendar-plus" size={20} color={colors.info} />
               <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </TouchableOpacity>
@@ -1769,7 +2093,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         return (
           <ActionRow>
             {reportIssueButton(booking)}
-            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => setServicesDialogOpen(true)}>
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleBookAgain(booking)}>
               <Icon name="calendar-plus" size={20} color={colors.info} />
               <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </TouchableOpacity>
@@ -1977,6 +2301,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           </View>
 
           {renderTodayServicePanel(item)}
+          {renderPaymentTimeoutCancellationNotice(item)}
 
           <View style={styles.compactFooterRow}>
             <View style={styles.compactBadgeRow}>
@@ -2009,6 +2334,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
     if (complaintDialogVisible) { setComplaintDialogVisible(false); return true; }
     if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
+    if (rebookCheckoutOpen) { handleCloseRebookCheckout(); return true; }
+    if (onDemandRebookOpen) { setOnDemandRebookOpen(false); setRebookCandidate(null); return true; }
     if (confirmationDialog.open) { setConfirmationDialog(prev => ({ ...prev, open: false })); return true; }
     if (onBackToHome) { onBackToHome(); return true; }
     return false;
@@ -2017,7 +2344,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
-  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, complaintDialogVisible, servicesDialogOpen, confirmationDialog.open, onBackToHome]);
+  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, complaintDialogVisible, servicesDialogOpen, rebookCheckoutOpen, onDemandRebookOpen, confirmationDialog.open, onBackToHome]);
 
   useEffect(() => {
     const getInitialUrl = async () => {
@@ -2164,7 +2491,66 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         booking={convertBookingForChildComponents(selectedComplaintBooking)}
       />
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
-      
+
+      <OnDemandRebookDialog
+        open={onDemandRebookOpen}
+        onClose={() => {
+          setOnDemandRebookOpen(false);
+          setRebookCandidate(null);
+          setSameProviderRebookError(null);
+        }}
+        booking={
+          rebookCandidate
+            ? {
+                serviceProviderId: rebookCandidate.serviceProviderId,
+                serviceProviderName: rebookCandidate.serviceProviderName,
+              }
+            : null
+        }
+        canCheckSameProvider={
+          Boolean(rebookCandidate?.serviceProviderId) &&
+          Number.isFinite(Number(rebookCandidate?.latitude)) &&
+          Number.isFinite(Number(rebookCandidate?.longitude))
+        }
+        sameProviderDisabledReason={
+          rebookCandidate &&
+          (!rebookCandidate.serviceProviderId ||
+            !Number.isFinite(Number(rebookCandidate.latitude)) ||
+            !Number.isFinite(Number(rebookCandidate.longitude)))
+            ? 'Saved location is required to rebook with the same provider.'
+            : null
+        }
+        checkingSameProvider={checkingSameProviderRebook}
+        sameProviderError={sameProviderRebookError}
+        onBookSameProvider={() => void handleOnDemandRebookSameProvider()}
+        onChooseDifferentProvider={handleOnDemandRebookDifferentProvider}
+      />
+
+      {rebookCheckoutKind === 'maid' ? (
+        <MaidServiceDialog
+          open={rebookCheckoutOpen}
+          handleClose={handleCloseRebookCheckout}
+          providerDetails={rebookCheckoutProvider ?? undefined}
+          onBookingSuccess={handleRebookCheckoutSuccess}
+        />
+      ) : null}
+      {rebookCheckoutKind === 'cook' ? (
+        <CookServiceDialog
+          open={rebookCheckoutOpen}
+          handleClose={handleCloseRebookCheckout}
+          providerDetails={rebookCheckoutProvider ?? undefined}
+          onBookingSuccess={handleRebookCheckoutSuccess}
+        />
+      ) : null}
+      {rebookCheckoutKind === 'nanny' ? (
+        <NannyServicesDialog
+          open={rebookCheckoutOpen}
+          handleClose={handleCloseRebookCheckout}
+          providerDetails={rebookCheckoutProvider ?? undefined}
+          onBookingSuccess={handleRebookCheckoutSuccess}
+        />
+      ) : null}
+
       {/* EngagementDetailsDrawer - This is a Modal, it will render on top independently */}
       <EngagementDetailsDrawer 
         isOpen={detailsDrawerOpen} 
@@ -2176,6 +2562,10 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         onPaymentComplete={afterPaymentSuccess}
         refreshBookings={afterPaymentSuccess}
         customerId={customerId}
+        onBookAgain={(b) => {
+          setDetailsDrawerOpen(false);
+          handleBookAgain(b);
+        }}
       />
 
       {openSnackbar && (
@@ -2461,6 +2851,38 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: 4,
+  },
+  paymentTimeoutNotice: {
+    marginTop: 10,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  paymentTimeoutIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#fef3c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentTimeoutTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  paymentTimeoutTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78350f',
+    marginBottom: 4,
+  },
+  paymentTimeoutBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#92400e',
   },
   compactHeaderBlock: {
     width: '100%',

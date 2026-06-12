@@ -18,6 +18,8 @@ export async function checkOnDemandProviderAvailability(params: {
   startDate: string;
   startTime: string;
   durationMinutes?: number;
+  /** When set, checks only this provider (e.g. Book Again with same SP). */
+  providerId?: number | string | null;
 }): Promise<OnDemandAvailabilityResult> {
   const { data } = await PaymentInstance.get("/api/v2/createEngagements/on-demand-availability", {
     params: {
@@ -28,6 +30,9 @@ export async function checkOnDemandProviderAvailability(params: {
       start_time: params.startTime,
       ...(params.durationMinutes != null
         ? { duration_minutes: params.durationMinutes }
+        : {}),
+      ...(params.providerId != null && String(params.providerId).trim() !== ""
+        ? { provider_id: params.providerId }
         : {}),
     },
   });

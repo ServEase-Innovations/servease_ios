@@ -798,7 +798,13 @@ const MainApp = () => {
         );
         
       case BOOKINGS:
-        return <Booking ref={bookingsRef} onBackToHome={() => setCurrentView(HOME)} />;
+        return (
+          <Booking
+            ref={bookingsRef}
+            onBackToHome={() => setCurrentView(HOME)}
+            onNavigateToDetails={() => setCurrentView(DETAILS)}
+          />
+        );
         
       case WALLET:
         return <WalletPage onBack={() => setCurrentView(HOME)} />;

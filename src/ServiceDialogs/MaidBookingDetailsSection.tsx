@@ -459,12 +459,14 @@ const MaidBookingDetailsSection = forwardRef<
         </View>
       </View>
 
-      {(preference === "Date" || preference === "Short term") && (
+      {(preference === "Date" || preference === "Short term" || preference === "Monthly") && (
         <View style={styles.durationSection}>
           <Text style={styles.durationHint}>
             {preference === "Short term"
               ? "Hours per visit — price updates for each day in your range."
-              : "Tap a duration to update your visit length."}
+              : preference === "Monthly"
+                ? "Hours per visit — price updates for your monthly service."
+                : "Tap a duration to update your visit length."}
           </Text>
           <View style={styles.durationChips}>
             {DURATION_OPTIONS.map((h) => {

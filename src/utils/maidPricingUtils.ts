@@ -14,9 +14,32 @@ export function formatDateOnly(value?: string | null): string {
   if (!value) return "";
   const s = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const datePart = s.split("T")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Parse API calendar dates (YYYY-MM-DD) in local time — avoids UTC midnight shifting the day. */
+export function parseCalendarDateToDate(value?: string | null): Date | null {
+  const ymd = formatDateOnly(value);
+  if (!ymd) return null;
+  const d = new Date(`${ymd}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export function computeDurationDays(startDate?: string, endDate?: string): number {
+  const start = formatDateOnly(startDate);
+  if (!start) return 1;
+  const end = formatDateOnly(endDate) || start;
+  const s = new Date(`${start}T12:00:00`);
+  const e = new Date(`${end}T12:00:00`);
+  const diff = Math.round((e.getTime() - s.getTime()) / 86400000);
+  return Math.max(1, diff + 1);
 }
 
 /** Normalize legacy snake_case booking fields from older iOS screens. */
