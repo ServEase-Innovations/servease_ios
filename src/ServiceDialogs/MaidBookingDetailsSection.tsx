@@ -36,6 +36,43 @@ function parseTimeOnDate(dateStr: string | undefined, timeStr: string | undefine
   return base.hour(h).minute(Number.isFinite(m) ? m : 0);
 }
 
+const TIME_HM = /^\d{1,2}:\d{2}$/;
+
+function resolveScheduleTimeFields(
+  booking: Record<string, unknown> | null | undefined
+): { startTime: string; endTime: string } {
+  if (!booking) return { startTime: "", endTime: "" };
+
+  let startTime = String(booking.startTime ?? "").trim();
+  let endTime = String(booking.endTime ?? "").trim();
+
+  const timeRange = String(booking.timeRange ?? "").trim();
+  if (timeRange) {
+    if (timeRange.includes("-")) {
+      const [rangeStart, rangeEnd] = timeRange.split("-").map((s) => s.trim());
+      if (!startTime && rangeStart) startTime = rangeStart;
+      if (!endTime && rangeEnd) endTime = rangeEnd;
+    } else if (!startTime) {
+      startTime = timeRange;
+    }
+  }
+
+  const timeSlot = String(booking.timeSlot ?? "").trim();
+  if (timeSlot.includes("-")) {
+    const [slotStart, slotEnd] = timeSlot.split("-").map((s) => s.trim());
+    if (!startTime && slotStart) startTime = slotStart;
+    if (!endTime && slotEnd) endTime = slotEnd;
+  } else if (!startTime && timeSlot) {
+    startTime = timeSlot;
+  }
+
+  const valid = (t: string) => TIME_HM.test(t);
+  return {
+    startTime: valid(startTime) ? startTime : "",
+    endTime: valid(endTime) ? endTime : "",
+  };
+}
+
 function defaultOnDemandStart(): Dayjs {
   const now = dayjs();
   let adjusted = now.add(30, "minute");
@@ -156,18 +193,22 @@ const MaidBookingDetailsSection = forwardRef<
     let sd = rawBooking?.startDate ? dayjs(dateStr) : null;
     let ed = rawBooking?.endDate ? dayjs(String(rawBooking.endDate).split("T")[0]) : null;
 
-    let st =
-      parseTimeOnDate(dateStr, String(rawBooking?.startTime ?? "")) ??
-      (sd ? sd.hour(9).minute(0) : null);
-    let et =
-      parseTimeOnDate(dateStr, String(rawBooking?.endTime ?? "")) ??
-      (st ? st.add(1, "hour") : null);
+    const { startTime: reduxStart, endTime: reduxEnd } = resolveScheduleTimeFields(
+      rawBooking as Record<string, unknown> | null
+    );
+    let st = parseTimeOnDate(dateStr, reduxStart);
+    let et = parseTimeOnDate(dateStr, reduxEnd);
 
-    const timeRange = String(rawBooking?.timeRange ?? "");
-    if ((!st || !et) && timeRange.includes("-")) {
-      const [startPart, endPart] = timeRange.split("-").map((s) => s.trim());
-      st = st ?? parseTimeOnDate(dateStr, startPart);
-      et = et ?? parseTimeOnDate(dateStr, endPart);
+    if (pref === "Short term") {
+      if (!reduxStart) {
+        st = null;
+        et = null;
+      } else if (!et && st) {
+        et = st.add(1, "hour");
+      }
+    } else if (pref === "Monthly" && !reduxStart) {
+      st = null;
+      et = null;
     }
 
     setStartDate(sd);
