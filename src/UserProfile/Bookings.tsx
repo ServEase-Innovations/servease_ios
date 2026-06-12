@@ -432,6 +432,28 @@ const isUpcomingTabBooking = (booking: Booking): boolean => {
   return status !== 'CANCELLED' && status !== 'COMPLETED';
 };
 
+type UpcomingSortOrder = 'newest' | 'oldest';
+
+const getBookingCreatedEpoch = (booking: Booking): number => {
+  const raw = booking.bookingDate || booking.created_at;
+  if (!raw) return 0;
+  const epoch = new Date(raw).getTime();
+  return Number.isFinite(epoch) ? epoch : 0;
+};
+
+const sortUpcomingByCreated = (
+  bookings: Booking[],
+  order: UpcomingSortOrder
+): Booking[] => {
+  const direction = order === 'newest' ? -1 : 1;
+  return [...bookings].sort((a, b) => {
+    const createdDiff =
+      (getBookingCreatedEpoch(a) - getBookingCreatedEpoch(b)) * direction;
+    if (createdDiff !== 0) return createdDiff;
+    return (a.id - b.id) * direction;
+  });
+};
+
 const mapTodaySlotTaskStatus = (slot: CustomerTodayBookingSlot): string => {
   const sd = String(slot.service_day_status ?? slot.today_service?.status ?? '').toUpperCase();
   if (sd === 'IN_PROGRESS' || sd === 'STARTED') return 'IN_PROGRESS';
@@ -494,6 +516,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [upcomingSortOrder, setUpcomingSortOrder] =
+    useState<UpcomingSortOrder>('newest');
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
   const [onDemandRebookOpen, setOnDemandRebookOpen] = useState(false);
@@ -1606,17 +1630,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   );
 
 
-  const sortUpcomingBookings = (bookings: Booking[]): Booking[] => {
-    const statusOrder: Record<string, number> = { 'NOT_STARTED': 2, 'IN_PROGRESS': 1, 'COMPLETED': 3, 'CANCELLED': 4 };
-    return [...bookings].sort((a, b) => {
-      const statusComparison = statusOrder[a.taskStatus] - statusOrder[b.taskStatus];
-      if (statusComparison !== 0) return statusComparison;
-      return new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime();
-    });
-  };
-
-  const upcomingBookings = sortUpcomingBookings(
-    [...currentBookings, ...futureBookings].filter(isUpcomingTabBooking)
+  const upcomingBookings = sortUpcomingByCreated(
+    [...currentBookings, ...futureBookings].filter(isUpcomingTabBooking),
+    upcomingSortOrder
   );
   const filteredByStatus = statusFilter === 'ALL' ? upcomingBookings : upcomingBookings.filter(booking => booking.taskStatus === statusFilter);
   const filteredUpcomingBookings = filterBookings(filterByBookingType(filteredByStatus), searchTerm);
@@ -1730,6 +1746,56 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
   const renderUpcomingStatusFilter = () => (
     <View style={styles.upcomingFiltersBlock}>
+      <View style={styles.upcomingSortRow}>
+        <Text style={[styles.filterGroupLabel, styles.upcomingSortLabel, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+          Sort by
+        </Text>
+        <View style={styles.upcomingSortOptions}>
+          {(
+            [
+              { value: 'newest' as const, label: 'Newest first' },
+              { value: 'oldest' as const, label: 'Oldest first' },
+            ] as const
+          ).map((option) => {
+            const selected = upcomingSortOrder === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.sortChip,
+                  {
+                    backgroundColor: selected
+                      ? colors.primary
+                      : isDarkMode
+                        ? colors.card
+                        : '#ffffff',
+                    borderColor: selected ? colors.primary : colors.border + '55',
+                  },
+                ]}
+                onPress={() => setUpcomingSortOrder(option.value)}
+                activeOpacity={0.85}
+              >
+                <Icon
+                  name="sort"
+                  size={14}
+                  color={selected ? '#fff' : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.sortChipText,
+                    {
+                      color: selected ? '#fff' : colors.textSecondary,
+                      fontSize: fontSizes.badgeText,
+                    },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
       <Text style={[styles.filterGroupLabel, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
         Filter by status
       </Text>
@@ -2703,6 +2769,29 @@ const styles = StyleSheet.create({
   upcomingFiltersBlock: {
     width: '100%',
     marginBottom: 12,
+  },
+  upcomingSortRow: {
+    marginBottom: 12,
+  },
+  upcomingSortLabel: {
+    marginBottom: 8,
+  },
+  upcomingSortOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sortChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    borderWidth: 1,
+    gap: 5,
+  },
+  sortChipText: {
+    fontWeight: '600',
   },
   filterGroupLabel: {
     fontWeight: '600',
