@@ -56,7 +56,9 @@ import {
 } from '../utils/rebookFromBooking';
 import { buildRebookProviderDetails } from '../utils/rebookProviderDetails';
 import {
+  getNoProviderAutoCancelMessage,
   getPaymentTimeoutCancellationMessage,
+  isNoProviderAutoCancelCancellation,
   isPaymentTimeoutCancellation,
   type BookingCancellationInfo,
 } from '../utils/bookingCancellation';
@@ -1423,6 +1425,41 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     );
   };
 
+  const renderNoProviderAutoCancelNotice = (booking: Booking) => {
+    if (!isNoProviderAutoCancelCancellation(booking)) return null;
+
+    return (
+      <View
+        style={[
+          styles.paymentTimeoutNotice,
+          {
+            backgroundColor: '#f0f9ff',
+            borderColor: '#7dd3fc',
+          },
+        ]}
+      >
+        <View style={[styles.paymentTimeoutIconWrap, { backgroundColor: '#e0f2fe' }]}>
+          <Icon name="information-outline" size={20} color="#0369a1" />
+        </View>
+        <View style={styles.paymentTimeoutTextWrap}>
+          <Text style={[styles.paymentTimeoutTitle, { color: '#0c4a6e' }]}>
+            No provider was available
+          </Text>
+          <Text style={[styles.paymentTimeoutBody, { color: '#0c4a6e' }]}>
+            {getNoProviderAutoCancelMessage(booking)}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderAutoCancellationNotices = (booking: Booking) => (
+    <>
+      {renderPaymentTimeoutCancellationNotice(booking)}
+      {renderNoProviderAutoCancelNotice(booking)}
+    </>
+  );
+
   const handleSaveModifiedBooking = async () => {
     setModifyDialogOpen(false);
     await performRefresh();
@@ -2367,7 +2404,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           </View>
 
           {renderTodayServicePanel(item)}
-          {renderPaymentTimeoutCancellationNotice(item)}
+          {renderAutoCancellationNotices(item)}
 
           <View style={styles.compactFooterRow}>
             <View style={styles.compactBadgeRow}>
