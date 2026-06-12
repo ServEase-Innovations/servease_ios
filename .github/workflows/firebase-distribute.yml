@@ -1,12 +1,22 @@
-name: Android Release + Firebase Distribution
+name: Mobile Release Distribution
+
+# Android → Firebase App Distribution
+# iOS     → TestFlight (App Store Connect)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  FIREBASE_ANDROID_APP_ID: 1:87480797347:android:f26b2cff897992b3eb9716
+  FIREBASE_TESTERS_GROUP: testers-1
+  IOS_BUNDLE_ID: in.serveaseinnovation.serveaso
+  IOS_SCHEME: Serveaso
+  IOS_WORKSPACE: ios/Serveaso.xcworkspace
 
 jobs:
   android:
@@ -28,15 +38,12 @@ jobs:
         run: npm ci
 
       - name: Set Android version (incremental per CI build)
-        id: android_version
         run: |
           BUILD_NUM="${{ github.run_number }}"
           VERSION_CODE="$BUILD_NUM"
           VERSION_NAME="1.0.${BUILD_NUM}"
           echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
-          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
-          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
           echo "Building Android ${VERSION_NAME} (versionCode ${VERSION_CODE})"
 
       - name: Setup JDK 17
@@ -46,14 +53,11 @@ jobs:
           java-version: 17
           cache: gradle
 
-      # 🔐 Decode keystore
       - name: Decode Android keystore
-        run: |
-          echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/release.keystore
+        run: echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/release.keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
-      # 🧱 Build APK
       - name: Build Release APK
         working-directory: android
         env:
@@ -73,30 +77,148 @@ jobs:
             "${{ env.VERSION_CODE }}" "${{ env.VERSION_NAME }}" > android/version.properties
           cat android/version.properties
 
-      # 🔥 Firebase CLI    
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-     # 🔥 Firebase CLI
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      # 🚀 Firebase App Distribution
-      - name: Upload to Firebase App Distribution
+      - name: Upload Android build to Firebase App Distribution
         run: |
           firebase appdistribution:distribute \
             android/app/build/outputs/apk/release/app-release.apk \
-            --app 1:87480797347:android:f26b2cff897992b3eb9716 \
-            --groups "testers-1" \
+            --app "${{ env.FIREBASE_ANDROID_APP_ID }}" \
+            --groups "${{ env.FIREBASE_TESTERS_GROUP }}" \
             --release-notes "Serveaso Android ${{ env.VERSION_NAME }} (build ${{ github.run_number }})"
 
-      - name: Commit version bump
+      - name: Commit Android version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add android/version.properties
           git diff --staged --quiet || git commit -m "chore(android): bump version to ${{ env.VERSION_NAME }} [skip ci]"
+          git push || true
+
+  ios-testflight:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Set iOS version (incremental per CI build)
+        run: |
+          BUILD_NUM="${{ github.run_number }}"
+          VERSION_CODE="$BUILD_NUM"
+          VERSION_NAME="1.0.${BUILD_NUM}"
+          echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
+          echo "Building iOS ${VERSION_NAME} (build ${VERSION_CODE}) for TestFlight"
+
+      - name: Apply iOS version to Xcode project
+        env:
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+        run: |
+          chmod +x ios/scripts/ci-set-version.sh
+          ios/scripts/ci-set-version.sh
+
+      - name: Prepare Xcode Node path
+        run: echo "export NODE_BINARY=$(command -v node)" > ios/.xcode.env.local
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Install iOS code signing assets
+        env:
+          IOS_DIST_CERTIFICATE_BASE64: ${{ secrets.IOS_DIST_CERTIFICATE_BASE64 }}
+          IOS_DIST_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DIST_CERTIFICATE_PASSWORD }}
+          IOS_DIST_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_BASE64 || secrets.IOS_DIST_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          chmod +x ios/scripts/ci-install-signing.sh
+          ios/scripts/ci-install-signing.sh
+
+      - name: Prepare App Store export options
+        env:
+          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          IOS_APPSTORE_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_NAME }}
+        run: |
+          if [ -z "${IOS_DEVELOPMENT_TEAM}" ] || [ -z "${IOS_APPSTORE_PROVISIONING_PROFILE_NAME}" ]; then
+            echo "IOS_DEVELOPMENT_TEAM and IOS_APPSTORE_PROVISIONING_PROFILE_NAME secrets are required."
+            exit 1
+          fi
+          sed \
+            -e "s/__IOS_DEVELOPMENT_TEAM__/${IOS_DEVELOPMENT_TEAM}/g" \
+            -e "s/__IOS_BUNDLE_ID__/${{ env.IOS_BUNDLE_ID }}/g" \
+            -e "s/__IOS_APPSTORE_PROVISIONING_PROFILE_NAME__/${IOS_APPSTORE_PROVISIONING_PROFILE_NAME}/g" \
+            ios/exportOptions.appstore.plist > ios/exportOptions.ci.plist
+
+      - name: Archive iOS app
+        env:
+          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          IOS_APPSTORE_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_NAME }}
+        run: |
+          set -euo pipefail
+          ARCHIVE_PATH="${{ runner.temp }}/Serveaso.xcarchive"
+          xcodebuild archive \
+            -workspace "${{ env.IOS_WORKSPACE }}" \
+            -scheme "${{ env.IOS_SCHEME }}" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "${ARCHIVE_PATH}" \
+            DEVELOPMENT_TEAM="${IOS_DEVELOPMENT_TEAM}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="${IOS_APPSTORE_PROVISIONING_PROFILE_NAME}" \
+            PRODUCT_BUNDLE_IDENTIFIER="${{ env.IOS_BUNDLE_ID }}"
+
+      - name: Export App Store IPA
+        run: |
+          set -euo pipefail
+          ARCHIVE_PATH="${{ runner.temp }}/Serveaso.xcarchive"
+          EXPORT_PATH="${{ runner.temp }}/ipa"
+          mkdir -p "${EXPORT_PATH}"
+          xcodebuild -exportArchive \
+            -archivePath "${ARCHIVE_PATH}" \
+            -exportPath "${EXPORT_PATH}" \
+            -exportOptionsPlist ios/exportOptions.ci.plist
+          ls -la "${EXPORT_PATH}"
+
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v3
+        with:
+          app-path: ${{ runner.temp }}/ipa/Serveaso.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+
+      - name: Commit iOS version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ios/version.properties
+          git diff --staged --quiet || git commit -m "chore(ios): bump version to ${{ env.VERSION_NAME }} [skip ci]"
           git push || true

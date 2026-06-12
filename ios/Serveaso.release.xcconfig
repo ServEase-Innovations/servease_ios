@@ -1,2 +1,3 @@
 #include "Pods/Target Support Files/Pods-Serveaso/Pods-Serveaso.release.xcconfig"
 #include? "Signing.local.xcconfig"
+#include? "version.generated.xcconfig"

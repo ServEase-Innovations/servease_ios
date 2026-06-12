@@ -373,3 +373,4 @@ src/config/devApi.local.ts
 
 # Local Xcode signing (machine-specific)
 ios/Signing.local.xcconfig
+ios/version.generated.xcconfig

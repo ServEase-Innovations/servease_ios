@@ -4,5 +4,5 @@
 
 DEVELOPMENT_TEAM = YOUR_TEAM_ID_HERE
 
-// Use a unique bundle id under *your* team (the org id com.serveaso.app.ios is reserved for ServEase).
-PRODUCT_BUNDLE_IDENTIFIER = com.yourname.serveaso.dev
+// Servease Innovation team bundle id (App Store / TestFlight).
+PRODUCT_BUNDLE_IDENTIFIER = in.serveaseinnovation.serveaso
