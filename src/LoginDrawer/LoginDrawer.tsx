@@ -27,6 +27,8 @@ import { add } from "../features/userSlice";
 import providerInstance from "../services/providerInstance";
 import { useTheme } from "../Settings/ThemeContext";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
+import { useAuth0 } from "react-native-auth0";
+import { getAuth0AuthorizeOptions } from "../utils/auth0Config";
 import { AGENT_DASHBOARD, DASHBOARD } from "../Constants/pagesConstants";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -34,7 +36,6 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 interface LoginDrawerProps {
   visible: boolean;
   onClose: () => void;
-  onEmailLogin: () => Promise<void>;
   setAppUser: (user: unknown) => void;
   sendDataToParent?: (data: string) => void;
 }
@@ -42,19 +43,20 @@ interface LoginDrawerProps {
 const LoginDrawer: React.FC<LoginDrawerProps> = ({
   visible,
   onClose,
-  onEmailLogin,
   setAppUser,
   sendDataToParent,
 }) => {
   const { colors } = useTheme();
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { authorize } = useAuth0();
 
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const keyboardShift = useRef(new Animated.Value(0)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
   const [showMobileForm, setShowMobileForm] = useState(false);
+  const [emailAuthLoading, setEmailAuthLoading] = useState(false);
   const showMobileFormRef = useRef(false);
   showMobileFormRef.current = showMobileForm;
   const [mobile, setMobile] = useState("");
@@ -85,6 +87,7 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
     setSendingOtp(false);
     setVerifyingOtp(false);
     setShowMobileForm(false);
+    setEmailAuthLoading(false);
     resetForm();
     onClose();
   };
@@ -315,6 +318,24 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
     }
   };
 
+  const handleEmailLogin = async () => {
+    if (emailAuthLoading) return;
+    setEmailAuthLoading(true);
+    setStatusMessage(null);
+    try {
+      await authorize(getAuth0AuthorizeOptions());
+      showStatus("Signed in successfully", "success");
+      setTimeout(() => {
+        handleClose();
+      }, 400);
+    } catch (error) {
+      console.warn("[auth0] email login failed:", error);
+      showStatus("Email sign-in was cancelled or failed. Please try again.", "error");
+    } finally {
+      setEmailAuthLoading(false);
+    }
+  };
+
   const handleBack = () => {
     resetForm();
     setShowMobileForm(false);
@@ -322,7 +343,11 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
 
   if (!visible) return null;
 
-  const drawerTitle = showMobileForm ? "Mobile Login" : "Choose Login Method";
+  const drawerTitle = showMobileForm
+    ? "Mobile Login"
+    : emailAuthLoading
+      ? "Signing in"
+      : "Choose Login Method";
   const tabBarClearance = getMobileTabBarHeight(insets.bottom);
 
   const renderPrimaryActionButton = (
@@ -553,36 +578,48 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
 
             {!showMobileForm ? (
               <View style={styles.methodBody}>
-                <Text style={styles.subtitle}>Secure access to your account</Text>
-
-                <TouchableOpacity
-                  style={styles.item}
-                  onPress={() => setShowMobileForm(true)}
-                  activeOpacity={0.85}
-                >
-                  <MaterialIcon name="phone-android" size={24} color="#1c4485" />
-                  <View style={styles.itemTextCol}>
-                    <Text style={styles.itemText}>Mobile OTP Login</Text>
-                    <Text style={styles.itemSubtext}>Instant login with one-time password</Text>
+                {emailAuthLoading ? (
+                  <View style={styles.emailAuthLoadingBlock}>
+                    <ActivityIndicator size="large" color="#1c4485" />
+                    <Text style={styles.emailAuthLoadingTitle}>Signing in with email</Text>
+                    <Text style={styles.emailAuthLoadingSubtitle}>
+                      Complete sign-in in the browser, then you&apos;ll return here automatically.
+                    </Text>
+                    <TouchableOpacity style={styles.cancelEmailAuthBtn} onPress={handleClose}>
+                      <Text style={styles.cancelEmailAuthText}>Cancel</Text>
+                    </TouchableOpacity>
                   </View>
-                  <MaterialIcon name="chevron-right" size={22} color="#9ca3af" />
-                </TouchableOpacity>
+                ) : (
+                  <>
+                    <Text style={styles.subtitle}>Continue with your preferred sign-in option</Text>
 
-                <TouchableOpacity
-                  style={[styles.item, styles.itemLast]}
-                  onPress={() => {
-                    handleClose();
-                    void onEmailLogin();
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <MaterialIcon name="email" size={24} color="#1c4485" />
-                  <View style={styles.itemTextCol}>
-                    <Text style={styles.itemText}>Email Login</Text>
-                    <Text style={styles.itemSubtext}>Continue with your email address</Text>
-                  </View>
-                  <MaterialIcon name="chevron-right" size={22} color="#9ca3af" />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.item}
+                      onPress={() => setShowMobileForm(true)}
+                      activeOpacity={0.85}
+                    >
+                      <MaterialIcon name="phone-android" size={24} color="#1c4485" />
+                      <View style={styles.itemTextCol}>
+                        <Text style={styles.itemText}>Login with phone</Text>
+                        <Text style={styles.itemSubtext}>Instant login with one-time password</Text>
+                      </View>
+                      <MaterialIcon name="chevron-right" size={22} color="#9ca3af" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.item, styles.itemLast]}
+                      onPress={() => void handleEmailLogin()}
+                      activeOpacity={0.85}
+                    >
+                      <MaterialIcon name="email" size={24} color="#1c4485" />
+                      <View style={styles.itemTextCol}>
+                        <Text style={styles.itemText}>Login with email</Text>
+                        <Text style={styles.itemSubtext}>Continue with your email address</Text>
+                      </View>
+                      <MaterialIcon name="chevron-right" size={22} color="#9ca3af" />
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             ) : (
               <ScrollView
@@ -853,6 +890,35 @@ const styles = StyleSheet.create({
   },
   resendTextDisabled: {
     color: "#9ca3af",
+  },
+  emailAuthLoadingBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 28,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  emailAuthLoadingTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1f2937",
+    textAlign: "center",
+  },
+  emailAuthLoadingSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#6b7280",
+    textAlign: "center",
+  },
+  cancelEmailAuthBtn: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  cancelEmailAuthText: {
+    color: "#1c4485",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

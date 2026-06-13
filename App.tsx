@@ -20,6 +20,8 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
+import { useAuth0PostLogin } from "./src/hooks/useAuth0PostLogin";
+import { getAuth0AuthorizeOptions } from "./src/utils/auth0Config";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "./i18n";
 
@@ -175,6 +177,14 @@ const MainApp = () => {
   const { appUser, setAppUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
   const { showMobileDialog } = useCustomerMobileCheck();
   const { authorize, getCredentials, clearSession, user } = useAuth0();
+
+  useAuth0PostLogin({
+    onNavigate: (view) => {
+      if (view) {
+        setCurrentView(view);
+      }
+    },
+  });
 
   // Get font size styles based on settings
   const getFontSizeStyles = () => {
@@ -441,11 +451,7 @@ const MainApp = () => {
 
   const handleAuth0Login = async () => {
     try {
-      await authorize({
-        scope: "openid profile email",
-        redirectUrl:
-          "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
-      });
+      await authorize(getAuth0AuthorizeOptions());
 
       const credentials = await getCredentials();
       console.log("Login successful", credentials);

@@ -116,7 +116,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const { colors, isDarkMode } = useTheme();
   const { setAppUser, clearAppUser } = useAppUser();
 
-  const { authorize, clearSession, getCredentials } = useAuth0();
+  const { clearSession } = useAuth0();
   const dispatch = useDispatch();
 
   const isAuthenticated = !!(auth0User || (appUser && appUser.token));
@@ -172,31 +172,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       setIsProfileMenuVisible(false);
     }
   }, [lastTap, isAuthenticated, isCustomer, onNavigateToPage, onBookingsClick]);
-
-  const handleEmailLogin = async () => {
-    setShowAuthModal(false);
-    try {
-      await authorize({
-        scope: "openid profile email",
-        redirectUrl: "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
-      });
-
-      const credentials = await getCredentials();
-      Snackbar.show({
-        text: t("navigation.loggedInSuccess"),
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: "#10b981",
-        textColor: "#ffffff",
-      });
-    } catch (e) {
-      Snackbar.show({
-        text: t("navigation.loginFailed"),
-        duration: Snackbar.LENGTH_LONG,
-        backgroundColor: "#ef4444",
-        textColor: "#ffffff",
-      });
-    }
-  };
 
   const handleProfileButtonClick = () => {
     if (isAuthenticated) {
@@ -600,7 +575,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         <LoginDrawer
           visible={showAuthModal}
           onClose={() => setShowAuthModal(false)}
-          onEmailLogin={handleEmailLogin}
           setAppUser={setAppUser}
           sendDataToParent={(data) => {
             if (data === DASHBOARD) {
@@ -710,7 +684,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       <LoginDrawer
         visible={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        onEmailLogin={handleEmailLogin}
         setAppUser={setAppUser}
         sendDataToParent={(data) => {
           if (data === DASHBOARD) {

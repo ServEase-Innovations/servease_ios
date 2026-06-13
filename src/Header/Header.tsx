@@ -36,6 +36,7 @@ import AboutPage from "../AboutUs/AboutPage";
 import ContactUs from "../ContactUs/ContactUs";
 import LocationSelector from "../Header/LocationSelector";
 import axios from "axios";
+import { getAuth0AuthorizeOptions } from "../utils/auth0Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Snackbar from "react-native-snackbar";
 import { useAppUser } from "../context/AppUserContext";
@@ -93,7 +94,6 @@ const Head: React.FC<ChildComponentProps> = ({
   const { setAppUser, clearAppUser, appUser, isLoading: isUserLoading } = useAppUser();
   const dropdownRef = useRef<View>(null);
   const loadedPreferencesForRef = useRef<number | null>(null);
-  const postLoginHandledForRef = useRef<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("");
   const [userPreference, setUserPreference] = useState<any>([]);
@@ -255,123 +255,6 @@ const Head: React.FC<ChildComponentProps> = ({
     console.log(`Service selected: ${service}, Type: ${serviceType}`);
   };
 
-  useEffect(() => {
-    if (!auth0User) {
-      postLoginHandledForRef.current = null;
-    }
-  }, [auth0User]);
-
-  useEffect(() => {
-    const run = async () => {
-      if (!auth0User || auth0Loading || !auth0User?.email) {
-        console.log("Auth0 user not available yet");
-        return;
-      }
-
-      const userKey = auth0User.sub ?? auth0User.email;
-      if (postLoginHandledForRef.current === userKey) {
-        return;
-      }
-      postLoginHandledForRef.current = userKey;
-
-      try {
-        const token = await getCredentials();
-        console.log("Access Token:", token?.accessToken);
-        console.log("User authenticated:", auth0User);
-
-        const email = auth0User.email ?? "";
-
-        const response = await axios.get(
-          `https://utils-ndt3.onrender.com/customer/check-email?email=${encodeURIComponent(
-            email
-          )}`
-        );
-        console.log("Email check response:", response.data);
-
-        if (!response.data.user_role) {
-          await createUser(auth0User);
-        } else if (response.data.user_role === "SERVICE_PROVIDER") {
-          const spId = response.data.id ?? response.data.serviceproviderid;
-          if (token?.accessToken) {
-            await AsyncStorage.setItem("token", token.accessToken);
-          }
-          setAppUser({
-            ...auth0User,
-            role: "SERVICE_PROVIDER",
-            serviceProviderId: spId,
-            accessToken: token?.accessToken,
-            token: token?.accessToken,
-          });
-          sendDataToParent(DASHBOARD);
-        } else if (response.data.user_role === "VENDOR") {
-          setAppUser({
-            ...auth0User,
-            role: "VENDOR",
-            vendorId: response.data.id,
-          });
-          sendDataToParent(AGENT_DASHBOARD);
-        } else {
-          loadedPreferencesForRef.current = Number(response.data.id);
-          setAppUser({
-            ...auth0User,
-            role: "CUSTOMER",
-            customerid: response.data.id,
-          });
-          await getCustomerPreferences(Number(response.data.id));
-        }
-
-        console.log("Post-login steps complete ✅");
-      } catch (error) {
-        console.error("Error during post-login API call:", error);
-        postLoginHandledForRef.current = null;
-        showErrorSnackbar("Failed to complete login process");
-      }
-    };
-
-    run().catch((error) => {
-      console.error("Error in run function:", error);
-      postLoginHandledForRef.current = null;
-      showErrorSnackbar("Login process failed");
-    });
-  }, [auth0User?.sub, auth0User?.email, auth0Loading, getCredentials]);
-
-  const createUser = async (user: any) => {
-    try {
-      const userData = {
-        firstName: user.given_name || user.name?.split(" ")[0] || "User",
-        lastName: user.family_name || user.name?.split(" ")[1] || "",
-        emailId: user.email,
-        password: "password",
-      };
-
-      console.log("Creating user with data:", userData);
-
-      const response = await axios.post(
-        "https://servease-be-5x7f.onrender.com/api/customer/add-customer-new",
-        userData
-      );
-
-      console.log("User creation response:", response.data);
-
-        if (response.data && response.data.id) {
-        const customerId = Number(response.data.id);
-        loadedPreferencesForRef.current = customerId;
-        setAppUser({
-          ...user,
-          role: "CUSTOMER",
-          customerid: response.data.id,
-        });
-        await getCustomerPreferences(customerId);
-      } else {
-        console.warn("Unexpected response format:", response.data);
-        showErrorSnackbar("Unexpected response during user creation");
-      }
-    } catch (error) {
-      console.error("Error creating user:", error);
-      showErrorSnackbar("Failed to create user account");
-    }
-  };
-
   const getCustomerPreferences = async (customerId: number) => {
     setLocationPreferencesReady(false);
     try {
@@ -430,7 +313,7 @@ const Head: React.FC<ChildComponentProps> = ({
   };
 
   useEffect(() => {
-    if (auth0Loading || auth0User?.email) {
+    if (auth0Loading) {
       return;
     }
 
@@ -447,7 +330,7 @@ const Head: React.FC<ChildComponentProps> = ({
 
     loadedPreferencesForRef.current = idNum;
     void getCustomerPreferences(idNum);
-  }, [appUser, auth0User, auth0Loading]);
+  }, [appUser, auth0Loading]);
 
   const handleClick = (e: string) => {
     setCurrentPage(e);
@@ -468,7 +351,6 @@ const Head: React.FC<ChildComponentProps> = ({
   const resetHeaderLocationSession = useCallback(() => {
     setUserPreference([]);
     loadedPreferencesForRef.current = null;
-    postLoginHandledForRef.current = null;
     setLocationPreferencesReady(false);
     setCurrentLocation(null);
     dispatch(clearGeoLocation());
@@ -502,13 +384,8 @@ const Head: React.FC<ChildComponentProps> = ({
   const handleLoginClick = async () => {
     setMenuVisible(false);
     try {
-      await authorize({
-        scope: "openid profile email",
-        redirectUrl:
-          "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
-      });
-
-      const credentials = await getCredentials();
+      await authorize(getAuth0AuthorizeOptions());
+      await getCredentials();
     } catch (e) {
       console.log("Login error:", e);
       showErrorSnackbar("Login failed. Please try again.");
