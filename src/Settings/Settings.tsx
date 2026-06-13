@@ -333,23 +333,22 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
       onRequestClose={onClose}
       transparent={false}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar barStyle="light-content" />
         <LinearGradient
           colors={[...BOOKING_HEADER_GRADIENT]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}
+          end={{ x: 1, y: 0 }}
+          style={[styles.header, { paddingTop: insets.top + 8 }]}
         >
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={onClose} style={styles.headerButton} accessibilityLabel="Go back">
-              <MaterialIcon name="arrow-back" size={22} color="#ffffff" />
+              <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
             </TouchableOpacity>
             <View style={styles.headerTitleBlock}>
               <Text style={[styles.headerTitle, { fontSize: fontStyles.headingSize }]}>Settings</Text>
               <Text style={styles.headerSubtitle}>Customize your app experience</Text>
             </View>
-            <View style={styles.headerButtonSpacer} />
           </View>
         </LinearGradient>
 
@@ -364,12 +363,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               styles.card,
               {
                 backgroundColor: colors.card,
-                borderColor: colors.cardBorder,
-                ...Platform.select({
-                  ios: {
-                    shadowColor: colors.shadow,
-                  },
-                }),
+                borderColor: colors.divider,
               },
             ]}
           >
@@ -398,7 +392,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              { backgroundColor: colors.card, borderColor: colors.divider },
             ]}
           >
             <SettingItem
@@ -422,7 +416,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              { backgroundColor: colors.card, borderColor: colors.divider },
             ]}
           >
             <SettingItem
@@ -448,7 +442,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+              { backgroundColor: colors.card, borderColor: colors.divider },
             ]}
           >
             <SettingItem
@@ -673,7 +667,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             <PrivacyPolicy />
           </SafeAreaView>
         </Modal>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -683,15 +677,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingBottom: 22,
-    paddingHorizontal: 16,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    shadowColor: BRAND.bookingNavy,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 8,
+    width: '100%',
+    paddingBottom: 16,
+    paddingHorizontal: 12,
   },
   headerTop: {
     flexDirection: 'row',
@@ -699,54 +687,46 @@ const styles = StyleSheet.create({
   },
   headerTitleBlock: {
     flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 8,
+    marginLeft: 4,
+    paddingRight: 8,
   },
   headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  headerButtonSpacer: {
-    width: 40,
-    height: 40,
   },
   headerTitle: {
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
     color: '#ffffff',
   },
   headerSubtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.78)',
-    marginTop: 4,
-    textAlign: 'center',
+    lineHeight: 18,
+    color: '#ffffff',
+    opacity: 0.88,
+    marginTop: 2,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
   card: {
-    borderRadius: 18,
+    borderRadius: 0,
     overflow: 'hidden',
-    marginBottom: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    marginBottom: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 22,
-    marginBottom: 8,
-    marginLeft: 6,
+    marginTop: 20,
+    marginBottom: 6,
+    marginLeft: 16,
+    paddingTop: 4,
   },
   sectionHeaderIcon: {
     marginRight: 6,
@@ -772,7 +752,7 @@ const styles = StyleSheet.create({
   settingIconBg: {
     width: 36,
     height: 36,
-    borderRadius: 11,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -789,9 +769,9 @@ const styles = StyleSheet.create({
   },
   valuePill: {
     maxWidth: 130,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 0,
   },
   settingValue: {
     fontWeight: '600',
@@ -803,9 +783,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 20,
     marginBottom: 8,
+    marginHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 0,
   },
   resetButtonText: {
     fontWeight: '700',
@@ -819,13 +800,8 @@ const styles = StyleSheet.create({
   modalContent: {
     width: width * 0.85,
     maxHeight: height * 0.7,
-    borderRadius: 20,
+    borderRadius: 0,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -841,7 +817,7 @@ const styles = StyleSheet.create({
   modalCloseBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -860,7 +836,7 @@ const styles = StyleSheet.create({
   modalIconBg: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -905,7 +881,7 @@ const styles = StyleSheet.create({
   modalPageBackBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
