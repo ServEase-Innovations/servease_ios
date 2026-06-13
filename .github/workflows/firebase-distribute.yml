@@ -136,15 +136,6 @@ jobs:
           chmod +x ios/scripts/ci-set-version.sh
           ios/scripts/ci-set-version.sh
 
-      - name: Apply iOS code signing settings
-        env:
-          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
-          IOS_APPSTORE_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_NAME }}
-          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
-        run: |
-          chmod +x ios/scripts/ci-set-signing.sh
-          ios/scripts/ci-set-signing.sh
-
       - name: Prepare Xcode Node path
         run: echo "export NODE_BINARY=$(command -v node)" > ios/.xcode.env.local
 
@@ -169,6 +160,17 @@ jobs:
         run: |
           chmod +x ios/scripts/ci-install-signing.sh
           ios/scripts/ci-install-signing.sh
+
+      - name: Apply iOS code signing settings
+        env:
+          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          IOS_APPSTORE_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_NAME }}
+          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
+        run: |
+          chmod +x ios/scripts/ci-set-signing.sh
+          ios/scripts/ci-set-signing.sh
+          echo "--- Signing.ci.xcconfig ---"
+          cat ios/Signing.ci.xcconfig
 
       - name: Prepare App Store export options
         env:

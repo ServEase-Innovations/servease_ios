@@ -5,6 +5,7 @@ set -euo pipefail
 : "${IOS_DIST_CERTIFICATE_PASSWORD:?IOS_DIST_CERTIFICATE_PASSWORD is required}"
 : "${IOS_DIST_PROVISIONING_PROFILE_BASE64:?IOS_DIST_PROVISIONING_PROFILE_BASE64 is required}"
 
+IOS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 KEYCHAIN_PATH="${RUNNER_TEMP}/app-signing.keychain-db"
 KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
 CERT_PATH="${RUNNER_TEMP}/distribution.p12"
@@ -25,10 +26,21 @@ security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${KEYCHAI
 security list-keychain -d user -s "${KEYCHAIN_PATH}"
 
 echo -n "${IOS_DIST_PROVISIONING_PROFILE_BASE64}" | base64 -D > "${PROFILE_PATH}"
-PROFILE_UUID="$(
-  /usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(security cms -D -i "${PROFILE_PATH}")"
-)"
+PROFILE_PLIST="$(security cms -D -i "${PROFILE_PATH}")"
+PROFILE_UUID="$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "${PROFILE_PLIST}")"
+PROFILE_NAME="$(/usr/libexec/PlistBuddy -c "Print Name" /dev/stdin <<< "${PROFILE_PLIST}")"
+PROFILE_TEAM="$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /dev/stdin <<< "${PROFILE_PLIST}")"
+PROFILE_APP_ID="$(/usr/libexec/PlistBuddy -c "Print Entitlements:application-identifier" /dev/stdin <<< "${PROFILE_PLIST}")"
+
 mkdir -p "${HOME}/Library/MobileDevice/Provisioning Profiles"
 cp "${PROFILE_PATH}" "${HOME}/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
 
-echo "Installed distribution certificate and provisioning profile ${PROFILE_UUID}"
+printf '%s\n' "${PROFILE_UUID}" > "${IOS_DIR}/.ci-provisioning-profile-uuid"
+printf '%s\n' "${PROFILE_NAME}" > "${IOS_DIR}/.ci-provisioning-profile-name"
+printf '%s\n' "${PROFILE_TEAM}" > "${IOS_DIR}/.ci-provisioning-profile-team"
+
+echo "Installed distribution certificate and provisioning profile:"
+echo "  UUID: ${PROFILE_UUID}"
+echo "  Name: ${PROFILE_NAME}"
+echo "  Team: ${PROFILE_TEAM}"
+echo "  App ID: ${PROFILE_APP_ID}"
