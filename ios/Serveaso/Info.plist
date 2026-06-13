@@ -47,7 +47,13 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Serveaso uses your location to set your service address, find nearby providers, and help with booking.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Serveaso uses your location to provide accurate service booking and provider navigation while you use the app.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Serveaso needs access to your photo library so you can upload profile and service-related photos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Serveaso needs camera access so you can take photos for your profile and service bookings.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Feather.ttf</string>
