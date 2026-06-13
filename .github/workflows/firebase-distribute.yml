@@ -111,17 +111,17 @@ jobs:
 
   ios-testflight:
     if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both'
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 120
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16
+      - name: Select Xcode 26
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2'
+          xcode-version: '26.4.1'
 
       - name: Install iOS platform
         run: |
@@ -164,9 +164,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: pods-v2-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
+          key: pods-v3-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
           restore-keys: |
-            pods-v2-${{ runner.os }}-
+            pods-v3-${{ runner.os }}-
 
       - name: Install CocoaPods dependencies
         env:
