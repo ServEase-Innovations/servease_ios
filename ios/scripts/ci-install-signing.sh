@@ -31,6 +31,18 @@ PROFILE_UUID="$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "${PROFIL
 PROFILE_NAME="$(/usr/libexec/PlistBuddy -c "Print Name" /dev/stdin <<< "${PROFILE_PLIST}")"
 PROFILE_TEAM="$(/usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /dev/stdin <<< "${PROFILE_PLIST}")"
 PROFILE_APP_ID="$(/usr/libexec/PlistBuddy -c "Print Entitlements:application-identifier" /dev/stdin <<< "${PROFILE_PLIST}")"
+EXPECTED_APP_ID="${IOS_BUNDLE_ID:-in.serveaseinnovation.serveaso}"
+EXPECTED_APP_ID_PREFIX=".*\\.${EXPECTED_APP_ID}"
+
+if ! [[ "${PROFILE_APP_ID}" =~ ${EXPECTED_APP_ID_PREFIX} ]]; then
+  echo "Provisioning profile App ID '${PROFILE_APP_ID}' does not match bundle ID '${EXPECTED_APP_ID}'."
+  exit 1
+fi
+
+if /usr/libexec/PlistBuddy -c "Print ProvisionedDevices" /dev/stdin <<< "${PROFILE_PLIST}" >/dev/null 2>&1; then
+  echo "Expected an App Store Connect profile, but this profile contains ProvisionedDevices (Ad Hoc/Development)."
+  exit 1
+fi
 
 mkdir -p "${HOME}/Library/MobileDevice/Provisioning Profiles"
 cp "${PROFILE_PATH}" "${HOME}/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"

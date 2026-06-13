@@ -148,11 +148,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
+          key: pods-v2-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
           restore-keys: |
-            pods-${{ runner.os }}-
+            pods-v2-${{ runner.os }}-
 
       - name: Install CocoaPods dependencies
+        env:
+          LANG: en_US.UTF-8
+          LC_ALL: en_US.UTF-8
         run: |
           cd ios
           pod install --repo-update
@@ -177,6 +180,18 @@ jobs:
           echo "--- Signing.ci.xcconfig ---"
           cat ios/Signing.ci.xcconfig
 
+      - name: Verify iOS signing setup
+        run: |
+          echo "Installed code signing identities:"
+          security find-identity -v -p codesigning || true
+          echo "--- Release build settings (signing) ---"
+          xcodebuild -showBuildSettings \
+            -workspace "${{ env.IOS_WORKSPACE }}" \
+            -scheme "${{ env.IOS_SCHEME }}" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            2>/dev/null | grep -E '^(    )?(CODE_SIGN|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER)' || true
+
       - name: Prepare App Store export options
         env:
           IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
@@ -196,12 +211,24 @@ jobs:
         run: |
           set -euo pipefail
           ARCHIVE_PATH="${{ runner.temp }}/Serveaso.xcarchive"
+          LOG_PATH="${{ runner.temp }}/xcodebuild-archive.log"
+          set +e
           xcodebuild archive \
             -workspace "${{ env.IOS_WORKSPACE }}" \
             -scheme "${{ env.IOS_SCHEME }}" \
             -configuration Release \
             -destination "generic/platform=iOS" \
-            -archivePath "${ARCHIVE_PATH}"
+            -archivePath "${ARCHIVE_PATH}" \
+            2>&1 | tee "${LOG_PATH}"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "${status}" -ne 0 ]; then
+            echo "===== xcodebuild archive failed (exit ${status}) ====="
+            grep -En "error:|fatal error:|ARCHIVE FAILED|The following build commands failed|CodeSign.*failed" "${LOG_PATH}" || true
+            echo "===== Last 120 log lines ====="
+            tail -n 120 "${LOG_PATH}" || true
+            exit "${status}"
+          fi
 
       - name: Export App Store IPA
         run: |

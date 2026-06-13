@@ -39,13 +39,24 @@ target 'Serveaso' do
       :mac_catalyst_enabled => false
     )
 
+    minimum_ios = '15.1'
+
+    installer.pods_project.build_configurations.each do |bc|
+      bc.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = minimum_ios
+    end
+
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |bc|
         # Align pod deployment targets with the app (Xcode 15/16 rejects very old targets).
-        bc.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        bc.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = minimum_ios
         # Pod libraries must not use app provisioning profiles (CI manual signing).
         bc.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
         bc.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+
+        if target.name == 'FirebaseCoreInternal'
+          bc.build_settings['SWIFT_VERSION'] = '5.0'
+          bc.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+        end
       end
     end
 
