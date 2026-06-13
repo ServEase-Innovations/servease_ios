@@ -13,6 +13,7 @@ const ANDROID_CHANNEL_ID = "serveaso_default";
 /** Prevent duplicate onMessage handlers (each extra handler = duplicate notification). */
 let listenersAttached = false;
 const listenerUnsubs: Array<() => void> = [];
+let latestPushUser: PushUserContext | null | undefined;
 
 import type { PushUserContext } from "../types/push";
 
@@ -120,6 +121,38 @@ export async function requestPushNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "ios") return requestIosPermission();
   if (Platform.OS === "android") return requestAndroidPermissionWithRationale();
   return false;
+}
+
+async function getFcmTokenWithRetry(maxAttempts = 6): Promise<string | null> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const token = await messaging().getToken();
+      if (token && token.length >= 100) return token;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[push] getToken attempt ${attempt + 1}/${maxAttempts}:`, msg);
+    }
+    if (attempt < maxAttempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
+async function registerIosForPush(): Promise<boolean> {
+  const permissionOk = await ensureNotificationPermission();
+  if (!permissionOk) {
+    console.log("[push] iOS notification permission not granted");
+    return false;
+  }
+
+  await messaging().registerDeviceForRemoteMessages();
+  await messaging().setForegroundNotificationPresentationOptions({
+    alert: true,
+    badge: true,
+    sound: true,
+  });
+  return true;
 }
 
 async function ensureNotificationPermission(): Promise<boolean> {
@@ -231,13 +264,14 @@ function detachPushListeners(): void {
 function attachPushListeners(
   user: PushUserContext | null | undefined
 ): void {
+  latestPushUser = user;
   if (listenersAttached) return;
   listenersAttached = true;
 
   listenerUnsubs.push(
     messaging().onTokenRefresh(async (newToken) => {
       try {
-        await registerTokenWithBackend(newToken, user);
+        await registerTokenWithBackend(newToken, latestPushUser);
       } catch (e) {
         console.warn("[push] token refresh register failed", e);
       }
@@ -259,8 +293,36 @@ function attachPushListeners(
   );
 }
 
+async function registerPushTokenWithBackend(
+  user: PushUserContext | null | undefined
+): Promise<string | null> {
+  if (Platform.OS === "ios") {
+    const iosReady = await registerIosForPush();
+    if (!iosReady) return null;
+  } else {
+    const androidReady = await ensureNotificationPermission();
+    if (!androidReady) return null;
+  }
+
+  const token = await getFcmTokenWithRetry();
+  if (!token) {
+    console.warn("[push] no FCM token from Firebase after retries");
+    return null;
+  }
+
+  try {
+    await registerTokenWithBackend(token, user);
+    console.log("[push] FCM token registered with backend, length:", token.length);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[push] backend token registration failed:", msg);
+  }
+
+  return token;
+}
+
 /**
- * Initialize FCM: token registration + permission prompt + message handlers (once).
+ * Initialize FCM: permission → APNs/FCM token → backend registration → message handlers (once).
  */
 export async function setupPushNotifications(
   user: PushUserContext | null | undefined
@@ -269,29 +331,8 @@ export async function setupPushNotifications(
 
   try {
     await ensureAndroidChannel();
-
-    if (Platform.OS === "ios") {
-      await messaging().registerDeviceForRemoteMessages();
-      await messaging().setForegroundNotificationPresentationOptions({
-        alert: true,
-        badge: true,
-        sound: true,
-      });
-    }
-
-    const token = await messaging().getToken();
-    if (token) {
-      await registerTokenWithBackend(token, user);
-      console.log("[push] FCM token registered, length:", token.length);
-    } else {
-      console.warn("[push] no FCM token from Firebase");
-    }
-
-    const permissionOk = await ensureNotificationPermission();
-    if (!permissionOk) {
-      console.log("[push] notifications not permitted — token still registered for admin push");
-    }
-
+    latestPushUser = user;
+    await registerPushTokenWithBackend(user);
     attachPushListeners(user);
 
     const initial = await messaging().getInitialNotification();
@@ -301,6 +342,26 @@ export async function setupPushNotifications(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn("[push] setup failed:", msg, err);
+  }
+}
+
+/** Re-run permission + token registration (e.g. after enabling notifications in Settings). */
+export async function refreshPushRegistration(
+  user: PushUserContext | null | undefined
+): Promise<boolean> {
+  if (Platform.OS !== "ios" && Platform.OS !== "android") return false;
+  try {
+    await ensureAndroidChannel();
+    const token = await registerPushTokenWithBackend(user);
+    if (token) {
+      attachPushListeners(user);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[push] refresh failed:", msg, err);
+    return false;
   }
 }
 

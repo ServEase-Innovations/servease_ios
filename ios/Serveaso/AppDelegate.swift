@@ -7,7 +7,7 @@ import FirebaseCore
 import FirebaseMessaging
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
@@ -22,7 +22,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     UNUserNotificationCenter.current().delegate = self
-    application.registerForRemoteNotifications()
+    Messaging.messaging().delegate = self
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
@@ -39,7 +39,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
       launchOptions: launchOptions
     )
 
+    application.registerForRemoteNotifications()
+
     return true
+  }
+
+  func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    Messaging.messaging().apnsToken = deviceToken
+  }
+
+  func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    NSLog("[push] APNs registration failed: %@", error.localizedDescription)
+  }
+
+  func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    let preview: String
+    if let token = fcmToken, !token.isEmpty {
+      preview = String(token.prefix(16)) + "..."
+    } else {
+      preview = "(empty)"
+    }
+    NSLog("[push] FCM registration token refreshed: %@", preview)
   }
 
   func userNotificationCenter(

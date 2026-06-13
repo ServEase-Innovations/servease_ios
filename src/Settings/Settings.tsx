@@ -29,6 +29,9 @@ import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
 import { BOOKING_HEADER_GRADIENT, BRAND } from '../theme/brandColors';
 import { requestPushNotificationPermission } from '../services/pushNotifications';
+import { refreshPushRegistration } from '../services/pushApi';
+import { useAppUser } from '../context/AppUserContext';
+import { useAuth0 } from 'react-native-auth0';
 import { getMobileTabBarHeight } from '../Constants/mobileLayout';
 
 const { width, height } = Dimensions.get('window');
@@ -41,6 +44,8 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { appUser } = useAppUser();
+  const { user: auth0User } = useAuth0();
   const iconGradient = [BRAND.accent, BRAND.bookingSky];
   const {
     theme,
@@ -171,11 +176,28 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
       return;
     }
     const granted = await requestPushNotificationPermission();
-    setNotifications(granted);
     if (!granted) {
+      setNotifications(false);
       Alert.alert(
         'Notifications disabled',
         'Enable notifications in iPhone Settings → Serveaso → Notifications to receive booking alerts.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const registered = await refreshPushRegistration({
+      email: appUser?.email || auth0User?.email,
+      role: appUser?.role,
+      userId: appUser?.id || appUser?.userId,
+      serviceProviderId: appUser?.serviceProviderId,
+      customerId: appUser?.customerid || appUser?.customerId,
+    });
+    setNotifications(registered);
+    if (!registered) {
+      Alert.alert(
+        'Registration failed',
+        'Notification permission was granted but device registration failed. Try again after signing in, or reinstall the app.',
         [{ text: 'OK' }]
       );
     }

@@ -16,6 +16,20 @@ export async function setupPushNotifications(
   }
 }
 
+export async function refreshPushRegistration(
+  user: PushUserContext | null | undefined
+): Promise<boolean> {
+  try {
+    const mod = await import("./pushNotifications");
+    if (typeof mod?.refreshPushRegistration === "function") {
+      return mod.refreshPushRegistration(user);
+    }
+  } catch (err) {
+    console.warn("[push] refresh failed to load", err);
+  }
+  return false;
+}
+
 export async function unregisterPushNotifications(): Promise<void> {
   try {
     const mod = await import("./pushNotifications");

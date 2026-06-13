@@ -533,16 +533,28 @@ const MainApp = () => {
   }, [appUser]);
 
   useEffect(() => {
-    if (!appUser || isUserLoading) return;
-    const ctx: PushUserContext = {
-      email: appUser.email || user?.email,
-      role: appUser.role,
-      userId: appUser.id || appUser.userId,
-      serviceProviderId: appUser.serviceProviderId,
-      customerId: appUser.customerid || appUser.customerId,
-    };
+    if (isUserLoading) return;
+    const ctx: PushUserContext | null = appUser
+      ? {
+          email: appUser.email || user?.email,
+          role: appUser.role,
+          userId: appUser.id || appUser.userId,
+          serviceProviderId: appUser.serviceProviderId,
+          customerId: appUser.customerid || appUser.customerId,
+        }
+      : null;
     void setupPushNotifications(ctx);
-  }, [appUser?.id, appUser?.userId, appUser?.email, isUserLoading]);
+  }, [
+    appUser?.id,
+    appUser?.userId,
+    appUser?.email,
+    appUser?.role,
+    appUser?.customerid,
+    appUser?.customerId,
+    appUser?.serviceProviderId,
+    isUserLoading,
+    user?.email,
+  ]);
 
   useEffect(() => {
     setMobileDialogOpen(showMobileDialog);
