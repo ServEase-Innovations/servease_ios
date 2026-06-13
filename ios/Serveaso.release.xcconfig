@@ -1,4 +1,7 @@
 #include "Pods/Target Support Files/Pods-Serveaso/Pods-Serveaso.release.xcconfig"
 #include? "Signing.local.xcconfig"
 #include? "Signing.ci.xcconfig"
+// Defaults for local builds; CI overwrites via version.generated.xcconfig
+CURRENT_PROJECT_VERSION = 1
+MARKETING_VERSION = 1.0.0
 #include? "version.generated.xcconfig"

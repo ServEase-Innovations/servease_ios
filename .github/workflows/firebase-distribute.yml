@@ -273,6 +273,9 @@ jobs:
             export OTHER_CODE_SIGN_FLAGS="--keychain ${IOS_KEYCHAIN_PATH}"
             echo "Using CI keychain for codesign: ${IOS_KEYCHAIN_PATH}"
           fi
+          echo "--- Expected app version ---"
+          echo "VERSION_NAME=${VERSION_NAME} VERSION_CODE=${VERSION_CODE}"
+          cat ios/version.generated.xcconfig
           set +e
           xcodebuild archive \
             -workspace "${{ env.IOS_WORKSPACE }}" \
@@ -294,6 +297,10 @@ jobs:
             tail -n 120 "${LOG_PATH}" || true
             exit "${status}"
           fi
+          APP_INFO="${ARCHIVE_PATH}/Products/Applications/Serveaso.app/Info.plist"
+          echo "--- Archived app version ---"
+          /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "${APP_INFO}"
+          /usr/libexec/PlistBuddy -c "Print CFBundleVersion" "${APP_INFO}"
 
       - name: Upload archive log on failure
         if: failure()
