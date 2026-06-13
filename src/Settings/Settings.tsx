@@ -13,7 +13,6 @@ import {
   TouchableWithoutFeedback,
   Animated,
   Dimensions,
-  Platform,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
