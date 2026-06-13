@@ -77,13 +77,19 @@ target 'Serveaso' do
     if File.exist?(fmt_base)
       content = File.read(fmt_base)
       unless content.include?('Xcode 26 workaround')
-        patched = content.gsub(
-          /#elif defined\(__cpp_consteval\)\n# {1,2}define FMT_USE_CONSTEVAL 1/,
-          "#elif defined(__cpp_consteval)\n// Xcode 26 workaround: disable consteval\n# define FMT_USE_CONSTEVAL 0"
-        )
-        if patched != content
-          File.chmod(0o644, fmt_base)
-          File.write(fmt_base, patched)
+        marker = "#endif\n#if FMT_USE_CONSTEVAL"
+        if content.include?(marker)
+          patched = content.sub(
+            marker,
+            "#endif\n// Xcode 26 workaround: disable consteval for Apple Clang 21+ (Xcode 26+)\n#undef FMT_USE_CONSTEVAL\n#define FMT_USE_CONSTEVAL 0\n#if FMT_USE_CONSTEVAL"
+          )
+          if patched != content
+            File.chmod(0o644, fmt_base)
+            File.write(fmt_base, patched)
+            Pod::UI.puts 'Patched fmt/base.h for Xcode 26'.green
+          end
+        else
+          Pod::UI.warn 'fmt/base.h marker not found; could not apply Xcode 26 patch'
         end
       end
     end

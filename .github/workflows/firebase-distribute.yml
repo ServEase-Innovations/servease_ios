@@ -164,17 +164,36 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: pods-v4-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
+          key: pods-v5-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
           restore-keys: |
-            pods-v4-${{ runner.os }}-
+            pods-v5-${{ runner.os }}-
 
       - name: Install CocoaPods dependencies
         env:
           LANG: en_US.UTF-8
           LC_ALL: en_US.UTF-8
+          TOOLCHAINS: com.apple.dt.toolchain.XcodeDefault
         run: |
           cd ios
           pod install --repo-update
+
+      - name: Verify Xcode 26 pod patches
+        run: |
+          set -euo pipefail
+          FMT_BASE="ios/Pods/fmt/include/fmt/base.h"
+          if [ ! -f "${FMT_BASE}" ]; then
+            echo "fmt/base.h not found after pod install"
+            exit 1
+          fi
+          if ! grep -q "Xcode 26 workaround" "${FMT_BASE}"; then
+            echo "fmt/base.h was not patched for Xcode 26"
+            exit 1
+          fi
+          if ! grep -q "#define FMT_USE_CONSTEVAL 0" "${FMT_BASE}"; then
+            echo "fmt/base.h does not force FMT_USE_CONSTEVAL=0"
+            exit 1
+          fi
+          echo "fmt Xcode 26 patch verified"
 
       - name: Install iOS code signing assets
         env:
@@ -249,7 +268,11 @@ jobs:
           set -e
           if [ "${status}" -ne 0 ]; then
             echo "===== xcodebuild archive failed (exit ${status}) ====="
-            grep -En "error:|fatal error:|ARCHIVE FAILED|The following build commands failed|CodeSign.*failed|Signing for .* requires|errSec|provisioning profile|Unable to find a destination|is not installed" "${LOG_PATH}" || true
+            echo "===== Compiler errors (last 40) ====="
+            grep -En ": error:|: fatal error:" "${LOG_PATH}" | tail -40 || true
+            grep -En "ARCHIVE FAILED|The following build commands failed|CodeSign.*failed|Signing for .* requires|errSec|Unable to find a destination|is not installed|UPLOAD FAILED|Validation failed" "${LOG_PATH}" || true
+            echo "===== Failed commands ====="
+            awk '/The following build commands failed:/{flag=1} flag' "${LOG_PATH}" | head -40 || true
             echo "===== Last 120 log lines ====="
             tail -n 120 "${LOG_PATH}" || true
             exit "${status}"
