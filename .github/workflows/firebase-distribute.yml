@@ -129,6 +129,14 @@ jobs:
         with:
           xcode-version: '16.2'
 
+      - name: Install iOS platform
+        run: |
+          set -euo pipefail
+          sudo xcodebuild -runFirstLaunch
+          xcodebuild -downloadPlatform iOS
+          echo "--- Available SDKs ---"
+          xcodebuild -showsdks
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -203,7 +211,7 @@ jobs:
             -workspace "${{ env.IOS_WORKSPACE }}" \
             -scheme "${{ env.IOS_SCHEME }}" \
             -configuration Release \
-            -destination "generic/platform=iOS" \
+            -sdk iphoneos \
             2>/dev/null | grep -E '^(    )?(CODE_SIGN|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER)' || true
 
       - name: Prepare App Store export options
@@ -240,14 +248,14 @@ jobs:
             -workspace "${{ env.IOS_WORKSPACE }}" \
             -scheme "${{ env.IOS_SCHEME }}" \
             -configuration Release \
-            -destination "generic/platform=iOS" \
+            -sdk iphoneos \
             -archivePath "${ARCHIVE_PATH}" \
             2>&1 | tee "${LOG_PATH}"
           status=${PIPESTATUS[0]}
           set -e
           if [ "${status}" -ne 0 ]; then
             echo "===== xcodebuild archive failed (exit ${status}) ====="
-            grep -En "error:|fatal error:|ARCHIVE FAILED|The following build commands failed|CodeSign.*failed|Signing for .* requires|errSec|provisioning profile" "${LOG_PATH}" || true
+            grep -En "error:|fatal error:|ARCHIVE FAILED|The following build commands failed|CodeSign.*failed|Signing for .* requires|errSec|provisioning profile|Unable to find a destination|is not installed" "${LOG_PATH}" || true
             echo "===== Last 120 log lines ====="
             tail -n 120 "${LOG_PATH}" || true
             exit "${status}"
