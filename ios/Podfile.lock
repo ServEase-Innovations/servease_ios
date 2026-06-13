@@ -1,6 +1,6 @@
 PODS:
-  - A0Auth0 (5.3.1):
-    - Auth0 (= 2.16.1)
+  - A0Auth0 (5.7.0):
+    - Auth0 (= 2.21.2)
     - DoubleConversion
     - glog
     - hermes-engine
@@ -24,7 +24,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - Auth0 (2.16.1):
+  - Auth0 (2.21.2):
     - JWTDecode (= 3.3.0)
     - SimpleKeychain (= 1.3.0)
   - boost (1.84.0)
@@ -2185,6 +2185,11 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNNotifee (9.1.8):
+    - React-Core
+    - RNNotifee/NotifeeCore (= 9.1.8)
+  - RNNotifee/NotifeeCore (9.1.8):
+    - React-Core
   - RNPermissions (5.4.4):
     - DoubleConversion
     - glog
@@ -2407,6 +2412,7 @@ DEPENDENCIES:
   - RNFS (from `../node_modules/react-native-fs`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNLocalize (from `../node_modules/react-native-localize`)
+  - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNShare (from `../node_modules/react-native-share`)
   - RNSnackbar (from `../node_modules/react-native-snackbar`)
@@ -2619,6 +2625,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-gesture-handler"
   RNLocalize:
     :path: "../node_modules/react-native-localize"
+  RNNotifee:
+    :path: "../node_modules/@notifee/react-native"
   RNPermissions:
     :path: "../node_modules/react-native-permissions"
   RNShare:
@@ -2633,8 +2641,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  A0Auth0: be71f26bcba9408f5db8e262cf920d7a6e8b2fa2
-  Auth0: b218669c4bd8c8fa873e2eae15444c43f5f6c318
+  A0Auth0: 950d28f6426a97b02fea92c1d599693678c6dfeb
+  Auth0: e15bc9c1e39a53efc8853d16460b9be409d5346f
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   BVLinearGradient: cb006ba232a1f3e4f341bb62c42d1098c284da70
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
@@ -2739,6 +2747,7 @@ SPEC CHECKSUMS:
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   RNGestureHandler: 715fa8a84165228bbf11e5140015a13c56dc6ee4
   RNLocalize: bb5d6b59fc1fa71e1fd3594ab93d3bc5921673c6
+  RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: 298c197829862f0f5fa41db8e51be213e8715176
   RNShare: 5a88df52d752fa0e80fa6de26ef2f6503ff7e2f2
   RNSnackbar: c1b235eb606b03938c693ce769ed3059c31dff9b
@@ -2748,6 +2757,6 @@ SPEC CHECKSUMS:
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 50518ade05048235d91a78b803336dbb5b159d5d
 
-PODFILE CHECKSUM: 47cb2771d1ef9ebf4980080aab21188db386f859
+PODFILE CHECKSUM: ef03d0127477ceaab2b764a2de5c44322caf0b8a
 
 COCOAPODS: 1.16.2
