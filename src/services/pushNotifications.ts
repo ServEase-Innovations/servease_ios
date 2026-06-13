@@ -352,6 +352,7 @@ export async function refreshPushRegistration(
   if (Platform.OS !== "ios" && Platform.OS !== "android") return false;
   try {
     await ensureAndroidChannel();
+    latestPushUser = user;
     const token = await registerPushTokenWithBackend(user);
     if (token) {
       attachPushListeners(user);
