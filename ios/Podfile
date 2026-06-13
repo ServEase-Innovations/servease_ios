@@ -72,6 +72,31 @@ target 'Serveaso' do
       end
     end
 
+    # Xcode 26: Apple Clang rejects fmt 11.0.2 consteval format strings (RN/Folly).
+    fmt_base = File.join(installer.sandbox.root, 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base)
+      content = File.read(fmt_base)
+      unless content.include?('Xcode 26 workaround')
+        patched = content.gsub(
+          /#elif defined\(__cpp_consteval\)\n# {1,2}define FMT_USE_CONSTEVAL 1/,
+          "#elif defined(__cpp_consteval)\n// Xcode 26 workaround: disable consteval\n# define FMT_USE_CONSTEVAL 0"
+        )
+        if patched != content
+          File.chmod(0o644, fmt_base)
+          File.write(fmt_base, patched)
+        end
+      end
+    end
+
+    installer.pods_project.targets.each do |target|
+      if target.name == 'fmt'
+        target.build_configurations.each do |config|
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+          config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+        end
+      end
+    end
+
     # 🔥 FIX FOR RCT-FOLLY + NEW XCODE
     installer.pods_project.targets.each do |target|
       if target.name == 'RCT-Folly'

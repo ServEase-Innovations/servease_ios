@@ -164,9 +164,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios/Pods
-          key: pods-v3-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
+          key: pods-v4-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
           restore-keys: |
-            pods-v3-${{ runner.os }}-
+            pods-v4-${{ runner.os }}-
 
       - name: Install CocoaPods dependencies
         env:
