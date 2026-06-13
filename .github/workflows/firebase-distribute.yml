@@ -4,8 +4,6 @@ name: Mobile Release Distribution
 # iOS     → TestFlight (App Store Connect)
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       platform:
@@ -30,9 +28,7 @@ env:
 
 jobs:
   android:
-    if: |
-      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]')) ||
-      (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both'))
+    if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -114,9 +110,7 @@ jobs:
           git push || true
 
   ios-testflight:
-    if: |
-      (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]')) ||
-      (github.event_name == 'workflow_dispatch' && (github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both'))
+    if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both'
     runs-on: macos-15
     timeout-minutes: 120
 
