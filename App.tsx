@@ -53,7 +53,8 @@ import Dashboard from "./src/ServiceProvider/Dashboard";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard";
 import WalletPage from "./src/UserProfile/WalletDialog";
-import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD, WALLET, DETAILS } from "./src/Constants/pagesConstants";
+import Settings from "./src/Settings/Settings";
+import { BOOKINGS, DASHBOARD, PROFILE, SETTINGS, HOME, AGENT_DASHBOARD, WALLET, DETAILS } from "./src/Constants/pagesConstants";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
@@ -139,6 +140,7 @@ const MainApp = () => {
 
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [currentView, setCurrentView] = useState<string>(HOME);
+  const [settingsReturnView, setSettingsReturnView] = useState<string>(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -191,6 +193,7 @@ const MainApp = () => {
     currentView === DETAILS ||
     currentView === BOOKINGS ||
     currentView === WALLET ||
+    currentView === SETTINGS ||
     currentView === DASHBOARD ||
     currentView === AGENT_DASHBOARD ||
     currentView === PROFILE;
@@ -468,7 +471,7 @@ const MainApp = () => {
   const isMobile = width < 768;
   const mobileTabBarClearance = isMobile ? getMobileTabBarHeight(safeBottom) : 0;
   const needsMobileTabBarScrollInset =
-    isMobile && currentView !== BOOKINGS && currentView !== WALLET;
+    isMobile && currentView !== BOOKINGS && currentView !== WALLET && currentView !== SETTINGS;
 
   const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
     setShowSignupDrawer(false);
@@ -814,6 +817,10 @@ const MainApp = () => {
           <ProfileScreen
             onBack={() => setShowProfileFromDashboard(false)}
             onNavigateToBookings={() => setCurrentView(BOOKINGS)}
+            onOpenSettings={() => {
+              setSettingsReturnView(DASHBOARD);
+              setCurrentView(SETTINGS);
+            }}
             onContact={handleContactClick}
             onSignOutComplete={handleAppRelaunchAfterSignOut}
           />
@@ -832,10 +839,17 @@ const MainApp = () => {
           <ProfileScreen
             onBack={() => setCurrentView(HOME)}
             onNavigateToBookings={() => setCurrentView(BOOKINGS)}
+            onOpenSettings={() => {
+              setSettingsReturnView(PROFILE);
+              setCurrentView(SETTINGS);
+            }}
             onContact={handleContactClick}
             onSignOutComplete={handleAppRelaunchAfterSignOut}
           />
         );
+
+      case SETTINGS:
+        return <Settings onBack={() => setCurrentView(settingsReturnView)} />;
         
       default:
         return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
@@ -863,7 +877,7 @@ const MainApp = () => {
             styles.safeArea,
             {
               backgroundColor:
-                currentView === BOOKINGS || currentView === WALLET || currentView === PROFILE
+                currentView === BOOKINGS || currentView === WALLET || currentView === PROFILE || currentView === SETTINGS
                   ? colors.background
                   : colors.headerBackground,
             },
@@ -885,7 +899,7 @@ const MainApp = () => {
               )}
 
               {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
-              {currentView !== BOOKINGS && currentView !== WALLET && currentView !== PROFILE && (
+              {currentView !== BOOKINGS && currentView !== WALLET && currentView !== PROFILE && currentView !== SETTINGS && (
                 <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
                   <Head
                     sendDataToParent={handleViewChange}
@@ -907,6 +921,7 @@ const MainApp = () => {
                   (currentView === BOOKINGS ||
                     currentView === WALLET ||
                     currentView === PROFILE ||
+                    currentView === SETTINGS ||
                     (currentView === DASHBOARD && showProfileFromDashboard)) &&
                     styles.contentContainerFullScreen,
                 ]}
@@ -979,6 +994,9 @@ const MainApp = () => {
                       } else if (page === HOME) {
                         setCurrentView(HOME);
                         setShowProfileFromDashboard(false);
+                      } else if (page === SETTINGS) {
+                        setSettingsReturnView(currentView);
+                        setCurrentView(SETTINGS);
                       }
                     }}
                     onSignOutComplete={handleAppRelaunchAfterSignOut}

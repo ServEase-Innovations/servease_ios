@@ -32,7 +32,6 @@ import CustomerProfileSection from "./CustomerProfileSection";
 import ServiceProviderProfileSection from "./ServiceProviderProfileSection";
 import VendorProfileSection from "./VendorProfileSection";
 import MobileNumberDialog from "./MobileNumberDialog";
-import Settings from "../Settings/Settings";
 import { ProfileHubSkeleton } from "../common/ProfileHubSkeleton";
 import ContactUs from "../ContactUs/ContactUs";
 import {
@@ -48,6 +47,7 @@ type ProfileSubView = "hub" | "edit";
 export interface ProfileScreenProps {
   onBack: () => void;
   onNavigateToBookings?: () => void;
+  onOpenSettings?: () => void;
   onContact?: () => void;
   onSignOutComplete?: () => Promise<void>;
 }
@@ -184,6 +184,7 @@ const ProfileMenuRow = ({
 const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onBack,
   onNavigateToBookings,
+  onOpenSettings,
   onContact,
   onSignOutComplete,
 }) => {
@@ -195,7 +196,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const insets = useSafeAreaInsets();
 
   const [subView, setSubView] = useState<ProfileSubView>("hub");
-  const [settingsVisible, setSettingsVisible] = useState(false);
   const [contactUsVisible, setContactUsVisible] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
@@ -225,10 +225,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         setContactUsVisible(false);
         return true;
       }
-      if (settingsVisible) {
-        setSettingsVisible(false);
-        return true;
-      }
       if (mobileDialogOpen) {
         setMobileDialogOpen(false);
         return true;
@@ -247,7 +243,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     );
 
     return () => backHandler.remove();
-  }, [contactUsVisible, settingsVisible, mobileDialogOpen, subView, onBack]);
+  }, [contactUsVisible, mobileDialogOpen, subView, onBack]);
 
   useEffect(() => {
     const avatarGlowLoop = Animated.loop(
@@ -440,7 +436,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         key: "settings",
         label: "Settings",
         icon: "settings",
-        onPress: () => setSettingsVisible(true),
+        onPress: () => onOpenSettings?.(),
       },
     ];
 
@@ -710,13 +706,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
               loadProfileContact("CUSTOMER", userId);
             }
           }}
-        />
-      )}
-
-      {settingsVisible && (
-        <Settings
-          visible
-          onClose={() => setSettingsVisible(false)}
         />
       )}
 

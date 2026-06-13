@@ -14,7 +14,6 @@ import {
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppUser } from "../context/AppUserContext";
-import Settings from "../Settings/Settings";
 import { useTheme } from "../Settings/ThemeContext";
 import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 import LinearGradient from "react-native-linear-gradient";
@@ -32,6 +31,7 @@ interface Props {
   onDashboard: () => void;
   onWallet?: () => void;
   onContact: () => void;
+  onOpenSettings?: () => void;
   onLogout?: () => void;
   auth0User?: any;
   dockAboveTabBar?: boolean;
@@ -66,6 +66,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
   onProfile,
   onDashboard,
   onContact,
+  onOpenSettings,
   auth0User,
   dockAboveTabBar = false,
 }) => {
@@ -75,7 +76,6 @@ const ProfileMenuSheet: React.FC<Props> = ({
   const safeBottom = Number.isFinite(insets.bottom) ? insets.bottom : 0;
   const tabBarOffset = dockAboveTabBar ? getMobileTabBarHeight(safeBottom) : 0;
 
-  const [showSettings, setShowSettings] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [showContactUs, setShowContactUs] = useState(false); // State for ContactUs modal
   const [mounted, setMounted] = useState(visible);
@@ -258,7 +258,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
       icon: "settings",
       onPress: () => {
         dismissSheet();
-        setShowSettings(true);
+        onOpenSettings?.();
       },
     }
   );
@@ -266,7 +266,6 @@ const ProfileMenuSheet: React.FC<Props> = ({
   if (!mounted) {
     return (
       <>
-        <Settings visible={showSettings} onClose={() => setShowSettings(false)} />
         {showAgentRegistration && (
           <AgentRegistrationForm
             onBackToLogin={() => setShowAgentRegistration(false)}
@@ -384,8 +383,6 @@ const ProfileMenuSheet: React.FC<Props> = ({
           </View>
         </Animated.View>
       </Modal>
-
-      <Settings visible={showSettings} onClose={() => setShowSettings(false)} />
 
       {showAgentRegistration && (
         <AgentRegistrationForm

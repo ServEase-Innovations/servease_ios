@@ -13,10 +13,11 @@ import {
   TouchableWithoutFeedback,
   Animated,
   Dimensions,
-  StatusBar,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from './ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,15 +29,16 @@ import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
 import { BOOKING_HEADER_GRADIENT, BRAND } from '../theme/brandColors';
 import { requestPushNotificationPermission } from '../services/pushNotifications';
+import { getMobileTabBarHeight } from '../Constants/mobileLayout';
 
 const { width, height } = Dimensions.get('window');
+const HORIZONTAL_GUTTER = 10;
 
 interface SettingsProps {
-  visible: boolean;
-  onClose: () => void;
+  onBack: () => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
+const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const iconGradient = [BRAND.accent, BRAND.bookingSky];
@@ -56,8 +58,8 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
   } = useTheme();
 
   // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(300)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const footerClearance = getMobileTabBarHeight(insets.bottom) + 28;
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showFontSizeModal, setShowFontSizeModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
@@ -88,27 +90,13 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     { value: 'system', label: 'System Default', icon: 'settings-overscan', description: 'Match your device' },
   ];
 
-  // Animate modal entrance
   useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      fadeAnim.setValue(0);
-      slideAnim.setValue(300);
-    }
-  }, [visible]);
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+    return () => backHandler.remove();
+  }, [onBack]);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -325,44 +313,54 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     </Modal>
   );
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      onRequestClose={onClose}
-      transparent={false}
+  const renderSettingsHeader = () => (
+    <LinearGradient
+      colors={[...BOOKING_HEADER_GRADIENT]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.headerGradient}
     >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar barStyle="light-content" />
-        <LinearGradient
-          colors={[...BOOKING_HEADER_GRADIENT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.header, { paddingTop: insets.top + 8 }]}
+      <View style={styles.headerContent}>
+        <TouchableOpacity
+          style={[styles.headerSideSlot, styles.headerBackBtn]}
+          onPress={onBack}
+          accessibilityLabel="Go back"
         >
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={onClose} style={styles.headerButton} accessibilityLabel="Go back">
-              <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <View style={styles.headerTitleBlock}>
-              <Text style={[styles.headerTitle, { fontSize: fontStyles.headingSize }]}>Settings</Text>
-              <Text style={styles.headerSubtitle}>Customize your app experience</Text>
-            </View>
-          </View>
-        </LinearGradient>
+          <Icon name="arrow-left" size={24} color="#ffffff" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleBlock} pointerEvents="none">
+          <Text
+            style={[styles.headerTitle, { fontSize: fontStyles.headingSize + 2 }]}
+            numberOfLines={1}
+          >
+            Settings
+          </Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            Customize your app experience
+          </Text>
+        </View>
+        <View style={[styles.headerSideSlot, { alignItems: 'flex-end' }]} />
+      </View>
+    </LinearGradient>
+  );
 
-        <ScrollView
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 16 }}
-        >
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {renderSettingsHeader()}
+
+      <ScrollView
+        style={styles.mainScrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: footerClearance }}
+      >
+        <View style={styles.section}>
           <SectionHeader title="Appearance" icon="palette" />
           <View
             style={[
               styles.card,
               {
                 backgroundColor: colors.card,
-                borderColor: colors.divider,
+                borderColor: colors.border + '20',
               },
             ]}
           >
@@ -386,12 +384,14 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               isLast
             />
           </View>
+        </View>
 
+        <View style={styles.section}>
           <SectionHeader title="Preferences" icon="tune" />
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.card, borderColor: colors.divider },
+              { backgroundColor: colors.card, borderColor: colors.border + '20' },
             ]}
           >
             <SettingItem
@@ -410,12 +410,14 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               isLast
             />
           </View>
+        </View>
 
+        <View style={styles.section}>
           <SectionHeader title="Privacy & Security" icon="lock" />
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.card, borderColor: colors.divider },
+              { backgroundColor: colors.card, borderColor: colors.border + '20' },
             ]}
           >
             <SettingItem
@@ -436,12 +438,14 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               isLast
             />
           </View>
+        </View>
 
+        <View style={styles.section}>
           <SectionHeader title="About" icon="info" />
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.card, borderColor: colors.divider },
+              { backgroundColor: colors.card, borderColor: colors.border + '20' },
             ]}
           >
             <SettingItem
@@ -472,24 +476,24 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               isLast
             />
           </View>
+        </View>
 
-
-          <TouchableOpacity
-            style={[
-              styles.resetButton,
-              {
-                borderColor: colors.error,
-                backgroundColor: isDarkMode ? 'rgba(248, 113, 113, 0.12)' : colors.errorLight,
-              },
-            ]}
-            onPress={clearAllPreferences}
-          >
-            <MaterialIcon name="settings-backup-restore" size={20} color={colors.error} />
-            <Text style={[styles.resetButtonText, { color: colors.error, fontSize: fontStyles.textSize }]}>
-              Reset All Settings
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+        <TouchableOpacity
+          style={[
+            styles.resetButton,
+            {
+              borderColor: colors.error,
+              backgroundColor: isDarkMode ? 'rgba(248, 113, 113, 0.12)' : colors.errorLight,
+            },
+          ]}
+          onPress={clearAllPreferences}
+        >
+          <MaterialIcon name="settings-backup-restore" size={20} color={colors.error} />
+          <Text style={[styles.resetButtonText, { color: colors.error, fontSize: fontStyles.textSize }]}>
+            Reset All Settings
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
 
         {/* Theme Selection Modal */}
         <CustomModal visible={showThemeModal} onClose={() => setShowThemeModal(false)} title="Select Theme">
@@ -666,8 +670,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             <PrivacyPolicy />
           </SafeAreaView>
         </Modal>
-      </View>
-    </Modal>
+    </View>
   );
 };
 
@@ -675,56 +678,83 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  headerGradient: {
     width: '100%',
-    paddingBottom: 16,
-    paddingHorizontal: 12,
+    alignSelf: 'stretch',
+    backgroundColor: 'transparent',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingBottom: 12,
+    paddingTop: 6,
+    overflow: 'hidden',
   },
-  headerTop: {
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
+    minHeight: 68,
+    paddingHorizontal: HORIZONTAL_GUTTER,
+  },
+  headerSideSlot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  headerBackBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.20)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
   },
   headerTitleBlock: {
     flex: 1,
-    marginLeft: 4,
-    paddingRight: 8,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 8,
+    minWidth: 0,
   },
   headerTitle: {
-    fontWeight: '700',
-    letterSpacing: -0.2,
     color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    width: '100%',
   },
   headerSubtitle: {
+    color: 'rgba(219, 234, 254, 0.95)',
+    textAlign: 'center',
     fontSize: 13,
-    lineHeight: 18,
-    color: '#ffffff',
-    opacity: 0.88,
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: '500',
   },
-  content: {
+  mainScrollView: {
     flex: 1,
-    paddingHorizontal: 0,
-    paddingTop: 0,
+  },
+  section: {
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   card: {
-    borderRadius: 0,
+    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 4,
+    borderWidth: 1,
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 6,
-    marginLeft: 16,
+    marginTop: 4,
+    marginBottom: 8,
     paddingTop: 4,
   },
   sectionHeaderIcon: {
@@ -751,7 +781,7 @@ const styles = StyleSheet.create({
   settingIconBg: {
     width: 36,
     height: 36,
-    borderRadius: 0,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -770,7 +800,7 @@ const styles = StyleSheet.create({
     maxWidth: 130,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 0,
+    borderRadius: 8,
   },
   settingValue: {
     fontWeight: '600',
@@ -780,12 +810,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 20,
+    marginTop: 12,
     marginBottom: 8,
-    marginHorizontal: 16,
+    marginHorizontal: HORIZONTAL_GUTTER,
     paddingVertical: 14,
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 12,
   },
   resetButtonText: {
     fontWeight: '700',
@@ -799,7 +829,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: width * 0.85,
     maxHeight: height * 0.7,
-    borderRadius: 0,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   modalHeader: {
@@ -816,7 +846,7 @@ const styles = StyleSheet.create({
   modalCloseBtn: {
     width: 32,
     height: 32,
-    borderRadius: 0,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -835,7 +865,7 @@ const styles = StyleSheet.create({
   modalIconBg: {
     width: 40,
     height: 40,
-    borderRadius: 0,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -880,7 +910,7 @@ const styles = StyleSheet.create({
   modalPageBackBtn: {
     width: 40,
     height: 40,
-    borderRadius: 0,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',

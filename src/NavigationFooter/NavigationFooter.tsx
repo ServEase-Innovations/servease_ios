@@ -22,10 +22,9 @@ import { remove } from "../features/userSlice";
 import { clearCustomer } from "../features/customerSlice";
 import { clearMobileAuthStorage, tryClearAuth0Session } from "../utils/signOutSession";
 import Snackbar from "react-native-snackbar";
-import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET } from "../Constants/pagesConstants";
+import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET, SETTINGS } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
-import Settings from "../Settings/Settings";
 import { useTheme } from "../Settings/ThemeContext";
 import { useAppUser } from "../context/AppUserContext";
 import LoginDrawer from "../LoginDrawer/LoginDrawer";
@@ -109,7 +108,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
-  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [lastTap, setLastTap] = useState<number>(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { t } = useTranslation();
@@ -295,7 +293,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   };
 
   const handleSettingsOpen = () => {
-    setIsSettingsVisible(true);
+    setIsProfileMenuVisible(false);
+    onNavigateToPage(SETTINGS);
   };
 
   const renderCompactAccountAvatar = () => {
@@ -513,7 +512,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onPress: onOpenSignup,
       });
       tabs.push({
-        key: "SETTINGS",
+        key: SETTINGS,
         label: t("navigation.settings") || "Settings",
         iconName: "settings",
         onPress: handleSettingsOpen,
@@ -595,9 +594,9 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onDashboard={() => handleDashboardButtonClick()}
           onWallet={handleWalletClick}
           onContact={onContactClick}
+          onOpenSettings={handleSettingsOpen}
           dockAboveTabBar
         />
-        <Settings visible={isSettingsVisible} onClose={() => setIsSettingsVisible(false)} />
         <LoginDrawer
           visible={showAuthModal}
           onClose={() => setShowAuthModal(false)}
@@ -706,8 +705,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         onDashboard={() => handleDashboardButtonClick()}
         onWallet={handleWalletClick}
         onContact={onContactClick}
+        onOpenSettings={handleSettingsOpen}
       />
-      <Settings visible={isSettingsVisible} onClose={() => setIsSettingsVisible(false)} />
       <LoginDrawer
         visible={showAuthModal}
         onClose={() => setShowAuthModal(false)}
