@@ -41,7 +41,7 @@
 			<string>auth0</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>in.serveaseinnovation.serveaso.auth0</string>
+				<string>$(PRODUCT_BUNDLE_IDENTIFIER).auth0</string>
 			</array>
 		</dict>
 	</array>

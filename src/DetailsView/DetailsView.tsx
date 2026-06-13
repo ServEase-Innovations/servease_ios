@@ -19,7 +19,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import providerInstance from "../services/providerInstance";
+import providerInstance, { resolveProviderRequestUrl } from "../services/providerInstance";
 import ProviderDetailsComponent from "../DetailsView/ProviderDetails";
 import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
@@ -30,6 +30,11 @@ import { useTheme } from '../Settings/ThemeContext';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import dayjs, { Dayjs } from 'dayjs';
 import { useAppUser } from '../context/AppUserContext';
+import { formatDateOnly, getBookingTypeFromPreference } from '../utils/maidPricingUtils';
+import { resolveScheduleTimeFields } from '../utils/bookingSchedulePatch';
+import { buildLocationSearchKey, resolveLocationCoords } from '../utils/bookingLocation';
+import { isBookingScheduleComplete } from '../ServiceDialogs/serviceBookingConfig';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -48,6 +53,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 }) => {
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   const { appUser } = useAppUser();
+  const { t } = useTranslation();
   
   const customerId = appUser?.role === "CUSTOMER" ? appUser?.customerid : null;
   
@@ -57,13 +63,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
-  const [previousLocationKey, setPreviousLocationKey] = useState<string>("");
-  const [isLocationValid, setIsLocationValid] = useState(false);
   
-  // Add a ref to track if initial load has been done
-  const initialLoadDone = useRef(false);
+  const lastLocationSearchKeyRef = useRef("");
   const isFetchingRef = useRef(false);
-  const locationKeyRef = useRef<string>("");
   
   // Infinite scroll state
   const [loading, setLoading] = useState(false);
@@ -92,97 +94,124 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
   const { getBookingType, getPricingData, getFilteredPricing } = usePricingFilterService();
   const bookingType = getBookingType();
+
+  const providerSearchCriteria = useMemo(
+    () => ({
+      startDate: bookingType?.startDate,
+      endDate: bookingType?.endDate,
+      startTime: bookingType?.startTime,
+      endTime: bookingType?.endTime,
+      timeRange: bookingType?.timeRange,
+      timeSlot: bookingType?.timeSlot,
+      housekeepingRole: bookingType?.housekeepingRole,
+      bookingPreference: bookingType?.bookingPreference,
+    }),
+    [
+      bookingType?.startDate,
+      bookingType?.endDate,
+      bookingType?.startTime,
+      bookingType?.endTime,
+      bookingType?.timeRange,
+      bookingType?.timeSlot,
+      bookingType?.housekeepingRole,
+      bookingType?.bookingPreference,
+    ]
+  );
+
+  const providerSearchKey = useMemo(
+    () => JSON.stringify(providerSearchCriteria),
+    [providerSearchCriteria]
+  );
+
+  const canSearchProviders = useMemo(() => {
+    const bookingTypeCode = getBookingTypeFromPreference(
+      providerSearchCriteria.bookingPreference
+    );
+    return isBookingScheduleComplete(
+      providerSearchCriteria as Record<string, unknown>,
+      bookingTypeCode
+    );
+  }, [providerSearchCriteria]);
+
+  const scheduleRevision = useSelector(
+    (state: { bookingType?: { scheduleRevision?: number } }) =>
+      state.bookingType?.scheduleRevision ?? 0
+  );
+
+  const providerSearchTriggerKey = useMemo(
+    () =>
+      canSearchProviders ? `${providerSearchKey}:${scheduleRevision}` : "",
+    [canSearchProviders, providerSearchKey, scheduleRevision]
+  );
   
   const dispatch = useDispatch();
   const location = useSelector((state: any) => state?.geoLocation?.value);
-
-  // Helper function to check if location is valid
-  const isValidLocation = useCallback((loc: any): boolean => {
-    if (!loc) return false;
-    
-    let lat = null;
-    let lng = null;
-    
-    if (loc?.geometry?.location) {
-      lat = loc.geometry.location.lat;
-      lng = loc.geometry.location.lng;
-    } else if (loc?.lat && loc?.lng) {
-      lat = loc.lat;
-      lng = loc.lng;
-    } else if (typeof loc === 'string') {
-      return false;
-    }
-    
-    return lat !== null && lng !== null && lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng);
-  }, []);
-
-  const getLocationKey = useCallback(() => {
-    if (!location || !isValidLocation(location)) return "";
-    
-    let lat = null;
-    let lng = null;
-    
-    if (location?.geometry?.location) {
-      lat = location.geometry.location.lat;
-      lng = location.geometry.location.lng;
-    } else if (location?.lat && location?.lng) {
-      lat = location.lat;
-      lng = location.lng;
-    }
-    
-    if (lat && lng) {
-      return `${lat.toFixed(4)}-${lng.toFixed(4)}`;
-    }
-    
-    return "";
-  }, [location, isValidLocation]);
+  const locationSearchKey = useMemo(
+    () => buildLocationSearchKey(location),
+    [location]
+  );
 
   const filteredProviders = allProviders;
 
-  useEffect(() => {
-    if (selectedProviderType !== undefined && location && bookingType && initialLoadDone.current) {
-      console.log("Filters changed, resetting and searching");
-      resetAndSearch();
+  const formatDisplayTime = (hhmm?: string) => {
+    if (!hhmm) return "";
+    const parsed = dayjs(hhmm.trim(), ["HH:mm", "H:mm", "hh:mm A", "h:mm A"], true);
+    return parsed.isValid() ? parsed.format("h:mm A") : hhmm;
+  };
+
+  const formatDisplayDate = (value?: string) => {
+    const ymd = formatDateOnly(value);
+    return ymd ? dayjs(ymd).format("MMM D, YYYY") : "";
+  };
+
+  const searchContextSummary = useMemo(() => {
+    const pref = providerSearchCriteria.bookingPreference;
+    const bookingTypeCode = getBookingTypeFromPreference(pref);
+    const role = String(providerSearchCriteria.housekeepingRole || "COOK").toUpperCase();
+    const serviceLabel =
+      role === "MAID"
+        ? t("home.services.cleaningHelp") || "Maid"
+        : role === "NANNY"
+          ? t("home.services.caregiver") || "Nanny"
+          : t("home.services.homeCook") || "Cook";
+    const modeLabel =
+      bookingTypeCode === "ON_DEMAND"
+        ? "On demand"
+        : bookingTypeCode === "SHORT_TERM"
+          ? "Short term"
+          : "Monthly";
+
+    const start = formatDisplayDate(providerSearchCriteria.startDate);
+    const end = formatDisplayDate(providerSearchCriteria.endDate);
+    let dateLine = "";
+    if (bookingTypeCode === "SHORT_TERM" && start && end && start !== end) {
+      dateLine = `${start} – ${end}`;
+    } else if (start) {
+      dateLine = start;
+    } else if (end) {
+      dateLine = end;
     }
-  }, [activeFilters]);
+
+    const { startTime: resolvedStart, endTime: resolvedEnd } = resolveScheduleTimeFields(
+      providerSearchCriteria as Record<string, unknown>
+    );
+    const startT = formatDisplayTime(resolvedStart || providerSearchCriteria.startTime);
+    const endT = formatDisplayTime(resolvedEnd || providerSearchCriteria.endTime);
+    let timeLine = "";
+    if (startT && endT) {
+      timeLine = `${startT} – ${endT}`;
+    } else if (startT) {
+      timeLine = startT;
+    }
+
+    return { serviceLabel, modeLabel, dateLine, timeLine };
+  }, [providerSearchCriteria, t]);
 
   useEffect(() => {
-    const currentLocationKey = getLocationKey();
-    const locationValid = isValidLocation(location);
-    
-    setIsLocationValid(locationValid);
-    
-    const locationChanged = locationValid && currentLocationKey !== locationKeyRef.current;
-    
-    if (locationValid && !initialLoadDone.current) {
-      console.log("Initial load triggered");
-      locationKeyRef.current = currentLocationKey;
-      initialLoadDone.current = true;
-      resetAndSearch();
-    } else if (locationValid && locationChanged && initialLoadDone.current) {
-      console.log("Location changed, resetting");
-      locationKeyRef.current = currentLocationKey;
-      resetAndSearch();
-    }
-  }, [location]);
-
-  useEffect(() => {
-    if (selected && selected !== selectedProviderType && initialLoadDone.current) {
-      setSelectedProviderType(selected);
-      resetAndSearch();
-    } else if (selected && !initialLoadDone.current) {
+    if (selected) {
       setSelectedProviderType(selected);
     }
   }, [selected]);
-
-  const resetAndSearch = () => {
-    setCurrentPage(1);
-    setHasMore(true);
-    setAllProviders([]);
-    setHasFetchedOnce(false);
-    setFetchError(null);
-    performSearch(true);
-  };
 
   const handleBackClick = () => {
     sendDataToParent("");
@@ -194,13 +223,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
   }, [selectedProvider]);
 
-  const formatDateOnly = (dateString?: string) => {
-    if (!dateString) return "";
-    return dateString.split("T")[0];
-  };
-
   const formatTimeToHHMM = (time?: Dayjs | string | null): string => {
-    if (!time) return "08:00";
+    if (!time) return "09:00";
     
     if (typeof time === 'string') {
       const trimmedTime = time.trim();
@@ -211,14 +235,14 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       if (parsed.isValid()) {
         return parsed.format('HH:mm');
       }
-      return "08:00";
+      return "09:00";
     }
     
     if (time && typeof time === 'object' && 'format' in time) {
       return (time as Dayjs).format('HH:mm');
     }
     
-    return "08:00";
+    return "09:00";
   };
 
   const calculateDurationInMinutes = (startTime?: string, endTime?: string): number => {
@@ -270,7 +294,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return 60;
   };
 
-  const fetchProviders = async (page: number, reset: boolean = false) => {
+  const fetchProviders = async (
+    page: number,
+    reset: boolean = false,
+    preserveList: boolean = false
+  ) => {
     if (isFetchingRef.current) {
       console.log("Fetch already in progress, skipping...");
       return;
@@ -280,21 +308,17 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       isFetchingRef.current = true;
       
       if (reset) {
-        setLoading(true);
+        setIsLoadingMore(false);
+        if (!preserveList) {
+          setLoading(true);
+        }
       } else {
         setIsLoadingMore(true);
       }
 
-      let latitude = 0;
-      let longitude = 0;
-
-      if (location?.geometry?.location) {
-        latitude = location.geometry.location.lat;
-        longitude = location.geometry.location.lng;
-      } else if (location?.lat && location?.lng) {
-        latitude = location.lat;
-        longitude = location.lng;
-      }
+      const coords = resolveLocationCoords(location);
+      const latitude = coords?.lat ?? 0;
+      const longitude = coords?.lng ?? 0;
 
       if (latitude === 0 || longitude === 0 || isNaN(latitude) || isNaN(longitude)) {
         Alert.alert(
@@ -309,39 +333,40 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         return;
       }
 
-      const startDate = formatDateOnly(bookingType?.startDate) || '2025-04-01';
-      const endDate = formatDateOnly(bookingType?.endDate) || '2025-04-30';
-      
-      let preferredStartTime = "08:00";
-      
-      if (bookingType?.timeRange) {
-        const startTimeFromRange = bookingType.timeRange.split('-')[0];
-        preferredStartTime = formatTimeToHHMM(startTimeFromRange);
-      } else if (bookingType?.startTime) {
-        preferredStartTime = formatTimeToHHMM(bookingType.startTime);
-      }
-      
-      const housekeepingRole = bookingType?.housekeepingRole || 'COOK';
+      const { startTime: resolvedStart, endTime: resolvedEnd } = resolveScheduleTimeFields(
+        providerSearchCriteria as Record<string, unknown>
+      );
+
       const serviceDurationMinutes = calculateDurationInMinutes(
-        bookingType?.startTime,
-        bookingType?.endTime
+        resolvedStart || providerSearchCriteria.startTime,
+        resolvedEnd || providerSearchCriteria.endTime
       );
 
       const payload: any = {
         lat: latitude.toString(),
         lng: longitude.toString(),
         radius: 10,
-        startDate: startDate,
-        endDate: endDate,
-        preferredStartTime: preferredStartTime,
-        role: housekeepingRole,
+        startDate:
+          formatDateOnly(providerSearchCriteria.startDate) ||
+          dayjs().format("YYYY-MM-DD"),
+        endDate:
+          formatDateOnly(providerSearchCriteria.endDate) ||
+          formatDateOnly(providerSearchCriteria.startDate) ||
+          dayjs().format("YYYY-MM-DD"),
+        preferredStartTime:
+          String(resolvedStart || providerSearchCriteria.startTime || "").trim() ||
+          (providerSearchCriteria.timeRange
+            ? providerSearchCriteria.timeRange.split("-")[0]?.trim()
+            : "") ||
+          "09:00",
+        role: providerSearchCriteria.housekeepingRole || "COOK",
         serviceDurationMinutes: serviceDurationMinutes
       };
 
       if (activeFilters) {
-        if (activeFilters.experience && (activeFilters.experience[0] > 0 || activeFilters.experience[1] < 30)) {
-          payload.minExperience = activeFilters.experience[0];
-          payload.maxExperience = activeFilters.experience[1];
+        const [minExp, maxExp] = activeFilters.experience;
+        if (minExp > 0 || maxExp < 30) {
+          payload.experienceRange = `${minExp}-${maxExp}`;
         }
         if (activeFilters.rating) {
           payload.minRating = activeFilters.rating;
@@ -367,10 +392,18 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         payload.customerID = Number(customerId);
       }
       
-      console.log(`Fetching page ${page} with payload:`, payload);
+      const searchPath = `/api/service-providers/nearby-monthly?page=${page}&limit=10`;
+      const searchFullUrl = resolveProviderRequestUrl({ url: searchPath });
+
+      console.log('[DetailsView] nearby-monthly search', {
+        fullUrl: searchFullUrl,
+        page,
+        reset,
+        payload,
+      });
 
       const response = await providerInstance.post(
-        `/api/service-providers/nearby-monthly?page=${page}&limit=10`,
+        searchPath,
         payload,
         { timeout: 90000 }
       );
@@ -429,15 +462,57 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
   };
 
-  const performSearch = async (reset: boolean = true) => {
+  const performSearch = useCallback(async (reset: boolean = true) => {
+    const preserveList =
+      reset &&
+      allProviders.length > 0 &&
+      lastLocationSearchKeyRef.current === locationSearchKey;
+
     if (reset) {
       setCurrentPage(1);
       setHasMore(true);
-      setAllProviders([]);
-      setHasFetchedOnce(false);
+      setFetchError(null);
+      if (!preserveList) {
+        setAllProviders([]);
+        setHasFetchedOnce(false);
+      }
     }
-    await fetchProviders(reset ? 1 : currentPage + 1, reset);
-  };
+
+    lastLocationSearchKeyRef.current = locationSearchKey;
+
+    await fetchProviders(reset ? 1 : currentPage + 1, reset, preserveList);
+  }, [
+    allProviders.length,
+    locationSearchKey,
+    location,
+    providerSearchCriteria,
+    activeFilters,
+    customerId,
+    appUser,
+    currentPage,
+  ]);
+
+  useEffect(() => {
+    if (
+      selectedProviderType !== undefined &&
+      locationSearchKey &&
+      canSearchProviders &&
+      providerSearchTriggerKey
+    ) {
+      performSearch(true);
+    }
+  }, [
+    selectedProviderType,
+    locationSearchKey,
+    canSearchProviders,
+    providerSearchTriggerKey,
+    activeFilters,
+    performSearch,
+  ]);
+
+  const resetAndSearch = useCallback(() => {
+    performSearch(true);
+  }, [performSearch]);
 
   const fetchMoreData = useCallback(() => {
     if (isLoadingMore || !hasMore || loading || isFetchingRef.current) {
@@ -489,7 +564,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   };
 
   const renderHeader = () => {
-    if (filteredProviders.length === 0 && !loading && !hasFetchedOnce) return null;
+    const showResultsHeader =
+      totalCount > 0 || activeFilters || (hasFetchedOnce && Boolean(searchContextSummary));
+
+    if (!showResultsHeader && !(canSearchProviders && searchContextSummary)) return null;
     
     const resultsLabel = fetchError
       ? fetchError === 'timeout'
@@ -539,6 +617,28 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
               </Text>
             </View>
           </View>
+
+          {(canSearchProviders && searchContextSummary) ? (
+            <View style={[styles.searchContextBanner, { borderTopColor: colors.border, backgroundColor: isDarkMode ? colors.card : '#F8FAFC' }]}>
+              <View style={styles.searchContextRow}>
+                <View style={[styles.searchContextPill, { backgroundColor: colors.primary + '18' }]}>
+                  <Text style={[styles.searchContextPillText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
+                    {searchContextSummary.serviceLabel}
+                  </Text>
+                </View>
+                <View style={[styles.searchContextPill, { backgroundColor: isDarkMode ? colors.surface : '#FFFFFF', borderColor: colors.border, borderWidth: 1 }]}>
+                  <Text style={[styles.searchContextPillText, { color: colors.text, fontSize: fontStyles.smallText }]}>
+                    {searchContextSummary.modeLabel}
+                  </Text>
+                </View>
+              </View>
+              {(searchContextSummary.dateLine || searchContextSummary.timeLine) ? (
+                <Text style={[styles.searchContextMeta, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                  {[searchContextSummary.dateLine, searchContextSummary.timeLine].filter(Boolean).join(' · ')}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={styles.headerBottomRow}>
             <Text
@@ -722,6 +822,35 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     );
   };
 
+  const renderIncompleteSchedule = () => (
+    <View style={styles.emptyStateWrap}>
+      <View
+        style={[
+          styles.emptyGradientContainer,
+          { backgroundColor: isDarkMode ? colors.card : '#FFFFFF', borderColor: colors.border },
+        ]}
+      >
+        <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
+          <Icon name="event-busy" size={40} color={colors.primary} />
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
+          Complete your booking schedule
+        </Text>
+        <Text style={[styles.emptyMessage, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
+          Choose a service, booking type (monthly or short term), dates, and time from the home screen to search for providers.
+        </Text>
+        <TouchableOpacity
+          style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+          onPress={() => sendDataToParent('')}
+        >
+          <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>
+            Go Back
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <LinearGradient
       colors={isDarkMode ? ['#0F172A', '#1E293B', '#0F172A'] : ['#F8FAFC', '#FFFFFF', '#F1F5F9']}
@@ -730,7 +859,12 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       end={{ x: 0, y: 1 }}
     >
       <SafeAreaView style={styles.safeArea}>
-        {loading && !hasFetchedOnce ? (
+        {!canSearchProviders ? (
+          <View style={[styles.container]}>
+            {renderHeader()}
+            {renderIncompleteSchedule()}
+          </View>
+        ) : loading && !hasFetchedOnce ? (
           <View style={[styles.container]}>
             {renderSkeletonLoader()}
           </View>
@@ -805,6 +939,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
     gap: 10,
+  },
+  searchContextBanner: {
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingBottom: 4,
+    marginBottom: 8,
+  },
+  searchContextRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
+  },
+  searchContextPill: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  searchContextPillText: {
+    fontWeight: '600',
+  },
+  searchContextMeta: {
+    lineHeight: 18,
   },
   headerBottomRow: {
     flexDirection: 'row',

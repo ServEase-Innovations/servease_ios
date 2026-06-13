@@ -1,31 +1,23 @@
 function readCoordinate(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "function") {
+    try {
+      const resolved = value();
+      return typeof resolved === "number" && Number.isFinite(resolved) ? resolved : null;
+    } catch {
+      return null;
+    }
+  }
   return null;
 }
 
-function readLatLngPoint(point: unknown): { lat: number; lng: number } | null {
+export function readLatLngPoint(point: unknown): { lat: number; lng: number } | null {
   if (!point || typeof point !== "object") return null;
   const p = point as Record<string, unknown>;
   const lat = readCoordinate(p.lat);
   const lng = readCoordinate(p.lng);
   if (lat != null && lng != null) return { lat, lng };
   return null;
-}
-
-export function formatServiceAddressFromGeoLocation(location: unknown): string {
-  if (!location || typeof location !== "object") return "";
-  const loc = location as Record<string, unknown>;
-
-  if (typeof loc.formatted_address === "string" && loc.formatted_address.trim()) {
-    return loc.formatted_address.trim();
-  }
-
-  const coords = resolveLocationCoords(location);
-  if (coords) {
-    return `Map location (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})`;
-  }
-
-  return "";
 }
 
 export function resolveLocationCoords(
@@ -51,19 +43,11 @@ export function resolveLocationCoords(
   return null;
 }
 
-export function normalizeGeoLocationPayload(
-  raw: unknown
-): Record<string, unknown> | null {
-  if (!raw || typeof raw !== "object") return null;
-  const source = raw as Record<string, unknown>;
-  const coords = resolveLocationCoords(source);
-  const formatted = formatServiceAddressFromGeoLocation(source);
-
-  return {
-    ...source,
-    ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
-    ...(formatted && !source.formatted_address
-      ? { formatted_address: formatted }
-      : {}),
-  };
+/** Stable key for provider-search invalidation when coordinates change. */
+export function buildLocationSearchKey(location: unknown): string {
+  const coords = resolveLocationCoords(location);
+  if (coords) {
+    return `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
+  }
+  return "";
 }

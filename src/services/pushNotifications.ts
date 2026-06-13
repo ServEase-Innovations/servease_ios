@@ -147,11 +147,7 @@ async function registerIosForPush(): Promise<boolean> {
   }
 
   await messaging().registerDeviceForRemoteMessages();
-  await messaging().setForegroundNotificationPresentationOptions({
-    alert: true,
-    badge: true,
-    sound: true,
-  });
+  // Foreground banners/sound are handled in AppDelegate (UNUserNotificationCenterDelegate).
   return true;
 }
 

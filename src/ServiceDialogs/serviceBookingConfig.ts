@@ -6,6 +6,8 @@ import {
   parseQuoteTotal,
   type PricingQuoteResponse,
 } from "../services/pricingService";
+import { resolveScheduleTimeFields } from "../utils/bookingSchedulePatch";
+import { formatDateOnly } from "../utils/maidPricingUtils";
 
 export { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
@@ -50,13 +52,46 @@ function hoursFromTimeRange(timeRange?: string): number | undefined {
   return diffHoursFromTimes(parts[0], parts[1]);
 }
 
+const TIME_HM = /^\d{1,2}:\d{2}$/;
+
+export function hasValidTimeSlot(time?: string): boolean {
+  if (!time || typeof time !== "string") return false;
+  return TIME_HM.test(time.trim());
+}
+
+/** True when Redux booking has a date and time appropriate for the booking mode. */
+export function isBookingScheduleComplete(
+  bookingType: Record<string, unknown> | null | undefined,
+  bookingTypeCode: string
+): boolean {
+  if (!bookingType) return false;
+
+  const startDate = formatDateOnly(String(bookingType.startDate ?? ""));
+  if (!startDate) return false;
+
+  const { startTime, endTime } = resolveScheduleTimeFields(bookingType);
+  const endDate = formatDateOnly(String(bookingType.endDate ?? "")) || startDate;
+
+  if (bookingTypeCode === "ON_DEMAND") {
+    return hasValidTimeSlot(startTime) && hasValidTimeSlot(endTime);
+  }
+  if (bookingTypeCode === "SHORT_TERM") {
+    return Boolean(endDate) && hasValidTimeSlot(startTime) && hasValidTimeSlot(endTime);
+  }
+  if (bookingTypeCode === "MONTHLY") {
+    return hasValidTimeSlot(startTime);
+  }
+  return hasValidTimeSlot(startTime);
+}
+
 export function computeDurationHours(
   bookingTypeCode: string,
   startTime?: string,
   endTime?: string,
   _startDate?: string,
   _endDate?: string,
-  timeRange?: string
+  timeRange?: string,
+  timeSlot?: string
 ): number | undefined {
   if (bookingTypeCode === "ON_DEMAND") {
     const hours = diffHoursFromTimes(startTime, endTime);
@@ -68,6 +103,8 @@ export function computeDurationHours(
   if (bookingTypeCode === "SHORT_TERM") {
     const hours = diffHoursFromTimes(startTime, endTime);
     if (hours != null && hours > 0) return hours;
+    const fromSlot = hoursFromTimeRange(timeSlot);
+    if (fromSlot != null && fromSlot > 0) return fromSlot;
     return 2;
   }
   if (bookingTypeCode === "MONTHLY") {

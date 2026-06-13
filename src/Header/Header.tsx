@@ -36,7 +36,7 @@ import AboutPage from "../AboutUs/AboutPage";
 import ContactUs from "../ContactUs/ContactUs";
 import LocationSelector from "../Header/LocationSelector";
 import axios from "axios";
-import { getAuth0AuthorizeOptions } from "../utils/auth0Config";
+import { logAuth0Error, runAuth0Authorize } from "../utils/auth0Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Snackbar from "react-native-snackbar";
 import { useAppUser } from "../context/AppUserContext";
@@ -85,6 +85,7 @@ const Head: React.FC<ChildComponentProps> = ({
   const {
     authorize,
     clearSession,
+    cancelWebAuth,
     user: auth0User,
     getCredentials,
     isLoading: auth0Loading,
@@ -384,10 +385,10 @@ const Head: React.FC<ChildComponentProps> = ({
   const handleLoginClick = async () => {
     setMenuVisible(false);
     try {
-      await authorize(getAuth0AuthorizeOptions());
+      await runAuth0Authorize(authorize, cancelWebAuth);
       await getCredentials();
     } catch (e) {
-      console.log("Login error:", e);
+      logAuth0Error("login failed", e);
       showErrorSnackbar("Login failed. Please try again.");
     }
   };

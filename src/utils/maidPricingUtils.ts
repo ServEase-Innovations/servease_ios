@@ -1,3 +1,5 @@
+import { resolveScheduleTimeFields } from "./bookingSchedulePatch";
+
 export function formatInr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
@@ -42,17 +44,38 @@ export function computeDurationDays(startDate?: string, endDate?: string): numbe
   return Math.max(1, diff + 1);
 }
 
-/** Normalize legacy snake_case booking fields from older iOS screens. */
+/** Normalize Redux booking fields (legacy snake_case + timeRange/timeSlot). */
 export function normalizeBookingTypeFields(
   bt: Record<string, unknown> | null | undefined
 ): Record<string, unknown> | null {
   if (!bt) return null;
-  return {
+
+  const merged: Record<string, unknown> = {
     ...bt,
     startDate: bt.startDate ?? bt.start_date,
     endDate: bt.endDate ?? bt.end_date,
     startTime: bt.startTime ?? bt.start_time,
     endTime: bt.endTime ?? bt.end_time,
     bookingPreference: bt.bookingPreference ?? bt.booking_preference,
+    housekeepingRole: bt.housekeepingRole ?? bt.housekeeping_role ?? bt.service_type,
+    timeRange: bt.timeRange ?? bt.time_range,
+    timeSlot: bt.timeSlot ?? bt.time_slot,
+    serviceProviderId:
+      bt.serviceProviderId ?? bt.serviceproviderId ?? bt.serviceproviderid,
+    serviceproviderId:
+      bt.serviceproviderId ?? bt.serviceProviderId ?? bt.serviceproviderid,
+  };
+
+  const startDate = formatDateOnly(String(merged.startDate ?? ""));
+  const endDate =
+    formatDateOnly(String(merged.endDate ?? "")) || startDate;
+  const { startTime, endTime } = resolveScheduleTimeFields(merged);
+
+  return {
+    ...merged,
+    startDate,
+    endDate,
+    startTime: startTime || String(merged.startTime ?? "").trim(),
+    endTime: endTime || String(merged.endTime ?? "").trim(),
   };
 }

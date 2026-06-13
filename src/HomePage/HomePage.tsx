@@ -149,13 +149,13 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   };
 
   const handleSave = (bookingDetails: any) => {
-    bookingDetails.startTime = bookingDetails.startTime.format("HH:mm");
-    bookingDetails.endTime = bookingDetails.endTime.format("HH:mm");
-
     const formatDate = (value: any) => {
       if (!value) return "";
+      if (value && typeof value === "object" && value.format) {
+        return value.format("YYYY-MM-DD");
+      }
       const date = new Date(value);
-      if (isNaN(date.getTime())) return value;
+      if (isNaN(date.getTime())) return String(value).split("T")[0] || "";
       return date.toISOString().split("T")[0];
     };
 
@@ -178,18 +178,31 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     };
 
     const startTimeStr = formatTime(bookingDetails.startTime);
-    const endTimeStr = bookingDetails.endTime
-      ? formatTime(bookingDetails.endTime)
-      : "";
+    const endTimeStr = bookingDetails.endTime ? formatTime(bookingDetails.endTime) : "";
+
+    let timeRange = "";
+    let timeSlot = "";
+    if (selectedRadioButtonValue === "Date") {
+      timeRange = `${startTimeStr}-${endTimeStr}`;
+      timeSlot = `${startTimeStr}-${endTimeStr}`;
+    } else if (selectedRadioButtonValue === "Short term") {
+      timeRange = startTimeStr;
+      timeSlot = `${startTimeStr}-${endTimeStr}`;
+    } else {
+      timeRange = startTimeStr;
+      timeSlot = startTimeStr;
+    }
+
+    const startDateYmd = formatDate(bookingDetails.startDate);
+    const endDateYmd = formatDate(bookingDetails.endDate || bookingDetails.startDate) || startDateYmd;
+
     const booking = {
-      startDate: formatDate(bookingDetails.startDate),
+      startDate: startDateYmd,
       startTime: startTimeStr,
-      endDate: formatDate(bookingDetails.endDate || bookingDetails.startDate),
+      endDate: endDateYmd,
       endTime: endTimeStr,
-      timeRange:
-        startTimeStr && endTimeStr
-          ? `${startTimeStr}-${endTimeStr}`
-          : startTimeStr || "",
+      timeRange,
+      timeSlot,
       bookingPreference: selectedRadioButtonValue,
       housekeepingRole: selectedType,
     };

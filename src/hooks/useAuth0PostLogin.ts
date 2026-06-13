@@ -56,10 +56,14 @@ export function useAuth0PostLogin({ onNavigate }: Options = {}) {
           onNavigate?.(HOME);
         }
       } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Account setup failed.";
         console.error("[auth0] post-login failed:", error);
         handledForRef.current = null;
         Snackbar.show({
-          text: "Login succeeded but account setup failed. Please try again.",
+          text: message.includes("utils API")
+            ? message
+            : "Login succeeded but account setup failed. Please try again.",
           duration: Snackbar.LENGTH_LONG,
           backgroundColor: "#ef4444",
           textColor: "#ffffff",

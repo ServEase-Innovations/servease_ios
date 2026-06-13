@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyBCh-JpCDLasHSRbr0B0NzX0jeNC-ifxvw</string>
+	<string>AIzaSyBgDGVop_JHdCmqdZYyzK9YvxjLkAKk3iQ</string>
 	<key>GCM_SENDER_ID</key>
-	<string>884833785770</string>
+	<string>87480797347</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>in.serveaseinnovation.serveaso</string>
 	<key>PROJECT_ID</key>
-	<string>serveaso-ios</string>
+	<string>serveaso-android</string>
 	<key>STORAGE_BUCKET</key>
-	<string>serveaso-ios.firebasestorage.app</string>
+	<string>serveaso-android.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:884833785770:ios:7c4a0119f20863d6a9bdd3</string>
+	<string>1:87480797347:ios:dc0e08c1490994f6eb9716</string>
 </dict>
 </plist>

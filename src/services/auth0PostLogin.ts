@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import utilsInstance from "../services/utilsInstance";
+import axios from "axios";
+import utilsInstance, { UTILS_BASE_URL } from "../services/utilsInstance";
 import providerInstance from "../services/providerInstance";
 import { AGENT_DASHBOARD, DASHBOARD } from "../Constants/pagesConstants";
 
@@ -81,9 +82,19 @@ export async function completeAuth0PostLogin(
     await AsyncStorage.setItem("token", accessToken);
   }
 
-  const response = await utilsInstance.get(
-    `/customer/check-email?email=${encodeURIComponent(email)}`
-  );
+  let response;
+  try {
+    response = await utilsInstance.get(
+      `/customer/check-email?email=${encodeURIComponent(email)}`
+    );
+  } catch (error) {
+    if (axios.isAxiosError(error) && !error.response) {
+      throw new Error(
+        `Cannot reach utils API at ${UTILS_BASE_URL}. Check your network or set DEV_LAN_HOST in devApi.local.ts for local testing.`
+      );
+    }
+    throw error;
+  }
   const data = response.data ?? {};
 
   const linkedSpIdRaw =

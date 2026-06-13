@@ -21,7 +21,11 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
 import { useAuth0PostLogin } from "./src/hooks/useAuth0PostLogin";
-import { getAuth0AuthorizeOptions } from "./src/utils/auth0Config";
+import {
+  getAuth0WebAuthOptions,
+  logAuth0Error,
+  runAuth0Authorize,
+} from "./src/utils/auth0Config";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "./i18n";
 
@@ -176,7 +180,7 @@ const MainApp = () => {
   const dispatch = useDispatch();
   const { appUser, setAppUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
   const { showMobileDialog } = useCustomerMobileCheck();
-  const { authorize, getCredentials, clearSession, user } = useAuth0();
+  const { authorize, getCredentials, clearSession, cancelWebAuth, user } = useAuth0();
 
   useAuth0PostLogin({
     onNavigate: (view) => {
@@ -376,9 +380,7 @@ const MainApp = () => {
       await clearMobileAuthStorage();
 
       try {
-        await clearSession({
-          returnToUrl: "com.serveaso://logout",
-        });
+        await clearSession({ federated: true }, getAuth0WebAuthOptions());
         console.log("✅ Auth0 session cleared");
       } catch (authError) {
         console.log("⚠️ Auth0 session clear may have already been called:", authError);
@@ -451,7 +453,7 @@ const MainApp = () => {
 
   const handleAuth0Login = async () => {
     try {
-      await authorize(getAuth0AuthorizeOptions());
+      await runAuth0Authorize(authorize, cancelWebAuth);
 
       const credentials = await getCredentials();
       console.log("Login successful", credentials);
@@ -463,7 +465,7 @@ const MainApp = () => {
         textColor: "#ffffff",
       });
     } catch (e) {
-      console.log("Login error:", e);
+      logAuth0Error("login failed", e);
       Snackbar.show({
         text: i18n.t('common.error'),
         duration: Snackbar.LENGTH_LONG,
@@ -779,11 +781,8 @@ const MainApp = () => {
   };
 
   const handleServicesClick = (service: string) => {
-    console.log(`Service selected: ${service}`);
-    if (service === "Home Cook" || service === "Cleaning Help" || service === "Caregiver") {
-      setSelectedBookingType(service);
-      setCurrentView(DETAILS);
-    }
+    console.log(`Service selected from menu: ${service}`);
+    setCurrentView(HOME);
   };
 
   const handleBookingsClick = () => {
@@ -1151,7 +1150,7 @@ const App = () => {
   }
 
   return (
-    <Auth0Provider domain={config.domain} clientId={config.clientId}>
+    <Auth0Provider domain={config.domain} clientId={config.clientId} useDPoP={false}>
       <AppUserProvider>
         <ThemeProvider>
           <I18nextProvider i18n={i18n}>

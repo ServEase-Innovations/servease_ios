@@ -61,20 +61,11 @@ import {
   checkOnDemandProviderAvailability,
   ON_DEMAND_NO_PROVIDERS_MESSAGE,
 } from "../services/onDemandAvailability";
-import { checkSelectedProviderAvailability } from "../services/providerScheduleAvailability";
-
-function resolveBookingCoords(location: unknown): { lat: number; lng: number } | null {
-  if (!location || typeof location !== "object") return null;
-  const loc = location as Record<string, unknown>;
-  const geom = loc.geometry as { location?: { lat?: number; lng?: number } } | undefined;
-  if (geom?.location?.lat != null && geom?.location?.lng != null) {
-    return { lat: Number(geom.location.lat), lng: Number(geom.location.lng) };
-  }
-  if (loc.lat != null && loc.lng != null) {
-    return { lat: Number(loc.lat), lng: Number(loc.lng) };
-  }
-  return null;
-}
+import {
+  hasValidBookingLocation,
+  resolveLocationCoords,
+} from "../utils/bookingLocation";
+import { useBookingScheduleFlow } from "../hooks/useBookingScheduleFlow";
 
 export type BookingSuccessDetails = {
   providerName?: string;
@@ -149,20 +140,37 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     if (!schedulePendingCommit || !scheduleDraft) return bookingType;
     return normalizeBookingTypeFields({ ...(bookingType ?? {}), ...scheduleDraft });
   }, [bookingType, scheduleDraft, schedulePendingCommit]);
+  const providerId =
+    resolveServiceProviderIdForPayload(providerDetails) ??
+    resolveServiceProviderIdForPayload({
+      serviceProviderId:
+        bookingType?.serviceproviderId ?? bookingType?.serviceProviderId,
+      serviceproviderid: bookingType?.serviceproviderId,
+    });
   const geoLocation = useSelector(
     (state: { geoLocation?: { value?: unknown } }) => state?.geoLocation?.value
   );
-  const bookingCoords = resolveBookingCoords(geoLocation);
+  const bookingCoords = resolveLocationCoords(geoLocation);
+  const bookingLocationReady = hasValidBookingLocation(geoLocation);
+
+  const {
+    scheduleReady,
+    selectedProviderAvailability,
+    selectedProviderReady,
+    bookingTypeCode: scheduleFlowBookingTypeCode,
+  } = useBookingScheduleFlow({
+    active,
+    providerId,
+    role: cfg.serviceType,
+    latitude: bookingCoords?.lat ?? null,
+    longitude: bookingCoords?.lng ?? null,
+    customerId: resolveCustomerId(appUser),
+  });
 
   const [loading, setLoading] = useState(false);
   const scheduleSectionRef = useRef<MaidBookingDetailsSectionHandle>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [onDemandAvailability, setOnDemandAvailability] = useState<{
-    loading: boolean;
-    available: boolean;
-    message?: string;
-  }>({ loading: false, available: true });
-  const [selectedProviderAvailability, setSelectedProviderAvailability] = useState<{
     loading: boolean;
     available: boolean;
     message?: string;
@@ -193,16 +201,9 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     }
   }, [successDialogOpen, onSuccessDialogChange, delegateSuccess]);
 
-  const bookingTypeCode = getBookingTypeFromPreference(
-    String(bookingType?.bookingPreference ?? "Date")
-  );
-  const providerId =
-    resolveServiceProviderIdForPayload(providerDetails) ??
-    resolveServiceProviderIdForPayload({
-      serviceProviderId:
-        bookingType?.serviceproviderId ?? bookingType?.serviceProviderId,
-      serviceproviderid: bookingType?.serviceproviderId,
-    });
+  const bookingTypeCode =
+    scheduleFlowBookingTypeCode ||
+    getBookingTypeFromPreference(String(bookingType?.bookingPreference ?? "Date"));
 
   const serviceTotal = quotePreview.total || 0;
   const paymentTotals = useMemo(
@@ -215,7 +216,10 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     [quotePreview.breakdown, serviceTotal]
   );
   const priceReady =
-    !quotePreview.loading && payableTotal > 0 && !quotePreview.error;
+    scheduleReady &&
+    !quotePreview.loading &&
+    payableTotal > 0 &&
+    !quotePreview.error;
   const providerRequired = bookingTypeCode !== "ON_DEMAND";
   const bookingTypeDisplay =
     bookingTypeCode === "MONTHLY"
@@ -223,19 +227,14 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       : bookingTypeCode === "SHORT_TERM"
         ? "Short-term"
         : "One Time";
-  const scheduleReady = Boolean(bookingType?.startDate && bookingType?.startTime);
   const onDemandProviderReady =
     bookingTypeCode !== "ON_DEMAND" ||
     (onDemandAvailability.available && !onDemandAvailability.loading);
-  const selectedProviderReady =
-    !providerRequired ||
-    !providerId ||
-    bookingTypeCode === "ON_DEMAND" ||
-    (selectedProviderAvailability.available && !selectedProviderAvailability.loading);
   const canCheckout =
     scheduleReady &&
     !schedulePendingCommit &&
     priceReady &&
+    bookingLocationReady &&
     onDemandProviderReady &&
     selectedProviderReady &&
     (!providerRequired || providerId != null);
@@ -272,7 +271,9 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   const bestCouponSavings = bestCoupon ? estimateCouponSavings(bestCoupon) : 0;
   const checkoutBlockReason =
     !scheduleReady
-      ? "Select a time for your chosen date"
+      ? "Select date and time for your booking"
+      : !bookingLocationReady
+        ? "Select a service location before checkout"
       : providerRequired && !providerId
       ? providerDetails
         ? "Select a provider to continue"
@@ -289,6 +290,8 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
                 ? "Checking provider availability in your area…"
                 : bookingTypeCode === "ON_DEMAND" && !onDemandAvailability.available
                   ? onDemandAvailability.message || ON_DEMAND_NO_PROVIDERS_MESSAGE
+                  : !selectedProviderReady && selectedProviderAvailability.message
+                    ? selectedProviderAvailability.message
                   : !providerId && bookingTypeCode === "ON_DEMAND"
                     ? "Pay now to confirm — provider matching after payment"
                     : undefined;
@@ -397,7 +400,8 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       endTime,
       startDate,
       startDate,
-      String(bookingType?.timeRange ?? "")
+      String(bookingType?.timeRange ?? ""),
+      String(bookingType?.timeSlot ?? "")
     );
     const durationMinutes =
       durationHours != null && durationHours > 0
@@ -444,92 +448,8 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     bookingType?.startTime,
     bookingType?.endTime,
     bookingType?.timeRange,
+    bookingType?.timeSlot,
     cfg.serviceType,
-  ]);
-
-  useEffect(() => {
-    if (
-      !active ||
-      !providerId ||
-      bookingTypeCode === "ON_DEMAND" ||
-      !scheduleReady ||
-      !bookingCoords
-    ) {
-      setSelectedProviderAvailability({ loading: false, available: true });
-      return;
-    }
-
-    const startDate =
-      formatDateOnly(String(bookingType?.startDate ?? "")) ||
-      new Date().toISOString().split("T")[0];
-    const endDate =
-      formatDateOnly(String(bookingType?.endDate ?? "")) || startDate;
-    const startTime = String(bookingType?.startTime ?? "").trim();
-    const endTime = String(bookingType?.endTime ?? "").trim();
-    const durationHours = computeDurationHours(
-      bookingTypeCode,
-      startTime,
-      endTime,
-      startDate,
-      endDate,
-      String(bookingType?.timeRange ?? "")
-    );
-    const durationMinutes =
-      durationHours != null && durationHours > 0
-        ? Math.round(durationHours * 60)
-        : 60;
-
-    let cancelled = false;
-    setSelectedProviderAvailability((prev) => ({ ...prev, loading: true }));
-
-    checkSelectedProviderAvailability({
-      providerId: Number(providerId),
-      latitude: bookingCoords.lat,
-      longitude: bookingCoords.lng,
-      role: String(bookingType?.housekeepingRole || cfg.serviceType),
-      startDate,
-      endDate,
-      preferredStartTime: startTime,
-      serviceDurationMinutes: durationMinutes,
-      customerId: resolveCustomerId(appUser),
-    })
-      .then((result) => {
-        if (cancelled) return;
-        setSelectedProviderAvailability({
-          loading: false,
-          available: result.available,
-          message: result.message,
-        });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSelectedProviderAvailability({
-          loading: false,
-          available: false,
-          message:
-            "Could not verify provider availability for this schedule. Please try again or choose another provider.",
-        });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    active,
-    providerId,
-    bookingTypeCode,
-    scheduleReady,
-    bookingCoords?.lat,
-    bookingCoords?.lng,
-    bookingType?.startDate,
-    bookingType?.endDate,
-    bookingType?.startTime,
-    bookingType?.endTime,
-    bookingType?.timeRange,
-    bookingType?.housekeepingRole,
-    appUser,
-    cfg.serviceType,
-    scheduleRevision,
   ]);
 
   useEffect(() => {
@@ -546,7 +466,8 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       String(effectiveBookingType?.endTime ?? ""),
       start_date,
       end_date,
-      String(effectiveBookingType?.timeRange ?? "")
+      String(effectiveBookingType?.timeRange ?? ""),
+      String(effectiveBookingType?.timeSlot ?? "")
     );
 
     setQuotePreview((p) => ({ ...p, loading: true, error: undefined, breakdown: [] }));
@@ -605,6 +526,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     effectiveBookingType?.startTime,
     effectiveBookingType?.endTime,
     effectiveBookingType?.timeRange,
+    effectiveBookingType?.timeSlot,
     effectiveBookingType?.bookingPreference,
     schedulePendingCommit,
     appliedCouponCode,
@@ -695,7 +617,8 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
         String(bookingType?.endTime ?? ""),
         start_date,
         end_date,
-        String(bookingType?.timeRange ?? "")
+        String(bookingType?.timeRange ?? ""),
+        String(bookingType?.timeSlot ?? "")
       );
 
       const quoteRes = await loadServiceQuote(serviceKind, {

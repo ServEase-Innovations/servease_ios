@@ -21,6 +21,7 @@ import { useDispatch } from "react-redux";
 import { remove } from "../features/userSlice";
 import { clearCustomer } from "../features/customerSlice";
 import { clearMobileAuthStorage, tryClearAuth0Session } from "../utils/signOutSession";
+import { logAuth0Error, runAuth0Authorize } from "../utils/auth0Config";
 import Snackbar from "react-native-snackbar";
 import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET, SETTINGS } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
@@ -116,7 +117,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const { colors, isDarkMode } = useTheme();
   const { setAppUser, clearAppUser } = useAppUser();
 
-  const { clearSession } = useAuth0();
+  const { clearSession, authorize, cancelWebAuth } = useAuth0();
   const dispatch = useDispatch();
 
   const isAuthenticated = !!(auth0User || (appUser && appUser.token));
@@ -224,6 +225,20 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       setShowAuthModal(true);
     }
     setIsProfileMenuVisible(false);
+  };
+
+  const handleEmailLogin = async () => {
+    try {
+      await runAuth0Authorize(authorize, cancelWebAuth);
+    } catch (error) {
+      logAuth0Error("email login failed", error);
+      Snackbar.show({
+        text: "Email sign-in was cancelled or failed. Please try again.",
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: "#ef4444",
+        textColor: "#ffffff",
+      });
+    }
   };
 
   const handleSignOut = async () => {
@@ -576,6 +591,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           visible={showAuthModal}
           onClose={() => setShowAuthModal(false)}
           setAppUser={setAppUser}
+          onEmailLogin={handleEmailLogin}
           sendDataToParent={(data) => {
             if (data === DASHBOARD) {
               onNavigateToPage(DASHBOARD);
@@ -685,6 +701,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         visible={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         setAppUser={setAppUser}
+        onEmailLogin={handleEmailLogin}
         sendDataToParent={(data) => {
           if (data === DASHBOARD) {
             onNavigateToPage(DASHBOARD);
