@@ -208,10 +208,19 @@ jobs:
             ios/exportOptions.appstore.plist > ios/exportOptions.ci.plist
 
       - name: Archive iOS app
+        env:
+          IOS_KEYCHAIN_PATH: ${{ env.IOS_KEYCHAIN_PATH }}
+          IOS_KEYCHAIN_PASSWORD: ${{ env.IOS_KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
           ARCHIVE_PATH="${{ runner.temp }}/Serveaso.xcarchive"
           LOG_PATH="${{ runner.temp }}/xcodebuild-archive.log"
+          if [ -n "${IOS_KEYCHAIN_PATH:-}" ] && [ -n "${IOS_KEYCHAIN_PASSWORD:-}" ]; then
+            security unlock-keychain -p "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}" || true
+            export OTHER_CODE_SIGN_FLAGS="--keychain ${IOS_KEYCHAIN_PATH}"
+            echo "Using CI keychain for codesign: ${IOS_KEYCHAIN_PATH}"
+          fi
           set +e
           xcodebuild archive \
             -workspace "${{ env.IOS_WORKSPACE }}" \
@@ -224,11 +233,19 @@ jobs:
           set -e
           if [ "${status}" -ne 0 ]; then
             echo "===== xcodebuild archive failed (exit ${status}) ====="
-            grep -En "error:|fatal error:|ARCHIVE FAILED|The following build commands failed|CodeSign.*failed" "${LOG_PATH}" || true
+            grep -En "error:|fatal error:|ARCHIVE FAILED|The following build commands failed|CodeSign.*failed|Signing for .* requires|errSec|provisioning profile" "${LOG_PATH}" || true
             echo "===== Last 120 log lines ====="
             tail -n 120 "${LOG_PATH}" || true
             exit "${status}"
           fi
+
+      - name: Upload archive log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-archive-log
+          path: ${{ runner.temp }}/xcodebuild-archive.log
+          if-no-files-found: ignore
 
       - name: Export App Store IPA
         run: |

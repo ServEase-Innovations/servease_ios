@@ -25,6 +25,25 @@ security import "${CERT_PATH}" \
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
 security list-keychain -d user -s "${KEYCHAIN_PATH}"
 
+CERT_SHA1="$(security find-identity -v -p codesigning "${KEYCHAIN_PATH}" \
+  | grep -E 'Apple Distribution|iPhone Distribution' \
+  | head -1 \
+  | awk '{print $2}')"
+if [ -z "${CERT_SHA1}" ]; then
+  echo "No Apple/iPhone Distribution identity found in CI keychain after import."
+  security find-identity -v -p codesigning "${KEYCHAIN_PATH}" || true
+  exit 1
+fi
+printf '%s\n' "${CERT_SHA1}" > "${IOS_DIR}/.ci-code-sign-identity-sha1"
+
+if [ -n "${GITHUB_ENV:-}" ]; then
+  {
+    echo "IOS_KEYCHAIN_PATH=${KEYCHAIN_PATH}"
+    echo "IOS_KEYCHAIN_PASSWORD=${KEYCHAIN_PASSWORD}"
+    echo "IOS_CODE_SIGN_IDENTITY_SHA1=${CERT_SHA1}"
+  } >> "${GITHUB_ENV}"
+fi
+
 echo -n "${IOS_DIST_PROVISIONING_PROFILE_BASE64}" | base64 -D > "${PROFILE_PATH}"
 PROFILE_PLIST="$(security cms -D -i "${PROFILE_PATH}")"
 PROFILE_UUID="$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "${PROFILE_PLIST}")"

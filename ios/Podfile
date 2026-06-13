@@ -52,6 +52,10 @@ target 'Serveaso' do
         # Pod libraries must not use app provisioning profiles (CI manual signing).
         bc.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
         bc.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+        bc.build_settings['PROVISIONING_PROFILE'] = ''
+        bc.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+        bc.build_settings['CODE_SIGN_IDENTITY'] = ''
+        bc.build_settings['DEVELOPMENT_TEAM'] = ''
 
         if target.name == 'FirebaseCoreInternal'
           bc.build_settings['SWIFT_VERSION'] = '5.0'
