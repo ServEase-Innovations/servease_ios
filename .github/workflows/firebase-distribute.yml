@@ -123,13 +123,30 @@ jobs:
         with:
           xcode-version: '26.4.1'
 
-      - name: Install iOS platform
+      - name: Verify iOS SDK
         run: |
           set -euo pipefail
-          sudo xcodebuild -runFirstLaunch
-          xcodebuild -downloadPlatform iOS
+          sudo xcodebuild -runFirstLaunch || true
+          # Warm CoreSimulator; -downloadPlatform iOS is flaky on macos-26 (exit 70).
+          xcrun simctl list > /dev/null 2>&1 || true
           echo "--- Available SDKs ---"
           xcodebuild -showsdks
+          if xcodebuild -showsdks | grep -q "iphoneos"; then
+            echo "iphoneos SDK is available; skipping platform download."
+            exit 0
+          fi
+          echo "iphoneos SDK missing; downloading with retries..."
+          for attempt in 1 2 3 4 5; do
+            xcrun simctl list > /dev/null 2>&1 || true
+            if xcodebuild -downloadPlatform iOS; then
+              echo "iOS platform downloaded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "downloadPlatform attempt ${attempt} failed; retrying in 15s..."
+            sleep 15
+          done
+          echo "Failed to obtain iphoneos SDK after 5 attempts."
+          exit 70
 
       - name: Setup Node
         uses: actions/setup-node@v4
