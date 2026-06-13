@@ -8,13 +8,15 @@ import {
   TouchableOpacity,
   Switch,
   Modal,
-  SafeAreaView,
   Alert,
   TextInput,
   TouchableWithoutFeedback,
   Animated,
   Dimensions,
+  Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from './ThemeContext';
@@ -25,7 +27,8 @@ import TnC from '../TermsAndConditions/TnC';
 import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
-import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import { BOOKING_HEADER_GRADIENT, BRAND } from '../theme/brandColors';
+import { requestPushNotificationPermission } from '../services/pushNotifications';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,6 +39,8 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const iconGradient = [BRAND.accent, BRAND.bookingSky];
   const {
     theme,
     isDarkMode,
@@ -79,9 +84,9 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
   ];
 
   const themeOptions = [
-    { value: 'light', label: 'Light Mode', icon: 'wb-sunny', description: 'Bright and清新' },
-    { value: 'dark', label: 'Dark Mode', icon: 'nights-stay', description: 'Easy on eyes' },
-    { value: 'system', label: 'System Default', icon: 'settings-overscan', description: 'Follow device' },
+    { value: 'light', label: 'Light Mode', icon: 'wb-sunny', description: 'Bright and clean interface' },
+    { value: 'dark', label: 'Dark Mode', icon: 'nights-stay', description: 'Easy on the eyes at night' },
+    { value: 'system', label: 'System Default', icon: 'settings-overscan', description: 'Match your device' },
   ];
 
   // Animate modal entrance
@@ -173,7 +178,23 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     setSearchQuery('');
   };
 
-  // Modern Animated Setting Item
+  const handleNotificationToggle = async (enabled: boolean) => {
+    if (!enabled) {
+      setNotifications(false);
+      return;
+    }
+    const granted = await requestPushNotificationPermission();
+    setNotifications(granted);
+    if (!granted) {
+      Alert.alert(
+        'Notifications disabled',
+        'Enable notifications in iPhone Settings → Serveaso → Notifications to receive booking alerts.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  // Setting row
   const SettingItem = ({ icon, label, value, onPress, rightIcon = 'chevron-right', showSwitch = false, switchValue = false, onSwitchChange, isLast = false }: any) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -198,45 +219,54 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
         <TouchableOpacity
           style={[
             styles.settingItem,
-            { 
-              borderBottomWidth: isLast ? 0 : 1,
-              borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-              backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.7)',
-            }
+            {
+              borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+              borderBottomColor: colors.divider,
+            },
           ]}
           onPress={onPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           disabled={showSwitch}
-          activeOpacity={0.7}
+          activeOpacity={0.65}
         >
           <View style={styles.settingItemLeft}>
-            <LinearGradient
-              colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
-              style={styles.settingIconBg}
-            >
-              <MaterialIcon name={icon} size={22} color="#ffffff" />
+            <LinearGradient colors={iconGradient} style={styles.settingIconBg}>
+              <MaterialIcon name={icon} size={20} color="#ffffff" />
             </LinearGradient>
-            <Text style={[styles.settingLabel, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+            <Text
+              style={[
+                styles.settingLabel,
+                { color: colors.textPrimary, fontSize: fontStyles.textSize },
+              ]}
+            >
               {label}
             </Text>
           </View>
           <View style={styles.settingItemRight}>
-            {value && !showSwitch && (
-              <Text style={[styles.settingValue, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
-                {value}
-              </Text>
-            )}
+            {value && !showSwitch ? (
+              <View style={[styles.valuePill, { backgroundColor: colors.accentSoft }]}>
+                <Text
+                  style={[
+                    styles.settingValue,
+                    { color: colors.primary, fontSize: fontStyles.smallText },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {value}
+                </Text>
+              </View>
+            ) : null}
             {showSwitch ? (
               <Switch
                 value={switchValue}
                 onValueChange={onSwitchChange}
-                trackColor={{ false: isDarkMode ? '#334155' : '#e2e8f0', true: '#3b82f6' }}
-                thumbColor={switchValue ? '#ffffff' : isDarkMode ? '#94a3b8' : '#ffffff'}
-                ios_backgroundColor={isDarkMode ? '#334155' : '#e2e8f0'}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#ffffff"
+                ios_backgroundColor={colors.border}
               />
             ) : (
-              <MaterialIcon name={rightIcon} size={20} color={isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)'} />
+              <MaterialIcon name={rightIcon} size={22} color={colors.textTertiary} />
             )}
           </View>
         </TouchableOpacity>
@@ -246,16 +276,16 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
 
   const SectionHeader = ({ title, icon }: { title: string; icon?: string }) => (
     <View style={styles.sectionHeaderContainer}>
-      {icon && (
-        <LinearGradient
-          colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
-          style={styles.sectionIconBg}
-        >
-          <MaterialIcon name={icon} size={16} color="#ffffff" />
-        </LinearGradient>
-      )}
-      <Text style={[styles.sectionHeader, { color: isDarkMode ? '#38bdf8' : '#1e3a8a', fontSize: fontStyles.headingSize }]}>
-        {title}
+      {icon ? (
+        <MaterialIcon name={icon} size={16} color={colors.primary} style={styles.sectionHeaderIcon} />
+      ) : null}
+      <Text
+        style={[
+          styles.sectionHeader,
+          { color: colors.primary, fontSize: fontStyles.smallText },
+        ]}
+      >
+        {title.toUpperCase()}
       </Text>
     </View>
   );
@@ -303,36 +333,46 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
       onRequestClose={onClose}
       transparent={false}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}>
-        {/* Header with BOOKING_HEADER_GRADIENT */}
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
+        <StatusBar barStyle="light-content" />
         <LinearGradient
           colors={[...BOOKING_HEADER_GRADIENT]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.header}
+          style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}
         >
           <View style={styles.headerTop}>
-            <TouchableOpacity onPress={onClose} style={styles.headerButton}>
-              <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
+            <TouchableOpacity onPress={onClose} style={styles.headerButton} accessibilityLabel="Go back">
+              <MaterialIcon name="arrow-back" size={22} color="#ffffff" />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-              Settings
-            </Text>
-            <TouchableOpacity onPress={clearAllPreferences} style={styles.headerButton}>
-              <MaterialIcon name="refresh" size={24} color="#ffffff" />
-            </TouchableOpacity>
+            <View style={styles.headerTitleBlock}>
+              <Text style={[styles.headerTitle, { fontSize: fontStyles.headingSize }]}>Settings</Text>
+              <Text style={styles.headerSubtitle}>Customize your app experience</Text>
+            </View>
+            <View style={styles.headerButtonSpacer} />
           </View>
-          <Text style={styles.headerSubtitle}>Customize your app experience</Text>
         </LinearGradient>
 
-        <Animated.ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={styles.content}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 16 }}
         >
-          {/* Appearance Section */}
           <SectionHeader title="Appearance" icon="palette" />
-          <View style={styles.card}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.cardBorder,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: colors.shadow,
+                  },
+                }),
+              },
+            ]}
+          >
             <SettingItem
               icon="palette"
               label="Theme"
@@ -354,15 +394,19 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             />
           </View>
 
-          {/* Preferences Section */}
           <SectionHeader title="Preferences" icon="tune" />
-          <View style={styles.card}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
             <SettingItem
-              icon="notifications"
+              icon="notifications-active"
               label="Push Notifications"
               showSwitch={true}
               switchValue={notifications}
-              onSwitchChange={setNotifications}
+              onSwitchChange={handleNotificationToggle}
             />
             <SettingItem
               icon="dashboard"
@@ -374,9 +418,13 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             />
           </View>
 
-          {/* Privacy & Security Section */}
           <SectionHeader title="Privacy & Security" icon="lock" />
-          <View style={styles.card}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
             <SettingItem
               icon="lock"
               label="Privacy Policy"
@@ -396,9 +444,13 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             />
           </View>
 
-          {/* About Section */}
           <SectionHeader title="About" icon="info" />
-          <View style={styles.card}>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            ]}
+          >
             <SettingItem
               icon="info"
               label="About App"
@@ -429,17 +481,22 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
           </View>
 
 
-          {/* Reset Button */}
           <TouchableOpacity
-            style={[styles.resetButton, { borderColor: '#ef4444' }]}
+            style={[
+              styles.resetButton,
+              {
+                borderColor: colors.error,
+                backgroundColor: isDarkMode ? 'rgba(248, 113, 113, 0.12)' : colors.errorLight,
+              },
+            ]}
             onPress={clearAllPreferences}
           >
-            <MaterialIcon name="settings-backup-restore" size={22} color="#ef4444" />
-            <Text style={[styles.resetButtonText, { color: '#ef4444', fontSize: fontStyles.textSize }]}>
+            <MaterialIcon name="settings-backup-restore" size={20} color={colors.error} />
+            <Text style={[styles.resetButtonText, { color: colors.error, fontSize: fontStyles.textSize }]}>
               Reset All Settings
             </Text>
           </TouchableOpacity>
-        </Animated.ScrollView>
+        </ScrollView>
 
         {/* Theme Selection Modal */}
         <CustomModal visible={showThemeModal} onClose={() => setShowThemeModal(false)} title="Select Theme">
@@ -457,10 +514,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               }}
             >
               <View style={styles.modalItemLeft}>
-                <LinearGradient
-                  colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
-                  style={styles.modalIconBg}
-                >
+                <LinearGradient colors={iconGradient} style={styles.modalIconBg}>
                   <MaterialIcon name={option.icon} size={20} color="#ffffff" />
                 </LinearGradient>
                 <View>
@@ -473,7 +527,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                 </View>
               </View>
               {theme === option.value && (
-                <MaterialIcon name="check-circle" size={22} color="#3b82f6" />
+                <MaterialIcon name="check-circle" size={22} color={colors.primary} />
               )}
             </TouchableOpacity>
           ))}
@@ -495,10 +549,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
               }}
             >
               <View style={styles.modalItemLeft}>
-                <LinearGradient
-                  colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
-                  style={styles.modalIconBg}
-                >
+                <LinearGradient colors={iconGradient} style={styles.modalIconBg}>
                   <Text style={[styles.previewText, { fontSize: option.size }]}>{option.preview}</Text>
                 </LinearGradient>
                 <Text style={[styles.modalItemText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: option.size }]}>
@@ -506,7 +557,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                 </Text>
               </View>
               {fontSize === option.value && (
-                <MaterialIcon name="check-circle" size={22} color="#3b82f6" />
+                <MaterialIcon name="check-circle" size={22} color={colors.primary} />
               )}
             </TouchableOpacity>
           ))}
@@ -543,10 +594,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                   onPress={() => handleLanguageChange(lang.code)}
                 >
                   <View style={styles.modalItemLeft}>
-                    <LinearGradient
-                      colors={isDarkMode ? ['#38bdf8', '#818cf8'] : ['#3b82f6', '#1e3a8a']}
-                      style={styles.modalIconBg}
-                    >
+                    <LinearGradient colors={iconGradient} style={styles.modalIconBg}>
                       <MaterialIcon name="language" size={20} color="#ffffff" />
                     </LinearGradient>
                     <View>
@@ -559,7 +607,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                     </View>
                   </View>
                   {language === lang.code && (
-                    <MaterialIcon name="check-circle" size={22} color="#3b82f6" />
+                    <MaterialIcon name="check-circle" size={22} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               ))
@@ -635,21 +683,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 12,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    shadowColor: BRAND.bookingNavy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 8,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+  },
+  headerTitleBlock: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
   headerButton: {
     width: 40,
@@ -657,92 +708,104 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  headerButtonSpacer: {
+    width: 40,
+    height: 40,
   },
   headerTitle: {
     fontWeight: '700',
     letterSpacing: -0.3,
+    color: '#ffffff',
   },
   headerSubtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 8,
-    marginLeft: 100,
+    color: 'rgba(255,255,255,0.78)',
+    marginTop: 4,
+    textAlign: 'center',
   },
   content: {
     flex: 1,
     paddingHorizontal: 16,
+    paddingTop: 8,
   },
   card: {
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
   },
   sectionHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 12,
-    marginLeft: 4,
+    marginTop: 22,
+    marginBottom: 8,
+    marginLeft: 6,
   },
-  sectionIconBg: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
+  sectionHeaderIcon: {
+    marginRight: 6,
   },
   sectionHeader: {
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: 0.8,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    minHeight: 56,
   },
   settingItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    flex: 1,
+    marginRight: 8,
   },
   settingIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   settingLabel: {
     fontWeight: '600',
+    flexShrink: 1,
   },
   settingItemRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
+  },
+  valuePill: {
+    maxWidth: 130,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
   settingValue: {
-    fontWeight: '500',
+    fontWeight: '600',
   },
   resetButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginTop: 16,
-    marginBottom: 24,
+    gap: 8,
+    marginTop: 20,
+    marginBottom: 8,
     paddingVertical: 14,
-    borderWidth: 1.5,
-    borderRadius: 16,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderRadius: 14,
   },
   resetButtonText: {
     fontWeight: '700',
