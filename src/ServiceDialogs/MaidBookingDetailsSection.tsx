@@ -8,17 +8,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Platform,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import dayjs, { Dayjs } from "dayjs";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import DribbbleDateTimePicker from "../common/DribbbleDateTimePicker";
 import {
   commitSchedule,
   openBookingDialog,
@@ -130,6 +124,20 @@ function buildReduxBookingPatch(
   return patch;
 }
 
+function parseTimeFromString(time: string): { hour: number; minute: number } {
+  const [timeStr, meridian] = time.split(" ");
+  const [hourStr, minuteStr] = timeStr.split(":");
+  let hour = Number(hourStr);
+  const minute = Number(minuteStr);
+  if (meridian === "PM" && hour !== 12) hour += 12;
+  if (meridian === "AM" && hour === 12) hour = 0;
+  return { hour, minute };
+}
+
+function isDurationWithinWorkHours(start: Dayjs, hours: number): boolean {
+  return start.add(hours, "hour").hour() < 22;
+}
+
 function schedulePatchKey(patch: Record<string, unknown> | null): string {
   if (!patch) return "";
   return [
@@ -174,7 +182,6 @@ const MaidBookingDetailsSection = forwardRef<
   const [endTime, setEndTime] = useState<Dayjs | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [validationMsg, setValidationMsg] = useState<string | null>(null);
-  const [pickerMode, setPickerMode] = useState<"date" | "time" | null>(null);
   const [userTouchedSchedule, setUserTouchedSchedule] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const scheduleBaselineRef = useRef("");
@@ -224,7 +231,6 @@ const MaidBookingDetailsSection = forwardRef<
       setUserTouchedSchedule(false);
       setHydrated(true);
       setScheduleOpen(false);
-      setPickerMode(null);
       return;
     }
     setHydrated(false);
@@ -395,36 +401,6 @@ const MaidBookingDetailsSection = forwardRef<
     return startTime.format("h:mm A");
   }, [startTime, endTime, preference]);
 
-  const onPickerChange = (_: unknown, date?: Date) => {
-    if (Platform.OS === "android") setPickerMode(null);
-    if (!date) return;
-    const selected = dayjs(date);
-    if (pickerMode === "date") {
-      markScheduleTouched();
-      const day = selected.startOf("day");
-      const monthlyEnd = day.add(1, "month");
-      setStartDate(day);
-      setStartTime(null);
-      setEndTime(null);
-      setEndDate(preference === "Monthly" ? monthlyEnd : preference === "Date" ? null : endDate);
-      setValidationMsg("Select a time for this date to update provider availability.");
-      if (preference !== "Short term") {
-        setPickerMode("time");
-      }
-    } else if (pickerMode === "time") {
-      if (!validateSelection(selected)) return;
-      applyStartDateTime(selected);
-    }
-  };
-
-  const pickerValue =
-    pickerMode === "date"
-      ? (startDate ?? dayjs()).toDate()
-      : (startTime ?? defaultOnDemandStart()).toDate();
-
-  const maxPickerDate =
-    preference === "Monthly" ? maxDate90Days.toDate() : maxDate21Days.toDate();
-
   return (
     <View>
       <View style={styles.badge}>
@@ -506,36 +482,70 @@ const MaidBookingDetailsSection = forwardRef<
         </TouchableOpacity>
       </View>
 
-      {scheduleOpen && (
-        <View style={styles.pickerPanel}>
-          <TouchableOpacity
-            style={styles.pickerBtn}
-            onPress={() => setPickerMode("date")}
-          >
-            <Icon name="event" size={20} color="#0b5bd3" />
-            <Text style={styles.pickerBtnText}>Pick date</Text>
-          </TouchableOpacity>
-          {preference !== "Short term" && (
-            <TouchableOpacity
-              style={styles.pickerBtn}
-              onPress={() => setPickerMode("time")}
-            >
-              <Icon name="access-time" size={20} color="#0b5bd3" />
-              <Text style={styles.pickerBtnText}>Pick time</Text>
-            </TouchableOpacity>
-          )}
+      {scheduleOpen && preference === "Date" && (
+        <View style={styles.pickerShell}>
+          <DribbbleDateTimePicker
+            mode="single"
+            value={startTime?.toDate()}
+            onChange={(selectedDateTime: Date) => {
+              const selected = dayjs(selectedDateTime);
+              if (!validateSelection(selected)) return;
+              applyStartDateTime(selected);
+            }}
+          />
         </View>
       )}
 
-      {pickerMode && (
-        <DateTimePicker
-          value={pickerValue}
-          mode={pickerMode}
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          minimumDate={today.toDate()}
-          maximumDate={maxPickerDate}
-          onChange={onPickerChange}
-        />
+      {scheduleOpen && preference === "Short term" && (
+        <View style={styles.pickerShell}>
+          <DribbbleDateTimePicker
+            mode="range"
+            value={{
+              startDate: startDate?.toDate(),
+              endDate: endDate?.toDate(),
+            }}
+            onChange={(payload: { startDate: Date; endDate: Date; time: string }) => {
+              if (!payload.time) return;
+              markScheduleTouched();
+              const start = dayjs(payload.startDate);
+              let end = dayjs(payload.endDate).startOf("day");
+              const { hour, minute } = parseTimeFromString(payload.time);
+              const startWithTime = start.hour(hour).minute(minute);
+
+              if (end.diff(startWithTime.startOf("day"), "day") > 14) {
+                end = startWithTime.startOf("day").add(14, "day");
+                setValidationMsg("Short-term bookings are limited to 15 days.");
+              } else {
+                setValidationMsg(null);
+              }
+              if (!validateSelection(startWithTime)) return;
+              if (!isDurationWithinWorkHours(startWithTime, durationHours)) {
+                setValidationMsg("Service hours are 5 AM – 10 PM");
+                return;
+              }
+              const endT = startWithTime.add(durationHours, "hour");
+              setStartDate(startWithTime);
+              setStartTime(startWithTime);
+              setEndDate(end);
+              setEndTime(endT);
+              setValidationMsg("Tap Check availability to search providers for this schedule.");
+            }}
+          />
+        </View>
+      )}
+
+      {scheduleOpen && preference === "Monthly" && (
+        <View style={styles.pickerShell}>
+          <DribbbleDateTimePicker
+            mode="single"
+            value={startTime?.toDate()}
+            onChange={(selectedDateTime: Date) => {
+              const selected = dayjs(selectedDateTime);
+              if (!validateSelection(selected)) return;
+              applyStartDateTime(selected);
+            }}
+          />
+        </View>
       )}
 
       {validationMsg ? (
@@ -592,16 +602,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 15, fontWeight: "600", color: "#1e293b" },
   editToggle: { fontSize: 14, color: "#0b5bd3", fontWeight: "600" },
-  pickerPanel: { marginTop: 8, gap: 8 },
-  pickerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 12,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 10,
-  },
-  pickerBtnText: { fontSize: 15, color: "#0b5bd3", fontWeight: "500" },
+  pickerShell: { marginTop: 8 },
   validation: { color: "#dc2626", fontSize: 13, marginTop: 8 },
   applyButton: {
     marginTop: 12,

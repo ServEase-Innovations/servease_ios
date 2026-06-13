@@ -482,7 +482,7 @@ const Head: React.FC<ChildComponentProps> = ({
         <View style={styles.logoContainer}>
           <TouchableOpacity onPress={onLogoClick}>
             <Image
-              source={require("../../assets/images/serveasologo.png")}
+              source={require("../../assets/images/serveasonew.png")}
               style={styles.logo}
             />
           </TouchableOpacity>

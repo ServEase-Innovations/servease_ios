@@ -740,6 +740,42 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
           bounces={false}
         >
           <View style={styles.card}>
+            <MaidBookingDetailsSection
+              ref={scheduleSectionRef}
+              active={active}
+              providerId={providerId}
+              onApplyingScheduleChange={setIsCheckingAvailability}
+            />
+          </View>
+
+          {providerRequired &&
+          providerId &&
+          bookingTypeCode !== "ON_DEMAND" &&
+          scheduleReady &&
+          bookingCoords &&
+          !selectedProviderAvailability.loading &&
+          !selectedProviderAvailability.available ? (
+            <View style={styles.providerUnavailableBanner}>
+              <Text style={styles.providerUnavailableText}>
+                {selectedProviderAvailability.message ||
+                  "This provider is not available for your selected dates and time. Please adjust your schedule or choose another provider."}
+              </Text>
+            </View>
+          ) : null}
+
+          {bookingTypeCode === "ON_DEMAND" &&
+          scheduleReady &&
+          bookingCoords &&
+          !onDemandAvailability.loading &&
+          !onDemandAvailability.available ? (
+            <View style={styles.availabilityAlert}>
+              <Text style={styles.availabilityAlertText}>
+                {onDemandAvailability.message || ON_DEMAND_NO_PROVIDERS_MESSAGE}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.card}>
             <Text style={styles.priceLabel}>
               {quotePreview.loading ? "Updating price…" : "Amount payable"}
             </Text>
@@ -751,17 +787,6 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
             <Text style={styles.priceMeta}>
               {checkoutBlockReason ?? bookingTypeDisplay}
             </Text>
-            {bookingTypeCode === "ON_DEMAND" &&
-            scheduleReady &&
-            bookingCoords &&
-            !onDemandAvailability.loading &&
-            !onDemandAvailability.available ? (
-              <View style={styles.availabilityAlert}>
-                <Text style={styles.availabilityAlertText}>
-                  {onDemandAvailability.message || ON_DEMAND_NO_PROVIDERS_MESSAGE}
-                </Text>
-              </View>
-            ) : null}
             <View style={styles.couponRow}>
               <View style={styles.couponHeaderRow}>
                 <View style={styles.couponTitleWrap}>
@@ -833,30 +858,6 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
               paymentTotals={paymentTotals}
             />
           </View>
-
-          <View style={styles.card}>
-            <MaidBookingDetailsSection
-              ref={scheduleSectionRef}
-              active={active}
-              providerId={providerId}
-              onApplyingScheduleChange={setIsCheckingAvailability}
-            />
-          </View>
-
-          {providerRequired &&
-          providerId &&
-          bookingTypeCode !== "ON_DEMAND" &&
-          scheduleReady &&
-          bookingCoords &&
-          !selectedProviderAvailability.loading &&
-          !selectedProviderAvailability.available ? (
-            <View style={styles.providerUnavailableBanner}>
-              <Text style={styles.providerUnavailableText}>
-                {selectedProviderAvailability.message ||
-                  "This provider is not available for your selected dates and time. Please adjust your schedule or choose another provider."}
-              </Text>
-            </View>
-          ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -1091,7 +1092,8 @@ const styles = StyleSheet.create({
   priceHero: { fontSize: 26, fontWeight: "800", color: "#0b5bd3", marginVertical: 2 },
   priceMeta: { fontSize: 13, color: "#64748b" },
   availabilityAlert: {
-    marginTop: 10,
+    marginHorizontal: 12,
+    marginBottom: 8,
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
