@@ -44,7 +44,7 @@ looks_like_pkcs12_der() {
   [ "${magic}" = "30" ]
 }
 
-validate_p12() {
+prepare_p12_for_import() {
   local path="$1"
   local size
   local openssl_err=""
@@ -70,17 +70,37 @@ validate_p12() {
 
   # Avoid pass:... — passwords with $, ", or \ break in shell and openssl pass: syntax.
   export IOS_DIST_CERTIFICATE_PASSWORD
-  if ! openssl_err="$(openssl pkcs12 -in "${path}" -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD 2>&1)"; then
-    echo "PKCS#12 validation failed (openssl could not read the .p12)."
-    echo "OpenSSL: ${openssl_err}"
-    echo ""
-    echo "Fix GitHub secrets:"
-    echo "  1. Keychain Access → My Certificates → Apple Distribution (with private key) → Export → .p12"
-    echo "  2. Use a simple export password (letters/numbers only) for IOS_DIST_CERTIFICATE_PASSWORD"
-    echo "  3. base64 -i YourCert.p12 | tr -d '\\n' | pbcopy  → paste into IOS_DIST_CERTIFICATE_BASE64"
-    echo "  4. Verify locally: openssl pkcs12 -in /tmp/test.p12 -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD"
-    exit 1
+
+  if openssl pkcs12 -in "${path}" -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD 2>/dev/null; then
+    return 0
   fi
+
+  openssl_err="$(openssl pkcs12 -in "${path}" -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD 2>&1 || true)"
+
+  # Keychain exports often use RC2-40-CBC, which OpenSSL 3 rejects unless -legacy is used.
+  if echo "${openssl_err}" | grep -qiE 'RC2|unsupported|0308010C|legacy'; then
+    echo "Legacy PKCS#12 encryption detected (common for Keychain .p12 exports). Re-encoding for CI..."
+    local modern_path="${path}.modern"
+    if openssl pkcs12 -legacy -in "${path}" -passin env:IOS_DIST_CERTIFICATE_PASSWORD \
+      -export -out "${modern_path}" -passout env:IOS_DIST_CERTIFICATE_PASSWORD \
+      -certpbe AES-256-CBC -keypbe AES-256-CBC -macalg SHA256 2>/dev/null \
+      && openssl pkcs12 -in "${modern_path}" -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD 2>/dev/null; then
+      mv "${modern_path}" "${path}"
+      echo "Re-encoded distribution certificate to AES-256-CBC PKCS#12."
+      return 0
+    fi
+    rm -f "${modern_path}"
+  fi
+
+  echo "PKCS#12 validation failed (openssl could not read the .p12)."
+  echo "OpenSSL: ${openssl_err}"
+  echo ""
+  echo "Fix GitHub secrets:"
+  echo "  1. Keychain Access → My Certificates → Apple Distribution (with private key) → Export → .p12"
+  echo "  2. Use a simple export password (letters/numbers only) for IOS_DIST_CERTIFICATE_PASSWORD"
+  echo "  3. base64 -i YourCert.p12 | tr -d '\\n' | pbcopy  → paste into IOS_DIST_CERTIFICATE_BASE64"
+  echo "  4. Verify locally (OpenSSL 3): openssl pkcs12 -legacy -in /tmp/test.p12 -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD"
+  exit 1
 }
 
 security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
@@ -88,7 +108,7 @@ security set-keychain-settings -lut 21600 "${KEYCHAIN_PATH}"
 security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
 
 decode_base64_secret "${IOS_DIST_CERTIFICATE_BASE64}" "${CERT_PATH}"
-validate_p12 "${CERT_PATH}"
+prepare_p12_for_import "${CERT_PATH}"
 
 security import "${CERT_PATH}" \
   -P "${IOS_DIST_CERTIFICATE_PASSWORD}" \
