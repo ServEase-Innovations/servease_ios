@@ -52,6 +52,7 @@ export interface ServiceProviderDTO {
   /** @deprecated prefer camelCase `languageKnown` from API */
   languageknown: string | string[] | null;
   languageKnown?: string | string[] | null;
+  languages?: string | string[] | null;
   locality: string;
   location: string;
   pincode: number;

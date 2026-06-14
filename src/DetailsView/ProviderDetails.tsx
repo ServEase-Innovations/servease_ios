@@ -28,6 +28,7 @@ import ProviderAvailabilityDrawer from "./ProviderAvailabilityDrawer";
 import { CONFIRMATION, BOOKINGS } from "../Constants/pagesConstants";
 import { useTheme } from '../Settings/ThemeContext';
 import { resolveProviderId } from '../utils/providerId';
+import { readProviderLanguages } from '../utils/providerLanguages';
 
 interface BookingType {
   serviceproviderId: string;
@@ -132,22 +133,9 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     return moment(timeString, "HH:mm").format("hh:mm A");
   };
 
-  // Helper function to normalize languages to array
-  const normalizeLanguages = (languages: string | string[] | null | undefined): string[] => {
-    if (!languages) return [];
-    if (Array.isArray(languages)) return languages;
-    if (typeof languages === 'string') {
-      return languages.split(',').map(lang => lang.trim());
-    }
-    return [];
-  };
-
   // Get all languages as array
-  const getAllLanguages = (): string[] => {
-    return normalizeLanguages(props.languageKnown ?? props.languageknown);
-  };
-
-  // Get diet color
+  const allLanguages = readProviderLanguages(props);
+  const hasLanguages = allLanguages.length > 0;
   const getDietColor = () => {
     if (isDarkMode) {
       switch(props.diet?.toUpperCase()) {
@@ -593,8 +581,6 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   const primaryRole = getPrimaryHousekeepingRole();
   const providerId = getProviderId();
   const availabilityStyle = getAvailabilityStyle();
-  const allLanguages = getAllLanguages();
-  const hasLanguages = allLanguages.length > 0;
   const diet = props.diet || "NONVEG";
 
   // Check if any badge is present
