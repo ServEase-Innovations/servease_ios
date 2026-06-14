@@ -11,17 +11,45 @@ KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
 CERT_PATH="${RUNNER_TEMP}/distribution.p12"
 PROFILE_PATH="${RUNNER_TEMP}/distribution.mobileprovision"
 
+decode_base64_secret() {
+  local secret="$1"
+  local out="$2"
+  # GitHub secrets often include accidental newlines/spaces when pasted.
+  printf '%s' "${secret}" | tr -d '[:space:]' | base64 -D > "${out}" 2>/dev/null \
+    || printf '%s' "${secret}" | tr -d '[:space:]' | base64 -d > "${out}"
+}
+
+validate_p12() {
+  local path="$1"
+  local size
+  size="$(wc -c < "${path}" | tr -d ' ')"
+  if [ "${size}" -lt 256 ]; then
+    echo "Decoded certificate is too small (${size} bytes). IOS_DIST_CERTIFICATE_BASE64 is likely truncated or invalid."
+    echo "Re-encode with: base64 -i YourCert.p12 | pbcopy  (macOS) and update the GitHub secret."
+    exit 1
+  fi
+  if ! openssl pkcs12 -in "${path}" -noout -passin "pass:${IOS_DIST_CERTIFICATE_PASSWORD}" 2>/dev/null; then
+    echo "PKCS#12 validation failed (openssl could not read the .p12)."
+    echo "Check IOS_DIST_CERTIFICATE_PASSWORD matches the export password, and re-upload IOS_DIST_CERTIFICATE_BASE64."
+    echo "Export a fresh Apple Distribution .p12 from Keychain Access → certificate → Export."
+    exit 1
+  fi
+}
+
 security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
 security set-keychain-settings -lut 21600 "${KEYCHAIN_PATH}"
 security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
 
-echo -n "${IOS_DIST_CERTIFICATE_BASE64}" | base64 -D > "${CERT_PATH}"
+decode_base64_secret "${IOS_DIST_CERTIFICATE_BASE64}" "${CERT_PATH}"
+validate_p12 "${CERT_PATH}"
+
 security import "${CERT_PATH}" \
   -P "${IOS_DIST_CERTIFICATE_PASSWORD}" \
   -A \
-  -t cert \
   -f pkcs12 \
-  -k "${KEYCHAIN_PATH}"
+  -k "${KEYCHAIN_PATH}" \
+  -T /usr/bin/codesign \
+  -T /usr/bin/security
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
 security list-keychain -d user -s "${KEYCHAIN_PATH}"
 
@@ -44,7 +72,7 @@ if [ -n "${GITHUB_ENV:-}" ]; then
   } >> "${GITHUB_ENV}"
 fi
 
-echo -n "${IOS_DIST_PROVISIONING_PROFILE_BASE64}" | base64 -D > "${PROFILE_PATH}"
+decode_base64_secret "${IOS_DIST_PROVISIONING_PROFILE_BASE64}" "${PROFILE_PATH}"
 PROFILE_PLIST="$(security cms -D -i "${PROFILE_PATH}")"
 PROFILE_UUID="$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "${PROFILE_PLIST}")"
 PROFILE_NAME="$(/usr/libexec/PlistBuddy -c "Print Name" /dev/stdin <<< "${PROFILE_PLIST}")"

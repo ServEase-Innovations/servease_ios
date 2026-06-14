@@ -161,24 +161,34 @@ prepare_signing
 
 prepare_export_plist() {
   local team="${IOS_DEVELOPMENT_TEAM:-}"
-  local profile="${IOS_APPSTORE_PROVISIONING_PROFILE_NAME:-}"
+  local profile_spec=""
+
+  if [[ -f "${IOS_DIR}/.ci-provisioning-profile-uuid" ]]; then
+    profile_spec="$(tr -d '[:space:]' < "${IOS_DIR}/.ci-provisioning-profile-uuid")"
+  fi
+  if [[ -z "${profile_spec}" ]]; then
+    profile_spec="${IOS_APPSTORE_PROVISIONING_PROFILE_NAME:-}"
+  fi
+  if [[ -z "${profile_spec}" && -f "${IOS_DIR}/.ci-provisioning-profile-name" ]]; then
+    profile_spec="$(tr -d '\n' < "${IOS_DIR}/.ci-provisioning-profile-name")"
+  fi
 
   if [[ -z "${team}" && -f "${IOS_DIR}/Signing.local.xcconfig" ]]; then
     team="$(grep DEVELOPMENT_TEAM "${IOS_DIR}/Signing.local.xcconfig" | sed 's/.*= *//')"
   fi
-  if [[ -z "${profile}" && -f "${IOS_DIR}/.ci-provisioning-profile-name" ]]; then
-    profile="$(tr -d '\n' < "${IOS_DIR}/.ci-provisioning-profile-name")"
+  if [[ -z "${team}" && -f "${IOS_DIR}/.ci-provisioning-profile-team" ]]; then
+    team="$(tr -d '[:space:]' < "${IOS_DIR}/.ci-provisioning-profile-team")"
   fi
 
-  if [[ -z "${team}" || -z "${profile}" ]]; then
-    echo "Set IOS_DEVELOPMENT_TEAM and IOS_APPSTORE_PROVISIONING_PROFILE_NAME for export."
+  if [[ -z "${team}" || -z "${profile_spec}" ]]; then
+    echo "Set IOS_DEVELOPMENT_TEAM and install signing assets (or IOS_APPSTORE_PROVISIONING_PROFILE_NAME) for export."
     exit 1
   fi
 
   sed \
     -e "s/__IOS_DEVELOPMENT_TEAM__/${team}/g" \
     -e "s/__IOS_BUNDLE_ID__/${IOS_BUNDLE_ID}/g" \
-    -e "s/__IOS_APPSTORE_PROVISIONING_PROFILE_NAME__/${profile}/g" \
+    -e "s/__IOS_APPSTORE_PROVISIONING_PROFILE_SPECIFIER__/${profile_spec}/g" \
     "${IOS_DIR}/exportOptions.appstore.plist" > "${BUILD_DIR}/exportOptions.plist"
 }
 

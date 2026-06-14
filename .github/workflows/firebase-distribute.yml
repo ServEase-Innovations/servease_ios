@@ -247,17 +247,12 @@ jobs:
       - name: Prepare App Store export options
         env:
           IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
-          IOS_APPSTORE_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_NAME }}
+          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
         run: |
-          if [ -z "${IOS_DEVELOPMENT_TEAM}" ] || [ -z "${IOS_APPSTORE_PROVISIONING_PROFILE_NAME}" ]; then
-            echo "IOS_DEVELOPMENT_TEAM and IOS_APPSTORE_PROVISIONING_PROFILE_NAME secrets are required."
-            exit 1
-          fi
-          sed \
-            -e "s/__IOS_DEVELOPMENT_TEAM__/${IOS_DEVELOPMENT_TEAM}/g" \
-            -e "s/__IOS_BUNDLE_ID__/${{ env.IOS_BUNDLE_ID }}/g" \
-            -e "s/__IOS_APPSTORE_PROVISIONING_PROFILE_NAME__/${IOS_APPSTORE_PROVISIONING_PROFILE_NAME}/g" \
-            ios/exportOptions.appstore.plist > ios/exportOptions.ci.plist
+          chmod +x ios/scripts/ci-prepare-export-options.sh
+          ios/scripts/ci-prepare-export-options.sh
+          echo "--- exportOptions.ci.plist ---"
+          cat ios/exportOptions.ci.plist
 
       - name: Archive iOS app
         env:
@@ -311,8 +306,17 @@ jobs:
           if-no-files-found: ignore
 
       - name: Export App Store IPA
+        env:
+          IOS_KEYCHAIN_PATH: ${{ env.IOS_KEYCHAIN_PATH }}
+          IOS_KEYCHAIN_PASSWORD: ${{ env.IOS_KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
+          if [ -n "${IOS_KEYCHAIN_PATH:-}" ] && [ -n "${IOS_KEYCHAIN_PASSWORD:-}" ]; then
+            security unlock-keychain -p "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}" || true
+          fi
+          echo "--- Installed provisioning profiles ---"
+          ls -la "${HOME}/Library/MobileDevice/Provisioning Profiles/" || true
           ARCHIVE_PATH="${{ runner.temp }}/Serveaso.xcarchive"
           EXPORT_PATH="${{ runner.temp }}/ipa"
           mkdir -p "${EXPORT_PATH}"

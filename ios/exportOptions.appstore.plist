@@ -4,7 +4,7 @@
 <plist version="1.0">
 <dict>
   <key>method</key>
-  <string>app-store</string>
+  <string>app-store-connect</string>
   <key>signingStyle</key>
   <string>manual</string>
   <key>teamID</key>
@@ -20,7 +20,7 @@
   <key>provisioningProfiles</key>
   <dict>
     <key>__IOS_BUNDLE_ID__</key>
-    <string>__IOS_APPSTORE_PROVISIONING_PROFILE_NAME__</string>
+    <string>__IOS_APPSTORE_PROVISIONING_PROFILE_SPECIFIER__</string>
   </dict>
 </dict>
 </plist>

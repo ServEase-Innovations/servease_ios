@@ -27,7 +27,11 @@ import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import Geocoder from "react-native-geocoding";
 import MapView, { Marker } from "react-native-maps";
 import { NativeModules } from "react-native";
-import Geolocation from "@react-native-community/geolocation";
+import GeolocationCommunity from "@react-native-community/geolocation";
+import GeolocationService from "react-native-geolocation-service";
+
+const Geolocation =
+  Platform.OS === "android" ? GeolocationService : GeolocationCommunity;
 import { useDispatch, useSelector } from "react-redux";
 import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
@@ -73,6 +77,13 @@ function getSavedLocationsList(pref: any): any[] {
 
 async function resolveAddressFromCoords(lat: number, lng: number): Promise<string> {
   try {
+    const res = await Geocoder.from(lat, lng);
+    const addr = res.results?.[0]?.formatted_address;
+    if (addr) return addr;
+  } catch {
+    /* try nominatim */
+  }
+  try {
     const res = await axios.get(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
       {
@@ -80,13 +91,6 @@ async function resolveAddressFromCoords(lat: number, lng: number): Promise<strin
       }
     );
     if (res.data?.display_name) return res.data.display_name;
-  } catch {
-    /* try geocoder */
-  }
-  try {
-    const res = await Geocoder.from(lat, lng);
-    const addr = res.results?.[0]?.formatted_address;
-    if (addr) return addr;
   } catch {
     /* fall through */
   }
@@ -158,7 +162,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
   const [permissionDeniedPermanently, setPermissionDeniedPermanently] = useState(false);
-  const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
+  const locationRequestIdRef = useRef(0);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [selectedSaveOption, setSelectedSaveOption] = useState<string | null>(null);
@@ -626,105 +630,113 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  const getCurrentLocation = useCallback(() => {
-    if (locationWatchId !== null) {
-      Geolocation.clearWatch(locationWatchId);
+  const handleLocationError = useCallback((error: { code: number; PERMISSION_DENIED: number; POSITION_UNAVAILABLE: number; TIMEOUT: number }, requestId: number) => {
+    if (requestId !== locationRequestIdRef.current) {
+      return;
     }
 
-    const watchId = Geolocation.watchPosition(
-      async (position) => {
-        if (userPickedLocationRef.current) {
-          setLoading(false);
-          return;
+    console.error("Location error:", error);
+
+    let errorMessage = t('locationSelector.unableToFetchLocation');
+
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        errorMessage = t('locationSelector.permissionDeniedMessage');
+        break;
+      case error.POSITION_UNAVAILABLE:
+        errorMessage = t('locationSelector.positionUnavailable');
+        break;
+      case error.TIMEOUT:
+        errorMessage = t('locationSelector.timeoutMessage');
+        break;
+    }
+
+    Alert.alert(t('common.error'), errorMessage);
+    setLoading(false);
+    setShowGPSButton(true);
+  }, [t]);
+
+  const applyPositionReading = useCallback(async (
+    latitude: number,
+    longitude: number,
+    requestId: number
+  ) => {
+    if (requestId !== locationRequestIdRef.current || userPickedLocationRef.current) {
+      setLoading(false);
+      return;
+    }
+
+    if (!isValidCoordinates(latitude, longitude)) {
+      console.warn("Invalid coordinates received:", { latitude, longitude });
+      setLoading(false);
+      setShowGPSButton(true);
+      return;
+    }
+
+    setLatitude(latitude);
+    setLongitude(longitude);
+    setLocationMethod('auto');
+    setLoading(false);
+    setShowGPSButton(false);
+
+    const resolved = await resolveAddressFromCoords(latitude, longitude);
+    if (requestId !== locationRequestIdRef.current || userPickedLocationRef.current) {
+      return;
+    }
+
+    const fallbackAddress = resolved || t("locationSelector.tapToChooseLocation");
+    setLocation(resolved ? shortenAddress(resolved, 3) : fallbackAddress);
+    setAddress(fallbackAddress);
+    if (resolved) {
+      updateLocationInStore(latitude, longitude, resolved);
+    }
+  }, [t, updateLocationInStore]);
+
+  const getCurrentLocation = useCallback(() => {
+    const requestId = ++locationRequestIdRef.current;
+
+    const onSuccess = (position: { coords: { latitude: number; longitude: number } }) => {
+      void applyPositionReading(
+        position.coords.latitude,
+        position.coords.longitude,
+        requestId
+      );
+    };
+
+    const onError = (error: { code: number; PERMISSION_DENIED: number; POSITION_UNAVAILABLE: number; TIMEOUT: number }) => {
+      handleLocationError(error, requestId);
+    };
+
+    if (Platform.OS === "android") {
+      // Fused Location: network/cached fix first (~100m), GPS fallback only if needed.
+      Geolocation.getCurrentPosition(
+        onSuccess,
+        () => {
+          Geolocation.getCurrentPosition(onSuccess, onError, {
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 10000,
+            forceRequestLocation: true,
+            showLocationDialog: true,
+          });
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000,
+          showLocationDialog: true,
+          accuracy: { android: "balanced" },
         }
+      );
+      return;
+    }
 
-        if (locationWatchId !== null) {
-          Geolocation.clearWatch(locationWatchId);
-          setLocationWatchId(null);
-        }
-
-        const { latitude, longitude } = position.coords;
-        
-        if (!isValidCoordinates(latitude, longitude)) {
-          console.warn("Invalid coordinates received:", { latitude, longitude });
-          setLoading(false);
-          setShowGPSButton(true);
-          return;
-        }
-        
-        setLatitude(latitude);
-        setLongitude(longitude);
-
-        try {
-          const res = await axios.get(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-            {
-              headers: {
-                "User-Agent": "ReactNativeApp",
-                "Accept-Language": "en",
-              },
-            }
-          );
-
-          if (res.data?.display_name) {
-            const newLocation = res.data.display_name;
-            setLocation(newLocation);
-            setAddress(newLocation);
-            setLocationMethod('auto');
-            
-            updateLocationInStore(latitude, longitude, newLocation);
-          }
-        } catch (error) {
-          console.error("Error getting address:", error);
-          const resolved = await resolveAddressFromCoords(latitude, longitude);
-          const fallbackAddress =
-            resolved || t("locationSelector.tapToChooseLocation");
-          setLocation(shortenAddress(fallbackAddress, 3));
-          setAddress(fallbackAddress);
-          if (resolved) {
-            updateLocationInStore(latitude, longitude, resolved);
-          }
-        } finally {
-          setLoading(false);
-          setShowGPSButton(false);
-        }
-      },
-      (error) => {
-        console.error("Location error:", error);
-
-        if (locationWatchId !== null) {
-          Geolocation.clearWatch(locationWatchId);
-          setLocationWatchId(null);
-        }
-
-        let errorMessage = t('locationSelector.unableToFetchLocation');
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = t('locationSelector.permissionDeniedMessage');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = t('locationSelector.positionUnavailable');
-            break;
-          case error.TIMEOUT:
-            errorMessage = t('locationSelector.timeoutMessage');
-            break;
-        }
-
-        Alert.alert(t('common.error'), errorMessage);
-        setLoading(false);
-        setShowGPSButton(true);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 10000,
-        distanceFilter: 10,
-      }
-    );
-
-    setLocationWatchId(watchId);
-  }, [updateLocationInStore]);
+    Geolocation.getCurrentPosition(onSuccess, onError, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 10000,
+    });
+  }, [applyPositionReading, handleLocationError]);
 
   const fetchLocation = () => {
     setLoading(true);
@@ -732,7 +744,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     getCurrentLocation();
   };
 
-  const fetchLocationWithChecks = async () => {
+  const fetchLocationWithChecks = async (options?: { promptHighAccuracy?: boolean }) => {
     setIsCheckingLocation(true);
     setLoading(true);
     setLocationMethod('auto');
@@ -770,7 +782,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         return;
       }
 
-      await checkLocationAccuracy();
+      if (options?.promptHighAccuracy) {
+        await checkLocationAccuracy();
+      }
       fetchLocation();
     } catch (error) {
       console.warn("Location fetch error:", error);
@@ -815,7 +829,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         })
         .catch(console.error);
     } else {
-      fetchLocationWithChecks();
+      fetchLocationWithChecks({ promptHighAccuracy: true });
     }
   };
 
@@ -838,7 +852,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       userPickedLocationRef.current = false;
       triedGpsForCustomerRef.current = true;
       guestGpsStartedRef.current = true;
-      fetchLocationWithChecks();
+      fetchLocationWithChecks({ promptHighAccuracy: true });
     } else {
       const savedLocations = getSavedLocationsList(userPreference);
 
@@ -1045,28 +1059,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
       if (!triedGpsForCustomerRef.current) {
         triedGpsForCustomerRef.current = true;
-        fetchLocationWithChecks();
+        fetchLocationWithChecks({ promptHighAccuracy: false });
       }
       return;
     }
 
     if (!guestGpsStartedRef.current && !userPickedLocationRef.current) {
       guestGpsStartedRef.current = true;
-      fetchLocationWithChecks();
+      fetchLocationWithChecks({ promptHighAccuracy: false });
     }
   }, [
     customerId,
     isUserLoading,
     locationPreferencesReady,
   ]);
-
-  useEffect(() => {
-    return () => {
-      if (locationWatchId !== null) {
-        Geolocation.clearWatch(locationWatchId);
-      }
-    };
-  }, [locationWatchId]);
 
   const dropdownScale = dropdownAnimation.interpolate({
     inputRange: [0, 1],
