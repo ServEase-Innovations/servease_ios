@@ -36,6 +36,7 @@ import AboutPage from "../AboutUs/AboutPage";
 import ContactUs from "../ContactUs/ContactUs";
 import LocationSelector from "../Header/LocationSelector";
 import axios from "axios";
+import preferenceInstance from "../services/preferenceInstance";
 import { logAuth0Error, runAuth0Authorize } from "../utils/auth0Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Snackbar from "react-native-snackbar";
@@ -70,10 +71,12 @@ interface LocationData {
 
 const { width } = Dimensions.get("window");
 const isMobile = width < 768;
-export const HEADER_BAR_HEIGHT = 76;
+export const HEADER_BAR_HEIGHT = 66;
 /** Trimmed wordmark asset (383×121) — no transparent canvas padding. */
 const LOGO_ASPECT = 383 / 121;
-const LOGO_HEIGHT = 44;
+const HEADER_CONTROL_HEIGHT = 36;
+const HEADER_CONTROL_TOP_INSET = 6;
+const LOGO_HEIGHT = HEADER_CONTROL_HEIGHT;
 const LOGO_WIDTH = Math.round(LOGO_HEIGHT * LOGO_ASPECT);
 
 const Head: React.FC<ChildComponentProps> = ({ 
@@ -141,15 +144,6 @@ const Head: React.FC<ChildComponentProps> = ({
       setMenuVisible(false);
     }
   }, [closeDropdowns]);
-
-  const showSuccessSnackbar = (message: string) => {
-    Snackbar.show({
-      text: message,
-      duration: Snackbar.LENGTH_SHORT,
-      backgroundColor: colors.success,
-      textColor: "#ffffff",
-    });
-  };
 
   const showErrorSnackbar = (message: string) => {
     Snackbar.show({
@@ -262,10 +256,14 @@ const Head: React.FC<ChildComponentProps> = ({
   };
 
   const getCustomerPreferences = async (customerId: number) => {
+    if (loadedPreferencesForRef.current === customerId) {
+      setLocationPreferencesReady(true);
+      return;
+    }
     setLocationPreferencesReady(false);
     try {
-      const response = await axios.get(
-        `https://utils-ndt3.onrender.com/user-settings/${customerId}`
+      const response = await preferenceInstance.get(
+        `/api/user-settings/${customerId}`
       );
       console.log("Response from user settings API:", response.data);
 
@@ -273,13 +271,11 @@ const Head: React.FC<ChildComponentProps> = ({
         console.log("Customer preferences fetched successfully:", response.data);
         loadedPreferencesForRef.current = customerId;
         setUserPreference(response.data);
-        if (auth0User) {
-          showSuccessSnackbar(`Welcome back, ${auth0User.name || auth0User.email}!`);
-        }
       }
     } catch (error: any) {
       if (error.response?.status === 404) {
         await createUserPreferences(customerId);
+        loadedPreferencesForRef.current = customerId;
       } else {
         console.error("Unexpected error fetching user settings:", error);
         showErrorSnackbar("Failed to load user preferences");
@@ -298,16 +294,13 @@ const Head: React.FC<ChildComponentProps> = ({
 
       console.log("Creating user preferences with payload:", payload);
 
-      const response = await axios.post(
-        "https://utils-ndt3.onrender.com/user-settings",
+      const response = await preferenceInstance.post(
+        "/api/user-settings",
         payload
       );
 
       if (response.status === 200 || response.status === 201) {
-        setUserPreference(payload);
-        if (auth0User) {
-          showSuccessSnackbar(`Welcome to Serveaso, ${auth0User.name || auth0User.email}!`);
-        }
+        setUserPreference([{ customerId, savedLocations: [] }]);
       } else {
         console.warn("Unexpected response:", response);
         showErrorSnackbar("Failed to create user preferences");
@@ -326,15 +319,16 @@ const Head: React.FC<ChildComponentProps> = ({
     const customerId = resolveCustomerId(appUser);
     const role = String(appUser?.role || "").toUpperCase();
     if (role !== "CUSTOMER" || !customerId || !appUser?.token) {
+      setLocationPreferencesReady(true);
       return;
     }
 
     const idNum = Number(customerId);
     if (loadedPreferencesForRef.current === idNum) {
+      setLocationPreferencesReady(true);
       return;
     }
 
-    loadedPreferencesForRef.current = idNum;
     void getCustomerPreferences(idNum);
   }, [appUser, auth0Loading]);
 
@@ -450,9 +444,11 @@ const Head: React.FC<ChildComponentProps> = ({
       flexShrink: 0,
       justifyContent: "center",
       alignItems: "center",
-      width: 34,
-      height: 34,
+      alignSelf: "center",
+      width: HEADER_CONTROL_HEIGHT,
+      height: HEADER_CONTROL_HEIGHT,
       marginLeft: 4,
+      marginTop: HEADER_CONTROL_TOP_INSET,
     },
     modalContainer: {
       flex: 1,
@@ -608,7 +604,7 @@ const Head: React.FC<ChildComponentProps> = ({
 const styles = StyleSheet.create({
   logoContainer: {
     flexShrink: 0,
-    height: HEADER_BAR_HEIGHT,
+    alignSelf: "center",
     justifyContent: "center",
     alignItems: "flex-start",
     marginRight: 8,
@@ -621,17 +617,17 @@ const styles = StyleSheet.create({
   locationContainer: {
     flex: 1,
     minWidth: 0,
-    height: HEADER_BAR_HEIGHT,
+    alignSelf: "center",
     justifyContent: "center",
-    alignItems: "stretch",
+    marginTop: HEADER_CONTROL_TOP_INSET,
     zIndex: 200,
     overflow: "visible",
   },
   alertsButtonInner: {
     alignItems: "center",
     justifyContent: "center",
-    width: 36,
-    height: 36,
+    width: HEADER_CONTROL_HEIGHT,
+    height: HEADER_CONTROL_HEIGHT,
     position: "relative",
   },
   unreadBadge: {

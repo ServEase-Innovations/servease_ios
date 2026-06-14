@@ -457,13 +457,6 @@ const MainApp = () => {
 
       const credentials = await getCredentials();
       console.log("Login successful", credentials);
-      
-      Snackbar.show({
-        text: i18n.t('common.success'),
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: colors.success,
-        textColor: "#ffffff",
-      });
     } catch (e) {
       logAuth0Error("login failed", e);
       Snackbar.show({

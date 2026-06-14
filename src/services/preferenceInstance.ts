@@ -1,40 +1,41 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getPreferencesApiUrl } from "../config/devApi";
+
+const PREFERENCES_BASE_URL = getPreferencesApiUrl();
+
+if (__DEV__) {
+  console.log("[preferences] API base URL:", PREFERENCES_BASE_URL);
+}
 
 const preferenceInstance = axios.create({
-  baseURL: 'https://preferences.onrender.com', // your specified base URL
+  baseURL: PREFERENCES_BASE_URL,
+  timeout: 30000,
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
 });
 
-// Request Interceptor
 preferenceInstance.interceptors.request.use(
-  async (config) => {
+  async (config: InternalAxiosRequestConfig) => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await AsyncStorage.getItem("token");
       if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
+        config.headers.Authorization = `Bearer ${token}`;
       }
-    } catch (error) {
-      console.error('Error retrieving token:', error);
+    } catch {
+      /* ignore */
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error: AxiosError) => Promise.reject(error)
 );
 
-// Response Interceptor
 preferenceInstance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    if (error.response?.status === 401) {
-      // handle unauthorized if needed
-      console.log('Unauthorized access - 401');
-    }
-    return Promise.reject(error);
-  }
+  (response: AxiosResponse) => response,
+  (error: AxiosError) => Promise.reject(error)
 );
 
 export default preferenceInstance;
+export { PREFERENCES_BASE_URL };

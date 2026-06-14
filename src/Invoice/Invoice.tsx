@@ -11,21 +11,26 @@ import {
   ActivityIndicator,
   PermissionsAndroid,
   Linking,
-  Image,
+  InteractionManager,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Share from 'react-native-share';
-import RNFS from 'react-native-fs';
+import ReactNativeBlobUtil from 'react-native-blob-util';
 import dayjs from 'dayjs';
 import Icon from 'react-native-vector-icons/Feather';
 import { useAppUser } from '../context/AppUserContext';
 import { useAuth0 } from 'react-native-auth0';
 import providerInstance from '../services/providerInstance';
 import preferenceInstance from '../services/preferenceInstance';
+import { resolveCustomerId } from '../services/couponService';
+import { generateInvoicePdfBase64 } from './generateInvoicePdf';
 
 interface InvoiceProps {
   booking: any;
   onClose?: () => void;
+  /** inline = download button only (web parity). full = preview screen with header. */
+  variant?: 'inline' | 'full';
 }
 
 interface Address {
@@ -43,9 +48,9 @@ interface Address {
   };
 }
 
-const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
+const Invoice: React.FC<InvoiceProps> = ({ booking, onClose, variant = 'full' }) => {
   const [isGenerating, setIsGenerating] = React.useState<boolean>(false);
-  const [logoBase64, setLogoBase64] = React.useState<string>('');
+  const insets = useSafeAreaInsets();
   const { appUser } = useAppUser();
   const { user: auth0User } = useAuth0();
   
@@ -57,65 +62,7 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
   const [serviceProviderData, setServiceProviderData] = useState<any>(null);
   const [isLoadingProvider, setIsLoadingProvider] = useState(false);
 
-  // Load logo image and convert to base64
-  useEffect(() => {
-    const loadLogo = async () => {
-      try {
-        // Try to load the logo from assets
-        const imagePath = Platform.OS === 'android' 
-          ? 'assets/src/assets/images/serveasologo.png'
-          : '../assets/images/serveasologo.png';
-        
-        // Alternative: Use a data URI with a simple SVG fallback
-        const logoSvg = `<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="30" cy="30" r="28" fill="#0A7CFF" />
-          <text x="30" y="38" text-anchor="middle" fill="white" font-size="20" font-weight="bold">S</text>
-        </svg>`;
-        
-        const base64Logo = await toBase64(logoSvg);
-        setLogoBase64(`data:image/svg+xml;base64,${base64Logo}`);
-      } catch (error) {
-        console.error('Error loading logo:', error);
-        // Fallback to SVG logo
-        const fallbackSvg = `<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="30" cy="30" r="28" fill="#0A7CFF" />
-          <text x="30" y="38" text-anchor="middle" fill="white" font-size="20" font-weight="bold">S</text>
-        </svg>`;
-        const fallbackBase64 = await toBase64(fallbackSvg);
-        setLogoBase64(`data:image/svg+xml;base64,${fallbackBase64}`);
-      }
-    };
-    
-    loadLogo();
-  }, []);
-
-  const toBase64 = (str: string): string => {
-    if (global.btoa) {
-      return global.btoa(str);
-    }
-    const chars: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-    let output: string = '';
-    let i: number = 0;
-    while (i < str.length) {
-      const byte1: number = str.charCodeAt(i++);
-      const byte2: number = str.charCodeAt(i++);
-      const byte3: number = str.charCodeAt(i++);
-      const enc1: number = byte1 >> 2;
-      const enc2: number = ((byte1 & 3) << 4) | (byte2 >> 4);
-      let enc3: number = ((byte2 & 15) << 2) | (byte3 >> 6);
-      let enc4: number = byte3 & 63;
-      if (isNaN(byte2)) {
-        enc3 = enc4 = 64;
-      } else if (isNaN(byte3)) {
-        enc4 = 64;
-      }
-      output = output + 
-        chars.charAt(enc1) + chars.charAt(enc2) + 
-        chars.charAt(enc3) + chars.charAt(enc4);
-    }
-    return output;
-  };
-
+  // Load saved addresses and provider details for the invoice preview.
   const getServiceTitle = (type: string): string => {
     switch (type) {
       case 'maid':
@@ -142,18 +89,6 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
     } catch (error) {
       return timeString;
     }
-  };
-
-  const escapeHtml = (text: string): string => {
-    if (!text) return '';
-    const map: { [key: string]: string } = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, (m: string): string => map[m]);
   };
 
   // Fetch customer addresses from API
@@ -227,9 +162,9 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
 
   // Load data when component mounts
   useEffect(() => {
-    const customerId = appUser?.customerid || booking.customerId;
+    const customerId = resolveCustomerId(appUser) || booking.customerId;
     if (customerId) {
-      fetchCustomerAddresses(customerId);
+      fetchCustomerAddresses(Number(customerId));
     }
     
     const providerId = booking.serviceProviderId || booking.providerId;
@@ -423,286 +358,51 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
     }
   };
 
-  const generateHTMLContent = (): string => {
-    const customerFirstName = getCustomerFirstName();
-    const customerLastName = getCustomerLastName();
-    const customerFullName = getCustomerFullName();
-    const customerEmail = getCustomerEmail();
-    const customerPhone = getCustomerPhone();
-    const customerAddress = getFormattedCustomerAddress();
-    const serviceAddress = getServiceAddress();
-    const taskType = getTaskType();
-    const scheduleType = getBookingType();
-    const couponDiscount = getCouponDiscount();
-    const serviceProviderName = getServiceProviderName();
-    const serviceProviderAddress = getServiceProviderFullAddress();
-    
-    console.log('=== INVOICE DETAILS ===');
-    console.log('Customer Name:', customerFullName);
-    console.log('Customer Address:', customerAddress);
-    console.log('Service Provider:', serviceProviderName);
-    
-    // Use the base64 logo (either loaded from assets or fallback SVG)
-    const logoDataUrl = logoBase64 || `data:image/svg+xml;base64,${toBase64(`<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="30" cy="30" r="28" fill="#0A7CFF" />
-      <text x="30" y="38" text-anchor="middle" fill="white" font-size="20" font-weight="bold">S</text>
-    </svg>`)}`;
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Invoice #${booking.id}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              font-family: ${Platform.OS === 'ios' ? '-apple-system' : 'Roboto'}, Arial, sans-serif;
-              margin: 0;
-              padding: 40px 20px;
-              color: #333;
-              background: #f5f5f5;
-            }
-            .invoice-container {
-              max-width: 800px;
-              margin: 0 auto;
-              background: white;
-              border-radius: 12px;
-              overflow: hidden;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .content { padding: 40px; }
-            .header-section {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 30px;
-              padding-bottom: 20px;
-              border-bottom: 2px solid #e0e0e0;
-            }
-            .logo-area { display: flex; align-items: center; gap: 15px; }
-            .logo { width: 60px; height: 60px; object-fit: contain; }
-            .company-name-large { font-size: 24px; font-weight: bold; color: #0A7CFF; }
-            .tax-invoice { text-align: right; }
-            .tax-invoice-title { font-size: 28px; font-weight: bold; color: #0A7CFF; }
-            .tax-invoice-sub { font-size: 14px; color: #666; margin-top: 5px; }
-            .section { margin-bottom: 30px; }
-            .section-title {
-              font-size: 18px;
-              font-weight: bold;
-              margin-bottom: 15px;
-              padding-bottom: 8px;
-              border-bottom: 2px solid #0A7CFF;
-              color: #0A7CFF;
-            }
-            .info-card {
-              background: #f8f9fa;
-              border-radius: 8px;
-              padding: 15px;
-              margin-bottom: 15px;
-            }
-            .info-row {
-              display: flex;
-              margin-bottom: 10px;
-              line-height: 1.5;
-            }
-            .info-label {
-              font-weight: 600;
-              width: 140px;
-              color: #555;
-            }
-            .info-value { flex: 1; color: #333; }
-            .address-block {
-              background: #f0f7ff;
-              border-radius: 8px;
-              padding: 15px;
-              margin-top: 10px;
-              border-left: 4px solid #0A7CFF;
-            }
-            .address-title {
-              font-weight: 600;
-              margin-bottom: 8px;
-              color: #0A7CFF;
-            }
-            .payment-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            .payment-table tr { border-bottom: 1px solid #e0e0e0; }
-            .payment-table td { padding: 12px; }
-            .payment-table td:first-child { text-align: left; }
-            .payment-table td:last-child { text-align: right; }
-            .total-row { font-weight: bold; background: #f8f9fa; }
-            .total-row td { border-top: 2px solid #0A7CFF; }
-            .payment-status {
-              display: inline-block;
-              padding: 4px 12px;
-              border-radius: 4px;
-              font-size: 14px;
-              font-weight: 500;
-            }
-            .status-success { background: #d4edda; color: #155724; }
-            .status-pending { background: #fff3cd; color: #856404; }
-            .company-footer {
-              margin-top: 40px;
-              padding: 20px;
-              text-align: center;
-              border-top: 1px solid #e0e0e0;
-              background: #f8f9fa;
-              border-radius: 8px;
-            }
-            .company-name-footer { font-size: 18px; font-weight: bold; color: #0A7CFF; margin-bottom: 10px; }
-            .company-address { font-size: 13px; color: #666; margin-bottom: 10px; }
-            .company-details { font-size: 12px; color: #666; margin-bottom: 5px; }
-            .gst-details { font-size: 12px; color: #666; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; }
-            .disclaimer { font-size: 11px; color: #999; font-style: italic; margin-top: 15px; }
-          </style>
-        </head>
-        <body>
-          <div class="invoice-container">
-            <div class="content">
-              
-              <!-- Header with Logo -->
-              <div class="header-section">
-                <div class="logo-area">
-                  <img src="${logoDataUrl}" alt="ServEaso Logo" class="logo" />
-                  <div class="company-name-large">ServEaso</div>
-                </div>
-                <div class="tax-invoice">
-                  <div class="tax-invoice-title">TAX INVOICE</div>
-                  <div class="tax-invoice-sub">Invoice #: INV-${booking.id}</div>
-                  <div class="tax-invoice-sub">Date: ${dayjs().format('MMMM D, YYYY')}</div>
-                </div>
-              </div>
+  const toNumber = (value: unknown): number => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
 
-              <!-- Customer Information -->
-              <div class="section">
-                <div class="section-title">Customer Information</div>
-                <div class="info-card">
-                  <div class="info-row">
-                    <div class="info-label">Name:</div>
-                    <div class="info-value">${escapeHtml(customerFullName)}</div>
-                  </div>
-                  ${customerEmail ? `
-                  <div class="info-row">
-                    <div class="info-label">Email:</div>
-                    <div class="info-value">${escapeHtml(customerEmail)}</div>
-                  </div>
-                  ` : ''}
-                  ${customerPhone ? `
-                  <div class="info-row">
-                    <div class="info-label">Phone:</div>
-                    <div class="info-value">${escapeHtml(customerPhone)}</div>
-                  </div>
-                  ` : ''}
-                </div>
-                <div class="address-block">
-                  <div class="address-title">📍 Customer Address</div>
-                  <div class="info-value">${escapeHtml(customerAddress)}</div>
-                </div>
-              </div>
+  const buildInvoicePdfInput = () => {
+    const bookingId = booking.id;
+    const startDate = booking.startDate ?? booking.bookingDate ?? new Date().toISOString();
+    const endDate = booking.endDate ?? startDate;
+    const startTime = booking.start_time ?? booking.startTime ?? '09:00';
+    const endTime = booking.end_time ?? booking.endTime ?? '17:00';
 
-              <!-- Service Information -->
-              <div class="section">
-                <div class="section-title">Service Information</div>
-                <div class="info-card">
-                  <div class="info-row">
-                    <div class="info-label">Service Type:</div>
-                    <div class="info-value">${getServiceTitle(booking.service_type)}</div>
-                  </div>
-                  ${booking.service_type === 'cook' ? `
-                  <div class="info-row">
-                    <div class="info-label">Task Type:</div>
-                    <div class="info-value">${escapeHtml(taskType)}</div>
-                  </div>
-                  ` : ''}
-                  <div class="info-row">
-                    <div class="info-label">Schedule:</div>
-                    <div class="info-value">${dayjs(booking.startDate).format('MMMM D, YYYY')} - ${dayjs(booking.endDate).format('MMMM D, YYYY')}</div>
-                  </div>
-                  <div class="info-row">
-                    <div class="info-label">Type:</div>
-                    <div class="info-value">${escapeHtml(scheduleType)}</div>
-                  </div>
-                  <div class="info-row">
-                    <div class="info-label">Time Slot:</div>
-                    <div class="info-value">${formatTimeToAMPM(booking.start_time)} - ${formatTimeToAMPM(booking.end_time)}</div>
-                  </div>
-                  <div class="info-row">
-                    <div class="info-label">Service Provider:</div>
-                    <div class="info-value"><strong>${escapeHtml(serviceProviderName)}</strong></div>
-                  </div>
-                </div>
-                <div class="address-block">
-                  <div class="address-title">📍 Service Address</div>
-                  <div class="info-value">${escapeHtml(serviceAddress)}</div>
-                </div>
-                ${serviceProviderAddress !== 'Address not available' ? `
-                <div class="address-block" style="margin-top: 10px;">
-                  <div class="address-title">👤 Service Provider Address</div>
-                  <div class="info-value">${escapeHtml(serviceProviderAddress)}</div>
-                </div>
-                ` : ''}
-              </div>
-
-              <!-- Payment Information -->
-              <div class="section">
-                <div class="section-title">Payment Information</div>
-                <table class="payment-table">
-                  <tr><td>Base Amount</td><td>₹${booking.payment?.base_amount || 0}</td></tr>
-                  <tr><td>Coupon Applied</td><td>₹${couponDiscount}</td></tr>
-                  <tr><td>Platform Fee</td><td>₹${booking.payment?.platform_fee || 0}</td></tr>
-                  <tr><td>Tax (GST 18%)</td><td>₹${booking.payment?.gst || 0}</td></tr>
-                  <tr class="total-row"><td><strong>Total Amount</strong></td><td><strong>₹${booking.payment?.total_amount || 0}</strong></td></tr>
-                </table>
-                <div style="margin-top: 15px;">
-                  <div style="font-weight: 600; margin-bottom: 5px;">Payment Status:</div>
-                  <div class="payment-status ${booking.payment?.status === 'SUCCESS' ? 'status-success' : 'status-pending'}">
-                    ${booking.payment?.status || 'N/A'}
-                  </div>
-                </div>
-                <div style="margin-top: 10px;">
-                  <div style="font-weight: 600; margin-bottom: 5px;">Payment Mode:</div>
-                  <div style="text-transform: capitalize;">${booking.payment?.payment_mode || 'N/A'}</div>
-                </div>
-                ${booking.payment?.transaction_id ? `
-                <div style="margin-top: 10px;">
-                  <div style="font-weight: 600; margin-bottom: 5px;">Transaction ID:</div>
-                  <div>${booking.payment.transaction_id}</div>
-                </div>
-                ` : ''}
-              </div>
-
-              <!-- Company Footer -->
-              <div class="company-footer">
-                <div class="company-name-footer">ServEaso</div>
-                <div class="company-address">#45, 2nd Cross, Indiranagar, Bengaluru - 560038</div>
-                <div class="company-details">📞 +91 80 1234 5678 | ✉️ support@serveaso.com</div>
-                <div class="gst-details">
-                  <strong>GST Details:</strong><br/>
-                  PAN: AAICS1234E | GST: 29AAICS1234E1Z | TAN: BLR S1234F<br/>
-                  CIN: U74999KA2023PTC123456
-                </div>
-                <div class="disclaimer">
-                  This is a system generated invoice and does not require a physical signature.<br/>
-                  For any queries, please contact our support team.
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+    return {
+      invoiceNumber: `INV-${bookingId}-${dayjs().format('YYYYMMDD')}`,
+      invoiceDate: dayjs().format('DD MMM YYYY'),
+      customerName: getCustomerFullName(),
+      customerAddress: getFormattedCustomerAddress(),
+      serviceAddress: getServiceAddress(),
+      bookingId,
+      serviceType: getServiceTitle(booking.service_type || booking.serviceType || 'service'),
+      taskType: booking.service_type === 'cook' ? getTaskType() : undefined,
+      schedule: `${dayjs(startDate).format('MMMM D, YYYY')} - ${dayjs(endDate).format('MMMM D, YYYY')}`,
+      bookingType: getBookingType(),
+      timeSlot: `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`,
+      providerName: getServiceProviderName(),
+      baseAmount: toNumber(booking.payment?.base_amount),
+      couponDiscount: toNumber(
+        booking.payment?.coupon_discount ?? booking.payment?.discount ?? getCouponDiscount()
+      ),
+      platformFee: toNumber(booking.payment?.platform_fee),
+      gst: toNumber(booking.payment?.gst),
+      totalAmount: toNumber(booking.payment?.total_amount),
+      paymentStatus: String(booking.payment?.status || 'Completed'),
+      paymentMode: String(booking.payment?.payment_mode || 'online').toUpperCase(),
+      transactionId: booking.payment?.transaction_id || undefined,
+    };
   };
 
   const handleDownload = async (): Promise<void> => {
+    if (isGenerating) return;
+
     try {
       setIsGenerating(true);
-      
-      const hasPermission: boolean = await requestStoragePermission();
+
+      const hasPermission = await requestStoragePermission();
       if (!hasPermission) {
         Alert.alert(
           'Permission Required',
@@ -712,33 +412,53 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
             { text: 'Open Settings', onPress: () => openAppSettings() },
           ]
         );
-        setIsGenerating(false);
         return;
       }
 
-      const htmlContent: string = generateHTMLContent();
-      const fileName: string = `Invoice_${booking.id}_${dayjs().format('YYYYMMDD_HHmmss')}.html`;
-      
-      let savePath: string;
-      if (Platform.OS === 'android') {
-        savePath = `${RNFS.DownloadDirectoryPath}/${fileName}`;
-      } else {
-        savePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
-      }
-      
-      await RNFS.writeFile(savePath, htmlContent, 'utf8');
-      
-      await Share.open({
-        url: `file://${savePath}`,
-        type: 'text/html',
-        title: `Invoice #${booking.id}`,
+      const pdfBase64 = await generateInvoicePdfBase64(buildInvoicePdfInput());
+      const fileName = `invoice-${booking.id}-${dayjs().format('YYYYMMDD')}.pdf`;
+      const savePath =
+        Platform.OS === 'android'
+          ? `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${fileName}`
+          : `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/${fileName}`;
+
+      await ReactNativeBlobUtil.fs.writeFile(savePath, pdfBase64, 'base64');
+
+      const fileUrl = savePath.startsWith('file://') ? savePath : `file://${savePath}`;
+
+      await new Promise<void>((resolve) => {
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(resolve, Platform.OS === 'ios' ? 400 : 0);
+        });
       });
-      
-      Alert.alert('Success', `Invoice saved to ${Platform.OS === 'android' ? 'Downloads' : 'Documents'} folder!`);
-      
+
+      if (Platform.OS === 'ios') {
+        ReactNativeBlobUtil.ios.previewDocument(fileUrl);
+        return;
+      }
+
+      await Share.open({
+        url: fileUrl,
+        type: 'application/pdf',
+        filename: fileName,
+        title: `Invoice #${booking.id}`,
+        subject: `Invoice #${booking.id}`,
+        failOnCancel: false,
+      });
     } catch (error: any) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Failed to generate invoice. Please try again.');
+      const message = String(error?.message || '');
+      if (
+        message === 'User did not share' ||
+        message.includes('User did not share') ||
+        error?.dismissedAction
+      ) {
+        return;
+      }
+      console.error('Invoice download error:', error);
+      Alert.alert(
+        'Error',
+        message || 'Failed to generate invoice. Please try again.'
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -753,41 +473,72 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
     }
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <LinearGradient
-          colors={["#062a61", "#3680f8"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerGradient}
+  if (variant === 'inline') {
+    return (
+      <View style={styles.inlineWrap}>
+        <TouchableOpacity
+          style={styles.inlineButton}
+          onPress={handleDownload}
+          disabled={isGenerating}
+          accessibilityRole="button"
+          accessibilityLabel="Download Invoice PDF"
         >
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              {onClose && (
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Icon name="arrow-left" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              )}
-              <Text style={styles.headerTitle}>Invoice</Text>
-            </View>
-            <TouchableOpacity 
-              style={styles.downloadButton} 
-              onPress={handleDownload}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Icon name="download" size={18} color="#FFFFFF" />
-                  <Text style={styles.downloadButtonText}>Download</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+          {isGenerating ? (
+            <ActivityIndicator size="small" color="#2563eb" />
+          ) : (
+            <>
+              <Icon name="download" size={20} color="#2563eb" />
+              <Text style={styles.inlineButtonText}>
+                {isGenerating ? 'Generating PDF…' : 'Download Invoice (PDF)'}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+        <Text style={styles.inlineHint}>
+          Opens the invoice preview so you can share or save to Files.
+        </Text>
+      </View>
+    );
+  }
 
+  return (
+    <View style={styles.fullScreen}>
+      <LinearGradient
+        colors={["#062a61", "#3680f8"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 12) }]}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {onClose && (
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon name="arrow-left" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            <Text style={styles.headerTitle}>Invoice</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.downloadButton}
+            onPress={handleDownload}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Icon name="download" size={18} color="#FFFFFF" />
+                <Text style={styles.downloadButtonText}>
+                  {isGenerating ? 'Generating…' : 'Download PDF'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.content}>
         {/* Preview Card */}
         <View style={styles.previewCard}>
           <View style={styles.previewRow}>
@@ -888,15 +639,49 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose }) => {
         <View style={styles.noteCard}>
           <Icon name="info" size={16} color="#666" />
           <Text style={styles.noteText}>
-            Tap "Download" to save invoice as HTML file. The file will be saved in your device's Downloads folder.
+            Tap "Download PDF" to save or share the invoice. On iPhone you can save it to Files or share via Mail.
           </Text>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  fullScreen: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    paddingBottom: 24,
+  },
+  inlineWrap: {
+    marginTop: 16,
+  },
+  inlineButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: '#2563eb',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#eff6ff',
+  },
+  inlineButtonText: {
+    color: '#2563eb',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  inlineHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -905,7 +690,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 48 : 16,
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomLeftRadius: 20,

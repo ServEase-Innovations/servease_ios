@@ -8,16 +8,32 @@ type Options = {
   onNavigate?: (view: string) => void;
 };
 
+function isSameAuth0Session(
+  appUser: Record<string, unknown> | null | undefined,
+  auth0User: { sub?: string | null; email?: string | null }
+): boolean {
+  if (!appUser?.token) return false;
+  if (auth0User.sub && appUser.sub === auth0User.sub) return true;
+  if (auth0User.email && appUser.email === auth0User.email) return true;
+  return false;
+}
+
 /**
  * Global Auth0 post-login handler (same role as web Header effect after loginWithPopup).
+ * Skips when a persisted session is already loaded so reopening the app does not re-toast.
  */
 export function useAuth0PostLogin({ onNavigate }: Options = {}) {
   const { user: auth0User, isLoading: auth0Loading, getCredentials } = useAuth0();
-  const { setAppUser } = useAppUser();
+  const { appUser, setAppUser, isLoading: isUserLoading } = useAppUser();
   const handledForRef = useRef<string | null>(null);
+  const onNavigateRef = useRef(onNavigate);
 
   useEffect(() => {
-    if (!auth0User?.email || auth0Loading) {
+    onNavigateRef.current = onNavigate;
+  }, [onNavigate]);
+
+  useEffect(() => {
+    if (!auth0User?.email || auth0Loading || isUserLoading) {
       if (!auth0User) {
         handledForRef.current = null;
       }
@@ -25,7 +41,14 @@ export function useAuth0PostLogin({ onNavigate }: Options = {}) {
     }
 
     const userKey = auth0User.sub ?? auth0User.email;
+    if (!userKey) return;
+
     if (handledForRef.current === userKey) {
+      return;
+    }
+
+    if (isSameAuth0Session(appUser, auth0User)) {
+      handledForRef.current = userKey;
       return;
     }
 
@@ -50,7 +73,7 @@ export function useAuth0PostLogin({ onNavigate }: Options = {}) {
         });
 
         if (result.navigateTo) {
-          onNavigate?.(result.navigateTo);
+          onNavigateRef.current?.(result.navigateTo);
         }
       } catch (error) {
         const message =
@@ -71,5 +94,15 @@ export function useAuth0PostLogin({ onNavigate }: Options = {}) {
     return () => {
       cancelled = true;
     };
-  }, [auth0User?.sub, auth0User?.email, auth0Loading, getCredentials, setAppUser, onNavigate]);
+  }, [
+    appUser?.email,
+    appUser?.sub,
+    appUser?.token,
+    auth0User?.sub,
+    auth0User?.email,
+    auth0Loading,
+    getCredentials,
+    isUserLoading,
+    setAppUser,
+  ]);
 }

@@ -11,6 +11,7 @@ import { API_URLS } from "./apiUrls";
 export const DEV_LAN_HOST: string | null = null;
 
 const PROD_UTILS_URL = API_URLS.utils;
+const PROD_PREFERENCES_URL = API_URLS.preferences;
 
 function isRunningOnEmulator(): boolean {
   try {
@@ -39,4 +40,24 @@ export function getUtilsApiUrl(): string {
 
   // Physical device (or unknown): use deployed utils — same pattern as providerInstance.
   return PROD_UTILS_URL;
+}
+
+export function getPreferencesApiUrl(): string {
+  if (!__DEV__) {
+    return PROD_PREFERENCES_URL;
+  }
+
+  if (DEV_LAN_HOST) {
+    return `http://${DEV_LAN_HOST}:3001`;
+  }
+
+  if (Platform.OS === "android" && isRunningOnEmulator()) {
+    return "http://10.0.2.2:3001";
+  }
+
+  if (Platform.OS === "ios" && isRunningOnEmulator()) {
+    return "http://localhost:3001";
+  }
+
+  return PROD_PREFERENCES_URL;
 }

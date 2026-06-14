@@ -28,11 +28,18 @@ import Geocoder from "react-native-geocoding";
 import MapView, { Marker } from "react-native-maps";
 import { NativeModules } from "react-native";
 import Geolocation from "@react-native-community/geolocation";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
 import { resolveCustomerId } from "../services/couponService";
+import preferenceInstance from "../services/preferenceInstance";
+import {
+  formatServiceAddressFromGeoLocation,
+  normalizeGeoLocationPayload,
+  resolveLocationLat,
+  resolveLocationLng,
+} from "../utils/bookingLocation";
 import LinearGradient from "react-native-linear-gradient";
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { GRADIENTS } from "../theme/brandColors";
@@ -62,51 +69,6 @@ function getSavedLocationsList(pref: any): any[] {
   if (Array.isArray(pref) && pref[0]?.savedLocations) return pref[0].savedLocations;
   if (pref.savedLocations && Array.isArray(pref.savedLocations)) return pref.savedLocations;
   return [];
-}
-
-function pickDefaultSavedLocation(savedLocations: any[]): any | null {
-  if (!savedLocations?.length) return null;
-  return (
-    savedLocations.find((loc) => loc.name === "Home") ||
-    savedLocations.find((loc) => String(loc.name || "").toLowerCase() === "home") ||
-    savedLocations[0]
-  );
-}
-
-function extractAddressFromSavedEntry(savedLocation: any): {
-  address: string;
-  lat: number | null;
-  lng: number | null;
-} | null {
-  const locationData = savedLocation?.location;
-  if (!locationData) return null;
-
-  let address = "";
-  let lat: number | null = null;
-  let lng: number | null = null;
-
-  if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
-    address = locationData.address[0].formatted_address;
-    if (locationData.address[0]?.geometry?.location) {
-      lat = locationData.address[0].geometry.location.lat;
-      lng = locationData.address[0].geometry.location.lng;
-    }
-  } else if (locationData.formatted_address) {
-    address = locationData.formatted_address;
-    if (locationData.geometry?.location) {
-      lat = locationData.geometry.location.lat;
-      lng = locationData.geometry.location.lng;
-    }
-  } else if (typeof locationData === "string") {
-    address = locationData;
-  } else if (locationData.lat != null && locationData.lng != null) {
-    lat = Number(locationData.lat);
-    lng = Number(locationData.lng);
-    address = savedLocation.name ? `${savedLocation.name} location` : "";
-  }
-
-  if (!address) return null;
-  return { address, lat, lng };
 }
 
 async function resolveAddressFromCoords(lat: number, lng: number): Promise<string> {
@@ -169,13 +131,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const dispatch = useDispatch();
   const locationDispatch = useDispatch();
   const { appUser } = useAppUser();
+  const geoLocationFromStore = useSelector(
+    (state: { geoLocation?: { value?: unknown; updatedAt?: number } }) =>
+      state?.geoLocation?.value
+  );
+  const geoLocationUpdatedAt = useSelector(
+    (state: { geoLocation?: { value?: unknown; updatedAt?: number } }) =>
+      state?.geoLocation?.updatedAt ?? 0
+  );
   
   const [location, setLocation] = useState(currentLocationText || "");
   const [locationAs, setLocationAs] = useState("");
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([
     { name: t('locationSelector.detectLocation'), index: 1 },
-    { name: t('locationSelector.addAddress'), index: 2 },
   ]);
   const [dataFromMap, setDataFromMap] = useState<LocationData | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -210,15 +179,18 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const [locationMethod, setLocationMethod] = useState<'auto' | 'manual' | null>(null);
 
-  const appliedSavedLocationRef = useRef(false);
+  const userPickedLocationRef = useRef(false);
   const triedGpsForCustomerRef = useRef(false);
   const guestGpsStartedRef = useRef(false);
 
   const customerId = resolveCustomerId(appUser);
   const isAuthenticated = !!customerId;
+  const isCustomer =
+    isAuthenticated && String(appUser?.role || "").toUpperCase() === "CUSTOMER";
 
   const headerDisplayText = (() => {
-    const raw = address || location || currentLocationText;
+    const fromStore = formatServiceAddressFromGeoLocation(geoLocationFromStore);
+    const raw = fromStore || address || location || currentLocationText;
     const waitingForSavedLocation = !!customerId && !locationPreferencesReady;
     if ((loading || isUserLoading || waitingForSavedLocation) && !raw) {
       return t("locationSelector.gettingYourLocation");
@@ -236,16 +208,31 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   useEffect(() => {
     const saved = getSavedLocationsList(userPreference);
-    const base = [
-      { name: t("locationSelector.detectLocation"), index: 1 },
-      { name: t("locationSelector.addAddress"), index: 2 },
-    ];
+    const base = [{ name: t("locationSelector.detectLocation"), index: 1 }];
+    if (isCustomer) {
+      base.push({ name: t("locationSelector.addAddress"), index: 2 });
+    }
     const savedSuggestions = saved.map((loc: { name: string }, i: number) => ({
       name: loc.name,
-      index: i + 3,
+      index: i + (isCustomer ? 3 : 2),
     }));
     setSuggestions([...base, ...savedSuggestions]);
-  }, [userPreference, t]);
+  }, [userPreference, t, isCustomer]);
+
+  // Keep header label in sync when location changes elsewhere (e.g. checkout).
+  useEffect(() => {
+    if (!geoLocationUpdatedAt) return;
+    const display = formatServiceAddressFromGeoLocation(geoLocationFromStore);
+    if (!display) {
+      setLocation("");
+      setAddress("");
+      userPickedLocationRef.current = false;
+      return;
+    }
+    setLocation(display);
+    setAddress(display);
+    userPickedLocationRef.current = true;
+  }, [geoLocationFromStore, geoLocationUpdatedAt]);
 
   // Animate dropdown
   useEffect(() => {
@@ -362,24 +349,62 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     };
   };
 
-  const updateLocationInStore = useCallback((lat: number, lng: number, addr: string) => {
+  const updateLocationInStore = useCallback((lat: number, lng: number, addr: string, pickedByUser = false) => {
     console.log("📍 Updating location in Redux:", { lat, lng, addr });
     
     const locationData = createLocationData(lat, lng, addr);
+    const normalized = normalizeGeoLocationPayload(locationData) ?? locationData;
     
-    dispatch(add(locationData));
-    locationDispatch(addLocation(locationData));
+    dispatch(add(normalized));
+    locationDispatch(addLocation(normalized));
     
-    setDataFromMap(locationData);
+    setDataFromMap(normalized as LocationData);
     setLocation(addr);
     setAddress(addr);
-    
-    if (onLocationChange) {
-      onLocationChange(addr, locationData);
+
+    if (pickedByUser) {
+      userPickedLocationRef.current = true;
     }
     
-    return locationData;
+    if (onLocationChange) {
+      onLocationChange(addr, normalized as LocationData);
+    }
+    
+    return normalized as LocationData;
   }, [dispatch, locationDispatch, onLocationChange]);
+
+  const applySavedLocationSelection = useCallback((savedLocation: any) => {
+    const locationData = savedLocation?.location;
+    if (!locationData) return;
+
+    let displayAddress = savedLocation.name ? `${savedLocation.name} location` : t("locationSelector.locationNotFound");
+
+    if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
+      displayAddress = locationData.address[0].formatted_address;
+    } else if (locationData.formatted_address) {
+      displayAddress = locationData.formatted_address;
+    } else {
+      const formatted = formatServiceAddressFromGeoLocation(locationData);
+      if (formatted) displayAddress = formatted;
+    }
+
+    userPickedLocationRef.current = true;
+    setLocation(displayAddress);
+    setAddress(displayAddress);
+
+    const normalized = normalizeGeoLocationPayload(locationData) ?? locationData;
+    dispatch(add(normalized));
+    locationDispatch(addLocation(normalized));
+    setDataFromMap(normalized as LocationData);
+    onLocationChange?.(displayAddress, normalized as LocationData);
+
+    const lat = resolveLocationLat(locationData);
+    const lng = resolveLocationLng(locationData);
+    if (lat != null && lng != null) {
+      setLatitude(lat);
+      setLongitude(lng);
+    }
+  }, [dispatch, locationDispatch, onLocationChange, t]);
 
   const searchLocation = async (query: string) => {
     if (!query || query.trim().length < 3) {
@@ -608,6 +633,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
     const watchId = Geolocation.watchPosition(
       async (position) => {
+        if (userPickedLocationRef.current) {
+          setLoading(false);
+          return;
+        }
+
         if (locationWatchId !== null) {
           Geolocation.clearWatch(locationWatchId);
           setLocationWatchId(null);
@@ -795,14 +825,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setIsCheckingLocation(false);
       setShowGPSButton(false);
       setLocationMethod(null);
-      if (!isAuthenticated) {
-        Alert.alert(
-          t('common.authenticationRequired'),
-          t('locationSelector.loginToSaveLocations'),
-          [
-            { text: t('common.ok'), style: "default" }
-          ]
-        );
+      if (!isCustomer) {
         return;
       }
       setOpen(true);
@@ -812,6 +835,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setSearchResults([]);
       setShowSearchResults(false);
     } else if (newValue === t('locationSelector.detectLocation')) {
+      userPickedLocationRef.current = false;
+      triedGpsForCustomerRef.current = true;
+      guestGpsStartedRef.current = true;
       fetchLocationWithChecks();
     } else {
       const savedLocations = getSavedLocationsList(userPreference);
@@ -826,55 +852,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       ) || savedLocations.find(
         (location: any) => location.name?.toLowerCase() === newValue.toLowerCase()
       );
-      
-      if (savedLocation?.location) {
-        let addressToSet = "";
-        let lat = null;
-        let lng = null;
-        let locationData = savedLocation.location;
-        
-        if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
-          addressToSet = locationData.address[0].formatted_address;
-          if (locationData.address[0]?.geometry?.location) {
-            lat = locationData.address[0].geometry.location.lat;
-            lng = locationData.address[0].geometry.location.lng;
-          }
-        } else if (locationData.formatted_address) {
-          addressToSet = locationData.formatted_address;
-          if (locationData.geometry?.location) {
-            lat = locationData.geometry.location.lat;
-            lng = locationData.geometry.location.lng;
-          }
-        } else if (typeof locationData === 'string') {
-          addressToSet = locationData;
-        }
-        
-        if (addressToSet && lat && lng) {
-          setLocation(addressToSet);
-          setAddress(addressToSet);
-          setLatitude(lat);
-          setLongitude(lng);
-          
-          updateLocationInStore(lat, lng, addressToSet);
-        } else if (addressToSet) {
-          setLocation(addressToSet);
-          setAddress(addressToSet);
-          Geocoder.from(addressToSet)
-            .then(json => {
-              const location = json.results[0].geometry.location;
-              if (location) {
-                setLatitude(location.lat);
-                setLongitude(location.lng);
-                updateLocationInStore(location.lat, location.lng, addressToSet);
-              }
-            })
-            .catch(error => {
-              console.error("Geocoding error:", error);
-              Alert.alert(t('common.error'), t('locationSelector.couldNotRetrieveAddress'));
-            });
-        } else {
-          Alert.alert(t('common.error'), t('locationSelector.couldNotRetrieveAddress'));
-        }
+
+      if (savedLocation) {
+        applySavedLocationSelection(savedLocation);
       } else {
         Alert.alert(t('common.notFound'), t('locationSelector.locationNotFound'));
       }
@@ -912,6 +892,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
     
     setOpen(false);
+    userPickedLocationRef.current = true;
     
     if (!isAuthenticated) {
       Alert.alert(
@@ -1005,16 +986,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       savedLocations: updatedLocations,
     };
     
-    const response = await axios.put(
-      `https://utils-ndt3.onrender.com/user-settings/${customerId}`,
+    const response = await preferenceInstance.put(
+      `/api/user-settings/${customerId}`,
       payload
     );
 
     if (response.status === 200 || response.status === 201) {
-      const updatedUserPreference = {
+      const updatedUserPreference = [{
+        ...(Array.isArray(userPreference) ? userPreference[0] : userPreference),
         customerId,
-        savedLocations: updatedLocations
-      };
+        savedLocations: updatedLocations,
+      }];
       
       setUserPreference(updatedUserPreference);
       
@@ -1057,35 +1039,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         return;
       }
 
-      const saved = getSavedLocationsList(userPreference);
-      if (saved.length > 0) {
-        if (appliedSavedLocationRef.current) {
-          return;
-        }
-
-        const preferred = pickDefaultSavedLocation(saved);
-        const extracted = preferred ? extractAddressFromSavedEntry(preferred) : null;
-        if (!extracted) {
-          return;
-        }
-
-        appliedSavedLocationRef.current = true;
-        setLoading(false);
-        setIsCheckingLocation(false);
-        setShowGPSButton(false);
-
-        if (extracted.lat != null && extracted.lng != null) {
-          updateLocationInStore(extracted.lat, extracted.lng, extracted.address);
-          return;
-        }
-
-        setLocation(shortenAddress(extracted.address, 3));
-        setAddress(extracted.address);
-        if (preferred.location) {
-          dispatch(add(preferred.location));
-          locationDispatch(addLocation(preferred.location));
-          onLocationChange?.(extracted.address, preferred.location);
-        }
+      if (userPickedLocationRef.current) {
         return;
       }
 
@@ -1096,7 +1050,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       return;
     }
 
-    if (!guestGpsStartedRef.current) {
+    if (!guestGpsStartedRef.current && !userPickedLocationRef.current) {
       guestGpsStartedRef.current = true;
       fetchLocationWithChecks();
     }
@@ -1104,11 +1058,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     customerId,
     isUserLoading,
     locationPreferencesReady,
-    userPreference,
-    updateLocationInStore,
-    dispatch,
-    locationDispatch,
-    onLocationChange,
   ]);
 
   useEffect(() => {
@@ -1118,34 +1067,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       }
     };
   }, [locationWatchId]);
-
-  const updateSuggestions = () => {
-    const baseSuggestions = [
-      { name: t('locationSelector.detectLocation'), index: 1 },
-      { name: t('locationSelector.addAddress'), index: 2 },
-    ];
-
-    let savedLocationSuggestions = [];
-    
-    if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
-      savedLocationSuggestions = userPreference[0].savedLocations.map((loc: any, i: number) => ({
-        name: loc.name,
-        index: i + 3,
-      }));
-    } else if (userPreference?.savedLocations) {
-      savedLocationSuggestions = userPreference.savedLocations.map((loc: any, i: number) => ({
-        name: loc.name,
-        index: i + 3,
-      }));
-    }
-    
-    const finalSuggestions = [...baseSuggestions, ...savedLocationSuggestions];
-    setSuggestions(finalSuggestions);
-  };
-
-  useEffect(() => {
-    updateSuggestions();
-  }, [userPreference]);
 
   const dropdownScale = dropdownAnimation.interpolate({
     inputRange: [0, 1],
@@ -1573,7 +1494,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     },
     dropdownContainer: {
       position: "absolute",
-      top: 42,
+      top: 48,
       left: 0,
       right: 0,
       borderRadius: 12,
@@ -2035,7 +1956,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                       {suggestion.name}
                     </Text>
                   </TouchableOpacity>
-                  {index === 1 && suggestions.length > 2 && (
+                  {index === (isCustomer ? 1 : 0) &&
+                    suggestions.length > (isCustomer ? 2 : 1) && (
                     <View style={dynamicStyles.dropdownDivider} />
                   )}
                 </React.Fragment>
@@ -2201,13 +2123,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
 const styles = StyleSheet.create({
   locationSection: {
-    flex: 1,
     width: "100%",
     minWidth: 0,
     position: "relative",
     zIndex: 200,
     overflow: "visible",
-    justifyContent: "center",
+    alignSelf: "center",
   },
   modalHeader: {
     flexDirection: "row",

@@ -88,3 +88,35 @@ export function hasValidBookingLocation(location: unknown): boolean {
   if (address) return true;
   return resolveLocationLat(location) != null && resolveLocationLng(location) != null;
 }
+
+export function extractSavedLocations(preferenceData: unknown): Array<{ name: string; location: unknown }> {
+  if (Array.isArray(preferenceData) && preferenceData[0]?.savedLocations) {
+    return preferenceData[0].savedLocations as Array<{ name: string; location: unknown }>;
+  }
+  if (
+    preferenceData &&
+    typeof preferenceData === "object" &&
+    Array.isArray((preferenceData as { savedLocations?: unknown[] }).savedLocations)
+  ) {
+    return (preferenceData as { savedLocations: Array<{ name: string; location: unknown }> }).savedLocations;
+  }
+  return [];
+}
+
+/** Normalize any location payload before storing in Redux or sending to APIs. */
+export function normalizeGeoLocationPayload(
+  raw: unknown
+): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const source = raw as Record<string, unknown>;
+  const coords = resolveLocationCoords(source);
+  const formatted = formatServiceAddressFromGeoLocation(source);
+
+  return {
+    ...source,
+    ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
+    ...(formatted && !source.formatted_address
+      ? { formatted_address: formatted }
+      : {}),
+  };
+}

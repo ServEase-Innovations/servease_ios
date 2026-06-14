@@ -221,7 +221,6 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
-  const [showInvoiceModal, setShowInvoiceModal] = React.useState(false);
   
   // Animation values
   const slideAnim = React.useRef(new Animated.Value(height)).current;
@@ -400,15 +399,6 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       booking.serviceProviderName.trim() !== '' &&
       booking.serviceProviderName !== 'Not Assigned'
     );
-  };
-
-  const handleDownloadInvoice = () => {
-    console.log('Opening invoice modal for booking:', booking.id);
-    setShowInvoiceModal(true);
-  };
-
-  const handleCloseInvoice = () => {
-    setShowInvoiceModal(false);
   };
 
   const handleCompletePayment = async () => {
@@ -983,13 +973,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 )}
                 
                 {booking.payment.status === 'SUCCESS' && (
-                  <TouchableOpacity 
-                    style={[styles.fullButton, { borderColor: colors.primary, marginTop: 16 }]} 
-                    onPress={handleDownloadInvoice}
-                  >
-                    <Icon name="file-text" size={20} color={colors.primary} />
-                    <Text style={[styles.fullButtonText, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>View & Download Invoice</Text>
-                  </TouchableOpacity>
+                  <Invoice booking={booking} variant="inline" />
                 )}
               </View>
             </View>
@@ -1047,19 +1031,6 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           <View style={{ height: 40 }} />
         </ScrollView>
       </Animated.View>
-
-      {/* Invoice Modal - Rendered at the highest level */}
-      <Modal
-        visible={showInvoiceModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={handleCloseInvoice}
-      >
-        <Invoice 
-          booking={booking} 
-          onClose={handleCloseInvoice} 
-        />
-      </Modal>
 
       {/* Holiday Dialog */}
       {holidayDialogOpen && (
