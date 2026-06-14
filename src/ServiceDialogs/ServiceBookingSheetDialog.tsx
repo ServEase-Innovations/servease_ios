@@ -13,9 +13,15 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BOOKINGS } from "../Constants/pagesConstants";
+import { useAuth0 } from "react-native-auth0";
+import Snackbar from "react-native-snackbar";
+import { BOOKINGS, DASHBOARD, AGENT_DASHBOARD } from "../Constants/pagesConstants";
 import BookingSuccessDialog from "../common/BookingSuccessDialog";
 import { EnhancedProviderDetails } from "../types/ProviderDetailsType";
+import LoginDrawer from "../LoginDrawer/LoginDrawer";
+import { useAppUser } from "../context/AppUserContext";
+import { logAuth0Error, runAuth0Authorize } from "../utils/auth0Config";
+import { isCustomerCheckoutReady } from "../utils/authSession";
 import ServiceBookingFlow, {
   type BookingSuccessDetails,
 } from "./ServiceBookingFlow";
@@ -49,10 +55,13 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
 }) => {
   const cfg = SERVICE_BOOKING_CONFIG[serviceKind];
   const [successShowing, setSuccessShowing] = useState(false);
+  const [showLoginDrawer, setShowLoginDrawer] = useState(false);
   const [bookingSuccessDetails, setBookingSuccessDetails] =
     useState<BookingSuccessDetails | null>(null);
   const [mounted, setMounted] = useState(open || successShowing);
   const insets = useSafeAreaInsets();
+  const { setAppUser, appUser } = useAppUser();
+  const { authorize, cancelWebAuth, isAuthenticated: auth0IsAuthenticated } = useAuth0();
 
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const dragY = useRef(new Animated.Value(0)).current;
@@ -61,6 +70,13 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
   const visible = open || successShowing;
   const providerFullName =
     `${providerDetails?.firstName || ""} ${providerDetails?.lastName || ""}`.trim();
+  const isCheckoutAuthenticated = isCustomerCheckoutReady(appUser, auth0IsAuthenticated);
+
+  useEffect(() => {
+    if (isCheckoutAuthenticated) {
+      setShowLoginDrawer(false);
+    }
+  }, [isCheckoutAuthenticated]);
 
   useEffect(() => {
     if (visible) {
@@ -130,6 +146,30 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
     handleClose();
     finishAndUnmount();
   }, [handleClose, sendDataToParent, finishAndUnmount]);
+
+  const handleEmailLogin = useCallback(async () => {
+    try {
+      await runAuth0Authorize(authorize, cancelWebAuth);
+    } catch (error) {
+      logAuth0Error("email login failed", error);
+      Snackbar.show({
+        text: "Email sign-in was cancelled or failed. Please try again.",
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: "#ef4444",
+        textColor: "#ffffff",
+      });
+    }
+  }, [authorize, cancelWebAuth]);
+
+  const handleLoginNavigation = useCallback(
+    (data: string) => {
+      if (data === DASHBOARD || data === AGENT_DASHBOARD) {
+        dismissSheet();
+        sendDataToParent?.(data);
+      }
+    },
+    [dismissSheet, sendDataToParent]
+  );
 
   const panResponder = useMemo(
     () =>
@@ -242,10 +282,19 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
             providerDetails={providerDetails}
             sendDataToParent={sendDataToParent}
             onCheckoutSuccess={handleCheckoutSuccess}
+            onLoginRequired={() => setShowLoginDrawer(true)}
           />
         </View>
       </Animated.View>
       ) : null}
+
+      <LoginDrawer
+        visible={showLoginDrawer}
+        onClose={() => setShowLoginDrawer(false)}
+        setAppUser={setAppUser}
+        onEmailLogin={handleEmailLogin}
+        sendDataToParent={handleLoginNavigation}
+      />
     </Modal>
   );
 };

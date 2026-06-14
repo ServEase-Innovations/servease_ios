@@ -24,13 +24,25 @@ interface AppUserProviderProps {
 }
 
 const STORAGE_KEY = "@app_user_data";
+const TOKEN_KEY = "token";
+const ROLE_KEY = "userRole";
 
 async function persistAppUser(user: unknown): Promise<void> {
   if (user == null) {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await AsyncStorage.multiRemove([STORAGE_KEY, TOKEN_KEY, ROLE_KEY]);
     return;
   }
+
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+
+  const record = user as Record<string, unknown>;
+  const token = record.token ?? record.accessToken;
+  if (token && String(token).trim()) {
+    await AsyncStorage.setItem(TOKEN_KEY, String(token));
+  }
+  if (record.role) {
+    await AsyncStorage.setItem(ROLE_KEY, String(record.role));
+  }
 }
 
 export const AppUserProvider: React.FC<AppUserProviderProps> = ({ children }) => {
@@ -40,9 +52,20 @@ export const AppUserProvider: React.FC<AppUserProviderProps> = ({ children }) =>
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const savedUser = await AsyncStorage.getItem(STORAGE_KEY);
+        const pairs = await AsyncStorage.multiGet([STORAGE_KEY, TOKEN_KEY, ROLE_KEY]);
+        const savedUser = pairs[0][1];
+        const storedToken = pairs[1][1];
+        const storedRole = pairs[2][1];
+
         if (savedUser) {
-          const userData = JSON.parse(savedUser);
+          const userData = JSON.parse(savedUser) as Record<string, unknown>;
+          if (storedToken && !userData.token && !userData.accessToken) {
+            userData.token = storedToken;
+            userData.accessToken = storedToken;
+          }
+          if (storedRole && !userData.role) {
+            userData.role = storedRole;
+          }
           console.log("📀 Loaded saved user data:", userData);
           setAppUserState(userData);
         }

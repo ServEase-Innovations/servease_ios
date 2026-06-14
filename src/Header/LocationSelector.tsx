@@ -1546,63 +1546,77 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     locationContainer: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.surface + 'cc',
-      borderRadius: 10,
+      backgroundColor: "rgba(255,255,255,0.94)",
+      borderRadius: 999,
       paddingHorizontal: 10,
-      borderColor: colors.border,
-      minWidth: 140,
+      paddingVertical: 0,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.35)",
       width: "100%",
-      height: "100%",
+      height: 36,
       justifyContent: "space-between",
     },
     locationText: {
-      fontSize: fontSizes.locationText,
+      fontSize: fontSizes.locationText - 1,
       color: colors.text,
-      marginHorizontal: 6,
-      fontWeight: "500",
+      marginHorizontal: 4,
+      fontWeight: "600",
       flex: 1,
     },
     locationIcon: {
       marginRight: 4,
     },
+    locationContainerOpen: {
+      borderColor: "#cbd5e1",
+      borderBottomLeftRadius: 4,
+      borderBottomRightRadius: 4,
+    },
     dropdownContainer: {
       position: "absolute",
-      top: 48,
+      top: 42,
       left: 0,
       right: 0,
       borderRadius: 12,
       overflow: "hidden",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.22,
-      shadowRadius: 12,
+      backgroundColor: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#e2e8f0",
+      shadowColor: "#0f172a",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
       elevation: 24,
       zIndex: 9999,
     },
     dropdownBackdrop: {
       position: "absolute",
-      top: -400,
+      top: -800,
       left: -width,
       width: width * 3,
-      height: 800,
+      height: 1600,
+      backgroundColor: "rgba(15, 23, 42, 0.22)",
       zIndex: 9998,
     },
     dropdownHeader: {
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 14,
+      paddingTop: 10,
+      paddingBottom: 8,
+      backgroundColor: "#f8fafc",
+      borderBottomWidth: 1,
+      borderBottomColor: "#e2e8f0",
     },
     dropdownHeaderText: {
-      fontSize: 10,
-      fontWeight: "700",
-      letterSpacing: 1.2,
-      marginBottom: 8,
-      color: "#94a3b8",
+      fontSize: 11,
+      fontWeight: "600",
+      letterSpacing: 0.6,
+      color: "#475569",
+      textTransform: "uppercase",
     },
     dropdownItem: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 12,
-      paddingHorizontal: 12,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
       backgroundColor: "#ffffff",
     },
     dropdownItemIcon: {
@@ -1621,10 +1635,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       flex: 1,
     },
     dropdownDivider: {
-      height: 1,
+      height: StyleSheet.hairlineWidth,
       backgroundColor: "#e2e8f0",
-      marginVertical: 4,
-      marginHorizontal: 12,
+      marginHorizontal: 14,
     },
     modalContainer: {
       flex: 1,
@@ -1933,7 +1946,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       )}
 
       <TouchableOpacity
-        style={dynamicStyles.locationContainer}
+        style={[
+          dynamicStyles.locationContainer,
+          showDropdown && dynamicStyles.locationContainerOpen,
+        ]}
         activeOpacity={0.85}
         onPress={() => {
           setShowDropdown((prev) => !prev);
@@ -1969,17 +1985,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             }
           ]}
         >
-          {/* Gradient Header for Dropdown */}
-          <LinearGradient
-            colors={[...GRADIENTS.chrome]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.dropdownHeader}
-          >
+          {/* Dropdown menu anchored below location pill */}
+          <View style={dynamicStyles.dropdownHeader}>
             <Text style={dynamicStyles.dropdownHeaderText}>
-              SET LOCATION
+              Set location
             </Text>
-          </LinearGradient>
+          </View>
 
           {loadingLocations ? (
             <View style={dynamicStyles.dropdownItem}>
@@ -2190,12 +2201,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
 const styles = StyleSheet.create({
   locationSection: {
-    flex: 2,
-    marginHorizontal: 8,
+    flex: 1,
+    width: "100%",
+    minWidth: 0,
     position: "relative",
     zIndex: 200,
     overflow: "visible",
-    minHeight: 44,
     justifyContent: "center",
   },
   modalHeader: {

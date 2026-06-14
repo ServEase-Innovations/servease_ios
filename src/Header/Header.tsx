@@ -70,6 +70,11 @@ interface LocationData {
 
 const { width } = Dimensions.get("window");
 const isMobile = width < 768;
+export const HEADER_BAR_HEIGHT = 76;
+/** Trimmed wordmark asset (383×121) — no transparent canvas padding. */
+const LOGO_ASPECT = 383 / 121;
+const LOGO_HEIGHT = 44;
+const LOGO_WIDTH = Math.round(LOGO_HEIGHT * LOGO_ASPECT);
 
 const Head: React.FC<ChildComponentProps> = ({ 
   sendDataToParent, 
@@ -424,30 +429,29 @@ const Head: React.FC<ChildComponentProps> = ({
   const getLocationData = () => currentLocation;
 
   const dynamicStyles = StyleSheet.create({
-    headerContainer: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
+    headerShell: {
+      width: "100%",
+      height: HEADER_BAR_HEIGHT,
       zIndex: 50,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      overflow: "visible",
+    },
+    headerGradient: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    headerRow: {
+      height: HEADER_BAR_HEIGHT,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      height: 70,
-      elevation: 3,
+      paddingLeft: 5,
+      paddingRight: 10,
       overflow: "visible",
     },
     alertsButton: {
-      flex: 0.5,
+      flexShrink: 0,
       justifyContent: "center",
       alignItems: "center",
-      width: 90,
-      height: 90,
-      borderRadius: 45,
+      width: 34,
+      height: 34,
       marginLeft: 4,
     },
     modalContainer: {
@@ -471,54 +475,54 @@ const Head: React.FC<ChildComponentProps> = ({
   });
 
   return (
-    <View style={{ position: "relative" }}>
-      <LinearGradient
-        colors={chromeGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={dynamicStyles.headerContainer}
-      >
-        {/* Logo Section */}
-        <View style={styles.logoContainer}>
-          <TouchableOpacity onPress={onLogoClick}>
-            <Image
-              source={require("../../assets/images/serveasonew.png")}
-              style={styles.logo}
+    <>
+      <View style={dynamicStyles.headerShell}>
+        <LinearGradient
+          colors={chromeGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={dynamicStyles.headerGradient}
+        />
+        <View style={dynamicStyles.headerRow}>
+          <View style={styles.logoContainer}>
+            <TouchableOpacity onPress={onLogoClick} activeOpacity={0.85}>
+              <Image
+                source={require("../../assets/images/ServEaso_Logo_header.png")}
+                style={styles.logo}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.locationContainer}>
+            <LocationSelector
+              key={String(resolveCustomerId(appUser) ?? "guest")}
+              userPreference={userPreference}
+              setUserPreference={setUserPreference}
+              onLocationChange={handleLocationChange}
+              closeDropdown={closeDropdowns}
+              locationPreferencesReady={locationPreferencesReady}
+              isUserLoading={isUserLoading}
             />
+          </View>
+
+          <TouchableOpacity
+            onPress={handleNotificationClick}
+            style={dynamicStyles.alertsButton}
+            accessibilityLabel="Notifications"
+          >
+            <View style={styles.alertsButtonInner}>
+              <MaterialIcon name="notifications-none" size={24} color="#fff" />
+              {inAppUnread > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>
+                    {inAppUnread > 99 ? "99+" : inAppUnread}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
-
-        {/* Location Selector - Pass closeDropdowns prop */}
-        <View style={styles.locationContainer}>
-          <LocationSelector
-            key={String(resolveCustomerId(appUser) ?? "guest")}
-            userPreference={userPreference}
-            setUserPreference={setUserPreference}
-            onLocationChange={handleLocationChange}
-            closeDropdown={closeDropdowns}
-            locationPreferencesReady={locationPreferencesReady}
-            isUserLoading={isUserLoading}
-          />
-        </View>
-
-        {/* Alerts Button */}
-        <TouchableOpacity
-          onPress={handleNotificationClick}
-          style={dynamicStyles.alertsButton}
-          accessibilityLabel="Notifications"
-        >
-          <View style={styles.alertsButtonInner}>
-            <MaterialIcon name="notifications" size={22} color="#fff" />
-            {inAppUnread > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>
-                  {inAppUnread > 99 ? "99+" : inAppUnread}
-                </Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </LinearGradient>
+      </View>
 
       {/* Notifications Dialog */}
       <NotificationsDialog
@@ -572,7 +576,9 @@ const Head: React.FC<ChildComponentProps> = ({
       </Modal>
 
       {/* About Page */}
-      <AboutPage visible={showAboutUs} onBack={() => setShowAboutUs(false)} />
+      {showAboutUs ? (
+        <AboutPage visible={showAboutUs} onBack={() => setShowAboutUs(false)} />
+      ) : null}
 
       {/* Contact Us Modal */}
       <Modal
@@ -595,44 +601,43 @@ const Head: React.FC<ChildComponentProps> = ({
           <ContactUs />
         </View>
       </Modal>
-    </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   logoContainer: {
-    flex: 1,
-    alignItems: "flex-start",
+    flexShrink: 0,
+    height: HEADER_BAR_HEIGHT,
     justifyContent: "center",
-    paddingTop: 60,
+    alignItems: "flex-start",
+    marginRight: 8,
   },
   logo: {
-    height: 140,
-    width: 120,
+    width: LOGO_WIDTH,
+    height: LOGO_HEIGHT,
     resizeMode: "contain",
   },
   locationContainer: {
-    flex: 2.5,
+    flex: 1,
+    minWidth: 0,
+    height: HEADER_BAR_HEIGHT,
     justifyContent: "center",
     alignItems: "stretch",
-    height: 50,
-    marginHorizontal: 8,
-    paddingBottom: 10,
     zIndex: 200,
     overflow: "visible",
   },
   alertsButtonInner: {
-    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    width: 70,
-    height: 70,
+    width: 36,
+    height: 36,
     position: "relative",
   },
   unreadBadge: {
     position: "absolute",
-    top: 8,
-    right: 6,
+    top: 0,
+    right: -2,
     minWidth: 18,
     height: 18,
     borderRadius: 9,

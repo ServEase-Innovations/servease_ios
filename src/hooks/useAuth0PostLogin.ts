@@ -3,7 +3,6 @@ import { useAuth0 } from "react-native-auth0";
 import Snackbar from "react-native-snackbar";
 import { useAppUser } from "../context/AppUserContext";
 import { completeAuth0PostLogin } from "../services/auth0PostLogin";
-import { HOME } from "../Constants/pagesConstants";
 
 type Options = {
   onNavigate?: (view: string) => void;
@@ -52,8 +51,6 @@ export function useAuth0PostLogin({ onNavigate }: Options = {}) {
 
         if (result.navigateTo) {
           onNavigate?.(result.navigateTo);
-        } else {
-          onNavigate?.(HOME);
         }
       } catch (error) {
         const message =

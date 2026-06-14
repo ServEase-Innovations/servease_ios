@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   // Hero Section with extreme deep shadow
   heroOuter: {
     marginHorizontal: 14,
-    marginTop: 25,
+    marginTop: 0,
     marginBottom: 12,
   },
   heroShadowLayer: {

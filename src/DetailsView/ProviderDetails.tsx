@@ -445,6 +445,10 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Handle booking page
   const handleBookingPage = (data: string) => {
     console.log("📱 handleBookingPage called with:", data);
+    if (!data || !String(data).trim()) {
+      return;
+    }
+
     setOpen(false);
     
     if (props.sendDataToParent) {

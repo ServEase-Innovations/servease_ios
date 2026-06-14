@@ -15,6 +15,7 @@ import {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 import { useDispatch, useSelector } from "react-redux";
+import { useAuth0 } from "react-native-auth0";
 import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { BOOKINGS } from "../Constants/pagesConstants";
@@ -40,6 +41,7 @@ import {
   SERVICE_BOOKING_CONFIG,
   BOOKING_HEADER_GRADIENT,
   computeDurationHours,
+  isBookingScheduleComplete,
   loadServiceQuote,
   type ServiceBookingKind,
 } from "./serviceBookingConfig";
@@ -66,6 +68,7 @@ import {
   resolveLocationCoords,
 } from "../utils/bookingLocation";
 import { useBookingScheduleFlow } from "../hooks/useBookingScheduleFlow";
+import { isCustomerCheckoutReady } from "../utils/authSession";
 
 export type BookingSuccessDetails = {
   providerName?: string;
@@ -88,6 +91,7 @@ export interface ServiceBookingFlowProps {
   /** Parent sheet shows success UI and navigates (same as web dialog flow). */
   onCheckoutSuccess?: (details: BookingSuccessDetails) => void;
   onBookingSuccess?: () => void;
+  onLoginRequired?: () => void;
 }
 
 type CouponOption = CustomerCoupon;
@@ -108,11 +112,18 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   onSuccessDialogChange,
   onCheckoutSuccess,
   onBookingSuccess,
+  onLoginRequired,
 }) => {
   const delegateSuccess = hideHeader && !!onCheckoutSuccess;
   const cfg = SERVICE_BOOKING_CONFIG[serviceKind];
   const dispatch = useDispatch();
   const { appUser } = useAppUser();
+  const { user: auth0User, isAuthenticated: auth0IsAuthenticated } = useAuth0();
+
+  const isCheckoutAuthenticated = useMemo(
+    () => isCustomerCheckoutReady(appUser, auth0IsAuthenticated),
+    [appUser, auth0IsAuthenticated]
+  );
 
   const allCartItems = useSelector(selectCartItems);
   const legacyCartItems = allCartItems.filter(
@@ -204,6 +215,11 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   const bookingTypeCode =
     scheduleFlowBookingTypeCode ||
     getBookingTypeFromPreference(String(bookingType?.bookingPreference ?? "Date"));
+  const scheduleIncomplete = !isBookingScheduleComplete(
+    effectiveBookingType,
+    bookingTypeCode
+  );
+  const needsScheduleAvailabilityCheck = schedulePendingCommit || scheduleIncomplete;
 
   const serviceTotal = quotePreview.total || 0;
   const paymentTotals = useMemo(
@@ -581,6 +597,11 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   };
 
   const handleCheckout = async () => {
+    if (!isCheckoutAuthenticated) {
+      onLoginRequired?.();
+      return;
+    }
+
     if (!canCheckout) {
       Alert.alert(
         "Cannot checkout",
@@ -775,6 +796,15 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
             </View>
           ) : null}
 
+          {!isCheckoutAuthenticated ? (
+            <View style={styles.loginRequiredBanner}>
+              <Icon name="info-outline" size={18} color="#1d4ed8" />
+              <Text style={styles.loginRequiredText}>
+                Sign in to complete your booking and payment.
+              </Text>
+            </View>
+          ) : null}
+
           <View style={styles.card}>
             <Text style={styles.priceLabel}>
               {quotePreview.loading ? "Updating price…" : "Amount payable"}
@@ -865,7 +895,11 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
             <BrandButton variant="ghost" onPress={onClose} flex={0}>
               Close
             </BrandButton>
-            {schedulePendingCommit ? (
+            {!isCheckoutAuthenticated ? (
+              <BrandButton variant="primary" flex={2} onPress={() => onLoginRequired?.()}>
+                Sign in to continue
+              </BrandButton>
+            ) : needsScheduleAvailabilityCheck ? (
               <BrandButton
                 variant="primary"
                 flex={2}
@@ -1257,6 +1291,24 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   footerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+  loginRequiredBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
+  },
+  loginRequiredText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#1e40af",
+    lineHeight: 18,
+  },
   providerUnavailableBanner: {
     marginHorizontal: 12,
     marginBottom: 8,

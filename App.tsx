@@ -44,7 +44,7 @@ declare global {
   var pendingDeepLinkAction: string | null;
 }
 
-import Head from "./src/Header/Header";
+import Head, { HEADER_BAR_HEIGHT } from "./src/Header/Header";
 import NavigationFooter from "./src/NavigationFooter/NavigationFooter";
 import {
   getMobileTabBarHeight,
@@ -896,7 +896,7 @@ const MainApp = () => {
               backgroundColor:
                 currentView === BOOKINGS || currentView === WALLET || currentView === PROFILE || currentView === SETTINGS
                   ? colors.background
-                  : colors.headerBackground,
+                  : colors.chromeEnd,
             },
           ]}
           edges={["top"]}
@@ -917,7 +917,7 @@ const MainApp = () => {
 
               {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
               {currentView !== BOOKINGS && currentView !== WALLET && currentView !== PROFILE && currentView !== SETTINGS && (
-                <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
+                <View style={[styles.headerWrapper, { backgroundColor: colors.chromeEnd }]}>
                   <Head
                     sendDataToParent={handleViewChange}
                     bookingType={selectedBookingType}
@@ -1173,14 +1173,16 @@ const styles = StyleSheet.create({
   },
   headerWrapper: {
     width: "100%",
+    height: HEADER_BAR_HEIGHT,
     zIndex: 50,
+    overflow: "visible",
   },
   homeContainer: { 
     flex: 1 
   },
   contentContainer: {
     flex: 1,
-    marginTop: 50,
+    marginTop: 0,
   },
   contentContainerFullScreen: {
     marginTop: 0,

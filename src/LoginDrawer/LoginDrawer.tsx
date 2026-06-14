@@ -275,7 +275,6 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
           role: "CUSTOMER",
           customerid: customerId,
           customerId,
-          customerId,
           name: customerData
             ? [customerData.firstName ?? customerData.firstname, customerData.lastName ?? customerData.lastname]
                 .filter(Boolean)
@@ -299,13 +298,11 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
       setTimeout(() => {
         handleClose();
         if (sendDataToParent) {
-          sendDataToParent(
-            roleKey === "SERVICE_PROVIDER"
-              ? DASHBOARD
-              : roleKey === "VENDOR"
-                ? AGENT_DASHBOARD
-                : ""
-          );
+          if (roleKey === "SERVICE_PROVIDER") {
+            sendDataToParent(DASHBOARD);
+          } else if (roleKey === "VENDOR") {
+            sendDataToParent(AGENT_DASHBOARD);
+          }
         }
       }, 400);
     } catch (error: unknown) {

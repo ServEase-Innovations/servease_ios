@@ -21,6 +21,7 @@ import {
   Animated,
   Modal as RNModal,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth0 } from 'react-native-auth0';
@@ -571,24 +572,34 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const resolvedCustomerId = useMemo(() => resolveCustomerId(appUser), [appUser]);
 
   useEffect(() => {
-    if (showRefreshTooltip) {
-      Animated.sequence([
-        Animated.timing(tooltipAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.delay(4000),
-        Animated.timing(tooltipAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+    if (!showRefreshTooltip) return;
+
+    tooltipAnim.setValue(0);
+    const animation = Animated.sequence([
+      Animated.timing(tooltipAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.delay(4000),
+      Animated.timing(tooltipAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start(({ finished }) => {
+      if (!finished) return;
+      InteractionManager.runAfterInteractions(() => {
         setShowRefreshTooltip(false);
       });
-    }
-  }, [showRefreshTooltip]);
+    });
+
+    return () => {
+      animation.stop();
+    };
+  }, [showRefreshTooltip, tooltipAnim]);
 
   useImperativeHandle(ref, () => ({
     refreshBookings: async () => {
@@ -2037,22 +2048,22 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     );
   };
 
-  const RefreshTooltip = () => {
+  const refreshTooltipTranslateY = tooltipAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-20, 0],
+  });
+
+  const renderRefreshTooltip = () => {
     if (!showRefreshTooltip) return null;
-    
+
     return (
-      <Animated.View 
+      <Animated.View
         style={[
-          styles.tooltipContainer, 
-          { 
+          styles.tooltipContainer,
+          {
             opacity: tooltipAnim,
-            transform: [{
-              translateY: tooltipAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-20, 0]
-              })
-            }]
-          }
+            transform: [{ translateY: refreshTooltipTranslateY }],
+          },
         ]}
       >
         <View style={[styles.tooltipContent, { backgroundColor: colors.primary + 'E6' }]}>
@@ -2493,7 +2504,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
       {renderBookingsHeader()}
       {renderBookingsSearch()}
       {renderBookingTypeChips()}
-      <RefreshTooltip />
+      {renderRefreshTooltip()}
 
       {/* Content without wrapping ScrollView - using FlatList alternative */}
       <ScrollView 

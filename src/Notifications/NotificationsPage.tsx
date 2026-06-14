@@ -9,11 +9,10 @@ import {
   FlatList,
   ActivityIndicator,
   ScrollView,
-  Dimensions,
   useWindowDimensions,
-  Animated,
   RefreshControl,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
 import Snackbar from "react-native-snackbar";
@@ -51,6 +50,20 @@ function asMetaRecord(m: unknown): Record<string, unknown> | null {
   return null;
 }
 
+function dedupeNotifications(list: InAppNotification[]): InAppNotification[] {
+  const byKey = new Map<string, InAppNotification>();
+  for (const n of list) {
+    const key = `${n.type}|${n.engagementId ?? ""}|${n.title}`;
+    const existing = byKey.get(key);
+    if (!existing || new Date(n.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+      byKey.set(key, n);
+    }
+  }
+  return Array.from(byKey.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
 export default function NotificationsPage({
   visible,
   onClose,
@@ -58,9 +71,10 @@ export default function NotificationsPage({
 }: Props) {
   const { t } = useTranslation();
   const { appUser } = useAppUser();
-  const { colors, isDarkMode } = useTheme();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const sheetHeight = Math.round(windowHeight * 0.85);
+  const { isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetHeight = Math.round(windowHeight * 0.88);
   const [items, setItems] = useState<InAppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -70,21 +84,6 @@ export default function NotificationsPage({
   const [detailFor, setDetailFor] = useState<InAppNotification | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'read'>('all');
-  
-  const slideAnim = React.useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 1,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      slideAnim.setValue(0);
-    }
-  }, [visible]);
 
   const r = useMemo(() => recipientParams(appUser), [appUser]);
 
@@ -237,45 +236,37 @@ export default function NotificationsPage({
   const detailPayload = detailFor ? inAppToBookingRequestPayload(detailFor) : null;
 
   const filteredItems = useMemo(() => {
+    let list = items;
     if (selectedFilter === 'unread') {
-      return items.filter(item => !item.readAt);
+      list = items.filter(item => !item.readAt);
     } else if (selectedFilter === 'read') {
-      return items.filter(item => item.readAt);
+      list = items.filter(item => item.readAt);
     }
-    return items;
+    return dedupeNotifications(list);
   }, [items, selectedFilter]);
 
-  const FilterChip = ({ label, value, count }: { label: string; value: 'all' | 'unread' | 'read'; count: number }) => (
+  const readCount = Math.max(0, items.length - unread);
+
+  const FilterChip = ({ label, value }: { label: string; value: 'all' | 'unread' | 'read' }) => (
     <TouchableOpacity
       style={[
         styles.filterChip,
+        { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' },
         selectedFilter === value && styles.filterChipActive,
       ]}
       onPress={() => setSelectedFilter(value)}
     >
       <Text style={[
         styles.filterChipText,
+        { color: isDarkMode ? '#cbd5e1' : '#64748b' },
         selectedFilter === value && styles.filterChipTextActive,
       ]}>
         {label}
       </Text>
-      {count > 0 && (
-        <View style={[
-          styles.filterBadge,
-          selectedFilter === value && styles.filterBadgeActive,
-        ]}>
-          <Text style={[
-            styles.filterBadgeText,
-            selectedFilter === value && styles.filterBadgeTextActive,
-          ]}>
-            {count}
-          </Text>
-        </View>
-      )}
     </TouchableOpacity>
   );
 
-  const renderItem = ({ item: n, index }: { item: InAppNotification; index: number }) => {
+  const renderItem = ({ item: n }: { item: InAppNotification; index: number }) => {
     const unreadItem = !n.readAt;
     const meta = typeMeta(n.type);
     const metaRow = asMetaRecord(n.metadata);
@@ -293,32 +284,22 @@ export default function NotificationsPage({
     const canQuickAct = isSpOndemandNewBooking && unreadItem && hasBookingDetailPanel;
     const hasBody = Boolean(n.body?.trim()) && !isCustomerAutoCancelled;
     const hasAddress = Boolean(metaRow?.address) && !isCustomerAutoCancelled;
-    const mainContentShort =
-      !hasBody &&
-      !hasAddress &&
-      !isCustomerAutoCancelled &&
-      !hasBookingDetailPanel;
 
     return (
-      <Animated.View
-        style={[
-          styles.itemWrapper,
-          {
-            opacity: slideAnim,
-            transform: [{
-              translateX: slideAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [50, 0],
-              })
-            }]
-          }
-        ]}
-      >
+      <View style={styles.itemWrapper}>
         <TouchableOpacity
           style={[
             styles.itemCard,
             unreadItem && styles.itemUnread,
-            { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }
+            {
+              backgroundColor: unreadItem
+                ? isDarkMode
+                  ? "rgba(59,130,246,0.08)"
+                  : "#f8fbff"
+                : isDarkMode
+                  ? "#1e293b"
+                  : "#ffffff",
+            },
           ]}
           activeOpacity={0.85}
           onPress={() => {
@@ -336,19 +317,10 @@ export default function NotificationsPage({
             if (unreadItem) void markRead(n);
           }}
         >
-          <View
-            style={[
-              styles.itemMainRow,
-              mainContentShort ? styles.itemMainRowCompact : null,
-            ]}
-          >
-            <View style={[styles.iconWrap, { backgroundColor: `${meta.color}15` }]}>
-              <LinearGradient
-                colors={[meta.color, meta.color + 'CC']}
-                style={styles.iconGradient}
-              >
-                <MaterialIcon name={meta.icon} size={22} color="#ffffff" />
-              </LinearGradient>
+          <View style={styles.itemTopRow}>
+            <View style={[styles.iconWrap, { backgroundColor: `${meta.color}18` }]}>
+              <MaterialIcon name={meta.icon} size={20} color={meta.color} />
+              {unreadItem ? <View style={styles.unreadDot} /> : null}
             </View>
             <View style={styles.itemContent}>
               {!isCustomerAutoCancelled ? (
@@ -363,17 +335,9 @@ export default function NotificationsPage({
                   >
                     {n.title}
                   </Text>
-                  {unreadItem ? (
-                    <View style={styles.newBadge}>
-                      <Text style={styles.newBadgeText}>New</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : unreadItem ? (
-                <View style={[styles.titleRow, { marginBottom: 4 }]}>
-                  <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>New</Text>
-                  </View>
+                  <Text style={[styles.timeText, { color: isDarkMode ? '#64748b' : '#94a3b8' }]}>
+                    {timeAgo(n.createdAt)}
+                  </Text>
                 </View>
               ) : null}
               {isCustomerAutoCancelled ? (
@@ -385,22 +349,37 @@ export default function NotificationsPage({
                 />
               ) : null}
               {hasBody ? (
-                <Text style={[styles.itemBody, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                <Text
+                  style={[styles.itemBody, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}
+                  numberOfLines={3}
+                >
                   {n.body}
                 </Text>
               ) : null}
               {hasAddress ? (
                 <View style={styles.metaLine}>
                   <MaterialIcon name="location-on" size={14} color={meta.color} />
-                  <Text style={[styles.metaText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
+                  <Text
+                    style={[styles.metaText, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}
+                    numberOfLines={1}
+                  >
                     {String(metaRow?.address)}
                   </Text>
+                </View>
+              ) : null}
+              {!isCustomerAutoCancelled ? (
+                <View style={styles.itemFooter}>
+                  <View style={[styles.categoryBadge, { backgroundColor: `${meta.color}14` }]}>
+                    <Text style={[styles.categoryText, { color: meta.color }]}>
+                      {meta.label}
+                    </Text>
+                  </View>
                 </View>
               ) : null}
             </View>
           </View>
           {hasBookingDetailPanel ? (
-            <View style={styles.actionRowIndented}>
+            <View style={styles.actionRow}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.viewButton]}
                 onPress={() => {
@@ -440,19 +419,8 @@ export default function NotificationsPage({
               ) : null}
             </View>
           ) : null}
-          <View style={styles.itemFooter}>
-            <View style={styles.categoryBadge}>
-              <MaterialIcon name={meta.icon} size={12} color={meta.color} />
-              <Text style={[styles.categoryText, { color: meta.color }]}>
-                {meta.label}
-              </Text>
-            </View>
-            <Text style={[styles.timeText, { color: isDarkMode ? '#64748b' : '#94a3b8' }]}>
-              {timeAgo(n.createdAt)}
-            </Text>
-          </View>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -475,28 +443,21 @@ export default function NotificationsPage({
     </View>
   );
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [windowHeight, 0],
-  });
-
   return (
     <>
-      <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
         <View style={styles.overlay}>
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-          <Animated.View
+          <View
             style={[
               styles.dialog,
               {
-                transform: [{ translateY }],
                 height: sheetHeight,
-                width: windowWidth,
                 backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
-              }
+                paddingBottom: Math.max(insets.bottom, 8),
+              },
             ]}
           >
-            {/* Header */}
             <LinearGradient
               colors={[...BOOKING_HEADER_GRADIENT]}
               start={{ x: 0, y: 0 }}
@@ -508,77 +469,53 @@ export default function NotificationsPage({
               </View>
               <View style={styles.headerContent}>
                 <View style={styles.headerLeft}>
-                  <Text style={styles.headerBadge}>NOTIFICATIONS</Text>
-                  <Text style={styles.headerTitle}>Activity Center</Text>
+                  <Text style={styles.headerTitle}>Notifications</Text>
+                  <Text style={styles.headerSubtitle}>
+                    {r
+                      ? unread > 0
+                        ? `${unread} unread · ${items.length} total`
+                        : items.length > 0
+                          ? `${items.length} update${items.length === 1 ? "" : "s"} · all read`
+                          : "Stay on top of bookings and visits"
+                      : "Sign in to see your activity"}
+                  </Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={onClose}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <MaterialIcon name="close" size={24} color="#ffffff" />
-                </TouchableOpacity>
+                <View style={styles.headerActions}>
+                  {r && unread > 0 ? (
+                    <TouchableOpacity
+                      style={styles.headerIconBtn}
+                      onPress={markAll}
+                      accessibilityLabel="Mark all as read"
+                    >
+                      <MaterialIcon name="done-all" size={20} color="#ffffff" />
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.headerIconBtn}
+                    onPress={onClose}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityLabel="Close"
+                  >
+                    <MaterialIcon name="close" size={22} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <Text style={styles.headerSubtitle}>
-                {r
-                  ? unread > 0
-                    ? `You have ${unread} unread notification${unread > 1 ? 's' : ''}`
-                    : "All caught up! No unread notifications"
-                  : "Sign in to see your activity"}
-              </Text>
             </LinearGradient>
 
-            {/* Stats Bar */}
-            {r && items.length > 0 && (
-              <View style={[styles.statsBar, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }]}>
-                <View style={styles.statItem}>
-                  <MaterialIcon name="notifications" size={18} color="#3b82f6" />
-                  <Text style={[styles.statNumber, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
-                    {items.length}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
-                    Total
-                  </Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <MaterialIcon name="markunread" size={18} color="#f59e0b" />
-                  <Text style={[styles.statNumber, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
-                    {unread}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
-                    Unread
-                  </Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <MaterialIcon name="done-all" size={18} color="#10b981" />
-                  <Text style={[styles.statNumber, { color: isDarkMode ? '#f8fafc' : '#0f172a' }]}>
-                    {items.length - unread}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: isDarkMode ? '#94a3b8' : '#64748b' }]}>
-                    Read
-                  </Text>
-                </View>
+            {r && items.length > 0 ? (
+              <View style={[styles.toolbar, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderBottomColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filterScroll}
+                >
+                  <FilterChip label={`All (${items.length})`} value="all" />
+                  <FilterChip label={`Unread (${unread})`} value="unread" />
+                  <FilterChip label={`Read (${readCount})`} value="read" />
+                </ScrollView>
               </View>
-            )}
+            ) : null}
 
-            {/* Filter Chips */}
-            {r && items.length > 0 && (
-              <View style={styles.filterContainer}>
-                <FilterChip label="All" value="all" count={items.length} />
-                <FilterChip label="Unread" value="unread" count={unread} />
-                <FilterChip label="Read" value="read" count={items.length - unread} />
-                {unread > 0 && (
-                  <TouchableOpacity style={styles.markAllButton} onPress={markAll}>
-                    <MaterialIcon name="done-all" size={18} color="#3b82f6" />
-                    <Text style={styles.markAllText}>Mark all read</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Content */}
             <View style={[styles.body, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]}>
               {!r ? (
                 <ScrollView
@@ -634,7 +571,7 @@ export default function NotificationsPage({
                 />
               )}
             </View>
-          </Animated.View>
+          </View>
         </View>
       </Modal>
 
@@ -726,10 +663,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   dialog: {
+    width: "100%",
+    alignSelf: "stretch",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: "hidden",
-    alignSelf: "center",
   },
   detailDialog: {
     alignSelf: "center",
@@ -739,44 +677,44 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   header: {
-    paddingTop: 12,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    width: "100%",
+    alignSelf: "stretch",
   },
   sheetHandle: {
     alignItems: "center",
-    marginBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   sheetHandleBar: {
-    width: 48,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.4)",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.35)",
   },
   headerContent: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 12,
   },
   headerLeft: {
     flex: 1,
-  },
-  headerBadge: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-    marginBottom: 6,
+    minWidth: 0,
   },
   headerTitle: {
     color: "#ffffff",
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
   },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.15)",
@@ -784,176 +722,106 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     color: "rgba(255,255,255,0.85)",
     fontSize: 13,
-    marginTop: 8,
+    marginTop: 4,
+    lineHeight: 18,
   },
-  statsBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginTop: 0,
+  toolbar: {
+    width: "100%",
+    alignSelf: "stretch",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
+    paddingVertical: 10,
   },
-  statItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "rgba(0,0,0,0.1)",
-  },
-  filterContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  filterScroll: {
+    paddingHorizontal: 12,
     gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
   },
   filterChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "#e2e8f0",
-    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
   },
   filterChipActive: {
-    backgroundColor: "#3b82f6",
+    backgroundColor: "#2563eb",
   },
   filterChipText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#64748b",
   },
   filterChipTextActive: {
     color: "#ffffff",
   },
-  filterBadge: {
-    backgroundColor: "rgba(0,0,0,0.1)",
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  filterBadgeActive: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  filterBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#64748b",
-  },
-  filterBadgeTextActive: {
-    color: "#ffffff",
-  },
-  markAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: "auto",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  markAllText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#3b82f6",
-  },
   body: {
     flex: 1,
+    width: "100%",
+    alignSelf: "stretch",
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 20,
+    padding: 12,
+    paddingBottom: 8,
   },
   itemWrapper: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   itemCard: {
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.2)",
   },
   itemUnread: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#3b82f6",
+    borderColor: "rgba(59,130,246,0.35)",
   },
-  itemMainRow: {
+  itemTopRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 14,
-  },
-  itemMainRowCompact: {
-    alignItems: "center",
+    gap: 12,
   },
   iconWrap: {
-    borderRadius: 12,
-    overflow: "hidden",
-    flexShrink: 0,
-  },
-  iconGradient: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+    position: "relative",
+  },
+  unreadDot: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#2563eb",
+    borderWidth: 2,
+    borderColor: "#ffffff",
   },
   itemContent: {
     flex: 1,
+    minWidth: 0,
   },
   titleRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     gap: 8,
     marginBottom: 4,
   },
   itemTitle: {
     fontSize: 15,
     fontWeight: "600",
-    flexShrink: 1,
-    flexGrow: 1,
+    flex: 1,
     lineHeight: 20,
   },
   itemTitleBold: {
-    fontWeight: "800",
-  },
-  newBadge: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    flexShrink: 0,
-    alignSelf: "center",
-  },
-  newBadgeText: {
-    color: "#ffffff",
-    fontSize: 10,
     fontWeight: "700",
-    lineHeight: 12,
-    includeFontPadding: false,
   },
   itemBody: {
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
     marginTop: 2,
-    marginBottom: 0,
   },
   metaLine: {
     flexDirection: "row",
@@ -999,12 +867,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 4,
   },
-  actionRowIndented: {
+  actionRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
     marginTop: 10,
-    marginLeft: 62,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(148,163,184,0.2)",
   },
   actionButton: {
     flexDirection: "row",
@@ -1041,29 +911,23 @@ const styles = StyleSheet.create({
   itemFooter: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 10,
-    marginLeft: 62,
-    minHeight: 18,
+    marginTop: 8,
   },
   categoryBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    flexShrink: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
   },
   categoryText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
     lineHeight: 14,
-    includeFontPadding: false,
   },
   timeText: {
     fontSize: 11,
     lineHeight: 14,
-    includeFontPadding: false,
     flexShrink: 0,
-    marginLeft: 8,
+    marginTop: 2,
   },
   centered: {
     flex: 1,
