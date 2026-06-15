@@ -47,7 +47,6 @@ looks_like_pkcs12_der() {
 prepare_p12_for_import() {
   local path="$1"
   local size
-  local openssl_err=""
 
   size="$(wc -c < "${path}" | tr -d ' ')"
   if [ "${size}" -lt 256 ]; then
@@ -67,40 +66,73 @@ prepare_p12_for_import() {
     echo "Re-export Apple Distribution as .p12 and re-encode IOS_DIST_CERTIFICATE_BASE64."
     exit 1
   fi
+}
 
-  # Avoid pass:... — passwords with $, ", or \ break in shell and openssl pass: syntax.
+try_reencode_legacy_p12() {
+  local path="$1"
+  local modern_path="${path}.modern"
   export IOS_DIST_CERTIFICATE_PASSWORD
 
-  if openssl pkcs12 -in "${path}" -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD 2>/dev/null; then
+  echo "Attempting legacy PKCS#12 re-encode (RC2 → AES-256)..."
+  if openssl pkcs12 -legacy \
+    -in "${path}" -passin env:IOS_DIST_CERTIFICATE_PASSWORD \
+    -nodes \
+    -out "${modern_path}.pem" 2>/dev/null \
+    && openssl pkcs12 -export \
+    -in "${modern_path}.pem" \
+    -out "${modern_path}" \
+    -passout env:IOS_DIST_CERTIFICATE_PASSWORD \
+    -certpbe AES-256-CBC -keypbe AES-256-CBC -macalg SHA256 2>/dev/null; then
+    rm -f "${modern_path}.pem"
+    mv "${modern_path}" "${path}"
+    echo "Re-encoded distribution certificate to AES-256-CBC PKCS#12."
     return 0
   fi
 
-  openssl_err="$(openssl pkcs12 -in "${path}" -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD 2>&1 || true)"
+  rm -f "${modern_path}" "${modern_path}.pem"
+  return 1
+}
 
-  # Keychain exports often use RC2-40-CBC, which OpenSSL 3 rejects unless -legacy is used.
-  if echo "${openssl_err}" | grep -qiE 'RC2|unsupported|0308010C|legacy'; then
-    echo "Legacy PKCS#12 encryption detected (common for Keychain .p12 exports). Re-encoding for CI..."
-    local modern_path="${path}.modern"
-    if openssl pkcs12 -legacy -in "${path}" -passin env:IOS_DIST_CERTIFICATE_PASSWORD \
-      -export -out "${modern_path}" -passout env:IOS_DIST_CERTIFICATE_PASSWORD \
-      -certpbe AES-256-CBC -keypbe AES-256-CBC -macalg SHA256 2>/dev/null \
-      && openssl pkcs12 -in "${modern_path}" -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD 2>/dev/null; then
-      mv "${modern_path}" "${path}"
-      echo "Re-encoded distribution certificate to AES-256-CBC PKCS#12."
-      return 0
-    fi
-    rm -f "${modern_path}"
+import_distribution_p12() {
+  local path="$1"
+  local err
+  err="$(mktemp)"
+  if security import "${path}" \
+    -P "${IOS_DIST_CERTIFICATE_PASSWORD}" \
+    -A \
+    -f pkcs12 \
+    -k "${KEYCHAIN_PATH}" \
+    -T /usr/bin/codesign \
+    -T /usr/bin/security 2>"${err}"; then
+    rm -f "${err}"
+    return 0
   fi
+  if [ -s "${err}" ]; then
+    echo "security import: $(tr '\n' ' ' < "${err}")"
+  fi
+  rm -f "${err}"
+  return 1
+}
 
-  echo "PKCS#12 validation failed (openssl could not read the .p12)."
-  echo "OpenSSL: ${openssl_err}"
+print_p12_secret_help() {
   echo ""
-  echo "Fix GitHub secrets:"
-  echo "  1. Keychain Access → My Certificates → Apple Distribution (with private key) → Export → .p12"
-  echo "  2. Use a simple export password (letters/numbers only) for IOS_DIST_CERTIFICATE_PASSWORD"
-  echo "  3. base64 -i YourCert.p12 | tr -d '\\n' | pbcopy  → paste into IOS_DIST_CERTIFICATE_BASE64"
-  echo "  4. Verify locally (OpenSSL 3): openssl pkcs12 -legacy -in /tmp/test.p12 -noout -passin env:IOS_DIST_CERTIFICATE_PASSWORD"
-  exit 1
+  echo "Which Keychain certificate to export for TestFlight / App Store CI:"
+  echo "  ✓ Apple Distribution: …  (or legacy name iPhone Distribution: …)"
+  echo "    — under Keychain Access → login → My Certificates"
+  echo "    — expand the row; a private key must be nested under the certificate"
+  echo "    — select BOTH the certificate and its private key, then File → Export Items → .p12"
+  echo "  ✗ Do NOT use: Apple Development, iPhone Developer, Developer ID, APNs, or intermediates"
+  echo "    (Apple Worldwide Developer Relations, Developer ID Certification Authority, etc.)"
+  echo ""
+  echo "The .p12 must match your App Store provisioning profile team and bundle ID"
+  echo "  (${IOS_BUNDLE_ID:-in.serveaseinnovation.serveaso})."
+  echo ""
+  echo "Update GitHub secrets:"
+  echo "  IOS_DIST_CERTIFICATE_BASE64 — base64 -i YourDistribution.p12 | tr -d '\\n' | pbcopy"
+  echo "  IOS_DIST_CERTIFICATE_PASSWORD — export password (letters/numbers only)"
+  echo ""
+  echo "Verify on your Mac (password correct if this succeeds):"
+  echo "  security import /path/to/export.p12 -k ~/Library/Keychains/login.keychain-db -P 'YOUR_PASSWORD' -T /usr/bin/codesign"
 }
 
 security create-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
@@ -110,13 +142,17 @@ security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
 decode_base64_secret "${IOS_DIST_CERTIFICATE_BASE64}" "${CERT_PATH}"
 prepare_p12_for_import "${CERT_PATH}"
 
-security import "${CERT_PATH}" \
-  -P "${IOS_DIST_CERTIFICATE_PASSWORD}" \
-  -A \
-  -f pkcs12 \
-  -k "${KEYCHAIN_PATH}" \
-  -T /usr/bin/codesign \
-  -T /usr/bin/security
+if ! import_distribution_p12 "${CERT_PATH}"; then
+  echo "First security import failed; trying legacy PKCS#12 re-encode..."
+  if try_reencode_legacy_p12 "${CERT_PATH}" && import_distribution_p12 "${CERT_PATH}"; then
+    echo "Imported distribution certificate after legacy re-encode."
+  else
+    echo "Failed to import distribution certificate (.p12 password wrong or wrong cert type)."
+    print_p12_secret_help
+    exit 1
+  fi
+fi
+
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
 security list-keychain -d user -s "${KEYCHAIN_PATH}"
 
