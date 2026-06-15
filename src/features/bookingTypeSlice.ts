@@ -57,6 +57,23 @@ export const bookingTypeSlice = createSlice({
     closeBookingDialog: (state) => {
       state.activeBookingDialogProviderId = null;
     },
+    /** Clear date/time selections when user dismisses booking without completing checkout. */
+    resetBookingSchedule: (state) => {
+      if (state.value) {
+        state.value = {
+          ...state.value,
+          startDate: "",
+          endDate: "",
+          startTime: "",
+          endTime: "",
+          timeRange: "",
+          timeSlot: "",
+        };
+      }
+      state.scheduleRevision += 1;
+      state.scheduleDirty = false;
+      state.scheduleDraft = null;
+    },
   },
 })
 
@@ -69,6 +86,7 @@ export const {
   setScheduleDraft,
   openBookingDialog,
   closeBookingDialog,
+  resetBookingSchedule,
 } = bookingTypeSlice.actions;
 
 export default bookingTypeSlice.reducer;

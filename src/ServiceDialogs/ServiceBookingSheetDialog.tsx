@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useDispatch } from "react-redux";
 import { useAuth0 } from "react-native-auth0";
 import Snackbar from "react-native-snackbar";
 import { BOOKINGS, DASHBOARD, AGENT_DASHBOARD } from "../Constants/pagesConstants";
@@ -29,6 +30,7 @@ import {
   SERVICE_BOOKING_CONFIG,
   type ServiceBookingKind,
 } from "./serviceBookingConfig";
+import { closeBookingDialog, resetBookingSchedule } from "../features/bookingTypeSlice";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DISMISS_DRAG = 80;
@@ -54,6 +56,7 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
   onBookingSuccess,
 }) => {
   const cfg = SERVICE_BOOKING_CONFIG[serviceKind];
+  const dispatch = useDispatch();
   const [successShowing, setSuccessShowing] = useState(false);
   const [showLoginDrawer, setShowLoginDrawer] = useState(false);
   const [bookingSuccessDetails, setBookingSuccessDetails] =
@@ -117,8 +120,10 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
   const dismissSheet = useCallback(() => {
     if (successShowing) return;
     dragY.setValue(0);
+    dispatch(resetBookingSchedule());
+    dispatch(closeBookingDialog());
     handleClose();
-  }, [successShowing, handleClose, dragY]);
+  }, [successShowing, handleClose, dragY, dispatch]);
 
   const handleCheckoutSuccess = useCallback((details: BookingSuccessDetails) => {
     setBookingSuccessDetails(details);

@@ -342,6 +342,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         resolvedEnd || providerSearchCriteria.endTime
       );
 
+      const bookingTypeCode = getBookingTypeFromPreference(
+        providerSearchCriteria.bookingPreference
+      );
+
       const payload: any = {
         lat: latitude.toString(),
         lng: longitude.toString(),
@@ -360,7 +364,8 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
             : "") ||
           "09:00",
         role: providerSearchCriteria.housekeepingRole || "COOK",
-        serviceDurationMinutes: serviceDurationMinutes
+        serviceDurationMinutes: serviceDurationMinutes,
+        bookingType: bookingTypeCode,
       };
 
       if (activeFilters) {

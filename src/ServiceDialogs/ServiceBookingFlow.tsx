@@ -183,6 +183,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
 
   const [loading, setLoading] = useState(false);
   const scheduleSectionRef = useRef<MaidBookingDetailsSectionHandle>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [onDemandAvailability, setOnDemandAvailability] = useState<{
     loading: boolean;
@@ -317,6 +318,13 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
 
   useEffect(() => {
     if (!active) setLoading(false);
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) return;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
   }, [active]);
 
   useEffect(() => {
@@ -758,10 +766,12 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
         )}
 
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.card}>
             <MaidBookingDetailsSection
@@ -1117,8 +1127,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: { color: "#fff", fontSize: 20, fontWeight: "700" },
   headerSub: { color: "rgba(255,255,255,0.9)", fontSize: 14, marginTop: 4 },
-  scroll: { flexGrow: 1, flexShrink: 1, maxHeight: SCREEN_HEIGHT * 0.58 },
-  scrollContent: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, flexGrow: 0 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 16 },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,

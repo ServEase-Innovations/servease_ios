@@ -216,6 +216,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         speed: 18,
         bounciness: 0,
       }).start();
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      });
     }
   }, [open, startDate, endDate, startTime, endTime, sheetTranslateY]);
 
@@ -668,6 +671,12 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const handleSheetClose = () => {
     setCurrentStep(1);
     sheetTranslateY.setValue(0);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    setStartDate(null);
+    setEndDate(null);
+    setStartTime(null);
+    setEndTime(null);
+    onOptionChange("Date");
     onClose();
   };
 

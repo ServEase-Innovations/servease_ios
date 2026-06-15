@@ -408,6 +408,68 @@ const getBookingTypeIcon = (type: string) => {
   }
 };
 
+type UpcomingServiceFilter = 'ALL' | 'cook' | 'maid' | 'nanny';
+type UpcomingDurationFilter = 'ALL' | 'MONTHLY' | 'SHORT_TERM' | 'ON_DEMAND';
+
+const UPCOMING_SERVICE_FILTERS: {
+  value: UpcomingServiceFilter;
+  label: string;
+  icon: string;
+}[] = [
+  { value: 'ALL', label: 'All services', icon: 'view-grid' },
+  { value: 'cook', label: 'Cook', icon: 'chef-hat' },
+  { value: 'maid', label: 'Maid', icon: 'broom' },
+  { value: 'nanny', label: 'Caregiver', icon: 'heart' },
+];
+
+const UPCOMING_DURATION_FILTERS: {
+  value: UpcomingDurationFilter;
+  label: string;
+  icon: string;
+}[] = [
+  { value: 'ALL', label: 'All types', icon: 'calendar' },
+  { value: 'MONTHLY', label: 'Monthly', icon: 'calendar-month' },
+  { value: 'SHORT_TERM', label: 'Short term', icon: 'calendar-clock' },
+  { value: 'ON_DEMAND', label: 'On demand', icon: 'flash' },
+];
+
+const normalizeBookingServiceType = (booking: Booking): string =>
+  String(booking.service_type || booking.serviceType || '')
+    .toLowerCase()
+    .trim();
+
+const matchesUpcomingServiceFilter = (
+  booking: Booking,
+  filter: UpcomingServiceFilter
+): boolean => {
+  if (filter === 'ALL') return true;
+  const serviceType = normalizeBookingServiceType(booking);
+  if (filter === 'nanny') return serviceType === 'nanny' || serviceType === 'caregiver';
+  if (filter === 'maid') return serviceType === 'maid' || serviceType === 'cleaning';
+  return serviceType === filter;
+};
+
+const matchesUpcomingDurationFilter = (
+  booking: Booking,
+  filter: UpcomingDurationFilter
+): boolean => {
+  if (filter === 'ALL') return true;
+  return String(booking.bookingType || '').toUpperCase() === filter;
+};
+
+const applyUpcomingTabFilters = (
+  bookings: Booking[],
+  serviceFilter: UpcomingServiceFilter,
+  durationFilter: UpcomingDurationFilter,
+  statusFilter: string
+): Booking[] =>
+  bookings
+    .filter((booking) => matchesUpcomingServiceFilter(booking, serviceFilter))
+    .filter((booking) => matchesUpcomingDurationFilter(booking, durationFilter))
+    .filter(
+      (booking) => statusFilter === 'ALL' || booking.taskStatus === statusFilter
+    );
+
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
   try {
@@ -436,6 +498,11 @@ const isUpcomingTabBooking = (booking: Booking): boolean => {
 };
 
 type UpcomingSortOrder = 'newest' | 'oldest';
+
+const UPCOMING_SORT_OPTIONS: { value: UpcomingSortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+];
 
 const getBookingCreatedEpoch = (booking: Booking): number => {
   const raw = booking.bookingDate || booking.created_at;
@@ -519,8 +586,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [upcomingServiceFilter, setUpcomingServiceFilter] =
+    useState<UpcomingServiceFilter>('ALL');
+  const [upcomingDurationFilter, setUpcomingDurationFilter] =
+    useState<UpcomingDurationFilter>('ALL');
   const [upcomingSortOrder, setUpcomingSortOrder] =
     useState<UpcomingSortOrder>('newest');
+  const [openFilterMenu, setOpenFilterMenu] = useState<
+    'sort' | 'service' | 'duration' | 'status' | null
+  >(null);
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
   const [onDemandRebookOpen, setOnDemandRebookOpen] = useState(false);
@@ -1686,8 +1760,30 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     [...currentBookings, ...futureBookings].filter(isUpcomingTabBooking),
     upcomingSortOrder
   );
-  const filteredByStatus = statusFilter === 'ALL' ? upcomingBookings : upcomingBookings.filter(booking => booking.taskStatus === statusFilter);
-  const filteredUpcomingBookings = filterBookings(filterByBookingType(filteredByStatus), searchTerm);
+  const scopedUpcomingBookings = filterByBookingType(upcomingBookings);
+
+  const countUpcomingWithFilters = (
+    source: Booking[],
+    overrides: Partial<{
+      serviceFilter: UpcomingServiceFilter;
+      durationFilter: UpcomingDurationFilter;
+      statusFilter: string;
+    }> = {}
+  ) =>
+    applyUpcomingTabFilters(
+      source,
+      overrides.serviceFilter ?? upcomingServiceFilter,
+      overrides.durationFilter ?? upcomingDurationFilter,
+      overrides.statusFilter ?? statusFilter
+    ).length;
+
+  const upcomingAfterTabFilters = applyUpcomingTabFilters(
+    scopedUpcomingBookings,
+    upcomingServiceFilter,
+    upcomingDurationFilter,
+    statusFilter
+  );
+  const filteredUpcomingBookings = filterBookings(upcomingAfterTabFilters, searchTerm);
   const filteredPastBookings = filterBookings(filterByBookingType(pastBookings), searchTerm);
   const filteredCancelledBookings = filterBookings(filterByBookingType(cancelledBookings), searchTerm);
   
@@ -1700,29 +1796,36 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     searchTerm
   );
 
-  const upcomingBaseBookings = filterBookings(filterByBookingType(upcomingBookings), searchTerm);
+
+  const hasActiveUpcomingFilters =
+    statusFilter !== 'ALL' ||
+    upcomingServiceFilter !== 'ALL' ||
+    upcomingDurationFilter !== 'ALL';
+
+  const clearUpcomingFilters = () => {
+    setStatusFilter('ALL');
+    setUpcomingServiceFilter('ALL');
+    setUpcomingDurationFilter('ALL');
+  };
 
   const upcomingStatusTabs = [
-    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: upcomingBaseBookings.length },
+    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: countUpcomingWithFilters(scopedUpcomingBookings, { statusFilter: 'ALL' }) },
     {
       value: 'NOT_STARTED',
       label: 'Not started',
       icon: 'clock-outline',
-      count: upcomingBaseBookings.filter((b) => b.taskStatus === 'NOT_STARTED').length,
+      count: countUpcomingWithFilters(scopedUpcomingBookings, { statusFilter: 'NOT_STARTED' }),
     },
     {
       value: 'IN_PROGRESS',
       label: 'In progress',
       icon: 'progress-clock',
-      count: upcomingBaseBookings.filter((b) => b.taskStatus === 'IN_PROGRESS').length,
+      count: countUpcomingWithFilters(scopedUpcomingBookings, { statusFilter: 'IN_PROGRESS' }),
     },
   ];
 
   const handleSectionTabChange = (tab: 'action_needed' | 'upcoming' | 'past' | 'cancelled') => {
     setActiveSectionTab(tab);
-    if (tab === 'upcoming') {
-      setStatusFilter('ALL');
-    }
   };
 
   // Updated header with LinearGradient from BookingDialog
@@ -1796,126 +1899,197 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     </View>
   );
 
-  const renderUpcomingStatusFilter = () => (
-    <View style={styles.upcomingFiltersBlock}>
-      <View style={styles.upcomingSortRow}>
-        <Text style={[styles.filterGroupLabel, styles.upcomingSortLabel, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
-          Sort by
-        </Text>
-        <View style={styles.upcomingSortOptions}>
-          {(
-            [
-              { value: 'newest' as const, label: 'Newest first' },
-              { value: 'oldest' as const, label: 'Oldest first' },
-            ] as const
-          ).map((option) => {
-            const selected = upcomingSortOrder === option.value;
-            return (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.sortChip,
-                  {
-                    backgroundColor: selected
-                      ? colors.primary
-                      : isDarkMode
-                        ? colors.card
-                        : '#ffffff',
-                    borderColor: selected ? colors.primary : colors.border + '55',
-                  },
-                ]}
-                onPress={() => setUpcomingSortOrder(option.value)}
-                activeOpacity={0.85}
-              >
-                <Icon
-                  name="sort"
-                  size={14}
-                  color={selected ? '#fff' : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.sortChipText,
-                    {
-                      color: selected ? '#fff' : colors.textSecondary,
-                      fontSize: fontSizes.badgeText,
-                    },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-      <Text style={[styles.filterGroupLabel, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
-        Filter by status
-      </Text>
-      <View style={styles.statusFilterWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.statusFilterScroll}
-          contentContainerStyle={styles.statusFilterScrollContent}
+  const renderUpcomingFilterDropdown = <T extends string>({
+    menuKey,
+    label,
+    shortLabel,
+    icon,
+    value,
+    options,
+    onSelect,
+  }: {
+    menuKey: 'sort' | 'service' | 'duration' | 'status';
+    label: string;
+    shortLabel: string;
+    icon?: string;
+    value: T;
+    options: { value: T; label: string; count?: number }[];
+    onSelect: (next: T) => void;
+  }) => {
+    const selected = options.find((option) => option.value === value) ?? options[0];
+    const displayText =
+      selected?.count !== undefined
+        ? `${selected.label} (${selected.count})`
+        : selected?.label ?? '';
+    const isOpen = openFilterMenu === menuKey;
+
+    return (
+      <View style={[styles.filterDropdownItem, isOpen && styles.filterDropdownRowOpen]}>
+        <Text
+          style={[
+            styles.filterDropdownItemLabel,
+            { color: colors.textSecondary, fontSize: fontSizes.badgeText - 1 },
+          ]}
+          numberOfLines={1}
         >
-          {upcomingStatusTabs.map((tab) => {
-          const selected = statusFilter === tab.value;
-          return (
-            <TouchableOpacity
-              key={tab.value}
+          {shortLabel}
+        </Text>
+        <View style={styles.sortDropdownWrap}>
+          <TouchableOpacity
+            style={[
+              styles.sortDropdownTrigger,
+              {
+                borderColor: colors.border + '80',
+                backgroundColor: isDarkMode ? colors.card : '#ffffff',
+              },
+            ]}
+            onPress={() => setOpenFilterMenu((current) => (current === menuKey ? null : menuKey))}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`${label}: ${displayText}`}
+            accessibilityState={{ expanded: isOpen }}
+          >
+            {icon ? <Icon name={icon} size={13} color={colors.textSecondary} /> : null}
+            <Text
               style={[
-                styles.statusChip,
+                styles.sortDropdownText,
+                { color: colors.text, fontSize: fontSizes.badgeText - 1 },
+              ]}
+              numberOfLines={1}
+            >
+              {displayText}
+            </Text>
+            <Icon
+              name={isOpen ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+          {isOpen ? (
+            <View
+              style={[
+                styles.sortDropdownMenu,
                 {
-                  backgroundColor: selected
-                    ? colors.primary
-                    : isDarkMode
-                      ? colors.card
-                      : '#ffffff',
-                  borderColor: selected ? colors.primary : colors.border + '55',
+                  backgroundColor: isDarkMode ? colors.card : '#ffffff',
+                  borderColor: colors.border + '80',
                 },
               ]}
-              onPress={() => setStatusFilter(tab.value)}
-              activeOpacity={0.85}
             >
-              <Icon
-                name={tab.icon}
-                size={14}
-                color={selected ? '#fff' : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.statusChipText,
-                  {
-                    color: selected ? '#fff' : colors.textSecondary,
-                    fontSize: fontSizes.badgeText,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {tab.label}
-              </Text>
-              <View
-                style={[
-                  styles.statusChipCount,
-                  {
-                    backgroundColor: selected ? 'rgba(255,255,255,0.28)' : colors.border + '90',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusChipCountText,
-                    { color: selected ? '#fff' : colors.textSecondary },
-                  ]}
-                >
-                  {tab.count}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-          })}
-        </ScrollView>
+              {options.map((option) => {
+                const isSelected = value === option.value;
+                const optionLabel =
+                  option.count !== undefined
+                    ? `${option.label} (${option.count})`
+                    : option.label;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.sortDropdownOption,
+                      isSelected && { backgroundColor: colors.primary + '12' },
+                    ]}
+                    onPress={() => {
+                      onSelect(option.value);
+                      setOpenFilterMenu(null);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.sortDropdownOptionText,
+                        {
+                          color: isSelected ? colors.primary : colors.text,
+                          fontSize: fontSizes.badgeText,
+                        },
+                      ]}
+                    >
+                      {optionLabel}
+                    </Text>
+                    {isSelected ? <Icon name="check" size={16} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
       </View>
+    );
+  };
+
+  const renderUpcomingStatusFilter = () => (
+    <View style={styles.upcomingFiltersBlock}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.upcomingFiltersRow}
+      >
+      {renderUpcomingFilterDropdown({
+        menuKey: 'sort',
+        label: 'Sort by',
+        shortLabel: 'Sort',
+        icon: 'sort',
+        value: upcomingSortOrder,
+        options: UPCOMING_SORT_OPTIONS,
+        onSelect: setUpcomingSortOrder,
+      })}
+
+      {renderUpcomingFilterDropdown({
+        menuKey: 'service',
+        label: 'Service type',
+        shortLabel: 'Service',
+        icon: 'briefcase-outline',
+        value: upcomingServiceFilter,
+        options: UPCOMING_SERVICE_FILTERS.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: countUpcomingWithFilters(scopedUpcomingBookings, { serviceFilter: tab.value }),
+        })),
+        onSelect: setUpcomingServiceFilter,
+      })}
+
+      {renderUpcomingFilterDropdown({
+        menuKey: 'duration',
+        label: 'Booking type',
+        shortLabel: 'Type',
+        icon: 'calendar-range',
+        value: upcomingDurationFilter,
+        options: UPCOMING_DURATION_FILTERS.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: countUpcomingWithFilters(scopedUpcomingBookings, { durationFilter: tab.value }),
+        })),
+        onSelect: setUpcomingDurationFilter,
+      })}
+
+      {renderUpcomingFilterDropdown({
+        menuKey: 'status',
+        label: 'Status',
+        shortLabel: 'Status',
+        icon: 'filter-variant',
+        value: statusFilter,
+        options: upcomingStatusTabs.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: tab.count,
+        })),
+        onSelect: setStatusFilter,
+      })}
+
+      {hasActiveUpcomingFilters ? (
+        <TouchableOpacity
+          style={[styles.clearFiltersInlineBtn, { borderColor: colors.primary }]}
+          onPress={() => {
+            setOpenFilterMenu(null);
+            clearUpcomingFilters();
+          }}
+        >
+          <Icon name="filter-off-outline" size={14} color={colors.primary} />
+          <Text style={[styles.clearFiltersInlineText, { color: colors.primary, fontSize: fontSizes.badgeText - 1 }]}>
+            Clear
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+      </ScrollView>
     </View>
   );
 
@@ -1948,7 +2122,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   );
 
   const renderUpcomingEmptyState = () => {
-    if (upcomingBaseBookings.length === 0) {
+    if (filterBookings(scopedUpcomingBookings, searchTerm).length === 0) {
       return (
         <View style={styles.emptyStateWrap}>
           <View
@@ -1978,6 +2152,10 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
       );
     }
 
+    const serviceLabel =
+      UPCOMING_SERVICE_FILTERS.find((t) => t.value === upcomingServiceFilter)?.label ?? 'selected service';
+    const durationLabel =
+      UPCOMING_DURATION_FILTERS.find((t) => t.value === upcomingDurationFilter)?.label ?? 'selected type';
     const statusLabel =
       upcomingStatusTabs.find((t) => t.value === statusFilter)?.label ?? 'selected status';
 
@@ -1987,11 +2165,23 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           <Icon name="filter-off-outline" size={44} color={colors.primary} />
         </View>
         <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>
-          No {statusLabel} Bookings
+          No matching bookings
         </Text>
         <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-          None of your upcoming bookings match this status. Try another filter or show all.
+          {hasActiveUpcomingFilters
+            ? `No upcoming bookings match your filters (${serviceLabel} · ${durationLabel} · ${statusLabel}). Try adjusting or clear all filters.`
+            : 'None of your upcoming bookings match this view. Try another filter or show all.'}
         </Text>
+        {hasActiveUpcomingFilters ? (
+        <TouchableOpacity
+          style={[styles.clearFilterBtn, { borderColor: colors.primary }]}
+          onPress={clearUpcomingFilters}
+        >
+          <Text style={[styles.clearFilterBtnText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
+            Clear all filters
+          </Text>
+        </TouchableOpacity>
+        ) : (
         <TouchableOpacity
           style={[styles.clearFilterBtn, { borderColor: colors.primary }]}
           onPress={() => setStatusFilter('ALL')}
@@ -2000,6 +2190,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
             Show all upcoming
           </Text>
         </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -2022,7 +2213,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const renderSectionTabs = () => {
     const tabs = [
       { key: 'action_needed' as const, label: 'Action needed', count: actionNeededBookings.length, icon: 'alert-circle' },
-      { key: 'upcoming' as const, label: 'Upcoming', count: upcomingBaseBookings.length, icon: 'calendar-clock' },
+      { key: 'upcoming' as const, label: 'Upcoming', count: filterBookings(scopedUpcomingBookings, searchTerm).length, icon: 'calendar-clock' },
       {
         key: 'past' as const,
         label: 'Past',
@@ -2822,27 +3013,68 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 12,
   },
-  upcomingSortRow: {
-    marginBottom: 12,
-  },
-  upcomingSortLabel: {
-    marginBottom: 8,
-  },
-  upcomingSortOptions: {
+  upcomingFiltersRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'flex-end',
     gap: 8,
+    paddingRight: 4,
   },
-  sortChip: {
+  filterDropdownItem: {
+    width: 132,
+    zIndex: 1,
+  },
+  filterDropdownRowOpen: {
+    zIndex: 50,
+  },
+  filterDropdownItemLabel: {
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  sortDropdownWrap: {
+    position: 'relative',
+    width: '100%',
+    zIndex: 20,
+  },
+  sortDropdownTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 34,
-    paddingHorizontal: 10,
-    borderRadius: 17,
+    gap: 4,
     borderWidth: 1,
-    gap: 5,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    minHeight: 34,
   },
-  sortChipText: {
+  sortDropdownText: {
+    flex: 1,
+    fontWeight: '600',
+  },
+  sortDropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    left: 0,
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 50,
+  },
+  sortDropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sortDropdownOptionText: {
     fontWeight: '600',
   },
   filterGroupLabel: {
@@ -3298,6 +3530,19 @@ const styles = StyleSheet.create({
   },
   clearFilterBtnText: {
     fontWeight: '700',
+  },
+  clearFiltersInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 1,
+  },
+  clearFiltersInlineText: {
+    fontWeight: '600',
   },
   emptyStateIconContainer: {
     width: 80,

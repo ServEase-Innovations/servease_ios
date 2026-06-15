@@ -191,6 +191,17 @@ const MaidBookingDetailsSection = forwardRef<
     setUserTouchedSchedule(true);
   }, []);
 
+  const clearLocalSchedule = useCallback(() => {
+    setStartDate(null);
+    setEndDate(null);
+    setStartTime(null);
+    setEndTime(null);
+    setScheduleOpen(false);
+    setUserTouchedSchedule(false);
+    setValidationMsg(null);
+    scheduleBaselineRef.current = "";
+  }, []);
+
   const hydrateFromRedux = useCallback(() => {
     const pref = String(rawBooking?.bookingPreference ?? "Date");
     const dateStr =
@@ -235,9 +246,10 @@ const MaidBookingDetailsSection = forwardRef<
       return;
     }
     setHydrated(false);
+    clearLocalSchedule();
     dispatch(setScheduleDirty(false));
     dispatch(setScheduleDraft(null));
-  }, [active, dispatch, hydrateFromRedux]);
+  }, [active, dispatch, hydrateFromRedux, clearLocalSchedule]);
 
   const planLabel = useMemo(() => {
     const pref = preference.toLowerCase();
