@@ -372,7 +372,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
           payload.minRating = activeFilters.rating;
         }
         if (activeFilters.distance && activeFilters.distance[1] < 50) {
-          payload.maxDistance = activeFilters.distance[1];
+          payload.radius = activeFilters.distance[1];
         }
         if (activeFilters.gender !== null && activeFilters.gender !== "") {
           payload.gender = activeFilters.gender;
@@ -382,9 +382,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         }
         if (activeFilters.language && activeFilters.language.length > 0) {
           payload.languages = activeFilters.language;
-        }
-        if (activeFilters.availability && activeFilters.availability.length > 0) {
-          payload.availabilityStatuses = activeFilters.availability;
         }
       }
 
@@ -539,7 +536,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     if (filters.gender !== null && filters.gender !== "") count++;
     if (filters.diet !== null && filters.diet !== "") count++;
     if (filters.language && filters.language.length > 0) count++;
-    if (filters.availability && filters.availability.length > 0) count++;
     
     setActiveFilterCount(count);
     setFilterOpen(false);

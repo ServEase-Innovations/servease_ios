@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   View,
@@ -9,11 +9,13 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../Settings/ThemeContext';
+import { fetchProviderLanguages, PROVIDER_REGISTRATION_LANGUAGES_FALLBACK } from '../services/providerLanguagesApi';
 
 interface FilterProps {
   open: boolean;
@@ -23,27 +25,16 @@ interface FilterProps {
 }
 
 export interface FilterCriteria {
-  experience: number[];        // [min, max] – will be sent as "min-max" string
+  experience: number[];
   rating: number | null;
-  gender: string | null;       // single string
-  diet: string | null;         // single string
+  gender: string | null;
+  diet: string | null;
   language: string[];
   distance: number[];
-  availability: string[];
 }
-
-// Language options - expanded list
-const LANGUAGES = [
-  'English', 'Hindi', 'Bengali', 'Telugu', 'Tamil', 
-  'Kannada', 'Malayalam', 'Marathi', 'Gujarati', 'Punjabi',
-  'Odia', 'Assamese', 'Urdu', 'Sanskrit', 'Nepali',
-  'French', 'German', 'Spanish', 'Arabic', 'Japanese',
-  'Chinese', 'Russian', 'Portuguese', 'Italian', 'Dutch'
-];
 
 const dietOptions = ['VEG', 'NONVEG', 'BOTH'];
 const genderOptions = ['MALE', 'FEMALE', 'OTHER'];
-const availabilityOptions = ['Fully Available', 'Partially Available', 'Limited'];
 
 const { width } = Dimensions.get('window');
 
@@ -78,29 +69,42 @@ const ProviderFilter: React.FC<FilterProps> = ({
       diet: null,
       language: [],
       distance: [0, 50],
-      availability: []
     }
   );
 
   const [tempFilters, setTempFilters] = useState<FilterCriteria>(filters);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [languageOptions, setLanguageOptions] = useState<string[]>([
+    ...PROVIDER_REGISTRATION_LANGUAGES_FALLBACK,
+  ]);
+  const [languagesLoading, setLanguagesLoading] = useState(false);
 
-  // Single‑select for gender
+  useEffect(() => {
+    let cancelled = false;
+    setLanguagesLoading(true);
+    fetchProviderLanguages()
+      .then((languages) => {
+        if (!cancelled && languages.length > 0) setLanguageOptions(languages);
+      })
+      .finally(() => {
+        if (!cancelled) setLanguagesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleGenderChange = (gender: string) => {
-    setTempFilters(prev => ({ ...prev, gender }));
-  };
-
-  // Single‑select for diet
-  const handleDietChange = (diet: string) => {
-    setTempFilters(prev => ({ ...prev, diet }));
-  };
-
-  const handleAvailabilityChange = (status: string) => {
     setTempFilters(prev => ({
       ...prev,
-      availability: prev.availability.includes(status)
-        ? prev.availability.filter(a => a !== status)
-        : [...prev.availability, status]
+      gender: prev.gender === gender ? null : gender,
+    }));
+  };
+
+  const handleDietChange = (diet: string) => {
+    setTempFilters(prev => ({
+      ...prev,
+      diet: prev.diet === diet ? null : diet,
     }));
   };
 
@@ -127,7 +131,6 @@ const ProviderFilter: React.FC<FilterProps> = ({
       diet: null,
       language: [],
       distance: [0, 50],
-      availability: []
     };
     setTempFilters(resetFilters);
     setFilters(resetFilters);
@@ -196,18 +199,25 @@ const ProviderFilter: React.FC<FilterProps> = ({
             end={{ x: 1, y: 0 }}
             style={[styles.header, { padding: 16 * spacingMultiplier }]}
           >
-            <View style={styles.headerTitle}>
-              <Icon name="filter-list" size={24} color={colors.headerText} />
+            <View style={[styles.headerTitle, { flex: 1, minWidth: 0 }]}>
+              <Icon name="filter-list" size={24} color="#ffffff" />
               <Text style={[styles.headerText, { 
-                color: colors.headerText, 
+                color: '#ffffff', 
                 fontSize: fontStyles.headingSize,
-                marginLeft: 8 * spacingMultiplier
+                marginLeft: 8 * spacingMultiplier,
+                flexShrink: 1,
               }]}>
                 Filter Providers
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
-              <Icon name="close" size={24} color={colors.headerText} />
+            <TouchableOpacity
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close filters"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.closeButton}
+            >
+              <Icon name="close" size={22} color="#ffffff" />
             </TouchableOpacity>
           </LinearGradient>
 
@@ -454,8 +464,14 @@ const ProviderFilter: React.FC<FilterProps> = ({
                   maxHeight: 300 * spacingMultiplier,
                   marginBottom: 8 * spacingMultiplier
                 }]}>
+                  {languagesLoading ? (
+                    <ActivityIndicator
+                      style={{ padding: 16 * spacingMultiplier }}
+                      color={colors.primary}
+                    />
+                  ) : (
                   <ScrollView style={[styles.languageList, { padding: 8 * spacingMultiplier }]}>
-                    {LANGUAGES.map((language) => (
+                    {languageOptions.map((language) => (
                       <TouchableOpacity
                         key={language}
                         style={[styles.languageItem, { 
@@ -474,6 +490,7 @@ const ProviderFilter: React.FC<FilterProps> = ({
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
+                  )}
                 </View>
               )}
 
@@ -488,49 +505,6 @@ const ProviderFilter: React.FC<FilterProps> = ({
                   }]}>Clear languages</Text>
                 </TouchableOpacity>
               )}
-            </View>
-
-            {/* Availability Filter */}
-            <View style={[styles.section, { marginBottom: 24 * spacingMultiplier }]}>
-              <Text style={[styles.sectionTitle, { 
-                color: colors.text, 
-                fontSize: fontStyles.textSize,
-                marginBottom: 12 * spacingMultiplier
-              }]}>
-                Availability Status
-              </Text>
-              <View style={[styles.chipGroup, { gap: 8 * spacingMultiplier }]}>
-                {availabilityOptions.map(status => (
-                  <TouchableOpacity
-                    key={status}
-                    style={[
-                      styles.filterChip,
-                      tempFilters.availability.includes(status) && styles.filterChipSelected,
-                      { 
-                        borderColor: colors.border,
-                        backgroundColor: tempFilters.availability.includes(status) 
-                          ? colors.primary 
-                          : isDarkMode ? colors.surface : colors.card,
-                        paddingHorizontal: 12 * spacingMultiplier,
-                        paddingVertical: 6 * spacingMultiplier,
-                      }
-                    ]}
-                    onPress={() => handleAvailabilityChange(status)}
-                  >
-                    <Text style={[
-                      styles.filterChipText,
-                      { 
-                        color: tempFilters.availability.includes(status) 
-                          ? '#ffffff' 
-                          : colors.textSecondary,
-                        fontSize: fontStyles.smallText
-                      }
-                    ]}>
-                      {status}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
           </ScrollView>
 
@@ -596,6 +570,17 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontWeight: '600',
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    marginLeft: 8,
   },
   divider: {
     height: 1,
