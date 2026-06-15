@@ -69,6 +69,8 @@ import {
 } from "../utils/bookingLocation";
 import { useBookingScheduleFlow } from "../hooks/useBookingScheduleFlow";
 import { isCustomerCheckoutReady } from "../utils/authSession";
+import BookingLocationSection from "./BookingLocationSection";
+import { useTranslation } from "react-i18next";
 
 export type BookingSuccessDetails = {
   providerName?: string;
@@ -117,6 +119,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   const delegateSuccess = hideHeader && !!onCheckoutSuccess;
   const cfg = SERVICE_BOOKING_CONFIG[serviceKind];
   const dispatch = useDispatch();
+  const { t } = useTranslation();
   const { appUser } = useAppUser();
   const { user: auth0User, isAuthenticated: auth0IsAuthenticated } = useAuth0();
 
@@ -796,6 +799,10 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
             </View>
           ) : null}
 
+          <View style={styles.card}>
+            <BookingLocationSection />
+          </View>
+
           {!isCheckoutAuthenticated ? (
             <View style={styles.loginRequiredBanner}>
               <Icon name="info-outline" size={18} color="#1d4ed8" />
@@ -893,7 +900,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
         <View style={styles.footer}>
           <View style={styles.footerActions}>
             <BrandButton variant="ghost" onPress={onClose} flex={0}>
-              Close
+              {t("common.close")}
             </BrandButton>
             {!isCheckoutAuthenticated ? (
               <BrandButton variant="primary" flex={2} onPress={() => onLoginRequired?.()}>
@@ -917,9 +924,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
                 loading={loading}
                 onPress={() => void handleCheckout()}
               >
-                {payableTotal > 0 && !quotePreview.loading
-                  ? `Pay now · ${formatInr(payableTotal)}`
-                  : "Pay now"}
+                {t("common.checkout")}
               </BrandButton>
             )}
           </View>

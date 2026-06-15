@@ -466,6 +466,17 @@
     "cleaning": "Cleaning",
     "previouslyBooked": "Previously Booked"
   },
+  "bookingLocation": {
+    "title": "Service location",
+    "missing": "Select a service location before checkout",
+    "changeAddress": "Change",
+    "changeTitle": "Change service address",
+    "changeHint": "Choose where the service provider should visit.",
+    "pickOnMap": "Pick on map",
+    "savedAddresses": "Saved addresses",
+    "noSaved": "No saved addresses yet. Detect location or pick on the map.",
+    "useAddress": "Use this address"
+  },
   "locationSelector": {
     "detectLocation": "Detect Location",
     "addAddress": "Add Address",

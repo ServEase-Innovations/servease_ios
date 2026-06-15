@@ -24,20 +24,27 @@ export function buildAuth0CallbackUrl(bundleOrPackageId: string): string {
   return `${scheme}://${AUTH0_DOMAIN}/ios/${id}/callback`;
 }
 
+/** Android callback — must include ".auth0" in the scheme (react-native-auth0 v5 default). */
+export const ANDROID_AUTH0_CALLBACK_URL =
+  `${ANDROID_PACKAGE.toLowerCase()}.auth0://${AUTH0_DOMAIN}/android/${ANDROID_PACKAGE.toLowerCase()}/callback`;
+
 /** Register all of these in Auth0 → Application → Allowed Callback / Logout URLs. */
 export const AUTH0_ALLOWED_CALLBACK_URLS = [
-  `${ANDROID_PACKAGE.toLowerCase()}.auth0://${AUTH0_DOMAIN}/android/${ANDROID_PACKAGE.toLowerCase()}/callback`,
+  ANDROID_AUTH0_CALLBACK_URL,
   `${IOS_BUNDLE_ID.toLowerCase()}.auth0://${AUTH0_DOMAIN}/ios/${IOS_BUNDLE_ID.toLowerCase()}/callback`,
   `${IOS_LEGACY_BUNDLE_ID.toLowerCase()}.auth0://${AUTH0_DOMAIN}/ios/${IOS_LEGACY_BUNDLE_ID.toLowerCase()}/callback`,
 ];
 
 /**
- * Parameters for authorize(). Omit redirectUrl so react-native-auth0 derives it from the
- * native bundle id at runtime (must match Info.plist URL scheme + Auth0 Allowed Callback URLs).
+ * Parameters for authorize(). redirectUrl must match Auth0 Allowed Callback URLs
+ * and Android RedirectActivity intent-filter (scheme = {package}.auth0).
  */
 export function getAuth0AuthorizeOptions() {
+  const bundleOrPackage =
+    Platform.OS === "android" ? ANDROID_PACKAGE : IOS_BUNDLE_ID;
   return {
     scope: AUTH0_SCOPE,
+    redirectUrl: buildAuth0CallbackUrl(bundleOrPackage),
   };
 }
 
@@ -65,11 +72,21 @@ export function logAuth0Error(context: string, error: unknown): void {
     code?: string;
     type?: string;
   };
+  const message = err?.message ?? "";
+  const isCallbackMismatch =
+    message.toLowerCase().includes("callback") &&
+    message.toLowerCase().includes("mismatch");
   console.warn(`[auth0] ${context}:`, {
     name: err?.name,
     message: err?.message,
     code: err?.code,
     type: err?.type,
+    ...(isCallbackMismatch
+      ? {
+          expectedAndroidCallback: ANDROID_AUTH0_CALLBACK_URL,
+          hint: 'Add the URL above to Auth0 Allowed Callback URLs (scheme must be com.serveaso.auth0, not com.serveaso)',
+        }
+      : {}),
   });
 }
 

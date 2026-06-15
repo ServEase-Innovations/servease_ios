@@ -4,6 +4,14 @@ set -euo pipefail
 VERSION_CODE="${VERSION_CODE:?VERSION_CODE is required}"
 VERSION_NAME="${VERSION_NAME:?VERSION_NAME is required}"
 
+# Apple CFBundleShortVersionString: at most 3 period-separated integers (e.g. 1.0.231).
+SEGMENT_COUNT="$(echo "${VERSION_NAME}" | tr -cd '.' | wc -c | tr -d ' ')"
+SEGMENT_COUNT=$((SEGMENT_COUNT + 1))
+if [ "${SEGMENT_COUNT}" -gt 3 ]; then
+  echo "ERROR: VERSION_NAME '${VERSION_NAME}' has ${SEGMENT_COUNT} segments; iOS allows at most 3 (e.g. 1.0.\${BUILD_NUM})." >&2
+  exit 1
+fi
+
 IOS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 cat > "${IOS_DIR}/version.generated.xcconfig" <<EOF

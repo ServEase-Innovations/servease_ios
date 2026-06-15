@@ -89,16 +89,87 @@ export function hasValidBookingLocation(location: unknown): boolean {
   return resolveLocationLat(location) != null && resolveLocationLng(location) != null;
 }
 
-export function extractSavedLocations(preferenceData: unknown): Array<{ name: string; location: unknown }> {
+export type SavedLocationEntry = {
+  name: string;
+  location: Record<string, unknown>;
+};
+
+export function formatCustomerDisplayName(appUser: unknown): string {
+  if (!appUser || typeof appUser !== "object") return "";
+  const u = appUser as Record<string, unknown>;
+  if (typeof u.name === "string" && u.name.trim()) return u.name.trim();
+  const first = String(u.given_name || u.firstname || u.firstName || "").trim();
+  const last = String(u.family_name || u.lastname || u.lastName || "").trim();
+  return `${first} ${last}`.trim();
+}
+
+export function formatCustomerPhone(appUser: unknown): string {
+  if (!appUser || typeof appUser !== "object") return "";
+  const u = appUser as Record<string, unknown>;
+  const phone = u.mobileno ?? u.mobileNo ?? u.mobile ?? u.phone;
+  return phone != null ? String(phone).trim() : "";
+}
+
+export function formatSavedLocationAddress(saved: SavedLocationEntry): string {
+  const named = formatServiceAddressFromGeoLocation(saved?.location);
+  if (named) return named;
+  return saved?.name ? `${saved.name} location` : "";
+}
+
+const KNOWN_SAVED_LABELS: Record<string, string> = {
+  home: "home",
+  office: "office",
+  others: "others",
+};
+
+export function formatSavedLocationLabel(
+  name: string,
+  translate?: (key: string) => string
+): string {
+  const raw = String(name || "").trim();
+  if (!raw) return "Address";
+
+  const knownKey = KNOWN_SAVED_LABELS[raw.toLowerCase()];
+  if (knownKey && translate) {
+    const translated = translate(knownKey);
+    if (translated && translated !== knownKey) return translated;
+  }
+
+  if (knownKey === "home") return "Home";
+  if (knownKey === "office") return "Office";
+  if (knownKey === "others") return "Other";
+
+  return raw
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function locationsMatch(a: unknown, b: unknown): boolean {
+  const latA = resolveLocationLat(a);
+  const lngA = resolveLocationLng(a);
+  const latB = resolveLocationLat(b);
+  const lngB = resolveLocationLng(b);
+
+  if (latA != null && lngA != null && latB != null && lngB != null) {
+    return Math.abs(latA - latB) < 0.0001 && Math.abs(lngA - lngB) < 0.0001;
+  }
+
+  const addrA = formatServiceAddressFromGeoLocation(a);
+  const addrB = formatServiceAddressFromGeoLocation(b);
+  return addrA.length > 0 && addrA === addrB;
+}
+
+export function extractSavedLocations(preferenceData: unknown): SavedLocationEntry[] {
   if (Array.isArray(preferenceData) && preferenceData[0]?.savedLocations) {
-    return preferenceData[0].savedLocations as Array<{ name: string; location: unknown }>;
+    return preferenceData[0].savedLocations as SavedLocationEntry[];
   }
   if (
     preferenceData &&
     typeof preferenceData === "object" &&
     Array.isArray((preferenceData as { savedLocations?: unknown[] }).savedLocations)
   ) {
-    return (preferenceData as { savedLocations: Array<{ name: string; location: unknown }> }).savedLocations;
+    return (preferenceData as { savedLocations: SavedLocationEntry[] }).savedLocations;
   }
   return [];
 }
