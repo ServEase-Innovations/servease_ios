@@ -11,7 +11,7 @@
  *   VERSION_CODE          CFBundleVersion / build number uploaded in this CI run
  *
  * Optional env:
- *   TESTFLIGHT_BETA_GROUP_NAME   default: "Internal Testers"
+ *   TESTFLIGHT_BETA_GROUP_NAME   default: "Serveaso Team"
  *   TESTFLIGHT_POLL_MINUTES      default: 45
  *   TESTFLIGHT_POLL_INTERVAL_SEC default: 60
  */
@@ -180,7 +180,7 @@ async function main() {
   const keyId = required("APPSTORE_API_KEY_ID");
   const bundleId = required("IOS_BUNDLE_ID");
   const versionCode = required("VERSION_CODE");
-  const groupName = process.env.TESTFLIGHT_BETA_GROUP_NAME || "Internal Testers";
+  const groupName = process.env.TESTFLIGHT_BETA_GROUP_NAME || "Serveaso Team";
   const pollMinutes = Number(process.env.TESTFLIGHT_POLL_MINUTES || 45);
   const pollIntervalSec = Number(process.env.TESTFLIGHT_POLL_INTERVAL_SEC || 60);
   const maxAttempts = Math.max(1, Math.ceil((pollMinutes * 60) / pollIntervalSec));

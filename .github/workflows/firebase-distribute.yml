@@ -344,7 +344,7 @@ jobs:
           APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
           IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
-          TESTFLIGHT_BETA_GROUP_NAME: ${{ secrets.TESTFLIGHT_BETA_GROUP_NAME }}
+          TESTFLIGHT_BETA_GROUP_NAME: Serveaso Team
           TESTFLIGHT_POLL_MINUTES: 45
         run: |
           chmod +x ios/scripts/ci-distribute-testflight.sh
