@@ -124,7 +124,7 @@ async function findBuild(token, appId, versionCode) {
   return match || null;
 }
 
-async function getBetaGroupId(token, appId, groupName) {
+async function getBetaGroup(token, appId, groupName) {
   const res = await asc(
     token,
     "GET",
@@ -134,23 +134,49 @@ async function getBetaGroupId(token, appId, groupName) {
   const exact = groups.find(
     (g) => String(g.attributes?.name || "").toLowerCase() === groupName.toLowerCase()
   );
-  if (exact) return exact.id;
   const partial = groups.find((g) =>
     String(g.attributes?.name || "")
       .toLowerCase()
       .includes(groupName.toLowerCase())
   );
-  if (partial) return partial.id;
-  const names = groups.map((g) => g.attributes?.name).filter(Boolean).join(", ");
-  throw new Error(
-    `TestFlight group "${groupName}" not found. Available groups: ${names || "(none)"}`
-  );
+  const group = exact || partial;
+  if (!group?.id) {
+    const names = groups.map((g) => g.attributes?.name).filter(Boolean).join(", ");
+    throw new Error(
+      `TestFlight group "${groupName}" not found. Available groups: ${names || "(none)"}`
+    );
+  }
+  return {
+    id: group.id,
+    name: group.attributes?.name || groupName,
+    isInternal: group.attributes?.isInternalGroup === true,
+    hasAccessToAllBuilds: group.attributes?.hasAccessToAllBuilds === true,
+  };
 }
 
-async function assignBuildToGroup(token, groupId, buildId) {
-  await asc(token, "POST", `/betaGroups/${groupId}/relationships/builds`, {
-    data: [{ type: "builds", id: buildId }],
-  });
+async function assignBuildToGroup(token, buildId, group) {
+  // Internal groups must use builds → betaGroups. The reverse endpoint returns 422:
+  // "Cannot add internal group to a build."
+  try {
+    await asc(token, "POST", `/builds/${buildId}/relationships/betaGroups`, {
+      data: [{ type: "betaGroups", id: group.id }],
+    });
+    return "assigned";
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/already|duplicate|exists|relationship/i.test(message)) {
+      console.log("Build is already in the TestFlight group; continuing.");
+      return "already_assigned";
+    }
+    if (group.isInternal && group.hasAccessToAllBuilds) {
+      console.log(
+        `Could not assign build to internal group "${group.name}" via API (${message}). ` +
+          "This group has access to all builds; continuing with tester notifications."
+      );
+      return "internal_auto_access";
+    }
+    throw error;
+  }
 }
 
 async function enableAutoNotify(token, buildId) {
@@ -162,17 +188,30 @@ async function enableAutoNotify(token, buildId) {
   const detail = res?.data;
   if (!detail?.id) {
     console.log("No buildBetaDetail found; skipping auto-notify patch.");
-    return;
+    return false;
   }
+
+  const wasEnabled = detail.attributes?.autoNotifyEnabled === true;
+
+  // Toggle off then on to re-send tester notifications when re-distributing an existing build.
+  if (wasEnabled) {
+    await asc(token, "PATCH", `/buildBetaDetails/${detail.id}`, {
+      data: {
+        type: "buildBetaDetails",
+        id: detail.id,
+        attributes: { autoNotifyEnabled: false },
+      },
+    });
+  }
+
   await asc(token, "PATCH", `/buildBetaDetails/${detail.id}`, {
     data: {
       type: "buildBetaDetails",
       id: detail.id,
-      attributes: {
-        autoNotifyEnabled: true,
-      },
+      attributes: { autoNotifyEnabled: true },
     },
   });
+  return true;
 }
 
 async function main() {
@@ -218,14 +257,19 @@ async function main() {
     );
   }
 
-  console.log(`Assigning build ${build.id} to TestFlight group "${groupName}"...`);
-  const groupId = await getBetaGroupId(token, appId, groupName);
-  await assignBuildToGroup(token, groupId, build.id);
-  await enableAutoNotify(token, build.id);
+  const group = await getBetaGroup(token, appId, groupName);
+  console.log(
+    `Assigning build ${build.id} to TestFlight group "${group.name}"` +
+      `${group.isInternal ? " (internal)" : ""}...`
+  );
+  const assignResult = await assignBuildToGroup(token, build.id, group);
+  const notifyEnabled = await enableAutoNotify(token, build.id);
 
   console.log(
-    `TestFlight distribution complete. Apple will email testers in group "${groupName}" ` +
-      "(if they have TestFlight notifications enabled)."
+    `TestFlight distribution complete (${assignResult}). ` +
+      `autoNotifyEnabled=${notifyEnabled ? "true" : "skipped"}. ` +
+      `Testers in "${group.name}" should see build ${versionCode} in the TestFlight app; ` +
+      "email may take a few minutes or go to spam."
   );
 }
 
