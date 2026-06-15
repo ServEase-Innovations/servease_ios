@@ -49,7 +49,7 @@ jobs:
         run: |
           BUILD_NUM="${{ github.run_number }}"
           VERSION_CODE="$BUILD_NUM"
-          VERSION_NAME="1.0.${BUILD_NUM}"
+          VERSION_NAME="1.0.1${BUILD_NUM}"
           echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           echo "Building Android ${VERSION_NAME} (versionCode ${VERSION_CODE})"
@@ -99,7 +99,7 @@ jobs:
             android/app/build/outputs/apk/release/app-release.apk \
             --app "${{ env.FIREBASE_ANDROID_APP_ID }}" \
             --groups "${{ env.FIREBASE_TESTERS_GROUP }}" \
-            --release-notes "Serveaso Android ${{ env.VERSION_NAME }} (build ${{ github.run_number }})"
+            --release-notes "ServEaso Android ${{ env.VERSION_NAME }} (build ${{ github.run_number }})"
 
       - name: Commit Android version bump
         run: |
@@ -161,7 +161,7 @@ jobs:
         run: |
           BUILD_NUM="${{ github.run_number }}"
           VERSION_CODE="$BUILD_NUM"
-          VERSION_NAME="1.0.${BUILD_NUM}"
+          VERSION_NAME="1.0.1${BUILD_NUM}"
           echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           echo "Building iOS ${VERSION_NAME} (build ${VERSION_CODE}) for TestFlight"

@@ -44,7 +44,7 @@ def appVersionCode = {
 def appVersionName = {
     def fromEnv = System.getenv("VERSION_NAME")?.trim()
     if (fromEnv) return fromEnv
-    return versionProps.getProperty("VERSION_NAME", "1.0.${appVersionCode()}")
+    return versionProps.getProperty("VERSION_NAME", "1.0.1${appVersionCode()}")
 }
 
 android {
@@ -126,7 +126,7 @@ configurations.all {
 tasks.register("bumpAndroidVersion") {
     doLast {
         def code = (versionProps.getProperty("VERSION_CODE", "1") as Integer) + 1
-        def name = "1.0.${code}"
+        def name = "1.0.1${code}"
         versionProps.setProperty("VERSION_CODE", code.toString())
         versionProps.setProperty("VERSION_NAME", name)
         versionProps.store(versionPropsFile.newWriter(), "Auto-incremented by bumpAndroidVersion\n")

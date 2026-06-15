@@ -33,6 +33,7 @@ import { refreshPushRegistration } from '../services/pushApi';
 import { useAppUser } from '../context/AppUserContext';
 import { useAuth0 } from 'react-native-auth0';
 import { getMobileTabBarHeight } from '../Constants/mobileLayout';
+import DeviceInfo from 'react-native-device-info';
 
 const { width, height } = Dimensions.get('window');
 const HORIZONTAL_GUTTER = 10;
@@ -73,6 +74,13 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [showTnCModal, setShowTnCModal] = useState(false);
   const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [appVersionLabel, setAppVersionLabel] = useState('');
+
+  useEffect(() => {
+    const version = DeviceInfo.getVersion();
+    const build = DeviceInfo.getBuildNumber();
+    setAppVersionLabel(`${version} (Build ${build})`);
+  }, []);
 
   const languages = [
     { code: 'en', name: 'English', nativeName: 'English' },
@@ -493,7 +501,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             <SettingItem
               icon="update"
               label="App Version"
-              value="1.0.0 (Build 101)"
+              value={appVersionLabel || '—'}
               onPress={() => {}}
               isLast
             />
