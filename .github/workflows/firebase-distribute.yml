@@ -337,6 +337,19 @@ jobs:
           chmod +x ios/scripts/ci-upload-testflight.sh
           ios/scripts/ci-upload-testflight.sh "${IPA_PATH}"
 
+      - name: Distribute build to TestFlight testers
+        env:
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          TESTFLIGHT_BETA_GROUP_NAME: ${{ secrets.TESTFLIGHT_BETA_GROUP_NAME }}
+          TESTFLIGHT_POLL_MINUTES: 45
+        run: |
+          chmod +x ios/scripts/ci-distribute-testflight.sh
+          ios/scripts/ci-distribute-testflight.sh
+
       - name: Commit iOS version bump
         run: |
           git config user.name "github-actions[bot]"
