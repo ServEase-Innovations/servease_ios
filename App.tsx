@@ -51,7 +51,6 @@ import {
 } from "./src/Constants/mobileLayout";
 import HomePage from "./src/HomePage/HomePage";
 import DetailsView from "./src/DetailsView/DetailsView";
-import Footer from "./src/Footer/Footer";
 import Chatbot from "./src/Chatbot/Chatbot";
 import ChatbotButton from "./src/Chatbot/ChatbotButton";
 import Booking, { BookingRef } from "./src/UserProfile/Bookings";
@@ -950,8 +949,6 @@ const MainApp = () => {
                     ]}
                   >
                     {renderContent()}
-                    {currentView === HOME &&
-                      (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
                   </View>
                 ) : (
                   <ScrollView
@@ -970,8 +967,6 @@ const MainApp = () => {
                     nestedScrollEnabled
                   >
                     {renderContent()}
-                    {currentView === HOME &&
-                      (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
                   </ScrollView>
                 )}
               </View>

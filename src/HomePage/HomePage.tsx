@@ -32,6 +32,9 @@ import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import ServiceProviderRegistration from "../Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 import BroadcastMessage from "./BroadcastMessage";
+import Footer from "../Footer/Footer";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 
 const cookImage = require("../../assets/images/Cooknew.png");
 const maidImage = require("../../assets/images/Maidnew.png");
@@ -54,6 +57,11 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   const { appUser } = useAppUser();
   const { showOffer, checking: checkingOffer } = useFirstBookingOfferVisible();
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
+  const showSiteFooter =
+    !appUser || String(appUser?.role || "").toUpperCase() === "CUSTOMER";
+  const scrollBottomPad =
+    screenWidth < 768 ? getMobileTabBarHeight(insets.bottom) + 16 : 24;
 
   const userRole = String(appUser?.role || auth0User?.role || "").toUpperCase();
 
@@ -323,7 +331,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     <View style={styles.mainContainer}>
       <ScrollView
         style={[styles.container, { backgroundColor: colors.chromeEnd }]}
-        contentContainerStyle={{ paddingBottom: 16 }}
+        contentContainerStyle={{ paddingBottom: scrollBottomPad }}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Section - Extreme deep shadow */}
@@ -491,6 +499,12 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           handleClose={() => setShowMaidServiceDialog(false)}
           sendDataToParent={sendDataToParent}
         />
+
+        {showSiteFooter ? (
+          <View style={styles.siteFooterWrap}>
+            <Footer />
+          </View>
+        ) : null}
       </ScrollView>
 
       <ServiceSelectionDialog
@@ -516,6 +530,9 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
 const styles = StyleSheet.create({
   mainContainer: { flex: 1 },
   container: { flex: 1 },
+  siteFooterWrap: {
+    marginTop: 8,
+  },
   
   // Hero Section with extreme deep shadow
   heroOuter: {
