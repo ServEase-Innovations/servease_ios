@@ -204,6 +204,7 @@ const MainApp = () => {
 
   const fontStyles = getFontSizeStyles();
   const shouldRenderWithoutParentScroll =
+    currentView === HOME ||
     currentView === DETAILS ||
     currentView === BOOKINGS ||
     currentView === WALLET ||
@@ -927,7 +928,10 @@ const MainApp = () => {
               <View
                 style={[
                   styles.contentContainer,
-                  { backgroundColor: colors.background },
+                  {
+                    backgroundColor:
+                      currentView === HOME ? colors.chromeEnd : colors.background,
+                  },
                   (currentView === BOOKINGS ||
                     currentView === WALLET ||
                     currentView === PROFILE ||

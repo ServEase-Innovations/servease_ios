@@ -320,9 +320,9 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   };
 
   return (
-    <View style={[styles.mainContainer, { backgroundColor: colors.background }]}>
+    <View style={styles.mainContainer}>
       <ScrollView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.chromeEnd }]}
         contentContainerStyle={{ paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
       >
@@ -520,8 +520,8 @@ const styles = StyleSheet.create({
   // Hero Section with extreme deep shadow
   heroOuter: {
     marginHorizontal: 14,
-    marginTop: 0,
-    marginBottom: 12,
+    marginTop: 8,
+    marginBottom: 8,
   },
   heroShadowLayer: {
     borderRadius: 24,
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   // Section Wrap with deep shadow
   sectionWrapOuter: {
     marginHorizontal: 14,
-    marginTop: 6,
+    marginTop: 0,
     marginBottom: 4,
   },
   sectionWrapShadowLayer: {
