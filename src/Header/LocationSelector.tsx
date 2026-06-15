@@ -27,11 +27,7 @@ import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import Geocoder from "react-native-geocoding";
 import MapView, { Marker } from "react-native-maps";
 import { NativeModules } from "react-native";
-import GeolocationCommunity from "@react-native-community/geolocation";
-import GeolocationService from "react-native-geolocation-service";
-
-const Geolocation =
-  Platform.OS === "android" ? GeolocationService : GeolocationCommunity;
+import Geolocation from "@react-native-community/geolocation";
 import { useDispatch, useSelector } from "react-redux";
 import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
@@ -471,19 +467,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const checkLocationPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === "android") {
-        const hasPermission = await PermissionsAndroid.check(
+        return await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
         );
-
-        if (hasPermission) {
-          getCurrentLocation();
-          return true;
-        }
-        return false;
-      } else {
-        getCurrentLocation();
-        return true;
       }
+      return true;
     } catch (err) {
       console.warn("Error checking location permission:", err);
       return false;
@@ -510,8 +498,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
 
     if (hasRequestedPermission) {
-      getCurrentLocation();
-      return true;
+      return checkLocationPermission();
     }
 
     try {
@@ -530,7 +517,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         setHasRequestedPermission(true);
 
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          getCurrentLocation();
           return true;
         } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
           setPermissionDeniedPermanently(true);
@@ -555,7 +541,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           return false;
         }
       } else {
-        getCurrentLocation();
         return true;
       }
     } catch (err) {
@@ -707,31 +692,55 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       handleLocationError(error, requestId);
     };
 
+    const requestPosition = (
+      options: {
+        enableHighAccuracy: boolean;
+        timeout: number;
+        maximumAge: number;
+      },
+      fallbackOnError?: () => void
+    ) => {
+      try {
+        Geolocation.getCurrentPosition(
+          onSuccess,
+          fallbackOnError ?? onError,
+          options
+        );
+      } catch (err) {
+        console.warn("getCurrentPosition invoke failed:", err);
+        if (fallbackOnError) {
+          fallbackOnError();
+          return;
+        }
+        onError({
+          code: 2,
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+        });
+      }
+    };
+
     if (Platform.OS === "android") {
-      // Fused Location: network/cached fix first (~100m), GPS fallback only if needed.
-      Geolocation.getCurrentPosition(
-        onSuccess,
+      // Network/cached fix first, then GPS — avoids RNFusedLocation + Play Services 21 crash.
+      requestPosition(
+        {
+          enableHighAccuracy: false,
+          timeout: 12000,
+          maximumAge: 300000,
+        },
         () => {
-          Geolocation.getCurrentPosition(onSuccess, onError, {
+          requestPosition({
             enableHighAccuracy: true,
             timeout: 20000,
             maximumAge: 10000,
-            forceRequestLocation: true,
-            showLocationDialog: true,
           });
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 300000,
-          showLocationDialog: true,
-          accuracy: { android: "balanced" },
         }
       );
       return;
     }
 
-    Geolocation.getCurrentPosition(onSuccess, onError, {
+    requestPosition({
       enableHighAccuracy: true,
       timeout: 15000,
       maximumAge: 10000,
@@ -1048,26 +1057,33 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       return;
     }
 
-    if (customerId) {
-      if (!locationPreferencesReady) {
+    const startGps = () => {
+      if (customerId) {
+        if (!locationPreferencesReady) {
+          return;
+        }
+
+        if (userPickedLocationRef.current) {
+          return;
+        }
+
+        if (!triedGpsForCustomerRef.current) {
+          triedGpsForCustomerRef.current = true;
+          fetchLocationWithChecks({ promptHighAccuracy: false });
+        }
         return;
       }
 
-      if (userPickedLocationRef.current) {
-        return;
-      }
-
-      if (!triedGpsForCustomerRef.current) {
-        triedGpsForCustomerRef.current = true;
+      if (!guestGpsStartedRef.current && !userPickedLocationRef.current) {
+        guestGpsStartedRef.current = true;
         fetchLocationWithChecks({ promptHighAccuracy: false });
       }
-      return;
-    }
+    };
 
-    if (!guestGpsStartedRef.current && !userPickedLocationRef.current) {
-      guestGpsStartedRef.current = true;
-      fetchLocationWithChecks({ promptHighAccuracy: false });
-    }
+    // Defer until the Android activity is attached before invoking location APIs.
+    const delayMs = Platform.OS === "android" ? 500 : 0;
+    const timer = setTimeout(startGps, delayMs);
+    return () => clearTimeout(timer);
   }, [
     customerId,
     isUserLoading,
