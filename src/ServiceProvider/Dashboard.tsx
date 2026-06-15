@@ -579,14 +579,6 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
     }
   };
 
-  // Close dialog when verification completes successfully
-  useEffect(() => {
-    if (!verifyingOtp && otpDialogOpen && currentBooking) {
-      const timer = setTimeout(() => handleCloseOtpDialog(), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [verifyingOtp, otpDialogOpen, currentBooking]);
-
   useEffect(() => {
     if (otpDialogOpen) verificationCompletedRef.current = false;
   }, [otpDialogOpen]);

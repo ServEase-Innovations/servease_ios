@@ -7,11 +7,14 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Modal,
   FlatList,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
+import {
+  fetchProviderLanguages,
+  PROVIDER_REGISTRATION_LANGUAGES_FALLBACK,
+} from "../services/providerLanguagesApi";
 
 // Define TimeSlot interface (must match the one in TimeSlotSelector)
 interface TimeSlot {
@@ -58,6 +61,21 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   onTimeSlotsChange,
 }) => {
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>(
+    PROVIDER_REGISTRATION_LANGUAGES_FALLBACK
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchProviderLanguages().then((languages) => {
+      if (!cancelled && languages.length) {
+        setAvailableLanguages(languages);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   
   // Internal time slot state
   const [morningSlots, setMorningSlots] = useState<TimeSlot[]>([]);
@@ -147,15 +165,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     }
   }, [morningSlots, eveningSlots, isFullTime]);
 
-  // Available languages list
-  const availableLanguages = [
-    "Assamese", "Bengali", "Gujarati", "Hindi", "Kannada",
-    "Kashmiri", "Marathi", "Malayalam", "Oriya", "Punjabi",
-    "Sanskrit", "Tamil", "Telugu", "Urdu", "Sindhi",
-    "Konkani", "Nepali", "Manipuri", "Bodo", "Dogri",
-    "Maithili", "Santhali", "English"
-  ];
-
   const handleLanguageSelect = (language: string) => {
     if (selectedLanguages.includes(language)) {
       const newLanguages = selectedLanguages.filter(l => l !== language);
@@ -198,6 +207,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
   );
 
   return (
+    <View style={styles.wrapper}>
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
       {/* Service Type Selection */}
       <View style={styles.card}>
@@ -312,29 +322,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
             ))}
           </View>
         )}
-        <Modal visible={languageModalVisible} animationType="slide" transparent={true} onRequestClose={() => setLanguageModalVisible(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Select Languages</Text>
-                <TouchableOpacity onPress={() => setLanguageModalVisible(false)}><Icon name="close" size={24} color="#666" /></TouchableOpacity>
-              </View>
-              <FlatList
-                data={availableLanguages}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.languageItem, selectedLanguages.includes(item) && styles.languageItemSelected]}
-                    onPress={() => handleLanguageSelect(item)}
-                  >
-                    <Text style={[styles.languageItemText, selectedLanguages.includes(item) && styles.languageItemTextSelected]}>{item}</Text>
-                    {selectedLanguages.includes(item) && <Icon name="check" size={20} color="#1976d2" />}
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          </View>
-        </Modal>
       </View>
 
       {/* Experience and Referral Row */}
@@ -410,10 +397,42 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
         formatDisplayTime={formatDisplayTime}
       />
     </ScrollView>
+    {languageModalVisible && (
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setLanguageModalVisible(false)}
+        />
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Languages</Text>
+            <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
+              <Icon name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={availableLanguages}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.languageItem, selectedLanguages.includes(item) && styles.languageItemSelected]}
+                onPress={() => handleLanguageSelect(item)}
+              >
+                <Text style={[styles.languageItemText, selectedLanguages.includes(item) && styles.languageItemTextSelected]}>{item}</Text>
+                {selectedLanguages.includes(item) && <Icon name="check" size={20} color="#1976d2" />}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </View>
+    )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  wrapper: { flex: 1 },
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   contentContainer: { paddingBottom: 30 },
   card: {
@@ -447,7 +466,16 @@ const styles = StyleSheet.create({
   languageChipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   languageChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e3f2fd', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, gap: 4 },
   languageChipText: { fontSize: 12, color: '#1976d2' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#333' },

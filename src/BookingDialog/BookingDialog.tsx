@@ -12,7 +12,9 @@ import {
   ScrollView,
   Animated,
   PanResponder,
+  StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -24,14 +26,12 @@ import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
-import {
-  formatMonthlyExtraHourCoupon,
-  formatMonthlyHourlyRateBand,
-} from "../Constants/servicePricing";
 
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface BookingDialogProps {
   open: boolean;
@@ -76,6 +76,17 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const { appUser } = useAppUser();
   const { t } = useTranslation();
   const { colors, isDarkMode, fontSize } = useTheme();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0
+  );
+  const sheetMaxHeight = SCREEN_HEIGHT - topInset;
+  const sheetMinHeight = Math.min(SCREEN_HEIGHT * 0.8, sheetMaxHeight * 0.92);
+  const sheetInsetsStyle = {
+    maxHeight: sheetMaxHeight,
+    minHeight: sheetMinHeight,
+  };
   const [role, setRole] = useState<string | null>(null);
   const [isServiceDisabled, setIsServiceDisabled] = useState(false);
   const [lastSelectedDate, setLastSelectedDate] = useState<Dayjs | null>(null);
@@ -1145,7 +1156,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           <TouchableWithoutFeedback onPress={handleSheetClose}>
             <View style={styles.backdropTapArea} />
           </TouchableWithoutFeedback>
-          <View style={[styles.container, { backgroundColor: isDarkMode ? colors.card : "#f8fafc" }]}>
+          <View style={[styles.container, sheetInsetsStyle, { backgroundColor: isDarkMode ? colors.card : "#f8fafc" }]}>
             <View style={styles.sheetHandleWrap}>
               <View style={[styles.sheetHandleBar, { backgroundColor: colors.border }]} />
             </View>
@@ -1194,7 +1205,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     {
       value: "Monthly",
       label: "Monthly",
-      subtitle: `${formatMonthlyHourlyRateBand()} · ${formatMonthlyExtraHourCoupon()}`,
+      subtitle: "Monthly booking",
       icon: "calendar-month",
     },
   ];
@@ -1208,6 +1219,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
         <Animated.View
           style={[
             styles.container,
+            sheetInsetsStyle,
             { backgroundColor: isDarkMode ? colors.card : "#f8fafc", transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
@@ -1239,6 +1251,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </LinearGradient>
           <ScrollView
             ref={scrollViewRef}
+            style={styles.wizardScroll}
             contentContainerStyle={styles.wizardScrollContent}
             showsVerticalScrollIndicator={true}
             nestedScrollEnabled={true}
@@ -1335,6 +1348,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   <DribbbleDateTimePicker
                     mode="single"
                     value={localStartTime?.toDate()}
+                    maxDate={maxDate21Days.toDate()}
                     onChange={(date: Date) => {
                       if (date) {
                         const selected = dayjs(date);
@@ -1343,8 +1357,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                           alert("Please select a time at least 30 minutes from now");
                           return;
                         }
-                        if (selected.hour() < BUSINESS_HOURS.openingHour || selected.hour() >= BUSINESS_HOURS.cutoffHour) {
-                          alert("Please select a time between 5 AM and 10 PM");
+                        if (selected.hour() < 6 || selected.hour() > 19) {
+                          alert("Please select a time between 6 AM and 7 PM");
                           return;
                         }
                         if (selected.isAfter(maxDate21Days)) {
@@ -1366,11 +1380,13 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
                     mode="range"
+                    maxRangeDays={14}
                     value={{
                       startDate: localStartTime?.toDate(),
                       endDate: localEndDate ? dayjs(localEndDate).toDate() : undefined,
                     }}
-                    onChange={(payload: { startDate: Date; endDate: Date; time: string }) => {
+                    onChange={(payload: { startDate: Date; endDate: Date; time?: string }) => {
+                      if (!payload.time) return;
                       const start = dayjs(payload.startDate);
                       const end = dayjs(payload.endDate);
                       const { hour, minute } = parseTimeFromString(payload.time);
@@ -1406,6 +1422,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   <DribbbleDateTimePicker
                     mode="single"
                     value={localStartTime?.toDate()}
+                    maxDate={maxDate90Days.toDate()}
                     onChange={(date: Date) => {
                       if (date) {
                         const selected = dayjs(date);
@@ -1414,8 +1431,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                           alert("Please select a time at least 30 minutes from now");
                           return;
                         }
-                        if (selected.hour() < BUSINESS_HOURS.openingHour || selected.hour() >= BUSINESS_HOURS.cutoffHour) {
-                          alert("Please select a time between 5 AM and 10 PM");
+                        if (selected.hour() < 6 || selected.hour() > 19) {
+                          alert("Please select a time between 6 AM and 7 PM");
                           return;
                         }
                         if (selected.isAfter(maxDate90Days, "day")) {
@@ -1468,7 +1485,16 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               })}
             </View>
           </View>
-          <View style={[styles.actions, { borderTopColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#f8fafc" }]}>
+          <View
+            style={[
+              styles.actions,
+              {
+                borderTopColor: colors.border,
+                backgroundColor: isDarkMode ? colors.card : "#f8fafc",
+                paddingBottom: Math.max(insets.bottom, 14),
+              },
+            ]}
+          >
             <TouchableOpacity
               style={[styles.cancelButton, { borderColor: colors.primary }]}
               onPress={handleSheetClose}
@@ -1506,13 +1532,9 @@ const styles = StyleSheet.create({
   },
   container: {
     width: "100%",
-    // maxHeight: Dimensions.get("window").height * 0.93,
-    minHeight: Dimensions.get("window").height * 0.8,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    overflow: "scroll",
-    // paddingBottom: Platform.OS === "ios" ? 16 : 10,
-    // borderWidth: 1,
+    overflow: "hidden",
     borderColor: "rgba(148, 163, 184, 0.25)",
   },
   sheetHandleWrap: {
@@ -1608,6 +1630,10 @@ const styles = StyleSheet.create({
   progressDotInactive: {
     width: 12,
     backgroundColor: "rgba(255,255,255,0.45)",
+  },
+  wizardScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   wizardScrollContent: {
     paddingBottom: 12,

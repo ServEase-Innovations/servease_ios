@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { encode as base64Encode } from 'base-64';
 
 export type InvoicePdfInput = {
   invoiceNumber: string;
@@ -234,32 +235,20 @@ export async function generateInvoicePdfBase64(input: InvoicePdfInput): Promise<
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
   let binary = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    for (let j = 0; j < chunk.length; j += 1) {
+      binary += String.fromCharCode(chunk[j]);
+    }
   }
   if (typeof global.btoa === 'function') {
-    return global.btoa(binary);
-  }
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let output = '';
-  let i = 0;
-  while (i < binary.length) {
-    const byte1 = binary.charCodeAt(i++);
-    const byte2 = binary.charCodeAt(i++);
-    const byte3 = binary.charCodeAt(i++);
-    const enc1 = byte1 >> 2;
-    const enc2 = ((byte1 & 3) << 4) | (byte2 >> 4);
-    let enc3 = ((byte2 & 15) << 2) | (byte3 >> 6);
-    let enc4 = byte3 & 63;
-    if (Number.isNaN(byte2)) {
-      enc3 = 64;
-      enc4 = 64;
-    } else if (Number.isNaN(byte3)) {
-      enc4 = 64;
+    try {
+      return global.btoa(binary);
+    } catch {
+      // Fall through to base-64 package (more reliable on Android Hermes).
     }
-    output +=
-      chars.charAt(enc1) + chars.charAt(enc2) + chars.charAt(enc3) + chars.charAt(enc4);
   }
-  return output;
+  return base64Encode(binary);
 }

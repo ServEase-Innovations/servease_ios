@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,20 +9,19 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
-// ✅ Enable customParseFormat plugin for proper time parsing
 dayjs.extend(customParseFormat);
 
 /* -------------------- Constants -------------------- */
 
 const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
+/** Bookable start times: 6:00 AM – 7:00 PM (service must end by 8:00 PM). */
 const generateTimeSlots = () => {
   const slots: string[] = [];
-  // Generate from 5:00 AM to 8:00 PM
-  for (let h = 5; h <= 20; h++) {
+  for (let h = 6; h <= 19; h++) {
     for (let m = 0; m < 60; m += 30) {
+      if (h === 19 && m > 0) continue;
       const hour12 = h % 12 || 12;
-      // ✅ FIXED: Always use 2-digit minutes with padStart
       const minute = String(m).padStart(2, "0");
       const ampm = h < 12 ? "AM" : "PM";
       slots.push(`${hour12}:${minute} ${ampm}`);
@@ -31,69 +30,220 @@ const generateTimeSlots = () => {
   return slots;
 };
 
-const TIMES = generateTimeSlots();
-const INITIAL_AVAILABLE_COUNT = 9;
+const ALL_TIMES = generateTimeSlots();
+const DEFAULT_MAX_RANGE_DAYS = 21;
+
+function calendarDayFromDate(d: Date): Dayjs {
+  return dayjs(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0));
+}
+
+function parseTimeLabel(time: string): { hour: number; minute: number } {
+  const match = time.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return { hour: 0, minute: 0 };
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const ampm = match[3].toUpperCase();
+  if (ampm === "PM" && hour !== 12) hour += 12;
+  if (ampm === "AM" && hour === 12) hour = 0;
+  return { hour, minute };
+}
+
+function timeLabelToMinutes(time: string): number {
+  const { hour, minute } = parseTimeLabel(time);
+  return hour * 60 + minute;
+}
+
+const getAvailableTimes = (date: Dayjs | null): string[] => {
+  if (!date) return [];
+  const now = dayjs();
+  const isToday = date.isSame(now, "day");
+
+  if (!isToday) {
+    return ALL_TIMES;
+  }
+
+  const cutoffMinutes = now.hour() * 60 + now.minute() + 30;
+  return ALL_TIMES.filter((time) => timeLabelToMinutes(time) > cutoffMinutes);
+};
+
+const getTimesUpToNoon = (times: string[]): string[] =>
+  times.filter((time) => timeLabelToMinutes(time) <= 12 * 60);
 
 /* -------------------- Types -------------------- */
 
 type RangeValue = {
   startDate?: Date;
   endDate?: Date;
+  time?: string;
 };
 
 type SingleModeProps = {
   mode?: "single";
   value?: Date;
+  maxDate?: Date;
+  hideTimeSelection?: boolean;
+  onDateChange?: (date: Date) => void;
   onChange: (date: Date, time?: string) => void;
 };
 
 type RangeModeProps = {
   mode: "range";
   value?: RangeValue;
-  onChange: (range: { startDate: Date; endDate: Date; time: string }) => void;
+  maxRangeDays?: number;
+  minRangeDays?: number;
+  minDate?: Date;
+  maxDate?: Date;
+  hideTimeSelection?: boolean;
+  onDateChange?: (payload: { startDate: Date; endDate?: Date }) => void;
+  onChange: (range: { startDate: Date; endDate: Date; time?: string }) => void;
 };
 
-type Props = SingleModeProps | RangeModeProps;
+type Props = (SingleModeProps | RangeModeProps) & {
+  compact?: boolean;
+};
 
 /* -------------------- Component -------------------- */
 
 export default function DribbbleDateTimePicker(props: Props) {
+  const compact = props.compact ?? false;
   const mode = props.mode ?? "single";
-  
+  const value = props.value;
+  const singleMaxDate = props.mode === "single" ? props.maxDate : undefined;
+  const rangeProps = props.mode === "range" ? (props as RangeModeProps) : null;
+  const singleProps = props.mode !== "range" ? (props as SingleModeProps) : null;
+  const hideTimeSelection =
+    rangeProps?.hideTimeSelection ?? singleProps?.hideTimeSelection ?? false;
+
+  const today = useMemo(() => dayjs().startOf("day"), []);
+  const rangeMinDate = rangeProps?.minDate
+    ? calendarDayFromDate(rangeProps.minDate).startOf("day")
+    : null;
+  const rangeMaxDate = rangeProps?.maxDate
+    ? calendarDayFromDate(rangeProps.maxDate).startOf("day")
+    : null;
+  const effectiveRangeMin =
+    rangeMinDate ?? (mode === "range" && hideTimeSelection ? today : null);
+  const minRangeDays = Math.max(1, rangeProps?.minRangeDays ?? 1);
+  const minRangeDaysInclusive = minRangeDays;
+  const maxRangeDays =
+    rangeProps?.maxRangeDays != null
+      ? Math.max(1, rangeProps.maxRangeDays)
+      : hideTimeSelection
+        ? undefined
+        : DEFAULT_MAX_RANGE_DAYS;
+  const maxRangeDaysInclusive = maxRangeDays != null ? maxRangeDays + 1 : undefined;
+
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [showAllAvailable, setShowAllAvailable] = useState(false);
-  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [showTimeHint, setShowTimeHint] = useState(false);
+  const [showAllTimes, setShowAllTimes] = useState(false);
+  const [, setSlotRefreshTick] = useState(0);
 
-  /* ---------- Single Date Only ---------- */
   const [selectedDate, setSelectedDate] = useState<Dayjs>(() => {
-    if (mode === "single" && props.value instanceof Date) {
-      return dayjs(props.value);
+    if (mode === "single" && value instanceof Date) {
+      return calendarDayFromDate(value);
     }
     return dayjs();
   });
 
-  /* ---------- Range Date ---------- */
-  const [rangeStart, setRangeStart] = useState<Dayjs | null>(() => {
-    if (mode === "range" && props.value && 'startDate' in props.value && props.value.startDate) {
-      return dayjs(props.value.startDate);
+  const rangeValue =
+    mode === "range" && value && typeof value === "object" && "startDate" in value
+      ? value
+      : undefined;
+
+  const [rangeStart, setRangeStart] = useState<Dayjs | null>(() =>
+    rangeValue?.startDate ? calendarDayFromDate(rangeValue.startDate) : null
+  );
+  const [rangeEnd, setRangeEnd] = useState<Dayjs | null>(() =>
+    rangeValue?.endDate ? calendarDayFromDate(rangeValue.endDate) : null
+  );
+
+  const formatTimeSlot = useCallback((d: Dayjs): string | null => {
+    const hour = d.hour();
+    const minute = d.minute();
+    return (
+      ALL_TIMES.find((slot) => {
+        const parsed = parseTimeLabel(slot);
+        return parsed.hour === hour && parsed.minute === minute;
+      }) ?? null
+    );
+  }, []);
+
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  const singleValueTs =
+    mode === "single" && value instanceof Date ? value.getTime() : null;
+  const rangeStartTs =
+    mode === "range" && value && typeof value === "object" && "startDate" in value
+      ? (value as RangeValue).startDate?.getTime() ?? null
+      : null;
+  const rangeEndTs =
+    mode === "range" && value && typeof value === "object" && "startDate" in value
+      ? (value as RangeValue).endDate?.getTime() ?? null
+      : null;
+  const rangeTimeLabel =
+    mode === "range" && value && typeof value === "object" && "startDate" in value
+      ? String((value as RangeValue).time ?? "").trim()
+      : "";
+
+  const externalValueKey = useMemo(() => {
+    if (mode === "single") {
+      return singleValueTs != null ? `single:${singleValueTs}` : "single:";
     }
-    return null;
-  });
-  
-  const [rangeEnd, setRangeEnd] = useState<Dayjs | null>(() => {
-    if (mode === "range" && props.value && 'endDate' in props.value && props.value.endDate) {
-      return dayjs(props.value.endDate);
+    if (mode === "range") {
+      return `range:${rangeStartTs ?? "none"}|${rangeEndTs ?? "none"}|${rangeTimeLabel}`;
     }
-    return null;
-  });
+    return `${mode}:empty`;
+  }, [mode, singleValueTs, rangeStartTs, rangeEndTs, rangeTimeLabel]);
 
-  const [isSelectingEnd, setIsSelectingEnd] = useState(false);
+  useEffect(() => {
+    const currentValue = valueRef.current;
 
-  /* -------------------- Calendar Setup -------------------- */
+    if (mode === "single" && currentValue instanceof Date) {
+      const full = dayjs(currentValue);
+      const dayAnchor = calendarDayFromDate(currentValue);
+      setSelectedDate((prev) => (prev.isSame(dayAnchor, "day") ? prev : dayAnchor));
+      const nextTime = formatTimeSlot(full);
+      if (nextTime) {
+        setSelectedTime((prev) => (prev === nextTime ? prev : nextTime));
+      }
+      return;
+    }
 
-  const today = dayjs().startOf("day");
-  const now = dayjs();
+    if (
+      mode === "range" &&
+      currentValue &&
+      typeof currentValue === "object" &&
+      "startDate" in currentValue
+    ) {
+      const rv = currentValue as RangeValue;
+      if (rv.startDate) {
+        const nextStart = calendarDayFromDate(rv.startDate).startOf("day");
+        setRangeStart((prev) => (prev?.isSame(nextStart, "day") ? prev : nextStart));
+      } else {
+        setRangeStart((prev) => (prev === null ? prev : null));
+      }
+      if (rv.endDate) {
+        const nextEnd = calendarDayFromDate(rv.endDate).startOf("day");
+        setRangeEnd((prev) => (prev?.isSame(nextEnd, "day") ? prev : nextEnd));
+      } else {
+        setRangeEnd((prev) => (prev === null ? prev : null));
+      }
+      if (rv.startDate && rv.endDate) {
+        const explicitTime = String(rv.time ?? "").trim();
+        const nextTime =
+          (explicitTime && ALL_TIMES.includes(explicitTime) ? explicitTime : null) ??
+          formatTimeSlot(dayjs(rv.startDate));
+        setSelectedTime((prev) => (prev === nextTime ? prev : nextTime));
+      }
+    }
+  }, [mode, externalValueKey, formatTimeSlot]);
+
+  useEffect(() => {
+    const id = setInterval(() => setSlotRefreshTick((tick) => tick + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const startOfMonth = currentMonth.startOf("month");
   const daysInMonth = currentMonth.daysInMonth();
@@ -104,170 +254,222 @@ export default function DribbbleDateTimePicker(props: Props) {
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  /* -------------------- Helper Functions -------------------- */
+  const activeDate = useMemo(() => {
+    if (mode === "single") return selectedDate;
+    if (mode === "range" && rangeStart) return rangeStart;
+    return null;
+  }, [mode, selectedDate, rangeStart]);
 
-  const isToday = (date: Dayjs): boolean => date.isSame(now, "day");
+  const isActiveDateToday = activeDate ? activeDate.isSame(dayjs(), "day") : false;
+  const availableTimes = getAvailableTimes(activeDate);
+  const hasAvailableTimes = availableTimes.length > 0;
+  const todayHasNoSlots = getAvailableTimes(today).length === 0;
+
+  const sortTimeLabels = (times: string[]) =>
+    [...times].sort((a, b) => timeLabelToMinutes(a) - timeLabelToMinutes(b));
+
+  const displayedTimes = useMemo(() => {
+    if (!hasAvailableTimes) return [];
+    let times: string[];
+    if (showAllTimes) {
+      times = availableTimes;
+    } else if (isActiveDateToday) {
+      times = availableTimes.slice(0, 6);
+    } else {
+      times = getTimesUpToNoon(availableTimes);
+    }
+
+    if (
+      selectedTime &&
+      availableTimes.includes(selectedTime) &&
+      !times.includes(selectedTime)
+    ) {
+      times = sortTimeLabels([...times, selectedTime]);
+    }
+
+    return times;
+  }, [availableTimes, showAllTimes, hasAvailableTimes, isActiveDateToday, selectedTime]);
+
+  const canExpand = useMemo(() => {
+    if (!hasAvailableTimes) return false;
+    if (isActiveDateToday) {
+      return availableTimes.length > 6;
+    }
+    const timesUpToNoon = getTimesUpToNoon(availableTimes);
+    return availableTimes.length > timesUpToNoon.length;
+  }, [availableTimes, hasAvailableTimes, isActiveDateToday]);
+
+  const isTodayDate = (date: Dayjs | null): boolean =>
+    date ? date.isSame(dayjs(), "day") : false;
+
   const isPastDate = (date: Dayjs): boolean => date.isBefore(today, "day");
   const isPastMonth = (month: Dayjs): boolean => month.isBefore(today, "month");
 
   const isTimeSlotDisabled = (time: string): boolean => {
-    const effectiveDate = mode === "range" ? rangeStart : selectedDate;
-    if (!effectiveDate) return true;
-    if (isPastDate(effectiveDate)) return true;
-    if (!isToday(effectiveDate)) return false;
+    if (mode === "range" && (!rangeStart || !rangeEnd)) return true;
+    return !availableTimes.includes(time);
+  };
 
-    // ✅ Strict parsing with validation
-    const parsedTime = dayjs(time, "h:mm A", true);
-    if (!parsedTime.isValid()) {
+  const isRangeStart = (day: number) =>
+    rangeStart && currentMonth.date(day).isSame(rangeStart, "day");
+
+  const isRangeEnd = (day: number) =>
+    rangeEnd && currentMonth.date(day).isSame(rangeEnd, "day");
+
+  const isInRange = (day: number) => {
+    if (!rangeStart || !rangeEnd) return false;
+    const d = currentMonth.date(day);
+    return d.isAfter(rangeStart, "day") && d.isBefore(rangeEnd, "day");
+  };
+
+  const isDisabledInRangeMode = (day: number) => {
+    const date = currentMonth.date(day).startOf("day");
+    if (mode === "single" && isPastDate(date)) return true;
+    if (mode === "range" && !hideTimeSelection && isPastDate(date)) return true;
+    if (mode === "range" && !hideTimeSelection && date.isSame(today, "day") && todayHasNoSlots) {
       return true;
     }
 
-    // ✅ Build time using effectiveDate
-    const timeDateTime = effectiveDate
-      .hour(parsedTime.hour())
-      .minute(parsedTime.minute())
-      .second(0)
-      .millisecond(0);
+    if (effectiveRangeMin && date.isBefore(effectiveRangeMin, "day")) return true;
+    if (hideTimeSelection && rangeMaxDate && date.isAfter(rangeMaxDate, "day")) return true;
 
-    return timeDateTime.isBefore(now.add(30, "minute"));
+    if (mode === "single" && singleMaxDate) {
+      if (date.isAfter(calendarDayFromDate(singleMaxDate), "day")) return true;
+    }
+
+    if (mode === "range" && !rangeStart) {
+      if (rangeMaxDate && date.isAfter(rangeMaxDate, "day")) return true;
+    }
+
+    if (mode === "range" && rangeStart && !rangeEnd) {
+      const earliestEnd = rangeStart.add(minRangeDays - 1, "day");
+      if (date.isBefore(earliestEnd, "day")) return true;
+      if (rangeMaxDate && date.isAfter(rangeMaxDate, "day")) return true;
+      if (maxRangeDays != null && date.isAfter(rangeStart.add(maxRangeDays, "day"), "day")) {
+        return true;
+      }
+    }
+    return false;
   };
 
-  const isDisabledDate = (day: number) => {
-    const date = currentMonth.date(day);
-    return isPastDate(date);
-  };
-
-  const isInRange = (day: number) => {
-    if (mode !== "range") return false;
-    if (!rangeStart || !rangeEnd) return false;
-    
-    const date = currentMonth.date(day);
-    return date.isAfter(rangeStart) && date.isBefore(rangeEnd);
-  };
-
-  const isRangeStart = (day: number) => {
-    if (mode !== "range") return false;
-    if (!rangeStart) return false;
-    return currentMonth.date(day).isSame(rangeStart, "day");
-  };
-
-  const isRangeEnd = (day: number) => {
-    if (mode !== "range") return false;
-    if (!rangeEnd) return false;
-    return currentMonth.date(day).isSame(rangeEnd, "day");
-  };
-
-  const getDisabledTimeMessage = () => {
-    const effectiveDate = mode === "range" ? rangeStart : selectedDate;
-    if (!effectiveDate) return "Select a date first";
-    if (isPastDate(effectiveDate)) return "Past dates cannot be booked";
-    if (isToday(effectiveDate)) return "Past times are disabled for today";
+  const getTimeSectionMessage = () => {
+    if (mode === "range") {
+      if (hideTimeSelection) {
+        if (!rangeStart) {
+          return `Step 1: Tap your first vacation day (minimum ${minRangeDaysInclusive} days)`;
+        }
+        if (!rangeEnd) {
+          const earliest = rangeStart.add(minRangeDays - 1, "day");
+          return `Step 2: Tap your last day — earliest valid end is ${earliest.format("MMM D")}`;
+        }
+        return null;
+      }
+      if (!rangeStart) return "Step 1: Tap your first service day on the calendar";
+      if (!rangeEnd) {
+        return `Step 2: Tap your last day (up to ${maxRangeDaysInclusive} days from the first)`;
+      }
+      if (!selectedTime) {
+        return "Step 3: Choose the daily start time (same time applies on each day)";
+      }
+      return null;
+    }
+    if (!activeDate) return "Select a date first";
+    if (isPastDate(activeDate)) return "Past dates cannot be booked";
+    if (!hasAvailableTimes) return "No time slots available for today. Please select another date.";
+    if (isTodayDate(activeDate)) return "Only upcoming time slots are available today";
     return null;
   };
 
-  /* -------------------- Handlers -------------------- */
+  const isTimeSelectionDisabled = mode === "range" && (!rangeStart || !rangeEnd);
+
+  const flashRangeHint = () => {
+    setShowTimeHint(true);
+    setTimeout(() => setShowTimeHint(false), 3000);
+  };
 
   const selectDate = (day: number) => {
-    const date = currentMonth.date(day);
-    if (isDisabledDate(day)) return;
+    const date = currentMonth.date(day).startOf("day");
+    if (isDisabledInRangeMode(day)) return;
+    if (!hideTimeSelection && date.isSame(today, "day") && todayHasNoSlots) return;
 
     if (mode === "single") {
+      if (singleMaxDate && date.isAfter(dayjs(singleMaxDate), "day")) {
+        flashRangeHint();
+        return;
+      }
       setSelectedDate(date);
       setSelectedTime(null);
-      setShowAllAvailable(false);
-      setShowUnavailable(false);
-    } else if (mode === "range") {
-      if (!isSelectingEnd || !rangeStart) {
-        // Start selecting range
-        setRangeStart(date);
-        setRangeEnd(null);
-        setIsSelectingEnd(true);
-        setSelectedTime(null);
-        setShowAllAvailable(false);
-        setShowUnavailable(false);
-      } else {
-        // Complete the range
-        let start = rangeStart;
-        let end = date;
-        
-        if (date.isBefore(rangeStart)) {
-          start = date;
-          end = rangeStart;
-        }
-        
-        setRangeStart(start);
-        setRangeEnd(end);
-        setIsSelectingEnd(false);
-        setSelectedTime(null);
-        setShowAllAvailable(false);
-        setShowUnavailable(false);
-        
-        // For range mode, if we have a time selected, trigger onChange with range object
-        if (start && end && selectedTime) {
-          const parsedTime = dayjs(selectedTime, "h:mm A", true);
-          if (parsedTime.isValid()) {
-            const startDate = start
-              .hour(parsedTime.hour())
-              .minute(parsedTime.minute())
-              .second(0)
-              .millisecond(0)
-              .toDate();
-            
-            const endDate = end
-              .hour(parsedTime.hour())
-              .minute(parsedTime.minute())
-              .second(0)
-              .millisecond(0)
-              .toDate();
-            
-            // Type-safe call for range mode
-            (props as RangeModeProps).onChange({ startDate, endDate, time: selectedTime });
-          }
-        }
+      setShowAllTimes(false);
+      (props as SingleModeProps).onDateChange?.(date.toDate());
+      return;
+    }
+
+    const activeRangeProps = props as RangeModeProps;
+    if (!rangeStart || rangeEnd) {
+      setRangeStart(date);
+      setRangeEnd(null);
+      setSelectedTime(null);
+      setShowAllTimes(false);
+      activeRangeProps.onDateChange?.({ startDate: date.toDate() });
+      return;
+    }
+
+    if (date.isSame(rangeStart, "day")) return;
+
+    const spanDays = date.diff(rangeStart, "day") + 1;
+    if (spanDays < minRangeDays) {
+      flashRangeHint();
+      return;
+    }
+
+    if (maxRangeDays != null && date.diff(rangeStart, "day") > maxRangeDays) {
+      flashRangeHint();
+      return;
+    }
+
+    if (date.isBefore(rangeStart, "day")) {
+      setRangeStart(date);
+      setRangeEnd(null);
+      activeRangeProps.onDateChange?.({ startDate: date.toDate() });
+    } else {
+      setRangeEnd(date);
+      const payload = {
+        startDate: rangeStart.toDate(),
+        endDate: date.toDate(),
+      };
+      activeRangeProps.onDateChange?.(payload);
+      if (hideTimeSelection) {
+        activeRangeProps.onChange(payload);
       }
     }
+    setSelectedTime(null);
+    setShowAllTimes(false);
   };
 
   const selectTime = (time: string) => {
     if (isTimeSlotDisabled(time)) return;
-    
-    const effectiveDate = mode === "range" ? rangeStart : selectedDate;
-    if (!effectiveDate) return;
+    if (mode === "range" && (!rangeStart || !rangeEnd)) return;
 
     setSelectedTime(time);
+    const { hour, minute } = parseTimeLabel(time);
 
-    // ✅ Strict parsing with validation
-    const parsedTime = dayjs(time, "h:mm A", true);
-    if (!parsedTime.isValid()) {
-      console.error("Failed to parse time:", time);
+    if (mode === "single") {
+      const finalDate = selectedDate
+        .hour(hour)
+        .minute(minute)
+        .second(0)
+        .millisecond(0)
+        .toDate();
+      (props as SingleModeProps).onChange(finalDate, time);
       return;
     }
 
-    // ✅ Build final date
-    const finalDate = effectiveDate
-      .hour(parsedTime.hour())
-      .minute(parsedTime.minute())
-      .second(0)
-      .millisecond(0)
-      .toDate();
-
-    if (mode === "range") {
-      if (rangeStart && rangeEnd) {
-        // Both dates selected, trigger onChange with range object
-        (props as RangeModeProps).onChange({ 
-          startDate: rangeStart.toDate(), 
-          endDate: rangeEnd.toDate(), 
-          time 
-        });
-      } else if (rangeStart && !rangeEnd) {
-        // Only start date selected, store time but don't trigger onChange yet
-        // Wait for end date selection
-        return;
-      }
-    } else {
-      // Single mode
-      (props as SingleModeProps).onChange(finalDate, time);
-    }
+    if (!rangeStart || !rangeEnd) return;
+    (props as RangeModeProps).onChange({
+      startDate: rangeStart.hour(hour).minute(minute).second(0).millisecond(0).toDate(),
+      endDate: rangeEnd.hour(hour).minute(minute).second(0).millisecond(0).toDate(),
+      time,
+    });
   };
 
   const changeMonth = (increment: number) => {
@@ -275,13 +477,6 @@ export default function DribbbleDateTimePicker(props: Props) {
     if (increment === -1 && isPastMonth(newMonth)) return;
     setCurrentMonth(newMonth);
   };
-
-  const availableTimes = TIMES.filter((time) => !isTimeSlotDisabled(time));
-  const unavailableTimes = TIMES.filter((time) => isTimeSlotDisabled(time));
-  const hiddenAvailableCount = Math.max(0, availableTimes.length - INITIAL_AVAILABLE_COUNT);
-  const visibleAvailableTimes = showAllAvailable
-    ? availableTimes
-    : availableTimes.slice(0, INITIAL_AVAILABLE_COUNT);
 
   const renderTimeChip = (time: string, isDisabled: boolean) => {
     const isSelected = selectedTime === time;
@@ -292,51 +487,44 @@ export default function DribbbleDateTimePicker(props: Props) {
         style={[
           styles.timeSlot,
           isSelected && styles.activeTimeSlot,
-          isDisabled && styles.disabledTimeSlot,
+          (isDisabled || isTimeSelectionDisabled) && styles.disabledTimeSlot,
         ]}
         onPress={() => selectTime(time)}
-        disabled={isDisabled}
-        activeOpacity={isDisabled ? 1 : 0.7}
+        disabled={isDisabled || isTimeSelectionDisabled}
+        activeOpacity={isDisabled || isTimeSelectionDisabled ? 1 : 0.7}
       >
         <Text
           style={[
             styles.timeSlotText,
             isSelected && styles.activeTimeSlotText,
-            isDisabled && styles.disabledTimeSlotText,
+            (isDisabled || isTimeSelectionDisabled) && styles.disabledTimeSlotText,
           ]}
         >
           {time}
         </Text>
-        {isDisabled && <Text style={styles.unavailableLabel}>Unavailable</Text>}
       </TouchableOpacity>
     );
   };
 
-  /* -------------------- Render -------------------- */
-
   return (
-    <View style={styles.card}>
-      {/* Book by - Header Section */}
+    <View style={[styles.card, compact && styles.cardCompact]}>
       <View style={styles.bookByContainer}>
         <Text style={styles.bookByTitle}>Book by</Text>
       </View>
 
-      {/* Month and Year Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => changeMonth(-1)}
           disabled={isPastMonth(currentMonth.subtract(1, "month"))}
           style={[
             styles.monthButton,
-            isPastMonth(currentMonth.subtract(1, "month")) &&
-              styles.monthButtonDisabled,
+            isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonDisabled,
           ]}
         >
           <Text
             style={[
               styles.monthButtonText,
-              isPastMonth(currentMonth.subtract(1, "month")) &&
-                styles.monthButtonTextDisabled,
+              isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonTextDisabled,
             ]}
           >
             ‹
@@ -348,20 +536,6 @@ export default function DribbbleDateTimePicker(props: Props) {
         </TouchableOpacity>
       </View>
 
-      {/* Range Selection Hint */}
-      {mode === "range" && (
-        <View style={styles.rangeHint}>
-          <Text style={styles.rangeHintText}>
-            {!rangeStart 
-              ? "Select start date" 
-              : !rangeEnd 
-              ? "Select end date" 
-              : "Range selected"}
-          </Text>
-        </View>
-      )}
-
-      {/* Week Header */}
       <View style={styles.weekHeader}>
         {WEEK_DAYS.map((d) => (
           <Text key={d} style={styles.weekDayText}>
@@ -370,14 +544,11 @@ export default function DribbbleDateTimePicker(props: Props) {
         ))}
       </View>
 
-      {/* Calendar Grid */}
       <View style={styles.calendarGrid}>
         {calendarCells.map((day, i) => {
-          const disabled = day ? isDisabledDate(day) : true;
-          const isSelected = mode === "single" 
-            ? day && selectedDate.isSame(currentMonth.date(day), "day")
-            : false;
-          
+          const disabled = day ? isDisabledInRangeMode(day) : true;
+          const isSelected =
+            mode === "single" && day && selectedDate.isSame(currentMonth.date(day), "day");
           const isInRangeValue = day ? isInRange(day) : false;
           const isStart = day ? isRangeStart(day) : false;
           const isEnd = day ? isRangeEnd(day) : false;
@@ -410,79 +581,84 @@ export default function DribbbleDateTimePicker(props: Props) {
         })}
       </View>
 
-      {/* Divider */}
-      <View style={styles.divider} />
-
-      {/* Select Time Header */}
-      <View style={styles.timeHeader}>
-        <View style={styles.timeHeaderTextWrap}>
-          <Text style={styles.timeTitle}>Select Time</Text>
-          {getDisabledTimeMessage() && (
-            <Text style={styles.timeHint}>{getDisabledTimeMessage()}</Text>
-          )}
+      {!hideTimeSelection && todayHasNoSlots && currentMonth.isSame(today, "month") && (
+        <View style={styles.dayUnavailableHint}>
+          <Text style={styles.dayUnavailableHintText}>
+            Today has no remaining time slots. Please select a future date.
+          </Text>
         </View>
-        {availableTimes.length > 0 && (
-          <View style={styles.availableCountPill}>
-            <Text style={styles.availableCountText}>{availableTimes.length} available</Text>
+      )}
+
+      {showTimeHint && (
+        <View style={styles.rangeHint}>
+          <Text style={styles.rangeHintText}>
+            {hideTimeSelection
+              ? `Vacation must be at least ${minRangeDaysInclusive} days. Pick a later end date.`
+              : `Short-term bookings are limited to ${maxRangeDaysInclusive} days. Pick an end date within that window.`}
+          </Text>
+        </View>
+      )}
+
+      {mode === "range" && rangeStart && rangeEnd && (
+        <View style={styles.rangeSummary}>
+          <Text style={styles.rangeSummaryText}>
+            {rangeStart.format("MMM D")} – {rangeEnd.format("MMM D, YYYY")} ·{" "}
+            {rangeEnd.diff(rangeStart, "day") + 1} day
+            {rangeEnd.diff(rangeStart, "day") + 1 === 1 ? "" : "s"}
+          </Text>
+        </View>
+      )}
+
+      {!hideTimeSelection && (
+        <>
+          <View style={styles.divider} />
+
+          <View style={styles.timeHeader}>
+            <View style={styles.timeHeaderTextWrap}>
+              <Text style={styles.timeTitle}>
+                {mode === "range" && (!rangeStart || !rangeEnd) ? "Time (after dates)" : "Select Time"}
+              </Text>
+              {getTimeSectionMessage() && (
+                <Text style={styles.timeHint}>{getTimeSectionMessage()}</Text>
+              )}
+            </View>
+            {hasAvailableTimes && !isTimeSelectionDisabled && (
+              <View style={styles.availableCountPill}>
+                <Text style={styles.availableCountText}>{availableTimes.length} available</Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
 
-      {availableTimes.length === 0 ? (
-        <View style={styles.emptyTimesBox}>
-          <Text style={styles.emptyTimesTitle}>No times available for this date</Text>
-          <Text style={styles.emptyTimesSubtext}>
-            Pick another date or check unavailable slots below.
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.timeGridContent}>
-          {visibleAvailableTimes.map((time) => renderTimeChip(time, false))}
-        </View>
-      )}
+          {hasAvailableTimes ? (
+            <>
+              <View style={styles.timeGridContent}>
+                {displayedTimes.map((time) => renderTimeChip(time, isTimeSlotDisabled(time)))}
+              </View>
 
-      {!showAllAvailable && hiddenAvailableCount > 0 && (
-        <TouchableOpacity
-          style={styles.expandButton}
-          onPress={() => setShowAllAvailable(true)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.expandButtonText}>
-            Show more times ({hiddenAvailableCount} more)
-          </Text>
-        </TouchableOpacity>
-      )}
+              {canExpand && (
+                <TouchableOpacity
+                  style={styles.expandButton}
+                  onPress={() => setShowAllTimes((prev) => !prev)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.expandButtonText}>
+                    {showAllTimes ? "Less time ▲" : "More time ▼"}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-      {showAllAvailable && hiddenAvailableCount > 0 && (
-        <TouchableOpacity
-          style={styles.collapseButton}
-          onPress={() => setShowAllAvailable(false)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.collapseButtonText}>Show fewer times</Text>
-        </TouchableOpacity>
-      )}
-
-      {unavailableTimes.length > 0 && (
-        <View style={styles.unavailableSection}>
-          <TouchableOpacity
-            style={styles.expandButtonSecondary}
-            onPress={() => setShowUnavailable((prev) => !prev)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.expandButtonSecondaryText}>
-              {showUnavailable
-                ? "Hide unavailable times"
-                : `Show unavailable times (${unavailableTimes.length})`}
-            </Text>
-          </TouchableOpacity>
-
-          {showUnavailable && (
-            <View style={[styles.timeGridContent, styles.unavailableGrid]}>
-              {unavailableTimes.map((time) => renderTimeChip(time, true))}
+              {activeDate && isTodayDate(activeDate) && (
+                <Text style={styles.helperNote}>Past times are hidden. Showing available slots.</Text>
+              )}
+            </>
+          ) : (
+            <View style={styles.emptyTimesBox}>
+              <Text style={styles.emptyTimesTitle}>
+                {getTimeSectionMessage() || "No time slots available"}
+              </Text>
             </View>
           )}
-        </View>
+        </>
       )}
     </View>
   );
@@ -503,6 +679,10 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
+  },
+  cardCompact: {
+    padding: 14,
+    borderRadius: 16,
   },
   bookByContainer: {
     marginBottom: 0,
@@ -540,17 +720,42 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#000",
   },
+  dayUnavailableHint: {
+    backgroundColor: "#FFF8E8",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  dayUnavailableHintText: {
+    fontSize: 12,
+    color: "#9A6700",
+    textAlign: "center",
+  },
   rangeHint: {
     backgroundColor: "#E3F2FD",
     padding: 8,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
     alignItems: "center",
   },
   rangeHintText: {
     fontSize: 12,
     color: "#007AFF",
     fontWeight: "500",
+    textAlign: "center",
+  },
+  rangeSummary: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  rangeSummaryText: {
+    fontSize: 12,
+    color: "#475569",
+    fontWeight: "600",
+    textAlign: "center",
   },
   weekHeader: {
     flexDirection: "row",
@@ -657,23 +862,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#9A6700",
+    textAlign: "center",
   },
-  emptyTimesSubtext: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#B7791F",
+  helperNote: {
+    marginTop: 8,
+    fontSize: 11,
+    color: "#64748B",
+    textAlign: "center",
   },
   timeGridContent: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
     gap: 8,
-  },
-  unavailableSection: {
-    marginTop: 8,
-  },
-  unavailableGrid: {
-    marginTop: 8,
   },
   expandButton: {
     marginTop: 10,
@@ -689,27 +890,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#007AFF",
-  },
-  collapseButton: {
-    marginTop: 8,
-    alignSelf: "center",
-    paddingVertical: 4,
-  },
-  collapseButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-  expandButtonSecondary: {
-    marginTop: 4,
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-  },
-  expandButtonSecondaryText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748B",
-    textDecorationLine: "underline",
   },
   timeSlot: {
     width: "30%",
@@ -744,13 +924,5 @@ const styles = StyleSheet.create({
   disabledTimeSlotText: {
     color: "#94A3B8",
     textDecorationLine: "line-through",
-  },
-  unavailableLabel: {
-    marginTop: 2,
-    fontSize: 9,
-    fontWeight: "600",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
   },
 });

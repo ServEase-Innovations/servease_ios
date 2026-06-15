@@ -36,6 +36,7 @@ type MobileTab = {
   onPress: () => void;
   iconName?: string;
   isAccount?: boolean;
+  hideIcon?: boolean;
   variant?: "default" | "destructive";
   disabled?: boolean;
 };
@@ -290,7 +291,11 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   const renderCompactAccountAvatar = () => {
     const avatarSize = moderateScale(24);
 
-    if (!auth0User && appUser?.name) {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    if (appUser?.name && !auth0User) {
       return (
         <View
           style={[
@@ -336,6 +341,10 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     const iconMuted = isDarkMode ? "#94a3b8" : "#64748b";
     const iconActiveColor = colors.primary;
 
+    if (tab.hideIcon) {
+      return <View style={styles.navIconSlot} />;
+    }
+
     if (tab.isAccount) {
       return (
         <View
@@ -375,6 +384,10 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   };
 
   const renderUserAvatar = (isMobileView: boolean = false) => {
+    if (!isAuthenticated) {
+      return null;
+    }
+
     if (!auth0User && appUser?.name) {
       return (
         <View style={isMobileView ? styles.userAvatarContainerMobile : styles.userAvatarContainer}>
@@ -492,7 +505,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       tabs.push({
         key: "ACCOUNT",
         label: t("navigation.signIn"),
-        isAccount: true,
+        iconName: "login",
         onPress: handleProfileButtonClick,
       });
       tabs.push({
@@ -666,8 +679,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
           <View style={[styles.desktopActionIcons, { gap: moderateScale(16) }]}>
             <TouchableOpacity onPress={handleProfileButtonClick} style={[styles.desktopActionIcon, styles.userMenuButton, { padding: moderateScale(8), borderRadius: moderateScale(20), paddingHorizontal: moderateScale(12), paddingVertical: verticalScale(6) }]}>
-              {renderUserAvatar()}
-              {!isAuthenticated && <Text style={[styles.signInText, { fontSize: moderateScale(14) }]}>{t("navigation.signIn")}</Text>}
+              {isAuthenticated ? (
+                renderUserAvatar()
+              ) : (
+                <>
+                  <MaterialIcon name="login" size={moderateScale(22)} color="#fff" style={styles.navIcon} />
+                  <Text style={[styles.signInText, { fontSize: moderateScale(14) }]}>{t("navigation.signIn")}</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             {isAuthenticated && (

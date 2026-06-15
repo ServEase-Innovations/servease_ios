@@ -1,410 +1,317 @@
-// Footer.tsx - Updated with Gradient Background, White Text, and Improved Responsiveness
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Linking, StyleSheet, Image, Modal, useWindowDimensions, Platform, SafeAreaView } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+// Footer.tsx - Fetches contact + social links from admin platform settings
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Linking,
+  StyleSheet,
+  Image,
+  Modal,
+  useWindowDimensions,
+  Platform,
+  SafeAreaView,
+} from 'react-native';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import LinearGradient from 'react-native-linear-gradient';
 import { GRADIENTS } from '../theme/brandColors';
 import TnC from '../TermsAndConditions/TnC';
-import { useTranslation } from 'react-i18next';
+import {
+  DEFAULT_FOOTER_SETTINGS,
+  FOOTER_SOCIAL_ORDER,
+  FooterSettings,
+  FooterSocialKey,
+  fetchPublicFooterSettings,
+  formatPhoneDisplay,
+} from '../services/footerSettings';
+
+const SOCIAL_ICON: Record<
+  FooterSocialKey,
+  { type: 'text' } | { type: 'icon'; name: string }
+> = {
+  x: { type: 'text' },
+  instagram: { type: 'icon', name: 'instagram' },
+  youtube: { type: 'icon', name: 'youtube' },
+  linkedin: { type: 'icon', name: 'linkedin' },
+  facebook: { type: 'icon', name: 'facebook' },
+};
+
+const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
+  x: 'X (Twitter)',
+  instagram: 'Instagram',
+  youtube: 'YouTube',
+  linkedin: 'LinkedIn',
+  facebook: 'Facebook',
+};
 
 const Footer = () => {
-  const { t } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
   const [showTnC, setShowTnC] = useState(false);
+  const [footerSettings, setFooterSettings] = useState<FooterSettings>(DEFAULT_FOOTER_SETTINGS);
 
-  // Responsive breakpoints
+  useEffect(() => {
+    let active = true;
+    fetchPublicFooterSettings().then((settings) => {
+      if (active) setFooterSettings(settings);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const isSmallScreen = screenWidth < 375;
   const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
   const isLargeScreen = screenWidth >= 768;
+  const shouldUseColumnLayout = screenWidth < 360;
 
   const openLink = (url: string) => {
-    Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+    if (!url) return;
+    Linking.openURL(url).catch((err) => console.error("Couldn't load page", err));
   };
 
   const makePhoneCall = (phoneNumber: string) => {
-    Linking.openURL(`tel:${phoneNumber}`).catch(err => console.error("Couldn't make phone call", err));
+    if (!phoneNumber) return;
+    Linking.openURL(`tel:${phoneNumber}`).catch((err) => console.error("Couldn't make phone call", err));
   };
 
-  const openTnC = () => {
-    setShowTnC(true);
-  };
-
-  const closeTnC = () => {
-    setShowTnC(false);
-  };
-
-  // Get font size styles based on screen size
   const getFontSizeStyles = () => {
-    let baseSize = 14;
-    let headingSize = 16;
-    let smallText = 12;
-    
-    if (isSmallScreen) {
-      baseSize = 12;
-      headingSize = 14;
-      smallText = 10;
-    } else if (isMediumScreen) {
-      baseSize = 14;
-      headingSize = 16;
-      smallText = 12;
-    } else if (isLargeScreen) {
-      baseSize = 16;
-      headingSize = 18;
-      smallText = 14;
-    }
-    
-    return { textSize: baseSize, headingSize: headingSize, smallText: smallText };
+    if (isSmallScreen) return { textSize: 12, headingSize: 14, smallText: 10 };
+    if (isMediumScreen) return { textSize: 14, headingSize: 16, smallText: 12 };
+    if (isLargeScreen) return { textSize: 16, headingSize: 18, smallText: 14 };
+    return { textSize: 14, headingSize: 16, smallText: 12 };
   };
 
   const fontStyles = getFontSizeStyles();
+  const getLogoSize = () => (isSmallScreen ? 34 : isMediumScreen ? 42 : 48);
+  const getContactButtonWidth = () => (isSmallScreen ? 162 : isMediumScreen ? 178 : 192);
+  const getIconSize = () => (isSmallScreen ? 13 : isMediumScreen ? 16 : 18);
 
-  // Fixed gradient colors for consistent professional look
-  const getGradientColors = () => [...GRADIENTS.chrome];
+  const helplineLabel = formatPhoneDisplay(footerSettings.helplinePhone);
+  const joinUsLabel = formatPhoneDisplay(footerSettings.joinUsPhone);
 
-  // Responsive logo size
-  const getLogoSize = () => {
-    if (isSmallScreen) return 34;
-    if (isMediumScreen) return 42;
-    return 48;
+  const renderSocialIcon = (key: FooterSocialKey) => {
+    const meta = SOCIAL_ICON[key];
+    if (meta.type === 'text') {
+      return (
+        <Text style={[styles.xIcon, { color: '#FFFFFF', fontSize: isSmallScreen ? 10 : 12 }]}>
+          X
+        </Text>
+      );
+    }
+    return (
+      <MaterialCommunityIcon name={meta.name} size={getIconSize()} color="#FFFFFF" />
+    );
   };
-
-  // Responsive button width
-  const getContactButtonWidth = () => {
-    if (isSmallScreen) return 162;
-    if (isMediumScreen) return 178;
-    return 192;
-  };
-
-  // Responsive icon size
-  const getIconSize = () => {
-    if (isSmallScreen) return 13;
-    if (isMediumScreen) return 16;
-    return 18;
-  };
-
-  // Use stacked layout on compact phones for better readability
-  const shouldUseColumnLayout = screenWidth < 360;
 
   return (
     <>
       <LinearGradient
-        colors={getGradientColors()}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 0}}
+        colors={[...GRADIENTS.chrome]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
         style={styles.gradientContainer}
       >
         <SafeAreaView>
-          <View style={[
-            styles.footer,
-            shouldUseColumnLayout && styles.footerColumn
-          ]}>
-            {/* Left side - Logo and Brand Info */}
-            <View style={[
-              styles.leftSection,
-              shouldUseColumnLayout && styles.leftSectionColumn,
-              {
-                marginRight: shouldUseColumnLayout ? 0 : 16,
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                borderColor: 'rgba(255,255,255,0.18)',
-                borderWidth: 1,
-              }
-            ]}>
+          <View style={[styles.footer, shouldUseColumnLayout && styles.footerColumn]}>
+            <View
+              style={[
+                styles.leftSection,
+                shouldUseColumnLayout && styles.leftSectionColumn,
+                {
+                  marginRight: shouldUseColumnLayout ? 0 : 16,
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  borderColor: 'rgba(255,255,255,0.18)',
+                  borderWidth: 1,
+                },
+              ]}
+            >
               <View style={styles.logoContainer}>
-                {/* Logo Image */}
-                <Image 
-                  source={require('../../assets/images/serveasonew.png')} 
+                <Image
+                  source={require('../../assets/images/serveasonew.png')}
                   style={[
                     styles.logoImage,
-                    { 
+                    {
                       width: getLogoSize(),
                       height: getLogoSize(),
                       shadowColor: '#000',
                       borderRadius: isSmallScreen ? 8 : 12,
-                    }
+                    },
                   ]}
                   resizeMode="contain"
                 />
-                <Text style={[
-                  styles.brandSubtitle, 
-                  { 
-                    color: '#FFFFFF',
-                    fontSize: fontStyles.headingSize 
-                  }
-                ]}>
+                <Text style={[styles.brandSubtitle, { color: '#FFFFFF', fontSize: fontStyles.headingSize }]}>
                   ServEaso
                 </Text>
               </View>
-              
+
               <View style={styles.companyInfo}>
-                <Text style={[
-                  styles.infoText, 
-                  { 
-                    color: '#FFFFFFCC',
-                    fontSize: fontStyles.smallText,
-                    lineHeight: fontStyles.smallText + 4
-                  }
-                ]}>
+                <Text
+                  style={[
+                    styles.infoText,
+                    { color: '#FFFFFFCC', fontSize: fontStyles.smallText, lineHeight: fontStyles.smallText + 4 },
+                  ]}
+                >
                   Trusted home services
                 </Text>
-                <TouchableOpacity onPress={openTnC}>
-                  <Text style={[
-                    styles.tncText, 
-                    { 
-                      color: '#FFFFFF',
-                      fontSize: fontStyles.smallText,
-                      lineHeight: fontStyles.smallText + 4,
-                      marginTop: isSmallScreen ? 8 : 15,
-                      opacity: 0.9,
-                    }
-                  ]}>
+                <TouchableOpacity onPress={() => setShowTnC(true)}>
+                  <Text
+                    style={[
+                      styles.tncText,
+                      {
+                        color: '#FFFFFF',
+                        fontSize: fontStyles.smallText,
+                        lineHeight: fontStyles.smallText + 4,
+                        marginTop: isSmallScreen ? 8 : 15,
+                        opacity: 0.9,
+                      },
+                    ]}
+                  >
                     Terms & Conditions
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Right side - Contact Us Section */}
-            <View style={[
-              styles.rightSection,
-              shouldUseColumnLayout && styles.rightSectionColumn,
-              {
-                alignItems: 'center',
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                borderColor: 'rgba(255,255,255,0.18)',
-                borderWidth: 1,
-              }
-            ]}>
-              <Text style={[
-                styles.contactTitle, 
-                { 
-                  color: '#FFFFFF',
-                  fontSize: fontStyles.textSize,
-                  marginBottom: isSmallScreen ? 8 : 12,
-                  textAlign: 'center',
-                  fontWeight: '600',
-                }
-              ]}>
+            <View
+              style={[
+                styles.rightSection,
+                shouldUseColumnLayout && styles.rightSectionColumn,
+                {
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  borderColor: 'rgba(255,255,255,0.18)',
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.contactTitle,
+                  {
+                    color: '#FFFFFF',
+                    fontSize: fontStyles.textSize,
+                    marginBottom: isSmallScreen ? 8 : 12,
+                  },
+                ]}
+              >
                 Contact us:
               </Text>
-              <View style={[
-                styles.contactButtonsContainer,
-                shouldUseColumnLayout && styles.contactButtonsContainerColumn,
-                { alignItems: 'center' }
-              ]}>
-                <TouchableOpacity 
+              <View
+                style={[
+                  styles.contactButtonsContainer,
+                  shouldUseColumnLayout && styles.contactButtonsContainerColumn,
+                  { alignItems: 'center' },
+                ]}
+              >
+                <TouchableOpacity
                   style={[
                     styles.contactButton,
-                    { 
+                    {
                       backgroundColor: 'rgba(255, 255, 255, 0.15)',
                       borderColor: 'rgba(255, 255, 255, 0.3)',
-                      shadowColor: '#000',
                       width: getContactButtonWidth(),
                       paddingVertical: isSmallScreen ? 7 : 8,
-                      paddingHorizontal: isSmallScreen ? 9 : 10,
                       marginBottom: 8,
-                    }
+                    },
                   ]}
-                  onPress={() => makePhoneCall('+918792827744')}
+                  onPress={() => makePhoneCall(footerSettings.helplinePhone)}
                 >
                   <FontAwesome name="phone" size={getIconSize()} color="#FFFFFF" style={styles.phoneIcon} />
-                  <Text style={[
-                    styles.contactText, 
-                    { 
-                      color: '#FFFFFF',
-                      fontSize: fontStyles.smallText 
-                    }
-                  ]}>
-                    Helpline: +91 87928 27744
+                  <Text style={[styles.contactText, { color: '#FFFFFF', fontSize: fontStyles.smallText }]}>
+                    Helpline: {helplineLabel}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.contactButton,
-                    { 
+                    {
                       backgroundColor: 'rgba(255, 255, 255, 0.15)',
                       borderColor: 'rgba(255, 255, 255, 0.3)',
-                      shadowColor: '#000',
                       width: getContactButtonWidth(),
                       paddingVertical: isSmallScreen ? 7 : 8,
-                      paddingHorizontal: isSmallScreen ? 9 : 10,
-                    }
+                    },
                   ]}
-                  onPress={() => makePhoneCall('+918792827754')}
+                  onPress={() => makePhoneCall(footerSettings.joinUsPhone)}
                 >
                   <FontAwesome name="phone" size={getIconSize()} color="#FFFFFF" style={styles.phoneIcon} />
-                  <Text style={[
-                    styles.contactText, 
-                    { 
-                      color: '#FFFFFF',
-                      fontSize: fontStyles.smallText 
-                    }
-                  ]}>
-                    Join Us: +91 87928 27754
+                  <Text style={[styles.contactText, { color: '#FFFFFF', fontSize: fontStyles.smallText }]}>
+                    Join Us: {joinUsLabel}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
 
-          {/* Follow Us Section - Single line at bottom */}
-          <View style={[
-            styles.followSection,
-            { 
-              borderTopColor: 'rgba(255, 255, 255, 0.2)',
-              paddingHorizontal: isSmallScreen ? 10 : 15,
-              paddingVertical: isSmallScreen ? 12 : 15,
-              marginHorizontal: isSmallScreen ? 10 : 15,
-              paddingRight: isSmallScreen ? 12 : 20,
-              flexDirection: isSmallScreen ? 'column' : 'row',
-              alignItems: isSmallScreen ? 'center' : 'center',
-            }
-          ]}>
-            <Text style={[
-              styles.followText, 
-              { 
-                color: '#FFFFFF',
-                fontSize: fontStyles.textSize,
-                marginRight: isSmallScreen ? 0 : 12,
-                marginBottom: isSmallScreen ? 8 : 0,
-                fontWeight: '600',
-              }
-            ]}>
+          <View
+            style={[
+              styles.followSection,
+              {
+                borderTopColor: 'rgba(255, 255, 255, 0.2)',
+                paddingHorizontal: isSmallScreen ? 10 : 15,
+                paddingVertical: isSmallScreen ? 12 : 15,
+                marginHorizontal: isSmallScreen ? 10 : 15,
+                flexDirection: isSmallScreen ? 'column' : 'row',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.followText,
+                {
+                  color: '#FFFFFF',
+                  fontSize: fontStyles.textSize,
+                  marginRight: isSmallScreen ? 0 : 12,
+                  marginBottom: isSmallScreen ? 8 : 0,
+                },
+              ]}
+            >
               Follow us:
             </Text>
-            <View style={[
-              styles.socialMedia,
-              { flexWrap: isSmallScreen ? 'wrap' : 'nowrap' }
-            ]}>
-              <TouchableOpacity 
-                style={[
-                  styles.iconButton,
-                  { 
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    shadowColor: '#000',
-                    padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: 3,
-                    minWidth: isSmallScreen ? 28 : 32,
-                    minHeight: isSmallScreen ? 28 : 32,
-                    borderRadius: isSmallScreen ? 18 : 20,
-                  }
-                ]}
-                onPress={() => openLink('https://x.com/ServEaso')}
-              >
-                <View style={styles.xIconContainer}>
-                  <Text style={[
-                    styles.xIcon, 
-                    { 
-                      color: '#FFFFFF',
-                      fontSize: isSmallScreen ? 10 : 12,
-                    }
-                  ]}>X</Text>
-                </View>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.iconButton,
-                  { 
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    shadowColor: '#000',
-                    padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: 3,
-                    minWidth: isSmallScreen ? 28 : 32,
-                    minHeight: isSmallScreen ? 28 : 32,
-                    borderRadius: isSmallScreen ? 18 : 20,
-                  }
-                ]}
-                onPress={() => openLink('https://www.instagram.com/serveaso?igsh=cHQxdmdubnZocjRn')}
-              >
-                <Ionicons name="logo-instagram" size={getIconSize()} color="#FFFFFF" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.iconButton,
-                  { 
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    shadowColor: '#000',
-                    padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: 3,
-                    minWidth: isSmallScreen ? 28 : 32,
-                    minHeight: isSmallScreen ? 28 : 32,
-                    borderRadius: isSmallScreen ? 18 : 20,
-                  }
-                ]}
-                onPress={() => openLink('https://www.youtube.com/@ServEaso')}
-              >
-                <Ionicons name="logo-youtube" size={getIconSize()} color="#FFFFFF" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.iconButton,
-                  { 
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    shadowColor: '#000',
-                    padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: 3,
-                    minWidth: isSmallScreen ? 28 : 32,
-                    minHeight: isSmallScreen ? 28 : 32,
-                    borderRadius: isSmallScreen ? 18 : 20,
-                  }
-                ]}
-                onPress={() => openLink('https://www.linkedin.com/in/serveaso-media-7b7719381/')}
-              >
-                <Ionicons name="logo-linkedin" size={getIconSize()} color="#FFFFFF" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.iconButton,
-                  { 
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    shadowColor: '#000',
-                    padding: isSmallScreen ? 6 : 8,
-                    marginHorizontal: 3,
-                    minWidth: isSmallScreen ? 28 : 32,
-                    minHeight: isSmallScreen ? 28 : 32,
-                    borderRadius: isSmallScreen ? 18 : 20,
-                  }
-                ]}
-                onPress={() => openLink('https://www.facebook.com/profile.php?id=61572701168852')}
-              >
-                <Ionicons name="logo-facebook" size={getIconSize()} color="#FFFFFF" />
-              </TouchableOpacity>
+            <View style={[styles.socialMedia, { flexWrap: isSmallScreen ? 'wrap' : 'nowrap' }]}>
+              {FOOTER_SOCIAL_ORDER.map((key) => {
+                const href = footerSettings.social[key];
+                if (!href) return null;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    accessibilityLabel={SOCIAL_LABEL[key]}
+                    style={[
+                      styles.iconButton,
+                      {
+                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        padding: isSmallScreen ? 6 : 8,
+                        marginHorizontal: 3,
+                        minWidth: isSmallScreen ? 28 : 32,
+                        minHeight: isSmallScreen ? 28 : 32,
+                        borderRadius: isSmallScreen ? 18 : 20,
+                      },
+                    ]}
+                    onPress={() => openLink(href)}
+                  >
+                    {renderSocialIcon(key)}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         </SafeAreaView>
       </LinearGradient>
 
-      {/* Terms and Conditions Modal */}
-      <Modal
-        visible={showTnC}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={closeTnC}
-      >
+      <Modal visible={showTnC} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowTnC(false)}>
         <View style={styles.modalContainer}>
           <LinearGradient
             colors={[...GRADIENTS.chrome]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={[
-              styles.modalHeader,
-              { paddingTop: Platform.OS === 'ios' ? 50 : 16 }
-            ]}
+            style={[styles.modalHeader, { paddingTop: Platform.OS === 'ios' ? 50 : 16 }]}
           >
             <Text style={[styles.modalTitle, { color: '#FFFFFF', fontSize: fontStyles.headingSize }]}>
               Terms and Conditions
             </Text>
-            <TouchableOpacity style={styles.closeButton} onPress={closeTnC}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+            <TouchableOpacity style={styles.closeButton} onPress={() => setShowTnC(false)}>
+              <MaterialCommunityIcon name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </LinearGradient>
           <TnC />
@@ -472,7 +379,6 @@ const styles = StyleSheet.create({
   },
   brandSubtitle: {
     fontWeight: '700',
-    marginLeft: 0,
     textAlign: 'center',
     letterSpacing: 0.25,
   },
@@ -507,10 +413,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
@@ -527,6 +430,7 @@ const styles = StyleSheet.create({
   followSection: {
     borderTopWidth: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 10,
     marginBottom: 6,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -539,21 +443,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 0,
   },
   iconButton: {
     borderWidth: 1,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  xIconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },

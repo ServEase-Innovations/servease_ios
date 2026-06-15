@@ -24,6 +24,13 @@ export function buildAuth0CallbackUrl(bundleOrPackageId: string): string {
   return `${scheme}://${AUTH0_DOMAIN}/ios/${id}/callback`;
 }
 
+/** Register all of these in Auth0 → Application → Allowed Callback / Logout URLs. */
+export const AUTH0_ALLOWED_CALLBACK_URLS = [
+  `${ANDROID_PACKAGE.toLowerCase()}.auth0://${AUTH0_DOMAIN}/android/${ANDROID_PACKAGE.toLowerCase()}/callback`,
+  `${IOS_BUNDLE_ID.toLowerCase()}.auth0://${AUTH0_DOMAIN}/ios/${IOS_BUNDLE_ID.toLowerCase()}/callback`,
+  `${IOS_LEGACY_BUNDLE_ID.toLowerCase()}.auth0://${AUTH0_DOMAIN}/ios/${IOS_LEGACY_BUNDLE_ID.toLowerCase()}/callback`,
+];
+
 /**
  * Parameters for authorize(). Omit redirectUrl so react-native-auth0 derives it from the
  * native bundle id at runtime (must match Info.plist URL scheme + Auth0 Allowed Callback URLs).

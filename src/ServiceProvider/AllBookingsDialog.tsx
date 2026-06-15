@@ -341,7 +341,7 @@ export function AllBookingsDialog({
 
     try {
       await PaymentInstance.post(
-        `api/engagement-service/service-days/${serviceDayId}/start`,
+        `/api/engagement-service/service-days/${serviceDayId}/start`,
         {},
         {
           headers: {
@@ -381,7 +381,7 @@ export function AllBookingsDialog({
     setVerifyingOtp(true);
     try {
       await PaymentInstance.post(
-        `api/engagement-service/service-days/${serviceDayId}/complete`,
+        `/api/engagement-service/service-days/${serviceDayId}/complete`,
         { otp },
         {
           headers: {
@@ -737,7 +737,7 @@ export function AllBookingsDialog({
 
       <OtpVerificationDialog
         open={otpDialogOpen}
-        onOpenChange={() => setOtpDialogOpen(false)}
+        onOpenChange={setOtpDialogOpen}
         onVerify={handleVerifyOtp}
         verifying={verifyingOtp}
         bookingInfo={

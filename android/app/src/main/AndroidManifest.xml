@@ -49,37 +49,12 @@
             </intent-filter>
         </activity>
 
-           <!-- Razorpay checkout activity override -->
-<activity
-    android:name="com.razorpay.CheckoutActivity"
-    android:exported="true"
-    tools:replace="android:exported" />
-
-        <!-- Add this Auth0 Activity -->
+        <!-- Razorpay checkout activity override -->
         <activity
-            android:name="com.auth0.android.provider.AuthenticationActivity"
-            android:launchMode="singleTask"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:name="com.razorpay.CheckoutActivity"
             android:exported="true"
-            tools:replace="android:exported">
-            <intent-filter>
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <data
-        android:scheme="com.serveaso"
-        android:host="dev-plavkbiy7v55pbg4.us.auth0.com"
-        android:pathPrefix="/android/com.serveaso/callback" />
-</intent-filter>
-<intent-filter>
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <data
-        android:scheme="com.serveaso"
-        android:host="logout" />
-</intent-filter>
-        </activity>
+            tools:replace="android:exported" />
+
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
         <meta-data
             android:name="com.google.android.geo.API_KEY"

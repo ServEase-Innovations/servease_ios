@@ -416,35 +416,64 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose, variant = 'full' })
       }
 
       const pdfBase64 = await generateInvoicePdfBase64(buildInvoicePdfInput());
+      if (!pdfBase64) {
+        throw new Error('Invoice PDF was empty');
+      }
+
       const fileName = `invoice-${booking.id}-${dayjs().format('YYYYMMDD')}.pdf`;
-      const savePath =
-        Platform.OS === 'android'
-          ? `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${fileName}`
-          : `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/${fileName}`;
+      const savePath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${fileName}`;
 
       await ReactNativeBlobUtil.fs.writeFile(savePath, pdfBase64, 'base64');
-
-      const fileUrl = savePath.startsWith('file://') ? savePath : `file://${savePath}`;
-
-      await new Promise<void>((resolve) => {
-        InteractionManager.runAfterInteractions(() => {
-          setTimeout(resolve, Platform.OS === 'ios' ? 400 : 0);
-        });
-      });
+      const fileExists = await ReactNativeBlobUtil.fs.exists(savePath);
+      if (!fileExists) {
+        throw new Error('Could not save invoice PDF on this device');
+      }
 
       if (Platform.OS === 'ios') {
+        const fileUrl = `file://${savePath}`;
+        await new Promise<void>((resolve) => {
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(resolve, 400);
+          });
+        });
         ReactNativeBlobUtil.ios.previewDocument(fileUrl);
         return;
       }
 
-      await Share.open({
-        url: fileUrl,
-        type: 'application/pdf',
-        filename: fileName,
-        title: `Invoice #${booking.id}`,
-        subject: `Invoice #${booking.id}`,
-        failOnCancel: false,
-      });
+      // Android: use FileProvider-backed intent (Share sheet often fails for Downloads paths).
+      try {
+        await ReactNativeBlobUtil.android.actionViewIntent(
+          savePath,
+          'application/pdf',
+          `Invoice #${booking.id}`
+        );
+      } catch (viewError) {
+        console.warn('Invoice actionViewIntent failed, trying share sheet', viewError);
+        await Share.open({
+          url: `file://${savePath}`,
+          type: 'application/pdf',
+          filename: fileName,
+          title: `Invoice #${booking.id}`,
+          subject: `Invoice #${booking.id}`,
+          failOnCancel: false,
+          showAppsToView: true,
+        });
+      }
+
+      // Best-effort: also register in Downloads so user can find it later.
+      try {
+        const downloadPath = `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${fileName}`;
+        await ReactNativeBlobUtil.fs.writeFile(downloadPath, pdfBase64, 'base64');
+        await ReactNativeBlobUtil.android.addCompleteDownload({
+          title: fileName,
+          description: 'ServEaso booking invoice',
+          mime: 'application/pdf',
+          path: downloadPath,
+          showNotification: true,
+        });
+      } catch (downloadError) {
+        console.warn('Invoice download registration skipped', downloadError);
+      }
     } catch (error: any) {
       const message = String(error?.message || '');
       if (
@@ -495,7 +524,9 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose, variant = 'full' })
           )}
         </TouchableOpacity>
         <Text style={styles.inlineHint}>
-          Opens the invoice preview so you can share or save to Files.
+          {Platform.OS === 'android'
+            ? 'Opens the invoice PDF so you can view, share, or save it.'
+            : 'Opens the invoice preview so you can share or save to Files.'}
         </Text>
       </View>
     );
@@ -639,7 +670,9 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose, variant = 'full' })
         <View style={styles.noteCard}>
           <Icon name="info" size={16} color="#666" />
           <Text style={styles.noteText}>
-            Tap "Download PDF" to save or share the invoice. On iPhone you can save it to Files or share via Mail.
+            {Platform.OS === 'android'
+              ? 'Tap "Download PDF" to open the invoice. You can share it or save it from your PDF app or Downloads.'
+              : 'Tap "Download PDF" to save or share the invoice. On iPhone you can save it to Files or share via Mail.'}
           </Text>
         </View>
       </View>

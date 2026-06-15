@@ -135,7 +135,8 @@ function parseTimeFromString(time: string): { hour: number; minute: number } {
 }
 
 function isDurationWithinWorkHours(start: Dayjs, hours: number): boolean {
-  return start.add(hours, "hour").hour() < 22;
+  const endMinutes = start.hour() * 60 + start.minute() + hours * 60;
+  return endMinutes <= 20 * 60;
 }
 
 function schedulePatchKey(patch: Record<string, unknown> | null): string {
@@ -370,8 +371,8 @@ const MaidBookingDetailsSection = forwardRef<
       setValidationMsg("Please pick a time at least 30 minutes from now");
       return false;
     }
-    if (selected.hour() < 5 || selected.hour() > 21) {
-      setValidationMsg("Service hours are 5 AM – 10 PM");
+    if (selected.hour() < 6 || selected.hour() > 19) {
+      setValidationMsg("Service hours are 6 AM – 8 PM (latest start 7 PM)");
       return false;
     }
     if (preference === "Date" && selected.isAfter(maxDate21Days)) {
@@ -487,6 +488,7 @@ const MaidBookingDetailsSection = forwardRef<
           <DribbbleDateTimePicker
             mode="single"
             value={startTime?.toDate()}
+            maxDate={maxDate21Days.toDate()}
             onChange={(selectedDateTime: Date) => {
               const selected = dayjs(selectedDateTime);
               if (!validateSelection(selected)) return;
@@ -500,6 +502,7 @@ const MaidBookingDetailsSection = forwardRef<
         <View style={styles.pickerShell}>
           <DribbbleDateTimePicker
             mode="range"
+            maxRangeDays={14}
             value={{
               startDate: startDate?.toDate(),
               endDate: endDate?.toDate(),
@@ -520,7 +523,7 @@ const MaidBookingDetailsSection = forwardRef<
               }
               if (!validateSelection(startWithTime)) return;
               if (!isDurationWithinWorkHours(startWithTime, durationHours)) {
-                setValidationMsg("Service hours are 5 AM – 10 PM");
+                setValidationMsg("Service must end by 8:00 PM on the same day");
                 return;
               }
               const endT = startWithTime.add(durationHours, "hour");
@@ -539,6 +542,7 @@ const MaidBookingDetailsSection = forwardRef<
           <DribbbleDateTimePicker
             mode="single"
             value={startTime?.toDate()}
+            maxDate={maxDate90Days.toDate()}
             onChange={(selectedDateTime: Date) => {
               const selected = dayjs(selectedDateTime);
               if (!validateSelection(selected)) return;

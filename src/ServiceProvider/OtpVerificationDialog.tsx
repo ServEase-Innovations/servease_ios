@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { Portal } from "react-native-paper";
 import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
 interface OtpVerificationDialogProps {
@@ -104,6 +105,7 @@ export function OtpVerificationDialog({
   const modalWidth = Math.min(windowWidth * 0.9, 420);
 
   return (
+    <Portal>
     <Modal
       visible={open}
       animationType="fade"
@@ -173,7 +175,7 @@ export function OtpVerificationDialog({
               <View style={styles.instructionIconContainer}>
                 <Icon name="cellphone-key" size={20} color="#3b82f6" />
                 <Text style={styles.instructions}>
-                  Please enter the 6-digit verification code sent to your registered mobile number
+                  Please enter the OTP you received from the client to complete the service.
                 </Text>
               </View>
               
@@ -264,6 +266,7 @@ export function OtpVerificationDialog({
         </View>
       </View>
     </Modal>
+    </Portal>
   );
 }
 

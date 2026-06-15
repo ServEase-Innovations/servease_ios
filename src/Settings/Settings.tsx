@@ -79,7 +79,11 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   useEffect(() => {
     const version = DeviceInfo.getVersion();
     const build = DeviceInfo.getBuildNumber();
-    setAppVersionLabel(`${version} (Build ${build})`);
+    const versionIncludesBuild =
+      version === build || version.endsWith(`.${build}`);
+    setAppVersionLabel(
+      versionIncludesBuild ? `ServEaso ${version}` : `ServEaso ${version} (${build})`
+    );
   }, []);
 
   const languages = [

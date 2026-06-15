@@ -163,7 +163,18 @@ const MainApp = () => {
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [appResetKey, setAppResetKey] = useState(Date.now());
   const [isResetting, setIsResetting] = useState(false);
-  
+
+  /** Dark chrome header (home, dashboard, …) needs white status icons in light theme. */
+  const statusBarStyle = useMemo((): "light-content" | "dark-content" => {
+    if (isDarkMode) return "light-content";
+    const lightTopChrome =
+      currentView === BOOKINGS ||
+      currentView === WALLET ||
+      currentView === PROFILE ||
+      currentView === SETTINGS;
+    return lightTopChrome ? "dark-content" : "light-content";
+  }, [currentView, isDarkMode]);
+
   // State to trigger dropdown closing in Header and LocationSelector
   const [closeAllDropdowns, setCloseAllDropdowns] = useState(false);
   
@@ -870,6 +881,7 @@ const MainApp = () => {
   if (isUserLoading || showSplash) {
     return (
       <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <BrandLoadingScreen />
       </Animated.View>
     );
@@ -877,10 +889,10 @@ const MainApp = () => {
 
   return (
     <PaperProvider theme={paperTheme}>
-        <StatusBar 
-          translucent 
-          backgroundColor="transparent" 
-          barStyle={isDarkMode ? "light-content" : "dark-content"} 
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle={statusBarStyle}
         />
         <SafeAreaView
           style={[
@@ -1138,7 +1150,12 @@ const App = () => {
   }, []);
 
   if (!i18nInitialized) {
-    return <BrandLoadingScreen subtitle="Preparing language and app setup for you" />;
+    return (
+      <View style={{ flex: 1 }}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <BrandLoadingScreen subtitle="Preparing language and app setup for you" />
+      </View>
+    );
   }
 
   return (

@@ -31,7 +31,6 @@ import { useFieldValidation } from "./useFieldValidation";
 import Geolocation from "@react-native-community/geolocation";
 import Geocoder from "react-native-geocoding";
 import { PERMISSIONS, request, RESULTS } from "react-native-permissions";
-import Slider from '@react-native-community/slider';
 import ProfileImageUpload from "./ProfileImageUpload";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import TnC from "../TermsAndConditions/TnC";
@@ -46,6 +45,8 @@ import ServiceDetails from "./ServiceDetails";
 import KYCVerification from "./KYCVerification";
 import BankDetails, { BankDetailsData, BankDetailsErrors } from "./BankDetails";
 import providerInstance from "../services/providerInstance";
+import { API_URLS } from "../config/apiUrls";
+import { Portal } from "react-native-paper";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -754,7 +755,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       } as any);
 
       const response = await axios.post(
-        "https://imageuploader-5njj.onrender.com/api/files/upload-file",
+        `${API_URLS.imageUploader}/api/files/upload-file`,
         uploadFormData,
         {
           headers: {
@@ -763,8 +764,13 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       );
 
-      if (response.status === 200) {
-        const url = response.data.fileUrl || response.data.url || response.data.imageUrl || "";
+      if (response.status === 200 || response.status === 201) {
+        const url =
+          response.data.file?.url ||
+          response.data.fileUrl ||
+          response.data.url ||
+          response.data.imageUrl ||
+          "";
         if (url) {
           setKycDocumentUrl(url);
           setFormData(prev => ({ ...prev, documentImage: file }));
@@ -1195,7 +1201,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
     setFormData((prevData) => ({
       ...prevData,
-      [name]: value,
+      [name]: name === "emailId" ? String(value).trim().toLowerCase() : value,
     }));
     
     checkStepCompletion();
@@ -1391,7 +1397,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           showSnackbar("Unable to fetch your location. Please check your GPS settings.", "error");
           setLocationLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        { enableHighAccuracy: Platform.OS === 'ios', timeout: 15000, maximumAge: 10000 }
       );
     } catch (error) {
       console.error("Location fetch error:", error);
@@ -1480,8 +1486,17 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
   
+  const areTermsAccepted = (): boolean => {
+    return Boolean(formData.terms && formData.privacy && formData.keyFacts);
+  };
+
   const handleSubmit = async () => {
     if (activeStep !== steps.length - 1) return;
+
+    if (!areTermsAccepted()) {
+      showSnackbar("Please accept all agreements before submitting.", "error");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -1496,7 +1511,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         } as any);
 
         const imageResponse = await axios.post(
-          "https://imageuploader-5njj.onrender.com/api/images/upload",
+          `${API_URLS.imageUploader}/api/images/upload`,
           profileFormData,
           {
             headers: {
@@ -1511,24 +1526,20 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       }
       
       const selectedServices = formData.housekeepingRole;
-      const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
-      
-      const calculateAge = (dob: string): number => {
-        if (!dob) return 0;
-        const birthDate = moment(dob, "YYYY-MM-DD");
-        const today = moment();
-        return today.diff(birthDate, "years");
-      };
-      
-      const age = calculateAge(formData.dob);
       
       // Helper to convert empty strings to null
       const toNull = (value: any) => (value === "" ? null : value);
 
       // Prepare bank details object (only include non-empty fields)
-      const bankDetailsPayload = Object.fromEntries(
-        Object.entries(formData.bankDetails).filter(([_, v]) => v && v.trim() !== "")
-      );
+      const registrationEmail = (formData.emailId || "").trim().toLowerCase();
+      if (!registrationEmail) {
+        setIsSubmitting(false);
+        showSnackbar(
+          "Email is required. Enter the same email you will use to log in.",
+          "error"
+        );
+        return;
+      }
 
       const payload = {
         firstName: toNull(formData.firstName),
@@ -1536,7 +1547,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         lastName: toNull(formData.lastName),
         mobileNo: formData.mobileNo ? parseInt(formData.mobileNo) : null,
         alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : null,
-        emailId: toNull(formData.emailId),
+        emailId: registrationEmail,
         gender: toNull(formData.gender),
         buildingName: toNull(formData.buildingName),
         locality: toNull(formData.locality),
@@ -1548,7 +1559,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         nearbyLocation: toNull(formData.nearbyLocation),
         location: toNull(formData.currentLocation),
         housekeepingRoles: selectedServices.length ? selectedServices : null,
-        housekeepingRole: primaryRole || null,
         serviceTypes: selectedServices.length ? selectedServices : null,
         diet: toNull(formData.diet),
         languages: selectedLanguages.length ? selectedLanguages : null,
@@ -1561,7 +1571,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         timeslot: toNull(formData.timeslot),
         expectedSalary: 0,
         experience: formData.experience ? parseInt(formData.experience) : null,
-        username: toNull(formData.emailId),
+        username: registrationEmail,
         password: toNull(formData.password),
         agentReferralId: toNull(formData.agentReferralId),
         privacy: formData.privacy || false,
@@ -1587,9 +1597,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         kycNumber: toNull(formData.kycNumber),
         kycDocumentUrl: kycDocumentUrl || null,
         dob: toNull(formData.dob),
-        profilePic: profilePicUrl || null,
-        age: age || null,
-        // Bank details matching React code structure
+        ...(profilePicUrl ? { profilePic: profilePicUrl } : {}),
         bankName: toNull(formData.bankDetails.bankName),
         ifscCode: toNull(formData.bankDetails.ifscCode),
         accountHolderName: toNull(formData.bankDetails.accountHolderName),
@@ -1615,12 +1623,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       // Only create Auth0 user if email and password are provided
       if (formData.emailId && formData.password) {
         const authPayload = {
-          email: formData.emailId,
+          email: registrationEmail,
           password: formData.password,
           name: `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || "Service Provider",
         };
 
-        axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
+        axios.post(`${API_URLS.utils}/authO/create-autho-user`, authPayload)
           .then((authResponse) => {
             console.log("AuthO user created successfully:", authResponse.data);
           }).catch((authError) => {
@@ -1860,10 +1868,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               errors={errors}
               isCookSelected={isCookSelected}
               isNannySelected={isNannySelected}
-              morningSlots={morningSlots}
-              eveningSlots={eveningSlots}
-              isFullTime={isFullTime}
-              selectedTimeSlots={selectedTimeSlots}
               onServiceTypeChange={handleServiceTypeChange}
               onCookingSpecialityChange={handleCookingSpecialityChange}
               onNannyCareTypeChange={handleNannyCareTypeChange}
@@ -1872,18 +1876,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               onDescriptionChange={handleDescriptionChange}
               onReferralCodeChange={handleReferralCodeChange}
               onAgentReferralIdChange={handleAgentReferralIdChange}
-              onFullTimeToggle={handleFullTimeToggle}
-              onAddMorningSlot={handleAddMorningSlot}
-              onRemoveMorningSlot={handleRemoveMorningSlot}
-              onClearMorningSlots={handleClearMorningSlots}
-              onAddEveningSlot={handleAddEveningSlot}
-              onRemoveEveningSlot={handleRemoveEveningSlot}
-              onClearEveningSlots={handleClearEveningSlots}
-              onMorningSlotChange={handleMorningSlotChange}
-              onEveningSlotChange={handleEveningSlotChange}
-              formatDisplayTime={formatDisplayTime}
               selectedLanguages={selectedLanguages}
               onLanguagesChange={setSelectedLanguages}
+              onTimeSlotsChange={(timeslot) =>
+                setFormData((prev) => ({ ...prev, timeslot }))
+              }
             />
           </View>
         );
@@ -1998,7 +1995,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                     variant="primary"
                     size="medium"
                     onPress={handleSubmit}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !areTermsAccepted()}
                     loading={isSubmitting}
                   >
                     Submit
@@ -2017,12 +2014,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               </View>
             </ScrollView>
 
-            <Modal
-              visible={policyModalVisible}
-              animationType="slide"
-              transparent={false}
-              onRequestClose={() => setPolicyModalVisible(false)}
-            >
+            {policyModalVisible && (
+              <Portal>
               <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
                 <LinearGradient
                   colors={["#0b5bd3", "#4f8ff7"]}
@@ -2046,16 +2039,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                   {renderPolicyContent()}
                 </ScrollView>
               </View>
-            </Modal>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate || new Date()}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-              />
+              </Portal>
             )}
 
             {snackbarOpen && (
@@ -2278,6 +2262,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   policyModalContainer: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
   },
   policyModalHeader: {

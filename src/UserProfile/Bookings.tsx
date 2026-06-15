@@ -1002,7 +1002,11 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
       }
     } catch (error: any) {
       console.error('Error generating OTP:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to generate OTP');
+      const errData = error.response?.data;
+      Alert.alert(
+        'Error',
+        errData?.error || errData?.message || 'Failed to generate OTP. Please try again.'
+      );
     } finally {
       setOtpLoading(null);
     }

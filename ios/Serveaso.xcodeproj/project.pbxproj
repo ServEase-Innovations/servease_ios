@@ -316,7 +316,8 @@
 					"-lc++",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = in.serveaseinnovation.serveaso;
-				PRODUCT_NAME = Serveaso;
+				INFOPLIST_KEY_CFBundleDisplayName = ServEaso;
+				PRODUCT_NAME = ServEaso;
 				SWIFT_OBJC_BRIDGING_HEADER = Serveaso/Serveaso-Bridging-Header.h;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -344,7 +345,8 @@
 					"-lc++",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = in.serveaseinnovation.serveaso;
-				PRODUCT_NAME = Serveaso;
+				INFOPLIST_KEY_CFBundleDisplayName = ServEaso;
+				PRODUCT_NAME = ServEaso;
 				SWIFT_OBJC_BRIDGING_HEADER = Serveaso/Serveaso-Bridging-Header.h;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
