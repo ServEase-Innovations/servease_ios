@@ -771,6 +771,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.card}>
@@ -905,40 +906,40 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
               paymentTotals={paymentTotals}
             />
           </View>
-        </ScrollView>
 
-        <View style={styles.footer}>
-          <View style={styles.footerActions}>
-            <BrandButton variant="ghost" onPress={onClose} flex={0}>
-              {t("common.close")}
-            </BrandButton>
-            {!isCheckoutAuthenticated ? (
-              <BrandButton variant="primary" flex={2} onPress={() => onLoginRequired?.()}>
-                Sign in to continue
+          <View style={styles.footerInline}>
+            <View style={styles.footerActions}>
+              <BrandButton variant="ghost" onPress={onClose} flex={0}>
+                {t("common.close")}
               </BrandButton>
-            ) : needsScheduleAvailabilityCheck ? (
-              <BrandButton
-                variant="primary"
-                flex={2}
-                disabled={isCheckingAvailability || loading}
-                loading={isCheckingAvailability}
-                onPress={() => void scheduleSectionRef.current?.checkAvailability()}
-              >
-                Check availability
-              </BrandButton>
-            ) : (
-              <BrandButton
-                variant="primary"
-                flex={2}
-                disabled={!canCheckout}
-                loading={loading}
-                onPress={() => void handleCheckout()}
-              >
-                {t("common.checkout")}
-              </BrandButton>
-            )}
+              {!isCheckoutAuthenticated ? (
+                <BrandButton variant="primary" flex={2} onPress={() => onLoginRequired?.()}>
+                  Sign in to continue
+                </BrandButton>
+              ) : needsScheduleAvailabilityCheck ? (
+                <BrandButton
+                  variant="primary"
+                  flex={2}
+                  disabled={isCheckingAvailability || loading}
+                  loading={isCheckingAvailability}
+                  onPress={() => void scheduleSectionRef.current?.checkAvailability()}
+                >
+                  Check availability
+                </BrandButton>
+              ) : (
+                <BrandButton
+                  variant="primary"
+                  flex={2}
+                  disabled={!canCheckout}
+                  loading={loading}
+                  onPress={() => void handleCheckout()}
+                >
+                  {t("common.checkout")}
+                </BrandButton>
+              )}
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </View>
 
       <Modal
@@ -1104,7 +1105,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f1f5f9" },
+  root: { flex: 1, minHeight: 0, backgroundColor: "#f1f5f9" },
   header: { paddingTop: 14, paddingBottom: 16, paddingHorizontal: 16 },
   headerRow: {
     flexDirection: "row",
@@ -1127,8 +1128,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: { color: "#fff", fontSize: 20, fontWeight: "700" },
   headerSub: { color: "rgba(255,255,255,0.9)", fontSize: 14, marginTop: 4 },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 16 },
+  scroll: { flex: 1, minHeight: 0 },
+  scrollContent: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 20 },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -1304,6 +1305,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexShrink: 0,
+  },
+  footerInline: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
   },
   footerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
   loginRequiredBanner: {

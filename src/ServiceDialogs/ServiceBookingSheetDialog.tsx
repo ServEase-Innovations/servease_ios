@@ -1,11 +1,10 @@
 /* eslint-disable */
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Modal,
   View,
   StyleSheet,
   Animated,
-  PanResponder,
   TouchableOpacity,
   TouchableWithoutFeedback,
   Dimensions,
@@ -33,7 +32,6 @@ import {
 import { closeBookingDialog, resetBookingSchedule } from "../features/bookingTypeSlice";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const DISMISS_DRAG = 80;
 const SHEET_RADIUS = 18;
 const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.88;
 
@@ -176,35 +174,6 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
     [dismissSheet, sendDataToParent]
   );
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onPanResponderMove: (_, gesture) => {
-          if (gesture.dy > 0) dragY.setValue(gesture.dy);
-        },
-        onPanResponderRelease: (_, gesture) => {
-          if (gesture.dy > DISMISS_DRAG || gesture.vy > 0.45) {
-            dismissSheet();
-          } else {
-            Animated.spring(dragY, {
-              toValue: 0,
-              useNativeDriver: true,
-              friction: 8,
-            }).start();
-          }
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(dragY, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        },
-      }),
-    [dismissSheet, dragY]
-  );
-
   if (!mounted) return null;
 
   const sheetTranslateY = Animated.add(slideAnim, dragY);
@@ -246,12 +215,13 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
             transform: [{ translateY: sheetTranslateY }],
           },
         ]}
-        {...panResponder.panHandlers}
       >
         <View style={styles.header}>
           <View style={styles.headerAccent} />
           <View style={styles.headerInner}>
-            <View style={styles.handleRow}>
+            <View
+              style={styles.handleRow}
+            >
               <View style={styles.handle} />
             </View>
 
@@ -319,6 +289,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "#f8fafc",
     overflow: "hidden",
+    height: SHEET_MAX_HEIGHT,
     borderTopLeftRadius: SHEET_RADIUS,
     borderTopRightRadius: SHEET_RADIUS,
     shadowColor: "#000",
