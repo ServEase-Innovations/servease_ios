@@ -1,3 +1,6 @@
+import type { Dayjs } from "dayjs";
+import { formatDateOnly } from "./maidPricingUtils";
+
 const TIME_HM = /^\d{1,2}:\d{2}$/;
 
 /** Parse "HH:mm" or "HH:mm-HH:mm" into start/end tokens. */
@@ -41,4 +44,56 @@ export function resolveScheduleTimeFields(
     startTime: valid(startTime) ? startTime : "",
     endTime: valid(endTime) ? endTime : "",
   };
+}
+
+export function buildReduxBookingPatch(
+  preference: string,
+  startDate: Dayjs | null,
+  endDate: Dayjs | null,
+  startTime: Dayjs | null,
+  endTime: Dayjs | null,
+  existing: Record<string, unknown> | null
+) {
+  const startYmd =
+    (startDate && formatDateOnly(startDate.format("YYYY-MM-DD"))) ||
+    (startTime && formatDateOnly(startTime.format("YYYY-MM-DD"))) ||
+    "";
+  const endYmd =
+    (endDate && formatDateOnly(endDate.format("YYYY-MM-DD"))) ||
+    (preference === "Monthly" && startDate
+      ? formatDateOnly(startDate.add(1, "month").format("YYYY-MM-DD"))
+      : startYmd);
+
+  let timeRange = "";
+  let timeSlot = "";
+  if (preference === "Date") {
+    timeRange = `${startTime?.format("HH:mm") || ""}-${endTime?.format("HH:mm") || ""}`;
+    timeSlot = timeRange;
+  } else if (preference === "Short term") {
+    timeRange = startTime?.format("HH:mm") || "";
+    timeSlot = `${startTime?.format("HH:mm") || ""}-${endTime?.format("HH:mm") || ""}`;
+  } else {
+    timeRange = startTime?.format("HH:mm") || "";
+    timeSlot = `${startTime?.format("HH:mm") || ""}-${endTime?.format("HH:mm") || ""}`;
+  }
+
+  const patch: Record<string, unknown> = {
+    ...(existing ?? {}),
+    startDate: startYmd,
+    endDate: endYmd,
+    timeRange,
+    bookingPreference: preference,
+    startTime: startTime?.format("HH:mm") || "",
+    endTime: endTime?.format("HH:mm") || "",
+    timeSlot,
+  };
+
+  if (!startTime && !endTime) {
+    patch.timeRange = "";
+    patch.timeSlot = "";
+    patch.startTime = "";
+    patch.endTime = "";
+  }
+
+  return patch;
 }

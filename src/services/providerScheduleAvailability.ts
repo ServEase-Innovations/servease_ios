@@ -1,4 +1,5 @@
 import providerInstance from "./providerInstance";
+import { formatDateOnly } from "../utils/maidPricingUtils";
 
 const UNAVAILABLE_MESSAGE =
   "This service provider is not available for your selected dates and time. Please adjust your schedule or choose another provider.";
@@ -13,6 +14,7 @@ export type ProviderScheduleCheckParams = {
   preferredStartTime: string;
   serviceDurationMinutes: number;
   customerId?: number | null;
+  excludeEngagementId?: number | string | null;
 };
 
 export async function checkSelectedProviderAvailability(
@@ -28,6 +30,7 @@ export async function checkSelectedProviderAvailability(
     preferredStartTime,
     serviceDurationMinutes,
     customerId,
+    excludeEngagementId,
   } = params;
 
   if (!Number.isFinite(providerId) || providerId < 1) {
@@ -39,14 +42,18 @@ export async function checkSelectedProviderAvailability(
     lng: String(longitude),
     radius: 50,
     role: role || "COOK",
-    startDate: startDate.slice(0, 10),
-    endDate: endDate.slice(0, 10),
+    startDate: formatDateOnly(startDate),
+    endDate: formatDateOnly(endDate),
     preferredStartTime,
     serviceDurationMinutes,
   };
 
   if (customerId != null && Number.isFinite(Number(customerId)) && Number(customerId) > 0) {
     payload.customerID = Number(customerId);
+  }
+
+  if (excludeEngagementId != null && String(excludeEngagementId).trim() !== "") {
+    payload.excludeEngagementId = String(excludeEngagementId).trim();
   }
 
   const { data } = await providerInstance.post(

@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   Alert,
   Modal,
@@ -14,13 +15,13 @@ import {
   Platform,
   Linking,
   Dimensions,
-  KeyboardAvoidingView,
-  SafeAreaView,
+  Keyboard,
+  Animated,
 } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import axios from "axios";
-import LinearGradient from 'react-native-linear-gradient';
 import { keys } from "../env";
 import axiosInstance from "../services/axiosInstance";
 import CustomFileInput from "./CustomFileInput";
@@ -30,14 +31,25 @@ import { debounce } from "../utils/debounce";
 import { useFieldValidation } from "./useFieldValidation";
 import Geolocation from "@react-native-community/geolocation";
 import Geocoder from "react-native-geocoding";
-import { PERMISSIONS, request, RESULTS } from "react-native-permissions";
+import { PERMISSIONS, request, check, RESULTS } from "react-native-permissions";
+import { useSelector } from "react-redux";
+import MapComponent from "../MapComponent/MapComponent";
+import {
+  formatServiceAddressFromGeoLocation,
+  resolveLocationCoords,
+} from "../utils/bookingLocation";
 import ProfileImageUpload from "./ProfileImageUpload";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
 import { Button } from "../common/Button";
+import {
+  RegistrationAndroidKeyboardBar,
+  RegistrationKeyboardAccessory,
+} from "../common/RegistrationKeyboardAccessory";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useAuth0 } from "react-native-auth0";
 
 // Import the new components
 import BasicInformation from "./BasicInformation";
@@ -49,6 +61,8 @@ import { API_URLS } from "../config/apiUrls";
 import { Portal } from "react-native-paper";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.94;
+const SHEET_RADIUS = 18;
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -204,9 +218,91 @@ interface RegistrationProps {
   onRegistrationSuccess?: () => void;
 }
 
-const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
-  onBackToLogin, onRegistrationSuccess,
+interface RegistrationContentProps extends RegistrationProps {
+  onDismiss: () => void;
+}
+
+const ServiceProviderRegistration: React.FC<RegistrationProps> = (props) => (
+  <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={() => props.onBackToLogin(true)}>
+    <SafeAreaProvider>
+      <RegistrationSheetHost {...props} />
+    </SafeAreaProvider>
+  </Modal>
+);
+
+const RegistrationSheetHost: React.FC<RegistrationProps> = (props) => {
+  const insets = useSafeAreaInsets();
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const dismissWithAnimation = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      slideAnim.setValue(SCREEN_HEIGHT);
+      fadeAnim.setValue(0);
+      props.onBackToLogin(true);
+    });
+  }, [slideAnim, fadeAnim, props]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 70,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [slideAnim, fadeAnim]);
+
+  return (
+    <View style={styles.modalRoot}>
+      <Animated.View style={[styles.sheetOverlay, { opacity: fadeAnim }]}>
+        <TouchableWithoutFeedback onPress={dismissWithAnimation}>
+          <View style={styles.sheetOverlayTap} />
+        </TouchableWithoutFeedback>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            maxHeight: SHEET_MAX_HEIGHT,
+            paddingBottom: Math.max(insets.bottom, 8),
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <ServiceProviderRegistrationContent {...props} onDismiss={dismissWithAnimation} />
+      </Animated.View>
+    </View>
+  );
+};
+
+const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = ({
+  onBackToLogin,
+  onRegistrationSuccess,
+  onDismiss,
 }) => {
+  const insets = useSafeAreaInsets();
+  const { user: auth0User } = useAuth0();
+  const auth0LoginEmail = (auth0User?.email ?? "").trim().toLowerCase();
+  const isAuth0Authenticated = Boolean(auth0LoginEmail);
   const { colors, fontSize, isDarkMode } = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
@@ -227,18 +323,23 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [image, setImage] = useState<RNFile | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [pendingMapSelection, setPendingMapSelection] = useState<{
+    lat: number;
+    lng: number;
+    locationData: any;
+  } | null>(null);
+  const geoLocation = useSelector(
+    (state: { geoLocation?: { value?: unknown } }) => state?.geoLocation?.value
+  );
   const [isSameAddress, setIsSameAddress] = useState(false);
   const [isDobValid, setIsDobValid] = useState(true);
+  const [useCustomPassword, setUseCustomPassword] = useState(() => !auth0LoginEmail);
   const scrollViewRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
   
   // Add selectedLanguages state
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  
-  // New state variables for multi-slot time selection
-  const [morningSlots, setMorningSlots] = useState<number[][]>([[6, 12]]);
-  const [eveningSlots, setEveningSlots] = useState<number[][]>([[12, 20]]);
-  const [isFullTime, setIsFullTime] = useState(true);
-  const [selectedTimeSlots, setSelectedTimeSlots] = useState<string>("06:00-20:00");
 
   // NEW: State for KYC document upload
   const [kycDocumentUrl, setKycDocumentUrl] = useState<string>("");
@@ -440,6 +541,55 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const { validationResults, validateField, resetValidation } = useFieldValidation();
 
+  useEffect(() => {
+    if (!auth0LoginEmail) return;
+    setFormData((prev) => ({
+      ...prev,
+      emailId: auth0LoginEmail,
+    }));
+    validateField("email", auth0LoginEmail);
+  }, [auth0LoginEmail, validateField]);
+
+  useEffect(() => {
+    if (auth0LoginEmail) {
+      setUseCustomPassword(false);
+      setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+      setErrors((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+    } else {
+      setUseCustomPassword(true);
+    }
+  }, [auth0LoginEmail]);
+
+  const handleCustomPasswordModeChange = useCallback((custom: boolean) => {
+    setUseCustomPassword(custom);
+    if (!custom) {
+      setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+      setErrors((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+    }
+  }, []);
+
+  const scrollInputIntoView = useCallback((fieldRef: View | null) => {
+    if (!fieldRef || !scrollViewRef.current) return;
+
+    const scrollDelay = Platform.OS === "ios" ? 280 : 120;
+    setTimeout(() => {
+      fieldRef.measureInWindow((_x, y, _w, fieldHeight) => {
+        const keyboardHeight = Keyboard.metrics()?.height ?? 0;
+        const windowHeight = Dimensions.get("window").height;
+        const fieldBottom = y + fieldHeight;
+        const visibleBottom = windowHeight - keyboardHeight - 40;
+
+        if (fieldBottom > visibleBottom) {
+          const delta = fieldBottom - visibleBottom;
+          scrollViewRef.current?.scrollTo({
+            y: scrollYRef.current + delta,
+            animated: true,
+          });
+        }
+      });
+    }, scrollDelay);
+  }, []);
+
   // Helper function to check if step 0 is ready for next - **NOW ALWAYS TRUE**
   const isStep0ReadyForNext = () => {
     // All fields are optional - always allow next
@@ -470,219 +620,6 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         return <KeyFactsStatement />;
       default:
         return null;
-    }
-  };
-
-  const isRangeOverlapping = (range1: number[], range2: number[]): boolean => {
-    return !(range1[1] <= range2[0] || range1[0] >= range2[1]);
-  };
-
-  const formatDisplayTime = (value: number): string => {
-    const hour = Math.floor(value);
-    const minute = Math.round((value - hour) * 60);
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour > 12 ? hour - 12 : hour;
-    const displayHourFormatted = displayHour === 0 ? 12 : displayHour;
-    const minuteFormatted = minute === 30 ? '30' : '00';
-    return `${displayHourFormatted}:${minuteFormatted} ${period}`;
-  };
-
-  const formatTimeForStorage = (value: number): string => {
-    const hour = Math.floor(value);
-    const minute = value % 1 === 0.5 ? "30" : "00";
-    const formattedHour = hour < 10 ? `0${hour}` : `${hour}`;
-    return `${formattedHour}:${minute}`;
-  };
-
-  const updateSelectedTimeSlots = useCallback(() => {
-    if (isFullTime) {
-      setSelectedTimeSlots("Full Day (6:00 AM - 8:00 PM)");
-      setFormData((prev) => ({ ...prev, timeslot: "06:00-20:00" }));
-      return;
-    }
-
-    const morningSlotStrings = morningSlots.map(([start, end]) => 
-      `${formatTimeForStorage(start)}-${formatTimeForStorage(end)}`
-    );
-    
-    const eveningSlotStrings = eveningSlots.map(([start, end]) => 
-      `${formatTimeForStorage(start)}-${formatTimeForStorage(end)}`
-    );
-
-    let displaySlots: string[] = [];
-    let storageSlots: string[] = [];
-
-    morningSlots.forEach(([start, end]) => {
-      displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
-    });
-    
-    eveningSlots.forEach(([start, end]) => {
-      displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
-    });
-
-    morningSlotStrings.forEach(slot => storageSlots.push(slot));
-    eveningSlotStrings.forEach(slot => storageSlots.push(slot));
-
-    if (displaySlots.length > 0) {
-      setSelectedTimeSlots(displaySlots.join(', '));
-      setFormData((prev) => ({ ...prev, timeslot: storageSlots.join(', ') }));
-    } else {
-      setSelectedTimeSlots("No slots selected");
-      setFormData((prev) => ({ ...prev, timeslot: '' }));
-    }
-  }, [isFullTime, morningSlots, eveningSlots]);
-
-  useEffect(() => {
-    updateSelectedTimeSlots();
-  }, [morningSlots, eveningSlots, isFullTime, updateSelectedTimeSlots]);
-
-  const handleAddMorningSlot = () => {
-    setMorningSlots(prevSlots => {
-      const existingRanges = prevSlots;
-      let newStart = 6;
-      let newEnd = 6.5;
-      let foundAvailableSlot = false;
-
-      for (let time = 6; time < 12; time += 0.5) {
-        const potentialEnd = time + 0.5;
-        const hasConflict = existingRanges.some(range => 
-          isRangeOverlapping([time, potentialEnd], range)
-        );
-        
-        if (!hasConflict) {
-          newStart = time;
-          newEnd = potentialEnd;
-          foundAvailableSlot = true;
-          break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        for (let time = 6; time < 12; time += 0.5) {
-          for (let endTime = time + 0.5; endTime <= 12; endTime += 0.5) {
-            const hasConflict = existingRanges.some(range => 
-              isRangeOverlapping([time, endTime], range)
-            );
-            
-            if (!hasConflict) {
-              newStart = time;
-              newEnd = endTime;
-              foundAvailableSlot = true;
-              break;
-            }
-          }
-          if (foundAvailableSlot) break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        showSnackbar("No available morning slots to add", "warning");
-        return prevSlots;
-      }
-
-      return [...prevSlots, [newStart, newEnd]];
-    });
-  };
-
-  const handleRemoveMorningSlot = (index: number) => {
-    const newSlots = morningSlots.filter((_, i) => i !== index);
-    setMorningSlots(newSlots.length > 0 ? newSlots : []);
-  };
-
-  const handleAddEveningSlot = () => {
-    setEveningSlots(prevSlots => {
-      const existingRanges = prevSlots;
-      let newStart = 12;
-      let newEnd = 12.5;
-      let foundAvailableSlot = false;
-
-      for (let time = 12; time < 20; time += 0.5) {
-        const potentialEnd = time + 0.5;
-        const hasConflict = existingRanges.some(range => 
-          isRangeOverlapping([time, potentialEnd], range)
-        );
-        
-        if (!hasConflict) {
-          newStart = time;
-          newEnd = potentialEnd;
-          foundAvailableSlot = true;
-          break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        for (let time = 12; time < 20; time += 0.5) {
-          for (let endTime = time + 0.5; endTime <= 20; endTime += 0.5) {
-            const hasConflict = existingRanges.some(range => 
-              isRangeOverlapping([time, endTime], range)
-            );
-            
-            if (!hasConflict) {
-              newStart = time;
-              newEnd = endTime;
-              foundAvailableSlot = true;
-              break;
-            }
-          }
-          if (foundAvailableSlot) break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        showSnackbar("No available evening slots to add", "warning");
-        return prevSlots;
-      }
-
-      return [...prevSlots, [newStart, newEnd]];
-    });
-  };
-
-  const handleRemoveEveningSlot = (index: number) => {
-    const newSlots = eveningSlots.filter((_, i) => i !== index);
-    setEveningSlots(newSlots.length > 0 ? newSlots : []);
-  };
-
-  const handleClearMorningSlots = () => {
-    setMorningSlots([]);
-  };
-
-  const handleClearEveningSlots = () => {
-    setEveningSlots([]);
-  };
-
-  const handleMorningSlotChange = (index: number, newValue: number[]) => {
-    const updatedSlots = [...morningSlots];
-    const otherSlots = updatedSlots.filter((_, i) => i !== index);
-    
-    const hasOverlap = otherSlots.some(slot => 
-      isRangeOverlapping(newValue, slot)
-    );
-    
-    if (!hasOverlap && newValue[0] <= newValue[1]) {
-      updatedSlots[index] = newValue;
-      setMorningSlots(updatedSlots);
-    }
-  };
-
-  const handleEveningSlotChange = (index: number, newValue: number[]) => {
-    const updatedSlots = [...eveningSlots];
-    const otherSlots = updatedSlots.filter((_, i) => i !== index);
-    
-    const hasOverlap = otherSlots.some(slot => 
-      isRangeOverlapping(newValue, slot)
-    );
-    
-    if (!hasOverlap && newValue[0] <= newValue[1]) {
-      updatedSlots[index] = newValue;
-      setEveningSlots(updatedSlots);
-    }
-  };
-
-  const handleFullTimeToggle = (checked: boolean) => {
-    setIsFullTime(checked);
-    if (checked) {
-      setMorningSlots([[6, 12]]);
-      setEveningSlots([[12, 20]]);
     }
   };
 
@@ -1266,6 +1203,15 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     setFormData(prev => ({ ...prev, referralCode: text }));
   };
 
+  const handleTimeSlotsChange = useCallback((timeslot: string) => {
+    setFormData((prev) => {
+      if (prev.timeslot === timeslot) {
+        return prev;
+      }
+      return { ...prev, timeslot };
+    });
+  }, []);
+
   // Handle DOB change for BasicInformation
   const handleDobChange = (e: any) => {
     const { value } = e.target;
@@ -1286,6 +1232,27 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const fetchLocationData = async () => {
     try {
+      setLocationLoading(true);
+
+      const storedCoords = resolveLocationCoords(geoLocation);
+      if (storedCoords) {
+        showSnackbar("Using your saved location...", "info");
+        try {
+          const storedAddress = formatServiceAddressFromGeoLocation(geoLocation);
+          const res = await Geocoder.from(storedCoords.lat, storedCoords.lng);
+          const address = res.results[0]?.formatted_address || storedAddress;
+          const components = res.results[0]?.address_components || [];
+          applyAddressFromGeocode(storedCoords.lat, storedCoords.lng, address, components);
+          showSnackbar("Location fetched successfully!", "success");
+        } catch (error) {
+          console.error("Stored location geocoding error:", error);
+          showSnackbar("Error getting address from saved location", "warning");
+        } finally {
+          setLocationLoading(false);
+        }
+        return;
+      }
+
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
         Alert.alert(
@@ -1299,10 +1266,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             { text: "Cancel", style: "cancel" },
           ]
         );
+        setLocationLoading(false);
         return;
       }
 
-      setLocationLoading(true);
       showSnackbar("Fetching your location...", "info");
 
       Geolocation.getCurrentPosition(
@@ -1312,78 +1279,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           try {
             const res = await Geocoder.from(latitude, longitude);
             const address = res.results[0]?.formatted_address || "";
-
-            const parsedAddress = parseAddressComponents(res.results[0]?.address_components || []);
-
-            if (!parsedAddress.city || !parsedAddress.street) {
-              const addressParts = address.split(',').map(part => part.trim());
-
-              if (addressParts.length > 0) {
-                if (!parsedAddress.apartment) {
-                  parsedAddress.apartment = addressParts[0];
-                }
-                if (!parsedAddress.street && addressParts.length > 1) {
-                  parsedAddress.street = addressParts[1];
-                }
-                if (!parsedAddress.city) {
-                  for (let i = 1; i < addressParts.length - 2; i++) {
-                    if (addressParts[i].match(/\d{6}/)) {
-                      continue;
-                    }
-                    parsedAddress.city = addressParts[i];
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (!parsedAddress.country) {
-              parsedAddress.country = "India";
-            }
-            if (!parsedAddress.state) {
-              parsedAddress.state = "Unknown";
-            }
-            if (!parsedAddress.city) {
-              parsedAddress.city = "Unknown";
-            }
-
-            const addressData = {
-              apartment: parsedAddress.apartment || "Current Location",
-              street: parsedAddress.street || "Current Location",
-              city: parsedAddress.city,
-              state: parsedAddress.state,
-              country: parsedAddress.country,
-              pincode: parsedAddress.pincode || "",
-            };
-
-            const newPermanentAddress = {
-              ...formData.permanentAddress,
-              ...addressData
-            };
-
-            const newCorrespondenceAddress = isSameAddress ?
-              newPermanentAddress :
-              formData.correspondenceAddress;
-
-            setFormData(prev => ({
-              ...prev,
-              latitude: latitude,
-              longitude: longitude,
-              currentLocation: address,
-              street: addressData.street,
-              locality: addressData.city,
-              pincode: addressData.pincode,
-              buildingName: addressData.apartment,
-              permanentAddress: newPermanentAddress,
-              correspondenceAddress: newCorrespondenceAddress,
-            }));
-
-            setCurrentLocation({
-              latitude: latitude,
-              longitude: longitude,
-              address: address
-            });
-
+            const components = res.results[0]?.address_components || [];
+            applyAddressFromGeocode(latitude, longitude, address, components);
             showSnackbar("Location fetched successfully!", "success");
           } catch (error) {
             console.error("Geocoding error:", error);
@@ -1404,6 +1301,123 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
       showSnackbar("Unable to fetch your location. Please try again.", "error");
       setLocationLoading(false);
     }
+  };
+
+  const applyAddressFromGeocode = (
+    latitude: number,
+    longitude: number,
+    address: string,
+    addressComponents: any[]
+  ) => {
+    const parsedAddress = parseAddressComponents(addressComponents);
+
+    if (!parsedAddress.city || !parsedAddress.street) {
+      const addressParts = address.split(',').map(part => part.trim());
+
+      if (addressParts.length > 0) {
+        if (!parsedAddress.apartment) {
+          parsedAddress.apartment = addressParts[0];
+        }
+        if (!parsedAddress.street && addressParts.length > 1) {
+          parsedAddress.street = addressParts[1];
+        }
+        if (!parsedAddress.city) {
+          for (let i = 1; i < addressParts.length - 2; i++) {
+            if (addressParts[i].match(/\d{6}/)) {
+              continue;
+            }
+            parsedAddress.city = addressParts[i];
+            break;
+          }
+        }
+      }
+    }
+
+    if (!parsedAddress.country) {
+      parsedAddress.country = "India";
+    }
+    if (!parsedAddress.state) {
+      parsedAddress.state = "Unknown";
+    }
+    if (!parsedAddress.city) {
+      parsedAddress.city = "Unknown";
+    }
+
+    const addressData = {
+      apartment: parsedAddress.apartment || "Current Location",
+      street: parsedAddress.street || "Current Location",
+      city: parsedAddress.city,
+      state: parsedAddress.state,
+      country: parsedAddress.country,
+      pincode: parsedAddress.pincode || "",
+    };
+
+    setFormData(prev => {
+      const newPermanentAddress = {
+        ...prev.permanentAddress,
+        ...addressData,
+      };
+      const newCorrespondenceAddress = isSameAddress
+        ? newPermanentAddress
+        : prev.correspondenceAddress;
+
+      return {
+        ...prev,
+        latitude,
+        longitude,
+        currentLocation: address,
+        street: addressData.street,
+        locality: addressData.city,
+        pincode: addressData.pincode,
+        buildingName: addressData.apartment,
+        permanentAddress: newPermanentAddress,
+        correspondenceAddress: newCorrespondenceAddress,
+      };
+    });
+
+    setCurrentLocation({
+      latitude,
+      longitude,
+      address,
+    });
+  };
+
+  const handleMapLocationSelect = (data: { address: any; lat: number; lng: number }) => {
+    const locationData = Array.isArray(data.address) ? data.address[0] : data.address;
+    setPendingMapSelection({
+      lat: data.lat,
+      lng: data.lng,
+      locationData,
+    });
+  };
+
+  const handleSaveMapSelection = () => {
+    if (!pendingMapSelection) {
+      showSnackbar("Please select a location from map first", "warning");
+      return;
+    }
+
+    const { lat, lng, locationData } = pendingMapSelection;
+    const address = locationData?.formatted_address || "";
+    const components = locationData?.address_components || [];
+    applyAddressFromGeocode(lat, lng, address, components);
+    setIsSameAddress(true);
+    setMapPickerOpen(false);
+    setPendingMapSelection(null);
+    showSnackbar("Location saved to address fields", "success");
+  };
+
+  const getMapInitialCenter = () => {
+    if (formData.latitude !== 0 || formData.longitude !== 0) {
+      return { lat: formData.latitude, lng: formData.longitude };
+    }
+
+    const storedCoords = resolveLocationCoords(geoLocation);
+    if (storedCoords) {
+      return storedCoords;
+    }
+
+    return null;
   };
 
   const parseAddressComponents = (addressComponents: any[]) => {
@@ -1445,11 +1459,19 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const requestLocationPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === "android") {
+        const currentStatus = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+        if (currentStatus === RESULTS.GRANTED) {
+          return true;
+        }
         const fineStatus = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
         return fineStatus === RESULTS.GRANTED;
       } else if (Platform.OS === "ios") {
+        const currentStatus = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        if (currentStatus === RESULTS.GRANTED || currentStatus === RESULTS.LIMITED) {
+          return true;
+        }
         const iosStatus = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
-        return iosStatus === RESULTS.GRANTED;
+        return iosStatus === RESULTS.GRANTED || iosStatus === RESULTS.LIMITED;
       }
       return false;
     } catch (err) {
@@ -1478,7 +1500,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
 
   const handleBack = () => {
     if (activeStep === 0) {
-      onBackToLogin(true);
+      onDismiss();
     } else {
       setActiveStep((prevActiveStep) => prevActiveStep - 1);
       // Scroll to top when step changes
@@ -1524,22 +1546,59 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
           profilePicUrl = imageResponse.data.imageUrl || imageResponse.data.url || "";
         }
       }
+
+      let uploadedKycUrl = kycDocumentUrl;
+      if (!uploadedKycUrl && formData.documentImage) {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", {
+          uri: formData.documentImage.uri,
+          type: formData.documentImage.type || "image/jpeg",
+          name: formData.documentImage.name || "kyc_document.jpg",
+        } as any);
+
+        const uploadResponse = await axios.post(
+          `${API_URLS.imageUploader}/api/files/upload-file`,
+          uploadFormData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        if (uploadResponse.status === 200 || uploadResponse.status === 201) {
+          uploadedKycUrl =
+            uploadResponse.data.file?.url ||
+            uploadResponse.data.fileUrl ||
+            uploadResponse.data.url ||
+            "";
+          if (!uploadedKycUrl) {
+            throw new Error("No URL returned from KYC upload");
+          }
+        } else {
+          throw new Error("KYC upload failed");
+        }
+      }
       
       const selectedServices = formData.housekeepingRole;
       
-      // Helper to convert empty strings to null
       const toNull = (value: any) => (value === "" ? null : value);
 
-      // Prepare bank details object (only include non-empty fields)
-      const registrationEmail = (formData.emailId || "").trim().toLowerCase();
+      const registrationEmail = (
+        isAuth0Authenticated && auth0LoginEmail
+          ? auth0LoginEmail
+          : (formData.emailId || "").trim().toLowerCase()
+      );
       if (!registrationEmail) {
         setIsSubmitting(false);
         showSnackbar(
-          "Email is required. Enter the same email you will use to log in.",
+          "Email is required. Sign in with Auth0 first or enter the same email you will use to log in.",
           "error"
         );
         return;
       }
+
+      const resolvedKycUrl = uploadedKycUrl || null;
 
       const payload = {
         firstName: toNull(formData.firstName),
@@ -1595,7 +1654,8 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         active: true,
         kycType: toNull(formData.kycType),
         kycNumber: toNull(formData.kycNumber),
-        kycDocumentUrl: kycDocumentUrl || null,
+        kycDocumentUrl: resolvedKycUrl,
+        kycImage: resolvedKycUrl,
         dob: toNull(formData.dob),
         ...(profilePicUrl ? { profilePic: profilePicUrl } : {}),
         bankName: toNull(formData.bankDetails.bankName),
@@ -1618,10 +1678,23 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
         }
       );
 
+      const created = response.data?.data ?? response.data;
+      const spId =
+        created?.serviceProviderId ??
+        created?.serviceproviderid ??
+        created?.id;
+      if (spId != null && isAuth0Authenticated && auth0LoginEmail) {
+        const storedEmail = String(created?.emailId ?? created?.emailid ?? "").toLowerCase();
+        if (storedEmail !== auth0LoginEmail) {
+          await providerInstance.put(`/api/service-providers/serviceprovider/${spId}`, {
+            emailId: auth0LoginEmail,
+          });
+        }
+      }
+
       showSnackbar("Registration successful!", "success");
 
-      // Only create Auth0 user if email and password are provided
-      if (formData.emailId && formData.password) {
+      if (registrationEmail && formData.password) {
         const authPayload = {
           email: registrationEmail,
           password: formData.password,
@@ -1807,6 +1880,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             onClearEmail={handleClearEmail}
             onClearMobile={handleClearMobile}
             onClearAlternate={handleClearAlternate}
+            lockAuth0Email={Boolean(auth0LoginEmail)}
+            useCustomPassword={useCustomPassword}
+            onCustomPasswordModeChange={handleCustomPasswordModeChange}
+            onScrollInputIntoView={scrollInputIntoView}
           />
         );
       
@@ -1834,20 +1911,48 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 Use your current location to auto-fill address details
               </Text>
 
-              <TouchableOpacity
-                style={[styles.locationButton, { backgroundColor: colors.primary }, locationLoading && styles.buttonDisabled]}
-                onPress={fetchLocationData}
-                disabled={locationLoading}
-              >
-                {locationLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="my-location" size={18} color="#fff" />
-                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>Fetch Current Location</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={styles.locationButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.locationButton,
+                    styles.locationButtonHalf,
+                    { backgroundColor: colors.primary },
+                    locationLoading && styles.buttonDisabled,
+                  ]}
+                  onPress={fetchLocationData}
+                  disabled={locationLoading}
+                >
+                  {locationLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Icon name="my-location" size={18} color="#fff" />
+                      <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>
+                        Fetch Current Location
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.locationButtonOutline,
+                    styles.locationButtonHalf,
+                    { borderColor: colors.primary },
+                    locationLoading && styles.buttonDisabled,
+                  ]}
+                  onPress={() => {
+                    setPendingMapSelection(null);
+                    setMapPickerOpen(true);
+                  }}
+                  disabled={locationLoading}
+                >
+                  <Icon name="map" size={18} color={colors.primary} />
+                  <Text style={[styles.buttonText, { color: colors.primary, fontSize: fontSizes.button }]}>
+                    Select from Map
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               {(formData.latitude !== 0 || formData.longitude !== 0) && (
                 <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
@@ -1878,9 +1983,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               onAgentReferralIdChange={handleAgentReferralIdChange}
               selectedLanguages={selectedLanguages}
               onLanguagesChange={setSelectedLanguages}
-              onTimeSlotsChange={(timeslot) =>
-                setFormData((prev) => ({ ...prev, timeslot }))
-              }
+              onTimeSlotsChange={handleTimeSlotsChange}
             />
           </View>
         );
@@ -1933,6 +2036,11 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             {errors.keyFacts && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.keyFacts}</Text>}
             {errors.terms && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.terms}</Text>}
             {errors.privacy && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.privacy}</Text>}
+            {!areTermsAccepted() && (
+              <Text style={[styles.termsHint, { color: colors.warning || "#ed6c02", fontSize: fontSizes.small }]}>
+                Please accept all agreements above to enable the Submit button.
+              </Text>
+            )}
           </View>
         );
 
@@ -1941,41 +2049,61 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
     }
   };
 
-  return (
-    <Modal
-      visible={true}
-      animationType="slide"
-      transparent={false}
-    >
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardView}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-        >
-          <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <LinearGradient
-              colors={["#0b5bd3", "#4f8ff7"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.headerContainer}
-            >
-              <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => onBackToLogin(true)}
-              >
-                <Icon name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </LinearGradient>
+  const headerSubtext = `Step ${activeStep + 1} of ${steps.length}`;
+  const surface = isDarkMode ? colors.surface : "#ffffff";
+  const textPrimary = isDarkMode ? colors.text : "#0f172a";
+  const textMuted = isDarkMode ? colors.textSecondary : "#64748b";
+  const borderColor = isDarkMode ? colors.border : "#e2e8f0";
 
-            <ScrollView 
-              ref={scrollViewRef}
-              style={[styles.content, { backgroundColor: colors.background }]} 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.contentContainer}
-              keyboardShouldPersistTaps="handled"
-            >
+  return (
+    <View style={[styles.sheetBody, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}>
+      <View style={[styles.sheetHeader, { backgroundColor: surface, borderBottomColor: borderColor }]}>
+        <View style={styles.headerAccent} />
+        <View style={styles.handleRow}>
+          <View style={[styles.sheetHandle, { backgroundColor: borderColor }]} />
+        </View>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerTextCol}>
+            <Text style={[styles.headerEyebrow, { color: textMuted }]}>Registration</Text>
+            <Text style={[styles.sheetHeaderTitle, { color: textPrimary }]}>
+              Service Provider
+            </Text>
+            <Text style={[styles.headerSub, { color: textMuted }]} numberOfLines={1}>
+              {headerSubtext}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={onDismiss}
+            style={[styles.sheetCloseBtn, { backgroundColor: isDarkMode ? colors.card : "#f1f5f9" }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Close registration"
+            accessibilityRole="button"
+          >
+            <Icon name="close" size={22} color={textPrimary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.keyboardView}>
+        <RegistrationKeyboardAccessory />
+        <RegistrationAndroidKeyboardBar />
+        <View style={[styles.container, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={[styles.content, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.contentContainer,
+              { paddingBottom: Math.max(insets.bottom, 16) + 48 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            onScroll={(event) => {
+              scrollYRef.current = event.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+          >
               {renderStepper()}
               {renderStepContent(activeStep)}
 
@@ -2017,24 +2145,24 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
             {policyModalVisible && (
               <Portal>
               <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
-                <LinearGradient
-                  colors={["#0b5bd3", "#4f8ff7"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.policyModalHeader}
-                >
-                  <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>
-                    {activePolicy === 'terms' && "Terms and Conditions"}
-                    {activePolicy === 'privacy' && "Privacy Policy"}
-                    {activePolicy === 'keyfacts' && "Key Facts Statement"}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.policyModalClose}
-                    onPress={() => setPolicyModalVisible(false)}
-                  >
-                    <Icon name="close" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </LinearGradient>
+                <View style={[styles.policySheetHeader, { backgroundColor: surface, borderBottomColor: borderColor }]}>
+                  <View style={styles.headerTitleRow}>
+                    <View style={styles.headerTextCol}>
+                      <Text style={[styles.sheetHeaderTitle, { color: textPrimary }]} numberOfLines={2}>
+                        {activePolicy === "terms" && "Terms and Conditions"}
+                        {activePolicy === "privacy" && "Privacy Policy"}
+                        {activePolicy === "keyfacts" && "Key Facts Statement"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.sheetCloseBtn, { backgroundColor: isDarkMode ? colors.card : "#f1f5f9" }]}
+                      onPress={() => setPolicyModalVisible(false)}
+                      accessibilityLabel="Close policy"
+                    >
+                      <Icon name="close" size={22} color={textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
                 <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>
                   {renderPolicyContent()}
                 </ScrollView>
@@ -2050,41 +2178,161 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
                 </TouchableOpacity>
               </View>
             )}
+
+            <Modal
+              visible={mapPickerOpen}
+              animationType="slide"
+              onRequestClose={() => setMapPickerOpen(false)}
+            >
+              <View style={[styles.mapPickerModal, { backgroundColor: colors.background }]}>
+                <View style={[styles.mapPickerHeader, { borderBottomColor: colors.border, paddingTop: Math.max(insets.top, 14) }]}>
+                  <Text style={[styles.mapPickerTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
+                    Select location from map
+                  </Text>
+                  <TouchableOpacity onPress={() => setMapPickerOpen(false)}>
+                    <Icon name="close" size={22} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.mapPickerBody}>
+                  <MapComponent
+                    style={styles.mapPickerComponent}
+                    onLocationSelect={handleMapLocationSelect}
+                    initialCenter={getMapInitialCenter()}
+                    savedLocation={geoLocation}
+                  />
+
+                  <Text style={[styles.mapPickerHint, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+                    Click on the map to choose the exact service address, then press Save location.
+                  </Text>
+
+                  {pendingMapSelection ? (
+                    <View style={[styles.mapPickerSelection, { backgroundColor: colors.infoLight, borderColor: colors.primary }]}>
+                      <Text style={[styles.mapPickerSelectionText, { color: colors.primary, fontSize: fontSizes.small }]}>
+                        Selected: {pendingMapSelection.lat.toFixed(6)}, {pendingMapSelection.lng.toFixed(6)}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.mapPickerActions}>
+                    <TouchableOpacity
+                      style={[styles.mapPickerCancelButton, { borderColor: colors.border }]}
+                      onPress={() => setMapPickerOpen(false)}
+                    >
+                      <Text style={{ color: colors.text, fontSize: fontSizes.button }}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.mapPickerSaveButton,
+                        { backgroundColor: colors.primary },
+                        !pendingMapSelection && styles.buttonDisabled,
+                      ]}
+                      onPress={handleSaveMapSelection}
+                      disabled={!pendingMapSelection}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "600", fontSize: fontSizes.button }}>
+                        Save location
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  modalRoot: {
     flex: 1,
+    justifyContent: "flex-end",
+  },
+  sheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2, 6, 23, 0.72)",
+  },
+  sheetOverlayTap: {
+    flex: 1,
+  },
+  sheet: {
+    width: SCREEN_WIDTH,
+    height: SHEET_MAX_HEIGHT,
+    backgroundColor: "#f8fafc",
+    borderTopLeftRadius: SHEET_RADIUS,
+    borderTopRightRadius: SHEET_RADIUS,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+  sheetBody: {
+    flex: 1,
+  },
+  sheetHeader: {
+    borderBottomWidth: 1,
+    flexShrink: 0,
+  },
+  headerAccent: {
+    height: 4,
+    width: "100%",
+    backgroundColor: "#2563eb",
+  },
+  handleRow: {
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  sheetHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  headerTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  headerEyebrow: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  sheetHeaderTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    lineHeight: 26,
+  },
+  headerSub: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  sheetCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   keyboardView: {
     flex: 1,
   },
   container: {
     flex: 1,
-  },
-  headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 12 : 16,
-    paddingBottom: Platform.OS === "ios" ? 12 : 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  title: {
-    color: '#fff',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  closeButton: {
-    position: 'absolute',
-    right: 16,
-    top: Platform.OS === "ios" ? 12 : 16,
   },
   content: {
     flex: 1,
@@ -2193,6 +2441,79 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 16,
   },
+  locationButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  locationButtonHalf: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  locationButtonOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  mapPickerModal: {
+    flex: 1,
+  },
+  mapPickerHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+  },
+  mapPickerTitle: {
+    fontWeight: "700",
+    flex: 1,
+    paddingRight: 12,
+  },
+  mapPickerBody: {
+    flex: 1,
+    padding: 16,
+    gap: 12,
+  },
+  mapPickerComponent: {
+    flex: 1,
+    minHeight: 420,
+  },
+  mapPickerHint: {
+    lineHeight: 20,
+  },
+  mapPickerSelection: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  mapPickerSelectionText: {
+    fontWeight: "500",
+  },
+  mapPickerActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    paddingTop: 4,
+  },
+  mapPickerCancelButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  mapPickerSaveButton: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minWidth: 120,
+    alignItems: "center",
+  },
   buttonText: {
     color: 'white',
     fontWeight: '600',
@@ -2261,28 +2582,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
   },
+  termsHint: {
+    marginTop: 12,
+    lineHeight: 20,
+  },
   policyModalContainer: {
     ...StyleSheet.absoluteFillObject,
     flex: 1,
   },
-  policyModalHeader: {
-    paddingTop: Platform.OS === "ios" ? 50 : 20,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  policyModalTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  policyModalClose: {
-    position: 'absolute',
-    right: 16,
-    top: Platform.OS === "ios" ? 50 : 20,
+  policySheetHeader: {
+    borderBottomWidth: 1,
+    paddingTop: 12,
   },
   policyModalContent: {
     flex: 1,

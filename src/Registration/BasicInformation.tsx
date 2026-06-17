@@ -1,14 +1,12 @@
 /* eslint-disable */
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
-  ScrollView,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Platform,
 } from "react-native";
 import {
   HelperText,
@@ -16,7 +14,8 @@ import {
 } from "react-native-paper";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DribbbleDateTimePicker from "../common/DribbbleDateTimePicker";
+import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 import moment from "moment";
 import ProfileImageUpload from "./ProfileImageUpload";
 import { useTheme } from "../../src/Settings/ThemeContext";
@@ -39,6 +38,10 @@ interface BasicInformationProps {
   onClearEmail: () => void;
   onClearMobile: () => void;
   onClearAlternate: () => void;
+  lockAuth0Email?: boolean;
+  useCustomPassword?: boolean;
+  onCustomPasswordModeChange?: (useCustom: boolean) => void;
+  onScrollInputIntoView?: (fieldRef: View | null) => void;
 }
 
 const BasicInformation: React.FC<BasicInformationProps> = ({
@@ -58,14 +61,31 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   onClearEmail,
   onClearMobile,
   onClearAlternate,
+  lockAuth0Email = false,
+  useCustomPassword = true,
+  onCustomPasswordModeChange,
+  onScrollInputIntoView,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
   const MAX_NAME_LENGTH = 30;
+  const showPasswordFields = !lockAuth0Email || useCustomPassword;
+
+  const emailRef = useRef<View>(null);
+  const passwordRef = useRef<View>(null);
+  const confirmPasswordRef = useRef<View>(null);
+  const mobileRef = useRef<View>(null);
+  const alternateRef = useRef<View>(null);
   
-  // State for DateTimePicker
+  // State for date picker visibility
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(new Date());
+
+  const handleFieldFocus = (fieldName: string, fieldRef?: View | null) => {
+    onFieldFocus(fieldName);
+    if (fieldRef) {
+      onScrollInputIntoView?.(fieldRef);
+    }
+  };
 
   // Helper function to remove ALL spaces from any string
   const removeAllSpaces = (text: string) => {
@@ -90,55 +110,29 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   const minDate = new Date();
   minDate.setFullYear(minDate.getFullYear() - 100);
 
-  // Handle date change from picker
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    
-    if (selectedDate && event.type !== 'dismissed') {
-      // Validate if selected date is at least 18 years ago
-      const today = new Date();
-      const minAllowedDate = new Date(
-        today.getFullYear() - 18,
-        today.getMonth(),
-        today.getDate()
+  const handleDobSelect = (selectedDate: Date) => {
+    const minAllowedDate = getMaxDate();
+    if (selectedDate > minAllowedDate) {
+      Alert.alert(
+        "Age Restriction",
+        "You must be at least 18 years old to register. Please select a date on or before " +
+          moment(minAllowedDate).format("DD MMM YYYY"),
+        [{ text: "OK" }]
       );
-      
-      if (selectedDate > minAllowedDate) {
-        // Show error if user is under 18
-        Alert.alert(
-          "Age Restriction",
-          "You must be at least 18 years old to register. Please select a date on or before " + 
-          moment(minAllowedDate).format('DD MMM YYYY'),
-          [{ text: "OK" }]
-        );
-        return;
-      }
-      
-      // Format the date
-      const formattedDate = moment(selectedDate).format('YYYY-MM-DD');
-      const eventObj = {
-        target: { value: formattedDate, name: 'dob' }
-      };
-      onDobChange(eventObj);
+      return;
     }
-    
-    if (Platform.OS === 'ios' && event.type === 'dismissed') {
-      setShowDatePicker(false);
-    }
+    const formattedDate = moment(selectedDate).format("YYYY-MM-DD");
+    onDobChange({ target: { value: formattedDate, name: "dob" } });
+  };
+
+  const handleDobClear = () => {
+    onDobChange({ target: { value: "", name: "dob" } });
   };
 
   // Handle date picker open
   const handleDatePress = () => {
-    setShowDatePicker(true);
-    if (formData.dob) {
-      setTempDate(new Date(formData.dob));
-    } else {
-      // Set default to 18 years ago
-      const defaultDate = getMaxDate();
-      setTempDate(defaultDate);
-    }
+    setShowDatePicker((prev) => !prev);
+    onDatePress();
   };
 
   // Format date for display (DD MMM YYYY format - e.g., "15 Jan 1990")
@@ -269,6 +263,10 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
     inputError: {
       borderColor: colors.error,
     },
+    inputDisabled: {
+      backgroundColor: colors.surface,
+      opacity: 0.85,
+    },
     inputAdornment: {
       position: 'absolute',
       right: 12,
@@ -394,10 +392,51 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
       color: colors.warning,
       fontWeight: '500',
     },
+    pickerShell: {
+      marginTop: 10,
+      marginBottom: 4,
+    },
+    passwordModeRow: {
+      flexDirection: 'row',
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: 4,
+      gap: 6,
+      marginBottom: 12,
+    },
+    passwordModeButton: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    passwordModeButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    passwordModeText: {
+      fontSize: fontSizes.small,
+      fontWeight: '600',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    passwordModeTextActive: {
+      color: '#fff',
+    },
+    authInfoCard: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 12,
+    },
   });
 
   return (
-    <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
+    <View style={dynamicStyles.container}>
       <View style={dynamicStyles.spacing}>
         <View style={dynamicStyles.section}>
           <ProfileImageUpload onImageSelect={onImageSelect} />
@@ -409,6 +448,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             {t('registration.basicInformation.firstName')}
           </Text>
           <TextInput
+            {...registrationKeyboardInputProps}
             style={[dynamicStyles.input, errors.firstName && dynamicStyles.inputError]}
             placeholder={t('registration.basicInformation.enterFirstName')}
             placeholderTextColor={colors.placeholder}
@@ -430,6 +470,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             {t('registration.basicInformation.middleName')}
           </Text>
           <TextInput
+            {...registrationKeyboardInputProps}
             style={dynamicStyles.input}
             placeholder={t('registration.basicInformation.enterMiddleName')}
             placeholderTextColor={colors.placeholder}
@@ -444,6 +485,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             {t('registration.basicInformation.lastName')}
           </Text>
           <TextInput
+            {...registrationKeyboardInputProps}
             style={[dynamicStyles.input, errors.lastName && dynamicStyles.inputError]}
             placeholder={t('registration.basicInformation.enterLastName')}
             placeholderTextColor={colors.placeholder}
@@ -505,17 +547,23 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
 
-        {/* DateTimePicker Modal */}
+        {/* Dribbble calendar date picker */}
         {showDatePicker && (
-          <DateTimePicker
-            value={tempDate}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onDateChange}
-            maximumDate={maxDate}
-            minimumDate={minDate}
-            locale="en-IN"
-          />
+          <View style={dynamicStyles.pickerShell}>
+            <DribbbleDateTimePicker
+              mode="single"
+              birthdateMode
+              birthdateQuickNav
+              hideTimeSelection
+              compact
+              pickerTitle={t("registration.basicInformation.dateOfBirth")}
+              value={formData.dob ? new Date(formData.dob) : undefined}
+              minDate={minDate}
+              maxDate={maxDate}
+              onChange={handleDobSelect}
+              onClear={handleDobClear}
+            />
+          </View>
         )}
         
         {/* Gender - NO ASTERISK */}
@@ -571,34 +619,47 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         </View>
         
         {/* Email - NO ASTERISK */}
-        <View style={dynamicStyles.inputContainer}>
+        <View ref={emailRef} style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.email')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
-              style={[dynamicStyles.input, (errors.emailId || validationResults.email.isAvailable === false) && dynamicStyles.inputError]}
+              {...registrationKeyboardInputProps}
+              style={[
+                dynamicStyles.input,
+                lockAuth0Email && dynamicStyles.inputDisabled,
+                (errors.emailId || validationResults.email.isAvailable === false) && dynamicStyles.inputError,
+              ]}
               placeholder={t('registration.basicInformation.enterEmail')}
               placeholderTextColor={colors.placeholder}
               value={formData.emailId}
               onChangeText={(text) => handleTextChange('emailId', text)}
-              onFocus={() => onFieldFocus('emailId')}
+              onFocus={() => handleFieldFocus('emailId', emailRef.current)}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!lockAuth0Email}
             />
             <View style={dynamicStyles.inputAdornment}>
               {validationResults.email.loading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : validationResults.email.isAvailable ? (
                 <MaterialCommunityIcon name="check-circle" size={20} color={colors.success} />
-              ) : validationResults.email.isAvailable === false ? (
+              ) : validationResults.email.isAvailable === false && !lockAuth0Email ? (
                 <TouchableOpacity onPress={onClearEmail}>
                   <Icon name="close" size={20} color={colors.error} />
                 </TouchableOpacity>
               ) : null}
             </View>
           </View>
+          {lockAuth0Email ? (
+            <HelperText type="info" visible style={{ color: colors.info, fontSize: fontSizes.helper }}>
+              {t('registration.basicInformation.auth0EmailLocked', {
+                defaultValue: 'Uses your login email so sign-in finds your profile.',
+              })}
+            </HelperText>
+          ) : null}
           {(errors.emailId || validationResults.email.isAvailable === false || validationResults.email.loading) && (
             <HelperText 
               type={errors.emailId || validationResults.email.isAvailable === false ? "error" : "info"} 
@@ -615,22 +676,83 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             </HelperText>
           )}
         </View>
+
+        {lockAuth0Email ? (
+          <View style={dynamicStyles.authInfoCard}>
+            <Text style={[dynamicStyles.label, { marginBottom: 8 }]}>
+              {t('registration.basicInformation.passwordOptionTitle', {
+                defaultValue: 'How do you want to sign in?',
+              })}
+            </Text>
+            <View style={dynamicStyles.passwordModeRow}>
+              <TouchableOpacity
+                style={[
+                  dynamicStyles.passwordModeButton,
+                  !useCustomPassword && dynamicStyles.passwordModeButtonActive,
+                ]}
+                onPress={() => onCustomPasswordModeChange?.(false)}
+              >
+                <Text
+                  style={[
+                    dynamicStyles.passwordModeText,
+                    !useCustomPassword && dynamicStyles.passwordModeTextActive,
+                  ]}
+                >
+                  {t('registration.basicInformation.useMyLogin', {
+                    defaultValue: 'Use my login',
+                  })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  dynamicStyles.passwordModeButton,
+                  useCustomPassword && dynamicStyles.passwordModeButtonActive,
+                ]}
+                onPress={() => onCustomPasswordModeChange?.(true)}
+              >
+                <Text
+                  style={[
+                    dynamicStyles.passwordModeText,
+                    useCustomPassword && dynamicStyles.passwordModeTextActive,
+                  ]}
+                >
+                  {t('registration.basicInformation.createOwnPassword', {
+                    defaultValue: 'Create my own password',
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <HelperText type="info" visible style={{ color: colors.info, fontSize: fontSizes.helper }}>
+              {useCustomPassword
+                ? t('registration.basicInformation.customPasswordHint', {
+                    defaultValue: 'Set a new password for your provider account.',
+                  })
+                : t('registration.basicInformation.useLoginHint', {
+                    defaultValue: 'Continue with your existing sign-in. No new password needed.',
+                  })}
+            </HelperText>
+          </View>
+        ) : null}
         
         {/* Password - NO ASTERISK */}
-        <View style={dynamicStyles.inputContainer}>
+        {showPasswordFields ? (
+        <View ref={passwordRef} style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.password')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
+              {...registrationKeyboardInputProps}
               style={[dynamicStyles.input, errors.password && dynamicStyles.inputError]}
               placeholder={t('registration.basicInformation.enterPassword')}
               placeholderTextColor={colors.placeholder}
               secureTextEntry={!showPassword}
               value={formData.password}
               onChangeText={(text) => handleTextChange('password', text)}
-              onFocus={() => onFieldFocus('password')}
+              onFocus={() => handleFieldFocus('password', passwordRef.current)}
               autoCapitalize="none"
+              textContentType="newPassword"
+              autoComplete="password-new"
             />
             <TouchableOpacity 
               style={dynamicStyles.inputAdornment}
@@ -649,22 +771,27 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             </HelperText>
           )}
         </View>
+        ) : null}
         
         {/* Confirm Password - NO ASTERISK */}
-        <View style={dynamicStyles.inputContainer}>
+        {showPasswordFields ? (
+        <View ref={confirmPasswordRef} style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.confirmPassword')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
+              {...registrationKeyboardInputProps}
               style={[dynamicStyles.input, errors.confirmPassword && dynamicStyles.inputError]}
               placeholder={t('registration.basicInformation.confirmYourPassword')}
               placeholderTextColor={colors.placeholder}
               secureTextEntry={!showConfirmPassword}
               value={formData.confirmPassword}
               onChangeText={(text) => handleTextChange('confirmPassword', text)}
-              onFocus={() => onFieldFocus('confirmPassword')}
+              onFocus={() => handleFieldFocus('confirmPassword', confirmPasswordRef.current)}
               autoCapitalize="none"
+              textContentType="newPassword"
+              autoComplete="password-new"
             />
             <TouchableOpacity 
               style={dynamicStyles.inputAdornment}
@@ -683,20 +810,22 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
             </HelperText>
           )}
         </View>
+        ) : null}
         
         {/* Mobile Number - NO ASTERISK */}
-        <View style={dynamicStyles.inputContainer}>
+        <View ref={mobileRef} style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.mobileNumber')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
+              {...registrationKeyboardInputProps}
               style={[dynamicStyles.input, (errors.mobileNo || validationResults.mobile.isAvailable === false) && dynamicStyles.inputError]}
               placeholder={t('registration.basicInformation.enterMobileNumber')}
               placeholderTextColor={colors.placeholder}
               value={formData.mobileNo}
               onChangeText={(text) => handleTextChange('mobileNo', text)}
-              onFocus={() => onFieldFocus('mobileNo')}
+              onFocus={() => handleFieldFocus('mobileNo', mobileRef.current)}
               keyboardType="phone-pad"
               maxLength={10}
             />
@@ -730,17 +859,19 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
         </View>
 
         {/* Alternate Number - NO ASTERISK */}
-        <View style={dynamicStyles.inputContainer}>
+        <View ref={alternateRef} style={dynamicStyles.inputContainer}>
           <Text style={dynamicStyles.label}>
             {t('registration.basicInformation.alternateNumber')}
           </Text>
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
+              {...registrationKeyboardInputProps}
               style={[dynamicStyles.input, (errors.AlternateNumber || validationResults.alternate.isAvailable === false) && dynamicStyles.inputError]}
               placeholder={t('registration.basicInformation.enterAlternateNumber')}
               placeholderTextColor={colors.placeholder}
               value={formData.AlternateNumber}
               onChangeText={(text) => handleTextChange('AlternateNumber', text)}
+              onFocus={() => handleFieldFocus('AlternateNumber', alternateRef.current)}
               keyboardType="phone-pad"
               maxLength={10}
             />
@@ -773,7 +904,7 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
           )}
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 };
 

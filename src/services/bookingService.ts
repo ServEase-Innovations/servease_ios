@@ -392,6 +392,79 @@ export const BookingService = {
   },
 };
 
+export function isPaymentCancelledError(err: unknown): boolean {
+  const code = (err as { code?: number })?.code;
+  const description = String((err as { description?: string })?.description || "").toLowerCase();
+  return code === 0 || description.includes("cancel");
+}
+
+export const BookingServiceExtensions = {
+  getModificationFee: async (engagementId: number | string) => {
+    const id = Number(engagementId);
+    if (!Number.isFinite(id) || id < 1) {
+      throw new Error("Invalid engagement id");
+    }
+    const res = await PaymentInstance.get(`/api/engagements/${id}/modification-fee`);
+    const data = res.data;
+    if (data?.success === false) {
+      throw new Error(data.error || "Could not load modification fee");
+    }
+    return data as {
+      booking_base: number;
+      platform_fee: number;
+      gst: number;
+      taxes_and_fees: number;
+      total_amount: number;
+    };
+  },
+
+  modifyScheduleWithPayment: async (payload: {
+    engagementId: number | string;
+    start_date: string;
+    end_date: string;
+    start_time: string;
+    end_time?: string;
+    modified_by_id: number | null;
+    modified_by_role: "CUSTOMER";
+    use_wallet?: boolean;
+  }) => {
+    const id = Number(payload.engagementId);
+    const res = await PaymentInstance.post(
+      `/api/v2/createEngagements/${id}/modify-schedule`,
+      {
+        start_date: payload.start_date,
+        end_date: payload.end_date,
+        start_time: payload.start_time,
+        end_time: payload.end_time,
+        modified_by_id: payload.modified_by_id,
+        modified_by_role: payload.modified_by_role,
+        use_wallet: payload.use_wallet,
+      },
+      { headers: { "Content-Type": "application/json" } }
+    );
+    const data = res.data;
+    if (data?.success === false) {
+      throw new Error(data.error || "Failed to modify schedule");
+    }
+    return data;
+  },
+
+  verifyModifySchedulePayment: async (paymentData: RazorpayPaymentResponse) => {
+    const res = await PaymentInstance.post(
+      `/api/v2/createEngagements/modify-schedule/verify`,
+      paymentData,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    const data = res.data;
+    if (data?.success === false) {
+      throw new Error(data.error || "Failed to verify modification payment");
+    }
+    return data;
+  },
+};
+
+Object.assign(BookingService, BookingServiceExtensions);
+
 /**
  * Utility: Convert 12h time format to 24h format
  */

@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Dimensions,
   Modal,
@@ -14,6 +13,7 @@ import {
 import axios from 'axios';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
+import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 
 export interface AddressData {
   apartment: string;
@@ -391,6 +391,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
           </View>
           
           <TextInput
+            {...registrationKeyboardInputProps}
             style={[styles.searchInput, { 
               borderColor: colors.border, 
               backgroundColor: colors.surface,
@@ -454,40 +455,56 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   ) => (
     <View style={[styles.inputContainer, isHalfWidth && styles.halfWidth]}>
       <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.label }]}>{label}</Text>
-      <TouchableOpacity
-        activeOpacity={isDropdown ? 0.7 : 1}
-        onPress={onPress}
-        disabled={!isDropdown}
-        style={styles.inputWrapper}
-      >
-        <View pointerEvents={isDropdown ? 'none' : 'auto'} style={styles.inputWrapper}>
-          <TextInput
+      {isDropdown ? (
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={onPress}
+          style={styles.inputWrapper}
+        >
+          <View
             style={[
               styles.input,
-              { 
+              styles.dropdownInput,
+              {
                 borderColor: error ? colors.error : colors.border,
-                backgroundColor: isDropdown ? colors.surface : colors.card,
-                color: colors.text,
-                fontSize: fontSizes.input
+                backgroundColor: colors.surface,
               },
-              isDropdown && styles.dropdownInput,
-              !value && { color: colors.placeholder }
             ]}
-            value={value}
-            onChangeText={onChange}
-            keyboardType={keyboardType}
-            maxLength={maxLength}
-            placeholder={placeholder}
-            placeholderTextColor={colors.placeholder}
-            editable={!isDropdown}
-          />
-          {isDropdown && (
+          >
+            <Text
+              style={[
+                styles.dropdownValueText,
+                { color: value ? colors.text : colors.placeholder, fontSize: fontSizes.input },
+              ]}
+              numberOfLines={1}
+            >
+              {value || placeholder || ""}
+            </Text>
             <View style={styles.dropdownIconContainer}>
               <Text style={[styles.dropdownIcon, { color: colors.textSecondary }]}>▼</Text>
             </View>
-          )}
-        </View>
-      </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <TextInput
+          {...registrationKeyboardInputProps}
+          style={[
+            styles.input,
+            {
+              borderColor: error ? colors.error : colors.border,
+              backgroundColor: colors.card,
+              color: colors.text,
+              fontSize: fontSizes.input,
+            },
+          ]}
+          value={value}
+          onChangeText={onChange}
+          keyboardType={keyboardType}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          placeholderTextColor={colors.placeholder}
+        />
+      )}
       {error && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.helper }]}>{error}</Text>}
     </View>
   );
@@ -496,7 +513,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   const isSmallScreen = width < 375;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text, fontSize: fontSizes.title }]}>
         {t('registration.address.title')}
       </Text>
@@ -755,7 +772,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
         t('registration.address.selectState'),
         (item) => item.name
       )}
-    </ScrollView>
+    </View>
   );
 };
 
@@ -807,7 +824,14 @@ const styles = StyleSheet.create({
   },
   dropdownInput: {
     backgroundColor: '#f9f9f9',
-    paddingRight: 40, // Make room for dropdown icon
+    paddingRight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownValueText: {
+    flex: 1,
+    paddingRight: 8,
   },
   inputError: {
     borderColor: '#d32f2f',

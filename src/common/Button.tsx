@@ -1,6 +1,8 @@
 import React from "react";
-import { ViewStyle, TextStyle, TouchableOpacityProps } from "react-native";
+import { View, Text, ViewStyle, TextStyle, TouchableOpacityProps, StyleSheet } from "react-native";
 import { BrandButton, BrandButtonVariant, BrandButtonSize } from "../design-system/BrandButton";
+import { BRAND } from "../theme/brandColors";
+import { useTheme } from "../Settings/ThemeContext";
 
 interface ButtonProps extends TouchableOpacityProps {
   className?: string;
@@ -35,16 +37,30 @@ export function Button({
   endIcon,
   ...props
 }: ButtonProps) {
+  const { colors, isDarkMode } = useTheme();
   const brandVariant = mapVariant(variant);
   const brandSize = mapSize(size);
 
+  const labelTextStyle: TextStyle =
+    variant === "primary"
+      ? { color: "#fff", fontWeight: "700", fontSize: brandSize === "small" ? 14 : 15 }
+      : variant === "outline"
+        ? { color: BRAND.accent, fontWeight: "600", fontSize: brandSize === "small" ? 13 : 14 }
+        : { color: isDarkMode ? colors.text : BRAND.text, fontWeight: "600", fontSize: brandSize === "small" ? 13 : 14 };
+
   const content =
     startIcon || endIcon ? (
-      <>
+      <View style={styles.iconRow}>
         {startIcon}
-        {children}
+        {typeof children === "string" || typeof children === "number" ? (
+          <Text style={labelTextStyle} numberOfLines={1}>
+            {children}
+          </Text>
+        ) : (
+          children
+        )}
         {endIcon}
-      </>
+      </View>
     ) : (
       children
     );
@@ -65,3 +81,12 @@ export function Button({
     </BrandButton>
   );
 }
+
+const styles = StyleSheet.create({
+  iconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+});

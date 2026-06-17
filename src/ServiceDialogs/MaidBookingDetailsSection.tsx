@@ -21,6 +21,9 @@ import {
 } from "../features/bookingTypeSlice";
 
 const DURATION_OPTIONS = [1, 2, 3, 4, 5, 6];
+const WORK_DAY_START_HOUR = 6;
+const WORK_DAY_END_HOUR = 20; // 8:00 PM
+const LATEST_START_HOUR = 19; // 7:00 PM
 
 function parseTimeOnDate(dateStr: string | undefined, timeStr: string | undefined): Dayjs | null {
   if (!dateStr || !timeStr) return null;
@@ -70,8 +73,11 @@ function resolveScheduleTimeFields(
 function defaultOnDemandStart(): Dayjs {
   const now = dayjs();
   let adjusted = now.add(30, "minute");
-  if (adjusted.hour() < 5) adjusted = adjusted.hour(5).minute(0);
-  else if (adjusted.hour() >= 22) adjusted = adjusted.hour(21).minute(55);
+  if (adjusted.hour() < WORK_DAY_START_HOUR) {
+    adjusted = adjusted.hour(WORK_DAY_START_HOUR).minute(0);
+  } else if (adjusted.hour() > LATEST_START_HOUR) {
+    adjusted = adjusted.hour(LATEST_START_HOUR).minute(0);
+  }
   return adjusted;
 }
 
@@ -135,8 +141,9 @@ function parseTimeFromString(time: string): { hour: number; minute: number } {
 }
 
 function isDurationWithinWorkHours(start: Dayjs, hours: number): boolean {
-  const endMinutes = start.hour() * 60 + start.minute() + hours * 60;
-  return endMinutes <= 20 * 60;
+  const startMinutes = start.hour() * 60 + start.minute();
+  const endMinutes = startMinutes + hours * 60;
+  return endMinutes <= WORK_DAY_END_HOUR * 60;
 }
 
 function schedulePatchKey(patch: Record<string, unknown> | null): string {
@@ -345,8 +352,8 @@ const MaidBookingDetailsSection = forwardRef<
     markScheduleTouched();
     if (!startTime) return;
     const newEnd = startTime.add(hours, "hour");
-    if (newEnd.hour() >= 22) {
-      setValidationMsg("End time must be before 10 PM");
+    if (!isDurationWithinWorkHours(startTime, hours)) {
+      setValidationMsg("Service must end by 8:00 PM on the same day");
       return;
     }
     setEndTime(newEnd);
@@ -361,10 +368,13 @@ const MaidBookingDetailsSection = forwardRef<
     if (selected.isSame(now, "day")) {
       const nowPlus30 = now.add(30, "minute");
       if (adjusted.isBefore(nowPlus30)) adjusted = nowPlus30;
-      if (adjusted.hour() < 5) adjusted = adjusted.hour(5).minute(0);
-      else if (adjusted.hour() >= 22) adjusted = adjusted.hour(21).minute(55);
+      if (adjusted.hour() < WORK_DAY_START_HOUR) {
+        adjusted = adjusted.hour(WORK_DAY_START_HOUR).minute(0);
+      } else if (adjusted.hour() > LATEST_START_HOUR) {
+        adjusted = adjusted.hour(LATEST_START_HOUR).minute(0);
+      }
     } else if (adjusted.hour() === 0 && adjusted.minute() === 0) {
-      adjusted = adjusted.hour(5).minute(0);
+      adjusted = adjusted.hour(WORK_DAY_START_HOUR).minute(0);
     }
 
     const nextEnd = adjusted.add(durationHours, "hour");
@@ -383,7 +393,7 @@ const MaidBookingDetailsSection = forwardRef<
       setValidationMsg("Please pick a time at least 30 minutes from now");
       return false;
     }
-    if (selected.hour() < 6 || selected.hour() > 19) {
+    if (selected.hour() < WORK_DAY_START_HOUR || selected.hour() > LATEST_START_HOUR) {
       setValidationMsg("Service hours are 6 AM – 8 PM (latest start 7 PM)");
       return false;
     }
@@ -459,7 +469,7 @@ const MaidBookingDetailsSection = forwardRef<
           </Text>
           <View style={styles.durationChips}>
             {DURATION_OPTIONS.map((h) => {
-              const disabled = !startTime || startTime.add(h, "hour").hour() >= 22;
+              const disabled = !startTime || !isDurationWithinWorkHours(startTime, h);
               return (
                 <TouchableOpacity
                   key={h}

@@ -1,28 +1,21 @@
 // components/Registration/ServiceDetails.tsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
-  FlatList,
+  Modal,
+  ScrollView,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
+import AvailabilityPicker from "../common/AvailabilityPicker/AvailabilityPicker";
+import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 import {
   fetchProviderLanguages,
   PROVIDER_REGISTRATION_LANGUAGES_FALLBACK,
 } from "../services/providerLanguagesApi";
-
-// Define TimeSlot interface (must match the one in TimeSlotSelector)
-interface TimeSlot {
-  id: string;
-  start: number;
-  end: number;
-  type: 'morning' | 'evening';
-}
 
 interface ServiceDetailsProps {
   formData: any;
@@ -77,94 +70,6 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     };
   }, []);
   
-  // Internal time slot state
-  const [morningSlots, setMorningSlots] = useState<TimeSlot[]>([]);
-  const [eveningSlots, setEveningSlots] = useState<TimeSlot[]>([]);
-  const [isFullTime, setIsFullTime] = useState(false);
-  
-  const formatDisplayTime = (value: number): string => {
-    const hours = Math.floor(value);
-    const minutes = Math.round((value % 1) * 60);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    const displayMinutes = minutes > 0 ? `:${minutes.toString().padStart(2, '0')}` : '';
-    return `${displayHours}${displayMinutes} ${period}`;
-  };
-
-  // Time slot handlers
-  const handleAddMorningSlot = () => {
-    const newId = Date.now().toString() + Math.random();
-    const newSlot: TimeSlot = { id: newId, start: 9, end: 10, type: 'morning' };
-    setMorningSlots([...morningSlots, newSlot]);
-  };
-  const handleAddEveningSlot = () => {
-    const newId = Date.now().toString() + Math.random();
-    const newSlot: TimeSlot = { id: newId, start: 14, end: 15, type: 'evening' };
-    setEveningSlots([...eveningSlots, newSlot]);
-  };
-  const handleRemoveSlot = (id: string, type: 'morning' | 'evening') => {
-    if (type === 'morning') setMorningSlots(morningSlots.filter(s => s.id !== id));
-    else setEveningSlots(eveningSlots.filter(s => s.id !== id));
-  };
-  const handleClearSlots = (type: 'morning' | 'evening') => {
-    if (type === 'morning') setMorningSlots([]);
-    else setEveningSlots([]);
-  };
-  const handleSlotChange = (id: string, newValue: number[], type: 'morning' | 'evening') => {
-    const [start, end] = newValue;
-    if (type === 'morning') {
-      setMorningSlots(morningSlots.map(slot => slot.id === id ? { ...slot, start, end } : slot));
-    } else {
-      setEveningSlots(eveningSlots.map(slot => slot.id === id ? { ...slot, start, end } : slot));
-    }
-  };
-  const handleFullTimeToggle = (checked: boolean) => {
-    setIsFullTime(checked);
-    if (checked) {
-      setMorningSlots([]);
-      setEveningSlots([]);
-    }
-  };
-
-  // Compute merged time slots string and notify parent
-  const mergeTimeSlots = (slots: TimeSlot[]): string => {
-    if (slots.length === 0) return "";
-    const sorted = [...slots].sort((a, b) => a.start - b.start);
-    const merged: { start: number; end: number }[] = [];
-    let current = { start: sorted[0].start, end: sorted[0].end };
-    for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i].start <= current.end) {
-        current.end = Math.max(current.end, sorted[i].end);
-      } else {
-        merged.push(current);
-        current = { start: sorted[i].start, end: sorted[i].end };
-      }
-    }
-    merged.push(current);
-    return merged.map(r => `${formatDisplayTime(r.start)} - ${formatDisplayTime(r.end)}`).join(", ");
-  };
-
-  useEffect(() => {
-    let timeslotString = "";
-    if (isFullTime) {
-      timeslotString = `${formatDisplayTime(6)} - ${formatDisplayTime(20)}`;
-    } else {
-      const allSlots = [...morningSlots, ...eveningSlots];
-      timeslotString = mergeTimeSlots(allSlots);
-    }
-    // Also produce a storage-friendly format (e.g., "06:00-12:00,14:00-18:00")
-    const storageString = isFullTime ? "06:00-20:00" : [...morningSlots, ...eveningSlots].map(slot => {
-      const startHour = Math.floor(slot.start);
-      const startMin = slot.start % 1 === 0.5 ? "30" : "00";
-      const endHour = Math.floor(slot.end);
-      const endMin = slot.end % 1 === 0.5 ? "30" : "00";
-      return `${startHour.toString().padStart(2,'0')}:${startMin}-${endHour.toString().padStart(2,'0')}:${endMin}`;
-    }).join(",");
-    if (onTimeSlotsChange) {
-      onTimeSlotsChange(storageString);
-    }
-  }, [morningSlots, eveningSlots, isFullTime]);
-
   const handleLanguageSelect = (language: string) => {
     if (selectedLanguages.includes(language)) {
       const newLanguages = selectedLanguages.filter(l => l !== language);
@@ -208,7 +113,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
 
   return (
     <View style={styles.wrapper}>
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
+    <View style={styles.container}>
       {/* Service Type Selection */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Select Service Type *</Text>
@@ -290,6 +195,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Description</Text>
         <TextInput
+          {...registrationKeyboardInputProps}
           style={styles.textArea}
           placeholder="Tell us about your skills and experience..."
           placeholderTextColor="#999"
@@ -329,6 +235,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
         <View style={[styles.card, styles.halfCard]}>
           <Text style={styles.sectionTitle}>Experience (years)</Text>
           <TextInput
+            {...registrationKeyboardInputProps}
             style={styles.input}
             placeholder="Years"
             placeholderTextColor="#999"
@@ -341,6 +248,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
         <View style={[styles.card, styles.halfCard]}>
           <Text style={styles.sectionTitle}>Referral Code</Text>
           <TextInput
+            {...registrationKeyboardInputProps}
             style={styles.input}
             placeholder="Enter code"
             placeholderTextColor="#999"
@@ -354,6 +262,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Agent Referral ID (Optional)</Text>
         <TextInput
+          {...registrationKeyboardInputProps}
           style={styles.input}
           placeholder="Enter agent referral ID"
           placeholderTextColor="#999"
@@ -363,41 +272,17 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
       </View>
       
 
-      {/* Time Slot Selector */}
-      <TimeSlotSelector
-        title="Availability"
-        morningSlots={morningSlots}
-        eveningSlots={eveningSlots}
-        minTime={6}
-        maxTime={20}
-        morningMarks={[
-          { value: 6, label: "6" },
-          { value: 8, label: "8" },
-          { value: 10, label: "10" },
-          { value: 12, label: "12" },
-        ]}
-        eveningMarks={[
-          { value: 12, label: "12" },
-          { value: 14, label: "14" },
-          { value: 16, label: "16" },
-          { value: 18, label: "18" },
-          { value: 20, label: "20" },
-        ]}
-        notAvailableMessage="No time slots added"
-        addSlotMessage="Tap + Add Slot to set your availability"
-        slotLabel="Slot"
-        addButtonLabel="Add"
-        clearButtonLabel="Clear"
-        duplicateErrorKey="Duplicate time slot"
-        onAddMorningSlot={handleAddMorningSlot}
-        onAddEveningSlot={handleAddEveningSlot}
-        onRemoveSlot={handleRemoveSlot}
-        onClearSlots={handleClearSlots}
-        onSlotChange={handleSlotChange}
-        formatDisplayTime={formatDisplayTime}
+      <AvailabilityPicker
+        value={formData.timeslot}
+        onChange={onTimeSlotsChange ?? (() => undefined)}
       />
-    </ScrollView>
-    {languageModalVisible && (
+    </View>
+    <Modal
+      visible={languageModalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setLanguageModalVisible(false)}
+    >
       <View style={styles.modalOverlay}>
         <TouchableOpacity
           style={styles.modalBackdrop}
@@ -411,30 +296,34 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({
               <Icon name="close" size={24} color="#666" />
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={availableLanguages}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
+          <ScrollView
+            style={styles.languageList}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+          >
+            {availableLanguages.map((item) => (
               <TouchableOpacity
+                key={item}
                 style={[styles.languageItem, selectedLanguages.includes(item) && styles.languageItemSelected]}
                 onPress={() => handleLanguageSelect(item)}
               >
-                <Text style={[styles.languageItemText, selectedLanguages.includes(item) && styles.languageItemTextSelected]}>{item}</Text>
+                <Text style={[styles.languageItemText, selectedLanguages.includes(item) && styles.languageItemTextSelected]}>
+                  {item}
+                </Text>
                 {selectedLanguages.includes(item) && <Icon name="check" size={20} color="#1976d2" />}
               </TouchableOpacity>
-            )}
-          />
+            ))}
+          </ScrollView>
         </View>
       </View>
-    )}
+    </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   wrapper: { flex: 1 },
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  contentContainer: { paddingBottom: 30 },
+  container: { flex: 1, backgroundColor: '#f5f5f5', paddingBottom: 30 },
   card: {
     backgroundColor: '#fff', borderRadius: 12, marginHorizontal: 16, marginVertical: 6,
     padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
@@ -477,6 +366,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
+  languageList: { maxHeight: 360 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
   languageItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },

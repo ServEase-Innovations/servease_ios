@@ -715,6 +715,21 @@
       "alert": {
         "title": "Service Provider Account",
         "message": "As a service provider, you cannot book services. Please use a customer account to book services."
+      },
+      "banner": {
+        "viewOnly": "Service provider accounts cannot book services. Browse services below or switch to a customer account to book.",
+        "accountInactive": "Your service provider account is currently inactive. Contact support to reactivate your account."
+      },
+      "service": {
+        "active": "Your service",
+        "inactive": "Inactive",
+        "notOffered": "Not offered",
+        "viewOnly": "View Only",
+        "inactiveAlert": {
+          "title": "Service Inactive",
+          "notOffered": "You have not registered for this service. Update your profile to offer {{service}}.",
+          "accountInactive": "Your account is inactive. This service is unavailable until your account is reactivated."
+        }
       }
     }
   },
@@ -756,7 +771,18 @@
       "both": "Both",
       "foundWithFilters": "Found {count} provider matching your filters",
       "foundWithFilters_plural": "Found {count} providers matching your filters",
-      "clearAll": "Clear all"
+      "clearAll": "Clear all",
+      "rangeSummary": "{{min}}–{{max}} {{unit}}",
+      "distanceAny": "Any distance",
+      "experienceAny": "Any experience",
+      "ratingAny": "Any rating",
+      "ratingSelected": "{{rating}}+ stars",
+      "filtersActive": "{{count}} active",
+      "kmUnit": "km",
+      "yearsUnit": "years",
+      "searchLanguages": "Search languages…",
+      "subtitle": "Refine your provider search",
+      "anyPreference": "Any preference"
     }
   },
   "provider": {
@@ -2014,12 +2040,43 @@
       "back": "Back",
       "saving": "Saving...",
       "saveDate": "Save Date",
-      "saveTime": "Save Time"
+      "saveTime": "Save Time",
+      "review": "Review",
+      "checkAvailability": "Check Availability",
+      "saveChanges": "Save Changes"
     },
     "messages": {
       "dateSuccess": "Booking date rescheduled successfully!",
       "timeSuccess": "Booking time rescheduled successfully!",
-      "error": "Failed to modify booking. Please try again."
+      "error": "Failed to modify booking. Please try again.",
+      "paymentCancelled": "Payment cancelled. Your schedule was not updated."
+    },
+    "duration": {
+      "title": "Service Duration",
+      "shortTermHint": "This duration applies to each day of service.",
+      "monthlyHint": "This duration applies to each day of your monthly subscription.",
+      "hours_one": "{{count}} Hour",
+      "hours_other": "{{count}} Hours"
+    },
+    "review": {
+      "title": "Review changes",
+      "current": "Current",
+      "new": "New",
+      "checking": "Checking availability…"
+    },
+    "validation": {
+      "completeSchedule": "Complete your schedule before continuing.",
+      "noProvider": "No provider assigned to this booking.",
+      "noLocation": "Service location is required to check provider availability.",
+      "notAvailable": "This provider is not available for your selected schedule.",
+      "checkFailed": "Could not verify provider availability. Please try again.",
+      "selectDates": "Select your dates to continue.",
+      "selectTime": "Pick a daily start time to continue.",
+      "selectDatesFirst": "Select your dates above to choose a start time.",
+      "noTimeSlots": "No available time slots for this date. Try a different date or duration.",
+      "durationExceedsWorkHours": "Selected duration exceeds working hours for this start time.",
+      "checkAvailabilityFirst": "Check provider availability before saving.",
+      "unsupportedType": "Schedule modification is only available for monthly and short-term bookings."
     }
   },
   "vacationManagement": {

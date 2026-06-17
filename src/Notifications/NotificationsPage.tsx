@@ -679,37 +679,43 @@ const styles = StyleSheet.create({
   header: {
     width: "100%",
     alignSelf: "stretch",
+    paddingBottom: 14,
   },
   sheetHandle: {
     alignItems: "center",
     paddingTop: 8,
-    paddingBottom: 6,
+    paddingBottom: 8,
   },
   sheetHandleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.35)",
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.4)",
   },
   headerContent: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 16,
     gap: 12,
   },
   headerLeft: {
     flex: 1,
     minWidth: 0,
+    paddingRight: 4,
   },
   headerTitle: {
     color: "#ffffff",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
   },
   headerIconBtn: {
     width: 36,
@@ -724,6 +730,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     lineHeight: 18,
+    fontWeight: "500",
   },
   toolbar: {
     width: "100%",

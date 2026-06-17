@@ -19,6 +19,11 @@ import LinearGradient from "react-native-linear-gradient";
 import { useAuth0 } from "react-native-auth0";
 import { useAppUser } from "../context/AppUserContext";
 import { useFirstBookingOfferVisible } from "../hooks/useFirstBookingOfferVisible";
+import {
+  isServiceOfferedByProvider,
+  useServiceProviderProfile,
+} from "../hooks/useServiceProviderProfile";
+import Icon from "react-native-vector-icons/MaterialIcons";
 import { useTheme } from "../Settings/ThemeContext";
 import { BRAND, GRADIENTS } from "../theme/brandColors";
 import { useTranslation } from "react-i18next";
@@ -119,9 +124,25 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
     [t]
   );
 
-  const isServiceDisabled = userRole === "SERVICE_PROVIDER";
+  const isServiceProvider = userRole === "SERVICE_PROVIDER";
+  const serviceProviderId = appUser?.serviceProviderId
+    ? Number(appUser.serviceProviderId)
+    : null;
+  const { housekeepingRoles, isAccountActive, loading: loadingProviderProfile } =
+    useServiceProviderProfile(serviceProviderId, isServiceProvider);
+
+  const getServiceTitle = (serviceKey: ServiceType) => {
+    if (serviceKey === "COOK") return t("home.services.homeCook");
+    if (serviceKey === "MAID") return t("home.services.cleaningHelp");
+    return t("home.services.caregiver");
+  };
+
+  const isServiceInactiveForProvider = (serviceKey: ServiceType) =>
+    isServiceProvider &&
+    !isServiceOfferedByProvider(serviceKey, housekeepingRoles, isAccountActive);
 
   const handlePressIn = (serviceKey: string) => {
+    if (isServiceInactiveForProvider(serviceKey as ServiceType)) return;
     Animated.spring(scaleAnimations[serviceKey as keyof typeof scaleAnimations], {
       toValue: 0.97,
       friction: 5,
@@ -131,6 +152,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   };
 
   const handlePressOut = (serviceKey: string) => {
+    if (isServiceInactiveForProvider(serviceKey as ServiceType)) return;
     Animated.spring(scaleAnimations[serviceKey as keyof typeof scaleAnimations], {
       toValue: 1,
       friction: 5,
@@ -140,8 +162,30 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   };
 
   const handleClick = (data: ServiceType) => {
-    if (isServiceDisabled) {
-      Alert.alert(t("home.serviceProvider.alert.title"), t("home.serviceProvider.alert.message"), [{ text: t("common.ok") }]);
+    if (isServiceProvider) {
+      if (!isAccountActive) {
+        Alert.alert(
+          t("home.serviceProvider.service.inactiveAlert.title"),
+          t("home.serviceProvider.service.inactiveAlert.accountInactive"),
+          [{ text: t("common.ok") }]
+        );
+        return;
+      }
+      if (!isServiceOfferedByProvider(data, housekeepingRoles, isAccountActive)) {
+        Alert.alert(
+          t("home.serviceProvider.service.inactiveAlert.title"),
+          t("home.serviceProvider.service.inactiveAlert.notOffered", {
+            service: getServiceTitle(data),
+          }),
+          [{ text: t("common.ok") }]
+        );
+        return;
+      }
+      Alert.alert(
+        t("home.serviceProvider.alert.title"),
+        t("home.serviceProvider.alert.message"),
+        [{ text: t("common.ok") }]
+      );
       return;
     }
     setOpen(true);
@@ -238,6 +282,10 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
   const ServiceCard = ({ service, index }: { service: typeof services[0], index: number }) => {
     const slideAnim = useRef(new Animated.Value(50)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
+    const isInactive = isServiceInactiveForProvider(service.key);
+    const isOffered =
+      isServiceProvider &&
+      isServiceOfferedByProvider(service.key, housekeepingRoles, isAccountActive);
 
     useEffect(() => {
       Animated.parallel([
@@ -268,12 +316,13 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           onLongPress={() => handleLearnMore(service.key)}
           onPressIn={() => handlePressIn(service.key)}
           onPressOut={() => handlePressOut(service.key)}
-          disabled={isServiceDisabled}
-          activeOpacity={0.9}
+          activeOpacity={isInactive ? 1 : 0.9}
+          accessibilityState={{ disabled: isInactive }}
         >
           <Animated.View
             style={[
               styles.serviceCardWrapper,
+              isInactive && styles.serviceCardDisabled,
               {
                 transform: [{ scale: scaleAnimations[service.key as keyof typeof scaleAnimations] }],
               },
@@ -282,41 +331,95 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
             <View
               style={[
                 styles.serviceCardBorder,
-                { borderColor: service.gradientColors[1] ?? BRAND.accent },
+                {
+                  borderColor: isInactive
+                    ? "#CBD5E1"
+                    : service.gradientColors[1] ?? BRAND.accent,
+                },
               ]}
             >
-              <View style={styles.serviceCardInner}>
+              <View style={[styles.serviceCardInner, isInactive && styles.serviceCardInnerDisabled]}>
                 <View style={styles.serviceImageContainer}>
-                  <View style={styles.serviceImageGlow}>
-                    <Image source={service.image} style={styles.serviceImage} />
+                  <View
+                    style={[
+                      styles.serviceImageGlow,
+                      isInactive && styles.serviceImageGlowDisabled,
+                    ]}
+                  >
+                    <Image
+                      source={service.image}
+                      style={[styles.serviceImage, isInactive && styles.serviceImageDisabled]}
+                    />
                   </View>
                 </View>
 
                 <View style={styles.serviceContent}>
                   <View style={styles.serviceHeader}>
-                    <Text style={styles.serviceTitle} numberOfLines={1}>
+                    <Text
+                      style={[styles.serviceTitle, isInactive && styles.serviceTitleDisabled]}
+                      numberOfLines={1}
+                    >
                       {service.title}
                     </Text>
-                    <View style={styles.serviceBadge}>
-                      <Text style={styles.serviceBadgeText}>⭐ Top Rated</Text>
+                    <View
+                      style={[
+                        styles.serviceBadge,
+                        isInactive
+                          ? styles.serviceBadgeInactive
+                          : isOffered
+                            ? styles.serviceBadgeActive
+                            : null,
+                      ]}
+                    >
+                      <Text style={styles.serviceBadgeText}>
+                        {isInactive
+                          ? t("home.serviceProvider.service.inactive")
+                          : isOffered
+                            ? t("home.serviceProvider.service.active")
+                            : "⭐ Top Rated"}
+                      </Text>
                     </View>
                   </View>
 
-                  <Text style={styles.serviceSub} numberOfLines={2}>
-                    {service.subtitle}
+                  <Text
+                    style={[styles.serviceSub, isInactive && styles.serviceSubDisabled]}
+                    numberOfLines={2}
+                  >
+                    {isInactive
+                      ? !isAccountActive
+                        ? t("home.serviceProvider.service.inactiveAlert.accountInactive")
+                        : t("home.serviceProvider.service.notOffered")
+                      : service.subtitle}
                   </Text>
 
-                  <View style={styles.serviceFeatures}>
-                    <View style={styles.featureChip}>
-                      <Text style={styles.featureChipText}>✓ Verified</Text>
+                  {!isInactive && (
+                    <View style={styles.serviceFeatures}>
+                      <View style={styles.featureChip}>
+                        <Text style={styles.featureChipText}>✓ Verified</Text>
+                      </View>
+                      <View style={styles.featureChip}>
+                        <Text style={styles.featureChipText}>✓ Insured</Text>
+                      </View>
                     </View>
-                    <View style={styles.featureChip}>
-                      <Text style={styles.featureChipText}>✓ Insured</Text>
-                    </View>
-                  </View>
+                  )}
 
-                  <View style={styles.bookButton}>
-                    <Text style={styles.bookButtonText}>Book Now →</Text>
+                  <View
+                    style={[
+                      styles.bookButton,
+                      isServiceProvider && styles.viewOnlyButton,
+                      isInactive && styles.bookButtonDisabled,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.bookButtonText,
+                        isInactive && styles.bookButtonTextDisabled,
+                      ]}
+                    >
+                      {isServiceProvider
+                        ? `${t("home.serviceProvider.service.viewOnly")} →`
+                        : "Book Now →"}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -373,11 +476,22 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           <View style={styles.sectionWrapShadowLayer}>
             <View style={[styles.sectionWrap, { backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                {isServiceDisabled ? t("home.hero.exploreServices") : t("home.hero.whatService")}
+                {isServiceProvider ? t("home.hero.exploreServices") : t("home.hero.whatService")}
               </Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                {isServiceDisabled ? t("home.hero.learnAboutServices") : t("home.hero.tapToBook")}
+                {isServiceProvider ? t("home.hero.learnAboutServices") : t("home.hero.tapToBook")}
               </Text>
+
+              {isServiceProvider && !loadingProviderProfile ? (
+                <View style={styles.providerBanner}>
+                  <Icon name="info-outline" size={18} color="#B45309" />
+                  <Text style={styles.providerBannerText}>
+                    {!isAccountActive
+                      ? t("home.serviceProvider.banner.accountInactive")
+                      : t("home.serviceProvider.banner.viewOnly")}
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.serviceGrid}>
                 {services.map((service, index) => (
@@ -418,7 +532,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           </View>
         </View>
 
-        {!isServiceDisabled && !checkingOffer && showOffer ? (
+        {!isServiceProvider && !checkingOffer && showOffer ? (
           <View style={styles.promoOuter}>
             <View style={styles.promoShadowLayer}>
               <View style={styles.promoWrap}>
@@ -449,7 +563,7 @@ const HomePage: React.FC<ChildComponentProps> = ({ sendDataToParent }) => {
           </View>
         </View>
 
-        {!isServiceDisabled && (
+        {!isServiceProvider && (
           <BookingDialog
             open={open}
             onClose={() => setOpen(false)}
@@ -637,8 +751,60 @@ const styles = StyleSheet.create({
   serviceGrid: {
     gap: 16,
   },
+  providerBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#FFFBEB",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    padding: 12,
+    marginBottom: 14,
+  },
+  providerBannerText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#92400E",
+    fontWeight: "500",
+  },
   
   // Service Cards with extremely deep shadow
+  serviceCardDisabled: {
+    opacity: 0.55,
+  },
+  serviceCardInnerDisabled: {
+    backgroundColor: "#F8FAFC",
+  },
+  serviceImageGlowDisabled: {
+    backgroundColor: "#E2E8F0",
+    shadowOpacity: 0.1,
+  },
+  serviceImageDisabled: {
+    opacity: 0.65,
+  },
+  serviceTitleDisabled: {
+    color: "#64748B",
+  },
+  serviceSubDisabled: {
+    color: "#94A3B8",
+  },
+  serviceBadgeInactive: {
+    backgroundColor: "#94A3B8",
+  },
+  serviceBadgeActive: {
+    backgroundColor: "#15803D",
+  },
+  viewOnlyButton: {
+    backgroundColor: "#475569",
+  },
+  bookButtonDisabled: {
+    backgroundColor: "#CBD5E1",
+  },
+  bookButtonTextDisabled: {
+    color: "#64748B",
+  },
   serviceCardWrapper: {
     borderRadius: 16,
     ...Platform.select({

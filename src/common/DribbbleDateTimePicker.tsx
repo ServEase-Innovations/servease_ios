@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  ScrollView,
 } from "react-native";
 import dayjs, { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -81,9 +82,17 @@ type SingleModeProps = {
   mode?: "single";
   value?: Date;
   maxDate?: Date;
+  minDate?: Date;
+  /** Past dates only (e.g. date of birth registration). */
+  birthdateMode?: boolean;
+  /** Month/year chip row for fast birthdate navigation (SP registration only). */
+  birthdateQuickNav?: boolean;
+  pickerTitle?: string;
   hideTimeSelection?: boolean;
   onDateChange?: (date: Date) => void;
   onChange: (date: Date, time?: string) => void;
+  /** Clears birthdate selection (SP registration). */
+  onClear?: () => void;
 };
 
 type RangeModeProps = {
@@ -109,6 +118,18 @@ export default function DribbbleDateTimePicker(props: Props) {
   const mode = props.mode ?? "single";
   const value = props.value;
   const singleMaxDate = props.mode === "single" ? props.maxDate : undefined;
+  const singleMinDate = props.mode === "single" ? props.minDate : undefined;
+  const birthdateMode = props.mode === "single" ? Boolean(props.birthdateMode) : false;
+  const birthdateQuickNav =
+    props.mode === "single" ? Boolean(props.birthdateQuickNav) && birthdateMode : false;
+  const onClear = props.mode === "single" ? props.onClear : undefined;
+  const birthdateHasSelection = birthdateMode && value instanceof Date;
+  const pickerTitle =
+    props.mode === "single" && props.pickerTitle
+      ? props.pickerTitle
+      : birthdateMode
+        ? "Date of birth"
+        : "Book by";
   const rangeProps = props.mode === "range" ? (props as RangeModeProps) : null;
   const singleProps = props.mode !== "range" ? (props as SingleModeProps) : null;
   const hideTimeSelection =
@@ -133,7 +154,13 @@ export default function DribbbleDateTimePicker(props: Props) {
         : DEFAULT_MAX_RANGE_DAYS;
   const maxRangeDaysInclusive = maxRangeDays != null ? maxRangeDays + 1 : undefined;
 
-  const [currentMonth, setCurrentMonth] = useState(dayjs());
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (mode === "single" && birthdateMode) {
+      if (value instanceof Date) return calendarDayFromDate(value);
+      if (singleMaxDate) return calendarDayFromDate(singleMaxDate);
+    }
+    return dayjs();
+  });
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showTimeHint, setShowTimeHint] = useState(false);
   const [showAllTimes, setShowAllTimes] = useState(false);
@@ -171,6 +198,57 @@ export default function DribbbleDateTimePicker(props: Props) {
 
   const valueRef = useRef(value);
   valueRef.current = value;
+  const yearScrollRef = useRef<ScrollView>(null);
+
+  const birthdateBounds = useMemo(() => {
+    if (!birthdateMode) return { min: null as Dayjs | null, max: null as Dayjs | null };
+    return {
+      min: singleMinDate ? calendarDayFromDate(singleMinDate).startOf("day") : null,
+      max: singleMaxDate ? calendarDayFromDate(singleMaxDate).startOf("day") : null,
+    };
+  }, [birthdateMode, singleMinDate, singleMaxDate]);
+
+  const birthdateYears = useMemo(() => {
+    const { min, max } = birthdateBounds;
+    if (!min || !max) return [];
+    const years: number[] = [];
+    for (let y = max.year(); y >= min.year(); y -= 1) {
+      years.push(y);
+    }
+    return years;
+  }, [birthdateBounds]);
+
+  const isBirthdateMonthAllowed = useCallback(
+    (year: number, monthIndex: number) => {
+      const { min, max } = birthdateBounds;
+      if (!min || !max) return true;
+      const monthStart = dayjs(new Date(year, monthIndex, 1)).startOf("day");
+      const monthEnd = monthStart.endOf("month");
+      if (monthStart.isAfter(max, "day")) return false;
+      if (monthEnd.isBefore(min, "day")) return false;
+      return true;
+    },
+    [birthdateBounds]
+  );
+
+  const jumpToBirthdateMonth = useCallback(
+    (year: number, monthIndex: number) => {
+      if (!isBirthdateMonthAllowed(year, monthIndex)) return;
+      setCurrentMonth(dayjs(new Date(year, monthIndex, 1)));
+    },
+    [isBirthdateMonthAllowed]
+  );
+
+  useEffect(() => {
+    if (!birthdateQuickNav || birthdateYears.length === 0) return;
+    const idx = birthdateYears.indexOf(currentMonth.year());
+    if (idx < 0) return;
+    const chipWidth = 72;
+    yearScrollRef.current?.scrollTo({
+      x: Math.max(0, idx * chipWidth - 80),
+      animated: true,
+    });
+  }, [birthdateQuickNav, birthdateYears, currentMonth.year()]);
 
   const singleValueTs =
     mode === "single" && value instanceof Date ? value.getTime() : null;
@@ -204,10 +282,19 @@ export default function DribbbleDateTimePicker(props: Props) {
       const full = dayjs(currentValue);
       const dayAnchor = calendarDayFromDate(currentValue);
       setSelectedDate((prev) => (prev.isSame(dayAnchor, "day") ? prev : dayAnchor));
+      setCurrentMonth((prev) => (prev.isSame(dayAnchor, "month") ? prev : dayAnchor.startOf("month")));
       const nextTime = formatTimeSlot(full);
       if (nextTime) {
         setSelectedTime((prev) => (prev === nextTime ? prev : nextTime));
       }
+      return;
+    }
+
+    if (mode === "single" && birthdateMode && !(currentValue instanceof Date)) {
+      const resetMonth = singleMaxDate ? calendarDayFromDate(singleMaxDate) : dayjs();
+      setSelectedDate(resetMonth);
+      setCurrentMonth(resetMonth.startOf("month"));
+      setSelectedTime(null);
       return;
     }
 
@@ -303,7 +390,18 @@ export default function DribbbleDateTimePicker(props: Props) {
     date ? date.isSame(dayjs(), "day") : false;
 
   const isPastDate = (date: Dayjs): boolean => date.isBefore(today, "day");
-  const isPastMonth = (month: Dayjs): boolean => month.isBefore(today, "month");
+  const isPastMonth = (month: Dayjs): boolean => {
+    if (birthdateMode && singleMinDate) {
+      return month.isBefore(calendarDayFromDate(singleMinDate), "month");
+    }
+    return month.isBefore(today, "month");
+  };
+  const isFutureMonth = (month: Dayjs): boolean => {
+    if (birthdateMode && singleMaxDate) {
+      return month.isAfter(calendarDayFromDate(singleMaxDate), "month");
+    }
+    return false;
+  };
 
   const isTimeSlotDisabled = (time: string): boolean => {
     if (mode === "range" && (!rangeStart || !rangeEnd)) return true;
@@ -324,6 +422,12 @@ export default function DribbbleDateTimePicker(props: Props) {
 
   const isDisabledInRangeMode = (day: number) => {
     const date = currentMonth.date(day).startOf("day");
+    if (mode === "single" && birthdateMode) {
+      if (date.isAfter(today, "day")) return true;
+      if (singleMaxDate && date.isAfter(calendarDayFromDate(singleMaxDate), "day")) return true;
+      if (singleMinDate && date.isBefore(calendarDayFromDate(singleMinDate), "day")) return true;
+      return false;
+    }
     if (mode === "single" && isPastDate(date)) return true;
     if (mode === "range" && !hideTimeSelection && isPastDate(date)) return true;
     if (mode === "range" && !hideTimeSelection && date.isSame(today, "day") && todayHasNoSlots) {
@@ -393,14 +497,18 @@ export default function DribbbleDateTimePicker(props: Props) {
     if (!hideTimeSelection && date.isSame(today, "day") && todayHasNoSlots) return;
 
     if (mode === "single") {
-      if (singleMaxDate && date.isAfter(dayjs(singleMaxDate), "day")) {
+      if (singleMaxDate && date.isAfter(calendarDayFromDate(singleMaxDate), "day")) {
         flashRangeHint();
         return;
       }
       setSelectedDate(date);
       setSelectedTime(null);
       setShowAllTimes(false);
-      (props as SingleModeProps).onDateChange?.(date.toDate());
+      const picked = date.toDate();
+      (props as SingleModeProps).onDateChange?.(picked);
+      if (hideTimeSelection) {
+        (props as SingleModeProps).onChange(picked);
+      }
       return;
     }
 
@@ -475,7 +583,16 @@ export default function DribbbleDateTimePicker(props: Props) {
   const changeMonth = (increment: number) => {
     const newMonth = currentMonth.add(increment, "month");
     if (increment === -1 && isPastMonth(newMonth)) return;
+    if (increment === 1 && isFutureMonth(newMonth)) return;
     setCurrentMonth(newMonth);
+  };
+
+  const handleClearBirthdate = () => {
+    const resetMonth = singleMaxDate ? calendarDayFromDate(singleMaxDate) : dayjs();
+    setSelectedDate(resetMonth);
+    setCurrentMonth(resetMonth.startOf("month"));
+    setSelectedTime(null);
+    onClear?.();
   };
 
   const renderTimeChip = (time: string, isDisabled: boolean) => {
@@ -509,32 +626,146 @@ export default function DribbbleDateTimePicker(props: Props) {
   return (
     <View style={[styles.card, compact && styles.cardCompact]}>
       <View style={styles.bookByContainer}>
-        <Text style={styles.bookByTitle}>Book by</Text>
+        <View style={styles.bookByRow}>
+          <Text style={[styles.bookByTitle, styles.bookByTitleInRow]}>{pickerTitle}</Text>
+          {birthdateMode && onClear && birthdateHasSelection ? (
+            <TouchableOpacity
+              onPress={handleClearBirthdate}
+              style={styles.clearButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear date of birth"
+            >
+              <Text style={styles.clearButtonText}>Clear</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => changeMonth(-1)}
-          disabled={isPastMonth(currentMonth.subtract(1, "month"))}
-          style={[
-            styles.monthButton,
-            isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonDisabled,
-          ]}
-        >
-          <Text
+      {birthdateQuickNav ? (
+        <View style={styles.birthdateQuickNav}>
+          <Text style={styles.quickNavLabel}>Month</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickNavScroll}
+          >
+            {Array.from({ length: 12 }, (_, monthIndex) => {
+              const label = dayjs().month(monthIndex).format("MMM");
+              const allowed = isBirthdateMonthAllowed(currentMonth.year(), monthIndex);
+              const selected = currentMonth.month() === monthIndex;
+              return (
+                <TouchableOpacity
+                  key={label}
+                  disabled={!allowed}
+                  style={[
+                    styles.quickNavChip,
+                    selected && styles.quickNavChipActive,
+                    !allowed && styles.quickNavChipDisabled,
+                  ]}
+                  onPress={() => jumpToBirthdateMonth(currentMonth.year(), monthIndex)}
+                  activeOpacity={allowed ? 0.7 : 1}
+                >
+                  <Text
+                    style={[
+                      styles.quickNavChipText,
+                      selected && styles.quickNavChipTextActive,
+                      !allowed && styles.quickNavChipTextDisabled,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={styles.quickNavLabel}>Year</Text>
+          <ScrollView
+            ref={yearScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickNavScroll}
+          >
+            {birthdateYears.map((year) => {
+              const selected = currentMonth.year() === year;
+              return (
+                <TouchableOpacity
+                  key={year}
+                  style={[
+                    styles.quickNavChip,
+                    styles.quickNavYearChip,
+                    selected && styles.quickNavChipActive,
+                  ]}
+                  onPress={() => {
+                    let monthIndex = currentMonth.month();
+                    if (!isBirthdateMonthAllowed(year, monthIndex)) {
+                      monthIndex = Array.from({ length: 12 }, (_, i) => i).find((m) =>
+                        isBirthdateMonthAllowed(year, m)
+                      ) ?? monthIndex;
+                    }
+                    jumpToBirthdateMonth(year, monthIndex);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.quickNavChipText,
+                      selected && styles.quickNavChipTextActive,
+                    ]}
+                  >
+                    {year}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={styles.quickNavCurrent}>
+            {birthdateHasSelection && value instanceof Date
+              ? `Selected: ${calendarDayFromDate(value).format("D MMM YYYY")}`
+              : "No date selected"}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => changeMonth(-1)}
+            disabled={isPastMonth(currentMonth.subtract(1, "month"))}
             style={[
-              styles.monthButtonText,
-              isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonTextDisabled,
+              styles.monthButton,
+              isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonDisabled,
             ]}
           >
-            ‹
-          </Text>
-        </TouchableOpacity>
-        <Text style={styles.monthTitle}>{currentMonth.format("MMMM YYYY")}</Text>
-        <TouchableOpacity onPress={() => changeMonth(1)} style={styles.monthButton}>
-          <Text style={styles.monthButtonText}>›</Text>
-        </TouchableOpacity>
-      </View>
+            <Text
+              style={[
+                styles.monthButtonText,
+                isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonTextDisabled,
+              ]}
+            >
+              ‹
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.monthTitle}>{currentMonth.format("MMMM YYYY")}</Text>
+          <TouchableOpacity
+            onPress={() => changeMonth(1)}
+            disabled={isFutureMonth(currentMonth.add(1, "month"))}
+            style={[
+              styles.monthButton,
+              isFutureMonth(currentMonth.add(1, "month")) && styles.monthButtonDisabled,
+            ]}
+          >
+            <Text
+              style={[
+                styles.monthButtonText,
+                isFutureMonth(currentMonth.add(1, "month")) && styles.monthButtonTextDisabled,
+              ]}
+            >
+              ›
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.weekHeader}>
         {WEEK_DAYS.map((d) => (
@@ -548,7 +779,13 @@ export default function DribbbleDateTimePicker(props: Props) {
         {calendarCells.map((day, i) => {
           const disabled = day ? isDisabledInRangeMode(day) : true;
           const isSelected =
-            mode === "single" && day && selectedDate.isSame(currentMonth.date(day), "day");
+            mode === "single" &&
+            day &&
+            (birthdateMode
+              ? birthdateHasSelection &&
+                value instanceof Date &&
+                calendarDayFromDate(value).isSame(currentMonth.date(day), "day")
+              : selectedDate.isSame(currentMonth.date(day), "day"));
           const isInRangeValue = day ? isInRange(day) : false;
           const isStart = day ? isRangeStart(day) : false;
           const isEnd = day ? isRangeEnd(day) : false;
@@ -687,11 +924,35 @@ const styles = StyleSheet.create({
   bookByContainer: {
     marginBottom: 0,
   },
+  bookByRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
   bookByTitle: {
     fontSize: 20,
     fontWeight: "600",
     color: "#000",
     marginBottom: 12,
+  },
+  bookByTitleInRow: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  clearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  clearButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#DC2626",
   },
   header: {
     flexDirection: "row",
@@ -719,6 +980,64 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#000",
+  },
+  birthdateQuickNav: {
+    marginBottom: 12,
+    gap: 6,
+  },
+  quickNavLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 4,
+    marginBottom: 2,
+    paddingHorizontal: 2,
+  },
+  quickNavScroll: {
+    gap: 8,
+    paddingVertical: 4,
+    paddingRight: 8,
+  },
+  quickNavChip: {
+    minWidth: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickNavYearChip: {
+    minWidth: 68,
+  },
+  quickNavChipActive: {
+    backgroundColor: "#007AFF",
+    borderColor: "#007AFF",
+  },
+  quickNavChipDisabled: {
+    opacity: 0.35,
+  },
+  quickNavChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
+  },
+  quickNavChipTextActive: {
+    color: "#fff",
+  },
+  quickNavChipTextDisabled: {
+    color: "#94A3B8",
+  },
+  quickNavCurrent: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+    textAlign: "center",
+    marginTop: 6,
   },
   dayUnavailableHint: {
     backgroundColor: "#FFF8E8",

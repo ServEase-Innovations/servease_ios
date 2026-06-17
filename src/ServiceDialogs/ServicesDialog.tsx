@@ -29,6 +29,11 @@ import { useAppUser } from '../context/AppUserContext';
 import { useTheme } from '../Settings/ThemeContext';
 import { DETAILS } from '../Constants/pagesConstants';
 import { BRAND } from '../theme/brandColors';
+import { useTranslation } from 'react-i18next';
+import {
+  isServiceOfferedByProvider,
+  useServiceProviderProfile,
+} from '../hooks/useServiceProviderProfile';
 
 const cookImage = require("../../assets/images/Cooknew.png");
 const maidImage = require("../../assets/images/Maidnew.png");
@@ -65,6 +70,7 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   const insets = useSafeAreaInsets();
   const { appUser } = useAppUser();
   const { colors, isDarkMode } = useTheme();
+  const { t } = useTranslation();
   const [role, setRole] = useState<string | null>(null);
   const [mounted, setMounted] = useState(open);
 
@@ -86,7 +92,26 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   const [showMaidServiceDialog, setShowMaidServiceDialog] = useState(false);
   const [showNannyServicesDialog, setShowNannyServicesDialog] = useState(false);
 
-  const isServiceDisabled = role === "SERVICE_PROVIDER";
+  const isServiceProvider = role === "SERVICE_PROVIDER";
+  const serviceProviderId = appUser?.serviceProviderId
+    ? Number(appUser.serviceProviderId)
+    : null;
+  const { housekeepingRoles, isAccountActive } = useServiceProviderProfile(
+    serviceProviderId,
+    isServiceProvider
+  );
+
+  const serviceTypeById: Record<string, 'COOK' | 'MAID' | 'NANNY'> = {
+    'home-cook': 'COOK',
+    'cleaning-help': 'MAID',
+    caregiver: 'NANNY',
+  };
+
+  const isServiceInactiveForProvider = (serviceId: string) => {
+    const serviceType = serviceTypeById[serviceId];
+    if (!serviceType || !isServiceProvider) return false;
+    return !isServiceOfferedByProvider(serviceType, housekeepingRoles, isAccountActive);
+  };
 
   useEffect(() => {
     if (appUser) {
@@ -246,28 +271,40 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   );
 
   const handleServiceSelect = (serviceId: string) => {
-    if (isServiceDisabled) {
+    const serviceType = serviceTypeById[serviceId];
+    const serviceName =
+      serviceType === 'COOK'
+        ? t('home.services.homeCook')
+        : serviceType === 'MAID'
+          ? t('home.services.cleaningHelp')
+          : t('home.services.caregiver');
+
+    if (isServiceProvider) {
+      if (!isAccountActive) {
+        Alert.alert(
+          t('home.serviceProvider.service.inactiveAlert.title'),
+          t('home.serviceProvider.service.inactiveAlert.accountInactive'),
+          [{ text: t('common.ok') }]
+        );
+        return;
+      }
+      if (serviceType && !isServiceOfferedByProvider(serviceType, housekeepingRoles, isAccountActive)) {
+        Alert.alert(
+          t('home.serviceProvider.service.inactiveAlert.title'),
+          t('home.serviceProvider.service.inactiveAlert.notOffered', { service: serviceName }),
+          [{ text: t('common.ok') }]
+        );
+        return;
+      }
       Alert.alert(
-        "Service Provider Account",
-        "As a service provider, you cannot book services. Please use a customer account to book services.",
-        [{ text: "OK" }]
+        t('home.serviceProvider.alert.title'),
+        t('home.serviceProvider.alert.message'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
 
-    let serviceType: 'COOK' | 'MAID' | 'NANNY' = 'COOK';
-    let serviceName = '';
-
-    if (serviceId === 'home-cook') {
-      serviceType = 'COOK';
-      serviceName = 'Home Cook';
-    } else if (serviceId === 'cleaning-help') {
-      serviceType = 'MAID';
-      serviceName = 'Cleaning Help';
-    } else if (serviceId === 'caregiver') {
-      serviceType = 'NANNY';
-      serviceName = 'Caregiver';
-    }
+    if (!serviceType) return;
 
     setSelectedType(serviceType);
     setSelectedService(serviceName);
@@ -509,10 +546,10 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
               <View style={styles.headerRow}>
                 <View style={styles.headerTextWrap}>
                   <Text style={[styles.headerEyebrow, { color: textMuted }]}>
-                    {isServiceDisabled ? 'Browse only' : 'New booking'}
+                    {isServiceProvider ? 'Browse only' : 'New booking'}
                   </Text>
                   <Text style={[styles.headerTitle, { color: textPrimary }]}>
-                    {isServiceDisabled ? 'Our services' : 'Select a service'}
+                    {isServiceProvider ? 'Our services' : 'Select a service'}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -534,11 +571,13 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
               >
-                {isServiceDisabled && (
+                {isServiceProvider && (
                   <View style={styles.providerBanner}>
                     <Icon name="info-outline" size={18} color="#B45309" />
                     <Text style={styles.providerBannerText}>
-                      Service provider accounts cannot book. Switch to a customer account to book.
+                      {!isAccountActive
+                        ? t('home.serviceProvider.banner.accountInactive')
+                        : t('home.serviceProvider.banner.viewOnly')}
                     </Text>
                   </View>
                 )}
@@ -548,7 +587,10 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                 </Text>
 
                 <View style={styles.serviceList}>
-                  {serviceOptions.map((service) => (
+                  {serviceOptions.map((service) => {
+                    const inactive = isServiceInactiveForProvider(service.id);
+
+                    return (
                     <TouchableOpacity
                       key={service.id}
                       style={[
@@ -557,36 +599,52 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                           backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
                           borderColor,
                         },
-                        isServiceDisabled && styles.serviceRowDisabled,
+                        inactive && styles.serviceRowDisabled,
                       ]}
                       onPress={() => handleServiceSelect(service.id)}
-                      activeOpacity={0.82}
-                      disabled={isServiceDisabled}
+                      activeOpacity={inactive ? 1 : 0.82}
                       accessibilityRole="button"
                       accessibilityLabel={`Select ${service.title}`}
+                      accessibilityState={{ disabled: inactive }}
                     >
                       <View style={[styles.serviceThumbWrap, { backgroundColor: service.tint }]}>
                         <Image
                           source={service.imageSource}
-                          style={styles.serviceThumb}
+                          style={[styles.serviceThumb, inactive && styles.serviceThumbDisabled]}
                           resizeMode="cover"
                         />
                       </View>
 
                       <View style={styles.serviceCopy}>
-                        <Text style={[styles.serviceTitle, { color: textPrimary }]} numberOfLines={1}>
-                          {service.title}
-                        </Text>
-                        <Text style={[styles.serviceSubtitle, { color: textMuted }]} numberOfLines={2}>
-                          {service.description}
+                        <View style={styles.serviceTitleRow}>
+                          <Text style={[styles.serviceTitle, { color: textPrimary }, inactive && styles.serviceTitleDisabled]} numberOfLines={1}>
+                            {service.title}
+                          </Text>
+                          {isServiceProvider ? (
+                            <View style={[styles.serviceStatusPill, inactive ? styles.serviceStatusPillInactive : styles.serviceStatusPillActive]}>
+                              <Text style={styles.serviceStatusPillText}>
+                                {inactive
+                                  ? t('home.serviceProvider.service.inactive')
+                                  : t('home.serviceProvider.service.active')}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={[styles.serviceSubtitle, { color: textMuted }, inactive && styles.serviceSubtitleDisabled]} numberOfLines={2}>
+                          {inactive
+                            ? !isAccountActive
+                              ? t('home.serviceProvider.service.inactiveAlert.accountInactive')
+                              : t('home.serviceProvider.service.notOffered')
+                            : service.description}
                         </Text>
                       </View>
 
-                      <View style={[styles.serviceCta, { borderColor: service.accent }]}>
-                        <Icon name="arrow-forward" size={18} color={service.accent} />
+                      <View style={[styles.serviceCta, { borderColor: inactive ? '#CBD5E1' : service.accent }]}>
+                        <Icon name="arrow-forward" size={18} color={inactive ? '#94A3B8' : service.accent} />
                       </View>
                     </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                 </View>
 
                 <Text style={[styles.footerNote, { color: textMuted }]}>
@@ -598,7 +656,7 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
         </Modal>
       )}
 
-      {!isServiceDisabled && (
+      {!isServiceProvider && (
         <>
           <BookingDialog
             open={bookingDialogOpen}
@@ -760,6 +818,38 @@ const styles = StyleSheet.create({
   },
   serviceRowDisabled: {
     opacity: 0.55,
+  },
+  serviceThumbDisabled: {
+    opacity: 0.65,
+  },
+  serviceTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 2,
+  },
+  serviceTitleDisabled: {
+    color: '#64748B',
+  },
+  serviceSubtitleDisabled: {
+    color: '#94A3B8',
+  },
+  serviceStatusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  serviceStatusPillInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  serviceStatusPillActive: {
+    backgroundColor: '#DCFCE7',
+  },
+  serviceStatusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
   },
   serviceThumbWrap: {
     width: 52,

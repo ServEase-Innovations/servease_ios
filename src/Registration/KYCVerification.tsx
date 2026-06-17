@@ -16,6 +16,7 @@ import {
 import CustomFileInput from "./CustomFileInput";
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
+import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 
 interface KYCVerificationProps {
   formData: any;
@@ -413,6 +414,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
           {/* Document Number Input - NON-MANDATORY */}
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
+              {...registrationKeyboardInputProps}
               style={[
                 dynamicStyles.input,
                 errors.kycNumber && dynamicStyles.inputError

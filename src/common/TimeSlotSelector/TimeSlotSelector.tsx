@@ -44,6 +44,8 @@ interface TimeSlotSelectorProps {
   onClearSlots: (type: 'morning' | 'evening') => void;
   onSlotChange: (id: string, newValue: number[], type: 'morning' | 'evening') => void;
   formatDisplayTime: (value: number) => string;
+  isFullAvailability?: boolean;
+  onFullAvailabilityChange?: (value: boolean) => void;
 }
 
 const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
@@ -66,11 +68,23 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   onClearSlots,
   onSlotChange,
   formatDisplayTime,
+  isFullAvailability: isFullAvailabilityProp,
+  onFullAvailabilityChange,
 }) => {
+  const [internalFullAvailability, setInternalFullAvailability] = useState(true);
+  const isFullAvailability = isFullAvailabilityProp ?? internalFullAvailability;
+
+  const setFullAvailability = (value: boolean) => {
+    if (onFullAvailabilityChange) {
+      onFullAvailabilityChange(value);
+      return;
+    }
+    setInternalFullAvailability(value);
+  };
+
   const [duplicateErrors, setDuplicateErrors] = useState<{
     [key: string]: boolean;
   }>({});
-  const [isFullAvailability, setIsFullAvailability] = useState(true); // Changed to true for default selection
 
   useEffect(() => {
     setDuplicateErrors({});
@@ -130,7 +144,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
           { 
             text: "Continue", 
             onPress: () => {
-              setIsFullAvailability(false);
+              setFullAvailability(false);
             }
           }
         ]
@@ -145,7 +159,7 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
           { 
             text: "Confirm", 
             onPress: () => {
-              setIsFullAvailability(true);
+              setFullAvailability(true);
               onClearSlots('morning');
               onClearSlots('evening');
             }

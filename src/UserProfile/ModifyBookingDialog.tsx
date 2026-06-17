@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,49 +6,33 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import dayjs from 'dayjs';
-import PaymentInstance from '../services/paymentInstance';
-import axiosInstance from '../services/axiosInstance';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import VacationManagementDialog from './VacationManagement';
-import { useTheme } from '../../src/Settings/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../Settings/ThemeContext';
 import { BrandButton } from '../design-system/BrandButton';
 import { formatDateOnly, parseCalendarDateToDate } from '../utils/maidPricingUtils';
+import { BookingService, isPaymentCancelledError } from '../services/bookingService';
+import ModifyBookingScheduleSection, {
+  type ModifyBookingScheduleHandle,
+  type ModifyWizardState,
+} from './ModifyBookingScheduleSection';
 
 interface Booking {
   bookingType: string;
   id: number;
   startDate: string;
   endDate: string;
+  start_time?: string;
+  end_time?: string;
   timeSlot: string;
   service_type: string;
+  serviceProviderId?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   customerId?: number;
-  modifiedDate: string;
-  bookingDate: string;
-  hasVacation?: boolean;
-  vacationDetails?: {
-    start_date?: string;
-    end_date?: string;
-    leave_days?: number;
-  };
-  modifications?: Array<{
-    date: string;
-    action: string;
-    changes?: {
-      new_start_date?: string;
-      new_end_date?: string;
-      new_start_time?: string;
-      start_date?: { from: string; to: string };
-      end_date?: { from: string; to: string };
-      start_time?: { from: string; to: string };
-    };
-    refund?: number;
-    penalty?: number;
-  }>;
+  modifications?: Array<{ date: string; action: string }>;
 }
 
 interface ModifyBookingDialogProps {
@@ -56,697 +40,371 @@ interface ModifyBookingDialogProps {
   onClose: () => void;
   booking: Booking | null;
   timeSlots: string[];
-  onSave: (updatedData: {
-    startDate: string;
-    endDate: string;
-    timeSlot: string;
-  }) => void;
+  onSave: (updatedData: { startDate: string; endDate: string; timeSlot: string }) => void;
   customerId: number | null;
   refreshBookings: () => Promise<void>;
   setOpenSnackbar: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function parseTimeSlot(booking: Booking): { start?: string; end?: string } {
+  if (booking.start_time) {
+    return { start: booking.start_time, end: booking.end_time || undefined };
+  }
+  const slot = String(booking.timeSlot || '').trim();
+  if (slot.includes('-')) {
+    const [a, b] = slot.split('-').map((s) => s.trim());
+    return { start: a, end: b };
+  }
+  return { start: slot || undefined };
 }
 
 const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
   open,
   onClose,
   booking,
-  timeSlots,
   onSave,
   customerId,
   refreshBookings,
   setOpenSnackbar,
 }) => {
-  const { colors, fontSize, isDarkMode } = useTheme();
+  const { colors, fontSize } = useTheme();
   const { t } = useTranslation();
-  const today = dayjs();
-  const maxDate90Days = dayjs().add(90, 'day');
+  const scheduleRef = useRef<ModifyBookingScheduleHandle>(null);
 
-  const [startDate, setStartDate] = useState<Date | null>(
-    booking ? parseCalendarDateToDate(booking.startDate) : null
-  );
-  const [endDate, setEndDate] = useState<Date | null>(
-    booking ? parseCalendarDateToDate(booking.endDate) : null
-  );
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
-  const [showVacationDialog, setShowVacationDialog] = useState(false);
+  const [availabilityVerified, setAvailabilityVerified] = useState(false);
+  const [wizardState, setWizardState] = useState<ModifyWizardState>({
+    step: 'schedule',
+    canGoNext: false,
+    canGoBack: false,
+    canSubmit: false,
+  });
 
-  const [selectedSection, setSelectedSection] = useState<
-    'OPTIONS' | 'BOOKING_DATE' | 'BOOKING_TIME' | 'VACATION'
-  >('OPTIONS');
+  const titleSize = fontSize === 'large' ? 20 : fontSize === 'small' ? 16 : 18;
 
-  // Get font sizes based on theme
-  const getFontSizes = () => {
-    switch (fontSize) {
-      case 'small':
-        return {
-          title: 16,
-          bookingInfoText: 13,
-          bookingDetailText: 12,
-          modificationCountText: 12,
-          lastModificationText: 11,
-          errorText: 12,
-          successText: 12,
-          sectionDescription: 13,
-          label: 12,
-          buttonText: 13,
-          statusMessage: 12,
-          loadingText: 12,
-        };
-      case 'large':
-        return {
-          title: 20,
-          bookingInfoText: 16,
-          bookingDetailText: 15,
-          modificationCountText: 15,
-          lastModificationText: 14,
-          errorText: 15,
-          successText: 15,
-          sectionDescription: 16,
-          label: 15,
-          buttonText: 16,
-          statusMessage: 15,
-          loadingText: 15,
-        };
-      default:
-        return {
-          title: 18,
-          bookingInfoText: 14,
-          bookingDetailText: 13,
-          modificationCountText: 13,
-          lastModificationText: 12,
-          errorText: 14,
-          successText: 14,
-          sectionDescription: 14,
-          label: 14,
-          buttonText: 14,
-          statusMessage: 14,
-          loadingText: 14,
-        };
+  const isModificationTimeAllowed = (value: Booking | null): boolean => {
+    if (!value) return false;
+    const base = parseCalendarDateToDate(value.startDate);
+    if (!base) return false;
+    const { start } = parseTimeSlot(value);
+    if (!start) return dayjs().isBefore(dayjs(base).subtract(30, 'minute'));
+    const parsed = dayjs(start, ['HH:mm', 'h:mm A'], true);
+    const booked = parsed.isValid()
+      ? dayjs(base).hour(parsed.hour()).minute(parsed.minute())
+      : dayjs(base);
+    return dayjs().isBefore(booked.subtract(30, 'minute'));
+  };
+
+  const isBookingAlreadyModified = (value: Booking | null): boolean => {
+    if (!value) return false;
+    return (value.modifications ?? []).some((mod) => {
+      const action = String(mod.action || '');
+      return ['Schedule Rescheduled', 'Date Rescheduled', 'Time Rescheduled', 'Modified', 'Rescheduled'].includes(action);
+    });
+  };
+
+  const modificationDisabled =
+    !booking || !isModificationTimeAllowed(booking) || isBookingAlreadyModified(booking);
+
+  const canModifyType =
+    booking?.bookingType === 'MONTHLY' || booking?.bookingType === 'SHORT_TERM';
+
+  const bookingCoords =
+    booking?.latitude != null &&
+    booking?.longitude != null &&
+    Number.isFinite(Number(booking.latitude)) &&
+    Number.isFinite(Number(booking.longitude))
+      ? { lat: Number(booking.latitude), lng: Number(booking.longitude) }
+      : null;
+
+  const times = booking ? parseTimeSlot(booking) : {};
+
+  useEffect(() => {
+    if (open && booking) {
+      setError(null);
+      setAvailabilityVerified(false);
+      setWizardState({ step: 'schedule', canGoNext: false, canGoBack: false, canSubmit: false });
+    }
+  }, [open, booking]);
+
+  const handleAvailabilityVerifiedChange = useCallback((verified: boolean, message?: string) => {
+    setAvailabilityVerified(verified);
+    if (!verified && message) setError(message);
+  }, []);
+
+  const handleScheduleChange = useCallback(() => {
+    setAvailabilityVerified(false);
+    setError(null);
+  }, []);
+
+  const handleCheckAvailability = async () => {
+    setError(null);
+    setIsCheckingAvailability(true);
+    try {
+      const ok = await scheduleRef.current?.checkAvailability();
+      if (!ok) setAvailabilityVerified(false);
+    } finally {
+      setIsCheckingAvailability(false);
     }
   };
 
-  const fontSizes = getFontSizes();
-
-  const shouldDisableStartDate = (date: Date) => dayjs(date).isBefore(today, 'day');
-
-  const shouldDisableEndDate = (date: Date) => {
-    if (!startDate) return true;
-    const min = dayjs(startDate).add(1, 'day');
-    const max = dayjs(startDate).add(20, 'day');
-    return dayjs(date).isBefore(min, 'day') || dayjs(date).isAfter(max, 'day');
-  };
-
-  // Extract the actual booked time from the booking
-  const getBookedTime = () => {
-    if (!booking) return new Date();
-    
-    const [time, period] = booking.timeSlot.split(' ');
-    const [hoursStr, minutesStr] = time.split(':');
-    let hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
-    
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    
-    const bookedDate = parseCalendarDateToDate(booking.startDate) ?? new Date();
-    bookedDate.setHours(hours, minutes, 0, 0);
-    return bookedDate;
-  };
-
-  // --- NEW METHODS FROM REACT CODE ---
-
-  const isModificationTimeAllowed = (startDate: string, timeSlot: string): boolean => {
-    const now = dayjs();
-    const [time, period] = timeSlot.split(' ');
-    const [hoursStr, minutesStr] = time.split(':');
-    let hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    const baseDate = parseCalendarDateToDate(startDate);
-    if (!baseDate) return false;
-    const bookingDateTime = dayjs(baseDate)
-      .hour(hours)
-      .minute(minutes)
-      .second(0);
-    return now.isBefore(bookingDateTime.subtract(30, 'minute'));
-  };
-
-  const isBookingAlreadyModified = (booking: Booking | null): boolean => {
-    if (!booking) return false;
-    const modifications = booking.modifications ?? [];
-    return modifications.some((mod) =>
-      ["Date Rescheduled", "Time Rescheduled", "Modified", "Rescheduled"].some(
-        (kw) => mod.action?.includes(kw)
-      )
-    );
-  };
-
-  const getModificationStatusMessage = (booking: Booking | null): string => {
-    if (!booking) return "";
-    if (isBookingAlreadyModified(booking))
-      return t('modifyBooking.status.alreadyModified');
-    if (!isModificationTimeAllowed(booking.startDate, booking.timeSlot))
-      return t('modifyBooking.status.modificationNotAllowed');
-    return "";
-  };
-
-  const isModificationDisabled = (booking: Booking | null): boolean => {
-    if (!booking) return true;
-    return (
-      !isModificationTimeAllowed(booking.startDate, booking.timeSlot) ||
-      isBookingAlreadyModified(booking)
-    );
-  };
-
-  const getTimeUntilBooking = (booking: Booking | null): string => {
-    if (!booking) return "";
-    const bookedTime = getBookedTime();
-    const now = dayjs();
-    const diffMinutes = dayjs(bookedTime).diff(now, 'minute');
-    if (diffMinutes <= 0) return t('modifyBooking.status.bookingStarted');
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
-    return hours > 0
-      ? t('modifyBooking.status.hoursMinutes', { h: hours, m: minutes })
-      : t('modifyBooking.status.minutesOnly', { m: minutes });
-  };
-
-  const getLastModificationDetails = (booking: Booking | null): string => {
-    const modifications = booking?.modifications ?? [];
-    if (modifications.length === 0) return "";
-    const lastMod = modifications[modifications.length - 1];
-    if (lastMod.changes?.start_date)
-      return t('modifyBooking.lastModification', { 
-        details: `Last rescheduled from ${lastMod.changes.start_date.from} to ${lastMod.changes.start_date.to}` 
-      });
-    if (lastMod.changes?.start_time)
-      return t('modifyBooking.lastModification', { 
-        details: `Last time changed from ${lastMod.changes.start_time.from} to ${lastMod.changes.start_time.to}` 
-      });
-    return t('modifyBooking.lastModification', { details: `Last modified: ${lastMod.action}` });
-  };
-
-  // --- UPDATED handleSubmit METHOD ---
   const handleSubmit = async () => {
-    if (!startDate || !booking) return;
-
-    if (isModificationDisabled(booking)) {
-      setError(getModificationStatusMessage(booking));
+    if (!booking || modificationDisabled) return;
+    const snapshot = scheduleRef.current?.getScheduleSnapshot();
+    if (!snapshot) {
+      setError(t('modifyBooking.validation.completeSchedule'));
+      return;
+    }
+    if (!availabilityVerified) {
+      setError(t('modifyBooking.validation.checkAvailabilityFirst'));
       return;
     }
 
     setIsLoading(true);
     setError(null);
-
     try {
-      const isDateModification = selectedSection === "BOOKING_DATE";
-      const isTimeModification = selectedSection === "BOOKING_TIME";
-
-      // Base payload (common) - using React code structure
-      let updatePayload: any = {
+      const result = await (BookingService as typeof BookingService & {
+        modifyScheduleWithPayment: (payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
+        verifyModifySchedulePayment: (payment: Record<string, unknown>) => Promise<unknown>;
+        openRazorpay: (orderId: string, amountPaise: number, keyId?: string) => Promise<Record<string, unknown>>;
+      }).modifyScheduleWithPayment({
+        engagementId: booking.id,
+        start_date: snapshot.startDate,
+        end_date: snapshot.endDate,
+        start_time: snapshot.startTime,
+        end_time: snapshot.endTime || undefined,
         modified_by_id: customerId,
-        modified_by_role: "CUSTOMER",
-      };
+        modified_by_role: 'CUSTOMER',
+      });
 
-      if (isDateModification) {
-        updatePayload = {
-          ...updatePayload,
-          start_date: dayjs(startDate).format("YYYY-MM-DD"),
-          end_date:
-            booking.bookingType === "MONTHLY"
-              ? dayjs(startDate).add(1, "month").format("YYYY-MM-DD")
-              : endDate
-              ? dayjs(endDate).format("YYYY-MM-DD")
-              : dayjs(startDate).add(1, "day").format("YYYY-MM-DD"),
-        };
+      if (result.requires_payment && result.razorpay_order_id) {
+        const amountPaise = Number(result.amount);
+        const paymentResponse = await BookingService.openRazorpay(
+          String(result.razorpay_order_id),
+          amountPaise,
+          String(result.currency || 'INR')
+        );
+        (paymentResponse as { engagementId?: number }).engagementId = booking.id;
+        await (BookingService as typeof BookingService & {
+          verifyModifySchedulePayment: (payment: Record<string, unknown>) => Promise<unknown>;
+        }).verifyModifySchedulePayment(paymentResponse);
       }
-
-      if (isTimeModification) {
-        updatePayload = {
-          ...updatePayload,
-          start_time: dayjs(startDate).format("HH:mm:ss"),
-          end_time: dayjs(startDate).add(1, "hour").format("HH:mm:ss"),
-        };
-      }
-
-      console.log("📦 Sending Payload:", updatePayload);
-
-      // Use PaymentInstance instead of axiosInstance
-      const response = await PaymentInstance.put(
-        `/api/engagements/${booking.id}`,
-        updatePayload,
-        { headers: { "Content-Type": "application/json" } }
-      );
 
       if (customerId !== null) await refreshBookings();
 
-      onSave({
-        startDate: updatePayload.start_date || booking.startDate,
-        endDate: updatePayload.end_date || booking.endDate,
-        timeSlot: updatePayload.start_time
-          ? dayjs(startDate).format("hh:mm A")
-          : booking.timeSlot,
-      });
+      const displayTime = dayjs(snapshot.startTime, 'HH:mm').isValid()
+        ? dayjs(snapshot.startTime, 'HH:mm').format('hh:mm A')
+        : booking.timeSlot;
 
-      setSuccess(
-        isDateModification
-          ? t('modifyBooking.messages.dateSuccess')
-          : t('modifyBooking.messages.timeSuccess')
-      );
+      onSave({
+        startDate: snapshot.startDate,
+        endDate: snapshot.endDate,
+        timeSlot: displayTime,
+      });
       setOpenSnackbar(true);
-      setTimeout(() => onClose(), 1500);
-    } catch (error) {
-      console.error("❌ Error modifying booking:", error);
-      setError(t('modifyBooking.messages.error'));
+      setTimeout(() => onClose(), 1200);
+    } catch (err: unknown) {
+      if (isPaymentCancelledError(err)) {
+        setError(t('modifyBooking.messages.paymentCancelled'));
+        return;
+      }
+      const apiMessage =
+        (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(apiMessage || t('modifyBooking.messages.error'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleVacationSuccess = async () => {
-    setSuccess(t('modifyBooking.messages.dateSuccess'));
-    setShowVacationDialog(false);
-    setOpenSnackbar(true);
-    if (customerId !== null) {
-      await refreshBookings();
-    }
-  };
-
-  const handleVacationClose = () => {
-    setShowVacationDialog(false);
-    setSelectedSection("OPTIONS");
-  };
-
-  useEffect(() => {
-    if (open && booking) {
-      const bookedTime = getBookedTime();
-      setStartDate(bookedTime);
-      setEndDate(parseCalendarDateToDate(booking.endDate));
-      setError(null);
-      setSuccess(null);
-      setSelectedSection("OPTIONS");
-      setShowVacationDialog(false);
-    }
-  }, [open, booking]);
-
   if (!open || !booking) return null;
 
-  const modificationDisabled = isModificationDisabled(booking);
-  const statusMessage = getModificationStatusMessage(booking);
-  const timeUntilBooking = getTimeUntilBooking(booking);
-  const lastModificationDetails = getLastModificationDetails(booking);
-  const modificationCount = booking.modifications?.length ?? 0;
-
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    setShowTimePicker(false);
-    
-    if (selectedDate) {
-      if (pickerMode === 'date') {
-        const currentTime = startDate ? startDate : new Date();
-        const newDate = new Date(selectedDate);
-        newDate.setHours(currentTime.getHours(), currentTime.getMinutes(), 0, 0);
-        setStartDate(newDate);
-      } else {
-        const currentDate = startDate ? startDate : new Date();
-        const newTime = new Date(selectedDate);
-        currentDate.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
-        setStartDate(new Date(currentDate));
-      }
-    }
-  };
-
-  const openDatePicker = (mode: 'date' | 'time') => {
-    setPickerMode(mode);
-    if (mode === 'date') {
-      setShowDatePicker(true);
-    } else {
-      setShowTimePicker(true);
-    }
-  };
-
-  const CustomButton = ({
-    title,
-    onPress,
-    disabled = false,
-    variant = "contained",
-    fullWidth = false,
-  }: {
-    title: string;
-    onPress: () => void;
-    disabled?: boolean;
-    variant?: "contained" | "outlined";
-    fullWidth?: boolean;
-  }) => (
-    <BrandButton
-      variant={variant === "contained" ? "primary" : "ghost"}
-      onPress={onPress}
-      disabled={disabled}
-      flex={fullWidth ? undefined : 1}
-      fullWidth={fullWidth}
-      style={styles.button}
-      textStyle={{ fontSize: fontSizes.buttonText }}
-    >
-      {title}
-    </BrandButton>
-  );
-
   return (
-    <>
-      <Modal
-        visible={open}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={onClose}
-      >
-        <TouchableOpacity 
-          style={[styles.backdrop, { backgroundColor: colors.overlay }]} 
-          activeOpacity={1}
-          onPress={onClose}
-        >
-          <View style={styles.dialogContainer}>
-            <View style={[styles.dialog, { backgroundColor: colors.card }]}>
-              <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.title, { color: colors.text, fontSize: fontSizes.title }]}>{t('modifyBooking.title')}</Text>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Text style={[styles.closeIcon, { color: colors.text }]}>×</Text>
-                </TouchableOpacity>
+    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.title, { color: colors.text, fontSize: titleSize }]}>
+              {t('modifyBooking.title')}
+            </Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={[styles.close, { color: colors.text }]}>×</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={[styles.infoCard, { backgroundColor: colors.infoLight }]}>
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                {t('modifyBooking.bookingInfo', { id: booking.id, service: booking.service_type })}
+              </Text>
+              <Text style={{ color: colors.text, marginTop: 4 }}>
+                {t('modifyBooking.scheduled', {
+                  date: dayjs(parseCalendarDateToDate(booking.startDate) ?? undefined).format('MMM D, YYYY'),
+                  time: booking.timeSlot,
+                })}
+              </Text>
+            </View>
+
+            {modificationDisabled ? (
+              <View style={[styles.warningBox, { backgroundColor: colors.warningLight }]}>
+                <Text style={{ color: colors.warning, textAlign: 'center' }}>
+                  {isBookingAlreadyModified(booking)
+                    ? t('modifyBooking.status.alreadyModified')
+                    : t('modifyBooking.status.modificationNotAllowed')}
+                </Text>
               </View>
+            ) : !canModifyType ? (
+              <View style={[styles.warningBox, { backgroundColor: colors.warningLight }]}>
+                <Text style={{ color: colors.warning, textAlign: 'center' }}>
+                  {t('modifyBooking.validation.unsupportedType')}
+                </Text>
+              </View>
+            ) : (
+              <ModifyBookingScheduleSection
+                ref={scheduleRef}
+                bookingType={booking.bookingType}
+                serviceType={booking.service_type}
+                engagementId={booking.id}
+                providerId={booking.serviceProviderId}
+                customerId={customerId}
+                bookingCoords={bookingCoords}
+                initialStartDate={formatDateOnly(booking.startDate)}
+                initialEndDate={formatDateOnly(booking.endDate)}
+                initialStartTime={times.start}
+                initialEndTime={times.end}
+                onAvailabilityVerifiedChange={handleAvailabilityVerifiedChange}
+                onScheduleChange={handleScheduleChange}
+                onWizardStateChange={setWizardState}
+              />
+            )}
 
-              <ScrollView style={styles.content}>
-                {/* Booking Info Section */}
-                <View style={[styles.bookingInfoContainer, { backgroundColor: colors.infoLight }]}>
-                  <Text style={[styles.bookingInfoText, { color: colors.primary, fontSize: fontSizes.bookingInfoText }]}>
-                    {t('modifyBooking.bookingInfo', { id: booking.id, service: booking.service_type })}
-                  </Text>
-                  <Text style={[styles.bookingDetailText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
-                    {t('modifyBooking.scheduled', { 
-                      date: dayjs(parseCalendarDateToDate(booking.startDate) ?? undefined).format("MMM D, YYYY"), 
-                      time: booking.timeSlot 
-                    })}
-                  </Text>
-                  <Text style={[styles.bookingDetailText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
-                    {timeUntilBooking}
-                  </Text>
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={{ color: colors.error }}>{error}</Text>
+              </View>
+            ) : null}
+          </ScrollView>
 
-                  {modificationCount > 0 && (
-                    <View style={[styles.modificationInfo, { borderTopColor: colors.info }]}>
-                      <Text style={[styles.modificationCountText, { color: colors.warning, fontSize: fontSizes.modificationCountText }]}>
-                        {t('modifyBooking.modifiedCount', { count: modificationCount })}
-                      </Text>
-                      <Text style={[styles.lastModificationText, { color: colors.warning, fontSize: fontSizes.lastModificationText }]}>
-                        {lastModificationDetails}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+          {!modificationDisabled && canModifyType ? (
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              {wizardState.step === 'review' ? (
+                <BrandButton variant="ghost" onPress={() => scheduleRef.current?.goBack()} style={styles.footerBtn}>
+                  {t('modifyBooking.actions.back')}
+                </BrandButton>
+              ) : null}
 
-                {error && (
-                  <View style={[styles.errorContainer, { backgroundColor: colors.errorLight, borderBottomColor: colors.error }]}>
-                    <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.errorText }]}>{error}</Text>
-                  </View>
-                )}
-
-                {success && (
-                  <View style={[styles.successContainer, { backgroundColor: colors.successLight, borderBottomColor: colors.success }]}>
-                    <Text style={[styles.successText, { color: colors.success, fontSize: fontSizes.successText }]}>{success}</Text>
-                  </View>
-                )}
-
-                {/* Options */}
-                {selectedSection === "OPTIONS" && (
-                  <View style={styles.optionsContainer}>
-                    <CustomButton
-                      fullWidth
-                      title={t('modifyBooking.options.rescheduleDate')}
-                      onPress={() => setSelectedSection("BOOKING_DATE")}
-                      disabled={modificationDisabled || isLoading}
-                    />
-                    <CustomButton
-                      fullWidth
-                      title={t('modifyBooking.options.rescheduleTime')}
-                      onPress={() => setSelectedSection("BOOKING_TIME")}
-                      disabled={modificationDisabled || isLoading}
-                    />
-
-                    {modificationDisabled && (
-                      <View style={[styles.statusMessageContainer, { backgroundColor: colors.warningLight, borderColor: colors.warning }]}>
-                        <Text style={[styles.statusMessage, { color: colors.warning, fontSize: fontSizes.statusMessage }]}>{statusMessage}</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* Reschedule Date */}
-                {selectedSection === "BOOKING_DATE" && (
-                  <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontSize: fontSizes.sectionDescription }]}>
-                      {t('modifyBooking.dateSelection.title')}
-                    </Text>
-                    <View style={styles.pickerContainer}>
-                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>{t('modifyBooking.dateSelection.selectNewDate')}</Text>
-                      <TouchableOpacity 
-                        style={[styles.dateDisplay, { borderColor: colors.border, backgroundColor: colors.card }]}
-                        onPress={() => openDatePicker('date')}
-                      >
-                        <Text style={[styles.dateDisplayText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
-                          {startDate ? dayjs(startDate).format('MMMM D, YYYY') : t('modifyBooking.dateSelection.selectNewDate')}
-                        </Text>
-                      </TouchableOpacity>
-                      
-                      {showDatePicker && (
-                        <DateTimePicker
-                          value={startDate || new Date()}
-                          mode="date"
-                          display="default"
-                          onChange={handleDateChange}
-                          minimumDate={new Date()}
-                          maximumDate={maxDate90Days.toDate()}
-                        />
-                      )}
-                    </View>
-                  </View>
-                )}
-
-                {/* Reschedule Time */}
-                {selectedSection === "BOOKING_TIME" && (
-                  <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionDescription, { color: colors.textSecondary, fontSize: fontSizes.sectionDescription }]}>
-                      {t('modifyBooking.timeSelection.title', { time: booking.timeSlot })}
-                    </Text>
-                    <View style={styles.pickerContainer}>
-                      <Text style={[styles.label, { color: colors.textSecondary, fontSize: fontSizes.label }]}>{t('modifyBooking.timeSelection.selectNewTime')}</Text>
-                      <TouchableOpacity 
-                        style={[styles.dateDisplay, { borderColor: colors.border, backgroundColor: colors.card }]}
-                        onPress={() => openDatePicker('time')}
-                      >
-                        <Text style={[styles.dateDisplayText, { color: colors.text, fontSize: fontSizes.bookingDetailText }]}>
-                          {startDate ? dayjs(startDate).format('h:mm A') : t('modifyBooking.timeSelection.selectNewTime')}
-                        </Text>
-                      </TouchableOpacity>
-                      
-                      {showTimePicker && (
-                        <DateTimePicker
-                          value={startDate || new Date()}
-                          mode="time"
-                          display="default"
-                          onChange={handleDateChange}
-                          is24Hour={false}
-                        />
-                      )}
-                    </View>
-                  </View>
-                )}
-              </ScrollView>
-
-              {/* Action Buttons for Date/Time Sections */}
-              {(selectedSection === "BOOKING_DATE" || selectedSection === "BOOKING_TIME") && (
-                <View style={[styles.footer, { borderTopColor: colors.border }]}>
-                  <CustomButton 
-                    title={t('modifyBooking.actions.back')} 
-                    onPress={() => setSelectedSection("OPTIONS")}
-                    variant="outlined"
-                  />
-                  <CustomButton 
-                    title={isLoading ? t('modifyBooking.actions.saving') : selectedSection === "BOOKING_DATE" ? t('modifyBooking.actions.saveDate') : t('modifyBooking.actions.saveTime')}
+              {wizardState.step === 'schedule' ? (
+                <BrandButton
+                  variant="primary"
+                  onPress={() => scheduleRef.current?.goNext()}
+                  disabled={!wizardState.canGoNext}
+                  style={styles.footerBtn}
+                >
+                  {t('modifyBooking.actions.review')}
+                </BrandButton>
+              ) : (
+                <>
+                  <BrandButton
+                    variant="ghost"
+                    onPress={handleCheckAvailability}
+                    disabled={isCheckingAvailability || isLoading}
+                    style={styles.footerBtn}
+                  >
+                    {isCheckingAvailability
+                      ? t('modifyBooking.review.checking')
+                      : t('modifyBooking.actions.checkAvailability')}
+                  </BrandButton>
+                  <BrandButton
+                    variant="primary"
                     onPress={handleSubmit}
-                    disabled={isLoading || modificationDisabled}
-                  />
-                </View>
-              )}
-
-              {isLoading && (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={[styles.loadingText, { color: colors.primary, fontSize: fontSizes.loadingText }]}>{t('modifyBooking.actions.saving')}</Text>
-                </View>
+                    disabled={!wizardState.canSubmit || !availabilityVerified || isLoading}
+                    style={styles.footerBtn}
+                  >
+                    {isLoading ? t('modifyBooking.actions.saving') : t('modifyBooking.actions.saveChanges')}
+                  </BrandButton>
+                </>
               )}
             </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+          ) : (
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              <BrandButton variant="primary" onPress={onClose} fullWidth>
+                {t('common.close')}
+              </BrandButton>
+            </View>
+          )}
 
-      {/* Vacation Management Dialog */}
-      <VacationManagementDialog
-        open={showVacationDialog}
-        onClose={handleVacationClose}
-        booking={{
-          id: booking.id,
-          vacationDetails: booking.vacationDetails
-            ? {
-                leave_start_date: booking.vacationDetails.start_date,
-                leave_end_date: booking.vacationDetails.end_date,
-                total_days: booking.vacationDetails.leave_days,
-              }
-            : undefined,
-        }}
-        customerId={customerId}
-        onSuccess={handleVacationSuccess}
-      />
-    </>
+          {isLoading ? (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
+  overlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
   },
-  dialogContainer: {
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  dialog: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    maxHeight: '100%',
+  sheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '92%',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
   },
   title: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  closeButton: {
-    padding: 4,
-  },
-  closeIcon: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  close: {
+    fontSize: 28,
+    lineHeight: 28,
+    fontWeight: '300',
   },
   content: {
-    maxHeight: 400,
-  },
-  bookingInfoContainer: {
     padding: 16,
-    margin: 16,
-    borderRadius: 8,
+    paddingBottom: 24,
   },
-  bookingInfoText: {
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  bookingDetailText: {
-    marginBottom: 2,
-  },
-  modificationInfo: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
-  modificationCountText: {
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  lastModificationText: {},
-  errorContainer: {
-    padding: 16,
-    borderBottomWidth: 1,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 4,
-  },
-  successContainer: {
-    padding: 16,
-    borderBottomWidth: 1,
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 4,
-  },
-  errorText: {},
-  successText: {},
-  optionsContainer: {
-    padding: 24,
-    gap: 16,
-  },
-  sectionContainer: {
-    padding: 16,
-    gap: 16,
-  },
-  sectionDescription: {
-    marginBottom: 8,
-    paddingHorizontal: 8,
-  },
-  pickerContainer: {
-    gap: 8,
-    paddingHorizontal: 8,
-  },
-  label: {
-    marginBottom: 8,
-  },
-  bold: {
-    fontWeight: 'bold',
-  },
-  dateDisplay: {
-    borderWidth: 1,
-    borderRadius: 4,
+  infoCard: {
+    borderRadius: 10,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  dateDisplayText: {},
+  warningBox: {
+    borderRadius: 10,
+    padding: 12,
+  },
+  errorBox: {
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+  },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
     padding: 16,
     borderTopWidth: 1,
   },
-  button: {
-    marginHorizontal: 4,
+  footerBtn: {
+    flex: 1,
   },
-  statusMessageContainer: {
-    marginTop: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 4,
-  },
-  statusMessage: {
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 8,
+    justifyContent: 'center',
   },
 });
 
