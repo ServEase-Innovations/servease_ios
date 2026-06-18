@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   StyleSheet,
   Dimensions,
   Modal,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
@@ -34,6 +36,15 @@ interface AddressComponentProps {
   };
   onSameAddressToggle?: (checked: boolean) => void;
   isSameAddress?: boolean;
+  onScrollInputIntoView?: (fieldRef: View | null) => void;
+  locationSection?: {
+    onFetchLocation: () => void;
+    onSelectFromMap: () => void;
+    locationLoading: boolean;
+    detectedAddress?: string;
+    hasCoordinates: boolean;
+    savedAddressPreview?: string;
+  };
 }
 
 interface Country {
@@ -135,6 +146,8 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   errors = {},
   onSameAddressToggle,
   isSameAddress: externalIsSameAddress,
+  onScrollInputIntoView,
+  locationSection,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
@@ -159,6 +172,11 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   const [countrySearch, setCountrySearch] = useState('');
   const [permanentStateSearch, setPermanentStateSearch] = useState('');
   const [correspondenceStateSearch, setCorrespondenceStateSearch] = useState('');
+
+  const apartmentRef = useRef<View>(null);
+  const streetRef = useRef<View>(null);
+  const cityRef = useRef<View>(null);
+  const pincodeRef = useRef<View>(null);
 
   // Get font sizes based on theme
   const getFontSizes = () => {
@@ -203,6 +221,37 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   };
 
   const fontSizes = getFontSizes();
+
+  const countFilledFields = (address: AddressData) => {
+    const fields = [
+      address.apartment,
+      address.street,
+      address.city,
+      address.state,
+      address.country,
+      address.pincode,
+    ];
+    return fields.filter((value) => Boolean(value?.trim())).length;
+  };
+
+  const permanentFilledCount = countFilledFields(permanentAddress);
+
+  const handleStatePress = (type: 'permanent' | 'correspondence') => {
+    const country =
+      type === 'permanent' ? permanentAddress.country : correspondenceAddress.country;
+    if (!country) {
+      Alert.alert(
+        t('registration.address.selectCountry'),
+        t('registration.address.selectCountryFirst')
+      );
+      return;
+    }
+    setShowStateDropdown(type);
+  };
+
+  const handleFieldFocus = (fieldRef: View | null) => {
+    onScrollInputIntoView?.(fieldRef);
+  };
 
   // Load countries on mount
   useEffect(() => {
@@ -307,8 +356,6 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   };
 
   const handleCountrySelect = (type: 'permanent' | 'correspondence', country: Country) => {
-    console.log('Selected country:', country); // For debugging
-    
     if (type === 'permanent') {
       // Create new address with selected country and cleared state
       const newAddress = { 
@@ -338,8 +385,6 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
   };
 
   const handleStateSelect = (type: 'permanent' | 'correspondence', state: State) => {
-    console.log('Selected state:', state); // For debugging
-    
     if (type === 'permanent') {
       // Create new address with selected state
       const newAddress = { ...permanentAddress, state: state.name };
@@ -410,31 +455,46 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
-            <FlatList
-              data={data.filter(item => 
+            <ScrollView
+              style={styles.dropdownList}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
+              {data
+                .filter((item) =>
+                  getItemLabel(item).toLowerCase().includes(searchText.toLowerCase())
+                )
+                .map((item, index) => (
+                  <TouchableOpacity
+                    key={`${getItemLabel(item)}-${index}`}
+                    style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
+                    onPress={() => onSelect(item)}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        { color: colors.text, fontSize: fontSizes.dropdownItem },
+                      ]}
+                    >
+                      {getItemLabel(item)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              {data.filter((item) =>
                 getItemLabel(item).toLowerCase().includes(searchText.toLowerCase())
-              )}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
-                  onPress={() => {
-                    console.log('Item pressed:', item); // For debugging
-                    onSelect(item);
-                  }}
-                >
-                  <Text style={[styles.dropdownItemText, { color: colors.text, fontSize: fontSizes.dropdownItem }]}>{getItemLabel(item)}</Text>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
+              ).length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary, fontSize: fontSizes.emptyText }]}>
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      { color: colors.textSecondary, fontSize: fontSizes.emptyText },
+                    ]}
+                  >
                     {t('registration.address.noItemsFound')}
                   </Text>
                 </View>
-              }
-              keyboardShouldPersistTaps="handled"
-            />
+              ) : null}
+            </ScrollView>
           )}
         </View>
       </View>
@@ -451,14 +511,21 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
     maxLength?: number,
     onPress?: () => void,
     isDropdown?: boolean,
-    placeholder?: string
+    placeholder?: string,
+    fieldRef?: React.RefObject<View | null>,
+    isDisabled?: boolean
   ) => (
-    <View style={[styles.inputContainer, isHalfWidth && styles.halfWidth]}>
+    <View
+      ref={fieldRef}
+      style={[styles.inputContainer, isHalfWidth && styles.halfWidth]}
+      collapsable={false}
+    >
       <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.label }]}>{label}</Text>
       {isDropdown ? (
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={onPress}
+          disabled={isDisabled}
           style={styles.inputWrapper}
         >
           <View
@@ -468,6 +535,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
               {
                 borderColor: error ? colors.error : colors.border,
                 backgroundColor: colors.surface,
+                opacity: isDisabled ? 0.55 : 1,
               },
             ]}
           >
@@ -480,9 +548,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             >
               {value || placeholder || ""}
             </Text>
-            <View style={styles.dropdownIconContainer}>
-              <Text style={[styles.dropdownIcon, { color: colors.textSecondary }]}>▼</Text>
-            </View>
+            <Icon name="keyboard-arrow-down" size={22} color={colors.textSecondary} />
           </View>
         </TouchableOpacity>
       ) : (
@@ -499,31 +565,147 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
           ]}
           value={value}
           onChangeText={onChange}
+          onFocus={() => handleFieldFocus(fieldRef?.current ?? null)}
           keyboardType={keyboardType}
           maxLength={maxLength}
           placeholder={placeholder}
           placeholderTextColor={colors.placeholder}
         />
       )}
-      {error && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.helper }]}>{error}</Text>}
+      {error ? (
+        <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.helper }]}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
-
-  const { width } = Dimensions.get('window');
-  const isSmallScreen = width < 375;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text, fontSize: fontSizes.title }]}>
         {t('registration.address.title')}
       </Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary, fontSize: fontSizes.helper }]}>
+        {t('registration.address.subtitle', {
+          defaultValue: 'Add where you provide services. Quick-fill from map or GPS, then review the fields.',
+        })}
+      </Text>
 
-      {/* Permanent Address */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>
-          {t('registration.address.permanent')}
-        </Text>
-        
+      {locationSection ? (
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.cardHeaderRow}>
+            <View style={[styles.cardIconWrap, { backgroundColor: colors.infoLight }]}>
+              <Icon name="my-location" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.cardHeaderText}>
+              <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+                {t('registration.address.quickFillTitle', { defaultValue: 'Quick fill' })}
+              </Text>
+              <Text style={[styles.cardHint, { color: colors.textSecondary, fontSize: fontSizes.helper }]}>
+                {t('registration.address.quickFillHint', {
+                  defaultValue: 'Use your location or pick a point on the map to auto-fill the form.',
+                })}
+              </Text>
+            </View>
+          </View>
+
+          {locationSection.savedAddressPreview ? (
+            <View style={[styles.savedLocationBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Icon name="place" size={16} color={colors.primary} />
+              <Text style={[styles.savedLocationText, { color: colors.text, fontSize: fontSizes.helper }]} numberOfLines={2}>
+                {locationSection.savedAddressPreview}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.locationActions}>
+            <TouchableOpacity
+              style={[
+                styles.locationActionRow,
+                {
+                  borderColor: colors.primary,
+                  backgroundColor: colors.infoLight,
+                },
+                locationSection.locationLoading && styles.buttonDisabled,
+              ]}
+              onPress={locationSection.onFetchLocation}
+              disabled={locationSection.locationLoading}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.locationActionIcon, { backgroundColor: colors.primary }]}>
+                {locationSection.locationLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Icon name="my-location" size={20} color="#fff" />
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.locationActionLabel,
+                  { color: colors.text, fontSize: fontSizes.input },
+                ]}
+              >
+                {t('registration.address.currentLocation', { defaultValue: 'Current Location' })}
+              </Text>
+              {!locationSection.locationLoading ? (
+                <Icon name="chevron-right" size={22} color={colors.textSecondary} />
+              ) : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.locationActionRow,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                },
+                locationSection.locationLoading && styles.buttonDisabled,
+              ]}
+              onPress={locationSection.onSelectFromMap}
+              disabled={locationSection.locationLoading}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.locationActionIcon, { backgroundColor: colors.card }]}>
+                <Icon name="map" size={20} color={colors.primary} />
+              </View>
+              <Text
+                style={[
+                  styles.locationActionLabel,
+                  { color: colors.text, fontSize: fontSizes.input },
+                ]}
+              >
+                {t('registration.address.selectFromMap', { defaultValue: 'Select from map' })}
+              </Text>
+              <Icon name="chevron-right" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {locationSection.hasCoordinates && locationSection.detectedAddress ? (
+            <View style={[styles.detectedBanner, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
+              <Icon name="check-circle" size={18} color={colors.success} />
+              <Text style={[styles.detectedText, { color: colors.success, fontSize: fontSizes.helper }]} numberOfLines={3}>
+                {locationSection.detectedAddress}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionHeaderLeft}>
+            <Icon name="home" size={18} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>
+              {t('registration.address.permanent')}
+            </Text>
+          </View>
+          <View style={[styles.progressChip, { backgroundColor: colors.infoLight }]}>
+            <Text style={[styles.progressChipText, { color: colors.primary, fontSize: fontSizes.helper }]}>
+              {permanentFilledCount}/6
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.row}>
           {renderInput(
             t('registration.address.apartment'),
@@ -535,7 +717,8 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             undefined,
             undefined,
             false,
-            t('registration.address.enterApartment')
+            t('registration.address.enterApartment'),
+            apartmentRef
           )}
         </View>
 
@@ -550,11 +733,11 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             undefined,
             undefined,
             false,
-            t('registration.address.enterStreet')
+            t('registration.address.enterStreet'),
+            streetRef
           )}
         </View>
 
-        {/* City and Country row */}
         <View style={styles.row}>
           {renderInput(
             t('registration.address.city'),
@@ -566,12 +749,13 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             undefined,
             undefined,
             false,
-            t('registration.address.enterCity')
+            t('registration.address.enterCity'),
+            cityRef
           )}
           {renderInput(
             t('registration.address.country'),
             permanentAddress.country,
-            () => {}, // Empty function as we handle via dropdown
+            () => {},
             errors.permanent?.country,
             true,
             'default',
@@ -582,19 +766,22 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
           )}
         </View>
 
-        {/* State and Pincode row */}
         <View style={styles.row}>
           {renderInput(
             t('registration.address.state'),
             permanentAddress.state,
-            () => {}, // Empty function as we handle via dropdown
+            () => {},
             errors.permanent?.state,
             true,
             'default',
             undefined,
-            () => permanentAddress.country ? setShowStateDropdown('permanent') : null,
+            () => handleStatePress('permanent'),
             true,
-            permanentAddress.country ? t('registration.address.selectState') : t('registration.address.selectCountryFirst')
+            permanentAddress.country
+              ? t('registration.address.selectState')
+              : t('registration.address.selectCountryFirst'),
+            undefined,
+            !permanentAddress.country
           )}
           {renderInput(
             t('registration.address.pincode'),
@@ -606,37 +793,47 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             6,
             undefined,
             false,
-            t('registration.address.enterPincode')
+            t('registration.address.enterPincode'),
+            pincodeRef
           )}
         </View>
       </View>
 
-      {/* Same as Permanent Checkbox */}
-      <View style={styles.checkboxContainer}>
-        <TouchableOpacity
-          style={styles.checkbox}
-          onPress={handleSameAddressToggle}
-        >
-          <View style={[
-            styles.checkboxBox, 
-            { borderColor: colors.primary },
-            isSameAddress && [styles.checkboxChecked, { backgroundColor: colors.primary }]
-          ]}>
-            {isSameAddress && <Text style={[styles.checkmark, { color: '#fff' }]}>✓</Text>}
-          </View>
+      <TouchableOpacity
+        style={[
+          styles.sameAddressCard,
+          {
+            borderColor: isSameAddress ? colors.primary : colors.border,
+            backgroundColor: isSameAddress ? colors.infoLight : colors.card,
+          },
+        ]}
+        onPress={handleSameAddressToggle}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.checkboxBox, { borderColor: colors.primary }, isSameAddress && { backgroundColor: colors.primary }]}>
+          {isSameAddress ? <Icon name="check" size={14} color="#fff" /> : null}
+        </View>
+        <View style={styles.sameAddressTextWrap}>
           <Text style={[styles.checkboxLabel, { color: colors.text, fontSize: fontSizes.checkbox }]}>
             {t('registration.address.sameAsPermanent')}
           </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Correspondence Address (only show if not same) */}
-      {!isSameAddress && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>
-            {t('registration.address.correspondence')}
+          <Text style={[styles.sameAddressHint, { color: colors.textSecondary, fontSize: fontSizes.helper }]}>
+            {t('registration.address.sameAsPermanentHint', {
+              defaultValue: 'Use the same address for correspondence',
+            })}
           </Text>
-          
+        </View>
+      </TouchableOpacity>
+
+      {!isSameAddress ? (
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.sectionHeaderLeft, { marginBottom: 14 }]}>
+            <Icon name="local-shipping" size={18} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.primary, fontSize: fontSizes.sectionTitle }]}>
+              {t('registration.address.correspondence')}
+            </Text>
+          </View>
+
           <View style={styles.row}>
             {renderInput(
               t('registration.address.apartment'),
@@ -667,7 +864,6 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             )}
           </View>
 
-          {/* City and Country row */}
           <View style={styles.row}>
             {renderInput(
               t('registration.address.city'),
@@ -684,7 +880,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             {renderInput(
               t('registration.address.country'),
               correspondenceAddress.country,
-              () => {}, // Empty function as we handle via dropdown
+              () => {},
               errors.correspondence?.country,
               true,
               'default',
@@ -695,19 +891,22 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             )}
           </View>
 
-          {/* State and Pincode row */}
           <View style={styles.row}>
             {renderInput(
               t('registration.address.state'),
               correspondenceAddress.state,
-              () => {}, // Empty function as we handle via dropdown
+              () => {},
               errors.correspondence?.state,
               true,
               'default',
               undefined,
-              () => correspondenceAddress.country ? setShowStateDropdown('correspondence') : null,
+              () => handleStatePress('correspondence'),
               true,
-              correspondenceAddress.country ? t('registration.address.selectState') : t('registration.address.selectCountryFirst')
+              correspondenceAddress.country
+                ? t('registration.address.selectState')
+                : t('registration.address.selectCountryFirst'),
+              undefined,
+              !correspondenceAddress.country
             )}
             {renderInput(
               t('registration.address.pincode'),
@@ -723,7 +922,7 @@ const AddressComponent: React.FC<AddressComponentProps> = ({
             )}
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* Country Dropdown Modal */}
       {renderDropdown(
@@ -782,31 +981,132 @@ const isSmallScreen = width < 375;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 4,
+    paddingBottom: 8,
   },
   title: {
-    fontWeight: '600',
-    marginBottom: 20,
+    fontWeight: '700',
+    marginBottom: 6,
   },
-  section: {
-    marginBottom: 24,
+  subtitle: {
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  card: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
+  cardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeaderText: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontWeight: '700',
+  },
+  cardHint: {
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  savedLocationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  savedLocationText: {
+    flex: 1,
+    lineHeight: 18,
+  },
+  locationActions: {
+    gap: 8,
+  },
+  locationActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  locationActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationActionLabel: {
+    flex: 1,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  detectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 12,
+  },
+  detectedText: {
+    flex: 1,
+    lineHeight: 18,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sectionTitle: {
-    fontWeight: '600',
-    marginBottom: 16,
+    fontWeight: '700',
+  },
+  progressChip: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  progressChipText: {
+    fontWeight: '700',
   },
   row: {
     flexDirection: isSmallScreen ? 'column' : 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   inputContainer: {
     flex: 1,
-    marginBottom: 12,
-    marginHorizontal: 4,
+    marginBottom: 10,
+    marginHorizontal: 2,
   },
   halfWidth: {
-    flex: 0.48,
+    flex: isSmallScreen ? 1 : 0.48,
   },
   label: {
     fontWeight: '500',
@@ -818,13 +1118,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderRadius: 6,
-    padding: 12,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     width: '100%',
   },
   dropdownInput: {
-    backgroundColor: '#f9f9f9',
-    paddingRight: 40,
+    paddingRight: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -833,54 +1133,37 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 8,
   },
-  inputError: {
-    borderColor: '#d32f2f',
-  },
-  placeholderText: {
-    color: '#999',
-  },
   errorText: {
     marginTop: 4,
   },
-  checkboxContainer: {
-    marginBottom: 24,
-  },
-  checkbox: {
+  sameAddressCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  sameAddressTextWrap: {
+    flex: 1,
+  },
+  sameAddressHint: {
+    marginTop: 2,
+    lineHeight: 16,
   },
   checkboxBox: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderWidth: 2,
-    borderRadius: 4,
-    marginRight: 12,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#1976d2',
-  },
-  checkmark: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    marginTop: 2,
   },
   checkboxLabel: {
-    fontSize: 16,
+    fontWeight: '600',
   },
-  // Dropdown icon styles
-  dropdownIconContainer: {
-    position: 'absolute',
-    right: 12,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    pointerEvents: 'none',
-  },
-  dropdownIcon: {
-    fontSize: 12,
-  },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -910,13 +1193,17 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  dropdownList: {
+    maxHeight: 360,
   },
   dropdownItem: {
-    padding: 16,
-    borderBottomWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   dropdownItemText: {
     fontSize: 16,

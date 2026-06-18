@@ -11,22 +11,79 @@ import {
   Alert,
   Modal,
   BackHandler,
-  Image,
+  ActivityIndicator,
 } from 'react-native';
-import { X } from 'lucide-react-native';
-import Icon from 'react-native-vector-icons/FontAwesome6';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import TnC from '../TermsAndConditions/TnC';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
 import utilsInstance from '../services/utilsInstance';
+import {
+  RegistrationKeyboardAccessory,
+  RegistrationAndroidKeyboardBar,
+  registrationKeyboardInputProps,
+} from '../common/RegistrationKeyboardAccessory';
 
 interface ContactUsProps {
   onBack?: () => void;
 }
 
+type SocialLink = {
+  id: string;
+  icon: string;
+  color: string;
+  darkColor?: string;
+  url: string;
+  label: string;
+};
+
+const SOCIAL_LINKS: SocialLink[] = [
+  {
+    id: 'linkedin',
+    icon: 'linkedin',
+    color: '#0077B5',
+    url: 'https://www.linkedin.com/in/serveaso-media-7b7719381/',
+    label: 'LinkedIn',
+  },
+  {
+    id: 'facebook',
+    icon: 'facebook',
+    color: '#1877F2',
+    url: 'https://www.facebook.com/profile.php?id=61572701168852',
+    label: 'Facebook',
+  },
+  {
+    id: 'instagram',
+    icon: 'instagram',
+    color: '#E4405F',
+    url: 'https://www.instagram.com/serveaso?igsh=cHQxdmdubnZocjRn',
+    label: 'Instagram',
+  },
+  {
+    id: 'youtube',
+    icon: 'youtube',
+    color: '#FF0000',
+    url: 'https://www.youtube.com/@ServEaso',
+    label: 'YouTube',
+  },
+  {
+    id: 'twitter',
+    icon: 'twitter',
+    color: '#1DA1F2',
+    url: 'https://x.com/ServEaso',
+    label: 'X',
+  },
+];
+
+const HORIZONTAL_GUTTER = 10;
+
 const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
   const { colors, isDarkMode, fontSize } = useTheme();
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -38,8 +95,7 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
     switch (fontSize) {
       case 'small':
         return {
-          headerTitle: 18,
-          heading: 22,
+          heading: 20,
           subheading: 13,
           bodyText: 12,
           labelText: 12,
@@ -50,8 +106,7 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
         };
       case 'large':
         return {
-          headerTitle: 22,
-          heading: 28,
+          heading: 26,
           subheading: 16,
           bodyText: 15,
           labelText: 15,
@@ -62,8 +117,7 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
         };
       default:
         return {
-          headerTitle: 20,
-          heading: 24,
+          heading: 22,
           subheading: 14,
           bodyText: 14,
           labelText: 14,
@@ -77,7 +131,14 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
 
   const fontSizes = getFontSizes();
 
-  // Handle back button press
+  const benefitItems = [
+    t('contact.benefit1'),
+    t('contact.benefit2'),
+    t('contact.benefit3'),
+    t('contact.benefit4'),
+    t('contact.benefit5'),
+  ];
+
   const handleBackPress = () => {
     if (onBack) {
       onBack();
@@ -86,7 +147,6 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
     return false;
   };
 
-  // Set up back handler when component mounts
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
@@ -98,208 +158,241 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
     const trimmedMessage = message.trim();
 
     if (!trimmedName || !trimmedEmail || !trimmedMessage) {
-      Alert.alert("Error", "Please fill in all required fields.");
+      Alert.alert(t('common.error', { defaultValue: 'Error' }), t('contact.fillRequired'));
       return;
     }
 
     if (!isAgreed) {
-      Alert.alert("Error", "Please agree to the Terms and Conditions");
+      Alert.alert(t('common.error', { defaultValue: 'Error' }), t('contact.agreeRequired'));
       return;
     }
 
     setSubmitting(true);
     try {
-      await utilsInstance.post("/api/contact-us", {
+      await utilsInstance.post('/api/contact-us', {
         name: trimmedName,
         email: trimmedEmail,
         message: trimmedMessage,
-        source: "ios",
+        source: 'ios',
       });
-      Alert.alert("Success", "Your request has been submitted!");
-      setName("");
-      setEmail("");
-      setMessage("");
+      Alert.alert(t('contact.success'), t('contact.successMsg'));
+      setName('');
+      setEmail('');
+      setMessage('');
       setIsAgreed(false);
     } catch (err: unknown) {
       const apiMessage =
         err &&
-        typeof err === "object" &&
-        "response" in err &&
+        typeof err === 'object' &&
+        'response' in err &&
         err.response &&
-        typeof err.response === "object" &&
-        "data" in err.response &&
+        typeof err.response === 'object' &&
+        'data' in err.response &&
         err.response.data &&
-        typeof err.response.data === "object" &&
-        "error" in err.response.data &&
-        typeof err.response.data.error === "string"
+        typeof err.response.data === 'object' &&
+        'error' in err.response.data &&
+        typeof err.response.data.error === 'string'
           ? err.response.data.error
-          : "We could not send your message. Please try again or email support@serveaso.com directly.";
-      Alert.alert("Error", apiMessage);
+          : t('contact.failedMsg');
+      Alert.alert(t('contact.failed'), apiMessage);
     } finally {
       setSubmitting(false);
     }
   };
 
   const goHome = () => {
-    if (onBack) {
-      onBack();
-    }
+    onBack?.();
   };
 
-  const handleEmailPress = () => {
-    Linking.openURL('mailto:support@serveaso.com');
-  };
-
-  const handlePhonePress = () => {
-    Linking.openURL('tel:+918792827744');
-  };
-
-  const handleWhatsAppPress = () => {
-    Linking.openURL('https://wa.me/918792827744');
-  };
-
-  const openSocialLink = (url: string) => {
+  const openLink = (url: string) => {
     Linking.openURL(url);
   };
 
-  const openAppStore = () => {
-    Linking.openURL('https://apps.apple.com');
-  };
-
-  const openPlayStore = () => {
-    Linking.openURL('https://play.google.com');
-  };
+  const renderContactAction = (
+    iconName: string,
+    iconFamily: 'material' | 'community',
+    iconColor: string,
+    iconBg: string,
+    label: string,
+    value: string,
+    onPress: () => void
+  ) => (
+    <TouchableOpacity
+      style={[styles.actionRow, { borderColor: colors.border, backgroundColor: colors.surface }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.actionIconWrap, { backgroundColor: iconBg }]}>
+        {iconFamily === 'community' ? (
+          <MaterialCommunityIcon name={iconName} size={22} color={iconColor} />
+        ) : (
+          <MaterialIcon name={iconName} size={22} color={iconColor} />
+        )}
+      </View>
+      <View style={styles.actionTextWrap}>
+        <Text style={[styles.actionLabel, { color: colors.textSecondary, fontSize: fontSizes.bodyText - 1 }]}>
+          {label}
+        </Text>
+        <Text style={[styles.actionValue, { color: colors.text, fontSize: fontSizes.contactText }]} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
+      <MaterialIcon name="chevron-right" size={22} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header with Gradient and Logo */}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <LinearGradient
         colors={[...BOOKING_HEADER_GRADIENT]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerGradient, { paddingTop: Platform.OS === 'ios' ? 50 : 30 }]}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerGradient}
       >
         <View style={styles.headerContent}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.headerSideSlot, styles.headerBackBtn]}
             onPress={goHome}
             accessibilityLabel="Go back"
           >
-            <Icon name="arrow-left" size={22} color="#ffffff" />
+            <MaterialCommunityIcon name="arrow-left" size={24} color="#ffffff" />
           </TouchableOpacity>
-          
-          <View style={styles.logoContainer}>
-            <Image
-              source={require("../../assets/images/serveasologo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+
+          <View style={styles.headerTitleBlock} pointerEvents="none">
+            <Text
+              style={[styles.headerTitle, { fontSize: fontSizes.heading }]}
+              numberOfLines={1}
+            >
+              {t('contact.title', { defaultValue: 'Contact Us' })}
+            </Text>
+            <Text style={styles.headerSubtitle} numberOfLines={2}>
+              {t('contact.subtitle', { defaultValue: "We're here to help! Reach out to us anytime." })}
+            </Text>
           </View>
-          
-          {/* <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={goHome}
-          >
-            <X size={Platform.OS === 'ios' ? 24 : 22} color="#ffffff" />
-          </TouchableOpacity> */}
+
+          <View style={styles.headerSideSlot} />
         </View>
-        <Text style={[styles.headerSubtitle, { fontSize: fontSizes.subheading }]}>
-          We're here to help and answer any questions you might have
-        </Text>
       </LinearGradient>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         <View style={styles.contentWrapper}>
-          {/* Form Section */}
-          <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border + '30' }]}>
-            <Text style={[styles.mainHeading, { color: colors.text, fontSize: fontSizes.heading }]}>
-              Get in touch with us
-            </Text>
-            <Text style={[styles.description, { color: colors.textSecondary, fontSize: fontSizes.bodyText }]}>
-              Fill out the form below and we'll get back to you as soon as possible.
-            </Text>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconWrap, { backgroundColor: colors.infoLight }]}>
+                <MaterialIcon name="mail-outline" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.cardHeaderText}>
+                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading - 2 }]}>
+                  {t('contact.formTitle')}
+                </Text>
+                <Text style={[styles.cardHint, { color: colors.textSecondary, fontSize: fontSizes.bodyText }]}>
+                  {t('contact.formDescription')}
+                </Text>
+              </View>
+            </View>
 
             <View style={styles.form}>
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.labelText }]}>Full Name</Text>
+                <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.labelText }]}>
+                  {t('contact.fullName')}
+                </Text>
                 <TextInput
+                  {...registrationKeyboardInputProps}
                   style={[
-                    styles.input, 
-                    { 
-                      backgroundColor: colors.surface, 
+                    styles.input,
+                    {
+                      backgroundColor: colors.surface,
                       borderColor: colors.border,
                       color: colors.text,
-                      fontSize: fontSizes.inputText
-                    }
+                      fontSize: fontSizes.inputText,
+                    },
                   ]}
-                  placeholder="Your name"
-                  placeholderTextColor={colors.textSecondary + '80'}
+                  placeholder={t('contact.namePlaceholder')}
+                  placeholderTextColor={colors.placeholder}
                   value={name}
                   onChangeText={setName}
+                  autoCapitalize="words"
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.labelText }]}>Email Address</Text>
+                <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.labelText }]}>
+                  {t('contact.emailAddress')}
+                </Text>
                 <TextInput
+                  {...registrationKeyboardInputProps}
                   style={[
-                    styles.input, 
-                    { 
-                      backgroundColor: colors.surface, 
+                    styles.input,
+                    {
+                      backgroundColor: colors.surface,
                       borderColor: colors.border,
                       color: colors.text,
-                      fontSize: fontSizes.inputText
-                    }
+                      fontSize: fontSizes.inputText,
+                    },
                   ]}
-                  placeholder="Enter Your Email"
-                  placeholderTextColor={colors.textSecondary + '80'}
+                  placeholder={t('contact.emailPlaceholder')}
+                  placeholderTextColor={colors.placeholder}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  autoCorrect={false}
                   value={email}
                   onChangeText={setEmail}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.labelText }]}>Message</Text>
+                <Text style={[styles.label, { color: colors.text, fontSize: fontSizes.labelText }]}>
+                  {t('contact.message')}
+                </Text>
                 <TextInput
+                  {...registrationKeyboardInputProps}
                   style={[
-                    styles.input, 
-                    styles.textArea, 
-                    { 
-                      backgroundColor: colors.surface, 
+                    styles.input,
+                    styles.textArea,
+                    {
+                      backgroundColor: colors.surface,
                       borderColor: colors.border,
                       color: colors.text,
-                      fontSize: fontSizes.inputText
-                    }
+                      fontSize: fontSizes.inputText,
+                    },
                   ]}
-                  placeholder="Enter Your Message"
-                  placeholderTextColor={colors.textSecondary + '80'}
-                  multiline={true}
+                  placeholder={t('contact.messagePlaceholder')}
+                  placeholderTextColor={colors.placeholder}
+                  multiline
                   numberOfLines={4}
+                  textAlignVertical="top"
                   value={message}
                   onChangeText={setMessage}
                 />
               </View>
 
-              <View style={styles.checkboxContainer}>
-                <TouchableOpacity 
-                  style={[styles.checkbox, isAgreed && styles.checkboxChecked]} 
-                  onPress={() => setIsAgreed(!isAgreed)}
+              <TouchableOpacity
+                style={styles.termsRow}
+                onPress={() => setIsAgreed(!isAgreed)}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    { borderColor: colors.primary },
+                    isAgreed && { backgroundColor: colors.primary },
+                  ]}
                 >
-                  {isAgreed && <Icon name="check" size={12} color="white" />}
-                </TouchableOpacity>
+                  {isAgreed ? <MaterialIcon name="check" size={14} color="#fff" /> : null}
+                </View>
                 <Text style={[styles.termsText, { color: colors.textSecondary, fontSize: fontSizes.bodyText }]}>
-                  I agree with{' '}
-                  <Text style={[styles.termsLink, { color: colors.primary }]} onPress={() => setShowTnC(true)}>
-                    Terms and Conditions
+                  {t('contact.agreeTerms')}{' '}
+                  <Text style={{ color: colors.primary }} onPress={() => setShowTnC(true)}>
+                    {t('contact.termsLink')}
                   </Text>
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
@@ -309,91 +402,86 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
                 onPress={handleSubmit}
                 disabled={submitting}
               >
-                <Text style={[styles.submitButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                  {submitting ? "Sending…" : "Send Your Request"}
-                </Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.submitButtonText, { fontSize: fontSizes.buttonText }]}>
+                    {t('contact.send')}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Contact Methods */}
-          <View style={[styles.contactCard, { backgroundColor: colors.card, borderColor: colors.border + '30' }]}>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading - 4 }]}>
-              Contact Methods
+              {t('contact.contactMethods')}
             </Text>
-            <View style={styles.contactMethods}>
-              <TouchableOpacity 
-                style={[styles.contactMethod, { backgroundColor: colors.surface }]} 
-                onPress={handlePhonePress}
-              >
-                <View style={[styles.contactIcon, { backgroundColor: colors.primary + '15' }]}>
-                  <Icon name="phone" size={18} color={colors.primary} />
-                </View>
-                <View>
-                  <Text style={[styles.contactLabel, { color: colors.textSecondary, fontSize: fontSizes.bodyText - 2 }]}>
-                    Call Us
-                  </Text>
-                  <Text style={[styles.contactText, { color: colors.text, fontSize: fontSizes.contactText }]}>
-                    +91-8792827744
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.contactMethod, { backgroundColor: colors.surface }]} 
-                onPress={handleEmailPress}
-              >
-                <View style={[styles.contactIcon, { backgroundColor: colors.primary + '15' }]}>
-                  <Icon name="envelope" size={18} color={colors.primary} />
-                </View>
-                <View>
-                  <Text style={[styles.contactLabel, { color: colors.textSecondary, fontSize: fontSizes.bodyText - 2 }]}>
-                    Email Us
-                  </Text>
-                  <Text style={[styles.contactText, { color: colors.text, fontSize: fontSizes.contactText }]}>
-                    support@serveaso.com
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.contactMethod, { backgroundColor: colors.surface }]} 
-                onPress={handleWhatsAppPress}
-              >
-                <View style={[styles.contactIcon, { backgroundColor: '#25D366' + '15' }]}>
-                  <Icon name="whatsapp" size={18} color="#25D366" />
-                </View>
-                <View>
-                  <Text style={[styles.contactLabel, { color: colors.textSecondary, fontSize: fontSizes.bodyText - 2 }]}>
-                    WhatsApp
-                  </Text>
-                  <Text style={[styles.contactText, { color: colors.text, fontSize: fontSizes.contactText }]}>
-                    +91-8792827744
-                  </Text>
-                </View>
-              </TouchableOpacity>
+            <View style={styles.actionList}>
+              {renderContactAction(
+                'phone',
+                'material',
+                colors.primary,
+                colors.infoLight,
+                t('contact.callUs'),
+                '+91-8792827744',
+                () => openLink('tel:+918792827744')
+              )}
+              {renderContactAction(
+                'email',
+                'material',
+                colors.primary,
+                colors.infoLight,
+                t('contact.emailUs'),
+                'support@serveaso.com',
+                () => openLink('mailto:support@serveaso.com')
+              )}
+              {renderContactAction(
+                'whatsapp',
+                'community',
+                '#25D366',
+                '#25D36622',
+                t('contact.whatsapp'),
+                '+91-8792827744',
+                () => openLink('https://wa.me/918792827744')
+              )}
             </View>
           </View>
 
-          {/* Benefits Section */}
-          <View style={[styles.benefitsCard, { backgroundColor: colors.card, borderColor: colors.border + '30' }]}>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.officeHeader}>
+              <MaterialIcon name="schedule" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading - 4, marginBottom: 0 }]}>
+                {t('contact.officeHours')}
+              </Text>
+            </View>
+            <View style={[styles.hoursBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.hoursLine, { color: colors.text, fontSize: fontSizes.bodyText }]}>
+                {t('contact.weekdays')}
+              </Text>
+              <Text style={[styles.hoursLine, { color: colors.text, fontSize: fontSizes.bodyText }]}>
+                {t('contact.weekend')}
+              </Text>
+              <Text style={[styles.hoursLine, { color: colors.textSecondary, fontSize: fontSizes.bodyText }]}>
+                {t('contact.sunday')}
+              </Text>
+              <View style={[styles.emergencyBadge, { backgroundColor: colors.successLight }]}>
+                <MaterialIcon name="support-agent" size={16} color={colors.success} />
+                <Text style={[styles.emergencyText, { color: colors.success, fontSize: fontSizes.bodyText - 1 }]}>
+                  {t('contact.emergency')}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading - 4 }]}>
-              Why Choose Serveaso?
+              {t('contact.whyChoose')}
             </Text>
             <View style={styles.benefitsList}>
-              {[
-                'Professional and verified service providers',
-                'Flexible booking options to suit your schedule',
-                'Transparent pricing with no hidden costs',
-                '24/7 customer support for your convenience',
-                'Secure and hassle-free payment system',
-              ].map((item, index) => (
+              {benefitItems.map((item, index) => (
                 <View key={index} style={styles.benefitItem}>
-                  <View style={[styles.benefitNumber, { backgroundColor: colors.primary + '15' }]}>
-                    <Text style={[styles.benefitNumberText, { color: colors.primary, fontSize: fontSizes.benefitText - 2 }]}>
-                      {index + 1}
-                    </Text>
-                  </View>
+                  <MaterialIcon name="check-circle" size={18} color={colors.success} />
                   <Text style={[styles.benefitText, { color: colors.textSecondary, fontSize: fontSizes.benefitText }]}>
                     {item}
                   </Text>
@@ -402,95 +490,86 @@ const ContactUs: React.FC<ContactUsProps> = ({ onBack }) => {
             </View>
           </View>
 
-          {/* Social Links */}
-          <View style={[styles.socialCard, { backgroundColor: colors.card, borderColor: colors.border + '30' }]}>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading - 4 }]}>
-              Follow Us
+              {t('contact.followUs')}
             </Text>
-            <View style={styles.socialIcons}>
-              <TouchableOpacity 
-                style={[styles.socialIcon, { backgroundColor: colors.surface }]}
-                onPress={() => openSocialLink('https://www.linkedin.com/in/serveaso-media-7b7719381/')}
-              >
-                <Icon name="linkedin" size={22} color="#0077B5" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.socialIcon, { backgroundColor: colors.surface }]}
-                onPress={() => openSocialLink('https://www.facebook.com/profile.php?id=61572701168852')}
-              >
-                <Icon name="facebook" size={22} color="#1877F2" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.socialIcon, { backgroundColor: colors.surface }]}
-                onPress={() => openSocialLink('https://www.instagram.com/serveaso?igsh=cHQxdmdubnZocjRn')}
-              >
-                <Icon name="instagram" size={22} color="#E4405F" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.socialIcon, { backgroundColor: colors.surface }]}
-                onPress={() => openSocialLink('https://www.youtube.com/@ServEaso')}
-              >
-                <Icon name="youtube" size={22} color="#FF0000" />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.socialIcon, { backgroundColor: colors.surface }]}
-                onPress={() => openSocialLink('https://x.com/ServEaso')}
-              >
-                <Icon name="x-twitter" size={22} color="#000000" />
-              </TouchableOpacity>
+            <View style={styles.socialGrid}>
+              {SOCIAL_LINKS.map((social) => (
+                <TouchableOpacity
+                  key={social.id}
+                  style={[styles.socialButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => openLink(social.url)}
+                  accessibilityLabel={social.label}
+                >
+                  <MaterialCommunityIcon
+                    name={social.icon}
+                    size={24}
+                    color={isDarkMode && social.darkColor ? social.darkColor : social.color}
+                  />
+                  <Text style={[styles.socialLabel, { color: colors.textSecondary, fontSize: fontSizes.bodyText - 2 }]}>
+                    {social.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
-          {/* Store Links */}
-          <View style={[styles.storeCard, { backgroundColor: colors.card, borderColor: colors.border + '30' }]}>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.heading - 4 }]}>
-              Download Our App
+              {t('contact.downloadApp')}
             </Text>
-            <View style={styles.storeIcons}>
-              <TouchableOpacity 
-                style={[styles.storeIcon, { backgroundColor: colors.surface }]}
-                onPress={openPlayStore}
+            <View style={styles.storeRow}>
+              <TouchableOpacity
+                style={[styles.storeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => openLink('https://play.google.com')}
               >
-                <Icon name="google-play" size={28} color="#3DDC84" />
-                <Text style={[styles.storeText, { color: colors.text, fontSize: fontSizes.bodyText }]}>Google Play</Text>
+                <MaterialCommunityIcon name="google-play" size={28} color="#3DDC84" />
+                <Text style={[styles.storeText, { color: colors.text, fontSize: fontSizes.bodyText }]}>
+                  {t('contact.googlePlay')}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.storeIcon, { backgroundColor: colors.surface }]}
-                onPress={openAppStore}
+              <TouchableOpacity
+                style={[styles.storeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => openLink('https://apps.apple.com')}
               >
-                <Icon name="app-store-ios" size={28} color="#000000" />
-                <Text style={[styles.storeText, { color: colors.text, fontSize: fontSizes.bodyText }]}>App Store</Text>
+                <MaterialCommunityIcon name="apple" size={28} color={colors.text} />
+                <Text style={[styles.storeText, { color: colors.text, fontSize: fontSizes.bodyText }]}>
+                  {t('contact.appStore')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Terms and Conditions Modal */}
-      <Modal
-        visible={showTnC}
-        animationType="slide"
-        onRequestClose={() => setShowTnC(false)}
-      >
-        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+      <RegistrationKeyboardAccessory />
+      <RegistrationAndroidKeyboardBar />
+
+      <Modal visible={showTnC} animationType="slide" onRequestClose={() => setShowTnC(false)}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
           <LinearGradient
             colors={[...BOOKING_HEADER_GRADIENT]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            end={{ x: 1, y: 0 }}
             style={styles.modalHeader}
           >
-            <Text style={[styles.modalTitle, { fontSize: fontSizes.heading - 4 }]}>Terms and Conditions</Text>
-            <TouchableOpacity 
-              style={styles.modalCloseButton}
+            <TouchableOpacity
+              style={[styles.headerSideSlot, styles.headerBackBtn]}
               onPress={() => setShowTnC(false)}
+              accessibilityLabel="Close"
             >
-              <X size={24} color="#ffffff" />
+              <MaterialCommunityIcon name="arrow-left" size={24} color="#ffffff" />
             </TouchableOpacity>
+            <Text style={[styles.modalTitle, { fontSize: fontSizes.heading - 2 }]}>
+              {t('contact.termsLink', { defaultValue: 'Terms and Conditions' })}
+            </Text>
+            <View style={styles.headerSideSlot} />
           </LinearGradient>
           <TnC />
-        </View>
+        </SafeAreaView>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -500,245 +579,250 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     width: '100%',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingBottom: 20,
+    alignSelf: 'stretch',
+    paddingBottom: 12,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    width: '100%',
+    minHeight: 68,
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    position: 'relative',
   },
-  backButton: {
+  headerSideSlot: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderRadius: 20,
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    flexShrink: 0,
   },
-logoContainer: {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-},
-logo: {
-  width: 200,
-  height: 100,
-  resizeMode: 'contain',
-  transform: [{ scale: 1.7 }], // 30% zoom
-},
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
+  headerBackBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.20)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  headerTitleBlock: {
+    position: 'absolute',
+    left: 52,
+    right: 52,
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  headerTitle: {
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textAlign: 'center',
   },
   headerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(219, 234, 254, 0.95)',
     textAlign: 'center',
-    marginTop: 8,
+    fontSize: 13,
+    marginTop: 4,
     fontWeight: '500',
-    paddingHorizontal: 24,
+    lineHeight: 18,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 12,
     paddingBottom: 40,
   },
   contentWrapper: {
-    gap: 16,
+    gap: 14,
   },
-  formCard: {
-    borderRadius: 20,
-    padding: 20,
+  card: {
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  mainHeading: {
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  cardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeaderText: {
+    flex: 1,
+  },
+  cardTitle: {
     fontWeight: '700',
-    marginBottom: 8,
   },
-  description: {
-    marginBottom: 20,
+  cardHint: {
+    marginTop: 4,
     lineHeight: 20,
   },
   form: {
-    gap: 16,
+    gap: 14,
   },
   inputGroup: {
-    gap: 8,
+    gap: 6,
   },
   label: {
     fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   textArea: {
-    height: 100,
-    textAlignVertical: 'top',
+    minHeight: 110,
   },
-  checkboxContainer: {
+  termsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 2,
   },
   checkbox: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
     borderRadius: 6,
-    marginRight: 10,
-    justifyContent: 'center',
     alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#4f46e5',
-    borderColor: '#4f46e5',
+    justifyContent: 'center',
+    marginTop: 1,
   },
   termsText: {
     flex: 1,
-  },
-  termsLink: {
-    textDecorationLine: 'underline',
+    lineHeight: 20,
   },
   submitButton: {
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    minHeight: 48,
+    marginTop: 4,
   },
   submitButtonText: {
+    color: '#fff',
     fontWeight: '700',
-  },
-  contactCard: {
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
   },
   sectionTitle: {
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  contactMethods: {
-    gap: 12,
+  actionList: {
+    gap: 8,
   },
-  contactMethod: {
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    gap: 14,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  contactIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  actionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  contactLabel: {
+  actionTextWrap: {
+    flex: 1,
+  },
+  actionLabel: {
     marginBottom: 2,
   },
-  contactText: {
-    fontWeight: '500',
+  actionValue: {
+    fontWeight: '600',
   },
-  benefitsCard: {
-    borderRadius: 20,
-    padding: 20,
+  officeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  hoursBox: {
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: 10,
+    padding: 14,
+    gap: 6,
+  },
+  hoursLine: {
+    lineHeight: 20,
+  },
+  emergencyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  emergencyText: {
+    fontWeight: '600',
   },
   benefitsList: {
-    gap: 12,
+    gap: 10,
   },
   benefitItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  benefitNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  benefitNumberText: {
-    fontWeight: '700',
+    alignItems: 'flex-start',
+    gap: 10,
   },
   benefitText: {
     flex: 1,
     lineHeight: 20,
   },
-  socialCard: {
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  socialIcons: {
+  socialGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
-  socialIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  socialButton: {
+    width: '30%',
+    minWidth: 96,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  storeCard: {
-    borderRadius: 20,
-    padding: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    gap: 6,
   },
-  storeIcons: {
+  socialLabel: {
+    fontWeight: '500',
+  },
+  storeRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
-  storeIcon: {
+  storeButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 10,
+    borderWidth: 1,
     gap: 8,
   },
   storeText: {
@@ -749,19 +833,17 @@ logo: {
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingBottom: 12,
+    minHeight: 68,
   },
   modalTitle: {
+    flex: 1,
     fontWeight: '700',
     color: '#fff',
     textAlign: 'center',
-    flex: 1,
-  },
-  modalCloseButton: {
-    padding: 4,
+    letterSpacing: -0.3,
   },
 });
 

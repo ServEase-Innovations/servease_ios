@@ -1900,68 +1900,19 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
               }}
               onSameAddressToggle={handleSameAddressToggle}
               isSameAddress={isSameAddress}
+              onScrollInputIntoView={scrollInputIntoView}
+              locationSection={{
+                onFetchLocation: fetchLocationData,
+                onSelectFromMap: () => {
+                  setPendingMapSelection(null);
+                  setMapPickerOpen(true);
+                },
+                locationLoading,
+                detectedAddress: formData.currentLocation || undefined,
+                hasCoordinates: formData.latitude !== 0 || formData.longitude !== 0,
+                savedAddressPreview: formatServiceAddressFromGeoLocation(geoLocation) || undefined,
+              }}
             />
-
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.cardHeader}>
-                <Icon name="location-on" size={22} color={colors.primary} />
-                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>Current Location</Text>
-              </View>
-              <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                Use your current location to auto-fill address details
-              </Text>
-
-              <View style={styles.locationButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.locationButton,
-                    styles.locationButtonHalf,
-                    { backgroundColor: colors.primary },
-                    locationLoading && styles.buttonDisabled,
-                  ]}
-                  onPress={fetchLocationData}
-                  disabled={locationLoading}
-                >
-                  {locationLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Icon name="my-location" size={18} color="#fff" />
-                      <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>
-                        Fetch Current Location
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.locationButtonOutline,
-                    styles.locationButtonHalf,
-                    { borderColor: colors.primary },
-                    locationLoading && styles.buttonDisabled,
-                  ]}
-                  onPress={() => {
-                    setPendingMapSelection(null);
-                    setMapPickerOpen(true);
-                  }}
-                  disabled={locationLoading}
-                >
-                  <Icon name="map" size={18} color={colors.primary} />
-                  <Text style={[styles.buttonText, { color: colors.primary, fontSize: fontSizes.button }]}>
-                    Select from Map
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {(formData.latitude !== 0 || formData.longitude !== 0) && (
-                <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
-                  <Text style={[styles.alertText, { color: colors.success, fontSize: fontSizes.small }]}>
-                    <Text style={{ fontWeight: 'bold' }}>Detected:</Text> {formData.currentLocation || "No address available"}
-                  </Text>
-                </View>
-              )}
-            </View>
           </View>
         );
 
