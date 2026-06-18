@@ -11,6 +11,12 @@ export interface PaymentTotals {
   total_amount: number;
 }
 
+export interface CheckoutWalletSplit {
+  wallet_applied: number;
+  razorpay_amount: number;
+  remaining_wallet: number;
+}
+
 export function computePaymentTotals(baseAmount: number): PaymentTotals {
   const base = Math.round(Number(baseAmount) * 100) / 100;
   if (!Number.isFinite(base) || base <= 0) {
@@ -32,6 +38,32 @@ export function computePaymentTotals(baseAmount: number): PaymentTotals {
     gst,
     taxes_and_fees,
     total_amount,
+  };
+}
+
+export function computeCheckoutWithWallet(
+  totals: PaymentTotals,
+  walletBalance: number,
+  useWallet: boolean
+): CheckoutWalletSplit {
+  const total = totals.total_amount;
+  const balance = Math.max(0, Math.round(Number(walletBalance) * 100) / 100);
+
+  if (!useWallet || total <= 0 || balance <= 0) {
+    return {
+      wallet_applied: 0,
+      razorpay_amount: total,
+      remaining_wallet: balance,
+    };
+  }
+
+  const wallet_applied = Math.round(Math.min(balance, total) * 100) / 100;
+  const razorpay_amount = Math.round((total - wallet_applied) * 100) / 100;
+
+  return {
+    wallet_applied,
+    razorpay_amount,
+    remaining_wallet: Math.round((balance - wallet_applied) * 100) / 100,
   };
 }
 

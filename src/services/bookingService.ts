@@ -16,6 +16,7 @@ export interface BookingPayload {
   service_type: string;
   base_amount: number;
   payment_mode?: "razorpay" | "UPI" | "CASH" | string;
+  use_wallet?: boolean;
   latitude?: number;
   longitude?: number;
   address?: string | null;
@@ -87,21 +88,24 @@ export const BookingService = {
   openRazorpay: async (
     orderId: string,
     amountPaise: number,
-    currency = "INR"
+    currency = "INR",
+    prefill?: { name?: string; email?: string; contact?: string },
+    razorpayKeyId?: string,
+    description = "Booking Payment"
   ): Promise<RazorpayPaymentResponse> => {
     return new Promise((resolve, reject) => {
       const options = {
-        description: "Booking Payment",
+        description,
         image: "https://your-logo-url.com/logo.png",
         currency,
-        key: "rzp_test_SHU1MPGbiCzst9",
+        key: razorpayKeyId || "rzp_test_lTdgjtSRlEwreA",
         amount: amountPaise,
         name: "Serveaso",
         order_id: orderId,
         prefill: {
-          email: "test@example.com",
-          contact: "9999999999",
-          name: "Test User",
+          email: prefill?.email || "test@example.com",
+          contact: prefill?.contact || "9999999999",
+          name: prefill?.name || "Test User",
         },
         theme: { color: "#0ea5e9" },
         notes: {
@@ -130,6 +134,10 @@ export const BookingService = {
         })
         .catch((error: any) => {
           console.error("Razorpay checkout error:", error);
+          if (isPaymentCancelledError(error)) {
+            reject(new PaymentCancelledError());
+            return;
+          }
           reject(error);
         });
     });
@@ -271,6 +279,17 @@ export const BookingService = {
       const engagementData = await BookingService.createEngagement(payload);
       console.log("Engagement data received:", JSON.stringify(engagementData, null, 2));
 
+      if (engagementData?.wallet_only) {
+        return {
+          engagementData,
+          paymentResponse: null,
+          verifyResult: {
+            success: true,
+            message: "Booking paid from wallet balance",
+          },
+        };
+      }
+
       // Extract order id & amount
       const orderId = engagementData?.razorpay_order_id;
 
@@ -283,9 +302,10 @@ export const BookingService = {
 
       // Calculate amount in paise
       let amountPaise: number;
-      
-      // Try to extract amount from various possible locations
-      if (engagementData?.razorpayOrder?.amount) {
+
+      if (engagementData?.razorpay_amount != null) {
+        amountPaise = Math.round(Number(engagementData.razorpay_amount) * 100);
+      } else if (engagementData?.razorpayOrder?.amount) {
         amountPaise = Number(engagementData.razorpayOrder.amount);
       } else if (engagementData?.total_amount != null) {
         amountPaise = Math.round(Number(engagementData.total_amount) * 100);
@@ -302,7 +322,10 @@ export const BookingService = {
       // Open Razorpay
       const paymentResponse = await BookingService.openRazorpay(
         orderId,
-        amountPaise
+        amountPaise,
+        "INR",
+        undefined,
+        engagementData?.razorpay_key_id
       );
 
       // Set engagement ID for verification - try to extract from response
@@ -392,10 +415,27 @@ export const BookingService = {
   },
 };
 
+export const PAYMENT_CANCELLED_MESSAGE = "Payment cancelled";
+
+export class PaymentCancelledError extends Error {
+  constructor(message = PAYMENT_CANCELLED_MESSAGE) {
+    super(message);
+    this.name = "PaymentCancelledError";
+  }
+}
+
 export function isPaymentCancelledError(err: unknown): boolean {
+  if (err instanceof PaymentCancelledError) return true;
   const code = (err as { code?: number })?.code;
   const description = String((err as { description?: string })?.description || "").toLowerCase();
-  return code === 0 || description.includes("cancel");
+  const message = String((err as { message?: string })?.message || "").toLowerCase();
+  return (
+    code === 0 ||
+    code === 2 ||
+    description.includes("cancel") ||
+    message.includes("payment cancelled") ||
+    message.includes("user closed")
+  );
 }
 
 export const BookingServiceExtensions = {

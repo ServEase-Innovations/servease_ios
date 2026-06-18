@@ -9,12 +9,20 @@ export interface PriceBreakdownProps {
   rows: QuoteBreakdownRow[];
   loading?: boolean;
   paymentTotals?: PaymentTotals | null;
+  walletApplied?: number;
+  amountPayable?: number;
+  walletAppliedLabel?: string;
+  walletPayableLabel?: string;
 }
 
 const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
   rows,
   loading,
   paymentTotals,
+  walletApplied = 0,
+  amountPayable,
+  walletAppliedLabel = "Wallet applied",
+  walletPayableLabel = "Pay via Razorpay",
 }) => {
   if (loading || rows.length === 0) return null;
 
@@ -75,10 +83,23 @@ const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         </View>
       ))}
 
+      {walletApplied > 0 ? (
+        <View style={styles.row}>
+          <Text style={[styles.label, styles.labelDiscount]}>{walletAppliedLabel}</Text>
+          <Text style={[styles.amount, styles.amountDiscount]}>−{formatInr(walletApplied)}</Text>
+        </View>
+      ) : null}
+
       {totalRow ? (
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>{totalRow.label}</Text>
-          <Text style={styles.totalAmount}>{formatInr(totalRow.amount)}</Text>
+          <Text style={styles.totalLabel}>
+            {walletApplied > 0 ? walletPayableLabel : totalRow.label}
+          </Text>
+          <Text style={styles.totalAmount}>
+            {formatInr(
+              walletApplied > 0 && amountPayable != null ? amountPayable : totalRow.amount
+            )}
+          </Text>
         </View>
       ) : null}
     </View>

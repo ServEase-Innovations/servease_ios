@@ -48,6 +48,7 @@ import {
 import { buildQuoteBreakdown, type QuoteBreakdownRow } from "../utils/quoteBreakdown";
 import {
   appendPaymentFeeRows,
+  computeCheckoutWithWallet,
   computePaymentTotals,
 } from "../utils/paymentTotals";
 import PriceBreakdown from "./PriceBreakdown";
@@ -59,6 +60,7 @@ import {
   resolveCustomerId,
   type CustomerCoupon,
 } from "../services/couponService";
+import { fetchCustomerWallet } from "../services/walletService";
 import {
   checkOnDemandProviderAvailability,
   ON_DEMAND_NO_PROVIDERS_MESSAGE,
@@ -209,6 +211,9 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponInfo, setCouponInfo] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
 
   useEffect(() => {
     if (!delegateSuccess) {
@@ -231,6 +236,18 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     [serviceTotal]
   );
   const payableTotal = paymentTotals.total_amount || 0;
+  const walletSplit = useMemo(
+    () =>
+      computeCheckoutWithWallet(
+        paymentTotals,
+        walletBalance,
+        useWalletBalance && walletBalance > 0
+      ),
+    [paymentTotals, walletBalance, useWalletBalance]
+  );
+  const payableViaGateway = walletSplit.razorpay_amount;
+  const displayPayableAmount =
+    walletSplit.wallet_applied > 0 ? payableViaGateway : payableTotal;
   const displayBreakdown = useMemo(
     () => appendPaymentFeeRows(quotePreview.breakdown, serviceTotal),
     [quotePreview.breakdown, serviceTotal]
@@ -326,6 +343,44 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     });
   }, [active]);
+
+  useEffect(() => {
+    if (!active || !isCheckoutAuthenticated) {
+      setWalletBalance(0);
+      setUseWalletBalance(false);
+      return;
+    }
+
+    const customerId = resolveCustomerId(appUser);
+    if (!customerId) {
+      setWalletBalance(0);
+      setUseWalletBalance(false);
+      return;
+    }
+
+    let cancelled = false;
+    setWalletLoading(true);
+    void fetchCustomerWallet(customerId)
+      .then((wallet) => {
+        if (cancelled) return;
+        const balance = Math.max(0, Number(wallet.balance ?? 0));
+        setWalletBalance(balance);
+        setUseWalletBalance(balance > 0);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWalletBalance(0);
+          setUseWalletBalance(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWalletLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, appUser, isCheckoutAuthenticated]);
 
   useEffect(() => {
     if (!appliedCouponCode) return;
@@ -690,20 +745,28 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
         pricing_snapshot: quoteRes.quote,
         coupon_code: appliedCouponCode || undefined,
         payment_mode: "razorpay",
+        use_wallet: useWalletBalance && walletBalance > 0,
         end_time: String(bookingType?.endTime || ""),
       };
 
       const result = await BookingService.bookAndPay(payload);
 
+      const paidViaWallet = Boolean(result?.engagementData?.wallet_only);
       const successDetails: BookingSuccessDetails = {
         providerName: providerFullName,
         serviceType: cfg.successServiceLabel,
-        totalAmount: computePaymentTotals(checkoutTotal).total_amount,
+        totalAmount: paidViaWallet
+          ? computePaymentTotals(checkoutTotal).total_amount
+          : walletSplit.wallet_applied > 0
+            ? payableViaGateway
+            : computePaymentTotals(checkoutTotal).total_amount,
         bookingDate: String(bookingType?.startDate || new Date().toISOString().split("T")[0]),
         persons: 1,
         message:
           result?.verifyResult?.message ||
-          "Your booking is confirmed. Payment was successful.",
+          (paidViaWallet
+            ? t("wallet.checkout.paidFromWallet")
+            : "Your booking is confirmed. Payment was successful."),
       };
 
       dispatch(removeFromCart({ type: cfg.cartType }));
@@ -825,13 +888,26 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
 
           <View style={styles.card}>
             <Text style={styles.priceLabel}>
-              {quotePreview.loading ? "Updating price…" : "Amount payable"}
+              {quotePreview.loading
+                ? "Updating price…"
+                : walletSplit.wallet_applied > 0
+                  ? walletSplit.razorpay_amount <= 0
+                    ? t("wallet.checkout.walletAppliedLabel")
+                    : t("wallet.checkout.payViaRazorpay")
+                  : "Amount payable"}
             </Text>
             {quotePreview.loading ? (
               <ActivityIndicator size="small" color="#0b5bd3" style={{ marginVertical: 4 }} />
             ) : (
-              <Text style={styles.priceHero}>{formatInr(payableTotal)}</Text>
+              <Text style={styles.priceHero}>{formatInr(displayPayableAmount)}</Text>
             )}
+            {walletSplit.wallet_applied > 0 ? (
+              <Text style={styles.walletSplitHint}>
+                {walletSplit.razorpay_amount <= 0
+                  ? t("wallet.checkout.coversFullAmount")
+                  : `${t("wallet.checkout.walletAppliedLabel")}: ${formatInr(walletSplit.wallet_applied)} · ${t("wallet.checkout.payViaRazorpay")}: ${formatInr(walletSplit.razorpay_amount)}`}
+              </Text>
+            ) : null}
             <Text style={styles.priceMeta}>
               {checkoutBlockReason ?? bookingTypeDisplay}
             </Text>
@@ -900,10 +976,38 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
               </TouchableOpacity>
             ) : null}
             {couponInfo ? <Text style={styles.couponInfoText}>{couponInfo}</Text> : null}
+
+            {isCheckoutAuthenticated && walletBalance > 0 ? (
+              <TouchableOpacity
+                style={styles.walletCard}
+                onPress={() => setUseWalletBalance((v) => !v)}
+                activeOpacity={0.85}
+                disabled={walletLoading || loading}
+              >
+                <Icon
+                  name={useWalletBalance ? "check-box" : "check-box-outline-blank"}
+                  size={22}
+                  color={useWalletBalance ? "#0b5bd3" : "#94a3b8"}
+                />
+                <View style={styles.walletCardText}>
+                  <Text style={styles.walletCardTitle}>{t("wallet.checkout.useWalletBalance")}</Text>
+                  <Text style={styles.walletCardHint}>
+                    {t("wallet.checkout.balanceAvailable", {
+                      amount: formatInr(walletBalance),
+                    })}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
+
             <PriceBreakdown
               rows={displayBreakdown}
               loading={quotePreview.loading}
               paymentTotals={paymentTotals}
+              walletApplied={walletSplit.wallet_applied}
+              amountPayable={walletSplit.razorpay_amount}
+              walletAppliedLabel={t("wallet.checkout.walletAppliedLabel")}
+              walletPayableLabel={t("wallet.checkout.payViaRazorpay")}
             />
           </View>
 
@@ -1223,6 +1327,26 @@ const styles = StyleSheet.create({
   couponRemoveBtn: { alignSelf: "flex-start", marginBottom: 6 },
   couponRemoveText: { fontSize: 12, color: "#b91c1c", fontWeight: "600" },
   couponInfoText: { fontSize: 12, color: "#0369a1", marginBottom: 4 },
+  walletCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+    backgroundColor: "#f8fbff",
+  },
+  walletCardText: { flex: 1 },
+  walletCardTitle: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
+  walletCardHint: { fontSize: 12, color: "#64748b", marginTop: 2, lineHeight: 17 },
+  walletSplitHint: {
+    fontSize: 12,
+    color: "#0369a1",
+    marginTop: 6,
+    lineHeight: 17,
+  },
   couponModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(15,23,42,0.45)",
