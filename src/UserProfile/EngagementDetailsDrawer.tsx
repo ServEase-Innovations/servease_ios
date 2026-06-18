@@ -24,7 +24,6 @@ import RazorpayCheckout from 'react-native-razorpay';
 import PaymentInstance from '../services/paymentInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import Invoice from '../Invoice/Invoice';
-import UserHoliday from './UserHoliday';
 import VacationManagementDialog from './VacationManagement';
 import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 import {
@@ -230,14 +229,21 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const scrollViewRef = React.useRef<ScrollView>(null);
   
   // Vacation states
-  const [holidayDialogOpen, setHolidayDialogOpen] = React.useState(false);
   const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Reset drawer scroll position when opened or when a different booking is shown
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, booking?.id]);
 
   // Handle animation when isOpen changes
   React.useEffect(() => {
     if (isOpen) {
-      // Animate in
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -249,14 +255,8 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           duration: 300,
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        // Scroll to bottom after animation completes
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      });
+      ]).start();
     } else {
-      // Animate out
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -271,15 +271,6 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       ]).start();
     }
   }, [isOpen]);
-
-  // Scroll to bottom when content changes
-  React.useEffect(() => {
-    if (isOpen && booking) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 200);
-    }
-  }, [isOpen, booking?.payment?.status, booking?.modifications?.length]);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -521,55 +512,21 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   // Vacation Handlers
-  const handleAddVacation = () => {
-    setHolidayDialogOpen(true);
-  };
-
-  const handleModifyVacation = () => {
+  const openVacationDialog = () => {
     setVacationManagementDialogOpen(true);
   };
 
-  const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
-    if (!customerId) {
-      Snackbar.show({
-        text: 'Customer ID not found. Please try again.',
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: colors.error,
-        textColor: '#FFFFFF',
-      });
-      throw new Error('Customer ID not found');
-    }
-    
-    try {
-      setIsRefreshing(true);
-      await PaymentInstance.post(`/api/v2/engagements/${booking.id}/vacation`, {
-        customerid: customerId,
-        vacation_start_date: startDate,
-        vacation_end_date: endDate,
-        leave_type: "VACATION",
-        modified_by_id: booking.id,
-        modified_by_role: "CUSTOMER",
-      });
-      
-      if (refreshBookings) await refreshBookings();
-      Snackbar.show({
-        text: 'Vacation applied successfully',
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: colors.success,
-        textColor: '#FFFFFF',
-      });
-      setHolidayDialogOpen(false);
-    } catch (error) {
-      console.error('Error applying leave:', error);
-      throw error;
-    } finally {
-      setIsRefreshing(false);
-    }
+  const handleAddVacation = () => {
+    openVacationDialog();
   };
 
-  const handleVacationSuccess = async () => {
+  const handleModifyVacation = () => {
+    openVacationDialog();
+  };
+
+  const handleVacationSuccess = async (message = 'Vacation updated successfully') => {
     Snackbar.show({
-      text: 'Vacation updated successfully',
+      text: message,
       duration: Snackbar.LENGTH_SHORT,
       backgroundColor: colors.success,
       textColor: '#FFFFFF',
@@ -614,14 +571,32 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
   const convertBookingForChildComponents = (bookingData: any): any => {
     if (!bookingData) return null;
+    const vacationDetails = bookingData.vacationDetails
+      ? {
+          ...bookingData.vacationDetails,
+          leave_start_date:
+            bookingData.vacationDetails.leave_start_date ||
+            bookingData.vacationDetails.start_date,
+          leave_end_date:
+            bookingData.vacationDetails.leave_end_date ||
+            bookingData.vacationDetails.end_date,
+        }
+      : null;
+    const vacation =
+      bookingData.vacation?.start_date && bookingData.vacation?.end_date
+        ? bookingData.vacation
+        : vacationDetails
+          ? {
+              start_date: vacationDetails.start_date || vacationDetails.leave_start_date,
+              end_date: vacationDetails.end_date || vacationDetails.leave_end_date,
+              leave_days: vacationDetails.total_days ?? bookingData.leave_days,
+            }
+          : undefined;
     return {
       ...bookingData,
       serviceType: bookingData.serviceType || bookingData.service_type,
-      vacationDetails: bookingData.vacationDetails ? {
-        ...bookingData.vacationDetails,
-        leave_start_date: bookingData.vacationDetails.leave_start_date || bookingData.vacationDetails.start_date,
-        leave_end_date: bookingData.vacationDetails.leave_end_date || bookingData.vacationDetails.end_date,
-      } : null,
+      vacation,
+      vacationDetails,
     };
   };
 
@@ -1032,26 +1007,15 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
         </ScrollView>
       </Animated.View>
 
-      {/* Holiday Dialog */}
-      {holidayDialogOpen && (
-        <UserHoliday 
-          open={holidayDialogOpen} 
-          onClose={() => setHolidayDialogOpen(false)} 
-          booking={convertBookingForChildComponents(booking)} 
-          onLeaveSubmit={handleLeaveSubmit} 
-        />
-      )}
-      
-      {/* Vacation Management Dialog */}
-      {vacationManagementDialogOpen && (
-        <VacationManagementDialog 
-          open={vacationManagementDialogOpen} 
-          onClose={() => setVacationManagementDialogOpen(false)} 
-          booking={convertBookingForChildComponents(booking)} 
+      {vacationManagementDialogOpen ? (
+        <VacationManagementDialog
+          open={vacationManagementDialogOpen}
+          onClose={() => setVacationManagementDialogOpen(false)}
+          booking={convertBookingForChildComponents(booking)}
           customerId={customerId ?? null}
-          onSuccess={handleVacationSuccess} 
+          onSuccess={handleVacationSuccess}
         />
-      )}
+      ) : null}
 
       {/* Cancel Dialog */}
       {showCancelDialog && (

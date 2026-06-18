@@ -36,12 +36,11 @@ import AddReviewDialog from './AddReviewDialog';
 import RaiseComplaintDialog from './RaiseComplaintDialog';
 import { fetchMyTickets } from '../services/ticketsService';
 import EngagementDetailsDrawer from './EngagementDetailsDrawer';
+import VacationManagementDialog from './VacationManagement';
 import LinearGradient from 'react-native-linear-gradient';
 import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
-import GlassCard from '../design-system/GlassCard';
-import SegmentedRail from '../design-system/SegmentedRail';
 import ActionRow from '../design-system/ActionRow';
 import { BOOKING_HEADER_GRADIENT, BRAND } from "../theme/brandColors";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
@@ -299,6 +298,7 @@ interface Booking {
   providerRating: number;
   taskStatus: string;
   bookingDate: string;
+  created_at?: string;
   engagements: string;
   service_type: string;
   serviceType: string;
@@ -334,7 +334,10 @@ interface Booking {
 interface BookingProps {
   onBackToHome?: () => void;
   onNavigateToDetails?: () => void;
+  onOpenWallet?: () => void;
 }
+
+type BookingsViewTab = 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending';
 
 function toRebookSource(booking: Booking): RebookSourceBooking {
   return {
@@ -377,6 +380,29 @@ function durationMinutesFromHm(startTime?: string, endTime?: string): number {
 }
 
 // ---------- Utility Functions ----------
+const getServiceEmoji = (type: string) => {
+  switch (type?.toLowerCase()) {
+    case 'cook':
+      return '👨‍🍳';
+    case 'maid':
+      return '🧹';
+    case 'nanny':
+      return '❤️';
+    default:
+      return '🏠';
+  }
+};
+
+const formatPlacedAt = (booking: Booking): string => {
+  const raw = booking.bookingDate || booking.created_at;
+  if (!raw) return '—';
+  const parsed = dayjs(raw);
+  return parsed.isValid() ? parsed.format('D MMM YYYY [at] h:mm a') : '—';
+};
+
+const isPaymentPendingBooking = (booking: Booking): boolean =>
+  Boolean(booking.payment && booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED');
+
 const getServiceIcon = (type: string) => {
   const serviceType = type || 'other';
   switch (serviceType) {
@@ -564,7 +590,7 @@ const hasVacation = (booking: Booking): boolean => {
 // ---------- Main Booking Component ----------
 const HORIZONTAL_GUTTER = 10;
 
-const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigateToDetails }, ref) => {
+const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigateToDetails, onOpenWallet }, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -573,13 +599,10 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [futureBookings, setFutureBookings] = useState<Booking[]>([]);
   const [cancelledBookings, setCancelledBookings] = useState<Booking[]>([]);
-  const [activeSectionTab, setActiveSectionTab] = useState<'action_needed' | 'upcoming' | 'past' | 'cancelled'>('action_needed');
+  const [viewTab, setViewTab] = useState<BookingsViewTab>('upcoming');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [bookingTypeFilter, setBookingTypeFilter] = useState<
-    'TODAY' | 'ON_DEMAND' | 'RECURRING'
-  >('TODAY');
   const [generatedOTPs, setGeneratedOTPs] = useState<Record<number, string>>({});
   const [todaySchedule, setTodaySchedule] = useState<CustomerTodayBookingSlot[]>([]);
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
@@ -607,6 +630,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const rebookNavigateToDetailsRef = useRef(false);
   const rebookCheckoutSucceededRef = useRef(false);
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
+  const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = useState(false);
+  const [selectedBookingForVacationManagement, setSelectedBookingForVacationManagement] =
+    useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshTooltip, setShowRefreshTooltip] = useState(true);
@@ -701,14 +727,30 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
   const convertBookingForChildComponents = (booking: Booking | null): any => {
     if (!booking) return null;
+    const vacationDetails = booking.vacationDetails
+      ? {
+          ...booking.vacationDetails,
+          leave_start_date:
+            booking.vacationDetails.leave_start_date || booking.vacationDetails.start_date,
+          leave_end_date:
+            booking.vacationDetails.leave_end_date || booking.vacationDetails.end_date,
+        }
+      : null;
+    const vacation =
+      booking.vacation?.start_date && booking.vacation?.end_date
+        ? booking.vacation
+        : vacationDetails
+          ? {
+              start_date: vacationDetails.start_date || vacationDetails.leave_start_date,
+              end_date: vacationDetails.end_date || vacationDetails.leave_end_date,
+              leave_days: vacationDetails.total_days ?? booking.leave_days,
+            }
+          : undefined;
     return {
       ...booking,
       serviceType: booking.serviceType || booking.service_type,
-      vacationDetails: booking.vacationDetails ? {
-        ...booking.vacationDetails,
-        leave_start_date: booking.vacationDetails.leave_start_date || booking.vacationDetails.start_date,
-        leave_end_date: booking.vacationDetails.leave_end_date || booking.vacationDetails.end_date,
-      } : null,
+      vacation,
+      vacationDetails,
     };
   };
 
@@ -1176,7 +1218,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const handleCancelBooking = async (booking: Booking) => {
     await PaymentInstance.post(`/api/v2/engagements/${booking.id}/cancel`, {});
     await refreshBookings();
-    setActiveSectionTab('cancelled');
+    setViewTab('cancelled');
     setSnackbarMessage('Booking cancelled successfully');
     setOpenSnackbar(true);
     setTimeout(() => setOpenSnackbar(false), 3000);
@@ -1257,8 +1299,14 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   };
 
   const handleVacationClick = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setDetailsDrawerOpen(true);
+    setSelectedBookingForVacationManagement(booking);
+    setVacationManagementDialogOpen(true);
+  };
+
+  const handleVacationSuccess = async (message = 'Vacation updated successfully!') => {
+    setSnackbarMessage(message);
+    setOpenSnackbar(true);
+    await performRefresh();
   };
 
   const closeReviewDialog = () => {
@@ -1574,16 +1622,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     if (!term.trim()) return bookings;
     return bookings.filter((booking) => bookingMatchesSearch(booking, term));
   };
-  
-  const filterByBookingType = (bookings: Booking[]) => {
-    if (bookingTypeFilter === 'TODAY') return [];
-    if (bookingTypeFilter === 'ON_DEMAND') {
-      return bookings.filter((booking) => booking.bookingType === 'ON_DEMAND');
-    }
-    return bookings.filter(
-      (booking) => booking.bookingType === 'MONTHLY' || booking.bookingType === 'SHORT_TERM'
-    );
-  };
 
   const filteredTodaySchedule = (() => {
     if (!searchTerm.trim()) return todaySchedule;
@@ -1684,83 +1722,18 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
   const todayBookings = filteredTodaySchedule.map(slotToTodayBooking);
 
-  const renderBookingTypeChips = () => (
-    <View style={styles.bookingTypeFilterWrap}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.bookingTypeFilterRow}
-      >
-        <TouchableOpacity
-          style={[
-            styles.bookingTypeChip,
-            { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
-            bookingTypeFilter === 'TODAY' && {
-              backgroundColor: colors.primary + 'E8',
-              borderColor: colors.primary,
-            },
-          ]}
-          onPress={() => setBookingTypeFilter('TODAY')}
-        >
-          <Text
-            style={[
-              styles.bookingTypeChipText,
-              { color: bookingTypeFilter === 'TODAY' ? '#fff' : colors.textSecondary },
-            ]}
-          >
-            Today&apos;s service
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.bookingTypeChip,
-            { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
-            bookingTypeFilter === 'ON_DEMAND' && {
-              backgroundColor: colors.primary + 'E8',
-              borderColor: colors.primary,
-            },
-          ]}
-          onPress={() => setBookingTypeFilter('ON_DEMAND')}
-        >
-          <Text
-            style={[
-              styles.bookingTypeChipText,
-              { color: bookingTypeFilter === 'ON_DEMAND' ? '#fff' : colors.textSecondary },
-            ]}
-          >
-            One-time (On-demand)
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.bookingTypeChip,
-            { backgroundColor: isDarkMode ? colors.card : '#ffffff', borderColor: colors.border + '55' },
-            bookingTypeFilter === 'RECURRING' && {
-              backgroundColor: colors.primary + 'E8',
-              borderColor: colors.primary,
-            },
-          ]}
-          onPress={() => setBookingTypeFilter('RECURRING')}
-        >
-          <Text
-            style={[
-              styles.bookingTypeChipText,
-              { color: bookingTypeFilter === 'RECURRING' ? '#fff' : colors.textSecondary },
-            ]}
-          >
-            Recurring
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
-  );
-
-
   const upcomingBookings = sortUpcomingByCreated(
     [...currentBookings, ...futureBookings].filter(isUpcomingTabBooking),
     upcomingSortOrder
   );
-  const scopedUpcomingBookings = filterByBookingType(upcomingBookings);
+
+  const pendingPaymentBookings = sortUpcomingByCreated(
+    [...currentBookings, ...futureBookings, ...pastBookings].filter(isPaymentPendingBooking),
+    upcomingSortOrder
+  );
+
+  const sortedPastBookings = sortUpcomingByCreated(pastBookings, 'newest');
+  const sortedCancelledBookings = sortUpcomingByCreated(cancelledBookings, 'newest');
 
   const countUpcomingWithFilters = (
     source: Booking[],
@@ -1778,24 +1751,16 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     ).length;
 
   const upcomingAfterTabFilters = applyUpcomingTabFilters(
-    scopedUpcomingBookings,
+    upcomingBookings,
     upcomingServiceFilter,
     upcomingDurationFilter,
     statusFilter
   );
   const filteredUpcomingBookings = filterBookings(upcomingAfterTabFilters, searchTerm);
-  const filteredPastBookings = filterBookings(filterByBookingType(pastBookings), searchTerm);
-  const filteredCancelledBookings = filterBookings(filterByBookingType(cancelledBookings), searchTerm);
-  
-  const actionNeededBookings = filterBookings(
-    filterByBookingType(upcomingBookings.filter((booking) =>
-      (booking.payment && booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED') ||
-      booking.assignmentStatus === 'UNASSIGNED' ||
-      booking.taskStatus === 'NOT_STARTED'
-    )),
-    searchTerm
-  );
-
+  const filteredPastBookings = filterBookings(sortedPastBookings, searchTerm);
+  const filteredCancelledBookings = filterBookings(sortedCancelledBookings, searchTerm);
+  const filteredPendingPaymentBookings = filterBookings(pendingPaymentBookings, searchTerm);
+  const filteredTodayBookings = filterBookings(todayBookings, searchTerm);
 
   const hasActiveUpcomingFilters =
     statusFilter !== 'ALL' ||
@@ -1809,23 +1774,30 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   };
 
   const upcomingStatusTabs = [
-    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: countUpcomingWithFilters(scopedUpcomingBookings, { statusFilter: 'ALL' }) },
+    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'ALL' }) },
     {
       value: 'NOT_STARTED',
       label: 'Not started',
       icon: 'clock-outline',
-      count: countUpcomingWithFilters(scopedUpcomingBookings, { statusFilter: 'NOT_STARTED' }),
+      count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'NOT_STARTED' }),
     },
     {
       value: 'IN_PROGRESS',
       label: 'In progress',
       icon: 'progress-clock',
-      count: countUpcomingWithFilters(scopedUpcomingBookings, { statusFilter: 'IN_PROGRESS' }),
+      count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'IN_PROGRESS' }),
     },
   ];
 
-  const handleSectionTabChange = (tab: 'action_needed' | 'upcoming' | 'past' | 'cancelled') => {
-    setActiveSectionTab(tab);
+  useEffect(() => {
+    if (viewTab !== 'upcoming' && statusFilter !== 'ALL') {
+      setStatusFilter('ALL');
+    }
+  }, [viewTab, statusFilter]);
+
+  const handleViewTabChange = (tab: BookingsViewTab) => {
+    setViewTab(tab);
+    setOpenFilterMenu(null);
   };
 
   // Updated header with LinearGradient from BookingDialog
@@ -1849,19 +1821,26 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
             style={[styles.headerTitle, { fontSize: fontSizes.headerTitle + 2 }]}
             numberOfLines={1}
           >
-            My Bookings
+            My bookings
           </Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>
-            Manage your service bookings
-          </Text>
+          
         </View>
-        <TouchableOpacity
-          style={[styles.headerSideSlot, { alignItems: 'flex-end' }]}
-          onPress={() => void handleOpenMyTickets()}
-          accessibilityLabel="My support tickets"
-        >
-          <Icon name="lifebuoy" size={22} color="#ffffff" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.headerSideSlot, styles.headerBackBtn]}
+            onPress={() => void handleOpenMyTickets()}
+            accessibilityLabel="My support tickets"
+          >
+            <Icon name="file-document-outline" size={20} color="#ffffff" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerSideSlot, styles.headerBackBtn]}
+            onPress={() => onOpenWallet?.()}
+            accessibilityLabel="Open wallet"
+          >
+            <Icon name="wallet-outline" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </View>
     </LinearGradient>
   );
@@ -1875,15 +1854,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           style={[
             styles.searchContainer,
             {
-              backgroundColor: isDarkMode ? colors.card : '#ffffff',
-              borderColor: colors.border + '60',
+              backgroundColor: isDarkMode ? colors.card : '#f1f5f9',
+              borderColor: colors.border + '40',
             },
           ]}
         >
           <Icon name="magnify" size={18} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.searchInput, flex: 1 }]}
-            placeholder="Search bookings..."
+            placeholder="Search by booking #, provider, service, or address"
             placeholderTextColor={colors.textSecondary + '99'}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -1906,7 +1885,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     icon,
     value,
     options,
-    onSelect,
   }: {
     menuKey: 'sort' | 'service' | 'duration' | 'status';
     label: string;
@@ -1924,7 +1902,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     const isOpen = openFilterMenu === menuKey;
 
     return (
-      <View style={[styles.filterDropdownItem, isOpen && styles.filterDropdownRowOpen]}>
+      <View style={[styles.filterDropdownItem, isOpen && styles.filterDropdownItemOpen]}>
         <Text
           style={[
             styles.filterDropdownItemLabel,
@@ -1934,49 +1912,117 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         >
           {shortLabel}
         </Text>
-        <View style={styles.sortDropdownWrap}>
-          <TouchableOpacity
+        <TouchableOpacity
+          style={[
+            styles.sortDropdownTrigger,
+            {
+              borderColor: isOpen ? colors.primary : colors.border + '80',
+              backgroundColor: isDarkMode ? colors.card : '#ffffff',
+            },
+          ]}
+          onPress={() => setOpenFilterMenu((current) => (current === menuKey ? null : menuKey))}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${displayText}`}
+          accessibilityState={{ expanded: isOpen }}
+        >
+          {icon ? <Icon name={icon} size={13} color={colors.textSecondary} /> : null}
+          <Text
             style={[
-              styles.sortDropdownTrigger,
+              styles.sortDropdownText,
+              { color: colors.text, fontSize: fontSizes.badgeText - 1 },
+            ]}
+            numberOfLines={1}
+          >
+            {displayText}
+          </Text>
+          <Icon
+            name={isOpen ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderUpcomingFilterPickerModal = () => {
+    if (!openFilterMenu) return null;
+
+    type FilterOption = { value: string; label: string; count?: number };
+    let title = '';
+    let options: FilterOption[] = [];
+    let currentValue = '';
+    let onSelect: (value: string) => void = () => {};
+
+    switch (openFilterMenu) {
+      case 'sort':
+        title = 'Sort by';
+        options = UPCOMING_SORT_OPTIONS.map((option) => ({ ...option }));
+        currentValue = upcomingSortOrder;
+        onSelect = (next) => setUpcomingSortOrder(next as UpcomingSortOrder);
+        break;
+      case 'service':
+        title = 'Service';
+        options = UPCOMING_SERVICE_FILTERS.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: tab.value }),
+        }));
+        currentValue = upcomingServiceFilter;
+        onSelect = (next) => setUpcomingServiceFilter(next as UpcomingServiceFilter);
+        break;
+      case 'duration':
+        title = 'Type';
+        options = UPCOMING_DURATION_FILTERS.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: countUpcomingWithFilters(upcomingBookings, { durationFilter: tab.value }),
+        }));
+        currentValue = upcomingDurationFilter;
+        onSelect = (next) => setUpcomingDurationFilter(next as UpcomingDurationFilter);
+        break;
+      case 'status':
+        title = 'Status';
+        options = upcomingStatusTabs.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: tab.count,
+        }));
+        currentValue = statusFilter;
+        onSelect = (next) => setStatusFilter(next);
+        break;
+      default:
+        return null;
+    }
+
+    return (
+      <RNModal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenFilterMenu(null)}
+      >
+        <View style={styles.filterModalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setOpenFilterMenu(null)}
+          />
+          <View
+            style={[
+              styles.filterModalSheet,
               {
-                borderColor: colors.border + '80',
-                backgroundColor: isDarkMode ? colors.card : '#ffffff',
+                backgroundColor: colors.card,
+                borderColor: colors.border + '60',
               },
             ]}
-            onPress={() => setOpenFilterMenu((current) => (current === menuKey ? null : menuKey))}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={`${label}: ${displayText}`}
-            accessibilityState={{ expanded: isOpen }}
           >
-            {icon ? <Icon name={icon} size={13} color={colors.textSecondary} /> : null}
-            <Text
-              style={[
-                styles.sortDropdownText,
-                { color: colors.text, fontSize: fontSizes.badgeText - 1 },
-              ]}
-              numberOfLines={1}
-            >
-              {displayText}
+            <Text style={[styles.filterModalTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+              {title}
             </Text>
-            <Icon
-              name={isOpen ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-          {isOpen ? (
-            <View
-              style={[
-                styles.sortDropdownMenu,
-                {
-                  backgroundColor: isDarkMode ? colors.card : '#ffffff',
-                  borderColor: colors.border + '80',
-                },
-              ]}
-            >
+            <ScrollView style={styles.filterModalList} bounces={false}>
               {options.map((option) => {
-                const isSelected = value === option.value;
+                const isSelected = currentValue === option.value;
                 const optionLabel =
                   option.count !== undefined
                     ? `${option.label} (${option.count})`
@@ -1999,81 +2045,87 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
                         styles.sortDropdownOptionText,
                         {
                           color: isSelected ? colors.primary : colors.text,
-                          fontSize: fontSizes.badgeText,
+                          fontSize: fontSizes.infoText,
                         },
                       ]}
                     >
                       {optionLabel}
                     </Text>
-                    {isSelected ? <Icon name="check" size={16} color={colors.primary} /> : null}
+                    {isSelected ? <Icon name="check" size={18} color={colors.primary} /> : null}
                   </TouchableOpacity>
                 );
               })}
-            </View>
-          ) : null}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.filterModalCancel, { borderTopColor: colors.border }]}
+              onPress={() => setOpenFilterMenu(null)}
+            >
+              <Text style={{ color: colors.textSecondary, fontWeight: '600', fontSize: fontSizes.buttonText }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </RNModal>
     );
   };
 
   const renderUpcomingStatusFilter = () => (
     <View style={styles.upcomingFiltersBlock}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.upcomingFiltersRow}
-      >
-      {renderUpcomingFilterDropdown({
-        menuKey: 'sort',
-        label: 'Sort by',
-        shortLabel: 'Sort',
-        icon: 'sort',
-        value: upcomingSortOrder,
-        options: UPCOMING_SORT_OPTIONS,
-        onSelect: setUpcomingSortOrder,
-      })}
-
-      {renderUpcomingFilterDropdown({
-        menuKey: 'service',
-        label: 'Service type',
-        shortLabel: 'Service',
-        icon: 'briefcase-outline',
-        value: upcomingServiceFilter,
-        options: UPCOMING_SERVICE_FILTERS.map((tab) => ({
-          value: tab.value,
-          label: tab.label,
-          count: countUpcomingWithFilters(scopedUpcomingBookings, { serviceFilter: tab.value }),
-        })),
-        onSelect: setUpcomingServiceFilter,
-      })}
-
-      {renderUpcomingFilterDropdown({
-        menuKey: 'duration',
-        label: 'Booking type',
-        shortLabel: 'Type',
-        icon: 'calendar-range',
-        value: upcomingDurationFilter,
-        options: UPCOMING_DURATION_FILTERS.map((tab) => ({
-          value: tab.value,
-          label: tab.label,
-          count: countUpcomingWithFilters(scopedUpcomingBookings, { durationFilter: tab.value }),
-        })),
-        onSelect: setUpcomingDurationFilter,
-      })}
-
-      {renderUpcomingFilterDropdown({
-        menuKey: 'status',
-        label: 'Status',
-        shortLabel: 'Status',
-        icon: 'filter-variant',
-        value: statusFilter,
-        options: upcomingStatusTabs.map((tab) => ({
-          value: tab.value,
-          label: tab.label,
-          count: tab.count,
-        })),
-        onSelect: setStatusFilter,
-      })}
+      <View style={styles.upcomingFiltersGrid}>
+        <View style={styles.upcomingFiltersRow}>
+          {renderUpcomingFilterDropdown({
+            menuKey: 'sort',
+            label: 'Sort by',
+            shortLabel: 'Sort',
+            icon: 'sort',
+            value: upcomingSortOrder,
+            options: UPCOMING_SORT_OPTIONS,
+            onSelect: setUpcomingSortOrder,
+          })}
+          {renderUpcomingFilterDropdown({
+            menuKey: 'service',
+            label: 'Service type',
+            shortLabel: 'Service',
+            icon: 'briefcase-outline',
+            value: upcomingServiceFilter,
+            options: UPCOMING_SERVICE_FILTERS.map((tab) => ({
+              value: tab.value,
+              label: tab.label,
+              count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: tab.value }),
+            })),
+            onSelect: setUpcomingServiceFilter,
+          })}
+        </View>
+        <View style={styles.upcomingFiltersRow}>
+          {renderUpcomingFilterDropdown({
+            menuKey: 'duration',
+            label: 'Booking type',
+            shortLabel: 'Type',
+            icon: 'calendar-range',
+            value: upcomingDurationFilter,
+            options: UPCOMING_DURATION_FILTERS.map((tab) => ({
+              value: tab.value,
+              label: tab.label,
+              count: countUpcomingWithFilters(upcomingBookings, { durationFilter: tab.value }),
+            })),
+            onSelect: setUpcomingDurationFilter,
+          })}
+          {renderUpcomingFilterDropdown({
+            menuKey: 'status',
+            label: 'Status',
+            shortLabel: 'Status',
+            icon: 'filter-variant',
+            value: statusFilter,
+            options: upcomingStatusTabs.map((tab) => ({
+              value: tab.value,
+              label: tab.label,
+              count: tab.count,
+            })),
+            onSelect: setStatusFilter,
+          })}
+        </View>
+      </View>
 
       {hasActiveUpcomingFilters ? (
         <TouchableOpacity
@@ -2085,11 +2137,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         >
           <Icon name="filter-off-outline" size={14} color={colors.primary} />
           <Text style={[styles.clearFiltersInlineText, { color: colors.primary, fontSize: fontSizes.badgeText - 1 }]}>
-            Clear
+            Clear filters
           </Text>
         </TouchableOpacity>
       ) : null}
-      </ScrollView>
+
+      {renderUpcomingFilterPickerModal()}
     </View>
   );
 
@@ -2122,7 +2175,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   );
 
   const renderUpcomingEmptyState = () => {
-    if (filterBookings(scopedUpcomingBookings, searchTerm).length === 0) {
+    if (filterBookings(upcomingBookings, searchTerm).length === 0) {
       return (
         <View style={styles.emptyStateWrap}>
           <View
@@ -2210,38 +2263,152 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     );
   };
 
-  const renderSectionTabs = () => {
-    const tabs = [
-      { key: 'action_needed' as const, label: 'Action needed', count: actionNeededBookings.length, icon: 'alert-circle' },
-      { key: 'upcoming' as const, label: 'Upcoming', count: filterBookings(scopedUpcomingBookings, searchTerm).length, icon: 'calendar-clock' },
+  const renderMainViewTabs = () => {
+    const tabs: {
+      key: BookingsViewTab;
+      label: string;
+      count?: number;
+      activeStyle: { backgroundColor: string; color: string };
+      badgeStyle?: { backgroundColor: string; color: string };
+    }[] = [
       {
-        key: 'past' as const,
-        label: 'Past',
-        count: filterBookings(filterByBookingType(pastBookings), searchTerm).length,
-        icon: 'history',
+        key: 'today',
+        label: 'Today',
+        count: todaySchedule.length,
+        activeStyle: { backgroundColor: '#059669', color: '#ffffff' },
+        badgeStyle: { backgroundColor: 'rgba(255,255,255,0.24)', color: '#ffffff' },
       },
       {
-        key: 'cancelled' as const,
-        label: 'Cancelled',
-        count: filterBookings(filterByBookingType(cancelledBookings), searchTerm).length,
-        icon: 'close-circle',
+        key: 'upcoming',
+        label: 'Upcoming',
+        activeStyle: { backgroundColor: isDarkMode ? colors.card : '#ffffff', color: colors.text },
+      },
+      {
+        key: 'past',
+        label: 'Past',
+        activeStyle: { backgroundColor: isDarkMode ? colors.card : '#ffffff', color: colors.text },
+      },
+      {
+        key: 'cancelled',
+        label: 'Cancel',
+        count: cancelledBookings.length,
+        activeStyle: { backgroundColor: '#e11d48', color: '#ffffff' },
+        badgeStyle: { backgroundColor: 'rgba(255,255,255,0.24)', color: '#ffffff' },
+      },
+      {
+        key: 'pending',
+        label: 'Pending',
+        count: pendingPaymentBookings.length,
+        activeStyle: { backgroundColor: '#dc2626', color: '#ffffff' },
+        badgeStyle: { backgroundColor: 'rgba(255,255,255,0.24)', color: '#ffffff' },
       },
     ];
 
     return (
-      <SegmentedRail
-        items={tabs}
-        activeKey={activeSectionTab}
-        onChange={(k) => {
-          if (k === 'action_needed' || k === 'upcoming' || k === 'past' || k === 'cancelled') {
-            handleSectionTabChange(k);
-          }
-        }}
-        colors={colors}
-        fontSize={fontSizes.badgeText}
-      />
+      <View style={[styles.mainTabSection, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.mainTabRail,
+            { backgroundColor: isDarkMode ? colors.surface : 'rgba(148, 163, 184, 0.14)' },
+          ]}
+        >
+          {tabs.map((tab) => {
+            const active = viewTab === tab.key;
+            const showBadge = tab.count != null && tab.count > 0;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[
+                  styles.mainTab,
+                  {
+                    backgroundColor: active
+                      ? tab.activeStyle.backgroundColor
+                      : 'transparent',
+                    borderColor: active ? 'transparent' : colors.border + '55',
+                  },
+                  active && styles.mainTabActive,
+                ]}
+                onPress={() => handleViewTabChange(tab.key)}
+                activeOpacity={0.85}
+                accessibilityLabel={
+                  tab.key === 'cancelled' ? 'Cancelled bookings' : tab.label
+                }
+              >
+                <View style={styles.mainTabInner}>
+                  <Text
+                    style={[
+                      styles.mainTabText,
+                      {
+                        color: active ? tab.activeStyle.color : colors.textSecondary,
+                        fontSize: fontSizes.buttonText - 1,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {tab.label}
+                  </Text>
+                  {showBadge ? (
+                    <View
+                      style={[
+                        styles.mainTabBadge,
+                        {
+                          backgroundColor: active
+                            ? tab.badgeStyle?.backgroundColor ?? colors.primary + '20'
+                            : tab.key === 'today'
+                              ? '#d1fae5'
+                              : tab.key === 'cancelled'
+                                ? '#ffe4e6'
+                                : '#fee2e2',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.mainTabBadgeText,
+                          {
+                            color: active
+                              ? tab.badgeStyle?.color ?? colors.primary
+                              : tab.key === 'today'
+                                ? '#047857'
+                                : tab.key === 'cancelled'
+                                  ? '#be123c'
+                                  : '#b91c1c',
+                            fontSize: fontSizes.badgeText - 1,
+                          },
+                        ]}
+                      >
+                        {tab.count}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
     );
   };
+
+  const renderSectionHeader = (
+    title: string,
+    filteredCount: number,
+    suffix: string,
+    total: number,
+    accentColor: string
+  ) => (
+    <View style={styles.sectionHeaderRow}>
+      <View style={[styles.sectionAccent, { backgroundColor: accentColor }]} />
+      <View style={styles.sectionHeaderTextWrap}>
+        <Text style={[styles.sectionHeaderTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+          {title}
+        </Text>
+        <Text style={[styles.sectionHeaderMeta, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
+          {filteredCount} {suffix} · {total} total
+        </Text>
+      </View>
+    </View>
+  );
 
   const refreshTooltipTranslateY = tooltipAnim.interpolate({
     inputRange: [0, 1],
@@ -2414,7 +2581,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
   const renderTodayServicePanel = (item: Booking) => {
     const ts = item.today_service;
-    if (!ts || bookingTypeFilter !== 'TODAY') return null;
+    if (!ts || viewTab !== 'today') return null;
 
     const status = String(ts.status || '').toUpperCase();
     const otp = generatedOTPs[item.id];
@@ -2496,41 +2663,18 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const serviceType = item.serviceType || item.service_type;
-    const isPaymentPending = item.payment && item.payment.status === "PENDING";
+    const isPaymentPending = isPaymentPendingBooking(item);
     const displayTaskStatus =
-      bookingTypeFilter === 'TODAY' ? getEffectiveTaskStatus(item) : item.taskStatus;
-    const compactPrimaryText = colors.text;
-    const compactSecondaryText = colors.textSecondary;
+      viewTab === 'today' ? getEffectiveTaskStatus(item) : item.taskStatus;
     const amountValue =
       Number(item.monthlyAmount || 0) > 0
         ? Number(item.monthlyAmount)
         : Number(item.payment?.total_amount || item.payment?.base_amount || 0);
-    const amountText = amountValue > 0 ? `₹${amountValue.toFixed(2)}` : '—';
-    const getUrgencyLabel = () => {
-      if (bookingTypeFilter === 'TODAY' && item.today_service) {
-        const visit = String(item.today_service.status || '').toUpperCase();
-        if (visit === 'IN_PROGRESS') return 'In progress today';
-        if (visit === 'SCHEDULED') return 'Scheduled today';
-        if (visit === 'COMPLETED') return 'Completed today';
-      }
-      if (isPaymentPending && item.taskStatus !== 'CANCELLED') return 'Payment due';
-      if (item.assignmentStatus === 'UNASSIGNED') return 'Provider assigning';
-      if (item.taskStatus === 'NOT_STARTED') {
-        const bookingStart = dayjs(`${item.startDate || item.date}T${item.start_time}`);
-        if (bookingStart.isValid()) {
-          const mins = bookingStart.diff(dayjs(), 'minute');
-          if (mins > 0 && mins <= 180) {
-            return mins < 60 ? `Starts in ${mins}m` : `Starts in ${Math.floor(mins / 60)}h`;
-          }
-        }
-      }
-      return null;
-    };
-    const urgencyLabel = getUrgencyLabel();
-    const hasTodayPanel =
-      bookingTypeFilter === 'TODAY' &&
-      Boolean(item.today_service?.status);
-    
+    const serviceDate = dayjs(item.startDate || item.date);
+    const serviceDateLabel = serviceDate.isValid()
+      ? serviceDate.format('dddd, MMMM D, YYYY')
+      : dayjs(item.date).format('dddd, MMMM D, YYYY');
+
     return (
       <TouchableOpacity
         activeOpacity={0.95}
@@ -2539,98 +2683,112 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
       >
         <View
           style={[
-            styles.bookingCardCompact,
-            hasTodayPanel && styles.bookingCardCompactWithPanel,
+            styles.webCard,
             {
-              borderColor: colors.border + '25',
-              backgroundColor: isDarkMode ? colors.card : colors.card,
+              borderColor: colors.border + '40',
+              backgroundColor: isDarkMode ? colors.card : '#ffffff',
             },
           ]}
         >
-          <View style={styles.compactHeaderBlock}>
-            <View style={styles.compactTopRow}>
-              <View style={styles.compactServiceInfo}>
-                <View style={[styles.compactServiceIcon, { backgroundColor: colors.primary + '18' }]}>
-                  <Icon name={getServiceIcon(serviceType)} size={18} color={colors.primary} />
-                </View>
-                <View style={styles.compactTitleBlock}>
+          <View
+            style={[
+              styles.webCardHeader,
+              {
+                backgroundColor: isDarkMode ? colors.surface : '#f8fafc',
+                borderBottomColor: colors.border + '35',
+              },
+            ]}
+          >
+            <View style={styles.webCardHeaderRow}>
+              <View style={[styles.webCardIconBox, { backgroundColor: colors.primary + '12' }]}>
+                <Text style={styles.webCardEmoji}>{getServiceEmoji(serviceType)}</Text>
+              </View>
+              <View style={styles.webCardHeaderContent}>
+                <View style={styles.webCardTitleRow}>
                   <Text
-                    style={[styles.serviceTitle, { color: compactPrimaryText, fontSize: Math.max(14, fontSizes.serviceTitle - 2) }]}
+                    style={[styles.webCardTitle, { color: colors.text, fontSize: fontSizes.serviceTitle - 1 }]}
                     numberOfLines={1}
                   >
                     {getServiceTitle(serviceType)}
                   </Text>
-                  <Text style={[styles.compactProviderText, { color: compactSecondaryText }]} numberOfLines={2}>
-                    #{item.id} · {item.serviceProviderName}
-                  </Text>
+                  {!isPaymentPending && amountValue > 0 ? (
+                    <Text style={[styles.webCardAmount, { color: colors.text }]}>
+                      ₹{amountValue.toFixed(2)}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={[styles.webCardMeta, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                  Booking #{item.id} · Placed {formatPlacedAt(item)}
+                </Text>
+                <Text style={[styles.webCardMeta, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                  Provider: {item.serviceProviderName || 'Awaiting assignment'}
+                </Text>
+                <View style={styles.webCardBadgeRow}>
+                  <Badge variant={item.bookingType === 'MONTHLY' ? 'info' : item.bookingType === 'ON_DEMAND' ? 'warning' : 'success'}>
+                    <Text style={[styles.badgeText, { color: colors.primary, fontSize: fontSizes.badgeText - 1 }]}>
+                      {item.bookingType === 'ON_DEMAND' ? 'On demand' : item.bookingType === 'MONTHLY' ? 'Monthly' : 'Short term'}
+                    </Text>
+                  </Badge>
+                  <StatusChip status={displayTaskStatus} />
+                  {isPaymentPending ? (
+                    <Badge variant="warning">
+                      <Text style={[styles.badgeText, { color: colors.warning, fontSize: fontSizes.badgeText - 1 }]}>
+                        Payment pending
+                      </Text>
+                    </Badge>
+                  ) : null}
                 </View>
               </View>
-              <View style={styles.compactAmountCol}>
-                <Text style={[styles.compactAmountValue, { color: compactPrimaryText }]} numberOfLines={1}>
-                  {amountText}
-                </Text>
-                <Text style={[styles.compactAmountLabel, { color: compactSecondaryText }]} numberOfLines={1}>
-                  {item.bookingType === 'ON_DEMAND' ? 'ON DEMAND' : item.bookingType}
-                </Text>
-              </View>
             </View>
           </View>
 
-          <View style={styles.compactMetaList}>
-            <View style={styles.compactMetaRow}>
-              <View style={styles.compactMetaIcon}>
-                <Icon name="calendar-blank-outline" size={14} color={compactSecondaryText} />
-              </View>
-              <View style={styles.compactMetaTextWrap}>
-                <Text style={[styles.compactMetaText, { color: compactSecondaryText }]}>
-                  {bookingTypeFilter === 'TODAY'
-                    ? `Today · ${dayjs(item.date).format('dddd, MMMM D')}`
-                    : dayjs(item.date).format('dddd, MMMM D, YYYY')}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.compactMetaRow}>
-              <View style={styles.compactMetaIcon}>
-                <Icon name="clock-outline" size={14} color={compactSecondaryText} />
-              </View>
-              <View style={styles.compactMetaTextWrap}>
-                <Text style={[styles.compactMetaText, { color: compactSecondaryText }]}>
-                  {formatTimeRange(item.start_time, item.end_time)}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.compactMetaRow}>
-              <View style={styles.compactMetaIcon}>
-                <Icon name="map-marker-outline" size={14} color={compactSecondaryText} />
-              </View>
-              <View style={styles.compactMetaTextWrap}>
-                <Text style={[styles.compactMetaText, { color: compactSecondaryText }]}>{item.address || 'Address'}</Text>
-              </View>
-            </View>
-          </View>
+          <View style={styles.webCardContent}>
+            {renderAutoCancellationNotices(item)}
 
-          {renderTodayServicePanel(item)}
-          {renderAutoCancellationNotices(item)}
-
-          <View style={styles.compactFooterRow}>
-            <View style={styles.compactBadgeRow}>
-              <Badge variant={item.bookingType === 'MONTHLY' ? 'info' : item.bookingType === 'ON_DEMAND' ? 'warning' : 'success'}>
-                <Text style={[styles.badgeText, styles.badgeMultilineLabel, { color: colors.primary, fontSize: fontSizes.badgeText }]}>
-                  {item.bookingType === 'ON_DEMAND' ? 'ON DEMAND' : item.bookingType === 'MONTHLY' ? 'MONTHLY' : 'SHORT TERM'}
+            <View
+              style={[
+                styles.webScheduleBox,
+                {
+                  backgroundColor: isDarkMode ? colors.surface : '#f8fafc',
+                  borderColor: colors.border + '35',
+                },
+              ]}
+            >
+              <View style={styles.webScheduleRow}>
+                <Icon name="calendar-blank-outline" size={15} color={colors.textSecondary} />
+                <Text style={[styles.webScheduleText, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                  Service: {serviceDateLabel} · {formatTimeRange(item.start_time, item.end_time)}
                 </Text>
-              </Badge>
-              <StatusChip status={displayTaskStatus} />
-              {urgencyLabel && (
-                <Badge variant="warning">
-                  <Text style={[styles.badgeText, styles.badgeMultilineLabel, { color: colors.warning, fontSize: fontSizes.badgeText }]}>
-                    {urgencyLabel}
-                  </Text>
-                </Badge>
-              )}
+              </View>
+              <View style={styles.webScheduleRow}>
+                <Icon name="clock-outline" size={15} color={colors.textSecondary} />
+                <Text style={[styles.webScheduleText, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                  Placed {formatPlacedAt(item)}
+                </Text>
+              </View>
+              <View style={styles.webScheduleRow}>
+                <Icon name="map-marker-outline" size={15} color={colors.textSecondary} />
+                <Text style={[styles.webScheduleText, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                  {item.address || 'Address not available'}
+                </Text>
+              </View>
             </View>
-            <TouchableOpacity style={[styles.compactChevronBtn, { borderColor: colors.border + '50', backgroundColor: colors.surface }]} onPress={() => handleViewDetails(item)}>
-              <Icon name="chevron-right" size={18} color={compactSecondaryText} />
-            </TouchableOpacity>
+
+            {isPaymentPending ? (
+              <View style={[styles.webPaymentBanner, { backgroundColor: colors.errorLight, borderColor: colors.error + '35' }]}>
+                <Text style={{ color: colors.error, fontSize: fontSizes.infoText - 1, flex: 1 }}>
+                  Payment required to confirm this booking.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.webPayButton, { backgroundColor: colors.error }]}
+                  onPress={() => handlePaymentClick(item)}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: fontSizes.buttonText - 1 }}>Pay now</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {renderTodayServicePanel(item)}
           </View>
         </View>
       </TouchableOpacity>
@@ -2638,6 +2796,15 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   };
 
   const handleBackPress = () => {
+    if (openFilterMenu) {
+      setOpenFilterMenu(null);
+      return true;
+    }
+    if (vacationManagementDialogOpen) {
+      setVacationManagementDialogOpen(false);
+      setSelectedBookingForVacationManagement(null);
+      return true;
+    }
     if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
     if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
     if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
@@ -2653,7 +2820,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
-  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, complaintDialogVisible, servicesDialogOpen, rebookCheckoutOpen, onDemandRebookOpen, confirmationDialog.open, onBackToHome]);
+  }, [openFilterMenu, vacationManagementDialogOpen, detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, complaintDialogVisible, servicesDialogOpen, rebookCheckoutOpen, onDemandRebookOpen, confirmationDialog.open, onBackToHome]);
 
   useEffect(() => {
     const getInitialUrl = async () => {
@@ -2671,11 +2838,18 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         {renderBookingsHeader()}
         {renderBookingsSearch(true)}
 
-        <View style={styles.bookingTypeFilterWrap}>
-          <View style={styles.bookingTypeFilterRow}>
-            <SkeletonLoader width={120} height={36} variant="rectangular" style={{ borderRadius: 999 }} />
-            <SkeletonLoader width={180} height={36} variant="rectangular" style={{ borderRadius: 999 }} />
-            <SkeletonLoader width={110} height={36} variant="rectangular" style={{ borderRadius: 999 }} />
+        <View style={[styles.mainTabSection, { backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.mainTabRail,
+              { backgroundColor: isDarkMode ? colors.surface : 'rgba(148, 163, 184, 0.14)' },
+            ]}
+          >
+            {[72, 92, 64, 88].map((width, index) => (
+              <View key={index} style={styles.mainTab}>
+                <SkeletonLoader width={width} height={14} variant="rectangular" style={{ borderRadius: 4 }} />
+              </View>
+            ))}
           </View>
         </View>
 
@@ -2698,10 +2872,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {renderBookingsHeader()}
       {renderBookingsSearch()}
-      {renderBookingTypeChips()}
+      {renderMainViewTabs()}
       {renderRefreshTooltip()}
 
-      {/* Content without wrapping ScrollView - using FlatList alternative */}
       <ScrollView 
         style={styles.mainScrollView}
         contentContainerStyle={[
@@ -2720,40 +2893,46 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         showsVerticalScrollIndicator={true}
         nestedScrollEnabled={true}
       >
-        {bookingTypeFilter !== 'TODAY' && renderSectionTabs()}
-
-        {bookingTypeFilter === 'TODAY' && (
+        {viewTab === 'today' && (
           <View style={styles.section}>
-            {renderBookingsList(todayBookings, renderTodayEmptyState())}
-          </View>
-        )}
-
-        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'action_needed' && (
-          <View style={styles.section}>
-            {renderBookingsList(
-              actionNeededBookings,
-              <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
-                <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.success + '10' }]}>
-                  <Icon name="check-circle-outline" size={48} color={colors.success} />
-                </View>
-                <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>All Caught Up</Text>
-                <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-                  No urgent booking actions pending right now
-                </Text>
-              </View>
+            {renderSectionHeader(
+              'Today',
+              filteredTodayBookings.length,
+              searchTerm.trim() ? 'match your search' : "on today's schedule",
+              todayBookings.length,
+              '#059669'
             )}
+            {renderBookingsList(filteredTodayBookings, renderTodayEmptyState())}
           </View>
         )}
 
-        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'upcoming' && (
+        {viewTab === 'upcoming' && (
           <View style={styles.section}>
+            {renderSectionHeader(
+              'Upcoming',
+              filteredUpcomingBookings.length,
+              searchTerm.trim()
+                ? 'match your search'
+                : hasActiveUpcomingFilters
+                  ? 'match your filters'
+                  : 'on your calendar',
+              upcomingBookings.length,
+              '#0ea5e9'
+            )}
             {renderUpcomingStatusFilter()}
             {renderBookingsList(filteredUpcomingBookings, renderUpcomingEmptyState())}
           </View>
         )}
 
-        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'past' && (
+        {viewTab === 'past' && (
           <View style={styles.section}>
+            {renderSectionHeader(
+              'Past',
+              filteredPastBookings.length,
+              searchTerm.trim() ? 'match your search' : '— completed or ended',
+              sortedPastBookings.length,
+              '#64748b'
+            )}
             {renderBookingsList(
               filteredPastBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
@@ -2769,17 +2948,48 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           </View>
         )}
 
-        {bookingTypeFilter !== 'TODAY' && activeSectionTab === 'cancelled' && (
+        {viewTab === 'cancelled' && (
           <View style={styles.section}>
+            {renderSectionHeader(
+              'Cancelled',
+              filteredCancelledBookings.length,
+              searchTerm.trim() ? 'match your search' : '— bookings you cancelled',
+              sortedCancelledBookings.length,
+              '#e11d48'
+            )}
             {renderBookingsList(
               filteredCancelledBookings,
               <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
                 <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.error + '10' }]}>
-                  <Icon name="close-octagon-outline" size={48} color={colors.error} />
+                  <Icon name="close-circle-outline" size={48} color={colors.error} />
                 </View>
                 <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Cancelled Bookings</Text>
                 <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-                  Cancelled services will appear here
+                  When you cancel a booking, it will appear here
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {viewTab === 'pending' && (
+          <View style={styles.section}>
+            {renderSectionHeader(
+              'Pending payment',
+              filteredPendingPaymentBookings.length,
+              searchTerm.trim() ? 'match your search' : 'awaiting payment',
+              pendingPaymentBookings.length,
+              '#dc2626'
+            )}
+            {renderBookingsList(
+              filteredPendingPaymentBookings,
+              <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+                <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.success + '10' }]}>
+                  <Icon name="check-circle-outline" size={48} color={colors.success} />
+                </View>
+                <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>All caught up</Text>
+                <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+                  No bookings are waiting for payment
                 </Text>
               </View>
             )}
@@ -2877,6 +3087,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         }}
       />
 
+      <VacationManagementDialog
+        open={vacationManagementDialogOpen}
+        onClose={() => {
+          setVacationManagementDialogOpen(false);
+          setSelectedBookingForVacationManagement(null);
+        }}
+        booking={convertBookingForChildComponents(selectedBookingForVacationManagement)}
+        customerId={customerId}
+        onSuccess={handleVacationSuccess}
+      />
+
       {openSnackbar && (
         <View style={[styles.snackbar, { backgroundColor: colors.success, bottom: insets.bottom + 88 }]}>
           <Icon name="check-circle" size={20} color="#fff" />
@@ -2948,9 +3169,17 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     color: 'rgba(219, 234, 254, 0.95)',
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 4,
     fontWeight: '500',
+    lineHeight: 16,
+    paddingHorizontal: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
   },
 
   searchSection: {
@@ -2974,17 +3203,85 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
   },
-  bookingTypeFilterRow: {
+  mainTabSection: {
+    width: '100%',
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 10,
+    paddingBottom: 6,
+    alignItems: 'center',
+  },
+  mainTabRail: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: '100%',
+    padding: 4,
+    borderRadius: 14,
+    backgroundColor: 'rgba(148, 163, 184, 0.14)',
+  },
+  mainTab: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  mainTabInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingRight: HORIZONTAL_GUTTER,
+    justifyContent: 'center',
+    gap: 4,
+    maxWidth: '100%',
   },
-  bookingTypeFilterWrap: {
-    marginTop: 8,
-    width: '100%',
+  mainTabActive: {
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  mainTabText: {
+    fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  mainTabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  mainTabBadgeText: {
+    fontWeight: '700',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+    paddingHorizontal: 2,
+  },
+  sectionAccent: {
+    width: 4,
+    borderRadius: 999,
     alignSelf: 'stretch',
-    paddingHorizontal: HORIZONTAL_GUTTER,
+    minHeight: 42,
+  },
+  sectionHeaderTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  sectionHeaderTitle: {
+    fontWeight: '700',
+  },
+  sectionHeaderMeta: {
+    lineHeight: 18,
   },
   bookingTypeChip: {
     borderWidth: 1,
@@ -3013,29 +3310,28 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 12,
   },
+  upcomingFiltersGrid: {
+    width: '100%',
+    gap: 10,
+  },
   upcomingFiltersRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 8,
-    paddingRight: 4,
+    width: '100%',
   },
   filterDropdownItem: {
-    width: 132,
-    zIndex: 1,
+    flex: 1,
+    minWidth: 0,
   },
-  filterDropdownRowOpen: {
-    zIndex: 50,
+  filterDropdownItemOpen: {
+    opacity: 1,
   },
   filterDropdownItemLabel: {
     fontWeight: '600',
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
-  },
-  sortDropdownWrap: {
-    position: 'relative',
-    width: '100%',
-    zIndex: 20,
   },
   sortDropdownTrigger: {
     flexDirection: 'row',
@@ -3046,26 +3342,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 7,
     minHeight: 34,
+    width: '100%',
   },
   sortDropdownText: {
     flex: 1,
     fontWeight: '600',
+    minWidth: 0,
   },
-  sortDropdownMenu: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    left: 0,
-    marginTop: 4,
-    borderRadius: 10,
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  filterModalSheet: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 50,
+    maxHeight: '70%',
+    zIndex: 2,
+  },
+  filterModalTitle: {
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  filterModalList: {
+    maxHeight: 320,
+  },
+  filterModalCancel: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderTopWidth: 1,
   },
   sortDropdownOption: {
     flexDirection: 'row',
@@ -3147,6 +3459,97 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'stretch',
     marginBottom: 12,
+  },
+  webCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  webCardHeader: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  webCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  webCardIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webCardEmoji: {
+    fontSize: 20,
+  },
+  webCardHeaderContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  webCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  webCardTitle: {
+    fontWeight: '700',
+    flex: 1,
+  },
+  webCardAmount: {
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  webCardMeta: {
+    lineHeight: 18,
+  },
+  webCardBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  webCardContent: {
+    padding: 14,
+    gap: 10,
+  },
+  webScheduleBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  webScheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  webScheduleText: {
+    flex: 1,
+    lineHeight: 18,
+  },
+  webPaymentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  webPayButton: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   bookingCardCompact: {
     width: '100%',

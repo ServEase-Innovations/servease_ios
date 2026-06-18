@@ -827,6 +827,7 @@ const MainApp = () => {
             ref={bookingsRef}
             onBackToHome={() => setCurrentView(HOME)}
             onNavigateToDetails={() => setCurrentView(DETAILS)}
+            onOpenWallet={() => setCurrentView(WALLET)}
           />
         );
         

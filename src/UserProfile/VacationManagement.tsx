@@ -1,29 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
-  TextInput,
-  Platform,
-} from 'react-native';
-import dayjs from 'dayjs';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import PaymentInstance from '../services/paymentInstance';
-import { useTheme } from '../../src/Settings/ThemeContext';
+} from "react-native";
+import Icon from "react-native-vector-icons/Feather";
+import dayjs, { Dayjs } from "dayjs";
+import { useTranslation } from "react-i18next";
+import LinearGradient from "react-native-linear-gradient";
+import PaymentInstance from "../services/paymentInstance";
+import { useTheme } from "../Settings/ThemeContext";
+import DribbbleDateTimePicker from "../common/DribbbleDateTimePicker";
+import { getServiceTitle } from "../common/BookingUtils";
+import { coalesceEndEpoch, coalesceStartEpoch } from "../services/bookingEpoch";
+import { countInclusiveDays, toCalendarDay } from "../utils/inclusiveDayCount";
+import ConfirmationDialog from "./ConfirmationDialog";
+import { BrandButton } from "../design-system/BrandButton";
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
-interface VacationDetails {
-  leave_start_date?: string;
-  leave_end_date?: string;
-  total_days?: number;
-}
+const MIN_VACATION_DAYS = 10;
+const VACATION_MODIFICATION_PENALTY = 400;
+const HORIZONTAL_GUTTER = 16;
 
 interface VacationBooking {
   id: number;
-  vacationDetails?: VacationDetails;
+  startDate?: string;
+  endDate?: string;
+  start_epoch?: number | null;
+  end_epoch?: number | null;
+  service_type?: string;
+  serviceType?: string;
+  bookingType?: string;
+  vacation?: {
+    start_date?: string;
+    end_date?: string;
+    leave_days?: number;
+  };
+  vacationDetails?: {
+    start_date?: string;
+    end_date?: string;
+    leave_start_date?: string;
+    leave_end_date?: string;
+    total_days?: number;
+  };
+  hasVacation?: boolean;
 }
 
 interface VacationManagementDialogProps {
@@ -31,7 +54,23 @@ interface VacationManagementDialogProps {
   onClose: () => void;
   booking: VacationBooking | null;
   customerId: number | null;
-  onSuccess: () => void;
+  onSuccess: (message?: string) => void;
+}
+
+function resolveVacation(booking: VacationBooking | null) {
+  if (!booking) return null;
+  if (booking.vacation?.start_date && booking.vacation?.end_date) {
+    return booking.vacation;
+  }
+  const details = booking.vacationDetails;
+  const start = details?.start_date || details?.leave_start_date;
+  const end = details?.end_date || details?.leave_end_date;
+  if (!start || !end) return null;
+  return {
+    start_date: start,
+    end_date: end,
+    leave_days: details?.total_days,
+  };
 }
 
 const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
@@ -41,116 +80,169 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
   customerId,
   onSuccess,
 }) => {
-  const { colors, fontSize, isDarkMode } = useTheme();
-  const today = dayjs();
-  const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(null);
-  const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(null);
+  const { t } = useTranslation();
+  const { colors, fontSize } = useTheme();
+  const today = useMemo(() => dayjs().startOf("day"), []);
+  const [startDate, setStartDate] = useState<Dayjs | null>(null);
+  const [endDate, setEndDate] = useState<Dayjs | null>(null);
+  const [minDate, setMinDate] = useState<Dayjs | null>(null);
+  const [maxDate, setMaxDate] = useState<Dayjs | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  // Get font sizes based on theme
-  const getFontSizes = () => {
-    switch (fontSize) {
-      case 'small':
-        return {
-          modalTitle: 16,
-          sectionTitle: 15,
-          dateLabel: 13,
-          dateInputText: 13,
-          totalDaysText: 13,
-          alertTitle: 13,
-          alertText: 12,
-          errorText: 12,
-          successText: 12,
-          policyTitle: 13,
-          policyText: 11,
-          buttonText: 13,
-          placeholderText: 13,
-        };
-      case 'large':
-        return {
-          modalTitle: 20,
-          sectionTitle: 18,
-          dateLabel: 16,
-          dateInputText: 16,
-          totalDaysText: 16,
-          alertTitle: 16,
-          alertText: 15,
-          errorText: 15,
-          successText: 15,
-          policyTitle: 16,
-          policyText: 14,
-          buttonText: 16,
-          placeholderText: 16,
-        };
-      default:
-        return {
-          modalTitle: 18,
-          sectionTitle: 16,
-          dateLabel: 14,
-          dateInputText: 14,
-          totalDaysText: 14,
-          alertTitle: 14,
-          alertText: 13,
-          errorText: 14,
-          successText: 14,
-          policyTitle: 14,
-          policyText: 12,
-          buttonText: 14,
-          placeholderText: 14,
-        };
+  const vacation = resolveVacation(booking);
+
+  const bookingStart = useMemo(() => {
+    if (!booking) return null;
+    const epoch = coalesceStartEpoch(booking.start_epoch, booking.startDate);
+    if (epoch != null) return dayjs.unix(epoch).startOf("day");
+    return booking.startDate ? toCalendarDay(booking.startDate) : null;
+  }, [booking]);
+
+  const bookingEnd = useMemo(() => {
+    if (!booking) return null;
+    const epoch = coalesceEndEpoch(booking.end_epoch, booking.endDate);
+    if (epoch != null) return dayjs.unix(epoch).startOf("day");
+    return booking.endDate ? toCalendarDay(booking.endDate) : null;
+  }, [booking]);
+
+  const totalDays =
+    startDate && endDate ? countInclusiveDays(startDate, endDate) : 0;
+
+  const earliestEndDate = startDate
+    ? startDate.add(MIN_VACATION_DAYS - 1, "day")
+    : null;
+
+  const startDateKey = startDate?.format("YYYY-MM-DD") ?? "";
+  const endDateKey = endDate?.format("YYYY-MM-DD") ?? "";
+  const bookingId = booking?.id ?? null;
+  const vacationStartKey = vacation?.start_date ?? "";
+  const vacationEndKey = vacation?.end_date ?? "";
+  const bookingStartKey = bookingStart?.format("YYYY-MM-DD") ?? "";
+  const bookingEndKey = bookingEnd?.format("YYYY-MM-DD") ?? "";
+
+  const pickerRangeValue = useMemo(
+    () => ({
+      startDate: startDate?.toDate(),
+      endDate: endDate?.toDate(),
+    }),
+    [startDateKey, endDateKey, startDate, endDate]
+  );
+
+  const pickerMinDate = useMemo(() => minDate?.toDate(), [minDate]);
+  const pickerMaxDate = useMemo(() => maxDate?.toDate(), [maxDate]);
+
+  const isAddMode = !vacation?.start_date || !vacation?.end_date;
+
+  const vacationDatesChanged = useMemo(() => {
+    if (isAddMode || !startDate || !endDate || !vacationStartKey || !vacationEndKey) {
+      return false;
     }
+    const prevStart = toCalendarDay(vacationStartKey);
+    const prevEnd = toCalendarDay(vacationEndKey);
+    if (!prevStart || !prevEnd) return false;
+    return !startDate.isSame(prevStart, "day") || !endDate.isSame(prevEnd, "day");
+  }, [isAddMode, startDate, endDate, vacationStartKey, vacationEndKey]);
+
+  const isValidVacationPeriod = (): boolean => {
+    if (!startDate || !endDate || !minDate || !maxDate) return false;
+    if (startDate.isBefore(minDate, "day") || endDate.isAfter(maxDate, "day")) return false;
+    return totalDays >= MIN_VACATION_DAYS;
   };
 
-  const fontSizes = getFontSizes();
-
-  // Calculate total days between start and end date
-  const calculateTotalDays = (): number => {
-    if (!startDate || !endDate) return 0;
-    return endDate.diff(startDate, 'day') + 1;
-  };
-
-  const totalDays = calculateTotalDays();
-
-  // Reset form when dialog opens/closes
   useEffect(() => {
-    if (open && booking) {
-      if (booking.vacationDetails?.leave_start_date && booking.vacationDetails?.leave_end_date) {
-        setStartDate(dayjs(booking.vacationDetails.leave_start_date));
-        setEndDate(dayjs(booking.vacationDetails.leave_end_date));
-      } else {
-        setStartDate(null);
-        setEndDate(null);
-      }
-      setError(null);
-      setSuccess(null);
-    }
-  }, [open, booking]);
+    if (!open || bookingId == null) return;
 
-  const handleApplyVacation = async () => {
-    if (!startDate || !endDate || !booking || !customerId) {
-      setError("Please select both start and end dates");
-      return;
+    const startBound = bookingStartKey ? toCalendarDay(bookingStartKey) : null;
+    const endBound = bookingEndKey ? toCalendarDay(bookingEndKey) : null;
+    const effectiveMin =
+      startBound && startBound.isBefore(today) ? today : startBound ?? today;
+
+    setMinDate((prev) => (prev?.isSame(effectiveMin, "day") ? prev : effectiveMin));
+    setMaxDate((prev) => {
+      const next = endBound ?? null;
+      if (prev === null && next === null) return prev;
+      if (prev && next && prev.isSame(next, "day")) return prev;
+      if (prev && next === null) return null;
+      return next;
+    });
+
+    if (vacationStartKey && vacationEndKey) {
+      const nextStart = toCalendarDay(vacationStartKey);
+      const nextEnd = toCalendarDay(vacationEndKey);
+      setStartDate((prev) =>
+        prev && nextStart && prev.isSame(nextStart, "day") ? prev : nextStart
+      );
+      setEndDate((prev) =>
+        prev && nextEnd && prev.isSame(nextEnd, "day") ? prev : nextEnd
+      );
+    } else {
+      setStartDate((prev) => (prev === null ? prev : null));
+      setEndDate((prev) => (prev === null ? prev : null));
     }
 
-    if (startDate.isBefore(today, 'day')) {
-      setError("Vacation start date cannot be in the past");
-      return;
-    }
+    setError(null);
+    setSuccess(null);
+    setShowConfirm(false);
+  }, [
+    open,
+    bookingId,
+    bookingStartKey,
+    bookingEndKey,
+    today,
+    vacationEndKey,
+    vacationStartKey,
+  ]);
 
-    if (endDate.isBefore(startDate)) {
-      setError("Vacation end date must be after start date");
-      return;
+  const handleRangeChange = useCallback((start: Date, end?: Date) => {
+    const nextStart = toCalendarDay(start);
+    const nextEnd = end ? toCalendarDay(end) : null;
+    setStartDate((prev) =>
+      prev && nextStart && prev.isSame(nextStart, "day") ? prev : nextStart
+    );
+    setEndDate((prev) => {
+      if (prev === null && nextEnd === null) return prev;
+      if (prev && nextEnd && prev.isSame(nextEnd, "day")) return prev;
+      return nextEnd;
+    });
+    setError(null);
+  }, []);
+
+  const validateVacationForm = (): boolean => {
+    if (!startDate || !endDate || !booking?.id) {
+      setError(t("vacationManagement.validation.selectBothDates"));
+      return false;
     }
+    if (startDate.isBefore(today, "day")) {
+      setError(t("vacationManagement.validation.startDatePast"));
+      return false;
+    }
+    if (endDate.isBefore(startDate, "day")) {
+      setError(t("vacationManagement.validation.endDateBeforeStart"));
+      return false;
+    }
+    if (!isValidVacationPeriod()) {
+      setError(t("vacationManagement.validation.minimumVacationDays"));
+      return false;
+    }
+    setError(null);
+    return true;
+  };
+
+  const submitVacation = async () => {
+    if (!startDate || !endDate || !booking || !customerId) return;
+
+    const successMessage = isAddMode
+      ? t("vacationManagement.vacationSubmittedSuccess")
+      : t("vacationManagement.vacationUpdated");
 
     setIsLoading(true);
     setError(null);
 
     try {
-      await PaymentInstance.post(
+      const res = await PaymentInstance.post(
         `api/v2/createEngagements/${booking.id}/vacation`,
         {
           customerid: customerId,
@@ -162,447 +254,500 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
         }
       );
 
-      setSuccess(hasExistingVacation ? "Vacation updated successfully!" : "Vacation applied successfully!");
+      const penalty = Number(res.data?.penalty ?? 0);
+      let message = successMessage;
+      if (penalty > 0) {
+        message += t("vacationManagement.penaltyCharged", {
+          amount: penalty.toFixed(0),
+        });
+      }
+
+      setSuccess(message);
+      setShowConfirm(false);
       setTimeout(() => {
-        onSuccess();
+        onSuccess(message);
         onClose();
       }, 1500);
-    } catch (error: any) {
-      console.error("❌ Error applying vacation:", error);
-      const apiMessage = error?.response?.data?.error || error?.response?.data?.message;
-      setError(apiMessage || "Failed to apply vacation. Please try again.");
+    } catch (err: any) {
+      console.error("Error saving vacation:", err);
+      const apiMessage = err?.response?.data?.error || err?.response?.data?.message;
+      setError(apiMessage || t("vacationManagement.updateFailed"));
+      setShowConfirm(false);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSaveVacation = () => {
+    if (!validateVacationForm() || !customerId) return;
+
+    if (!isAddMode && vacationDatesChanged) {
+      setShowConfirm(true);
+      return;
+    }
+
+    void submitVacation();
+  };
+
   const handleCancelVacation = async () => {
-    if (!booking) return;
+    if (!booking || !customerId) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const payload = {
-        cancel_vacation: true,
-        modified_by_id: customerId,
-        modified_by_role: "CUSTOMER",
-      };
-
-      console.log("📦 Canceling vacation:", payload);
-
-      const response = await PaymentInstance.put(
-        `/api/engagements/${booking.id}`,
-        payload,
-        { headers: { "Content-Type": "application/json" } }
+      await PaymentInstance.post(
+        `api/v2/createEngagements/${booking.id}/vacation/cancel`,
+        {
+          customerid: customerId,
+          modified_by_id: customerId,
+          modified_by_role: "CUSTOMER",
+        }
       );
 
-      setSuccess("Vacation cancelled successfully!");
+      const message = t("vacationManagement.cancelSuccess");
+      setSuccess(message);
       setTimeout(() => {
-        onSuccess();
+        onSuccess(message);
         onClose();
       }, 1500);
-    } catch (error: any) {
-      console.error("❌ Error canceling vacation:", error);
-      const apiMessage = error?.response?.data?.error || error?.response?.data?.message;
-      setError(apiMessage || "Failed to cancel vacation. Please try again.");
+    } catch (err: any) {
+      console.error("Error canceling vacation:", err);
+      const apiMessage = err?.response?.data?.error || err?.response?.data?.message;
+      setError(apiMessage || t("vacationManagement.cancelError"));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
-    setShowStartPicker(false);
-    if (selectedDate) {
-      const newStartDate = dayjs(selectedDate);
-      setStartDate(newStartDate);
-      // If end date is before new start date, reset end date
-      if (endDate && endDate.isBefore(newStartDate)) {
-        setEndDate(null);
-      }
-    }
-  };
+  const titleSize =
+    fontSize === "small" ? 18 : fontSize === "large" ? 22 : 20;
+  const bodySize =
+    fontSize === "small" ? 12 : fontSize === "large" ? 15 : 13;
+  const headerTitle = isAddMode
+    ? t("vacationManagement.applyVacationHoliday")
+    : t("vacationManagement.modifyVacation");
 
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    setShowEndPicker(false);
-    if (selectedDate) {
-      setEndDate(dayjs(selectedDate));
-    }
-  };
+  if (!open) return null;
 
-  const formatDateDisplay = (date: dayjs.Dayjs | null): string => {
-    return date ? date.format('MMM D, YYYY') : 'Select date';
-  };
-
-  const getMinEndDate = (): Date => {
-    return startDate ? startDate.toDate() : today.toDate();
-  };
-
-  const hasExistingVacation = booking?.vacationDetails?.leave_start_date && 
-                             booking?.vacationDetails?.leave_end_date;
-
-  const dynamicStyles = StyleSheet.create({
-    centeredView: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.overlay,
-    },
-    modalView: {
-      width: '90%',
-      maxHeight: '80%',
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      overflow: 'hidden',
-      elevation: 5,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    modalTitle: {
-      fontSize: fontSizes.modalTitle,
-      fontWeight: 'bold',
-      color: colors.text,
-    },
-    closeButton: {
-      padding: 4,
-    },
-    closeIcon: {
-      fontSize: 24,
-      color: colors.textSecondary,
-      fontWeight: 'bold',
-    },
-    modalContent: {
-      padding: 16,
-    },
-    section: {
-      marginBottom: 20,
-    },
-    sectionTitle: {
-      fontSize: fontSizes.sectionTitle,
-      fontWeight: '600',
-      marginBottom: 16,
-      color: colors.text,
-    },
-    datePickerContainer: {
-      marginBottom: 16,
-    },
-    dateLabel: {
-      fontSize: fontSizes.dateLabel,
-      fontWeight: '500',
-      marginBottom: 8,
-      color: colors.text,
-    },
-    dateInput: {
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 6,
-      padding: 12,
-      backgroundColor: colors.card,
-    },
-    disabledInput: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
-    dateInputText: {
-      fontSize: fontSizes.dateInputText,
-      color: colors.text,
-    },
-    placeholderText: {
-      color: colors.placeholder,
-      fontSize: fontSizes.placeholderText,
-    },
-    disabledText: {
-      color: colors.textTertiary || colors.textSecondary,
-    },
-    totalDaysContainer: {
-      marginTop: 8,
-    },
-    totalDaysText: {
-      fontSize: fontSizes.totalDaysText,
-      color: colors.primary,
-    },
-    totalDaysBold: {
-      fontWeight: 'bold',
-    },
-    alert: {
-      padding: 12,
-      borderRadius: 6,
-      marginBottom: 16,
-    },
-    infoAlert: {
-      backgroundColor: colors.infoLight,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.info,
-    },
-    errorAlert: {
-      backgroundColor: colors.errorLight,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.error,
-    },
-    successAlert: {
-      backgroundColor: colors.successLight,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.success,
-    },
-    alertTitle: {
-      fontSize: fontSizes.alertTitle,
-      fontWeight: 'bold',
-      marginBottom: 4,
-      color: colors.info,
-    },
-    alertText: {
-      fontSize: fontSizes.alertText,
-      color: colors.info,
-      lineHeight: 18,
-    },
-    errorText: {
-      color: colors.error,
-      fontSize: fontSizes.errorText,
-    },
-    successText: {
-      color: colors.success,
-      fontSize: fontSizes.successText,
-    },
-    policyContainer: {
-      backgroundColor: colors.surface,
-      padding: 12,
-      borderRadius: 6,
-    },
-    policyTitle: {
-      fontSize: fontSizes.policyTitle,
-      fontWeight: 'bold',
-      marginBottom: 4,
-      color: colors.textSecondary,
-    },
-    policyText: {
-      fontSize: fontSizes.policyText,
-      color: colors.textSecondary,
-      lineHeight: 16,
-    },
-    policyBold: {
-      fontWeight: 'bold',
-      color: colors.text,
-    },
-    actions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      padding: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      gap: 8,
-    },
-    button: {
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 6,
-      minWidth: 120,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    cancelButton: {
-      borderWidth: 1,
-      borderColor: colors.error,
-      backgroundColor: 'transparent',
-    },
-    applyButton: {
-      backgroundColor: colors.primary,
-    },
-    disabledButton: {
-      backgroundColor: colors.disabled,
-    },
-    cancelButtonText: {
-      color: colors.error,
-      fontWeight: '500',
-      fontSize: fontSizes.buttonText,
-    },
-    buttonText: {
-      color: '#ffffff',
-      fontWeight: '500',
-      fontSize: fontSizes.buttonText,
-    },
-    loadingContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-  });
+  const serviceType = booking?.service_type || booking?.serviceType || "";
 
   return (
-    <Modal
-      visible={open}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={dynamicStyles.centeredView}>
-        <View style={dynamicStyles.modalView}>
-          {/* Header */}
-          <View style={dynamicStyles.header}>
-            <Text style={dynamicStyles.modalTitle}>Manage Vacation</Text>
-            <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
-              <Text style={dynamicStyles.closeIcon}>×</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={dynamicStyles.modalContent}>
-            {/* Existing Vacation Info */}
-            {hasExistingVacation && (
-              <View style={[dynamicStyles.alert, dynamicStyles.infoAlert]}>
-                <Text style={dynamicStyles.alertTitle}>Current Vacation Period</Text>
-                <Text style={dynamicStyles.alertText}>
-                  {dayjs(booking.vacationDetails?.leave_start_date).format("MMM D, YYYY")} 
-                  {" to "}
-                  {dayjs(booking.vacationDetails?.leave_end_date).format("MMM D, YYYY")}
-                </Text>
-                <Text style={dynamicStyles.alertText}>
-                  Total days: {booking.vacationDetails?.total_days}
-                </Text>
-              </View>
-            )}
-
-            {/* Alerts */}
-            {error && (
-              <View style={[dynamicStyles.alert, dynamicStyles.errorAlert]}>
-                <Text style={dynamicStyles.errorText}>{error}</Text>
-              </View>
-            )}
-            
-            {success && (
-              <View style={[dynamicStyles.alert, dynamicStyles.successAlert]}>
-                <Text style={dynamicStyles.successText}>{success}</Text>
-              </View>
-            )}
-
-            {/* Vacation Date Selection */}
-            <View style={dynamicStyles.section}>
-              <Text style={dynamicStyles.sectionTitle}>
-                {hasExistingVacation ? "Modify Vacation Dates" : "Apply for Vacation"}
-              </Text>
-              
-              {/* Start Date Picker */}
-              <View style={dynamicStyles.datePickerContainer}>
-                <Text style={dynamicStyles.dateLabel}>Vacation Start Date</Text>
-                <TouchableOpacity 
-                  style={dynamicStyles.dateInput}
-                  onPress={() => setShowStartPicker(true)}
+    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={styles.sheet}>
+          <LinearGradient
+            colors={[...BOOKING_HEADER_GRADIENT]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerContent}>
+              <TouchableOpacity
+                style={[styles.headerSideSlot, styles.headerCloseBtn]}
+                onPress={onClose}
+                disabled={isLoading}
+                accessibilityLabel={t("common.close")}
+              >
+                <Icon name="x" size={22} color="#ffffff" />
+              </TouchableOpacity>
+              <View style={styles.headerTitleBlock} pointerEvents="none">
+                <Text
+                  style={[styles.headerTitle, { fontSize: titleSize }]}
+                  numberOfLines={2}
                 >
-                  <Text style={[
-                    dynamicStyles.dateInputText,
-                    !startDate && dynamicStyles.placeholderText
-                  ]}>
-                    {formatDateDisplay(startDate)}
-                  </Text>
-                </TouchableOpacity>
-                {showStartPicker && (
-                  <DateTimePicker
-                    value={startDate?.toDate() || today.toDate()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleStartDateChange}
-                    minimumDate={today.toDate()}
-                  />
-                )}
+                  {headerTitle}
+                </Text>
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                  {t("vacationManagement.subtitle")}
+                </Text>
               </View>
-
-              {/* End Date Picker */}
-              <View style={dynamicStyles.datePickerContainer}>
-                <Text style={dynamicStyles.dateLabel}>Vacation End Date</Text>
-                <TouchableOpacity 
-                  style={[
-                    dynamicStyles.dateInput,
-                    (!startDate && dynamicStyles.disabledInput)
-                  ]}
-                  onPress={() => startDate && setShowEndPicker(true)}
-                  disabled={!startDate}
-                >
-                  <Text style={[
-                    dynamicStyles.dateInputText,
-                    !endDate && dynamicStyles.placeholderText,
-                    !startDate && dynamicStyles.disabledText
-                  ]}>
-                    {formatDateDisplay(endDate)}
-                  </Text>
-                </TouchableOpacity>
-                {showEndPicker && (
-                  <DateTimePicker
-                    value={endDate?.toDate() || getMinEndDate()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleEndDateChange}
-                    minimumDate={getMinEndDate()}
-                  />
-                )}
-              </View>
-
-              {totalDays > 0 && (
-                <View style={dynamicStyles.totalDaysContainer}>
-                  <Text style={dynamicStyles.totalDaysText}>
-                    Total vacation days: <Text style={dynamicStyles.totalDaysBold}>{totalDays}</Text>
-                  </Text>
-                </View>
-              )}
+              <View style={styles.headerSideSlot} />
             </View>
+          </LinearGradient>
 
-            {/* Vacation Policy Info */}
-            <View style={dynamicStyles.policyContainer}>
-              <Text style={dynamicStyles.policyTitle}>Vacation Policy</Text>
-              <Text style={dynamicStyles.policyText}>
-                <Text style={dynamicStyles.policyBold}>Vacation Policy:</Text> During vacation period, services will be paused and 
-                applicable refunds will be processed to your wallet. A penalty may apply for modifications 
-                to existing vacation periods.
+          <View style={[styles.body, { backgroundColor: colors.card }]}>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {isAddMode && booking && bookingStart && bookingEnd ? (
+              <View style={[styles.infoCard, { backgroundColor: colors.infoLight, borderColor: colors.info }]}>
+                <Text style={[styles.infoCardTitle, { color: colors.info, fontSize: bodySize + 1 }]}>
+                  {t("vacationManagement.bookedPeriod")}
+                </Text>
+                <View style={styles.chipRow}>
+                  <View style={[styles.chip, { borderColor: colors.info }]}>
+                    <Text style={[styles.chipText, { color: colors.info }]}>#{booking.id}</Text>
+                  </View>
+                  {serviceType ? (
+                    <View style={[styles.chip, styles.chipFilled, { backgroundColor: colors.info }]}>
+                      <Text style={[styles.chipText, { color: "#fff" }]}>
+                        {getServiceTitle(serviceType)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {booking.bookingType ? (
+                    <View style={[styles.chip, { borderColor: colors.info }]}>
+                      <Text style={[styles.chipText, { color: colors.info }]}>
+                        {booking.bookingType}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={{ color: colors.textSecondary, fontSize: bodySize }}>
+                  {bookingStart.format("MMM D, YYYY")} {t("vacationManagement.to")}{" "}
+                  {bookingEnd.format("MMM D, YYYY")}
+                </Text>
+              </View>
+            ) : null}
+
+            {!isAddMode && vacation ? (
+              <View style={[styles.infoCard, { backgroundColor: colors.infoLight, borderColor: colors.info }]}>
+                <Text style={[styles.infoCardTitle, { color: colors.info, fontSize: bodySize + 1 }]}>
+                  {t("vacationManagement.currentVacation")}
+                </Text>
+                <View style={styles.chipRow}>
+                  <View style={[styles.chip, { borderColor: colors.info }]}>
+                    <Text style={[styles.chipText, { color: colors.info }]}>
+                      {dayjs(vacation.start_date).format("MMM D, YYYY")}
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.textSecondary, fontSize: bodySize }}>
+                    {t("vacationManagement.to")}
+                  </Text>
+                  <View style={[styles.chip, { borderColor: colors.info }]}>
+                    <Text style={[styles.chipText, { color: colors.info }]}>
+                      {dayjs(vacation.end_date).format("MMM D, YYYY")}
+                    </Text>
+                  </View>
+                  {vacation.leave_days != null ? (
+                    <View style={[styles.chip, styles.chipFilled, { backgroundColor: colors.info }]}>
+                      <Text style={[styles.chipText, { color: "#fff" }]}>
+                        {vacation.leave_days} {t("vacationManagement.days")}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
+            {error ? (
+              <View style={[styles.alert, { backgroundColor: colors.errorLight }]}>
+                <Text style={{ color: colors.error, fontSize: bodySize }}>{error}</Text>
+              </View>
+            ) : null}
+
+            {success ? (
+              <View style={[styles.alert, { backgroundColor: colors.successLight }]}>
+                <Text style={{ color: colors.success, fontSize: bodySize }}>{success}</Text>
+              </View>
+            ) : null}
+
+            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: titleSize - 2 }]}>
+              {isAddMode
+                ? t("vacationManagement.selectVacationDates")
+                : t("vacationManagement.updateVacationDates")}
+            </Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary, fontSize: bodySize }]}>
+              {t("vacationManagement.minimumVacationNote")}{" "}
+              {earliestEndDate && startDate ? (
+                <Text style={{ fontWeight: "700" }}>
+                  {earliestEndDate.format("MMM D, YYYY")}
+                </Text>
+              ) : (
+                <Text style={{ fontWeight: "700" }}>
+                  {MIN_VACATION_DAYS} {t("vacationManagement.days")}
+                </Text>
+              )}
+            </Text>
+
+            {minDate && maxDate ? (
+              <View style={[styles.pickerShell, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <DribbbleDateTimePicker
+                  mode="range"
+                  hideTimeSelection
+                  minRangeDays={MIN_VACATION_DAYS}
+                  minDate={pickerMinDate}
+                  maxDate={pickerMaxDate}
+                  value={pickerRangeValue}
+                  onDateChange={({ startDate: rangeStart, endDate: rangeEnd }) => {
+                    handleRangeChange(rangeStart, rangeEnd);
+                  }}
+                  onChange={({ startDate: rangeStart, endDate: rangeEnd }) => {
+                    handleRangeChange(rangeStart, rangeEnd);
+                  }}
+                />
+              </View>
+            ) : null}
+
+            {startDate ? (
+              <View style={[styles.dateSummary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={{ color: colors.textSecondary, fontSize: bodySize, marginBottom: 6 }}>
+                  <Text style={{ fontWeight: "700" }}>{t("vacationManagement.dateInformation")}:</Text>
+                </Text>
+                <View style={styles.dateSummaryRow}>
+                  <Text style={{ color: colors.text, fontSize: bodySize }}>
+                    {t("vacationManagement.start")}:{" "}
+                    <Text style={{ fontWeight: "700" }}>{startDate.format("MMM D, YYYY")}</Text>
+                  </Text>
+                  {endDate ? (
+                    <Text style={{ color: colors.text, fontSize: bodySize }}>
+                      {t("vacationManagement.end")}:{" "}
+                      <Text style={{ fontWeight: "700" }}>{endDate.format("MMM D, YYYY")}</Text>
+                    </Text>
+                  ) : null}
+                  {totalDays > 0 ? (
+                    <Text
+                      style={{
+                        color: totalDays >= MIN_VACATION_DAYS ? colors.primary : colors.error,
+                        fontSize: bodySize,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {t("vacationManagement.totalDaysLabel")}: {totalDays}
+                      {totalDays < MIN_VACATION_DAYS
+                        ? ` (${t("vacationManagement.minimumDaysRequired")})`
+                        : ""}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
+            <View style={[styles.policyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.policyTitle, { color: colors.text, fontSize: bodySize + 1 }]}>
+                {t("vacationManagement.vacationPolicy")}
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: bodySize, lineHeight: bodySize * 1.5 }}>
+                • {t("vacationManagement.minimumVacationPeriod")}:{" "}
+                <Text style={{ fontWeight: "700" }}>10 {t("vacationManagement.days")}</Text>
+                {"\n"}• {t("vacationManagement.vacationPauseMessage")}
+                {!isAddMode ? (
+                  <>
+                    {"\n"}• {t("vacationManagement.penaltyMessage", {
+                      fee: VACATION_MODIFICATION_PENALTY,
+                    })}
+                  </>
+                ) : null}
               </Text>
             </View>
           </ScrollView>
 
-          {/* Actions */}
-          <View style={dynamicStyles.actions}>
-            {hasExistingVacation && (
-              <TouchableOpacity
-                style={[dynamicStyles.button, dynamicStyles.cancelButton]}
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+            {isAddMode ? (
+              <BrandButton
+                variant="ghost"
+                onPress={onClose}
+                disabled={isLoading}
+                style={styles.footerBtn}
+              >
+                {t("common.cancel")}
+              </BrandButton>
+            ) : (
+              <BrandButton
+                variant="outline"
                 onPress={handleCancelVacation}
                 disabled={isLoading}
+                loading={isLoading}
+                style={styles.footerBtn}
+                textStyle={{ color: colors.error }}
               >
-                <Text style={dynamicStyles.cancelButtonText}>Cancel Vacation</Text>
-              </TouchableOpacity>
+                {t("vacationManagement.cancelVacation")}
+              </BrandButton>
             )}
-            
-            <TouchableOpacity
-              style={[
-                dynamicStyles.button, 
-                dynamicStyles.applyButton,
-                (!startDate || !endDate || isLoading) && dynamicStyles.disabledButton
-              ]}
-              onPress={handleApplyVacation}
-              disabled={!startDate || !endDate || isLoading}
+            <BrandButton
+              variant="primary"
+              onPress={handleSaveVacation}
+              disabled={isLoading || !startDate || !endDate || !isValidVacationPeriod()}
+              loading={isLoading}
+              style={styles.footerBtn}
             >
-              {isLoading ? (
-                <View style={dynamicStyles.loadingContainer}>
-                  <ActivityIndicator color="#ffffff" size="small" />
-                  <Text style={dynamicStyles.buttonText}>
-                    {hasExistingVacation ? "Updating..." : "Applying..."}
-                  </Text>
-                </View>
-              ) : (
-                <Text style={dynamicStyles.buttonText}>
-                  {hasExistingVacation ? "Update Vacation" : "Apply Vacation"}
-                </Text>
-              )}
-            </TouchableOpacity>
+              {isAddMode
+                ? t("vacationManagement.applyVacationAction")
+                : t("vacationManagement.updateVacation")}
+            </BrandButton>
+          </View>
           </View>
         </View>
       </View>
+
+      <ConfirmationDialog
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={() => void submitVacation()}
+        title={t("vacationManagement.confirmVacationUpdate")}
+        message={t("vacationManagement.confirmVacationUpdateMessage", {
+          start: startDate?.format("MMMM D, YYYY") ?? "",
+          end: endDate?.format("MMMM D, YYYY") ?? "",
+          days: String(totalDays),
+          fee: String(VACATION_MODIFICATION_PENALTY),
+        })}
+        confirmText={t("vacationManagement.confirmUpdate")}
+        cancelText={t("common.cancel")}
+        loading={isLoading}
+        severity="warning"
+      />
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    maxHeight: "92%",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+  },
+  headerGradient: {
+    width: "100%",
+    paddingBottom: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    minHeight: 72,
+    paddingHorizontal: HORIZONTAL_GUTTER,
+  },
+  headerSideSlot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
+  },
+  headerCloseBtn: {
+    backgroundColor: "rgba(255, 255, 255, 0.20)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.28)",
+  },
+  headerTitleBlock: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    minWidth: 0,
+  },
+  headerTitle: {
+    color: "#ffffff",
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    textAlign: "center",
+    width: "100%",
+    lineHeight: 26,
+  },
+  headerSubtitle: {
+    color: "rgba(219, 234, 254, 0.95)",
+    textAlign: "center",
+    fontSize: 13,
+    marginTop: 4,
+    fontWeight: "500",
+    lineHeight: 18,
+  },
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  body: {
+    flexShrink: 1,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  infoCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  infoCardTitle: {
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  chipFilled: {
+    borderWidth: 0,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  alert: {
+    padding: 12,
+    borderRadius: 10,
+  },
+  sectionTitle: {
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  helperText: {
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  pickerShell: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 8,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 380,
+  },
+  dateSummary: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  dateSummaryRow: {
+    gap: 8,
+  },
+  policyCard: {
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  policyTitle: {
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+  },
+  footerBtn: {
+    flex: 1,
+    minWidth: 0,
+  },
+});
 
 export default VacationManagementDialog;
