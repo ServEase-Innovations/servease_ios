@@ -98,6 +98,7 @@ import NotificationsDialog from "./src/Notifications/NotificationsPage";
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
+import { hasSpRegistrationInProgress } from "./src/Registration/spRegistrationDraft";
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
 import Snackbar from "react-native-snackbar";
 import BrandLoadingScreen from "./src/common/BrandLoadingScreen";
@@ -515,6 +516,26 @@ const MainApp = () => {
       textColor: "#ffffff",
     });
   };
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        if (await hasSpRegistrationInProgress()) {
+          if (active) {
+            setShowProviderRegistration(true);
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to restore provider registration draft:", error);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleProviderBackToLogin = () => {
     setShowProviderRegistration(false);

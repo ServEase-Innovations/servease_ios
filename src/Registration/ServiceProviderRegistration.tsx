@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import moment from "moment";
 import {
   View,
@@ -17,6 +17,7 @@ import {
   Dimensions,
   Keyboard,
   Animated,
+  AppState,
 } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -59,6 +60,13 @@ import BankDetails, { BankDetailsData, BankDetailsErrors } from "./BankDetails";
 import providerInstance from "../services/providerInstance";
 import { API_URLS } from "../config/apiUrls";
 import { Portal } from "react-native-paper";
+import {
+  clearSpRegistrationDraft,
+  hasMeaningfulDraft,
+  loadSpRegistrationDraft,
+  sanitizeFormDataForDraft,
+  saveSpRegistrationDraft,
+} from "./spRegistrationDraft";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.94;
@@ -213,6 +221,97 @@ const steps = [
   "Confirmation",
 ];
 
+const createEmptySpFormData = (): FormData => ({
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  gender: "",
+  emailId: "",
+  password: "",
+  confirmPassword: "",
+  mobileNo: "",
+  AlternateNumber: "",
+  buildingName: "",
+  locality: "",
+  street: "",
+  currentLocation: "",
+  nearbyLocation: "",
+  pincode: "",
+  latitude: 0,
+  longitude: 0,
+  AADHAR: "",
+  pan: "",
+  panImage: null,
+  housekeepingRole: [],
+  description: "",
+  experience: "",
+  kyc: "AADHAR",
+  documentImage: null,
+  otherDetails: "",
+  profileImage: null,
+  cookingSpeciality: "",
+  nannyCareType: "",
+  age: "",
+  diet: "",
+  dob: "",
+  profilePic: "",
+  timeslot: "06:00-20:00",
+  referralCode: "",
+  agreeToTerms: false,
+  terms: false,
+  privacy: false,
+  keyFacts: false,
+  kycType: "AADHAR",
+  kycNumber: "",
+  agentReferralId: "",
+  permanentAddress: {
+    apartment: "",
+    street: "",
+    city: "",
+    state: "",
+    country: "",
+    pincode: "",
+  },
+  correspondenceAddress: {
+    apartment: "",
+    street: "",
+    city: "",
+    state: "",
+    country: "",
+    pincode: "",
+  },
+  bankDetails: {
+    bankName: "",
+    ifscCode: "",
+    accountHolderName: "",
+    accountNumber: "",
+    accountType: "",
+    upiId: "",
+  },
+});
+
+const mergeLoadedSpFormData = (partial: Record<string, unknown>): FormData => {
+  const base = createEmptySpFormData();
+  const permanent = (partial.permanentAddress as FormData["permanentAddress"]) ?? {};
+  const correspondence =
+    (partial.correspondenceAddress as FormData["correspondenceAddress"]) ?? {};
+  const bankDetails = (partial.bankDetails as FormData["bankDetails"]) ?? {};
+
+  return {
+    ...base,
+    ...(partial as Partial<FormData>),
+    panImage: null,
+    documentImage: null,
+    profileImage: null,
+    permanentAddress: { ...base.permanentAddress, ...permanent },
+    correspondenceAddress: { ...base.correspondenceAddress, ...correspondence },
+    bankDetails: { ...base.bankDetails, ...bankDetails },
+    housekeepingRole: Array.isArray(partial.housekeepingRole)
+      ? (partial.housekeepingRole as string[])
+      : base.housekeepingRole,
+  };
+};
+
 interface RegistrationProps {
   onBackToLogin: (data: boolean) => void;
   onRegistrationSuccess?: () => void;
@@ -356,75 +455,9 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   // State to track if next button should be disabled - NOW ALWAYS FALSE (no validation blocking)
   const [isNextDisabled, setIsNextDisabled] = useState(false);
 
-  const [formData, setFormData] = useState<FormData>({
-    firstName: "",
-    middleName: "",
-    lastName: "",
-    gender: "",
-    emailId: "",
-    password: "",
-    confirmPassword: "",
-    mobileNo: "",
-    AlternateNumber: "",
-    buildingName: "",
-    locality: "",
-    street: "",
-    currentLocation: "",
-    nearbyLocation: "",
-    pincode: "",
-    latitude: 0,
-    longitude: 0,
-    AADHAR: "",
-    pan: "",
-    panImage: null,
-    housekeepingRole: [],
-    description: "",
-    experience: "",
-    kyc: "AADHAR",
-    documentImage: null,
-    otherDetails: "",
-    profileImage: null,
-    cookingSpeciality: "",
-    nannyCareType: "",
-    age: "",
-    diet: "",
-    dob: "",
-    profilePic: "",
-    timeslot: "06:00-20:00",
-    referralCode: "",
-    agreeToTerms: false,
-    terms: false,
-    privacy: false,
-    keyFacts: false,
-    kycType: "AADHAR",
-    kycNumber: "",
-    agentReferralId: "",
-    permanentAddress: {
-      apartment: "",
-      street: "",
-      city: "",
-      state: "",
-      country: "",
-      pincode: ""
-    },
-    correspondenceAddress: {
-      apartment: "",
-      street: "",
-      city: "",
-      state: "",
-      country: "",
-      pincode: ""
-    },
-    // NEW: Bank details initial state
-    bankDetails: {
-      bankName: "",
-      ifscCode: "",
-      accountHolderName: "",
-      accountNumber: "",
-      accountType: "",
-      upiId: ""
-    }
-  });
+  const [formData, setFormData] = useState<FormData>(createEmptySpFormData);
+  const [draftReady, setDraftReady] = useState(false);
+  const restoredDraftRef = useRef(false);
 
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -460,10 +493,107 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
     }
   };
 
+  const buildDraftSnapshot = useCallback(
+    () => ({
+      activeStep,
+      formData: sanitizeFormDataForDraft(formData as unknown as Record<string, unknown>),
+      selectedLanguages,
+      isCookSelected,
+      isNannySelected,
+      currentLocation,
+      isSameAddress,
+      kycDocumentUrl,
+      useCustomPassword,
+      selectedDate: selectedDate ? selectedDate.toISOString() : null,
+    }),
+    [
+      activeStep,
+      formData,
+      selectedLanguages,
+      isCookSelected,
+      isNannySelected,
+      currentLocation,
+      isSameAddress,
+      kycDocumentUrl,
+      useCustomPassword,
+      selectedDate,
+    ]
+  );
+
+  const persistDraftNow = useCallback(() => {
+    if (!draftReady) return;
+    const snapshot = buildDraftSnapshot();
+    if (!hasMeaningfulDraft({ version: 1, savedAt: Date.now(), ...snapshot })) {
+      return;
+    }
+    void saveSpRegistrationDraft(snapshot);
+  }, [buildDraftSnapshot, draftReady]);
+
+  const debouncedPersistDraft = useMemo(
+    () => debounce(() => persistDraftNow(), 500),
+    [persistDraftNow]
+  );
+
   // Initialize Geocoder
   useEffect(() => {
     Geocoder.init(keys.api_key);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      const draft = await loadSpRegistrationDraft();
+      if (!active || !draft || !hasMeaningfulDraft(draft)) {
+        if (active) setDraftReady(true);
+        return;
+      }
+
+      restoredDraftRef.current = true;
+      setActiveStep(Math.min(Math.max(draft.activeStep, 0), steps.length - 1));
+      setFormData(mergeLoadedSpFormData(draft.formData));
+      setSelectedLanguages(draft.selectedLanguages ?? []);
+      setIsCookSelected(Boolean(draft.isCookSelected));
+      setIsNannySelected(Boolean(draft.isNannySelected));
+      setCurrentLocation(draft.currentLocation ?? null);
+      setIsSameAddress(Boolean(draft.isSameAddress));
+      setKycDocumentUrl(draft.kycDocumentUrl ?? "");
+      setUseCustomPassword(Boolean(draft.useCustomPassword));
+      if (draft.selectedDate) {
+        const parsed = new Date(draft.selectedDate);
+        if (!Number.isNaN(parsed.getTime())) {
+          setSelectedDate(parsed);
+        }
+      }
+      if (active) {
+        setDraftReady(true);
+        setSnackbarMessage("Your registration progress was restored.");
+        setSnackbarSeverity("info");
+        setSnackbarOpen(true);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    debouncedPersistDraft();
+  }, [draftReady, debouncedPersistDraft, buildDraftSnapshot]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "background" || nextState === "inactive") {
+        persistDraftNow();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [draftReady, persistDraftNow]);
 
   // Cleanup snackbar timeout on unmount
   useEffect(() => {
@@ -542,13 +672,13 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   const { validationResults, validateField, resetValidation } = useFieldValidation();
 
   useEffect(() => {
-    if (!auth0LoginEmail) return;
+    if (!draftReady || !auth0LoginEmail) return;
     setFormData((prev) => ({
       ...prev,
       emailId: auth0LoginEmail,
     }));
     validateField("email", auth0LoginEmail);
-  }, [auth0LoginEmail, validateField]);
+  }, [auth0LoginEmail, validateField, draftReady]);
 
   useEffect(() => {
     if (auth0LoginEmail) {
@@ -1693,6 +1823,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
       }
 
       showSnackbar("Registration successful!", "success");
+      await clearSpRegistrationDraft();
 
       if (registrationEmail && formData.password) {
         const authPayload = {
