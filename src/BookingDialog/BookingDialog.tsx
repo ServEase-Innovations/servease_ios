@@ -97,6 +97,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [serviceDurationHours, setServiceDurationHours] = useState(1);
   const [tempSelectedTime, setTempSelectedTime] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const openSessionInitializedRef = useRef(false);
   const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(null);
   const [showCustomTimePicker, setShowCustomTimePicker] = useState<"start" | "end" | null>(null);
   const [tempDate, setTempDate] = useState<Date | null>(null);
@@ -195,31 +196,39 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
   }, [appUser]);
 
-  // Sync local state with props when modal opens
+  // Sync local state with props and reset scroll only when the sheet opens — not on every parent date/time update.
   useEffect(() => {
-    if (open) {
-      setLocalStartDate(startDate);
-      setLocalEndDate(endDate);
-      setLocalStartTime(startTime);
-      setLocalEndTime(endTime);
-      if (startTime && endTime) {
-        const hours = Math.max(1, Math.round(endTime.diff(startTime, "hour", true)));
-        setServiceDurationHours(hours);
-      } else {
-        setServiceDurationHours(1);
-      }
-      // Soft snap-in animation for modern drawer feel
-      sheetTranslateY.setValue(28);
-      Animated.spring(sheetTranslateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        speed: 18,
-        bounciness: 0,
-      }).start();
-      requestAnimationFrame(() => {
-        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-      });
+    if (!open) {
+      openSessionInitializedRef.current = false;
+      return;
     }
+
+    if (openSessionInitializedRef.current) {
+      return;
+    }
+    openSessionInitializedRef.current = true;
+
+    setLocalStartDate(startDate);
+    setLocalEndDate(endDate);
+    setLocalStartTime(startTime);
+    setLocalEndTime(endTime);
+    if (startTime && endTime) {
+      const hours = Math.max(1, Math.round(endTime.diff(startTime, "hour", true)));
+      setServiceDurationHours(hours);
+    } else {
+      setServiceDurationHours(1);
+    }
+    // Soft snap-in animation for modern drawer feel
+    sheetTranslateY.setValue(28);
+    Animated.spring(sheetTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 0,
+    }).start();
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
   }, [open, startDate, endDate, startTime, endTime, sheetTranslateY]);
 
   // Reset all booking state when modal closes
