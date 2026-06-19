@@ -220,16 +220,6 @@ const ProfileMenuSheet: React.FC<Props> = ({
     },
   ];
 
-  if (isServiceProvider) {
-    menuItems.push({
-      key: "dashboard",
-      label: "Dashboard",
-      subtitle: "Jobs, schedule & earnings",
-      icon: "dashboard-customize",
-      onPress: onDashboard,
-    });
-  }
-
   if (isAdmin) {
     menuItems.push({
       key: "agent",
@@ -251,16 +241,6 @@ const ProfileMenuSheet: React.FC<Props> = ({
       icon: "support-agent",
       onPress: handleContactPress, // Updated to use the new handler
     },
-    {
-      key: "settings",
-      label: "Settings",
-      subtitle: "Language, theme & notifications",
-      icon: "settings",
-      onPress: () => {
-        dismissSheet();
-        onOpenSettings?.();
-      },
-    }
   );
 
   if (!mounted) {
