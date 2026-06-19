@@ -21,8 +21,10 @@ import PaymentInstance from "../services/paymentInstance";
 import { useAppUser } from "../context/AppUserContext";
 import {
   acceptEngagement,
+  dismissProviderNewBookingNotifications,
   parseAcceptEngagementError,
   parseEngagementId,
+  resolveServiceProviderId,
 } from "../services/engagementService";
 import BookingRequestPanel from "./BookingRequestPanel";
 import AutoCancelledBookingCard from "./AutoCancelledBookingCard";
@@ -207,13 +209,17 @@ export default function NotificationsPage({
       setDetailError(null);
       try {
         const result = await acceptEngagement(eid, appUser);
-        Snackbar.show({
-          text: result.message,
-          duration: Snackbar.LENGTH_SHORT,
-          backgroundColor: "#4caf50",
-        });
-        setDetailFor((d) => (d != null && String(d.id) === String(n.id) ? null : d));
-        await fetchList();
+      const providerId = resolveServiceProviderId(appUser);
+      if (providerId != null) {
+        await dismissProviderNewBookingNotifications(eid, providerId);
+      }
+      Snackbar.show({
+        text: result.message,
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#4caf50",
+      });
+      setDetailFor((d) => (d != null && String(d.id) === String(n.id) ? null : d));
+      await fetchList();
       } catch (e: unknown) {
         const msg = parseAcceptEngagementError(e);
         setDetailError(msg);

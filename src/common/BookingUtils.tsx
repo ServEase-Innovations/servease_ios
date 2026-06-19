@@ -71,6 +71,13 @@ export const getStatusBadge = (status: string) => {
           <Text style={styles.notStartedText}>Not Started</Text>
         </Badge>
       );
+    case "QUEUE_STANDBY":
+      return (
+        <Badge variant="secondary" style={styles.queueStandbyBadge}>
+          <Clock size={12} color="#0f766e" style={styles.iconMargin} />
+          <Text style={styles.queueStandbyText}>Backup queue</Text>
+        </Badge>
+      );
     default:
       return null;
   }
@@ -195,6 +202,16 @@ const styles = StyleSheet.create({
   },
   notStartedText: {
     color: '#1f2937',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  queueStandbyBadge: {
+    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+    borderColor: 'rgba(20, 184, 166, 0.35)',
+  },
+  queueStandbyText: {
+    color: '#0f766e',
     fontSize: 12,
     fontWeight: '500',
   },

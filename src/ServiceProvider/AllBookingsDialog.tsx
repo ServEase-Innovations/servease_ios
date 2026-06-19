@@ -23,6 +23,7 @@ import axios from "axios";
 import { OtpVerificationDialog } from "./OtpVerificationDialog";
 import TrackAddress from "./TrackAddress";
 import { BRAND } from "../theme/brandColors";
+import { withdrawFromOnDemandEngagement } from "../services/engagementService";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk";
 
@@ -154,6 +155,7 @@ export function AllBookingsDialog({
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
 
   const mapApiBookingToBooking = useCallback((apiBooking: any): Booking => {
     let date: string;
@@ -369,6 +371,45 @@ export function AllBookingsDialog({
     setOtpDialogOpen(true);
   };
 
+  const handleWithdrawFromBooking = (booking: Booking) => {
+    if (!serviceProviderId) return;
+    const api = booking.bookingData || {};
+    const isBackup = api.is_queue_standby === true || api.queue_role === "backup";
+    const title = isBackup ? "Leave backup queue?" : "Cancel booking?";
+    const message = isBackup
+      ? "You will be removed from the backup provider list for this on-demand booking."
+      : "You will be unassigned from this on-demand booking. If you are the primary provider, the next backup may be promoted.";
+
+    Alert.alert(title, message, [
+      { text: "Keep", style: "cancel" },
+      {
+        text: "Withdraw",
+        style: "destructive",
+        onPress: async () => {
+          const bookingKey = booking.id.toString();
+          setWithdrawingId(bookingKey);
+          try {
+            const { message: okMsg } = await withdrawFromOnDemandEngagement(
+              booking.id,
+              serviceProviderId
+            );
+            Alert.alert("Success", okMsg);
+            await loadMonthBookings(selectedMonth, true);
+          } catch (err) {
+            let errorMessage = "Could not withdraw from this booking.";
+            if (axios.isAxiosError(err)) {
+              errorMessage =
+                err.response?.data?.error || err.response?.data?.message || errorMessage;
+            }
+            Alert.alert("Error", errorMessage);
+          } finally {
+            setWithdrawingId(null);
+          }
+        },
+      },
+    ]);
+  };
+
   const handleVerifyOtp = async (otp: string) => {
     if (!currentBooking) return;
 
@@ -441,24 +482,39 @@ export function AllBookingsDialog({
 
   const renderBookingCard = (booking: Booking) => {
     const todayServiceStatus = booking.bookingData?.today_service?.status;
-    const taskStatusOriginal = booking.taskStatus?.toUpperCase();
-    const busy = !!taskStatusUpdating[booking.id.toString()];
+    const taskStatusOriginal = (booking.taskStatus || "").toUpperCase();
+    const busy =
+      !!taskStatusUpdating[booking.id.toString()] ||
+      withdrawingId === booking.id.toString();
+    const api = booking.bookingData || {};
+    const isQueueStandby =
+      taskStatusOriginal === "QUEUE_STANDBY" ||
+      api.is_queue_standby === true ||
+      api.queue_role === "backup";
+    const canWithdraw =
+      api.can_provider_withdraw === true &&
+      tab !== "past" &&
+      !isInProgress &&
+      !isCompleted;
 
     const isInProgress =
-      todayServiceStatus === "IN_PROGRESS" ||
-      taskStatus[booking.id.toString()] === "IN_PROGRESS" ||
-      taskStatusOriginal === "IN_PROGRESS" ||
-      taskStatusOriginal === "STARTED";
+      !isQueueStandby &&
+      (todayServiceStatus === "IN_PROGRESS" ||
+        taskStatus[booking.id.toString()] === "IN_PROGRESS" ||
+        taskStatusOriginal === "IN_PROGRESS" ||
+        taskStatusOriginal === "STARTED");
 
     const isCompleted =
       todayServiceStatus === "COMPLETED" || taskStatusOriginal === "COMPLETED";
     const isNotStarted =
-      todayServiceStatus === "SCHEDULED" || taskStatusOriginal === "NOT_STARTED";
-    const canStart = booking.bookingData?.today_service?.can_start === true;
+      !isQueueStandby &&
+      (todayServiceStatus === "SCHEDULED" || taskStatusOriginal === "NOT_STARTED");
+    const canStart = !isQueueStandby && booking.bookingData?.today_service?.can_start === true;
 
     const showStartButton = isNotStarted && canStart;
     const showCompleteButton = isInProgress;
     const showCompletedButton = isCompleted;
+    const showWithdrawButton = canWithdraw && !isInProgress && !isCompleted;
 
     return (
       <View key={booking.id} style={styles.bookingCard}>
@@ -499,8 +555,20 @@ export function AllBookingsDialog({
 
           <View style={styles.badgeRow}>
             {getBookingTypeBadge(booking.booking_type || "")}
-            {getStatusBadge(booking.taskStatus || "")}
+            {getStatusBadge(isQueueStandby ? "QUEUE_STANDBY" : booking.taskStatus || "")}
+            {isQueueStandby && api.queue_position ? (
+              <View style={styles.backupPosPill}>
+                <Text style={styles.backupPosText}>#{api.queue_position} in queue</Text>
+              </View>
+            ) : null}
           </View>
+
+          {isQueueStandby ? (
+            <Text style={styles.standbyHint}>
+              You are on backup for this booking. It will appear on your calendar in teal until you
+              are promoted or withdraw.
+            </Text>
+          ) : null}
 
           {booking.location && booking.location !== "Address not available" ? (
             <View style={styles.addressRow}>
@@ -562,11 +630,24 @@ export function AllBookingsDialog({
                 <MaterialIcon name="play-arrow" size={16} color="#ffffff" />
                 <Text style={[styles.actionButtonText, styles.actionButtonTextLight]}>Start</Text>
               </TouchableOpacity>
-            ) : tab === "ongoing" ? (
+            ) : tab === "ongoing" && !isQueueStandby ? (
               <View style={styles.statusIdlePill}>
                 <MaterialIcon name="hourglass-empty" size={14} color={BRAND.textMuted} />
                 <Text style={styles.statusIdleText}>Scheduled</Text>
               </View>
+            ) : null}
+
+            {showWithdrawButton ? (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.withdrawButton]}
+                onPress={() => handleWithdrawFromBooking(booking)}
+                disabled={busy}
+              >
+                <MaterialIcon name="logout" size={16} color="#b45309" />
+                <Text style={styles.withdrawButtonText}>
+                  {isQueueStandby ? "Leave queue" : "Cancel"}
+                </Text>
+              </TouchableOpacity>
             ) : null}
           </View>
         </View>
@@ -1192,6 +1273,35 @@ const styles = StyleSheet.create({
   completeButton: {
     backgroundColor: "#ef4444",
     borderColor: "#ef4444",
+  },
+  withdrawButton: {
+    borderColor: "#fcd34d",
+    backgroundColor: "#fffbeb",
+  },
+  withdrawButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#b45309",
+  },
+  backupPosPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(20, 184, 166, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(20, 184, 166, 0.35)",
+  },
+  backupPosText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#0f766e",
+  },
+  standbyHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: BRAND.textMuted,
+    marginBottom: 8,
+    paddingHorizontal: 2,
   },
   statusDonePill: {
     flexDirection: "row",

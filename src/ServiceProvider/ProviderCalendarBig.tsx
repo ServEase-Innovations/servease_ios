@@ -27,7 +27,7 @@ interface CalendarEntry {
   date: string;
   start_time: string;
   end_time: string;
-  status: "AVAILABLE" | "BOOKED" | "UNAVAILABLE";
+  status: "AVAILABLE" | "BOOKED" | "UNAVAILABLE" | "QUEUE_STANDBY";
 }
 
 interface Event {
@@ -91,6 +91,8 @@ export default function ProviderCalendarBig({
             title:
               e.status === "BOOKED"
                 ? `Booked #${e.engagement_id}`
+                : e.status === "QUEUE_STANDBY"
+                ? `Backup queue #${e.engagement_id}`
                 : e.status === "AVAILABLE"
                 ? "Available"
                 : "Unavailable",
@@ -124,6 +126,9 @@ export default function ProviderCalendarBig({
       if (event.status === "BOOKED") {
         dotColor = "#8b5cf6"; // purple for booked
         backgroundColor = "rgba(139,92,246,0.1)";
+      } else if (event.status === "QUEUE_STANDBY") {
+        dotColor = "#14b8a6"; // teal for backup queue
+        backgroundColor = "rgba(20,184,166,0.12)";
       } else if (event.status === "AVAILABLE") {
         dotColor = "#10b981"; // green for available
         backgroundColor = "rgba(16,185,129,0.1)";
@@ -137,6 +142,9 @@ export default function ProviderCalendarBig({
         if (event.status === "BOOKED" || existing.dotColor === "#8b5cf6") {
           marked[dateKey].dotColor = "#5660ee";
           marked[dateKey].selectedColor = "#122475";
+        } else if (event.status === "QUEUE_STANDBY" || existing.dotColor === "#14b8a6") {
+          marked[dateKey].dotColor = "#14b8a6";
+          marked[dateKey].selectedColor = "#0f766e";
         } else if (event.status === "AVAILABLE" || existing.dotColor === "#10b981") {
           marked[dateKey].dotColor = "#10b981";
           marked[dateKey].selectedColor = "#10b981";
@@ -201,12 +209,20 @@ export default function ProviderCalendarBig({
     const message =
       event.status === "BOOKED"
         ? `This time slot is BOOKED\nEngagement #${event.engagement_id}\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}`
+        : event.status === "QUEUE_STANDBY"
+        ? `You are backup in the queue for this booking\nEngagement #${event.engagement_id}\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}`
         : event.status === "AVAILABLE"
         ? `This time slot is AVAILABLE\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}\nYou can book this slot.`
         : `This time slot is UNAVAILABLE\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}\nPlease select another time.`;
     
     Alert.alert(
-      event.status === "BOOKED" ? "Booked Slot" : event.status === "AVAILABLE" ? "Available Slot" : "Unavailable Slot",
+      event.status === "BOOKED"
+        ? "Booked Slot"
+        : event.status === "QUEUE_STANDBY"
+        ? "Backup queue"
+        : event.status === "AVAILABLE"
+        ? "Available Slot"
+        : "Unavailable Slot",
       message,
       [{ text: "OK", style: "default" }]
     );
@@ -221,6 +237,14 @@ export default function ProviderCalendarBig({
           icon: "calendar-clock",
           gradientStart: "#00115c",
           gradientEnd: "#5f8aff"
+        };
+      case "QUEUE_STANDBY":
+        return {
+          bg: "#14b8a6",
+          text: "#ffffff",
+          icon: "account-clock",
+          gradientStart: "#0f766e",
+          gradientEnd: "#14b8a6",
         };
       case "AVAILABLE":
         return { 
@@ -256,6 +280,7 @@ export default function ProviderCalendarBig({
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "BOOKED": return "Booked";
+      case "QUEUE_STANDBY": return "Backup queue";
       case "AVAILABLE": return "Available";
       case "UNAVAILABLE": return "Unavailable";
       default: return status;
@@ -328,6 +353,10 @@ export default function ProviderCalendarBig({
         <View style={styles.legendItem}>
           <LinearGradient colors={["#8b5cf6", "#7c3aed"]} style={styles.legendDot} />
           <Text style={styles.legendText}>Booked</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <LinearGradient colors={["#14b8a6", "#0f766e"]} style={styles.legendDot} />
+          <Text style={styles.legendText}>Backup queue</Text>
         </View>
         <View style={styles.legendItem}>
           <LinearGradient colors={["#64748b", "#475569"]} style={styles.legendDot} />

@@ -44,6 +44,9 @@ export function parseAcceptEngagementError(err: unknown): string {
     if (/already accepted/i.test(apiMsg)) {
       return "This booking was already accepted.";
     }
+    if (/already in queue/i.test(apiMsg)) {
+      return "You are already on the provider list for this booking.";
+    }
     if (/payment not completed/i.test(apiMsg)) {
       return "Customer payment is not complete yet. Try again after payment succeeds.";
     }
@@ -133,6 +136,30 @@ export function isTerminalAcceptFailure(message: string): boolean {
     m.includes("acceptance queue is full") ||
     m.includes("already declined")
   );
+}
+
+export async function withdrawFromOnDemandEngagement(
+  engagementId: number | string,
+  providerOrUser: number | Record<string, unknown> | null | undefined
+): Promise<{ message: string }> {
+  const providerId =
+    typeof providerOrUser === "number"
+      ? providerOrUser
+      : resolveProviderId(providerOrUser);
+  if (!providerId) {
+    throw new Error("Sign in as a service provider to withdraw from bookings.");
+  }
+  const eid = parseEngagementId(engagementId);
+  if (eid == null) {
+    throw new Error("Invalid booking id.");
+  }
+
+  const { data } = await PaymentInstance.post(
+    `/api/v2/engagements/${eid}/provider-withdraw`,
+    { serviceproviderid: providerId, providerId }
+  );
+
+  return { message: data?.message || "Withdrawn from booking." };
 }
 
 export async function acceptEngagement(
