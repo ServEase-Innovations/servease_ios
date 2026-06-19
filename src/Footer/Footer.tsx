@@ -1,4 +1,4 @@
-// Footer.tsx - Fetches contact + social links from admin platform settings
+// Footer.tsx — light surface footer aligned with customer home (HOME_M3)
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -10,12 +10,12 @@ import {
   Modal,
   useWindowDimensions,
   Platform,
-  SafeAreaView,
 } from 'react-native';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import LinearGradient from 'react-native-linear-gradient';
-import { GRADIENTS } from '../theme/brandColors';
+import { GRADIENTS, HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
+import { useTheme } from '../Settings/ThemeContext';
 import TnC from '../TermsAndConditions/TnC';
 import {
   DEFAULT_FOOTER_SETTINGS,
@@ -26,15 +26,11 @@ import {
   formatPhoneDisplay,
 } from '../services/footerSettings';
 
-const SOCIAL_ICON: Record<
-  FooterSocialKey,
-  { type: 'text' } | { type: 'icon'; name: string }
-> = {
-  x: { type: 'text' },
-  instagram: { type: 'icon', name: 'instagram' },
-  youtube: { type: 'icon', name: 'youtube' },
-  linkedin: { type: 'icon', name: 'linkedin' },
-  facebook: { type: 'icon', name: 'facebook' },
+const SOCIAL_ICON: Record<Exclude<FooterSocialKey, 'x'>, { name: string }> = {
+  instagram: { name: 'instagram' },
+  youtube: { name: 'youtube' },
+  linkedin: { name: 'linkedin' },
+  facebook: { name: 'facebook' },
 };
 
 const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
@@ -47,6 +43,7 @@ const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
 
 const Footer = () => {
   const { width: screenWidth } = useWindowDimensions();
+  const { colors, isDarkMode } = useTheme();
   const [showTnC, setShowTnC] = useState(false);
   const [footerSettings, setFooterSettings] = useState<FooterSettings>(DEFAULT_FOOTER_SETTINGS);
 
@@ -60,10 +57,14 @@ const Footer = () => {
     };
   }, []);
 
-  const isSmallScreen = screenWidth < 375;
-  const isMediumScreen = screenWidth >= 375 && screenWidth < 768;
-  const isLargeScreen = screenWidth >= 768;
-  const shouldUseColumnLayout = screenWidth < 360;
+  const cardBg = isDarkMode ? colors.card : HOME_M3.surfaceContainerLowest;
+  const cardBorder = isDarkMode ? colors.border : HOME_M3.outlineVariant;
+  const titleColor = isDarkMode ? colors.text : HOME_M3.onSurface;
+  const mutedColor = isDarkMode ? colors.textSecondary : HOME_M3.onSurfaceVariant;
+  const accentColor = isDarkMode ? colors.primary : HOME_M3.secondary;
+  const iconBg = isDarkMode ? colors.surface : HOME_M3.secondaryFixed;
+  const iconColor = isDarkMode ? colors.primary : HOME_M3.onSecondaryFixedVariant;
+  const bandBg = isDarkMode ? colors.background : HOME_M3.surfaceContainerLow;
 
   const openLink = (url: string) => {
     if (!url) return;
@@ -75,231 +76,122 @@ const Footer = () => {
     Linking.openURL(`tel:${phoneNumber}`).catch((err) => console.error("Couldn't make phone call", err));
   };
 
-  const getFontSizeStyles = () => {
-    if (isSmallScreen) return { textSize: 12, headingSize: 14, smallText: 10 };
-    if (isMediumScreen) return { textSize: 14, headingSize: 16, smallText: 12 };
-    if (isLargeScreen) return { textSize: 16, headingSize: 18, smallText: 14 };
-    return { textSize: 14, headingSize: 16, smallText: 12 };
-  };
-
-  const fontStyles = getFontSizeStyles();
-  const getLogoSize = () => (isSmallScreen ? 34 : isMediumScreen ? 42 : 48);
-  const getContactButtonWidth = () => (isSmallScreen ? 162 : isMediumScreen ? 178 : 192);
-  const getIconSize = () => (isSmallScreen ? 13 : isMediumScreen ? 16 : 18);
-
   const helplineLabel = formatPhoneDisplay(footerSettings.helplinePhone);
   const joinUsLabel = formatPhoneDisplay(footerSettings.joinUsPhone);
+  const iconSize = screenWidth < 360 ? 16 : 18;
 
   const renderSocialIcon = (key: FooterSocialKey) => {
-    const meta = SOCIAL_ICON[key];
-    if (meta.type === 'text') {
-      return (
-        <Text style={[styles.xIcon, { color: '#FFFFFF', fontSize: isSmallScreen ? 10 : 12 }]}>
-          X
-        </Text>
-      );
+    if (key === 'x') {
+      return <Text style={[styles.xIcon, { color: iconColor }]}>X</Text>;
     }
-    return (
-      <MaterialCommunityIcon name={meta.name} size={getIconSize()} color="#FFFFFF" />
-    );
+    const meta = SOCIAL_ICON[key as Exclude<FooterSocialKey, 'x'>];
+    return <MaterialCommunityIcon name={meta.name} size={iconSize} color={iconColor} />;
   };
 
   return (
     <>
-      <LinearGradient
-        colors={[...GRADIENTS.chrome]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradientContainer}
+      <View style={[styles.wrap, { backgroundColor: bandBg }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+              shadowColor: isDarkMode ? '#000' : '#0f172a',
+            },
+          ]}
+        >
+          <View style={styles.brandBlock}>
+            <View style={[styles.logoRing, { backgroundColor: iconBg, borderColor: cardBorder }]}>
+              <Image
+                source={require('../../assets/images/serveasonew.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={[styles.brandName, { color: titleColor }]}>ServeEaso</Text>
+            <Text style={[styles.tagline, { color: mutedColor }]}>Trusted home services</Text>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: cardBorder }]} />
+
+          <Text style={[styles.sectionLabel, { color: mutedColor }]}>Contact us</Text>
+          <View style={styles.contactRow}>
+            <TouchableOpacity
+              style={[styles.contactPill, { backgroundColor: iconBg, borderColor: cardBorder }]}
+              onPress={() => makePhoneCall(footerSettings.helplinePhone)}
+              activeOpacity={0.88}
+            >
+              <View style={[styles.contactIconWrap, { backgroundColor: cardBg }]}>
+                <MaterialIcon name="phone-in-talk" size={16} color={accentColor} />
+              </View>
+              <View style={styles.contactCopy}>
+                <Text style={[styles.contactLabel, { color: mutedColor }]}>Helpline</Text>
+                <Text style={[styles.contactValue, { color: titleColor }]} numberOfLines={1}>
+                  {helplineLabel}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.contactPill, { backgroundColor: iconBg, borderColor: cardBorder }]}
+              onPress={() => makePhoneCall(footerSettings.joinUsPhone)}
+              activeOpacity={0.88}
+            >
+              <View style={[styles.contactIconWrap, { backgroundColor: cardBg }]}>
+                <MaterialIcon name="support-agent" size={16} color={accentColor} />
+              </View>
+              <View style={styles.contactCopy}>
+                <Text style={[styles.contactLabel, { color: mutedColor }]}>Join us</Text>
+                <Text style={[styles.contactValue, { color: titleColor }]} numberOfLines={1}>
+                  {joinUsLabel}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: cardBorder }]} />
+
+          <Text style={[styles.sectionLabel, { color: mutedColor }]}>Follow us</Text>
+          <View style={styles.socialRow}>
+            {FOOTER_SOCIAL_ORDER.map((key) => {
+              const href = footerSettings.social[key];
+              if (!href) return null;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  accessibilityLabel={SOCIAL_LABEL[key]}
+                  style={[styles.socialButton, { backgroundColor: iconBg, borderColor: cardBorder }]}
+                  onPress={() => openLink(href)}
+                  activeOpacity={0.88}
+                >
+                  {renderSocialIcon(key)}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity onPress={() => setShowTnC(true)} hitSlop={8} style={styles.tncBtn}>
+            <Text style={[styles.tncText, { color: accentColor }]}>Terms & Conditions</Text>
+          </TouchableOpacity>
+        </View>
+
+        <LinearGradient
+          colors={[...HOME_HERO_GRADIENT]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.brandStripe}
+        >
+          <Text style={styles.stripeText}>ServeEaso — home help you can trust</Text>
+        </LinearGradient>
+      </View>
+
+      <Modal
+        visible={showTnC}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowTnC(false)}
       >
-        <SafeAreaView>
-          <View style={[styles.footer, shouldUseColumnLayout && styles.footerColumn]}>
-            <View
-              style={[
-                styles.leftSection,
-                shouldUseColumnLayout && styles.leftSectionColumn,
-                {
-                  marginRight: shouldUseColumnLayout ? 0 : 16,
-                  backgroundColor: 'rgba(255,255,255,0.08)',
-                  borderColor: 'rgba(255,255,255,0.18)',
-                  borderWidth: 1,
-                },
-              ]}
-            >
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require('../../assets/images/serveasonew.png')}
-                  style={[
-                    styles.logoImage,
-                    {
-                      width: getLogoSize(),
-                      height: getLogoSize(),
-                      shadowColor: '#000',
-                      borderRadius: isSmallScreen ? 8 : 12,
-                    },
-                  ]}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.brandSubtitle, { color: '#FFFFFF', fontSize: fontStyles.headingSize }]}>
-                  ServEaso
-                </Text>
-              </View>
-
-              <View style={styles.companyInfo}>
-                <Text
-                  style={[
-                    styles.infoText,
-                    { color: '#FFFFFFCC', fontSize: fontStyles.smallText, lineHeight: fontStyles.smallText + 4 },
-                  ]}
-                >
-                  Trusted home services
-                </Text>
-                <TouchableOpacity onPress={() => setShowTnC(true)}>
-                  <Text
-                    style={[
-                      styles.tncText,
-                      {
-                        color: '#FFFFFF',
-                        fontSize: fontStyles.smallText,
-                        lineHeight: fontStyles.smallText + 4,
-                        marginTop: isSmallScreen ? 8 : 15,
-                        opacity: 0.9,
-                      },
-                    ]}
-                  >
-                    Terms & Conditions
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.rightSection,
-                shouldUseColumnLayout && styles.rightSectionColumn,
-                {
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(255,255,255,0.08)',
-                  borderColor: 'rgba(255,255,255,0.18)',
-                  borderWidth: 1,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.contactTitle,
-                  {
-                    color: '#FFFFFF',
-                    fontSize: fontStyles.textSize,
-                    marginBottom: isSmallScreen ? 8 : 12,
-                  },
-                ]}
-              >
-                Contact us:
-              </Text>
-              <View
-                style={[
-                  styles.contactButtonsContainer,
-                  shouldUseColumnLayout && styles.contactButtonsContainerColumn,
-                  { alignItems: 'center' },
-                ]}
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.contactButton,
-                    {
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      borderColor: 'rgba(255, 255, 255, 0.3)',
-                      width: getContactButtonWidth(),
-                      paddingVertical: isSmallScreen ? 7 : 8,
-                      marginBottom: 8,
-                    },
-                  ]}
-                  onPress={() => makePhoneCall(footerSettings.helplinePhone)}
-                >
-                  <FontAwesome name="phone" size={getIconSize()} color="#FFFFFF" style={styles.phoneIcon} />
-                  <Text style={[styles.contactText, { color: '#FFFFFF', fontSize: fontStyles.smallText }]}>
-                    Helpline: {helplineLabel}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.contactButton,
-                    {
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      borderColor: 'rgba(255, 255, 255, 0.3)',
-                      width: getContactButtonWidth(),
-                      paddingVertical: isSmallScreen ? 7 : 8,
-                    },
-                  ]}
-                  onPress={() => makePhoneCall(footerSettings.joinUsPhone)}
-                >
-                  <FontAwesome name="phone" size={getIconSize()} color="#FFFFFF" style={styles.phoneIcon} />
-                  <Text style={[styles.contactText, { color: '#FFFFFF', fontSize: fontStyles.smallText }]}>
-                    Join Us: {joinUsLabel}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          <View
-            style={[
-              styles.followSection,
-              {
-                borderTopColor: 'rgba(255, 255, 255, 0.2)',
-                paddingHorizontal: isSmallScreen ? 10 : 15,
-                paddingVertical: isSmallScreen ? 12 : 15,
-                marginHorizontal: isSmallScreen ? 10 : 15,
-                flexDirection: isSmallScreen ? 'column' : 'row',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.followText,
-                {
-                  color: '#FFFFFF',
-                  fontSize: fontStyles.textSize,
-                  marginRight: isSmallScreen ? 0 : 12,
-                  marginBottom: isSmallScreen ? 8 : 0,
-                },
-              ]}
-            >
-              Follow us:
-            </Text>
-            <View style={[styles.socialMedia, { flexWrap: isSmallScreen ? 'wrap' : 'nowrap' }]}>
-              {FOOTER_SOCIAL_ORDER.map((key) => {
-                const href = footerSettings.social[key];
-                if (!href) return null;
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    accessibilityLabel={SOCIAL_LABEL[key]}
-                    style={[
-                      styles.iconButton,
-                      {
-                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        borderColor: 'rgba(255, 255, 255, 0.3)',
-                        padding: isSmallScreen ? 6 : 8,
-                        marginHorizontal: 3,
-                        minWidth: isSmallScreen ? 28 : 32,
-                        minHeight: isSmallScreen ? 28 : 32,
-                        borderRadius: isSmallScreen ? 18 : 20,
-                      },
-                    ]}
-                    onPress={() => openLink(href)}
-                  >
-                    {renderSocialIcon(key)}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
-
-      <Modal visible={showTnC} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowTnC(false)}>
         <View style={styles.modalContainer}>
           <LinearGradient
             colors={[...GRADIENTS.chrome]}
@@ -307,9 +199,7 @@ const Footer = () => {
             end={{ x: 1, y: 0 }}
             style={[styles.modalHeader, { paddingTop: Platform.OS === 'ios' ? 50 : 16 }]}
           >
-            <Text style={[styles.modalTitle, { color: '#FFFFFF', fontSize: fontStyles.headingSize }]}>
-              Terms and Conditions
-            </Text>
+            <Text style={styles.modalTitle}>Terms and Conditions</Text>
             <TouchableOpacity style={styles.closeButton} onPress={() => setShowTnC(false)}>
               <MaterialCommunityIcon name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
@@ -322,139 +212,158 @@ const Footer = () => {
 };
 
 const styles = StyleSheet.create({
-  gradientContainer: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
-    paddingBottom: Platform.OS === 'ios' ? 18 : 12,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
-    minHeight: 126,
-  },
-  footerColumn: {
-    flexDirection: 'column',
-    minHeight: 'auto',
-    paddingBottom: 10,
-  },
-  leftSection: {
-    flex: 1,
-    marginRight: 10,
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-  },
-  leftSectionColumn: {
-    marginRight: 0,
-    marginBottom: 8,
+  wrap: {
     width: '100%',
+    alignSelf: 'stretch',
+    marginTop: 12,
+    paddingTop: 16,
+    paddingBottom: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
-  rightSection: {
-    alignItems: 'center',
-    minWidth: 172,
-    borderRadius: 12,
-    padding: 10,
-  },
-  rightSectionColumn: {
+  card: {
     width: '100%',
-    minWidth: 'auto',
-  },
-  logoContainer: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  logoImage: {
-    marginBottom: 6,
-    padding: 6,
+    alignSelf: 'stretch',
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  brandSubtitle: {
-    fontWeight: '700',
-    textAlign: 'center',
-    letterSpacing: 0.25,
-  },
-  companyInfo: {
+  brandBlock: {
+    width: '100%',
     alignItems: 'center',
   },
-  infoText: {
-    fontWeight: '500',
-    opacity: 0.86,
+  logoRing: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  brandName: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 4,
     textAlign: 'center',
+  },
+  tagline: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+    marginVertical: 16,
+    opacity: 0.85,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+    width: '100%',
+  },
+  contactRow: {
+    width: '100%',
+  },
+  contactPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  contactIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  contactCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  contactLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  contactValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  socialRow: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  socialButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+    marginVertical: 4,
+  },
+  xIcon: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  tncBtn: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 4,
   },
   tncText: {
+    fontSize: 13,
     fontWeight: '600',
     textDecorationLine: 'underline',
     textAlign: 'center',
   },
-  contactTitle: {
+  brandStripe: {
+    width: '100%',
+    alignSelf: 'stretch',
+    marginTop: 10,
+    marginBottom: 0,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stripeText: {
+    color: HOME_M3.onPrimaryContainer,
+    fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.2,
     textAlign: 'center',
-    width: '100%',
-  },
-  contactButtonsContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  contactButtonsContainerColumn: {
-    alignItems: 'center',
-  },
-  contactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
-    justifyContent: 'center',
-  },
-  phoneIcon: {
-    marginRight: 7,
-  },
-  contactText: {
-    fontWeight: '500',
-    flex: 1,
-    textAlign: 'center',
-  },
-  followSection: {
-    borderTopWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 10,
-    marginBottom: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  followText: {
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  socialMedia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconButton: {
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  xIcon: {
-    fontWeight: 'bold',
   },
   modalContainer: {
     flex: 1,
@@ -468,6 +377,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 18,
   },
   closeButton: {
     padding: 4,

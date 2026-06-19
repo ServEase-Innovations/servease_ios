@@ -102,6 +102,7 @@ import { hasSpRegistrationInProgress } from "./src/Registration/spRegistrationDr
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
 import Snackbar from "react-native-snackbar";
 import BrandLoadingScreen from "./src/common/BrandLoadingScreen";
+import { HOME_M3 } from "./src/theme/brandColors";
 
 interface DeepLinkData {
   openBookings: string;
@@ -838,7 +839,13 @@ const MainApp = () => {
       case HOME:
         return (
           <View style={styles.homeContainer}>
-            <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
+            <HomePage
+              sendDataToParent={handleViewChange}
+              bookingType={() => {}}
+              onContactClick={handleContactClick}
+              closeDropdowns={closeAllDropdowns}
+              onLogoClick={handleHomeClick}
+            />
           </View>
         );
         
@@ -921,12 +928,17 @@ const MainApp = () => {
             styles.safeArea,
             {
               backgroundColor:
-                currentView === BOOKINGS || currentView === WALLET || currentView === PROFILE || currentView === SETTINGS
-                  ? colors.background
-                  : colors.chromeEnd,
+                currentView === HOME
+                  ? HOME_M3.primary
+                  : currentView === BOOKINGS ||
+                      currentView === WALLET ||
+                      currentView === PROFILE ||
+                      currentView === SETTINGS
+                    ? colors.background
+                    : colors.chromeEnd,
             },
           ]}
-          edges={["top"]}
+          edges={currentView === HOME ? [] : ["top"]}
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>
@@ -943,7 +955,11 @@ const MainApp = () => {
               )}
 
               {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
-              {currentView !== BOOKINGS && currentView !== WALLET && currentView !== PROFILE && currentView !== SETTINGS && (
+              {currentView !== HOME &&
+                currentView !== BOOKINGS &&
+                currentView !== WALLET &&
+                currentView !== PROFILE &&
+                currentView !== SETTINGS && (
                 <View style={[styles.headerWrapper, { backgroundColor: colors.chromeEnd }]}>
                   <Head
                     sendDataToParent={handleViewChange}
@@ -963,9 +979,10 @@ const MainApp = () => {
                   styles.contentContainer,
                   {
                     backgroundColor:
-                      currentView === HOME ? colors.chromeEnd : colors.background,
+                      currentView === HOME ? HOME_M3.surface : colors.background,
                   },
-                  (currentView === BOOKINGS ||
+                  (currentView === HOME ||
+                    currentView === BOOKINGS ||
                     currentView === WALLET ||
                     currentView === PROFILE ||
                     currentView === SETTINGS ||

@@ -29,6 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from "../Settings/ThemeContext";
 import { useAppUser } from "../context/AppUserContext";
 import LoginDrawer from "../LoginDrawer/LoginDrawer";
+import { HOME_M3 } from "../theme/brandColors";
 
 type MobileTab = {
   key: string;
@@ -339,7 +340,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
   const renderMobileTabIcon = (tab: MobileTab, isActive: boolean) => {
     const iconMuted = isDarkMode ? "#94a3b8" : "#64748b";
-    const iconActiveColor = colors.primary;
+    const iconActiveColor = activePage === HOME ? HOME_M3.onSecondaryContainer : colors.primary;
 
     if (tab.hideIcon) {
       return <View style={styles.navIconSlot} />;
@@ -525,7 +526,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     const navSurface = isDarkMode ? colors.card : "#ffffff";
     const navBorder = isDarkMode ? colors.border : "#e2e8f0";
     const textMuted = isDarkMode ? "#94a3b8" : "#64748b";
-    const textActiveColor = colors.primary;
+    const textActiveColor = activePage === HOME ? HOME_M3.onSecondaryContainer : colors.primary;
     const bottomPad = getMobileTabBarBottomPad(safeBottom);
 
     return (
@@ -555,7 +556,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   disabled={isDisabled}
                   style={[
                     styles.mobileNavItem,
-                    isActive && { backgroundColor: `${colors.primary}1A` },
+                    isActive &&
+                      tab.key === HOME &&
+                      activePage === HOME &&
+                      styles.mobileNavItemActiveHome,
+                    isActive &&
+                      !(tab.key === HOME && activePage === HOME) && {
+                        backgroundColor: `${colors.primary}1A`,
+                      },
                     isDisabled && styles.disabledTab,
                   ]}
                   activeOpacity={0.72}
@@ -740,6 +748,17 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     borderTopWidth: 1,
     alignItems: "center",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  mobileNavItemActiveHome: {
+    backgroundColor: HOME_M3.secondaryContainer,
+    transform: [{ scale: 0.92 }],
   },
   mobileNavContainer: {
     width: "100%",

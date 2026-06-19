@@ -18,6 +18,7 @@ import {
   Animated,
   TouchableWithoutFeedback,
   Pressable,
+  StatusBar,
 } from "react-native";
 import axios from "axios";
 import { keys } from "../env";
@@ -41,13 +42,15 @@ import {
   resolveLocationLng,
 } from "../utils/bookingLocation";
 import LinearGradient from "react-native-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/Settings/ThemeContext";
-import { GRADIENTS } from "../theme/brandColors";
+import { BRAND, GRADIENTS, BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 import { useTranslation } from 'react-i18next';
 
 Geocoder.init(keys.api_key);
 
-const { width } = Dimensions.get("window");
+const { width, height: WINDOW_HEIGHT } = Dimensions.get("window");
+const MAP_PREVIEW_HEIGHT = Math.min(260, Math.max(200, Math.round(WINDOW_HEIGHT * 0.28)));
 
 function isCoordinateLike(value?: string): boolean {
   if (!value) return false;
@@ -114,6 +117,8 @@ interface LocationSelectorProps {
   closeDropdown?: boolean;
   locationPreferencesReady?: boolean;
   isUserLoading?: boolean;
+  /** `hero` — light text on dark home header */
+  variant?: "default" | "hero";
 }
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
@@ -124,9 +129,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   closeDropdown = false,
   locationPreferencesReady = false,
   isUserLoading = false,
+  variant = "default",
 }) => {
   const { t } = useTranslation();
   const { colors, fontSize, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
   
   const dispatch = useDispatch();
   const locationDispatch = useDispatch();
@@ -207,6 +214,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   }, [closeDropdown]);
 
   useEffect(() => {
+    if (!open && !OpenSaveOptionForSave) return;
+    StatusBar.setBarStyle("light-content", true);
+    if (Platform.OS === "android") {
+      StatusBar.setBackgroundColor(BRAND.bookingNavy, true);
+    }
+  }, [open, OpenSaveOptionForSave]);
+
+  useEffect(() => {
     const saved = getSavedLocationsList(userPreference);
     const base = [{ name: t("locationSelector.detectLocation"), index: 1 }];
     if (isCustomer) {
@@ -234,7 +249,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     userPickedLocationRef.current = true;
   }, [geoLocationFromStore, geoLocationUpdatedAt]);
 
-  // Animate dropdown
   useEffect(() => {
     if (showDropdown) {
       Animated.spring(dropdownAnimation, {
@@ -319,10 +333,35 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const fontSizes = getFontSizes();
+  const activeLocationMethod = locationMethod ?? "auto";
 
   const isValidCoordinates = (lat: number | null, lng: number | null): boolean => {
     return lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
   };
+
+  const hydrateCoordsFromStore = () => {
+    const storedLat = resolveLocationLat(geoLocationFromStore);
+    const storedLng = resolveLocationLng(geoLocationFromStore);
+    if (isValidCoordinates(storedLat, storedLng)) {
+      setLatitude(storedLat);
+      setLongitude(storedLng);
+      const storedAddr = formatServiceAddressFromGeoLocation(geoLocationFromStore);
+      if (storedAddr) {
+        setAddress(storedAddr);
+      }
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    const lat = resolveLocationLat(geoLocationFromStore);
+    const lng = resolveLocationLng(geoLocationFromStore);
+    if (isValidCoordinates(lat, lng)) {
+      setLatitude(lat);
+      setLongitude(lng);
+    }
+  }, [geoLocationFromStore, geoLocationUpdatedAt]);
 
   const createLocationData = (lat: number, lng: number, addr: string): LocationData => {
     return {
@@ -847,20 +886,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setLoading(false);
       setIsCheckingLocation(false);
       setShowGPSButton(false);
-      setLocationMethod(null);
       if (!isCustomer) {
         return;
       }
+      setLocationMethod('auto');
       setOpen(true);
       setIsPinSelected(false);
       setSelectedPinLocation(null);
       setSearchQuery("");
       setSearchResults([]);
       setShowSearchResults(false);
+      hydrateCoordsFromStore();
+      fetchLocationWithChecks({ promptHighAccuracy: false });
     } else if (newValue === t('locationSelector.detectLocation')) {
       userPickedLocationRef.current = false;
       triedGpsForCustomerRef.current = true;
       guestGpsStartedRef.current = true;
+      setLocationMethod('auto');
+      setOpen(true);
+      hydrateCoordsFromStore();
       fetchLocationWithChecks({ promptHighAccuracy: true });
     } else {
       const savedLocations = getSavedLocationsList(userPreference);
@@ -1101,8 +1145,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <TouchableOpacity
           style={[
             styles.methodCard,
-            locationMethod === 'auto' && styles.methodCardActive,
-            { backgroundColor: colors.surface, borderColor: colors.border }
+            activeLocationMethod === 'auto' && styles.methodCardActive,
+            {
+              backgroundColor: activeLocationMethod === 'auto' ? colors.infoLight : colors.surface,
+              borderColor: activeLocationMethod === 'auto' ? colors.primary : colors.border,
+            },
           ]}
           onPress={() => {
             setLocationMethod('auto');
@@ -1110,23 +1157,23 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           }}
         >
           <View style={styles.methodIconContainer}>
-            <MaterialIcon 
-              name="my-location" 
-              size={fontSizes.iconSize} 
-              color={locationMethod === 'auto' ? colors.primary : colors.textSecondary} 
+            <MaterialIcon
+              name="my-location"
+              size={fontSizes.iconSize}
+              color={activeLocationMethod === 'auto' ? colors.primary : colors.textSecondary}
             />
           </View>
           <Text style={[
             styles.methodTitle,
             { fontSize: fontSizes.methodTitle, color: colors.text },
-            locationMethod === 'auto' && { color: colors.primary }
+            activeLocationMethod === 'auto' && { color: colors.primary }
           ]}>
             {t('locationSelector.autoDetect')}
           </Text>
           <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
             {t('locationSelector.useYourCurrentLocation')}
           </Text>
-          {locationMethod === 'auto' && (
+          {activeLocationMethod === 'auto' && (
             <View style={styles.activeIndicator}>
               <MaterialIcon name="check-circle" size={20} color={colors.primary} />
             </View>
@@ -1136,29 +1183,32 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <TouchableOpacity
           style={[
             styles.methodCard,
-            locationMethod === 'manual' && styles.methodCardActive,
-            { backgroundColor: colors.surface, borderColor: colors.border }
+            activeLocationMethod === 'manual' && styles.methodCardActive,
+            {
+              backgroundColor: activeLocationMethod === 'manual' ? colors.infoLight : colors.surface,
+              borderColor: activeLocationMethod === 'manual' ? colors.primary : colors.border,
+            },
           ]}
           onPress={() => setLocationMethod('manual')}
         >
           <View style={styles.methodIconContainer}>
-            <MaterialIcon 
-              name="search" 
-              size={fontSizes.iconSize} 
-              color={locationMethod === 'manual' ? colors.primary : colors.textSecondary} 
+            <MaterialIcon
+              name="search"
+              size={fontSizes.iconSize}
+              color={activeLocationMethod === 'manual' ? colors.primary : colors.textSecondary}
             />
           </View>
           <Text style={[
             styles.methodTitle,
             { fontSize: fontSizes.methodTitle, color: colors.text },
-            locationMethod === 'manual' && { color: colors.primary }
+            activeLocationMethod === 'manual' && { color: colors.primary }
           ]}>
             {t('locationSelector.searchManually')}
           </Text>
           <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
             {t('locationSelector.searchOrTapOnMap')}
           </Text>
-          {locationMethod === 'manual' && (
+          {activeLocationMethod === 'manual' && (
             <View style={styles.activeIndicator}>
               <MaterialIcon name="check-circle" size={20} color={colors.primary} />
             </View>
@@ -1168,121 +1218,143 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     );
   };
 
+  const renderMapPreview = (
+    regionLat: number | null,
+    regionLng: number | null,
+    options?: {
+      onPress?: (e: any) => void;
+      showUserMarker?: boolean;
+      showPinMarker?: boolean;
+      scrollEnabled?: boolean;
+    }
+  ) => {
+    const hasCoords = isValidCoordinates(regionLat, regionLng);
+    const lat = hasCoords ? regionLat! : 12.9716;
+    const lng = hasCoords ? regionLng! : 77.5946;
+
+    return (
+      <View style={styles.autoMapContainer}>
+        <MapView
+          style={styles.map}
+          region={{
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.008,
+            longitudeDelta: 0.008,
+          }}
+          onPress={options?.onPress}
+          scrollEnabled={options?.scrollEnabled ?? false}
+          zoomEnabled
+          rotateEnabled={false}
+          pitchEnabled={false}
+        >
+          {options?.showUserMarker !== false && hasCoords && (
+            <Marker
+              coordinate={{ latitude: regionLat!, longitude: regionLng! }}
+              title={t('locationSelector.yourCurrentLocation')}
+              pinColor={colors.primary}
+            />
+          )}
+          {options?.showPinMarker && isPinSelected && selectedPinLocation && (
+            <Marker
+              coordinate={selectedPinLocation}
+              title={t('locationSelector.selectedLocation')}
+              pinColor={colors.error}
+            />
+          )}
+        </MapView>
+        {activeLocationMethod === 'auto' && (
+          <TouchableOpacity
+            style={[styles.smallRefreshButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={fetchLocationWithChecks}
+          >
+            <MaterialIcon name="refresh" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   const renderAutoDetectContent = () => {
-    if (isCheckingLocation) {
+    const showLoading = isCheckingLocation || loading;
+
+    if (showGPSButton) {
       return (
-        <View style={styles.statusContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>
-            {t('locationSelector.checkingLocationServices')}
-          </Text>
-        </View>
-      );
-    } else if (loading) {
-      return (
-        <View style={styles.statusContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>
-            {t('locationSelector.gettingYourLocation')}
-          </Text>
-          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
-            {t('locationSelector.thisMayTakeFewSeconds')}
-          </Text>
-        </View>
-      );
-    } else if (showGPSButton) {
-      return (
-        <View style={styles.statusContainer}>
-          <MaterialIcon name="location-off" size={50} color={colors.error} />
-          <Text style={[styles.statusText, { color: colors.error, fontWeight: '600', fontSize: fontSizes.statusText }]}>
-            {t('locationSelector.locationServicesDisabled')}
-          </Text>
-          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
-            {t('locationSelector.pleaseEnableLocation')}
-          </Text>
+        <View style={styles.autoLocationContent}>
+          <View style={styles.statusContainerCompact}>
+            <MaterialIcon name="location-off" size={44} color={colors.error} />
+            <Text style={[styles.statusText, { color: colors.error, fontWeight: '600', fontSize: fontSizes.statusText }]}>
+              {t('locationSelector.locationServicesDisabled')}
+            </Text>
+            <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
+              {t('locationSelector.pleaseEnableLocation')}
+            </Text>
+          </View>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, width: '100%', height: fontSizes.buttonHeight }]}
+              style={[styles.primaryModalButton, { backgroundColor: colors.primary }]}
               onPress={handleOpenSettings}
             >
               <MaterialIcon name="settings" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>
+              <Text style={[styles.primaryModalButtonText, { fontSize: fontSizes.buttonText }]}>
                 {t('locationSelector.enableDeviceLocation')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, { marginTop: 12, width: '100%', height: fontSizes.buttonHeight, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
-              onPress={() => {
-                setLocationMethod('manual');
-              }}
+              style={[styles.secondaryModalButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={() => setLocationMethod('manual')}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+              <Text style={[styles.secondaryModalButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
                 {t('locationSelector.switchToManualSearch')}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
       );
-    } else {
-      return (
-        <View style={styles.autoLocationContent}>
-          <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
-            <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
-              {t('locationSelector.yourCurrentLocation')}
-            </Text>
-          </View>
-          
-          <View style={styles.autoMapContainer}>
-            <MapView
-              style={styles.map}
-              region={{
-                latitude: latitude || 37.7749,
-                longitude: longitude || -122.4194,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-            >
-              {latitude && longitude && (
-                <Marker
-                  coordinate={{
-                    latitude: latitude,
-                    longitude: longitude,
-                  }}
-                  title={t('locationSelector.yourCurrentLocation')}
-                  pinColor={colors.primary}
-                />
-              )}
-            </MapView>
-            
-            <TouchableOpacity
-              style={[styles.smallRefreshButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={fetchLocationWithChecks}
-            >
-              <MaterialIcon name="refresh" size={16} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
+    }
 
-          <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
-            <View style={styles.locationInfo}>
-              <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
-              <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
-                {address || t('locationSelector.fetchingLocation')}
+    return (
+      <View style={styles.autoLocationContent}>
+        <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
+          <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
+            {t('locationSelector.yourCurrentLocation')}
+          </Text>
+        </View>
+
+        <View style={styles.mapPreviewWrap}>
+          {renderMapPreview(latitude, longitude)}
+          {showLoading && (
+            <View style={styles.mapLoadingOverlay}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.mapLoadingText, { color: colors.text, fontSize: fontSizes.statusText }]}>
+                {isCheckingLocation
+                  ? t('locationSelector.checkingLocationServices')
+                  : t('locationSelector.gettingYourLocation')}
               </Text>
             </View>
-            {latitude && longitude && (
-              <View style={styles.coordinatesContainer}>
-                <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-                  Lat: {latitude.toFixed(4)}
-                </Text>
-                <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-                  Lng: {longitude.toFixed(4)}
-                </Text>
-              </View>
-            )}
-          </View>
+          )}
         </View>
-      );
-    }
+
+        <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
+          <View style={styles.locationInfo}>
+            <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
+            <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
+              {address || t('locationSelector.fetchingLocation')}
+            </Text>
+          </View>
+          {isValidCoordinates(latitude, longitude) && (
+            <View style={styles.coordinatesContainer}>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+                Lat: {latitude!.toFixed(4)}
+              </Text>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+                Lng: {longitude!.toFixed(4)}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
   };
 
   const renderManualDetectContent = () => {
@@ -1374,37 +1446,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           </Text>
         </View>
         
-        <View style={styles.mapContainer}>
-          <MapView
-            style={styles.map}
-            region={{
-              latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 37.7749,
-              longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || -122.4194,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            onPress={handleMapPress}
-          >
-            {latitude && longitude && (
-              <Marker
-                coordinate={{
-                  latitude: latitude,
-                  longitude: longitude,
-                }}
-                title={t('locationSelector.yourCurrentLocation')}
-                pinColor={colors.primary}
-              />
-            )}
-            
-            {isPinSelected && selectedPinLocation && (
-              <Marker
-                coordinate={selectedPinLocation}
-                title={t('locationSelector.selectedLocation')}
-                pinColor={colors.error}
-              />
-            )}
-          </MapView>
-        </View>
+        {renderMapPreview(
+          isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude,
+          isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude,
+          { onPress: handleMapPress, showPinMarker: true, scrollEnabled: true }
+        )}
 
         <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
           <View style={styles.locationInfo}>
@@ -1441,18 +1487,43 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const renderLocationModalContent = () => {
-    return (
-      <View style={styles.modalContent}>
-        {renderLocationMethodSelector()}
-        
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        
-        {locationMethod === 'auto' && renderAutoDetectContent()}
-        {locationMethod === 'manual' && renderManualDetectContent()}
+    const canConfirm = Boolean(address || selectedPinAddress);
 
-        <View style={styles.buttonGroup}>
+    return (
+      <View style={styles.modalBody}>
+        {activeLocationMethod === 'manual' ? (
+          <>
+            <View style={styles.modalMethodHeader}>
+              {renderLocationMethodSelector()}
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            </View>
+            <View style={styles.modalMethodBody}>{renderManualDetectContent()}</View>
+          </>
+        ) : (
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {renderLocationMethodSelector()}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            {renderAutoDetectContent()}
+          </ScrollView>
+        )}
+
+        <View
+          style={[
+            styles.modalFooter,
+            {
+              borderTopColor: colors.border,
+              backgroundColor: isDarkMode ? colors.card : '#f8fafc',
+              paddingBottom: Math.max(insets.bottom, 14),
+            },
+          ]}
+        >
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1, height: fontSizes.buttonHeight }]}
+            style={[styles.cancelModalButton, { borderColor: colors.primary }]}
             onPress={() => {
               setOpen(false);
               setIsPinSelected(false);
@@ -1463,20 +1534,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               setLocationMethod(null);
             }}
           >
-            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+            <Text style={[styles.cancelModalButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
               {t('common.cancel')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
-              styles.button, 
-              { backgroundColor: colors.primary, flex: 1, height: fontSizes.buttonHeight },
-              (!address && !selectedPinAddress && !(locationMethod === 'auto' && address)) && { backgroundColor: colors.disabled }
+              styles.confirmModalButton,
+              { backgroundColor: colors.primary },
+              !canConfirm && { backgroundColor: colors.disabled, opacity: 0.6 },
             ]}
             onPress={handleLocationSave}
-            disabled={!address && !selectedPinAddress}
+            disabled={!canConfirm}
           >
-            <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>
+            <Text style={[styles.confirmModalButtonText, { fontSize: fontSizes.buttonText }]}>
               {t('locationSelector.confirmLocation')}
             </Text>
           </TouchableOpacity>
@@ -1485,23 +1556,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     );
   };
 
+  const isHeroVariant = variant === "hero";
+
   const dynamicStyles = StyleSheet.create({
     locationContainer: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: "rgba(255,255,255,0.94)",
+      backgroundColor: isHeroVariant ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.94)",
       borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 0,
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.35)",
+      borderColor: isHeroVariant ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.35)",
       width: "100%",
       height: 36,
       justifyContent: "space-between",
     },
     locationText: {
       fontSize: fontSizes.locationText - 1,
-      color: colors.text,
+      color: isHeroVariant ? "#ffffff" : colors.text,
       marginHorizontal: 4,
       fontWeight: "600",
       flex: 1,
@@ -1516,7 +1589,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     },
     dropdownContainer: {
       position: "absolute",
-      top: 48,
+      top: isHeroVariant ? 40 : 48,
       left: 0,
       right: 0,
       borderRadius: 12,
@@ -1584,6 +1657,10 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     },
     modalContainer: {
       flex: 1,
+      backgroundColor: BRAND.bookingNavy,
+    },
+    modalBodySurface: {
+      flex: 1,
       backgroundColor: colors.background,
     },
     modalHeader: {
@@ -1591,8 +1668,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       justifyContent: "space-between",
       alignItems: "center",
       padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: '#e5e7eb',
     },
     modalTitle: {
       fontSize: fontSizes.modalTitle,
@@ -1653,14 +1728,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       borderRadius: 12,
       overflow: "hidden",
       marginBottom: 16,
-      height: "45%",
+      height: MAP_PREVIEW_HEIGHT,
+      width: "100%",
       position: "relative",
     },
     mapContainer: {
       borderRadius: 12,
       overflow: "hidden",
       marginBottom: 16,
-      height: "45%",
+      height: MAP_PREVIEW_HEIGHT,
+      width: "100%",
     },
     map: {
       width: "100%",
@@ -1879,6 +1956,44 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     },
   });
 
+  const renderModalChrome = (
+    title: string,
+    onClose: () => void,
+    children: React.ReactNode
+  ) => (
+    <View style={dynamicStyles.modalContainer}>
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor={BRAND.bookingNavy}
+      />
+      <LinearGradient
+        colors={[...BOOKING_HEADER_GRADIENT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.locationModalHeader, { paddingTop: insets.top + 6 }]}
+      >
+        <View style={styles.locationModalHeaderRow}>
+          <Text
+            style={[styles.locationModalTitle, { fontSize: fontSizes.modalTitle }]}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.modalCloseBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Close"
+          >
+            <MaterialIcon name="close" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+      <View style={dynamicStyles.modalBodySurface}>{children}</View>
+    </View>
+  );
+
   return (
     <View style={styles.locationSection}>
       {showDropdown && (
@@ -1901,7 +2016,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <MaterialIcon
           name="location-on"
           size={16}
-          color={colors.primary}
+          color={isHeroVariant ? "#ffffff" : colors.primary}
           style={dynamicStyles.locationIcon}
         />
         <Text
@@ -1914,7 +2029,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <MaterialIcon
           name={showDropdown ? "arrow-drop-up" : "arrow-drop-down"}
           size={20}
-          color={colors.primary}
+          color={isHeroVariant ? "#ffffff" : colors.primary}
         />
       </TouchableOpacity>
 
@@ -2004,29 +2119,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           setLocationMethod(null);
         }}
       >
-        <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={[...GRADIENTS.chrome]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>{t('locationSelector.selectYourLocation')}</Text>
-            <TouchableOpacity onPress={() => {
-              setOpen(false);
-              setIsPinSelected(false);
-              setSelectedPinLocation(null);
-              setSearchQuery("");
-              setSearchResults([]);
-              setShowSearchResults(false);
-              setLocationMethod(null);
-            }}>
-              <Icon name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </LinearGradient>
-
-          {renderLocationModalContent()}
-        </View>
+        {renderModalChrome(
+          t('locationSelector.selectYourLocation'),
+          () => {
+            setOpen(false);
+            setIsPinSelected(false);
+            setSelectedPinLocation(null);
+            setSearchQuery("");
+            setSearchResults([]);
+            setShowSearchResults(false);
+            setLocationMethod(null);
+          },
+          renderLocationModalContent()
+        )}
       </Modal>
 
       {/* Save Location Modal */}
@@ -2036,18 +2141,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         transparent={false}
         onRequestClose={() => setOpenSaveOptionForSave(false)}
       >
-        <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={[...GRADIENTS.chrome]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>{t('locationSelector.saveAs')}</Text>
-            <TouchableOpacity onPress={() => setOpenSaveOptionForSave(false)}>
-              <Icon name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </LinearGradient>
+        {renderModalChrome(
+          t('locationSelector.saveAs'),
+          () => setOpenSaveOptionForSave(false),
           <View style={dynamicStyles.modalContent}>
             <Text style={dynamicStyles.saveAsText}>{t('locationSelector.saveAs')}:</Text>
             <View style={styles.saveOptionsContainer}>
@@ -2137,7 +2233,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        )}
       </Modal>
     </View>
   );
@@ -2152,17 +2248,141 @@ const styles = StyleSheet.create({
     overflow: "visible",
     alignSelf: "center",
   },
+  locationModalHeader: {
+    width: "100%",
+    paddingBottom: 12,
+    overflow: "hidden",
+  },
+  locationModalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    minHeight: 48,
+  },
+  locationModalTitle: {
+    flex: 1,
+    marginRight: 12,
+    color: "#ffffff",
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.28)",
+  },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
   },
   modalContent: {
     flex: 1,
     padding: 16,
+  },
+  modalBody: {
+    flex: 1,
+  },
+  modalMethodHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  modalMethodBody: {
+    flex: 1,
+    minHeight: 0,
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  modalFooter: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  cancelModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelModalButtonText: {
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  confirmModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmModalButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  mapPreviewWrap: {
+    position: "relative",
+    width: "100%",
+    height: MAP_PREVIEW_HEIGHT,
+    marginBottom: 16,
+  },
+  mapLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.78)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    zIndex: 2,
+  },
+  mapLoadingText: {
+    marginTop: 10,
+    textAlign: "center",
+    fontWeight: "500",
+    paddingHorizontal: 16,
+  },
+  statusContainerCompact: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  primaryModalButton: {
+    width: "100%",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    marginBottom: 10,
+  },
+  primaryModalButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
+  secondaryModalButton: {
+    width: "100%",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  secondaryModalButtonText: {
+    fontWeight: "600",
   },
   saveOptionsContainer: {
     flexDirection: "row",
@@ -2220,20 +2440,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   autoLocationContent: {
-    flex: 1,
+    paddingHorizontal: 16,
   },
   autoMapContainer: {
     borderRadius: 12,
     overflow: "hidden",
-    marginBottom: 16,
-    height: "45%",
+    height: MAP_PREVIEW_HEIGHT,
+    width: "100%",
     position: "relative",
   },
   mapContainer: {
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 16,
-    height: "45%",
+    height: MAP_PREVIEW_HEIGHT,
+    width: "100%",
   },
   map: {
     width: "100%",

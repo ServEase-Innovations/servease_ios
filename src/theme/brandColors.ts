@@ -41,5 +41,29 @@ export const GRADIENTS = {
 
 export const BOOKING_HEADER_GRADIENT = [...GRADIENTS.bookingHeader];
 
+/** Material-style tokens for customer home (HTML mockup). */
+export const HOME_M3 = {
+  primary: "#001630",
+  primaryContainer: "#0d2b4d",
+  onPrimary: "#ffffff",
+  onPrimaryContainer: "#7993bb",
+  secondary: "#335baf",
+  secondaryContainer: "#82a6ff",
+  onSecondary: "#ffffff",
+  onSecondaryContainer: "#00388b",
+  secondaryFixed: "#dae2ff",
+  onSecondaryFixedVariant: "#124296",
+  surface: "#f7f9fb",
+  surfaceContainerLowest: "#ffffff",
+  surfaceContainerLow: "#f2f4f6",
+  onSurface: "#191c1e",
+  onSurfaceVariant: "#43474e",
+  outline: "#74777f",
+  outlineVariant: "#c4c6cf",
+  error: "#ba1a1a",
+} as const;
+
+export const HOME_HERO_GRADIENT = [HOME_M3.primary, HOME_M3.primaryContainer] as const;
+
 /** MaidBtnPrimary gradient (135deg) */
 export const PRIMARY_BUTTON_GRADIENT = [BRAND.accent, "#2563eb"] as const;
