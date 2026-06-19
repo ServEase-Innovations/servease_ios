@@ -83,6 +83,8 @@ interface CustomerProfileSectionProps {
   setExternalEdit?: (val: boolean) => void;
   /** When opened from profile hub "Edit Profile" — hide duplicate header, start in edit mode. */
   embedMode?: boolean;
+  /** Open the add-address form when the screen loads (e.g. from profile hub "Add New"). */
+  initialOpenAddAddress?: boolean;
 }
 
 const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
@@ -93,6 +95,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   isExternalEdit,
   setExternalEdit,
   embedMode = false,
+  initialOpenAddAddress = false,
 }) => {
   const dispatch = useDispatch();
   const { user: auth0User } = useAuth0();
@@ -102,6 +105,8 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   // Add refs for scroll handling
   const scrollViewRef = useRef<ScrollView>(null);
   const activeInputRef = useRef<View | null>(null);
+  const addressesSectionY = useRef(0);
+  const didOpenAddAddressRef = useRef(false);
 
   // Redux state
   const { customerId, hasMobileNumber: reduxHasMobileNumber } = useSelector(
@@ -366,6 +371,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
     loadData();
   }, [userId, initialData]);
+
+  useEffect(() => {
+    if (!initialOpenAddAddress || isLoading || !isEditing || didOpenAddAddressRef.current) {
+      return;
+    }
+    didOpenAddAddressRef.current = true;
+    setShowAddAddress(true);
+    const timer = setTimeout(() => {
+      const y = Math.max(addressesSectionY.current - 16, 0);
+      scrollViewRef.current?.scrollTo({ y, animated: true });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [initialOpenAddAddress, isLoading, isEditing]);
 
   // Validation functions
   const validateMobileFormat = (number: string): boolean => {
@@ -1111,7 +1129,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             </View>
 
             {/* Addresses Section */}
-            <View style={styles.addressesSection}>
+            <View
+              style={styles.addressesSection}
+              onLayout={(e) => {
+                addressesSectionY.current = e.nativeEvent.layout.y;
+              }}
+            >
               <View style={styles.addressesHeader}>
                 <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
                   Addresses

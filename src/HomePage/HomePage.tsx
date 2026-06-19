@@ -421,13 +421,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
               )}
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+            <View style={styles.chipsRow}>
               {["Trusted Pros", "Easy Booking", "Flexible Slots"].map((chip) => (
                 <View key={chip} style={styles.heroChip}>
                   <Text style={styles.heroChipText}>{chip}</Text>
                 </View>
               ))}
-            </ScrollView>
+            </View>
           </View>
         </LinearGradient>
 
@@ -619,21 +619,39 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingBottom: 0 },
   siteFooterWrap: { width: '100%', alignSelf: 'stretch', marginTop: 8 },
-  heroGradient: { paddingBottom: 28 },
+  heroGradient: { paddingBottom: 44, overflow: "visible" },
   heroBody: { paddingHorizontal: 20 },
   heroTitle: { color: HOME_M3.onPrimary, fontWeight: "800", lineHeight: 36, marginBottom: 8 },
   heroSubtitle: { color: HOME_M3.onPrimaryContainer, lineHeight: 20, marginBottom: 16, maxWidth: "95%" },
   searchWrap: {
     flexDirection: "row", alignItems: "center", backgroundColor: HOME_M3.surfaceContainerLowest,
-    borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 12,
+    borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 14,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 6,
   },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 16, color: HOME_M3.onSurface, paddingVertical: 0 },
-  chipsScroll: { marginHorizontal: -4 },
-  heroChip: { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8 },
-  heroChipText: { color: HOME_M3.onPrimary, fontSize: 14, fontWeight: "600" },
-  mainCanvas: { marginTop: -32, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 20, paddingTop: 32 },
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 4,
+  },
+  heroChip: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  heroChipText: { color: HOME_M3.onPrimary, fontSize: 13, fontWeight: "600", letterSpacing: 0.1 },
+  mainCanvas: {
+    marginTop: -18,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 20,
+    paddingTop: 28,
+  },
   sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16 },
   sectionHeaderText: { flex: 1 },
   sectionTitle: { fontSize: 22, fontWeight: "700", lineHeight: 28 },

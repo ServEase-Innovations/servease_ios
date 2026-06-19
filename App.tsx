@@ -928,7 +928,7 @@ const MainApp = () => {
             styles.safeArea,
             {
               backgroundColor:
-                currentView === HOME
+                currentView === HOME || currentView === PROFILE
                   ? HOME_M3.primary
                   : currentView === BOOKINGS ||
                       currentView === WALLET ||
@@ -938,7 +938,7 @@ const MainApp = () => {
                     : colors.chromeEnd,
             },
           ]}
-          edges={currentView === HOME ? [] : ["top"]}
+          edges={currentView === HOME || currentView === PROFILE ? [] : ["top"]}
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>
