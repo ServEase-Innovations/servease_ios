@@ -129,7 +129,9 @@ export function isTerminalAcceptFailure(message: string): boolean {
     m.includes("another booking") ||
     m.includes("not found") ||
     m.includes("cannot be accepted") ||
-    m.includes("payment is not complete")
+    m.includes("payment is not complete") ||
+    m.includes("acceptance queue is full") ||
+    m.includes("already declined")
   );
 }
 
@@ -151,8 +153,14 @@ export async function acceptEngagement(
     providerId,
   });
 
+  const role = data?.role as string | undefined;
+  const defaultMessage =
+    role === "backup"
+      ? `You are backup #${data?.queuePosition ?? "?"} for this booking.`
+      : "Booking accepted successfully";
+
   return {
-    message: data?.message || "Booking accepted successfully",
+    message: data?.message || defaultMessage,
     engagement: data?.engagement,
   };
 }
