@@ -25,7 +25,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { BOOKING_HEADER_GRADIENT, BRAND } from "../theme/brandColors";
 
 
 dayjs.extend(customParseFormat);
@@ -752,7 +752,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const fontSizes = getFontSizes();
-  const headerTitleSize = Math.min(fontSizes.title, 15);
   const hasValidOption = ["Date", "Short term", "Monthly"].includes(selectedOption);
   const hasScheduleInputs =
     (selectedOption === "Date" && !!localStartDate && !!localStartTime) ||
@@ -766,15 +765,15 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     
     const getDurationMessage = () => {
       if (selectedOption === "Short term") {
-        return "This duration applies to each day of service";
+        return "Applies to each day of service";
       } else if (selectedOption === "Monthly") {
-        return "This duration applies to each day of your monthly subscription";
+        return "Applies to each day of subscription";
       }
       return "Adjust the duration of your service";
     };
 
     return (
-      <View style={[styles.durationContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.durationContainer, { borderColor: colors.border }]}>
         <Text style={[styles.durationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
           Service Duration
         </Text>
@@ -1208,24 +1207,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   }
 
   const bookingTypeOptions = [
-    {
-      value: "Date",
-      label: "One-time",
-      subtitle: "Single day booking",
-      icon: "event-available",
-    },
-    {
-      value: "Short term",
-      label: "Short term",
-      subtitle: "Multi-day booking",
-      icon: "date-range",
-    },
-    {
-      value: "Monthly",
-      label: "Monthly",
-      subtitle: "Monthly booking",
-      icon: "calendar-month",
-    },
+    { value: "Monthly", label: "Monthly" },
+    { value: "Short term", label: "Short-term" },
+    { value: "Date", label: "One-time" },
   ];
 
   return (
@@ -1244,28 +1228,25 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           <LinearGradient
             colors={[...BOOKING_HEADER_GRADIENT]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            end={{ x: 1, y: 0 }}
             style={styles.headerContainer}
             {...panResponder.panHandlers}
           >
-            <View style={styles.sheetHandleWrap}>
-              <View style={styles.sheetHandleBarLight} />
-            </View>
             <View style={styles.headerContent}>
-              <View style={styles.headerSideCol}>
-                <View />
-              </View>
-              <View style={styles.headerCenterCol}>
-                <Text
-                  style={[styles.title, { color: "#fff", fontSize: headerTitleSize }]}
-                  numberOfLines={1}
-                >
-                  Select your Booking Option
-                </Text>
-              </View>
-              <View style={[styles.headerSideCol, styles.headerRightAlign]} />
+              <TouchableOpacity
+                style={styles.headerBackBtn}
+                onPress={handleSheetClose}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <Icon name="arrow-back" size={20} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                Book Service
+              </Text>
+              <View style={styles.headerSideSpacer} />
             </View>
-            <Text style={styles.headerSubtitle}>Pick a plan, then choose date and time</Text>
           </LinearGradient>
           <ScrollView
             ref={scrollViewRef}
@@ -1274,85 +1255,38 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             showsVerticalScrollIndicator={true}
             nestedScrollEnabled={true}
           >
-            <View style={styles.progressActionsRow}>
-              <TouchableOpacity
-                style={[styles.resetButton, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.surface2 : "#ffffff" }]}
-                onPress={handleResetProgress}
-              >
-                <Icon name="refresh" size={14} color={colors.textSecondary} />
-                <Text style={[styles.resetButtonText, { color: colors.textSecondary }]}>Reset</Text>
-              </TouchableOpacity>
-            </View>
-            <View
-              style={[
-                styles.bookingOptionsSection,
-                {
-                  backgroundColor: isDarkMode ? colors.surface2 : "#ffffff",
-                  borderColor: colors.border,
-                },
-              ]}
-            >
+            <View style={styles.bookingPlanSection}>
               <Text style={[styles.sectionHeading, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
-                Select your booking option
-              </Text>
-              <Text style={[styles.sectionSubheading, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
-                Choose the plan that fits your schedule
+                Booking Plan
               </Text>
 
-              <View style={styles.radioRow}>
+              <View style={[styles.segmentedControl, { backgroundColor: isDarkMode ? colors.surface2 : "#e8ecf1" }]}>
                 {bookingTypeOptions.map((opt) => {
                   const selected = selectedOption === opt.value;
                   return (
                     <TouchableOpacity
                       key={opt.value}
                       style={[
-                        styles.radioOption,
-                        {
-                          borderColor: selected ? colors.primary : colors.border,
-                          backgroundColor: selected ? colors.primary + "14" : colors.surface,
-                        },
-                        selected && [styles.radioOptionSelected, { shadowColor: colors.primary }],
+                        styles.segment,
+                        selected && [
+                          styles.segmentSelected,
+                          {
+                            backgroundColor: isDarkMode ? colors.card : "#ffffff",
+                            shadowColor: BRAND.bookingNavy,
+                          },
+                        ],
                       ]}
                       onPress={() => handleOptionChange(opt.value)}
-                      activeOpacity={0.9}
+                      activeOpacity={0.85}
                     >
-                      <View style={styles.radioTopRow}>
-                        <View
-                          style={[
-                            styles.optionIconPill,
-                            { backgroundColor: selected ? colors.primary : colors.surface2 },
-                          ]}
-                        >
-                          <Icon
-                            name={opt.icon}
-                            size={16}
-                            color={selected ? "#fff" : colors.textSecondary}
-                          />
-                        </View>
-
-                        <View style={[styles.optionStatePill, { backgroundColor: selected ? colors.primary : colors.surface2, borderColor: selected ? colors.primary : colors.border }]}>
-                          <Text style={[styles.optionStateText, { color: selected ? "#fff" : colors.textSecondary }]}>
-                            {selected ? "Selected" : "Select"}
-                          </Text>
-                        </View>
-                      </View>
-
                       <Text
                         style={[
-                          styles.radioText,
-                          { color: selected ? colors.primary : colors.text, fontSize: fontSizes.text },
-                          selected && styles.radioTextSelected,
+                          styles.segmentText,
+                          { color: colors.textSecondary, fontSize: fontSizes.small },
+                          selected && { color: colors.text, fontWeight: "700" },
                         ]}
                       >
                         {opt.label}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.optionSubtitle,
-                          { color: selected ? colors.primary : colors.textSecondary, fontSize: fontSizes.small },
-                        ]}
-                      >
-                        {opt.subtitle}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -1389,7 +1323,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
                 {renderDurationControl()}
-                {renderBookingDetails()}
               </>
             )}
 
@@ -1430,7 +1363,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
                 {renderDurationControl()}
-                {renderBookingDetails()}
               </>
             )}
 
@@ -1467,7 +1399,6 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
                 {renderDurationControl()}
-                {renderBookingDetails()}
                 {localStartDate && localEndDate && (
                   <View style={[styles.endDateInfo, { backgroundColor: colors.primary + "10" }]}>
                     <Text style={[styles.endDateInfoText, { color: colors.primary, fontSize: fontSizes.small }]}>
@@ -1478,56 +1409,32 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </>
             )}
           </ScrollView>
-          <View style={styles.scrollLikeProgress}>
-            <View style={[styles.scrollLikeTrack, { backgroundColor: colors.border + "55" }]}>
-              {[1, 2, 3].map((step) => {
-                const isDone = step < progressStep;
-                const isCurrent = step === progressStep;
-                return (
-                  <View
-                    key={step}
-                    style={[
-                      styles.scrollLikeSegment,
-                      isDone || isCurrent
-                        ? { backgroundColor: colors.primary }
-                        : { backgroundColor: "transparent" },
-                    ]}
-                  >
-                    <Icon
-                      name={isDone ? "check" : isCurrent ? "arrow-forward" : "radio-button-unchecked"}
-                      size={12}
-                      color={isDone || isCurrent ? "#ffffff" : colors.textSecondary}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-          </View>
           <View
             style={[
               styles.actions,
               {
-                borderTopColor: colors.border,
+                borderTopColor: BRAND.bookingNavy,
                 backgroundColor: isDarkMode ? colors.card : "#f8fafc",
                 paddingBottom: Math.max(insets.bottom, 14),
               },
             ]}
           >
             <TouchableOpacity
-              style={[styles.cancelButton, { borderColor: colors.primary }]}
+              style={[styles.cancelButton, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}
               onPress={handleSheetClose}
             >
-              <Text style={[styles.cancelText, { color: colors.primary, fontSize: fontSizes.button }]}>
+              <Text style={[styles.cancelText, { color: colors.text, fontSize: fontSizes.button }]}>
                 Cancel
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.confirmButton, { backgroundColor: colors.primary }, isConfirmDisabled() && [styles.disabledButton, { backgroundColor: colors.disabled }]]}
+              style={[styles.confirmButton, { backgroundColor: BRAND.bookingNavy }, isConfirmDisabled() && [styles.disabledButton, { backgroundColor: colors.disabled }]]}
               onPress={handleAccept}
               disabled={isConfirmDisabled()}
             >
-              <Text style={[styles.confirmText, { color: '#fff', fontSize: fontSizes.button }]}>Book now</Text>
+              <Text style={[styles.confirmText, { color: '#fff', fontSize: fontSizes.button }]}>Confirm Booking</Text>
+              <Icon name="arrow-forward" size={18} color="#fff" style={styles.confirmArrow} />
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -1574,29 +1481,39 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.62)",
   },
   headerContainer: {
-    paddingTop: 0,
-    paddingBottom: 10,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.2)",
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
-    width: "100%",
-    minHeight: 36,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 52,
   },
-  headerSideCol: {
-    width: 92,
-    justifyContent: "center",
-    alignItems: "flex-start",
-  },
-  headerCenterCol: {
-    flex: 1,
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
-  headerRightAlign: {
-    alignItems: "flex-end",
+  headerTitle: {
+    position: "absolute",
+    left: 56,
+    right: 56,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 0.2,
+    includeFontPadding: false,
+  },
+  headerSideSpacer: {
+    width: 36,
+    height: 36,
   },
   closeIcon: {
     width: 30,
@@ -1608,20 +1525,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
+    flex: 1,
     fontWeight: "700",
     textAlign: "center",
     lineHeight: 22,
-    paddingHorizontal: 0,
+    paddingHorizontal: 4,
     letterSpacing: 0.2,
     includeFontPadding: false,
-  },
-  headerSubtitle: {
-    color: "rgba(219, 234, 254, 0.95)",
-    textAlign: "center",
-    fontSize: 11,
-    marginTop: 4,
-    fontWeight: "500",
-    paddingHorizontal: 12,
   },
   stepMetaRow: {
     marginTop: 6,
@@ -1656,147 +1566,39 @@ const styles = StyleSheet.create({
   wizardScrollContent: {
     paddingBottom: 12,
   },
-  progressActionsRow: {
-    marginTop: 10,
+  bookingPlanSection: {
+    marginTop: 16,
     marginHorizontal: 20,
+    marginBottom: 4,
+  },
+  segmentedControl: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    borderRadius: 12,
+    padding: 4,
+    marginTop: 12,
+    gap: 4,
   },
-  resetButton: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  resetButtonText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  scrollLikeProgress: {
-    position: "absolute",
-    right: 8,
-    top: 0,
-    bottom: 0,
-    paddingTop: 92,
-    paddingBottom: 82,
-    justifyContent: "stretch",
-    alignItems: "center",
-    pointerEvents: "none",
-  },
-  scrollLikeTrack: {
-    width: 6,
+  segment: {
     flex: 1,
-    height: "100%",
-    borderRadius: 999,
-    overflow: "visible",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-  scrollLikeSegment: {
-    width: 12,
-    flex: 1,
-    minHeight: 24,
-    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
-  radioRow: {
-    marginTop: 12,
-    marginBottom: 8,
-    paddingHorizontal: 0,
-    gap: 10,
+  segmentSelected: {
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  bookingOptionsSection: {
-    marginTop: 12,
-    marginHorizontal: 20,
-    marginBottom: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingTop: 14,
-    paddingBottom: 6,
-    paddingHorizontal: 12,
+  segmentText: {
+    fontWeight: "600",
+    textAlign: "center",
   },
   sectionHeading: {
     fontWeight: "700",
     letterSpacing: -0.2,
-  },
-  sectionSubheading: {
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  radioOption: {
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    alignItems: "flex-start",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  radioOptionSelected: {
-    borderWidth: 2,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  radioTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    marginBottom: 8,
-  },
-  optionIconPill: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  optionStatePill: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  optionStateText: {
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  radioInnerCircle: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#fff",
-  },
-  radioText: {
-    fontWeight: "600",
-    marginBottom: 2,
-    letterSpacing: -0.1,
-  },
-  radioTextSelected: {
-    fontWeight: "700",
-  },
-  optionSubtitle: {
-    fontWeight: "500",
-    lineHeight: 16,
   },
   dateTimeContainer: {
     paddingHorizontal: 20,
@@ -1805,12 +1607,13 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 0,
     marginBottom: 0,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
     gap: 12,
-    borderTopWidth: 1,
+    borderTopWidth: 3,
   },
   reviewSection: {
     marginTop: 14,
@@ -1834,6 +1637,12 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  confirmArrow: {
+    marginLeft: 2,
   },
   confirmText: {
     textAlign: "center",
@@ -1853,6 +1662,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 12,
     marginBottom: 8,
+    backgroundColor: "#f1f5f9",
   },
   durationTitle: {
     fontWeight: "700",
@@ -1872,8 +1682,8 @@ const styles = StyleSheet.create({
   },
   durationButton: {
     borderWidth: 1,
-    borderRadius: 10,
-    minWidth: 44,
+    borderRadius: 22,
+    width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",

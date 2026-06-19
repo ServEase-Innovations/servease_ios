@@ -7,8 +7,10 @@ import {
   Dimensions,
   ScrollView,
 } from "react-native";
+import Icon from "react-native-vector-icons/MaterialIcons";
 import dayjs, { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import { BRAND } from "../theme/brandColors";
 
 dayjs.extend(customParseFormat);
 
@@ -626,20 +628,63 @@ export default function DribbbleDateTimePicker(props: Props) {
   return (
     <View style={[styles.card, compact && styles.cardCompact]}>
       <View style={styles.bookByContainer}>
-        <View style={styles.bookByRow}>
-          <Text style={[styles.bookByTitle, styles.bookByTitleInRow]}>{pickerTitle}</Text>
-          {birthdateMode && onClear && birthdateHasSelection ? (
-            <TouchableOpacity
-              onPress={handleClearBirthdate}
-              style={styles.clearButton}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Clear date of birth"
-            >
-              <Text style={styles.clearButtonText}>Clear</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        {birthdateMode ? (
+          <View style={styles.bookByRow}>
+            <Text style={[styles.bookByTitle, styles.bookByTitleInRow]}>{pickerTitle}</Text>
+            {onClear && birthdateHasSelection ? (
+              <TouchableOpacity
+                onPress={handleClearBirthdate}
+                style={styles.clearButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear date of birth"
+              >
+                <Text style={styles.clearButtonText}>Clear</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.bookByRow}>
+            <Text style={[styles.bookByTitle, styles.bookByTitleInRow]}>{pickerTitle}</Text>
+            <View style={styles.monthNavInline}>
+              <TouchableOpacity
+                onPress={() => changeMonth(-1)}
+                disabled={isPastMonth(currentMonth.subtract(1, "month"))}
+                style={[
+                  styles.monthButton,
+                  isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonDisabled,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.monthButtonText,
+                    isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonTextDisabled,
+                  ]}
+                >
+                  ‹
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.monthTitle}>{currentMonth.format("MMMM YYYY")}</Text>
+              <TouchableOpacity
+                onPress={() => changeMonth(1)}
+                disabled={isFutureMonth(currentMonth.add(1, "month"))}
+                style={[
+                  styles.monthButton,
+                  isFutureMonth(currentMonth.add(1, "month")) && styles.monthButtonDisabled,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.monthButtonText,
+                    isFutureMonth(currentMonth.add(1, "month")) && styles.monthButtonTextDisabled,
+                  ]}
+                >
+                  ›
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
       {birthdateQuickNav ? (
@@ -727,45 +772,7 @@ export default function DribbbleDateTimePicker(props: Props) {
               : "No date selected"}
           </Text>
         </View>
-      ) : (
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => changeMonth(-1)}
-            disabled={isPastMonth(currentMonth.subtract(1, "month"))}
-            style={[
-              styles.monthButton,
-              isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonDisabled,
-            ]}
-          >
-            <Text
-              style={[
-                styles.monthButtonText,
-                isPastMonth(currentMonth.subtract(1, "month")) && styles.monthButtonTextDisabled,
-              ]}
-            >
-              ‹
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.monthTitle}>{currentMonth.format("MMMM YYYY")}</Text>
-          <TouchableOpacity
-            onPress={() => changeMonth(1)}
-            disabled={isFutureMonth(currentMonth.add(1, "month"))}
-            style={[
-              styles.monthButton,
-              isFutureMonth(currentMonth.add(1, "month")) && styles.monthButtonDisabled,
-            ]}
-          >
-            <Text
-              style={[
-                styles.monthButtonText,
-                isFutureMonth(currentMonth.add(1, "month")) && styles.monthButtonTextDisabled,
-              ]}
-            >
-              ›
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      ) : null}
 
       <View style={styles.weekHeader}>
         {WEEK_DAYS.map((d) => (
@@ -837,11 +844,21 @@ export default function DribbbleDateTimePicker(props: Props) {
       )}
 
       {mode === "range" && rangeStart && rangeEnd && (
-        <View style={styles.rangeSummary}>
-          <Text style={styles.rangeSummaryText}>
-            {rangeStart.format("MMM D")} – {rangeEnd.format("MMM D, YYYY")} ·{" "}
+        <View style={styles.selectedRangeBanner}>
+          <Icon name="event" size={16} color={BRAND.accent} />
+          <Text style={styles.selectedRangeBannerText}>
+            Selected: {rangeStart.format("MMMM D")} - {rangeEnd.format("MMMM D")} (
             {rangeEnd.diff(rangeStart, "day") + 1} day
-            {rangeEnd.diff(rangeStart, "day") + 1 === 1 ? "" : "s"}
+            {rangeEnd.diff(rangeStart, "day") + 1 === 1 ? "" : "s"})
+          </Text>
+        </View>
+      )}
+
+      {mode === "single" && !birthdateMode && selectedDate && (
+        <View style={styles.selectedRangeBanner}>
+          <Icon name="event" size={16} color={BRAND.accent} />
+          <Text style={styles.selectedRangeBannerText}>
+            Selected: {selectedDate.format("MMMM D, YYYY")}
           </Text>
         </View>
       )}
@@ -861,7 +878,7 @@ export default function DribbbleDateTimePicker(props: Props) {
             </View>
             {hasAvailableTimes && !isTimeSelectionDisabled && (
               <View style={styles.availableCountPill}>
-                <Text style={styles.availableCountText}>{availableTimes.length} available</Text>
+                <Text style={styles.availableCountText}>{availableTimes.length} SLOTS</Text>
               </View>
             )}
           </View>
@@ -879,8 +896,13 @@ export default function DribbbleDateTimePicker(props: Props) {
                   activeOpacity={0.85}
                 >
                   <Text style={styles.expandButtonText}>
-                    {showAllTimes ? "Less time ▲" : "More time ▼"}
+                    {showAllTimes ? "View fewer slots" : "View more slots"}
                   </Text>
+                  <Icon
+                    name={showAllTimes ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                    size={18}
+                    color={BRAND.accent}
+                  />
                 </TouchableOpacity>
               )}
 
@@ -906,12 +928,14 @@ const { width } = Dimensions.get("window");
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BRAND.line,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
     width: "100%",
     maxWidth: 400,
@@ -932,10 +956,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   bookByTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 12,
+    fontSize: 17,
+    fontWeight: "700",
+    color: BRAND.text,
+    marginBottom: 0,
   },
   bookByTitleInRow: {
     flex: 1,
@@ -960,26 +984,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+  monthNavInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
   monthButton: {
-    padding: 8,
-    minWidth: 40,
+    padding: 4,
+    minWidth: 28,
     alignItems: "center",
   },
   monthButtonDisabled: {
     opacity: 0.3,
   },
   monthButtonText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
-    color: "#007AFF",
+    color: BRAND.accent,
   },
   monthButtonTextDisabled: {
     color: "#ccc",
   },
   monthTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#000",
+    color: BRAND.text,
+    minWidth: 110,
+    textAlign: "center",
   },
   birthdateQuickNav: {
     marginBottom: 12,
@@ -1015,8 +1046,8 @@ const styles = StyleSheet.create({
     minWidth: 68,
   },
   quickNavChipActive: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
+    backgroundColor: BRAND.accent,
+    borderColor: BRAND.accent,
   },
   quickNavChipDisabled: {
     opacity: 0.35,
@@ -1051,7 +1082,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   rangeHint: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: BRAND.accentSoft,
     padding: 8,
     borderRadius: 8,
     marginBottom: 8,
@@ -1059,22 +1090,26 @@ const styles = StyleSheet.create({
   },
   rangeHintText: {
     fontSize: 12,
-    color: "#007AFF",
+    color: BRAND.accent,
     fontWeight: "500",
     textAlign: "center",
   },
-  rangeSummary: {
-    backgroundColor: "#F1F5F9",
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 4,
+  selectedRangeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: BRAND.accentSoft,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 8,
     marginBottom: 4,
   },
-  rangeSummaryText: {
-    fontSize: 12,
-    color: "#475569",
+  selectedRangeBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: BRAND.accent,
     fontWeight: "600",
-    textAlign: "center",
   },
   weekHeader: {
     flexDirection: "row",
@@ -1108,18 +1143,18 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   selectedDay: {
-    backgroundColor: "#007AFF",
+    backgroundColor: BRAND.bookingNavy,
   },
   inRangeDay: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: BRAND.accentSoft,
   },
   rangeStartDay: {
-    backgroundColor: "#007AFF",
+    backgroundColor: BRAND.bookingNavy,
     borderTopLeftRadius: 30,
     borderBottomLeftRadius: 30,
   },
   rangeEndDay: {
-    backgroundColor: "#007AFF",
+    backgroundColor: BRAND.bookingNavy,
     borderTopRightRadius: 30,
     borderBottomRightRadius: 30,
   },
@@ -1159,15 +1194,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   availableCountPill: {
-    backgroundColor: "#E8F1FF",
+    backgroundColor: BRAND.accentSoft,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   availableCountText: {
-    fontSize: 11,
-    color: "#007AFF",
-    fontWeight: "600",
+    fontSize: 10,
+    color: BRAND.accent,
+    fontWeight: "700",
+    letterSpacing: 0.4,
   },
   emptyTimesBox: {
     backgroundColor: "#FFF8E8",
@@ -1198,33 +1234,32 @@ const styles = StyleSheet.create({
   expandButton: {
     marginTop: 10,
     alignSelf: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-    backgroundColor: "#E8F1FF",
-    borderWidth: 1,
-    borderColor: "#B9D6FF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
   expandButtonText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#007AFF",
+    fontSize: 14,
+    fontWeight: "600",
+    color: BRAND.accent,
   },
   timeSlot: {
     width: "30%",
     paddingVertical: 10,
     paddingHorizontal: 4,
-    borderRadius: 30,
-    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#F5F5F5",
+    borderColor: BRAND.line,
     minHeight: 40,
     justifyContent: "center",
   },
   activeTimeSlot: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
+    backgroundColor: BRAND.bookingNavy,
+    borderColor: BRAND.bookingNavy,
   },
   disabledTimeSlot: {
     backgroundColor: "#F8FAFC",
