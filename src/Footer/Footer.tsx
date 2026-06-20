@@ -109,7 +109,7 @@ const Footer = () => {
                 resizeMode="contain"
               />
             </View>
-            <Text style={[styles.brandName, { color: titleColor }]}>ServeEaso</Text>
+            <Text style={[styles.brandName, { color: titleColor }]}>ServEaso</Text>
             <Text style={[styles.tagline, { color: mutedColor }]}>Trusted home services</Text>
           </View>
 
@@ -182,7 +182,7 @@ const Footer = () => {
           end={{ x: 1, y: 0 }}
           style={styles.brandStripe}
         >
-          <Text style={styles.stripeText}>ServeEaso — home help you can trust</Text>
+          <Text style={styles.stripeText}>ServEaso — home help you can trust</Text>
         </LinearGradient>
       </View>
 
