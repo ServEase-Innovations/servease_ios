@@ -446,12 +446,28 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   if (isMobile) {
     const tabs: MobileTab[] = [];
 
-    tabs.push({
-      key: HOME,
-      label: t("navigation.home"),
-      iconName: "home",
-      onPress: handleHomeButtonClick,
-    });
+    if (isServiceProvider) {
+      tabs.push({
+        key: DASHBOARD,
+        label: t("navigation.home"),
+        iconName: "home",
+        onPress: handleHomeButtonClick,
+      });
+    } else if (isVendor) {
+      tabs.push({
+        key: AGENT_DASHBOARD,
+        label: t("navigation.home"),
+        iconName: "home",
+        onPress: handleHomeButtonClick,
+      });
+    } else {
+      tabs.push({
+        key: HOME,
+        label: t("navigation.home"),
+        iconName: "home",
+        onPress: handleHomeButtonClick,
+      });
+    }
 
     if (isAuthenticated) {
       tabs.push({
@@ -473,24 +489,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           label: t("navigation.wallet"),
           iconName: "account-balance-wallet",
           onPress: handleWalletClick,
-        });
-      }
-
-      if (isServiceProvider) {
-        tabs.push({
-          key: DASHBOARD,
-          label: t("navigation.dashboard"),
-          iconName: "dashboard",
-          onPress: handleDashboardButtonClick,
-        });
-      }
-
-      if (isVendor) {
-        tabs.push({
-          key: AGENT_DASHBOARD,
-          label: "Agent",
-          iconName: "business-center",
-          onPress: handleAgentDashboardButtonClick,
         });
       }
 
@@ -651,20 +649,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   <Text style={[styles.desktopNavText, { fontSize: moderateScale(15) }]}>Wallet</Text>
                 </TouchableOpacity>
               </>
-            )}
-
-            {isServiceProvider && (
-              <TouchableOpacity onPress={handleDashboardButtonClick} style={[styles.desktopNavItem, { paddingVertical: verticalScale(8), paddingHorizontal: moderateScale(8), gap: moderateScale(6) }]}>
-                <MaterialIcon name="dashboard" size={moderateScale(20)} color="#fff" style={styles.navIcon} />
-                <Text style={[styles.desktopNavText, { fontSize: moderateScale(15) }]}>{t("navigation.dashboard")}</Text>
-              </TouchableOpacity>
-            )}
-
-            {isVendor && (
-              <TouchableOpacity onPress={handleAgentDashboardButtonClick} style={[styles.desktopNavItem, { paddingVertical: verticalScale(8), paddingHorizontal: moderateScale(8), gap: moderateScale(6) }]}>
-                <MaterialIcon name="business" size={moderateScale(20)} color="#fff" style={styles.navIcon} />
-                <Text style={[styles.desktopNavText, { fontSize: moderateScale(15) }]}>Agent Dashboard</Text>
-              </TouchableOpacity>
             )}
 
             {!isAuthenticated && (

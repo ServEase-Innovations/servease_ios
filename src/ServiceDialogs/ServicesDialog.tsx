@@ -96,10 +96,8 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
   const serviceProviderId = appUser?.serviceProviderId
     ? Number(appUser.serviceProviderId)
     : null;
-  const { housekeepingRoles, isAccountActive } = useServiceProviderProfile(
-    serviceProviderId,
-    isServiceProvider
-  );
+  const { housekeepingRoles, isAccountActive, loading: loadingProviderProfile } =
+    useServiceProviderProfile(serviceProviderId, isServiceProvider);
 
   const serviceTypeById: Record<string, 'COOK' | 'MAID' | 'NANNY'> = {
     'home-cook': 'COOK',
@@ -109,7 +107,14 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
 
   const isServiceInactiveForProvider = (serviceId: string) => {
     const serviceType = serviceTypeById[serviceId];
+    if (!serviceType || !isServiceProvider || loadingProviderProfile) return false;
+    return !isServiceOfferedByProvider(serviceType, housekeepingRoles, isAccountActive);
+  };
+
+  const showProviderInactiveVisual = (serviceId: string) => {
+    const serviceType = serviceTypeById[serviceId];
     if (!serviceType || !isServiceProvider) return false;
+    if (loadingProviderProfile) return true;
     return !isServiceOfferedByProvider(serviceType, housekeepingRoles, isAccountActive);
   };
 
@@ -588,7 +593,8 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
 
                 <View style={styles.serviceList}>
                   {serviceOptions.map((service) => {
-                    const inactive = isServiceInactiveForProvider(service.id);
+                    const inactive = showProviderInactiveVisual(service.id);
+                    const interactionDisabled = isServiceInactiveForProvider(service.id);
 
                     return (
                     <TouchableOpacity
@@ -602,10 +608,10 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
                         inactive && styles.serviceRowDisabled,
                       ]}
                       onPress={() => handleServiceSelect(service.id)}
-                      activeOpacity={inactive ? 1 : 0.82}
+                      activeOpacity={interactionDisabled ? 1 : 0.82}
                       accessibilityRole="button"
                       accessibilityLabel={`Select ${service.title}`}
-                      accessibilityState={{ disabled: inactive }}
+                      accessibilityState={{ disabled: interactionDisabled }}
                     >
                       <View style={[styles.serviceThumbWrap, { backgroundColor: service.tint }]}>
                         <Image

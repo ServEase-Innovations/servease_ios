@@ -60,6 +60,7 @@ import AgentDashboard from "./src/Agent/AgentDashboard";
 import WalletPage from "./src/UserProfile/WalletDialog";
 import Settings from "./src/Settings/Settings";
 import { BOOKINGS, DASHBOARD, PROFILE, SETTINGS, HOME, AGENT_DASHBOARD, WALLET, DETAILS } from "./src/Constants/pagesConstants";
+import { resolveRoleHomeView } from "./src/utils/resolveRoleHomeView";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
@@ -201,6 +202,11 @@ const MainApp = () => {
       }
     },
   });
+
+  const navigateToRoleHome = useCallback(() => {
+    setCurrentView(resolveRoleHomeView(appUser?.role));
+    setShowProfileFromDashboard(false);
+  }, [appUser?.role]);
 
   // Get font size styles based on settings
   const getFontSizeStyles = () => {
@@ -555,13 +561,10 @@ const MainApp = () => {
       setShowNotifications(false);
     } else {
       console.log("✅ User is logged in, role:", appUser.role);
-      // If user is logged in and has a role, we might want to navigate to appropriate dashboard
-      if (appUser.role === "SERVICE_PROVIDER" && currentView === HOME) {
-        // Optional: Auto-navigate to dashboard for service providers
-        // setCurrentView(DASHBOARD);
-      } else if (appUser.role === "VENDOR" && currentView === HOME) {
-        // Optional: Auto-navigate to agent dashboard for vendors
-        // setCurrentView(AGENT_DASHBOARD);
+      const roleHome = resolveRoleHomeView(appUser.role);
+      if (currentView === HOME && roleHome !== HOME) {
+        setCurrentView(roleHome);
+        setShowProfileFromDashboard(false);
       }
     }
   }, [appUser]);
@@ -790,8 +793,7 @@ const MainApp = () => {
 
   const handleViewChange = (view: string) => {
     if (view === "" || view === "FORCE_HOME") {
-      setCurrentView(HOME);
-      setShowProfileFromDashboard(false);
+      navigateToRoleHome();
     } else {
       setCurrentView(view);
     }
@@ -802,8 +804,7 @@ const MainApp = () => {
   const handleNotificationButtonPress = () => setShowNotificationClient(true);
 
   const handleHomeClick = () => {
-    setCurrentView(HOME);
-    setShowProfileFromDashboard(false);
+    navigateToRoleHome();
   };
 
   const handleServicesClick = (service: string) => {
@@ -853,14 +854,14 @@ const MainApp = () => {
         return (
           <Booking
             ref={bookingsRef}
-            onBackToHome={() => setCurrentView(HOME)}
+            onBackToHome={navigateToRoleHome}
             onNavigateToDetails={() => setCurrentView(DETAILS)}
             onOpenWallet={() => setCurrentView(WALLET)}
           />
         );
         
       case WALLET:
-        return <WalletPage onBack={() => setCurrentView(HOME)} />;
+        return <WalletPage onBack={navigateToRoleHome} />;
         
       case DASHBOARD:
         return showProfileFromDashboard ? (
@@ -877,7 +878,7 @@ const MainApp = () => {
         ) : (
           <Dashboard 
             onProfilePress={handleDashboardProfilePress} 
-            onBackToHome={() => setCurrentView(HOME)}
+            onBackToHome={navigateToRoleHome}
           />
         );
         
@@ -887,7 +888,7 @@ const MainApp = () => {
       case PROFILE:
         return (
           <ProfileScreen
-            onBack={() => setCurrentView(HOME)}
+            onBack={navigateToRoleHome}
             onNavigateToBookings={() => setCurrentView(BOOKINGS)}
             onOpenSettings={() => {
               setSettingsReturnView(PROFILE);
@@ -1052,7 +1053,7 @@ const MainApp = () => {
                         setCurrentView(WALLET);
                         setShowProfileFromDashboard(false);
                       } else if (page === HOME) {
-                        setCurrentView(HOME);
+                        setCurrentView(resolveRoleHomeView(appUser?.role));
                         setShowProfileFromDashboard(false);
                       } else if (page === SETTINGS) {
                         setSettingsReturnView(currentView);

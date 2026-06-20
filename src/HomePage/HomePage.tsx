@@ -154,7 +154,24 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
   const isServiceInactiveForProvider = (serviceKey: ServiceType) =>
     isServiceProvider &&
+    !loadingProviderProfile &&
     !isServiceOfferedByProvider(serviceKey, housekeepingRoles, isAccountActive);
+
+  const showProviderInactiveVisual = (serviceKey: ServiceType) =>
+    isServiceProvider &&
+    (loadingProviderProfile ||
+      !isServiceOfferedByProvider(serviceKey, housekeepingRoles, isAccountActive));
+
+  const inactiveServiceCount = useMemo(() => {
+    if (!isServiceProvider || loadingProviderProfile) return 0;
+    return services.filter((service) => isServiceInactiveForProvider(service.key)).length;
+  }, [
+    isServiceProvider,
+    loadingProviderProfile,
+    services,
+    housekeepingRoles,
+    isAccountActive,
+  ]);
 
   const handlePressIn = (serviceKey: string) => {
     if (isServiceInactiveForProvider(serviceKey as ServiceType)) return;
@@ -296,10 +313,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
   const ServiceCard = ({ service, index }: { service: typeof services[0]; index: number }) => {
     const opacityAnim = useRef(new Animated.Value(0)).current;
-    const isInactive = isServiceInactiveForProvider(service.key);
-    const isOffered =
-      isServiceProvider &&
-      isServiceOfferedByProvider(service.key, housekeepingRoles, isAccountActive);
+    const isInactive = showProviderInactiveVisual(service.key);
+    const isInteractionDisabled = isServiceInactiveForProvider(service.key);
+    const showProviderStatus = isServiceProvider && !loadingProviderProfile;
+    const inactiveMessage = !isAccountActive
+      ? t("home.serviceProvider.service.inactiveAlert.accountInactive")
+      : t("home.serviceProvider.service.notOffered");
 
     useEffect(() => {
       Animated.timing(opacityAnim, {
@@ -317,31 +336,82 @@ const HomePage: React.FC<ChildComponentProps> = ({
           onLongPress={() => handleLearnMore(service.key)}
           onPressIn={() => handlePressIn(service.key)}
           onPressOut={() => handlePressOut(service.key)}
-          activeOpacity={isInactive ? 1 : 0.88}
-          accessibilityState={{ disabled: isInactive }}
+          activeOpacity={isInteractionDisabled ? 1 : 0.88}
+          accessibilityState={{ disabled: isInteractionDisabled }}
+          accessibilityLabel={
+            isInactive
+              ? `${service.title}. ${inactiveMessage}`
+              : service.title
+          }
           style={[
             styles.gridCard,
             {
-              backgroundColor: isDarkMode ? colors.card : HOME_M3.surfaceContainerLowest,
-              borderColor: isDarkMode ? colors.border : HOME_M3.outlineVariant,
+              backgroundColor: isInactive
+                ? isDarkMode
+                  ? "#1e293b"
+                  : "#F8FAFC"
+                : isDarkMode
+                  ? colors.card
+                  : HOME_M3.surfaceContainerLowest,
+              borderColor: isInactive
+                ? isDarkMode
+                  ? "#475569"
+                  : "#CBD5E1"
+                : isDarkMode
+                  ? colors.border
+                  : HOME_M3.outlineVariant,
             },
-            isInactive && styles.gridCardDisabled,
+            isInactive && styles.gridCardInactive,
+            showProviderStatus && !isInactive && !isDarkMode && styles.gridCardActive,
           ]}
         >
-          <View
-            style={[
-              styles.gridIconBox,
-              { backgroundColor: isDarkMode ? colors.surface : HOME_M3.secondaryFixed },
-            ]}
-          >
-            <Icon
-              name={SERVICE_ICONS[service.key]}
-              size={24}
-              color={HOME_M3.onSecondaryFixedVariant}
-            />
+          <View style={styles.gridCardTopRow}>
+            <View
+              style={[
+                styles.gridIconBox,
+                {
+                  backgroundColor: isInactive
+                    ? isDarkMode
+                      ? "#334155"
+                      : "#E2E8F0"
+                    : isDarkMode
+                      ? colors.surface
+                      : HOME_M3.secondaryFixed,
+                },
+              ]}
+            >
+              <Icon
+                name={isInactive ? "block" : SERVICE_ICONS[service.key]}
+                size={22}
+                color={isInactive ? "#94A3B8" : HOME_M3.onSecondaryFixedVariant}
+              />
+            </View>
+            {showProviderStatus ? (
+              <View
+                style={[
+                  styles.statusPill,
+                  isInactive ? styles.statusPillInactive : styles.statusPillActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    isInactive ? styles.statusPillTextInactive : styles.statusPillTextActive,
+                  ]}
+                >
+                  {isInactive
+                    ? t("home.serviceProvider.service.inactive")
+                    : t("home.serviceProvider.service.active")}
+                </Text>
+              </View>
+            ) : null}
           </View>
+
           <Text
-            style={[styles.gridTitle, { color: colors.text }, isInactive && styles.gridTextDisabled]}
+            style={[
+              styles.gridTitle,
+              { color: isInactive ? "#64748B" : colors.text },
+            ]}
             numberOfLines={1}
           >
             {service.title}
@@ -349,26 +419,23 @@ const HomePage: React.FC<ChildComponentProps> = ({
           <Text
             style={[
               styles.gridSubtitle,
-              { color: colors.textSecondary },
-              isInactive && styles.gridTextDisabled,
+              { color: isInactive ? "#94A3B8" : colors.textSecondary },
             ]}
-            numberOfLines={2}
+            numberOfLines={3}
           >
-            {isInactive
-              ? !isAccountActive
-                ? t("home.serviceProvider.service.inactiveAlert.accountInactive")
-                : t("home.serviceProvider.service.notOffered")
-              : service.subtitle}
+            {isInactive ? inactiveMessage : service.subtitle}
           </Text>
-          {!isInactive && (
-            <View style={styles.gridBadgeRow}>
-              <Text style={styles.gridBadge}>
-                {isOffered
-                  ? t("home.serviceProvider.service.active")
-                  : "⭐ Top Rated"}
-              </Text>
+
+          {isInactive ? (
+            <View style={styles.inactiveHintRow}>
+              <Icon name="info-outline" size={14} color="#B45309" />
+              <Text style={styles.inactiveHintText}>Tap for details</Text>
             </View>
-          )}
+          ) : !showProviderStatus ? (
+            <View style={styles.gridBadgeRow}>
+              <Text style={styles.gridBadge}>⭐ Top Rated</Text>
+            </View>
+          ) : null}
         </TouchableOpacity>
       </Animated.View>
     );
@@ -454,7 +521,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
               <Text style={styles.providerBannerText}>
                 {!isAccountActive
                   ? t("home.serviceProvider.banner.accountInactive")
-                  : t("home.serviceProvider.banner.viewOnly")}
+                  : inactiveServiceCount > 0
+                    ? t("home.serviceProvider.banner.inactiveServices", {
+                        defaultValue:
+                          "Grayed-out services are inactive on your profile. Tap a card for details.",
+                      })
+                    : t("home.serviceProvider.banner.viewOnly")}
               </Text>
             </View>
           ) : null}
@@ -660,12 +732,79 @@ const styles = StyleSheet.create({
   providerBannerText: { flex: 1, fontSize: 13, lineHeight: 18, color: "#92400E", fontWeight: "500" },
   serviceGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 12 },
   gridCardWrap: { width: "48%" },
-  gridCard: { borderRadius: 12, borderWidth: 1, padding: 14, minHeight: 148, shadowColor: "#0f172a", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  gridCardDisabled: { opacity: 0.55 },
-  gridIconBox: { width: 48, height: 48, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+  gridCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    minHeight: 156,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  gridCardInactive: {
+    borderStyle: "dashed",
+    opacity: 0.92,
+  },
+  gridCardActive: {
+    borderColor: "#86EFAC",
+    backgroundColor: "#F0FDF4",
+  },
+  gridCardTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    gap: 8,
+  },
+  gridIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    maxWidth: "52%",
+  },
+  statusPillInactive: {
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  statusPillActive: {
+    backgroundColor: "#DCFCE7",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  statusPillTextInactive: {
+    color: "#B91C1C",
+  },
+  statusPillTextActive: {
+    color: "#166534",
+  },
   gridTitle: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
-  gridSubtitle: { fontSize: 13, lineHeight: 18 },
-  gridTextDisabled: { opacity: 0.7 },
+  gridSubtitle: { fontSize: 12, lineHeight: 17 },
+  inactiveHintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+  },
+  inactiveHintText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#B45309",
+  },
   gridBadgeRow: { marginTop: 8 },
   gridBadge: { fontSize: 11, fontWeight: "600", color: HOME_M3.secondary },
   emptySearch: { textAlign: "center", marginVertical: 12, fontSize: 14 },

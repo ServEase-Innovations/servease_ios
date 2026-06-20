@@ -718,7 +718,8 @@
       },
       "banner": {
         "viewOnly": "Service provider accounts cannot book services. Browse services below or switch to a customer account to book.",
-        "accountInactive": "Your service provider account is currently inactive. Contact support to reactivate your account."
+        "accountInactive": "Your service provider account is currently inactive. Contact support to reactivate your account.",
+        "inactiveServices": "Grayed-out services are inactive on your profile. Tap a card for details."
       },
       "service": {
         "active": "Your service",
