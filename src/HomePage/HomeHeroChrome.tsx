@@ -25,10 +25,12 @@ interface LocationData {
 
 type HomeHeroChromeProps = {
   closeDropdowns?: boolean;
+  onLogoPress?: () => void;
 };
 
 const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   closeDropdowns = false,
+  onLogoPress,
 }) => {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -119,19 +121,15 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
   return (
     <>
-      <View style={[styles.chromeRow, { paddingTop: Math.max(insets.top, 8) }]}>
-        <View style={styles.locationWrap}>
-          <LocationSelector
-            key={String(resolveCustomerId(appUser) ?? "guest")}
-            userPreference={userPreference}
-            setUserPreference={setUserPreference}
-            onLocationChange={handleLocationChange}
-            closeDropdown={closeDropdowns}
-            locationPreferencesReady={locationPreferencesReady}
-            isUserLoading={isUserLoading}
-            variant="chrome"
-          />
-        </View>
+      <View style={[styles.topRow, { paddingTop: Math.max(insets.top, 8) }]}>
+        <TouchableOpacity
+          onPress={onLogoPress}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="ServEaso home"
+        >
+          <Text style={styles.wordmark}>ServEaso</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowNotifications(true)}
           style={styles.notifBtn}
@@ -148,6 +146,19 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
         </TouchableOpacity>
       </View>
 
+      <View style={styles.locationRow}>
+        <LocationSelector
+          key={String(resolveCustomerId(appUser) ?? "guest")}
+          userPreference={userPreference}
+          setUserPreference={setUserPreference}
+          onLocationChange={handleLocationChange}
+          closeDropdown={closeDropdowns}
+          locationPreferencesReady={locationPreferencesReady}
+          isUserLoading={isUserLoading}
+          variant="chrome"
+        />
+      </View>
+
       <NotificationsDialog
         visible={showNotifications}
         onClose={() => {
@@ -161,17 +172,24 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 };
 
 const styles = StyleSheet.create({
-  chromeRow: {
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
+    paddingBottom: 10,
     zIndex: 20,
   },
-  locationWrap: {
-    flex: 1,
-    minWidth: 0,
+  wordmark: {
+    color: "#ffffff",
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  locationRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    zIndex: 20,
   },
   notifBtn: {
     width: 40,

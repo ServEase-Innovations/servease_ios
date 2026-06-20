@@ -40,9 +40,6 @@ import TrackAddress from './TrackAddress';
 
 const { width, height } = Dimensions.get('window');
 
-// Google Maps API Key
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
-
 // Types for API response
 interface CustomerHoliday {
   id: number;
@@ -968,8 +965,8 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
 
       <Modal
         visible={trackAddressDialogOpen}
-        transparent={true}
         animationType="slide"
+        presentationStyle="fullScreen"
         onRequestClose={() => setTrackAddressDialogOpen(false)}
       >
         <TrackAddress
@@ -977,7 +974,6 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
             setTrackAddressDialogOpen(false);
             setSelectedAddress("");
           }}
-          googleMapsApiKey={GOOGLE_MAPS_API_KEY}
           destinationAddress={selectedAddress || undefined}
         />
       </Modal>

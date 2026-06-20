@@ -387,7 +387,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.heroGradient}>
-          <HomeHeroChrome closeDropdowns={closeDropdowns} />
+          <HomeHeroChrome closeDropdowns={closeDropdowns} onLogoPress={onLogoClick} />
 
           <View style={styles.heroBody}>
             <Text

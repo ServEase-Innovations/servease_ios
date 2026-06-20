@@ -25,9 +25,82 @@ interface CalendarEntry {
   provider_id: number;
   engagement_id?: number;
   date: string;
-  start_time: string;
-  end_time: string;
-  status: "AVAILABLE" | "BOOKED" | "UNAVAILABLE" | "QUEUE_STANDBY";
+  start_time: string | null;
+  end_time: string | null;
+  start_epoch?: number | null;
+  end_epoch?: number | null;
+  slot_start_epoch?: number | null;
+  slot_end_epoch?: number | null;
+  status: string;
+}
+
+function normalizeTime(value: string | null | undefined): string {
+  if (!value) return "00:00";
+  const parts = String(value).trim().split(":");
+  if (parts.length >= 2) {
+    return `${parts[0]}:${parts[1]}`;
+  }
+  return "00:00";
+}
+
+function buildEventTitle(status: string, engagementId?: number): string {
+  switch (status) {
+    case "BOOKED":
+      return `Booked #${engagementId ?? "?"}`;
+    case "QUEUE_STANDBY":
+      return `Backup queue #${engagementId ?? "?"}`;
+    case "VACATION":
+      return `Vacation #${engagementId ?? "?"}`;
+    case "FREE":
+      return "Free / open";
+    case "AVAILABLE":
+      return "Available";
+    case "UNAVAILABLE":
+      return "Unavailable";
+    default:
+      return status || "Scheduled";
+  }
+}
+
+function mapCalendarEntryToEvent(entry: CalendarEntry): Event | null {
+  if (!entry?.date) return null;
+
+  const dayPart = moment(entry.date).isValid()
+    ? moment(entry.date).format("YYYY-MM-DD")
+    : String(entry.date).slice(0, 10);
+  if (!dayPart || dayPart === "Invalid date") return null;
+
+  const startEpoch = entry.start_epoch ?? entry.slot_start_epoch;
+  const endEpoch = entry.end_epoch ?? entry.slot_end_epoch;
+  let start: Date;
+  let end: Date;
+
+  if (startEpoch != null && Number.isFinite(Number(startEpoch))) {
+    start = moment.unix(Number(startEpoch)).toDate();
+    end =
+      endEpoch != null && Number.isFinite(Number(endEpoch))
+        ? moment.unix(Number(endEpoch)).toDate()
+        : moment(start).add(1, "hour").toDate();
+  } else {
+    const [sh, sm] = normalizeTime(entry.start_time).split(":").map(Number);
+    const [eh, em] = normalizeTime(entry.end_time).split(":").map(Number);
+    start = moment(dayPart, "YYYY-MM-DD").hours(sh).minutes(sm).seconds(0).toDate();
+    end = moment(dayPart, "YYYY-MM-DD").hours(eh).minutes(em).seconds(0).toDate();
+    if (!moment(end).isAfter(start)) {
+      end = moment(start).add(1, "hour").toDate();
+    }
+  }
+
+  const status = String(entry.status || "").toUpperCase();
+
+  return {
+    id: entry.id,
+    engagement_id: entry.engagement_id,
+    title: buildEventTitle(status, entry.engagement_id),
+    start,
+    end,
+    status,
+  };
 }
 
 interface Event {
@@ -67,6 +140,7 @@ export default function ProviderCalendarBig({
 
   useEffect(() => {
     const fetchCalendar = async () => {
+      setLoading(true);
       try {
         const month = moment(currentDate).format("YYYY-MM");
         const res = await PaymentInstance.get(
@@ -74,33 +148,9 @@ export default function ProviderCalendarBig({
         );
 
         const entries: CalendarEntry[] = res.data.calendar || [];
-        const evts = entries.map((e) => {
-          const baseDate = new Date(e.date);
-          const [sh, sm] = e.start_time.split(":").map(Number);
-          const [eh, em] = e.end_time.split(":").map(Number);
-
-          const start = new Date(baseDate);
-          start.setHours(sh, sm, 0);
-
-          const end = new Date(baseDate);
-          end.setHours(eh, em, 0);
-
-          return {
-            id: e.id,
-            engagement_id: e.engagement_id,
-            title:
-              e.status === "BOOKED"
-                ? `Booked #${e.engagement_id}`
-                : e.status === "QUEUE_STANDBY"
-                ? `Backup queue #${e.engagement_id}`
-                : e.status === "AVAILABLE"
-                ? "Available"
-                : "Unavailable",
-            start,
-            end,
-            status: e.status,
-          };
-        });
+        const evts = entries
+          .map(mapCalendarEntryToEvent)
+          .filter((event): event is Event => event != null);
 
         setEvents(evts);
         updateMarkedDates(evts);
@@ -114,6 +164,12 @@ export default function ProviderCalendarBig({
 
     fetchCalendar();
   }, [providerId, currentDate, refreshToken]);
+
+  useEffect(() => {
+    if (events.length > 0) {
+      updateMarkedDates(events);
+    }
+  }, [selectedDate]);
 
   const updateMarkedDates = (evts: Event[]) => {
     const marked: { [key: string]: MarkedDate } = {};
@@ -135,6 +191,12 @@ export default function ProviderCalendarBig({
       } else if (event.status === "UNAVAILABLE") {
         dotColor = "#64748b"; // slate gray for unavailable
         backgroundColor = "rgba(100,116,139,0.1)";
+      } else if (event.status === "VACATION") {
+        dotColor = "#f59e0b";
+        backgroundColor = "rgba(245,158,11,0.12)";
+      } else if (event.status === "FREE") {
+        dotColor = "#3b82f6";
+        backgroundColor = "rgba(59,130,246,0.1)";
       }
 
       if (marked[dateKey]) {
@@ -201,25 +263,44 @@ export default function ProviderCalendarBig({
   };
 
   const handleMonthChange = (month: { dateString: string }) => {
-    const newDate = new Date(month.dateString);
+    const newDate = moment(month.dateString, "YYYY-MM-DD").toDate();
     setCurrentDate(newDate);
   };
 
+  const shiftMonth = (delta: number) => {
+    setCurrentDate((prev) => moment(prev).add(delta, "month").toDate());
+  };
+
+  const goToToday = () => {
+    const today = moment();
+    setCurrentDate(today.toDate());
+    setSelectedDate(today.format("YYYY-MM-DD"));
+  };
+
   const handleEventPress = (event: Event) => {
+    const timeRange = `${formatTime(event.start)} - ${formatTime(event.end)}`;
     const message =
       event.status === "BOOKED"
-        ? `This time slot is BOOKED\nEngagement #${event.engagement_id}\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}`
+        ? `This time slot is BOOKED\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
         : event.status === "QUEUE_STANDBY"
-        ? `You are backup in the queue for this booking\nEngagement #${event.engagement_id}\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}`
+        ? `You are backup in the queue for this booking\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
+        : event.status === "VACATION"
+        ? `Customer vacation for this booking\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
+        : event.status === "FREE"
+        ? `This time slot is FREE\nTime: ${timeRange}`
         : event.status === "AVAILABLE"
-        ? `This time slot is AVAILABLE\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}\nYou can book this slot.`
-        : `This time slot is UNAVAILABLE\nTime: ${formatTime(event.start)} - ${formatTime(event.end)}\nPlease select another time.`;
+        ? `This time slot is AVAILABLE\nTime: ${timeRange}\nYou can book this slot.`
+        : `This time slot is UNAVAILABLE\nTime: ${timeRange}\nPlease select another time.`;
     
     Alert.alert(
       event.status === "BOOKED"
         ? "Booked Slot"
         : event.status === "QUEUE_STANDBY"
         ? "Backup queue"
+        : event.status === "VACATION"
+        ? "Vacation"
+        : event.status === "FREE"
+        ? "Free slot"
         : event.status === "AVAILABLE"
         ? "Available Slot"
         : "Unavailable Slot",
@@ -262,6 +343,22 @@ export default function ProviderCalendarBig({
           gradientStart: "#64748b",
           gradientEnd: "#475569"
         };
+      case "VACATION":
+        return {
+          bg: "#f59e0b",
+          text: "#ffffff",
+          icon: "beach",
+          gradientStart: "#f59e0b",
+          gradientEnd: "#d97706",
+        };
+      case "FREE":
+        return {
+          bg: "#3b82f6",
+          text: "#ffffff",
+          icon: "calendar-blank",
+          gradientStart: "#3b82f6",
+          gradientEnd: "#2563eb",
+        };
       default:
         return { 
           bg: "#3b82f6", 
@@ -283,19 +380,13 @@ export default function ProviderCalendarBig({
       case "QUEUE_STANDBY": return "Backup queue";
       case "AVAILABLE": return "Available";
       case "UNAVAILABLE": return "Unavailable";
+      case "VACATION": return "Vacation";
+      case "FREE": return "Free";
       default: return status;
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Loading calendar...</Text>
-      </View>
-    );
-  }
-
+  const monthLabel = moment(currentDate).format("MMMM YYYY");
   const dailyEvents = getEventsForSelectedDate();
 
   return (
@@ -314,15 +405,51 @@ export default function ProviderCalendarBig({
         <Text style={styles.headerSubtitle}>
           View your schedule and availability
         </Text>
+
+        <View style={styles.monthNavRow}>
+          <TouchableOpacity
+            style={styles.monthNavButton}
+            onPress={() => shiftMonth(-1)}
+            accessibilityLabel="Previous month"
+          >
+            <Icon name="chevron-left" size={24} color="#ffffff" />
+          </TouchableOpacity>
+
+          <View style={styles.monthNavCenter}>
+            <Text style={styles.monthNavLabel}>{monthLabel}</Text>
+            <TouchableOpacity onPress={goToToday}>
+              <Text style={styles.todayLink}>Today</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.monthNavButton}
+            onPress={() => shiftMonth(1)}
+            accessibilityLabel="Next month"
+          >
+            <Icon name="chevron-right" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
-      {/* Calendar Component */}
+      {loading ? (
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator size="small" color="#3b82f6" />
+          <Text style={styles.inlineLoadingText}>Loading {monthLabel}...</Text>
+        </View>
+      ) : null}
+
       <Calendar
-        current={currentDate.toISOString()}
+        key={monthLabel}
+        current={moment(currentDate).format("YYYY-MM-DD")}
         onDayPress={handleDateSelect}
         onMonthChange={handleMonthChange}
         markedDates={markedDates}
         markingType="custom"
+        hideArrows
+        hideExtraDays
+        enableSwipeMonths
+        renderHeader={() => <View style={styles.hiddenCalendarHeader} />}
         theme={{
           selectedDayBackgroundColor: "#3b82f6",
           todayTextColor: "#3b82f6",
@@ -333,14 +460,7 @@ export default function ProviderCalendarBig({
           textDayHeaderFontWeight: "600",
           textDayHeaderFontSize: 13,
           textDayFontSize: 14,
-          "stylesheet.calendar.header": {
-            week: {
-              marginTop: 8,
-              flexDirection: "row",
-              justifyContent: "space-around",
-            },
-          },
-        } as any}
+        }}
         style={styles.calendar}
       />
 
@@ -496,6 +616,57 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 12,
     color: "rgba(255,255,255,0.85)",
+  },
+  monthNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.15)",
+  },
+  monthNavButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  monthNavCenter: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 12,
+  },
+  monthNavLabel: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  todayLink: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.9)",
+    textDecorationLine: "underline",
+  },
+  inlineLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10,
+    marginHorizontal: 12,
+  },
+  inlineLoadingText: {
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  hiddenCalendarHeader: {
+    height: 0,
+    overflow: "hidden",
   },
   calendar: {
     backgroundColor: "#ffffff",

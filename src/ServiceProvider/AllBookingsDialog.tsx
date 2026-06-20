@@ -25,8 +25,6 @@ import TrackAddress from "./TrackAddress";
 import { BRAND } from "../theme/brandColors";
 import { withdrawFromOnDemandEngagement } from "../services/engagementService";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk";
-
 type TabKey = "ongoing" | "future" | "past";
 
 interface AllBookingsDialogProps {
@@ -841,11 +839,11 @@ export function AllBookingsDialog({
       <Modal
         visible={trackAddressDialogOpen}
         animationType="slide"
+        presentationStyle="fullScreen"
         onRequestClose={() => setTrackAddressDialogOpen(false)}
       >
         <TrackAddress
           onClose={() => setTrackAddressDialogOpen(false)}
-          googleMapsApiKey={GOOGLE_MAPS_API_KEY}
           destinationAddress={selectedAddress || undefined}
         />
       </Modal>
