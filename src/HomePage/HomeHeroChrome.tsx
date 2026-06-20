@@ -12,7 +12,6 @@ import { recipientParams } from "../Notifications/inAppNotificationUtils";
 import preferenceInstance from "../services/preferenceInstance";
 import { resolveCustomerId } from "../services/couponService";
 import { useAppUser } from "../context/AppUserContext";
-import { HOME_M3 } from "../theme/brandColors";
 
 interface LocationData {
   formatted_address: string;
@@ -26,12 +25,10 @@ interface LocationData {
 
 type HomeHeroChromeProps = {
   closeDropdowns?: boolean;
-  onLogoPress?: () => void;
 };
 
 const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   closeDropdowns = false,
-  onLogoPress,
 }) => {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -122,38 +119,33 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
   return (
     <>
-      <View style={[styles.topRow, { paddingTop: Math.max(insets.top, 8) }]}>
-        <TouchableOpacity
-          onPress={onLogoPress}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Serveaso home"
-        >
-          <Text style={styles.wordmark}>SERVEASO</Text>
-        </TouchableOpacity>
+      <View style={[styles.chromeRow, { paddingTop: Math.max(insets.top, 8) }]}>
+        <View style={styles.locationWrap}>
+          <LocationSelector
+            key={String(resolveCustomerId(appUser) ?? "guest")}
+            userPreference={userPreference}
+            setUserPreference={setUserPreference}
+            onLocationChange={handleLocationChange}
+            closeDropdown={closeDropdowns}
+            locationPreferencesReady={locationPreferencesReady}
+            isUserLoading={isUserLoading}
+            variant="chrome"
+          />
+        </View>
         <TouchableOpacity
           onPress={() => setShowNotifications(true)}
           style={styles.notifBtn}
           accessibilityLabel="Notifications"
         >
-          <MaterialIcon name="notifications-none" size={24} color={HOME_M3.onPrimary} />
+          <MaterialIcon name="notifications-none" size={26} color="#ffffff" />
           {inAppUnread > 0 ? (
-            <View style={styles.unreadDot} />
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>
+                {inAppUnread > 99 ? "99+" : inAppUnread}
+              </Text>
+            </View>
           ) : null}
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.locationRow}>
-        <LocationSelector
-          key={String(resolveCustomerId(appUser) ?? "guest")}
-          userPreference={userPreference}
-          setUserPreference={setUserPreference}
-          onLocationChange={handleLocationChange}
-          closeDropdown={closeDropdowns}
-          locationPreferencesReady={locationPreferencesReady}
-          isUserLoading={isUserLoading}
-          variant="hero"
-        />
       </View>
 
       <NotificationsDialog
@@ -169,38 +161,44 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 };
 
 const styles = StyleSheet.create({
-  topRow: {
+  chromeRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 12,
+    gap: 8,
+    zIndex: 20,
   },
-  wordmark: {
-    color: HOME_M3.onPrimary,
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
+  locationWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   notifBtn: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
     position: "relative",
+    flexShrink: 0,
   },
-  unreadDot: {
+  unreadBadge: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: HOME_M3.error,
-    borderWidth: 2,
-    borderColor: HOME_M3.primary,
+    top: 2,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#fff",
   },
-  locationRow: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    zIndex: 20,
+  unreadBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
   },
 });
 

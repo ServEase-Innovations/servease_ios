@@ -9,14 +9,11 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
-  SafeAreaView,
   Alert,
   RefreshControl,
   FlatList,
   Dimensions,
-  Image,
 } from "react-native";
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import providerInstance, { resolveProviderRequestUrl } from "../services/providerInstance";
@@ -35,6 +32,7 @@ import { resolveScheduleTimeFields } from '../utils/bookingSchedulePatch';
 import { buildLocationSearchKey, resolveLocationCoords } from '../utils/bookingLocation';
 import { isBookingScheduleComplete } from '../ServiceDialogs/serviceBookingConfig';
 import { useTranslation } from 'react-i18next';
+import { BRAND } from '../theme/brandColors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -582,112 +580,124 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     return (
       <>
-        <View style={[styles.headerShell, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.surface : "#ffffff" }]}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              onPress={handleBackClick}
-              style={[styles.backButton, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#F8FAFC" }]}
-            >
-              <Icon name="arrow-back" size={20} color={colors.text} />
-              <Text style={[styles.backText, { color: colors.text, fontSize: fontStyles.smallText }]}>Back</Text>
-            </TouchableOpacity>
-            <View
+        <View style={styles.topNavRow}>
+          <TouchableOpacity
+            onPress={handleBackClick}
+            style={[
+              styles.backIconButton,
+              {
+                borderColor: colors.border,
+                backgroundColor: isDarkMode ? colors.card : '#F1F5F9',
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Icon name="arrow-back" size={20} color={BRAND.bookingNavy} />
+          </TouchableOpacity>
+
+          <View
+            style={[
+              styles.resultsPill,
+              {
+                backgroundColor: fetchError
+                  ? colors.error + '12'
+                  : isDarkMode
+                    ? colors.card
+                    : '#F1F5F9',
+                borderColor: fetchError ? colors.error + '40' : 'transparent',
+              },
+            ]}
+          >
+            <Text
               style={[
-                styles.resultsPill,
+                styles.resultsCountText,
                 {
-                  borderColor: fetchError ? colors.error + '40' : colors.border,
-                  backgroundColor: fetchError
-                    ? colors.error + '12'
-                    : isDarkMode
-                      ? colors.card
-                      : '#F8FAFC',
+                  fontSize: fontStyles.smallText,
+                  color: fetchError ? colors.error : BRAND.bookingNavy,
                 },
               ]}
-            >
-              <Text
-                style={[
-                  styles.resultsCountText,
-                  {
-                    fontSize: fontStyles.smallText,
-                    color: fetchError ? colors.error : colors.textSecondary,
-                  },
-                ]}
-                numberOfLines={2}
-              >
-                {resultsLabel}
-              </Text>
-            </View>
-          </View>
-
-          {(canSearchProviders && searchContextSummary) ? (
-            <View style={[styles.searchContextBanner, { borderTopColor: colors.border, backgroundColor: isDarkMode ? colors.card : '#F8FAFC' }]}>
-              <View style={styles.searchContextRow}>
-                <View style={[styles.searchContextPill, { backgroundColor: colors.primary + '18' }]}>
-                  <Text style={[styles.searchContextPillText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
-                    {searchContextSummary.serviceLabel}
-                  </Text>
-                </View>
-                <View style={[styles.searchContextPill, { backgroundColor: isDarkMode ? colors.surface : '#FFFFFF', borderColor: colors.border, borderWidth: 1 }]}>
-                  <Text style={[styles.searchContextPillText, { color: colors.text, fontSize: fontStyles.smallText }]}>
-                    {searchContextSummary.modeLabel}
-                  </Text>
-                </View>
-              </View>
-              {(searchContextSummary.dateLine || searchContextSummary.timeLine) ? (
-                <Text style={[styles.searchContextMeta, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
-                  {[searchContextSummary.dateLine, searchContextSummary.timeLine].filter(Boolean).join(' · ')}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-
-          <View style={styles.headerBottomRow}>
-            <Text
-              style={[styles.sectionTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}
               numberOfLines={2}
             >
-              Available Providers
+              {resultsLabel}
             </Text>
-            <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
-              <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  {
-                    backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
-                    borderColor: colors.border,
-                    paddingHorizontal: 12 * spacingMultiplier,
-                    paddingVertical: 8 * spacingMultiplier,
-                  },
-                ]}
-                onPress={() => setFilterOpen(true)}
-                activeOpacity={0.8}
-              >
-                <Icon name="tune" size={18} color={colors.text} />
-                <Text style={[styles.filterButtonText, { color: colors.text, fontSize: fontStyles.smallText }]}>
-                  Filter
-                </Text>
-                {activeFilterCount > 0 && (
-                  <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                    <Text style={[styles.badgeText, { fontSize: fontStyles.badgeText, color: '#FFFFFF' }]}>{activeFilterCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {activeFilterCount > 0 && (
-                <TouchableOpacity
-                  style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
-                  onPress={handleClearFilters}
-                >
-                  <Text style={[styles.clearButtonText, { color: colors.primary, fontSize: fontStyles.smallText }]}>
-                    Clear
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
           </View>
         </View>
 
-        <View style={[styles.divider, { backgroundColor: colors.border, marginBottom: 16 }]} />
+        {(canSearchProviders && searchContextSummary) ? (
+          <View
+            style={[
+              styles.summaryCard,
+              {
+                borderColor: colors.border,
+                backgroundColor: isDarkMode ? colors.surface : '#FFFFFF',
+              },
+            ]}
+          >
+            <View style={styles.searchContextRow}>
+              <View style={[styles.servicePillPrimary, { backgroundColor: BRAND.accentSoft }]}>
+                <Text style={[styles.servicePillPrimaryText, { color: BRAND.accent, fontSize: fontStyles.smallText }]}>
+                  {searchContextSummary.serviceLabel}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.servicePillSecondary,
+                  {
+                    backgroundColor: isDarkMode ? colors.card : '#F1F5F9',
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.servicePillSecondaryText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                  {searchContextSummary.modeLabel}
+                </Text>
+              </View>
+            </View>
+            {(searchContextSummary.dateLine || searchContextSummary.timeLine) ? (
+              <View style={styles.summaryMetaRow}>
+                <Icon name="event" size={15} color={colors.textSecondary} />
+                <Text style={[styles.summaryMetaText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                  {[searchContextSummary.dateLine, searchContextSummary.timeLine].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.sectionHeaderRow}>
+          <Text
+            style={[styles.sectionTitle, { color: BRAND.bookingNavy, fontSize: fontStyles.headingSize }]}
+            numberOfLines={2}
+          >
+            Available Providers
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
+                borderColor: colors.border,
+                paddingHorizontal: 12 * spacingMultiplier,
+                paddingVertical: 8 * spacingMultiplier,
+              },
+            ]}
+            onPress={() => setFilterOpen(true)}
+            activeOpacity={0.8}
+          >
+            <Icon name="tune" size={18} color={BRAND.bookingNavy} />
+            <Text style={[styles.filterButtonText, { color: BRAND.bookingNavy, fontSize: fontStyles.smallText }]}>
+              Filter
+            </Text>
+            {activeFilterCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: BRAND.accent }]}>
+                <Text style={[styles.badgeText, { fontSize: fontStyles.badgeText, color: '#FFFFFF' }]}>
+                  {activeFilterCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </>
     );
   };
@@ -853,184 +863,168 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   );
 
   return (
-    <LinearGradient
-      colors={isDarkMode ? ['#0F172A', '#1E293B', '#0F172A'] : ['#F8FAFC', '#FFFFFF', '#F1F5F9']}
-      style={{ flex: 1 }}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        {!canSearchProviders ? (
-          <View style={[styles.container]}>
-            {renderHeader()}
-            {renderIncompleteSchedule()}
-          </View>
-        ) : loading && !hasFetchedOnce ? (
-          <View style={[styles.container]}>
-            {renderSkeletonLoader()}
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={filteredProviders}
-            renderItem={renderProviderItem}
-            keyExtractor={(item, index) => `provider-${item.serviceproviderid || index}`}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.contentContainer,
-              filteredProviders.length === 0 && styles.contentContainerEmpty,
-            ]}
-            ListHeaderComponent={renderHeader}
-            ListEmptyComponent={renderEmptyComponent}
-            ListFooterComponent={renderFooter}
-            onEndReached={fetchMoreData}
-            onEndReachedThreshold={0.3}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                colors={['#0b5bd3']}
-                tintColor="#0b5bd3"
-              />
-            }
-          />
-        )}
-
-        <ProviderFilter
-          open={filterOpen}
-          onClose={() => setFilterOpen(false)}
-          onApplyFilters={handleApplyFilters}
-          initialFilters={activeFilters || undefined}
+    <View style={[styles.screenRoot, { backgroundColor: isDarkMode ? colors.background : '#FFFFFF' }]}>
+      {!canSearchProviders ? (
+        <View style={styles.container}>
+          {renderHeader()}
+          {renderIncompleteSchedule()}
+        </View>
+      ) : loading && !hasFetchedOnce ? (
+        <View style={[styles.container, styles.contentContainer]}>
+          {renderSkeletonLoader()}
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={filteredProviders}
+          renderItem={renderProviderItem}
+          keyExtractor={(item, index) => `provider-${item.serviceproviderid || index}`}
+          showsVerticalScrollIndicator={false}
+          style={styles.list}
+          contentContainerStyle={[
+            styles.contentContainer,
+            filteredProviders.length === 0 && styles.contentContainerEmpty,
+          ]}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyComponent}
+          ListFooterComponent={renderFooter}
+          onEndReached={fetchMoreData}
+          onEndReachedThreshold={0.3}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#0b5bd3']}
+              tintColor="#0b5bd3"
+            />
+          }
         />
-      </SafeAreaView>
-    </LinearGradient>
+      )}
+
+      <ProviderFilter
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onApplyFilters={handleApplyFilters}
+        initialFilters={activeFilters || undefined}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screenRoot: {
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    marginTop: -1,
+  },
+  list: {
     flex: 1,
   },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingTop: 16,
     paddingBottom: 130,
+    paddingHorizontal: 16,
   },
   contentContainerEmpty: {
     flexGrow: 1,
     justifyContent: 'center',
   },
-  headerShell: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 14,
-  },
-  headerContainer: {
+  topNavRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 14,
+    gap: 12,
   },
-  headerTopRow: {
-    flexDirection: 'row',
+  backIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  searchContextBanner: {
-    borderTopWidth: 1,
-    paddingTop: 10,
-    paddingBottom: 4,
-    marginBottom: 8,
+  resultsPill: {
+    flex: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    borderWidth: 1,
+  },
+  resultsCountText: {
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  summaryCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
   },
   searchContextRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  searchContextPill: {
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  servicePillPrimary: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  searchContextPillText: {
+  servicePillPrimaryText: {
+    fontWeight: '700',
+  },
+  servicePillSecondary: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  servicePillSecondaryText: {
     fontWeight: '600',
   },
-  searchContextMeta: {
-    lineHeight: 18,
+  summaryMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  headerBottomRow: {
+  summaryMetaText: {
+    flex: 1,
+    fontWeight: '500',
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 14,
     gap: 12,
   },
-  headerLeft: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  headerCenter: {
-    flex: 2,
-    alignItems: 'center',
-  },
-  headerRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  backText: {
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  resultsPill: {
-    flex: 1,
-    minWidth: 0,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    justifyContent: 'center',
-  },
-  resultsCountText: {
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   sectionTitle: {
-    fontWeight: "700",
+    fontWeight: '700',
     flex: 1,
     flexShrink: 1,
-    marginRight: 4,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     position: 'relative',
+    flexShrink: 0,
   },
   filterButtonText: {
     marginLeft: 6,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   badge: {
     position: 'absolute',
@@ -1045,14 +1039,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontWeight: 'bold',
-  },
-  clearButton: {},
-  clearButtonText: {
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    width: '100%',
   },
   providerContainer: {
     borderRadius: 18,

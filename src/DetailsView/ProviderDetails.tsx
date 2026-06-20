@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { 
+import {
   View, 
   Text, 
   TouchableOpacity, 
@@ -9,7 +9,8 @@ import {
   Dimensions,
   useWindowDimensions,
   ScrollView,
-  Modal
+  Modal,
+  InteractionManager,
 } from "react-native";
 import LinearGradient from 'react-native-linear-gradient';
 import moment from "moment";
@@ -458,6 +459,13 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Handle drawer close
   const handleDrawerClose = () => {
     setDrawerOpen(false);
+  };
+
+  const handleDrawerBookNow = () => {
+    setDrawerOpen(false);
+    InteractionManager.runAfterInteractions(() => {
+      handleBookNow();
+    });
   };
 
   const handleClose = () => {
@@ -1147,6 +1155,7 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
       <ProviderAvailabilityDrawer
         open={drawerOpen}
         onClose={handleDrawerClose}
+        onBookNow={handleDrawerBookNow}
         provider={{
           ...props,
           housekeepingRoles: housekeepingRoles

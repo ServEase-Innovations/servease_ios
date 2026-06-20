@@ -117,8 +117,8 @@ interface LocationSelectorProps {
   closeDropdown?: boolean;
   locationPreferencesReady?: boolean;
   isUserLoading?: boolean;
-  /** `hero` — light text on dark home header */
-  variant?: "default" | "hero";
+  /** `hero` — light text on dark home header; `chrome` — two-line location on app chrome bar */
+  variant?: "default" | "hero" | "chrome";
 }
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
@@ -203,7 +203,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       return t("locationSelector.gettingYourLocation");
     }
     if (!raw || isCoordinateLike(raw)) return t("locationSelector.tapToChooseLocation");
-    return shortenAddress(raw, 3);
+    return shortenAddress(raw, variant === "chrome" ? 2 : 3);
   })();
 
   // Close dropdown when parent triggers it
@@ -1556,25 +1556,58 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     );
   };
 
+  const isChromeVariant = variant === "chrome";
   const isHeroVariant = variant === "hero";
+  const isLightOnDark = isHeroVariant || isChromeVariant;
 
   const dynamicStyles = StyleSheet.create({
-    locationContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: isHeroVariant ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.94)",
-      borderRadius: 999,
-      paddingHorizontal: 10,
-      paddingVertical: 0,
-      borderWidth: 1,
-      borderColor: isHeroVariant ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.35)",
-      width: "100%",
-      height: 36,
-      justifyContent: "space-between",
+    locationContainer: isChromeVariant
+      ? {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "transparent",
+          borderWidth: 0,
+          width: "100%",
+          minHeight: 44,
+          paddingHorizontal: 0,
+          paddingVertical: 2,
+          justifyContent: "flex-start",
+          gap: 10,
+        }
+      : {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: isHeroVariant ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.94)",
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 0,
+          borderWidth: 1,
+          borderColor: isHeroVariant ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.35)",
+          width: "100%",
+          height: 36,
+          justifyContent: "space-between",
+        },
+    chromeTextColumn: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: "center",
+    },
+    chromeLocationLabel: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: BRAND.headerTint,
+      letterSpacing: 0.2,
+      marginBottom: 1,
+    },
+    chromeAddressText: {
+      fontSize: fontSizes.locationText,
+      fontWeight: "700",
+      color: "#ffffff",
+      letterSpacing: -0.2,
     },
     locationText: {
       fontSize: fontSizes.locationText - 1,
-      color: isHeroVariant ? "#ffffff" : colors.text,
+      color: isLightOnDark ? "#ffffff" : colors.text,
       marginHorizontal: 4,
       fontWeight: "600",
       flex: 1,
@@ -1589,7 +1622,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     },
     dropdownContainer: {
       position: "absolute",
-      top: isHeroVariant ? 40 : 48,
+      top: isChromeVariant ? 48 : isHeroVariant ? 40 : 48,
       left: 0,
       right: 0,
       borderRadius: 12,
@@ -2006,31 +2039,56 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <TouchableOpacity
         style={[
           dynamicStyles.locationContainer,
-          showDropdown && dynamicStyles.locationContainerOpen,
+          showDropdown && !isChromeVariant && dynamicStyles.locationContainerOpen,
         ]}
         activeOpacity={0.85}
         onPress={() => {
           setShowDropdown((prev) => !prev);
         }}
       >
-        <MaterialIcon
-          name="location-on"
-          size={16}
-          color={isHeroVariant ? "#ffffff" : colors.primary}
-          style={dynamicStyles.locationIcon}
-        />
-        <Text
-          style={dynamicStyles.locationText}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {headerDisplayText}
-        </Text>
-        <MaterialIcon
-          name={showDropdown ? "arrow-drop-up" : "arrow-drop-down"}
-          size={20}
-          color={isHeroVariant ? "#ffffff" : colors.primary}
-        />
+        {isChromeVariant ? (
+          <>
+            <MaterialIcon name="location-on" size={22} color="#ffffff" />
+            <View style={dynamicStyles.chromeTextColumn}>
+              <Text style={dynamicStyles.chromeLocationLabel}>
+                {t("locationSelector.locationLabel", { defaultValue: "Location" })}
+              </Text>
+              <Text
+                style={dynamicStyles.chromeAddressText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {headerDisplayText}
+              </Text>
+            </View>
+            <MaterialIcon
+              name={showDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+              size={22}
+              color="#ffffff"
+            />
+          </>
+        ) : (
+          <>
+            <MaterialIcon
+              name="location-on"
+              size={16}
+              color={isLightOnDark ? "#ffffff" : colors.primary}
+              style={dynamicStyles.locationIcon}
+            />
+            <Text
+              style={dynamicStyles.locationText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {headerDisplayText}
+            </Text>
+            <MaterialIcon
+              name={showDropdown ? "arrow-drop-up" : "arrow-drop-down"}
+              size={20}
+              color={isLightOnDark ? "#ffffff" : colors.primary}
+            />
+          </>
+        )}
       </TouchableOpacity>
 
       {showDropdown && (

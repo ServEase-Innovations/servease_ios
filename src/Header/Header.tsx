@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -48,6 +47,7 @@ import { recipientParams } from "../Notifications/inAppNotificationUtils";
 import { addLocation, remove as clearGeoLocation } from "../features/geoLocationSlice";
 import Booking from "../UserProfile/Bookings";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
 interface ChildComponentProps {
   sendDataToParent: (data: string) => void;
@@ -71,13 +71,8 @@ interface LocationData {
 
 const { width } = Dimensions.get("window");
 const isMobile = width < 768;
-export const HEADER_BAR_HEIGHT = 66;
-/** Trimmed wordmark asset (383×121) — no transparent canvas padding. */
-const LOGO_ASPECT = 383 / 121;
-const HEADER_CONTROL_HEIGHT = 36;
-const HEADER_CONTROL_TOP_INSET = 6;
-const LOGO_HEIGHT = HEADER_CONTROL_HEIGHT;
-const LOGO_WIDTH = Math.round(LOGO_HEIGHT * LOGO_ASPECT);
+export const HEADER_BAR_HEIGHT = 72;
+const HEADER_CONTROL_HEIGHT = 40;
 
 const Head: React.FC<ChildComponentProps> = ({ 
   sendDataToParent, 
@@ -89,7 +84,7 @@ const Head: React.FC<ChildComponentProps> = ({
   onSignOutComplete,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
-  const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
+  const chromeGradient = [...BOOKING_HEADER_GRADIENT];
   const {
     authorize,
     clearSession,
@@ -436,9 +431,10 @@ const Head: React.FC<ChildComponentProps> = ({
       height: HEADER_BAR_HEIGHT,
       flexDirection: "row",
       alignItems: "center",
-      paddingLeft: 5,
-      paddingRight: 10,
+      paddingLeft: 16,
+      paddingRight: 12,
       overflow: "visible",
+      gap: 8,
     },
     alertsButton: {
       flexShrink: 0,
@@ -447,8 +443,6 @@ const Head: React.FC<ChildComponentProps> = ({
       alignSelf: "center",
       width: HEADER_CONTROL_HEIGHT,
       height: HEADER_CONTROL_HEIGHT,
-      marginLeft: 4,
-      marginTop: HEADER_CONTROL_TOP_INSET,
     },
     modalContainer: {
       flex: 1,
@@ -480,15 +474,6 @@ const Head: React.FC<ChildComponentProps> = ({
           style={dynamicStyles.headerGradient}
         />
         <View style={dynamicStyles.headerRow}>
-          <View style={styles.logoContainer}>
-            <TouchableOpacity onPress={onLogoClick} activeOpacity={0.85}>
-              <Image
-                source={require("../../assets/images/ServEaso_Logo_header.png")}
-                style={styles.logo}
-              />
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.locationContainer}>
             <LocationSelector
               key={String(resolveCustomerId(appUser) ?? "guest")}
@@ -498,6 +483,7 @@ const Head: React.FC<ChildComponentProps> = ({
               closeDropdown={closeDropdowns}
               locationPreferencesReady={locationPreferencesReady}
               isUserLoading={isUserLoading}
+              variant="chrome"
             />
           </View>
 
@@ -507,7 +493,7 @@ const Head: React.FC<ChildComponentProps> = ({
             accessibilityLabel="Notifications"
           >
             <View style={styles.alertsButtonInner}>
-              <MaterialIcon name="notifications-none" size={24} color="#fff" />
+              <MaterialIcon name="notifications-none" size={26} color="#fff" />
               {inAppUnread > 0 && (
                 <View style={styles.unreadBadge}>
                   <Text style={styles.unreadBadgeText}>
@@ -602,24 +588,11 @@ const Head: React.FC<ChildComponentProps> = ({
 };
 
 const styles = StyleSheet.create({
-  logoContainer: {
-    flexShrink: 0,
-    alignSelf: "center",
-    justifyContent: "center",
-    alignItems: "flex-start",
-    marginRight: 8,
-  },
-  logo: {
-    width: LOGO_WIDTH,
-    height: LOGO_HEIGHT,
-    resizeMode: "contain",
-  },
   locationContainer: {
     flex: 1,
     minWidth: 0,
     alignSelf: "center",
     justifyContent: "center",
-    marginTop: HEADER_CONTROL_TOP_INSET,
     zIndex: 200,
     overflow: "visible",
   },
