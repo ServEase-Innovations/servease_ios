@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 import dayjs, { Dayjs } from "dayjs";
@@ -19,7 +21,7 @@ import { coalesceEndEpoch, coalesceStartEpoch } from "../services/bookingEpoch";
 import { countInclusiveDays, toCalendarDay } from "../utils/inclusiveDayCount";
 import ConfirmationDialog from "./ConfirmationDialog";
 import { BrandButton } from "../design-system/BrandButton";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
 
 const MIN_VACATION_DAYS = 10;
 const VACATION_MODIFICATION_PENALTY = 400;
@@ -336,37 +338,39 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
         <View style={styles.sheet}>
-          <LinearGradient
-            colors={[...BOOKING_HEADER_GRADIENT]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.headerGradient}
-          >
-            <View style={styles.headerContent}>
+          <View style={styles.headerShell}>
+            <LinearGradient
+              colors={[...HOME_HERO_GRADIENT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.headerToolbar}>
               <TouchableOpacity
-                style={[styles.headerSideSlot, styles.headerCloseBtn]}
+                style={styles.headerSideBtn}
                 onPress={onClose}
                 disabled={isLoading}
                 accessibilityLabel={t("common.close")}
+                hitSlop={10}
               >
-                <Icon name="x" size={22} color="#ffffff" />
+                <Icon name="x" size={20} color="#ffffff" />
               </TouchableOpacity>
-              <View style={styles.headerTitleBlock} pointerEvents="none">
-                <Text
-                  style={[styles.headerTitle, { fontSize: titleSize }]}
-                  numberOfLines={2}
-                >
-                  {headerTitle}
-                </Text>
-                <Text style={styles.headerSubtitle} numberOfLines={1}>
-                  {t("vacationManagement.subtitle")}
-                </Text>
-              </View>
-              <View style={styles.headerSideSlot} />
+              <Text
+                style={[
+                  styles.headerTitleCenter,
+                  { fontSize: titleSize },
+                  Platform.OS === "android" ? { includeFontPadding: false } : null,
+                ]}
+                numberOfLines={1}
+              >
+                {headerTitle}
+              </Text>
+              <View style={styles.headerSideBtn} />
             </View>
-          </LinearGradient>
+          </View>
 
-          <View style={[styles.body, { backgroundColor: colors.card }]}>
+          <View style={styles.body}>
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.content}
@@ -536,7 +540,7 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
             </View>
           </ScrollView>
 
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={styles.footer}>
             {isAddMode ? (
               <BrandButton
                 variant="ghost"
@@ -558,17 +562,27 @@ const VacationManagementDialog: React.FC<VacationManagementDialogProps> = ({
                 {t("vacationManagement.cancelVacation")}
               </BrandButton>
             )}
-            <BrandButton
-              variant="primary"
+            <TouchableOpacity
+              style={[
+                styles.themePrimaryBtn,
+                styles.footerBtn,
+                (isLoading || !startDate || !endDate || !isValidVacationPeriod()) &&
+                  styles.themePrimaryBtnDisabled,
+              ]}
               onPress={handleSaveVacation}
               disabled={isLoading || !startDate || !endDate || !isValidVacationPeriod()}
-              loading={isLoading}
-              style={styles.footerBtn}
+              activeOpacity={0.88}
             >
-              {isAddMode
-                ? t("vacationManagement.applyVacationAction")
-                : t("vacationManagement.updateVacation")}
-            </BrandButton>
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.themePrimaryBtnText}>
+                  {isAddMode
+                    ? t("vacationManagement.applyVacationAction")
+                    : t("vacationManagement.updateVacation")}
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
           </View>
         </View>
@@ -604,56 +618,36 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: "hidden",
-    backgroundColor: "transparent",
+    backgroundColor: HOME_M3.surfaceContainerLowest,
   },
-  headerGradient: {
-    width: "100%",
-    paddingBottom: 12,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+  headerShell: {
+    position: "relative",
+    backgroundColor: HOME_M3.primary,
+    height: 60,
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  headerContent: {
+  headerToolbar: {
     flexDirection: "row",
     alignItems: "center",
-    width: "100%",
-    minHeight: 72,
-    paddingHorizontal: HORIZONTAL_GUTTER,
+    height: 30,
+    paddingHorizontal: 8,
   },
-  headerSideSlot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  headerSideBtn: {
+    width: 30,
+    height: 30,
     justifyContent: "center",
     alignItems: "center",
     flexShrink: 0,
   },
-  headerCloseBtn: {
-    backgroundColor: "rgba(255, 255, 255, 0.20)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.28)",
-  },
-  headerTitleBlock: {
+  headerTitleCenter: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-    minWidth: 0,
-  },
-  headerTitle: {
+    textAlign: "center",
     color: "#ffffff",
     fontWeight: "700",
-    letterSpacing: -0.3,
-    textAlign: "center",
-    width: "100%",
-    lineHeight: 26,
-  },
-  headerSubtitle: {
-    color: "rgba(219, 234, 254, 0.95)",
-    textAlign: "center",
-    fontSize: 13,
-    marginTop: 4,
-    fontWeight: "500",
-    lineHeight: 18,
+    letterSpacing: -0.2,
+    lineHeight: 20,
+    paddingHorizontal: 4,
   },
   scroll: {
     flexGrow: 0,
@@ -661,6 +655,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flexShrink: 1,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
   },
   content: {
     padding: 16,
@@ -743,10 +738,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
+    borderTopColor: HOME_M3.outlineVariant,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
   },
   footerBtn: {
     flex: 1,
     minWidth: 0,
+  },
+  themePrimaryBtn: {
+    minHeight: 48,
+    borderRadius: 10,
+    backgroundColor: HOME_M3.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  themePrimaryBtnDisabled: {
+    backgroundColor: "#cbd5e1",
+  },
+  themePrimaryBtnText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 15,
+    textAlign: "center",
   },
 });
 

@@ -173,7 +173,6 @@ const MainApp = () => {
   const statusBarStyle = useMemo((): "light-content" | "dark-content" => {
     if (isDarkMode) return "light-content";
     const lightTopChrome =
-      currentView === BOOKINGS ||
       currentView === WALLET ||
       currentView === PROFILE ||
       currentView === SETTINGS;
@@ -239,7 +238,8 @@ const MainApp = () => {
   const usesDarkHeroSafeArea =
     currentView === HOME ||
     currentView === DASHBOARD ||
-    currentView === SP_CALENDAR;
+    currentView === SP_CALENDAR ||
+    currentView === BOOKINGS;
 
   // Function to handle outside touch and close dropdowns
   const handleOutsideTouch = useCallback(() => {

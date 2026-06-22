@@ -13,19 +13,26 @@ import {
   Animated,
   TouchableWithoutFeedback,
   Modal,
+  Image,
+  StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import dayjs from 'dayjs';
 import LinearGradient from 'react-native-linear-gradient';
 import Snackbar from 'react-native-snackbar';
 import RazorpayCheckout from 'react-native-razorpay';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import your existing utilities and services
 import PaymentInstance from '../services/paymentInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import Invoice from '../Invoice/Invoice';
 import VacationManagementDialog from './VacationManagement';
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
+
+const cookImage = require('../../assets/images/Cooknew.png');
+const maidImage = require('../../assets/images/Maidnew.png');
+const nannyImage = require('../../assets/images/Nannynew.png');
 import {
   getPaymentTimeoutCancellationMessage,
   isPaymentTimeoutCancellation,
@@ -42,6 +49,7 @@ interface EngagementDetailsDrawerProps {
   refreshBookings?: () => void | Promise<void>;
   customerId?: number | null;
   onBookAgain?: (booking: any) => void;
+  onModify?: (booking: any) => void;
 }
 
 // ==================== Helper Components ====================
@@ -98,9 +106,9 @@ const CancelDialog: React.FC<{
         <View style={[cancelDialogStyles.dialogContainer, { backgroundColor: colors.card }]}>
           <View style={cancelDialogStyles.headerShell}>
             <LinearGradient
-              colors={[...BOOKING_HEADER_GRADIENT]}
+              colors={[...HOME_HERO_GRADIENT]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
             <View style={cancelDialogStyles.headerContent}>
@@ -205,6 +213,50 @@ const getServiceTitle = (type: string) => {
   }
 };
 
+const getServiceImage = (type: string) => {
+  switch (type) {
+    case 'cook': return cookImage;
+    case 'maid': return maidImage;
+    case 'nanny': return nannyImage;
+    default: return cookImage;
+  }
+};
+
+const getProviderInitials = (name: string) => {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+  }
+  return String(name || 'SP').slice(0, 2).toUpperCase();
+};
+
+const formatPaymentMode = (mode?: string) => {
+  if (!mode) return '—';
+  return mode
+    .split(/[+,_]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' + ');
+};
+
+const getModificationBadgeStyle = (action: string) => {
+  const normalized = String(action || '').toLowerCase();
+  if (normalized.includes('vacation applied')) {
+    return { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' };
+  }
+  if (normalized.includes('vacation cancelled') || normalized.includes('vacation canceled')) {
+    return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
+  }
+  if (normalized.includes('reschedule') || normalized.includes('modified')) {
+    return { backgroundColor: '#dbeafe', color: '#1d4ed8', borderColor: '#93c5fd' };
+  }
+  return { backgroundColor: '#fff7ed', color: '#c2410c', borderColor: '#fdba74' };
+};
+
 // ==================== Main Component - Custom Dialog without Modal ====================
 const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ 
   isOpen, 
@@ -214,8 +266,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   refreshBookings,
   customerId,
   onBookAgain,
+  onModify,
 }) => {
   const { colors, fontSize } = useTheme();
+  const insets = useSafeAreaInsets();
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
@@ -299,87 +353,77 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
   if (!booking) return null;
 
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'SUCCESS': 
-        return { backgroundColor: colors.successLight, color: colors.success };
-      case 'PENDING': 
-        return { backgroundColor: colors.warningLight, color: colors.warning };
-      case 'FAILED': 
-        return { backgroundColor: colors.errorLight, color: colors.error };
-      default: 
-        return { backgroundColor: colors.surface, color: colors.textSecondary };
-    }
-  };
-
   const getBookingTypeBadge = (type: string) => {
     switch (type) {
       case 'ON_DEMAND':
         return (
-          <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-            <Text style={[styles.onDemandBadgeText, { color: colors.info }]}>On Demand</Text>
-          </Badge>
+          <View style={[styles.pillBadge, styles.onDemandPill]}>
+            <Text style={[styles.pillBadgeText, styles.onDemandPillText]}>On Demand</Text>
+          </View>
         );
       case 'MONTHLY':
         return (
-          <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-            <Text style={[styles.monthlyBadgeText, { color: colors.primary }]}>Monthly</Text>
-          </Badge>
+          <View style={[styles.pillBadge, styles.monthlyPill]}>
+            <Text style={[styles.pillBadgeText, styles.monthlyPillText]}>Monthly</Text>
+          </View>
         );
       case 'SHORT_TERM':
         return (
-          <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-            <Text style={[styles.shortTermBadgeText, { color: colors.success }]}>Short Term</Text>
-          </Badge>
+          <View style={[styles.pillBadge, styles.shortTermPill]}>
+            <Text style={[styles.pillBadgeText, styles.shortTermPillText]}>Short Term</Text>
+          </View>
         );
       default:
         return (
-          <Badge style={[styles.defaultBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-            <Text style={[styles.defaultBadgeText, { color: colors.textSecondary }]}>{type}</Text>
-          </Badge>
+          <View style={[styles.pillBadge, styles.defaultPill]}>
+            <Text style={[styles.pillBadgeText, styles.defaultPillText]}>{type}</Text>
+          </View>
         );
     }
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return (
-          <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-            <Icon name="alert-circle" size={14} color={colors.primary} />
-            <Text style={[styles.activeBadgeText, { color: colors.primary }]}>Active</Text>
-          </Badge>
-        );
-      case 'COMPLETED':
-        return (
-          <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-            <Icon name="check-circle" size={14} color={colors.success} />
-            <Text style={[styles.completedBadgeText, { color: colors.success }]}>Completed</Text>
-          </Badge>
-        );
-      case 'CANCELLED':
-        return (
-          <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
-            <Icon name="close-circle" size={14} color={colors.error} />
-            <Text style={[styles.cancelledBadgeText, { color: colors.error }]}>Cancelled</Text>
-          </Badge>
-        );
-      case 'IN_PROGRESS':
-        return (
-          <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
-            <Icon name="clock" size={14} color={colors.warning} />
-            <Text style={[styles.inProgressBadgeText, { color: colors.warning }]}>In Progress</Text>
-          </Badge>
-        );
-      case 'NOT_STARTED':
-        return (
-          <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-            <Icon name="clock" size={14} color={colors.textSecondary} />
-            <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary }]}>Not Started</Text>
-          </Badge>
-        );
-      default: return null;
+    const label =
+      status === 'NOT_STARTED'
+        ? 'Not Started'
+        : status === 'IN_PROGRESS'
+          ? 'In Progress'
+          : status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ');
+
+    let pillStyle = styles.notStartedPill;
+    let textStyle = styles.notStartedPillText;
+    let iconColor = '#64748b';
+
+    if (status === 'COMPLETED') {
+      pillStyle = styles.completedPill;
+      textStyle = styles.completedPillText;
+      iconColor = '#15803d';
+    } else if (status === 'CANCELLED') {
+      pillStyle = styles.cancelledPill;
+      textStyle = styles.cancelledPillText;
+      iconColor = '#dc2626';
+    } else if (status === 'IN_PROGRESS') {
+      pillStyle = styles.inProgressPill;
+      textStyle = styles.inProgressPillText;
+      iconColor = '#c2410c';
     }
+
+    return (
+      <View style={[styles.pillBadge, pillStyle]}>
+        <Icon
+          name={
+            status === 'COMPLETED'
+              ? 'check-circle'
+              : status === 'CANCELLED'
+                ? 'x-circle'
+                : 'clock'
+          }
+          size={12}
+          color={iconColor}
+        />
+        <Text style={[styles.pillBadgeText, textStyle]}>{label}</Text>
+      </View>
+    );
   };
 
   const isProviderAssigned = () => {
@@ -536,19 +580,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   const handleModifyClick = () => {
+    if (onModify) {
+      onModify(booking);
+      return;
+    }
     onClose();
     setTimeout(() => {
       Alert.alert('Modify Booking', 'Please use the modify button from the main booking screen');
     }, 500);
-  };
-
-  const getServiceIcon = (serviceType: string) => {
-    switch (serviceType) {
-      case 'maid': return '🧹';
-      case 'cook': return '👩‍🍳';
-      case 'nanny': return '❤️';
-      default: return '🧹';
-    }
   };
 
   const isEngagementCancelled = () => {
@@ -626,27 +665,47 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           styles.drawerContainer,
           {
             transform: [{ translateY: slideAnim }],
-            backgroundColor: colors.card,
+            backgroundColor: HOME_M3.surface,
           }
         ]}
       >
-        {/* Header with BOOKING_HEADER_GRADIENT */}
-        <LinearGradient 
-          colors={[...BOOKING_HEADER_GRADIENT]} 
-          start={{ x: 0, y: 0 }} 
-          end={{ x: 1, y: 0 }} 
-          style={styles.header}
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        <View
+          style={[
+            styles.headerShell,
+            {
+              height: Platform.OS === 'ios' ? 60 : Math.max(insets.top, 8) + 30,
+            },
+          ]}
         >
-          <View style={styles.headerContent}>
-            <View style={styles.headerLeftPlaceholder} />
-            <Text style={[styles.headerTitle, { fontSize: fontSizes.headerTitle }]}>Booking Details</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="x" size={24} color="#FFFFFF" />
+          <LinearGradient
+            colors={[...HOME_HERO_GRADIENT]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={styles.headerToolbar}>
+            <TouchableOpacity onPress={onClose} style={styles.headerSideBtn} hitSlop={10}>
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text
+              style={[
+                styles.headerTitleCenter,
+                { fontSize: fontSizes.headerTitle - 1 },
+                Platform.OS === 'android' ? { includeFontPadding: false } : null,
+              ]}
+              numberOfLines={1}
+            >
+              Booking Details
+            </Text>
+            <TouchableOpacity onPress={onClose} style={styles.headerSideBtn} hitSlop={10}>
+              <Icon name="x" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
 
-        {/* Scrollable Content */}
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
@@ -656,353 +715,379 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           overScrollMode="always"
           nestedScrollEnabled={true}
         >
-          {/* Booking ID and Status */}
-          <View style={styles.rowBetween}>
-            <View>
-              <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Booking ID</Text>
-              <Text style={[styles.bookingIdText, { fontSize: fontSizes.bookingIdText, color: colors.text }]}>#{booking.id}</Text>
-            </View>
-            <View style={styles.statusContainer}>
-              {getBookingTypeBadge(booking.bookingType)}
-              {getStatusBadge(booking.taskStatus)}
-            </View>
-          </View>
-
-          {/* Service Type */}
-          <View style={[styles.serviceCard, { backgroundColor: colors.primary + '15', marginTop: 20 }]}>
-            <View style={[styles.serviceIconContainer, { backgroundColor: colors.card }]}>
-              <Text style={styles.serviceIcon}>{getServiceIcon(booking.service_type)}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Service Type</Text>
-              <Text style={[styles.serviceTitle, { fontSize: fontSizes.serviceTitle, color: colors.text }]}>{getServiceTitle(booking.service_type)}</Text>
-            </View>
-          </View>
-
-          {showPaymentTimeoutNotice ? (
-            <View style={styles.paymentTimeoutNotice}>
-              <View style={styles.paymentTimeoutIconWrap}>
-                <Icon name="alert-circle" size={18} color="#b45309" />
+          <View style={styles.heroSheet}>
+            <View style={styles.rowBetween}>
+              <View>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Booking ID</Text>
+                <Text style={[styles.bookingIdHero, { fontSize: fontSizes.bookingIdText + 6 }]}>#{booking.id}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.paymentTimeoutTitle}>Booking cancelled — payment not received</Text>
-                <Text style={styles.paymentTimeoutBody}>
-                  {getPaymentTimeoutCancellationMessage(booking)}
+              <View style={styles.statusStack}>
+                {getBookingTypeBadge(booking.bookingType)}
+                {getStatusBadge(booking.taskStatus)}
+              </View>
+            </View>
+
+            <View style={styles.serviceCard}>
+              <View style={styles.serviceImageWrap}>
+                <Image
+                  source={getServiceImage(booking.service_type)}
+                  style={styles.serviceImage}
+                  resizeMode="cover"
+                />
+              </View>
+              <View style={styles.serviceTextCol}>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Service Type</Text>
+                <Text style={[styles.serviceTitle, { fontSize: fontSizes.serviceTitle }]}>
+                  {getServiceTitle(booking.service_type)}
                 </Text>
               </View>
             </View>
-          ) : null}
 
-          {/* Action Buttons */}
-          <View style={{ marginTop: 20 }}>
+            {showPaymentTimeoutNotice ? (
+              <View style={styles.paymentTimeoutNotice}>
+                <View style={styles.paymentTimeoutIconWrap}>
+                  <Icon name="alert-circle" size={18} color="#b45309" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.paymentTimeoutTitle}>Booking cancelled — payment not received</Text>
+                  <Text style={styles.paymentTimeoutBody}>
+                    {getPaymentTimeoutCancellationMessage(booking)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
             {canBookAgain ? (
               <TouchableOpacity
-                style={[styles.outlineButton, { borderColor: colors.info, marginBottom: 12 }]}
+                style={[styles.secondaryFullButton, { borderColor: colors.info, marginBottom: 12 }]}
                 onPress={() => onBookAgain?.(booking)}
               >
                 <Icon name="calendar" size={18} color={colors.info} />
-                <Text style={[styles.outlineButtonText, { color: colors.info, fontSize: fontSizes.actionButtonText }]}>
+                <Text style={[styles.secondaryFullButtonText, { color: colors.info, fontSize: fontSizes.actionButtonText }]}>
                   Book Again
                 </Text>
               </TouchableOpacity>
             ) : null}
+
             {!canShowPaymentButton ? (
-              <View style={styles.buttonGrid}>
-                <TouchableOpacity 
-                  style={[styles.actionButton, styles.callButton, { backgroundColor: colors.primary }]} 
-                  onPress={handleCallProvider} 
-                  disabled={isCallLoading}
-                >
-                  {isCallLoading ? 
-                    <ActivityIndicator size="small" color="#FFFFFF" /> : 
-                    <Icon name="phone" size={18} color="#FFFFFF" />
-                  }
-                  <Text style={[styles.actionButtonText, { color: '#FFFFFF', fontSize: fontSizes.actionButtonText }]}>Call</Text>
-                </TouchableOpacity>
-                
-                {isCancellable() && (
-                  <TouchableOpacity 
-                    style={[styles.outlineButton, { borderColor: colors.error }]} 
-                    onPress={handleCancelBooking} 
-                    disabled={isCancelLoading}
+              <>
+                <View style={styles.primaryActionRow}>
+                  <TouchableOpacity
+                    style={[styles.callButton, styles.primaryActionBtn]}
+                    onPress={handleCallProvider}
+                    disabled={isCallLoading}
                   >
-                    {isCancelLoading ? 
-                      <ActivityIndicator size="small" color={colors.error} /> : 
-                      <Icon name="x-circle" size={18} color={colors.error} />
-                    }
-                    <Text style={[styles.outlineButtonText, { color: colors.error, fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {shouldShowModifyButton && (
-                  <TouchableOpacity 
-                    style={[styles.outlineButton, { borderColor: colors.primary, opacity: modificationDisabled ? 0.5 : 1 }]} 
-                    onPress={handleModifyClick}
-                    disabled={modificationDisabled}
-                  >
-                    <Icon name="edit-2" size={18} color={modificationDisabled ? colors.textSecondary : colors.primary} />
-                    <Text style={[styles.outlineButtonText, { color: modificationDisabled ? colors.textSecondary : colors.primary, fontSize: fontSizes.actionButtonText }]}>Modify</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {shouldShowVacationButton && (
-                  <>
-                    {hasExistingVacation ? (
-                      <TouchableOpacity 
-                        style={[styles.outlineButton, { borderColor: colors.primary }]} 
-                        onPress={handleModifyVacation}
-                        disabled={isRefreshing}
-                      >
-                        <Icon name="edit-2" size={18} color={colors.primary} />
-                        <Text style={[styles.outlineButtonText, { color: colors.primary, fontSize: fontSizes.actionButtonText }]}>Modify Vacation</Text>
-                      </TouchableOpacity>
+                    {isCallLoading ? (
+                      <ActivityIndicator size="small" color={HOME_M3.secondary} />
                     ) : (
-                      <TouchableOpacity 
-                        style={[styles.outlineButton, { borderColor: colors.primary }]} 
-                        onPress={handleAddVacation}
-                        disabled={isRefreshing}
-                      >
-                        <Icon name="calendar" size={18} color={colors.primary} />
-                        <Text style={[styles.outlineButtonText, { color: colors.primary, fontSize: fontSizes.actionButtonText }]}>Add Vacation</Text>
-                      </TouchableOpacity>
-                    )}
-                  </>
-                )}
-              </View>
-            ) : (
-              <View style={styles.buttonGrid}>
-                <TouchableOpacity 
-                  style={[styles.outlineButton, { borderColor: colors.error, flex: 1 }]} 
-                  onPress={handleCompletePayment} 
-                  disabled={isProcessingPayment}
-                >
-                  {isProcessingPayment ? 
-                    <ActivityIndicator size="small" color={colors.error} /> : (
-                    <>
-                      <Icon name="credit-card" size={18} color={colors.error} />
-                      <Text style={[styles.outlineButtonText, { color: colors.error, fontSize: fontSizes.actionButtonText }]}>Complete Payment</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                
-                {isCancellable() && (
-                  <TouchableOpacity 
-                    style={[styles.outlineButton, { borderColor: colors.error, flex: 1 }]} 
-                    onPress={handleCancelBooking} 
-                    disabled={isCancelLoading}
-                  >
-                    {isCancelLoading ? 
-                      <ActivityIndicator size="small" color={colors.error} /> : 
-                      <Icon name="x-circle" size={18} color={colors.error} />
-                    }
-                    <Text style={[styles.outlineButtonText, { color: colors.error, fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Schedule */}
-          <View style={{ marginTop: 24 }}>
-            <View style={styles.sectionHeader}>
-              <Icon name="calendar" size={20} color={colors.primary} />
-              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Schedule</Text>
-            </View>
-            <View style={styles.grid2}>
-              <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Start Date</Text>
-                <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue, color: colors.text }]}>{formatDate(booking.startDate)}</Text>
-              </View>
-              <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>End Date</Text>
-                <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue, color: colors.text }]}>{formatDate(booking.endDate)}</Text>
-              </View>
-            </View>
-            <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Time Slot</Text>
-              <View style={styles.rowGap8}>
-                <Icon name="clock" size={16} color={colors.textSecondary} />
-                <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue, color: colors.text }]}>
-                  {formatTimeToAMPM(booking.start_time)} - {formatTimeToAMPM(booking.end_time)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Provider */}
-          {isProviderAssigned() && (
-            <View style={{ marginTop: 24 }}>
-              <View style={styles.sectionHeader}>
-                <Icon name="user" size={20} color={colors.success} />
-                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Service Provider</Text>
-              </View>
-              <View style={[styles.providerCard, { backgroundColor: colors.surface }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.providerName, { fontSize: fontSizes.providerName, color: colors.text }]}>{booking.serviceProviderName}</Text>
-                </View>
-                {booking.providerRating > 0 && (
-                  <Badge style={{ backgroundColor: colors.warningLight }}>
-                    ⭐ {booking.providerRating.toFixed(1)}
-                  </Badge>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Tasks */}
-          <View style={{ marginTop: 24 }}>
-            <View style={styles.sectionHeader}>
-              <Icon name="file-text" size={20} color={colors.info} />
-              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Tasks & Responsibilities</Text>
-            </View>
-            
-            {booking.responsibilities?.tasks?.length > 0 && (
-              <View>
-                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 8 }]}>Main Tasks</Text>
-                <View style={styles.wrapContainer}>
-                  {booking.responsibilities.tasks.map((task: any, index: number) => {
-                    const taskDetails = Object.entries(task)
-                      .filter(([key]) => key !== 'taskType')
-                      .map(([key, value]) => `${value} ${key}`)
-                      .join(', ');
-                    return (
-                      <Badge key={index} variant="outline" style={{ backgroundColor: colors.primary + '15' }}>
-                        {task.taskType} {taskDetails && `- ${taskDetails}`}
-                      </Badge>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-            
-            {booking.responsibilities?.add_ons?.length > 0 && (
-              <View style={{ marginTop: 12 }}>
-                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 8 }]}>Add-ons</Text>
-                <View style={styles.wrapContainer}>
-                  {booking.responsibilities.add_ons.map((addon: any, index: number) => (
-                    <Badge key={index} variant="outline" style={{ backgroundColor: colors.successLight }}>
-                      {addon.taskType}
-                    </Badge>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* Payment Details */}
-          {booking.payment && (
-            <View style={{ marginTop: 24 }}>
-              <View style={styles.sectionHeader}>
-                <Icon name="credit-card" size={20} color={colors.warning} />
-                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Payment Details</Text>
-              </View>
-              <View style={[styles.paymentCard, { backgroundColor: colors.surface }]}>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Base Amount</Text>
-                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>₹{booking.payment.base_amount}</Text>
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Platform Fee</Text>
-                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>₹{booking.payment.platform_fee}</Text>
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>GST</Text>
-                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>₹{booking.payment.gst}</Text>
-                </View>
-                <Separator />
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Total</Text>
-                  <Text style={[styles.totalAmount, { fontSize: fontSizes.paymentTotalValue, color: colors.primary }]}>₹{booking.payment.total_amount}</Text>
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Payment Status</Text>
-                  <Badge style={[getPaymentStatusColor(booking.payment.status)]}>
-                    {booking.payment.status}
-                  </Badge>
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Payment Mode</Text>
-                  <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text, textTransform: 'capitalize' }]}>{booking.payment.payment_mode}</Text>
-                </View>
-                {booking.payment.transaction_id && (
-                  <View style={styles.rowBetween}>
-                    <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Transaction ID</Text>
-                    <Text style={[styles.valueText, { fontSize: fontSizes.paymentValue, color: colors.text }]}>{booking.payment.transaction_id}</Text>
-                  </View>
-                )}
-                
-                {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
-                  <TouchableOpacity 
-                    style={[styles.fullButton, { borderColor: colors.error, marginTop: 16 }]} 
-                    onPress={handleCompletePayment} 
-                    disabled={isProcessingPayment}
-                  >
-                    {isProcessingPayment ? 
-                      <ActivityIndicator size="small" color={colors.error} /> : (
                       <>
-                        <Icon name="credit-card" size={20} color={colors.error} />
-                        <Text style={[styles.fullButtonText, { color: colors.error, fontSize: fontSizes.sectionTitle }]}>Complete Payment Now</Text>
+                        <Icon name="phone" size={16} color={HOME_M3.secondary} />
+                        <Text style={[styles.callButtonText, { fontSize: fontSizes.actionButtonText }]}>Call</Text>
                       </>
                     )}
                   </TouchableOpacity>
-                )}
-                
-                {booking.payment.status === 'SUCCESS' && (
-                  <Invoice booking={booking} variant="inline" />
-                )}
-              </View>
-            </View>
-          )}
 
-          {/* Modification History */}
-          {booking.modifications?.length > 0 && (
-            <View style={{ marginTop: 24 }}>
-              <View style={styles.sectionHeader}>
-                <Icon name="alert-circle" size={20} color={colors.warning} />
-                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Modification History</Text>
-              </View>
-              {booking.modifications.map((mod: any, index: number) => (
-                <View key={index} style={[styles.modificationCard, { backgroundColor: colors.warningLight, marginBottom: 8 }]}>
-                  <View style={styles.wrapContainer}>
-                    <Badge style={{ backgroundColor: colors.warning }}>{mod.action}</Badge>
-                    <Text style={[styles.smallText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>
-                      {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
+                  {isCancellable() ? (
+                    <TouchableOpacity
+                      style={[styles.outlineActionBtn, styles.cancelOutlineBtn]}
+                      onPress={handleCancelBooking}
+                      disabled={isCancelLoading}
+                    >
+                      {isCancelLoading ? (
+                        <ActivityIndicator size="small" color="#dc2626" />
+                      ) : (
+                        <>
+                          <Icon name="x-circle" size={16} color="#dc2626" />
+                          <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {shouldShowModifyButton ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.outlineActionBtn,
+                        styles.modifyOutlineBtn,
+                        modificationDisabled && styles.disabledActionBtn,
+                      ]}
+                      onPress={handleModifyClick}
+                      disabled={modificationDisabled}
+                    >
+                      <Icon
+                        name="edit-2"
+                        size={16}
+                        color={modificationDisabled ? '#94a3b8' : HOME_M3.onSurface}
+                      />
+                      <Text
+                        style={[
+                          styles.modifyOutlineText,
+                          { fontSize: fontSizes.actionButtonText },
+                          modificationDisabled && styles.disabledActionText,
+                        ]}
+                      >
+                        Modify
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {shouldShowVacationButton ? (
+                  <TouchableOpacity
+                    style={styles.vacationButton}
+                    onPress={hasExistingVacation ? handleModifyVacation : handleAddVacation}
+                    disabled={isRefreshing}
+                  >
+                    <Icon name="calendar" size={16} color={HOME_M3.secondary} />
+                    <Text style={[styles.vacationButtonText, { fontSize: fontSizes.actionButtonText }]}>
+                      {hasExistingVacation ? 'Modify Vacation' : 'Add Vacation'}
                     </Text>
-                  </View>
-                  {mod.refund && <Text style={[styles.successText, { fontSize: fontSizes.labelText, marginTop: 4 }]}>Refund: ₹{mod.refund}</Text>}
-                  {mod.penalty && <Text style={[styles.errorText, { fontSize: fontSizes.labelText, marginTop: 4 }]}>Penalty: ₹{mod.penalty}</Text>}
-                </View>
-              ))}
-            </View>
-          )}
+                  </TouchableOpacity>
+                ) : null}
+              </>
+            ) : (
+              <View style={styles.primaryActionRow}>
+                <TouchableOpacity
+                  style={[styles.outlineActionBtn, styles.cancelOutlineBtn, { flex: 1 }]}
+                  onPress={handleCompletePayment}
+                  disabled={isProcessingPayment}
+                >
+                  {isProcessingPayment ? (
+                    <ActivityIndicator size="small" color="#dc2626" />
+                  ) : (
+                    <>
+                      <Icon name="credit-card" size={16} color="#dc2626" />
+                      <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>
+                        Complete Payment
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
 
-          {/* Additional Info */}
-          <View style={{ marginTop: 24, marginBottom: 20 }}>
+                {isCancellable() ? (
+                  <TouchableOpacity
+                    style={[styles.outlineActionBtn, styles.cancelOutlineBtn, { flex: 1 }]}
+                    onPress={handleCancelBooking}
+                    disabled={isCancelLoading}
+                  >
+                    {isCancelLoading ? (
+                      <ActivityIndicator size="small" color="#dc2626" />
+                    ) : (
+                      <>
+                        <Icon name="x-circle" size={16} color="#dc2626" />
+                        <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.sectionBlock}>
             <View style={styles.sectionHeader}>
-              <Icon name="tag" size={20} color={colors.textSecondary} />
-              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle, color: colors.text }]}>Additional Information</Text>
+              <Icon name="calendar" size={18} color={HOME_M3.secondary} />
+              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Schedule</Text>
             </View>
-            <View style={styles.grid2}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Booking Date</Text>
-                <Text style={[styles.valueText, { fontSize: fontSizes.additionalInfoValue, color: colors.text }]}>
-                  {dayjs(booking.bookingDate).format('MMM D, YYYY')}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Assignment Status</Text>
-                <Text style={[styles.valueText, { fontSize: fontSizes.additionalInfoValue, color: colors.text, textTransform: 'capitalize' }]}>{booking.assignmentStatus}</Text>
-              </View>
-              {booking.leave_days > 0 && (
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.labelText, { fontSize: fontSizes.labelText, color: colors.textSecondary }]}>Leave Days</Text>
-                  <Text style={[styles.valueText, { fontSize: fontSizes.additionalInfoValue, color: colors.text }]}>{booking.leave_days}</Text>
+            <View style={styles.sectionCard}>
+              <View style={styles.grid2}>
+                <View style={styles.infoCell}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Start Date</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue }]}>{formatDate(booking.startDate)}</Text>
                 </View>
-              )}
+                <View style={styles.infoCell}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>End Date</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue }]}>{formatDate(booking.endDate)}</Text>
+                </View>
+              </View>
+              <View style={styles.timeSlotRow}>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Time Slot</Text>
+                <View style={styles.rowGap8}>
+                  <Icon name="clock" size={15} color={HOME_M3.onSurfaceVariant} />
+                  <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue }]}>
+                    {formatTimeToAMPM(booking.start_time)} – {formatTimeToAMPM(booking.end_time)}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
 
-          {/* Bottom spacer */}
+          {isProviderAssigned() ? (
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeader}>
+                <Icon name="user" size={18} color={HOME_M3.secondary} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Service Provider</Text>
+              </View>
+              <View style={[styles.sectionCard, styles.providerRow]}>
+                <View style={styles.providerAvatar}>
+                  <Text style={styles.providerAvatarText}>
+                    {getProviderInitials(booking.serviceProviderName)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.providerName, { fontSize: fontSizes.providerName }]}>
+                    {booking.serviceProviderName}
+                  </Text>
+                  {booking.providerRating > 0 ? (
+                    <Text style={styles.providerRatingText}>⭐ {booking.providerRating.toFixed(1)}</Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          ) : null}
+
+          {booking.payment ? (
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeader}>
+                <Icon name="credit-card" size={18} color={HOME_M3.secondary} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Payment Details</Text>
+              </View>
+              <View style={styles.sectionCard}>
+                <View style={styles.paymentLine}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Base Amount</Text>
+                  <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>₹{booking.payment.base_amount}</Text>
+                </View>
+                <View style={styles.paymentLine}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Platform Fee</Text>
+                  <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>₹{booking.payment.platform_fee}</Text>
+                </View>
+                <View style={styles.paymentLine}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>GST</Text>
+                  <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>₹{booking.payment.gst}</Text>
+                </View>
+
+                <View style={styles.paymentTotalBar}>
+                  <Text style={[styles.paymentTotalLabel, { fontSize: fontSizes.sectionTitle }]}>Total</Text>
+                  <Text style={[styles.paymentTotalValue, { fontSize: fontSizes.paymentTotalValue + 2 }]}>
+                    ₹{booking.payment.total_amount}
+                  </Text>
+                </View>
+
+                <View style={styles.paymentMetaRow}>
+                  <Text style={[styles.paymentMetaText, { fontSize: fontSizes.labelText }]}>
+                    Status:{' '}
+                    <Text
+                      style={[
+                        styles.paymentMetaStrong,
+                        {
+                          color:
+                            booking.payment.status === 'SUCCESS'
+                              ? '#16a34a'
+                              : booking.payment.status === 'PENDING'
+                                ? '#d97706'
+                                : '#dc2626',
+                        },
+                      ]}
+                    >
+                      {booking.payment.status}
+                    </Text>
+                  </Text>
+                  <Text style={[styles.paymentMetaText, { fontSize: fontSizes.labelText }]}>
+                    Payment Mode:{' '}
+                    <Text style={styles.paymentMetaStrong}>
+                      {formatPaymentMode(booking.payment.payment_mode)}
+                    </Text>
+                  </Text>
+                </View>
+
+                {booking.payment.transaction_id ? (
+                  <View style={styles.paymentLine}>
+                    <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Transaction ID</Text>
+                    <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>
+                      {booking.payment.transaction_id}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' ? (
+                  <TouchableOpacity
+                    style={[styles.secondaryFullButton, styles.cancelOutlineBtn, { marginTop: 12 }]}
+                    onPress={handleCompletePayment}
+                    disabled={isProcessingPayment}
+                  >
+                    {isProcessingPayment ? (
+                      <ActivityIndicator size="small" color="#dc2626" />
+                    ) : (
+                      <>
+                        <Icon name="credit-card" size={18} color="#dc2626" />
+                        <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>
+                          Complete Payment Now
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+
+                {booking.payment.status === 'SUCCESS' ? (
+                  <View style={styles.invoiceWrap}>
+                    <Invoice booking={booking} variant="inline" />
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
+          {booking.modifications?.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeader}>
+                <Icon name="rotate-ccw" size={18} color={HOME_M3.secondary} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Modification History</Text>
+              </View>
+              <View style={styles.modificationPanel}>
+                {booking.modifications.map((mod: any, index: number) => {
+                  const badgeStyle = getModificationBadgeStyle(mod.action);
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.modificationCard,
+                        index < booking.modifications.length - 1 && styles.modificationCardSpacing,
+                      ]}
+                    >
+                      <View style={styles.modificationTopRow}>
+                        <View style={[styles.modificationBadge, { backgroundColor: badgeStyle.backgroundColor, borderColor: badgeStyle.borderColor }]}>
+                          <Text style={[styles.modificationBadgeText, { color: badgeStyle.color }]}>{mod.action}</Text>
+                        </View>
+                        <Text style={[styles.modificationDate, { fontSize: fontSizes.labelText }]}>
+                          {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
+                        </Text>
+                      </View>
+                      {mod.refund ? (
+                        <Text style={[styles.refundText, { fontSize: fontSizes.labelText }]}>Refund: ₹{mod.refund}</Text>
+                      ) : null}
+                      {mod.penalty ? (
+                        <Text style={[styles.penaltyText, { fontSize: fontSizes.labelText }]}>Penalty: ₹{mod.penalty}</Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.footerMeta}>
+            <View style={styles.footerMetaCol}>
+              <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Booking Date</Text>
+              <Text style={[styles.footerMetaValue, { fontSize: fontSizes.additionalInfoValue }]}>
+                {dayjs(booking.bookingDate).format('MMM D, YYYY')}
+              </Text>
+            </View>
+            <View style={styles.footerMetaCol}>
+              <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Assignment Status</Text>
+              <Text style={[styles.footerMetaValue, { fontSize: fontSizes.additionalInfoValue, textTransform: 'capitalize' }]}>
+                {booking.assignmentStatus || '—'}
+              </Text>
+            </View>
+            {booking.leave_days > 0 ? (
+              <View style={styles.footerMetaCol}>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Leave Days</Text>
+                <Text style={[styles.footerMetaValue, { fontSize: fontSizes.additionalInfoValue }]}>
+                  {booking.leave_days}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </Animated.View>
@@ -1049,7 +1134,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '90%',
+    height: '92%',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
@@ -1060,119 +1145,250 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  header: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  headerShell: {
+    position: 'relative',
+    backgroundColor: HOME_M3.primary,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  headerContent: {
+  headerToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    height: 30,
+    paddingHorizontal: 8,
   },
-  headerLeftPlaceholder: {
-    width: 40,
-  },
-  headerTitle: {
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    flex: 1,
-  },
-  closeButton: {
-    padding: 8,
-    width: 40,
-    alignItems: 'center',
+  headerSideBtn: {
+    width: 30,
+    height: 30,
     justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  headerTitleCenter: {
+    flex: 1,
+    textAlign: 'center',
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+    lineHeight: 20,
+    paddingHorizontal: 4,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: HOME_M3.surface,
   },
   scrollContent: {
-    padding: 20,
     paddingBottom: 40,
+  },
+  heroSheet: {
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+    marginBottom: 8,
   },
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   rowGap8: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginTop: 4,
   },
   grid2: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
   },
-  wrapContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  sectionBlock: {
+    paddingHorizontal: 20,
+    marginTop: 18,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  statusContainer: {
-    flexDirection: 'row',
+  sectionTitle: {
+    fontWeight: '700',
+    color: HOME_M3.onSurface,
+  },
+  sectionCard: {
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    padding: 14,
+  },
+  statusStack: {
+    alignItems: 'flex-end',
     gap: 8,
   },
-  labelText: {
+  metaLabel: {
+    color: HOME_M3.onSurfaceVariant,
     fontWeight: '500',
   },
-  bookingIdText: {
-    fontWeight: '500',
+  bookingIdHero: {
+    color: HOME_M3.primary,
+    fontWeight: '800',
+    marginTop: 4,
+    letterSpacing: -0.5,
   },
   serviceCard: {
-    padding: 16,
-    borderRadius: 12,
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  serviceIconContainer: {
-    padding: 8,
-    borderRadius: 8,
-    marginRight: 12,
+  serviceImageWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#fde8d8',
   },
-  serviceIcon: {
-    fontSize: 24,
+  serviceImage: {
+    width: '100%',
+    height: '100%',
+  },
+  serviceTextCol: {
+    flex: 1,
   },
   serviceTitle: {
     fontWeight: '700',
+    color: HOME_M3.onSurface,
+    marginTop: 2,
   },
-  buttonGrid: {
+  pillBadge: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  pillBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  monthlyPill: { backgroundColor: '#ede9fe', borderColor: '#c4b5fd' },
+  monthlyPillText: { color: '#5b21b6' },
+  onDemandPill: { backgroundColor: '#e0f2fe', borderColor: '#7dd3fc' },
+  onDemandPillText: { color: '#0369a1' },
+  shortTermPill: { backgroundColor: '#dcfce7', borderColor: '#86efac' },
+  shortTermPillText: { color: '#15803d' },
+  defaultPill: { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' },
+  defaultPillText: { color: '#475569' },
+  notStartedPill: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
+  notStartedPillText: { color: '#64748b' },
+  inProgressPill: { backgroundColor: '#fff7ed', borderColor: '#fdba74' },
+  inProgressPillText: { color: '#c2410c' },
+  completedPill: { backgroundColor: '#ecfdf5', borderColor: '#86efac' },
+  completedPillText: { color: '#15803d' },
+  cancelledPill: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  cancelledPillText: { color: '#dc2626' },
+  primaryActionRow: {
+    flexDirection: 'row',
     gap: 10,
+    marginTop: 18,
   },
-  actionButton: {
+  primaryActionBtn: {
     flex: 1,
-    minWidth: '30%',
+    minHeight: 44,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
     gap: 6,
+    paddingHorizontal: 8,
   },
-  outlineButton: {
-    flex: 1,
-    minWidth: '30%',
+  callButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: HOME_M3.secondary,
+  },
+  callButtonText: {
+    color: HOME_M3.secondary,
+    fontWeight: '700',
+  },
+  vacationButton: {
+    marginTop: 10,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: HOME_M3.secondary,
+    backgroundColor: '#ffffff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
     gap: 6,
-    borderWidth: 2,
+    paddingHorizontal: 8,
+    alignSelf: 'stretch',
+  },
+  vacationButtonText: {
+    color: HOME_M3.secondary,
+    fontWeight: '700',
+  },
+  outlineActionBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    backgroundColor: '#ffffff',
+  },
+  cancelOutlineBtn: {
+    borderColor: '#fca5a5',
+  },
+  cancelOutlineText: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+  modifyOutlineBtn: {
+    borderColor: '#cbd5e1',
+  },
+  modifyOutlineText: {
+    color: HOME_M3.onSurface,
+    fontWeight: '700',
+  },
+  disabledActionBtn: {
+    opacity: 0.55,
+  },
+  disabledActionText: {
+    color: '#94a3b8',
+  },
+  secondaryFullButton: {
+    marginTop: 10,
+    minHeight: 46,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: HOME_M3.outlineVariant,
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+  secondaryFullButtonText: {
+    color: HOME_M3.secondary,
+    fontWeight: '700',
   },
   paymentTimeoutNotice: {
     marginTop: 16,
@@ -1203,68 +1419,156 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#92400e',
   },
-  actionButtonText: {
-    fontWeight: '600',
-  },
-  outlineButtonText: {
-    fontWeight: '600',
-  },
-  callButton: {
-    backgroundColor: '#0b5bd3',
-  },
-  sectionTitle: {
-    fontWeight: '500',
-  },
-  infoCard: {
+  infoCell: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+  },
+  timeSlotRow: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: HOME_M3.outlineVariant,
   },
   valueText: {
-    fontWeight: '500',
+    fontWeight: '600',
+    color: HOME_M3.onSurface,
+    marginTop: 4,
   },
-  providerCard: {
-    padding: 16,
-    borderRadius: 8,
+  providerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  providerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: HOME_M3.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  providerAvatarText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  providerName: {
+    fontWeight: '700',
+    color: HOME_M3.onSurface,
+  },
+  providerRatingText: {
+    marginTop: 2,
+    color: HOME_M3.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  paymentLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  paymentAmount: {
+    fontWeight: '600',
+    color: HOME_M3.onSurface,
+  },
+  paymentTotalBar: {
+    marginTop: 4,
+    marginBottom: 12,
+    backgroundColor: HOME_M3.primary,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  providerName: {
-    fontWeight: '500',
-  },
-  paymentCard: {
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  totalAmount: {
+  paymentTotalLabel: {
+    color: '#ffffff',
     fontWeight: '700',
   },
-  fullButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
+  paymentTotalValue: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  paymentMetaRow: {
     gap: 8,
-    borderWidth: 2,
+    marginBottom: 4,
   },
-  fullButtonText: {
-    fontWeight: '600',
-  },
-  modificationCard: {
-    padding: 12,
-    borderRadius: 8,
-  },
-  smallText: {
+  paymentMetaText: {
+    color: HOME_M3.onSurfaceVariant,
     fontWeight: '500',
   },
-  successText: {
-    color: '#4CAF50',
+  paymentMetaStrong: {
+    color: HOME_M3.onSurface,
+    fontWeight: '700',
   },
-  errorText: {
-    color: '#F44336',
+  invoiceWrap: {
+    marginTop: 12,
+  },
+  modificationPanel: {
+    backgroundColor: '#eef6ff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    padding: 12,
+  },
+  modificationCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    padding: 12,
+  },
+  modificationCardSpacing: {
+    marginBottom: 10,
+  },
+  modificationTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  modificationBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexShrink: 1,
+  },
+  modificationBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modificationDate: {
+    color: HOME_M3.onSurfaceVariant,
+    fontWeight: '500',
+    flexShrink: 0,
+  },
+  refundText: {
+    color: '#16a34a',
+    fontWeight: '700',
+  },
+  penaltyText: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+  footerMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    paddingHorizontal: 20,
+    marginTop: 22,
+    marginBottom: 8,
+  },
+  footerMetaCol: {
+    minWidth: '42%',
+    flex: 1,
+  },
+  footerMetaValue: {
+    color: HOME_M3.onSurface,
+    fontWeight: '700',
+    marginTop: 4,
   },
   badge: {
     paddingHorizontal: 8,
@@ -1286,24 +1590,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: 8,
   },
-  onDemandBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  onDemandBadgeText: { fontWeight: '600' },
-  monthlyBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  monthlyBadgeText: { fontWeight: '600' },
-  shortTermBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  shortTermBadgeText: { fontWeight: '600' },
-  defaultBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  defaultBadgeText: { fontWeight: '600' },
-  activeBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  activeBadgeText: { marginLeft: 4, fontWeight: '600' },
-  completedBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  completedBadgeText: { marginLeft: 4, fontWeight: '600' },
-  cancelledBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  cancelledBadgeText: { marginLeft: 4, fontWeight: '600' },
-  inProgressBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  inProgressBadgeText: { marginLeft: 4, fontWeight: '600' },
-  notStartedBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  notStartedBadgeText: { marginLeft: 4, fontWeight: '600' },
 });
 
 const cancelDialogStyles = StyleSheet.create({

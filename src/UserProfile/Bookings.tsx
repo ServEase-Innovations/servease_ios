@@ -22,6 +22,7 @@ import {
   Modal as RNModal,
   Platform,
   InteractionManager,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth0 } from 'react-native-auth0';
@@ -42,7 +43,7 @@ import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
 import ActionRow from '../design-system/ActionRow';
-import { BOOKING_HEADER_GRADIENT, BRAND } from "../theme/brandColors";
+import { BOOKING_HEADER_GRADIENT, BRAND, HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
 import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 import { resolveCustomerId } from "../services/couponService";
 import { useDispatch } from 'react-redux';
@@ -92,7 +93,7 @@ const GradientButton: React.FC<{
   disabled?: boolean;
   gradientColors?: string[];
 }> = ({ children, onPress, style, innerStyle, disabled = false, gradientColors }) => {
-  const defaultGradient = [...BOOKING_HEADER_GRADIENT];
+  const defaultGradient = [...HOME_HERO_GRADIENT];
   
   if (disabled) {
     return (
@@ -590,10 +591,59 @@ const hasVacation = (booking: Booking): boolean => {
 // ---------- Main Booking Component ----------
 const HORIZONTAL_GUTTER = 10;
 
+type BookingsThemeTokens = {
+  canvas: string;
+  card: string;
+  cardHeader: string;
+  rail: string;
+  border: string;
+  text: string;
+  textMuted: string;
+  primary: string;
+  iconBg: string;
+  scheduleBg: string;
+  searchBg: string;
+  accentBar: string;
+};
+
+function getBookingsTheme(isDarkMode: boolean, colors: Record<string, string>): BookingsThemeTokens {
+  if (isDarkMode) {
+    return {
+      canvas: colors.background,
+      card: colors.card,
+      cardHeader: colors.surface ?? colors.card,
+      rail: colors.surface ?? colors.card,
+      border: colors.border,
+      text: colors.text,
+      textMuted: colors.textSecondary,
+      primary: colors.primary,
+      iconBg: `${colors.primary}12`,
+      scheduleBg: colors.surface ?? colors.card,
+      searchBg: colors.card,
+      accentBar: colors.primary,
+    };
+  }
+  return {
+    canvas: HOME_M3.surface,
+    card: HOME_M3.surfaceContainerLowest,
+    cardHeader: HOME_M3.surfaceContainerLow,
+    rail: HOME_M3.surfaceContainerLow,
+    border: HOME_M3.outlineVariant,
+    text: HOME_M3.onSurface,
+    textMuted: HOME_M3.onSurfaceVariant,
+    primary: HOME_M3.secondary,
+    iconBg: HOME_M3.secondaryFixed,
+    scheduleBg: HOME_M3.surfaceContainerLow,
+    searchBg: HOME_M3.surfaceContainerLowest,
+    accentBar: HOME_M3.primary,
+  };
+}
+
 const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigateToDetails, onOpenWallet }, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
+  const bk = useMemo(() => getBookingsTheme(isDarkMode, colors), [isDarkMode, colors]);
 
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
@@ -1800,81 +1850,87 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     setOpenFilterMenu(null);
   };
 
-  // Updated header with LinearGradient from BookingDialog
-  const renderBookingsHeader = () => (
-    <LinearGradient
-      colors={[...BOOKING_HEADER_GRADIENT]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.headerGradient}
+  const renderBookingsHeader = (skeleton?: boolean) => (
+    <View
+      style={[
+        styles.headerShell,
+        { paddingTop: Math.max(insets.top, 8) + 6 },
+      ]}
     >
-      <View style={styles.headerContent}>
-        <TouchableOpacity
-          style={[styles.headerSideSlot, styles.headerBackBtn]}
-          onPress={handleBackPress}
-          accessibilityLabel="Go back"
-        >
-          <Icon name="arrow-left" size={24} color="#ffffff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleBlock} pointerEvents="none">
+      <LinearGradient
+        colors={[...HOME_HERO_GRADIENT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.headerInner}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={handleBackPress}
+            accessibilityLabel="Go back"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="arrow-left" size={24} color="#ffffff" />
+          </TouchableOpacity>
           <Text
-            style={[styles.headerTitle, { fontSize: fontSizes.headerTitle + 2 }]}
+            style={[
+              styles.headerTitle,
+              { fontSize: fontSizes.headerTitle + 2 },
+              Platform.OS === 'android' ? { includeFontPadding: false } : null,
+            ]}
             numberOfLines={1}
           >
             My bookings
           </Text>
-          
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[styles.headerSideSlot, styles.headerBackBtn]}
-            onPress={() => void handleOpenMyTickets()}
-            accessibilityLabel="My support tickets"
-          >
-            <Icon name="file-document-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.headerSideSlot, styles.headerBackBtn]}
-            onPress={() => onOpenWallet?.()}
-            accessibilityLabel="Open wallet"
-          >
-            <Icon name="wallet-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </LinearGradient>
-  );
-
-  const renderBookingsSearch = (skeleton?: boolean) => (
-    <View style={[styles.searchSection, { backgroundColor: colors.background }]}>
-      {skeleton ? (
-        <SkeletonLoader width="100%" height={44} variant="rectangular" style={{ borderRadius: 12 }} />
-      ) : (
-        <View
-          style={[
-            styles.searchContainer,
-            {
-              backgroundColor: isDarkMode ? colors.card : '#f1f5f9',
-              borderColor: colors.border + '40',
-            },
-          ]}
-        >
-          <Icon name="magnify" size={18} color={colors.textSecondary} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.searchInput, flex: 1 }]}
-            placeholder="Search by booking #, provider, service, or address"
-            placeholderTextColor={colors.textSecondary + '99'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-            returnKeyType="search"
-          />
-          {searchTerm.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Icon name="close-circle" size={18} color={colors.textSecondary} />
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => void handleOpenMyTickets()}
+              accessibilityLabel="My support tickets"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Icon name="file-document-outline" size={22} color="#ffffff" />
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => onOpenWallet?.()}
+              accessibilityLabel="Open wallet"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Icon name="wallet-outline" size={22} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.headerSearchWrap}>
+          {skeleton ? (
+            <SkeletonLoader width="100%" height={44} variant="rectangular" style={{ borderRadius: 22 }} />
+          ) : (
+            <View style={styles.headerSearchPill}>
+              <Icon name="magnify" size={20} color="#94a3b8" />
+              <TextInput
+                style={[styles.headerSearchInput, { fontSize: fontSizes.searchInput }]}
+                placeholder="Search booking #, provider, service..."
+                placeholderTextColor="#94a3b8"
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+                returnKeyType="search"
+                clearButtonMode="while-editing"
+              />
+              {searchTerm.length > 0 ? (
+                <TouchableOpacity
+                  onPress={() => setSearchTerm('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="close-circle" size={18} color="#94a3b8" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           )}
         </View>
-      )}
+      </View>
     </View>
   );
 
@@ -2275,18 +2331,27 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         key: 'today',
         label: 'Today',
         count: todaySchedule.length,
-        activeStyle: { backgroundColor: '#059669', color: '#ffffff' },
+        activeStyle: {
+          backgroundColor: isDarkMode ? '#059669' : HOME_M3.secondary,
+          color: '#ffffff',
+        },
         badgeStyle: { backgroundColor: 'rgba(255,255,255,0.24)', color: '#ffffff' },
       },
       {
         key: 'upcoming',
         label: 'Upcoming',
-        activeStyle: { backgroundColor: isDarkMode ? colors.card : '#ffffff', color: colors.text },
+        activeStyle: {
+          backgroundColor: isDarkMode ? colors.card : HOME_M3.secondary,
+          color: isDarkMode ? colors.text : '#ffffff',
+        },
       },
       {
         key: 'past',
         label: 'Past',
-        activeStyle: { backgroundColor: isDarkMode ? colors.card : '#ffffff', color: colors.text },
+        activeStyle: {
+          backgroundColor: isDarkMode ? colors.card : HOME_M3.primary,
+          color: isDarkMode ? colors.text : '#ffffff',
+        },
       },
       {
         key: 'cancelled',
@@ -2305,11 +2370,11 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     ];
 
     return (
-      <View style={[styles.mainTabSection, { backgroundColor: colors.background }]}>
+      <View style={[styles.mainTabSection, { backgroundColor: bk.canvas }]}>
         <View
           style={[
             styles.mainTabRail,
-            { backgroundColor: isDarkMode ? colors.surface : 'rgba(148, 163, 184, 0.14)' },
+            { backgroundColor: bk.rail },
           ]}
         >
           {tabs.map((tab) => {
@@ -2324,7 +2389,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
                     backgroundColor: active
                       ? tab.activeStyle.backgroundColor
                       : 'transparent',
-                    borderColor: active ? 'transparent' : colors.border + '55',
+                    borderColor: active ? 'transparent' : bk.border,
                   },
                   active && styles.mainTabActive,
                 ]}
@@ -2685,42 +2750,44 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           style={[
             styles.webCard,
             {
-              borderColor: colors.border + '40',
-              backgroundColor: isDarkMode ? colors.card : '#ffffff',
+              borderColor: bk.border,
+              backgroundColor: bk.card,
             },
           ]}
         >
+          <View style={[styles.webCardAccent, { backgroundColor: bk.accentBar }]} />
+          <View style={styles.webCardBody}>
           <View
             style={[
               styles.webCardHeader,
               {
-                backgroundColor: isDarkMode ? colors.surface : '#f8fafc',
-                borderBottomColor: colors.border + '35',
+                backgroundColor: bk.cardHeader,
+                borderBottomColor: bk.border,
               },
             ]}
           >
             <View style={styles.webCardHeaderRow}>
-              <View style={[styles.webCardIconBox, { backgroundColor: colors.primary + '12' }]}>
+              <View style={[styles.webCardIconBox, { backgroundColor: bk.iconBg }]}>
                 <Text style={styles.webCardEmoji}>{getServiceEmoji(serviceType)}</Text>
               </View>
               <View style={styles.webCardHeaderContent}>
                 <View style={styles.webCardTitleRow}>
                   <Text
-                    style={[styles.webCardTitle, { color: colors.text, fontSize: fontSizes.serviceTitle - 1 }]}
+                    style={[styles.webCardTitle, { color: bk.text, fontSize: fontSizes.serviceTitle - 1 }]}
                     numberOfLines={1}
                   >
                     {getServiceTitle(serviceType)}
                   </Text>
                   {!isPaymentPending && amountValue > 0 ? (
-                    <Text style={[styles.webCardAmount, { color: colors.text }]}>
+                    <Text style={[styles.webCardAmount, { color: bk.text }]}>
                       ₹{amountValue.toFixed(2)}
                     </Text>
                   ) : null}
                 </View>
-                <Text style={[styles.webCardMeta, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                <Text style={[styles.webCardMeta, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
                   Booking #{item.id} · Placed {formatPlacedAt(item)}
                 </Text>
-                <Text style={[styles.webCardMeta, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                <Text style={[styles.webCardMeta, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
                   Provider: {item.serviceProviderName || 'Awaiting assignment'}
                 </Text>
                 <View style={styles.webCardBadgeRow}>
@@ -2749,26 +2816,26 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
               style={[
                 styles.webScheduleBox,
                 {
-                  backgroundColor: isDarkMode ? colors.surface : '#f8fafc',
-                  borderColor: colors.border + '35',
+                  backgroundColor: bk.scheduleBg,
+                  borderColor: bk.border,
                 },
               ]}
             >
               <View style={styles.webScheduleRow}>
-                <Icon name="calendar-blank-outline" size={15} color={colors.textSecondary} />
-                <Text style={[styles.webScheduleText, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                <Icon name="calendar-blank-outline" size={15} color={bk.textMuted} />
+                <Text style={[styles.webScheduleText, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
                   Service: {serviceDateLabel} · {formatTimeRange(item.start_time, item.end_time)}
                 </Text>
               </View>
               <View style={styles.webScheduleRow}>
-                <Icon name="clock-outline" size={15} color={colors.textSecondary} />
-                <Text style={[styles.webScheduleText, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                <Icon name="clock-outline" size={15} color={bk.textMuted} />
+                <Text style={[styles.webScheduleText, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
                   Placed {formatPlacedAt(item)}
                 </Text>
               </View>
               <View style={styles.webScheduleRow}>
-                <Icon name="map-marker-outline" size={15} color={colors.textSecondary} />
-                <Text style={[styles.webScheduleText, { color: colors.textSecondary, fontSize: fontSizes.infoText - 1 }]}>
+                <Icon name="map-marker-outline" size={15} color={bk.textMuted} />
+                <Text style={[styles.webScheduleText, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
                   {item.address || 'Address not available'}
                 </Text>
               </View>
@@ -2789,6 +2856,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
             ) : null}
 
             {renderTodayServicePanel(item)}
+          </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -2835,8 +2903,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {renderBookingsHeader()}
-        {renderBookingsSearch(true)}
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        {renderBookingsHeader(true)}
 
         <View style={[styles.mainTabSection, { backgroundColor: colors.background }]}>
           <View
@@ -2869,9 +2937,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
   // Main Render - REMOVED the outer ScrollView that was blocking the modal
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: bk.canvas }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       {renderBookingsHeader()}
-      {renderBookingsSearch()}
       {renderMainViewTabs()}
       {renderRefreshTooltip()}
 
@@ -2885,9 +2953,9 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.card}
+            tintColor={bk.primary}
+            colors={[bk.primary]}
+            progressBackgroundColor={bk.card}
           />
         }
         showsVerticalScrollIndicator={true}
@@ -3085,6 +3153,11 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           setDetailsDrawerOpen(false);
           handleBookAgain(b);
         }}
+        onModify={(b) => {
+          setDetailsDrawerOpen(false);
+          setSelectedBooking(b);
+          setModifyDialogOpen(true);
+        }}
       />
 
       <VacationManagementDialog
@@ -3117,69 +3190,69 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 const styles = StyleSheet.create({
   container: { flex: 1 },
   
-  headerGradient: {
+  headerShell: {
     width: '100%',
     alignSelf: 'stretch',
-    backgroundColor: 'transparent',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingBottom: 12,
-    paddingTop: 6,
-    overflow: 'hidden',
+    backgroundColor: HOME_M3.primary,
+    paddingBottom: 14,
+    overflow: 'visible',
+    position: 'relative',
   },
-  headerContent: {
+  headerInner: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    minHeight: 68,
-    paddingHorizontal: HORIZONTAL_GUTTER,
+    height: 44,
+    paddingHorizontal: 12,
   },
-  headerSideSlot: {
+  headerIconBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
   },
-  headerBackBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.20)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  headerTitleBlock: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    minWidth: 0,
-  },
   headerTitle: {
+    flex: 1,
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: -0.3,
-    textAlign: 'center',
-    width: '100%',
-  },
-  headerSubtitle: {
-    color: 'rgba(219, 234, 254, 0.95)',
-    textAlign: 'center',
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: '500',
-    lineHeight: 16,
-    paddingHorizontal: 4,
+    textAlign: 'left',
+    lineHeight: 24,
+    marginLeft: 2,
+    marginRight: 4,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     flexShrink: 0,
+  },
+  headerSearchWrap: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  headerSearchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 22,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  headerSearchInput: {
+    flex: 1,
+    padding: 0,
+    margin: 0,
+    color: HOME_M3.onSurface,
   },
 
   searchSection: {
@@ -3216,7 +3289,6 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 4,
     borderRadius: 14,
-    backgroundColor: 'rgba(148, 163, 184, 0.14)',
   },
   mainTab: {
     flex: 1,
@@ -3461,6 +3533,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   webCard: {
+    flexDirection: 'row',
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
@@ -3469,6 +3542,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
+  },
+  webCardAccent: {
+    width: 4,
+  },
+  webCardBody: {
+    flex: 1,
   },
   webCardHeader: {
     paddingHorizontal: 14,

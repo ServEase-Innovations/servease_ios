@@ -471,6 +471,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           label: t("navigation.profile"),
           isAccount: true,
           onPress: () => onNavigateToPage(PROFILE),
+        },
+        {
+          key: "SIGN_OUT",
+          label: t("navigation.signOut"),
+          iconName: "logout",
+          variant: "destructive",
+          disabled: isSigningOut,
+          onPress: handleSignOut,
         }
       );
     } else if (isVendor) {

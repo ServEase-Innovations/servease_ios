@@ -524,9 +524,7 @@ const Invoice: React.FC<InvoiceProps> = ({ booking, onClose, variant = 'full' })
           )}
         </TouchableOpacity>
         <Text style={styles.inlineHint}>
-          {Platform.OS === 'android'
-            ? 'Opens the invoice PDF so you can view, share, or save it.'
-            : 'Opens the invoice preview so you can share or save to Files.'}
+          Open the invoice preview for sharing or saving.
         </Text>
       </View>
     );
@@ -698,21 +696,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1.5,
-    borderColor: '#2563eb',
+    borderColor: '#335baf',
     borderRadius: 10,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#ffffff',
   },
   inlineButtonText: {
-    color: '#2563eb',
+    color: '#335baf',
     fontSize: 15,
     fontWeight: '700',
   },
   inlineHint: {
     marginTop: 8,
     fontSize: 12,
-    color: '#6b7280',
+    color: '#64748b',
     textAlign: 'center',
   },
   container: {

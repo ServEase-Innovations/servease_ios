@@ -15,6 +15,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import LinearGradient from "react-native-linear-gradient";
 import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from "../common/BookingUtils";
 import PaymentInstance from "../services/paymentInstance";
 import dayjs, { Dayjs } from "dayjs";
@@ -22,7 +23,7 @@ import { Booking, BookingHistoryResponse } from "./Dashboard";
 import axios from "axios";
 import { OtpVerificationDialog } from "./OtpVerificationDialog";
 import TrackAddress from "./TrackAddress";
-import { BRAND } from "../theme/brandColors";
+import { BRAND, HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
 import { withdrawFromOnDemandEngagement } from "../services/engagementService";
 
 type TabKey = "ongoing" | "future" | "past";
@@ -658,22 +659,22 @@ export function AllBookingsDialog({
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.sheet}>
-            {/* Header */}
-            <View style={styles.headerAccent} />
-            <View style={styles.header}>
-              <View style={styles.headerIcon}>
-                <MaterialIcon name="calendar-month" size={22} color={BRAND.accent} />
+            <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.headerGradient}>
+              <View style={styles.header}>
+                <View style={styles.headerIcon}>
+                  <MaterialIcon name="calendar-month" size={22} color={HOME_M3.secondary} />
+                </View>
+                <View style={styles.headerTextCol}>
+                  <Text style={styles.headerTitle}>All Bookings</Text>
+                  <Text style={styles.headerSubtitle}>
+                    {tabCounts.ongoing + tabCounts.future + tabCounts.past} total this month
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
+                  <MaterialIcon name="close" size={22} color="#ffffff" />
+                </TouchableOpacity>
               </View>
-              <View style={styles.headerTextCol}>
-                <Text style={styles.headerTitle}>All Bookings</Text>
-                <Text style={styles.headerSubtitle}>
-                  {tabCounts.ongoing + tabCounts.future + tabCounts.past} total this month
-                </Text>
-              </View>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={8}>
-                <MaterialIcon name="close" size={22} color={BRAND.textMuted} />
-              </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
             {/* Segmented tabs */}
             <View style={styles.segmentWrap}>
@@ -854,32 +855,28 @@ export function AllBookingsDialog({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surface,
   },
   sheet: {
     flex: 1,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surface,
   },
-  headerAccent: {
-    height: 3,
-    backgroundColor: BRAND.accent,
+  headerGradient: {
+    paddingBottom: 4,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: BRAND.accentSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.line,
   },
   headerIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: BRAND.surface,
+    backgroundColor: "rgba(255,255,255,0.95)",
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -891,13 +888,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    color: BRAND.text,
+    fontWeight: "800",
+    color: HOME_M3.onPrimary,
     letterSpacing: -0.2,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: BRAND.textMuted,
+    color: HOME_M3.onPrimaryContainer,
     marginTop: 2,
     fontWeight: "500",
   },
@@ -905,9 +902,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: BRAND.surface,
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -916,9 +913,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: BRAND.surface,
+    backgroundColor: HOME_M3.surface,
     borderBottomWidth: 1,
-    borderBottomColor: BRAND.line,
+    borderBottomColor: HOME_M3.outlineVariant,
   },
   segment: {
     flex: 1,
@@ -929,13 +926,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 6,
     borderRadius: 12,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surfaceContainerLow,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
   },
   segmentActive: {
-    backgroundColor: BRAND.accent,
-    borderColor: BRAND.accent,
+    backgroundColor: HOME_M3.secondary,
+    borderColor: HOME_M3.secondary,
   },
   segmentLabel: {
     fontSize: 12,
@@ -960,7 +957,7 @@ const styles = StyleSheet.create({
   segmentCountText: {
     fontSize: 11,
     fontWeight: "700",
-    color: BRAND.accent,
+    color: HOME_M3.secondary,
   },
   segmentCountTextActive: {
     color: "#ffffff",
@@ -970,18 +967,18 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
     gap: 10,
-    backgroundColor: BRAND.surface,
+    backgroundColor: HOME_M3.surface,
     borderBottomWidth: 1,
-    borderBottomColor: BRAND.line,
+    borderBottomColor: HOME_M3.outlineVariant,
   },
   monthPicker: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: BRAND.accentSoft,
+    backgroundColor: HOME_M3.surfaceContainerLow,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
     paddingHorizontal: 4,
     paddingVertical: 4,
   },
@@ -989,7 +986,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: BRAND.surface,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1006,17 +1003,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: BRAND.text,
+    color: HOME_M3.onSurface,
     padding: 0,
   },
   resultsHint: {
@@ -1109,12 +1106,12 @@ const styles = StyleSheet.create({
     color: BRAND.accent,
   },
   bookingCard: {
-    backgroundColor: BRAND.surface,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: BRAND.line,
-    shadowColor: BRAND.bookingNavy,
+    borderColor: HOME_M3.outlineVariant,
+    shadowColor: HOME_M3.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1122,7 +1119,7 @@ const styles = StyleSheet.create({
   },
   cardAccentBar: {
     height: 3,
-    backgroundColor: BRAND.accent,
+    backgroundColor: HOME_M3.primary,
   },
   cardInner: {
     padding: 14,
