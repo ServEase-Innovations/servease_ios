@@ -15,7 +15,7 @@ import {
   Dimensions,
   BackHandler,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -25,9 +25,10 @@ import ContactUs from '../ContactUs/ContactUs';
 import AboutUs from '../AboutUs/AboutPage';
 import TnC from '../TermsAndConditions/TnC';
 import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
+import { HomeHeroPageHeader } from '../common/HomeHeroPageHeader';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
-import { BOOKING_HEADER_GRADIENT, BRAND } from '../theme/brandColors';
+import { BOOKING_HEADER_GRADIENT, BRAND, HOME_M3 } from '../theme/brandColors';
 import { requestPushNotificationPermission } from '../services/pushNotifications';
 import { refreshPushRegistration } from '../services/pushApi';
 import { useAppUser } from '../context/AppUserContext';
@@ -665,44 +666,26 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
         {/* Terms & Conditions Modal */}
         <Modal visible={showTnCModal} animationType="slide" onRequestClose={() => setShowTnCModal(false)}>
-          <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }}>
-            <LinearGradient
-              colors={[...BOOKING_HEADER_GRADIENT]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.modalPageHeader}
-            >
-              <TouchableOpacity onPress={() => setShowTnCModal(false)} style={styles.modalPageBackBtn}>
-                <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
-              </TouchableOpacity>
-              <Text style={[styles.modalPageTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                Terms & Conditions
-              </Text>
-              <View style={{ width: 40 }} />
-            </LinearGradient>
+          <View style={{ flex: 1, backgroundColor: isDarkMode ? colors.background : HOME_M3.surface }}>
+            <HomeHeroPageHeader
+              title="Terms & Conditions"
+              onBack={() => setShowTnCModal(false)}
+              titleFontSize={fontStyles.headingSize}
+            />
             <TnC />
-          </SafeAreaView>
+          </View>
         </Modal>
 
         {/* Privacy Policy Modal */}
         <Modal visible={showPrivacyPolicyModal} animationType="slide" onRequestClose={() => setShowPrivacyPolicyModal(false)}>
-          <SafeAreaView style={{ flex: 1, backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }}>
-            <LinearGradient
-              colors={[...BOOKING_HEADER_GRADIENT]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.modalPageHeader}
-            >
-              <TouchableOpacity onPress={() => setShowPrivacyPolicyModal(false)} style={styles.modalPageBackBtn}>
-                <MaterialIcon name="arrow-back" size={24} color="#ffffff" />
-              </TouchableOpacity>
-              <Text style={[styles.modalPageTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                Privacy Policy
-              </Text>
-              <View style={{ width: 40 }} />
-            </LinearGradient>
-            <PrivacyPolicy />
-          </SafeAreaView>
+          <View style={{ flex: 1, backgroundColor: isDarkMode ? colors.background : HOME_M3.surface }}>
+            <HomeHeroPageHeader
+              title="Privacy Policy"
+              onBack={() => setShowPrivacyPolicyModal(false)}
+              titleFontSize={fontStyles.headingSize}
+            />
+            <PrivacyPolicy embedded />
+          </View>
         </Modal>
     </View>
   );
@@ -933,25 +916,6 @@ const styles = StyleSheet.create({
   noResultsText: {
     marginTop: 16,
     fontWeight: '600',
-  },
-  modalPageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  modalPageBackBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  modalPageTitle: {
-    fontWeight: '700',
-    letterSpacing: -0.3,
   },
 });
 

@@ -568,20 +568,7 @@ const Head: React.FC<ChildComponentProps> = ({
         animationType="slide"
         onRequestClose={() => setShowContactUs(false)}
       >
-        <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={chromeGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>Contact Us</Text>
-            <TouchableOpacity onPress={() => setShowContactUs(false)}>
-              <Icon name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-          </LinearGradient>
-          <ContactUs />
-        </View>
+        <ContactUs onBack={() => setShowContactUs(false)} />
       </Modal>
     </>
   );

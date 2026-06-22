@@ -25,7 +25,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
-import { BOOKING_HEADER_GRADIENT, BRAND } from "../theme/brandColors";
+import { HOME_HERO_GRADIENT, HOME_M3, BRAND } from "../theme/brandColors";
 
 
 dayjs.extend(customParseFormat);
@@ -1177,18 +1177,29 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             <View style={styles.sheetHandleWrap}>
               <View style={[styles.sheetHandleBar, { backgroundColor: colors.border }]} />
             </View>
-            <LinearGradient
-              colors={[...BOOKING_HEADER_GRADIENT]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.headerContainer}
-            >
-              <View style={styles.headerContent}>
-                <View style={styles.headerLeft} />
-                <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>Service Unavailable</Text>
-                <View style={styles.headerRight} />
+            <View style={styles.headerShell}>
+              <LinearGradient
+                colors={[...HOME_HERO_GRADIENT]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <View style={styles.headerToolbar}>
+                <View style={styles.headerSideBtn} />
+                <Text
+                  style={[
+                    styles.headerTitleCenter,
+                    { fontSize: fontSizes.title },
+                    Platform.OS === "android" ? { includeFontPadding: false } : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  Service Unavailable
+                </Text>
+                <View style={styles.headerSideBtn} />
               </View>
-            </LinearGradient>
+            </View>
 
             <View style={[styles.disabledContainer, { backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}>
               <Icon name="info-outline" size={60} color="#FFA500" />
@@ -1225,29 +1236,36 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             { backgroundColor: isDarkMode ? colors.card : "#f8fafc", transform: [{ translateY: sheetTranslateY }] },
           ]}
         >
-          <LinearGradient
-            colors={[...BOOKING_HEADER_GRADIENT]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.headerContainer}
-            {...panResponder.panHandlers}
-          >
-            <View style={styles.headerContent}>
+          <View style={styles.headerShell} {...panResponder.panHandlers}>
+            <LinearGradient
+              colors={[...HOME_HERO_GRADIENT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.headerToolbar}>
               <TouchableOpacity
-                style={styles.headerBackBtn}
+                style={styles.headerSideBtn}
                 onPress={handleSheetClose}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
               >
-                <Icon name="arrow-back" size={20} color="#fff" />
+                <Icon name="arrow-back" size={22} color={HOME_M3.onPrimary} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle} numberOfLines={1}>
+              <Text
+                style={[
+                  styles.headerTitleCenter,
+                  Platform.OS === "android" ? { includeFontPadding: false } : null,
+                ]}
+                numberOfLines={1}
+              >
                 Book Service
               </Text>
-              <View style={styles.headerSideSpacer} />
+              <View style={styles.headerSideBtn} />
             </View>
-          </LinearGradient>
+          </View>
           <ScrollView
             ref={scrollViewRef}
             style={styles.wizardScroll}
@@ -1480,40 +1498,35 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.62)",
   },
-  headerContainer: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255, 255, 255, 0.2)",
+  headerShell: {
+    position: "relative",
+    backgroundColor: HOME_M3.primary,
+    height: 60,
+    justifyContent: "center",
+    overflow: "hidden",
   },
-  headerContent: {
+  headerToolbar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    minHeight: 52,
+    height: 30,
+    paddingHorizontal: 8,
   },
-  headerBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.18)",
-    alignItems: "center",
+  headerSideBtn: {
+    width: 40,
+    height: 40,
     justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
-  headerTitle: {
-    position: "absolute",
-    left: 56,
-    right: 56,
+  headerTitleCenter: {
+    flex: 1,
     textAlign: "center",
     fontSize: 17,
     fontWeight: "700",
-    color: "#ffffff",
-    letterSpacing: 0.2,
-    includeFontPadding: false,
-  },
-  headerSideSpacer: {
-    width: 36,
-    height: 36,
+    color: HOME_M3.onPrimary,
+    letterSpacing: -0.2,
+    lineHeight: 22,
+    paddingHorizontal: 4,
   },
   closeIcon: {
     width: 30,

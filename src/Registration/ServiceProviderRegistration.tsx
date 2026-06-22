@@ -44,6 +44,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
+import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
+import { HOME_M3 } from "../theme/brandColors";
 import { Button } from "../common/Button";
 import {
   RegistrationAndroidKeyboardBar,
@@ -745,7 +747,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
       case 'terms':
         return <TnC />;
       case 'privacy':
-        return <PrivacyPolicy />;
+        return <PrivacyPolicy embedded />;
       case 'keyfacts':
         return <KeyFactsStatement />;
       default:
@@ -2226,26 +2228,19 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
 
             {policyModalVisible && (
               <Portal>
-              <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
-                <View style={[styles.policySheetHeader, { backgroundColor: surface, borderBottomColor: borderColor }]}>
-                  <View style={styles.headerTitleRow}>
-                    <View style={styles.headerTextCol}>
-                      <Text style={[styles.sheetHeaderTitle, { color: textPrimary }]} numberOfLines={2}>
-                        {activePolicy === "terms" && "Terms and Conditions"}
-                        {activePolicy === "privacy" && "Privacy Policy"}
-                        {activePolicy === "keyfacts" && "Key Facts Statement"}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.sheetCloseBtn, { backgroundColor: isDarkMode ? colors.card : "#f1f5f9" }]}
-                      onPress={() => setPolicyModalVisible(false)}
-                      accessibilityLabel="Close policy"
-                    >
-                      <Icon name="close" size={22} color={textPrimary} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>
+              <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.surface }]}>
+                <HomeHeroPageHeader
+                  title={
+                    activePolicy === "terms"
+                      ? "Terms and Conditions"
+                      : activePolicy === "privacy"
+                        ? "Privacy Policy"
+                        : "Key Facts Statement"
+                  }
+                  onBack={() => setPolicyModalVisible(false)}
+                  backIcon="close"
+                />
+                <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
                   {renderPolicyContent()}
                 </ScrollView>
               </View>
@@ -2671,10 +2666,6 @@ const styles = StyleSheet.create({
   policyModalContainer: {
     ...StyleSheet.absoluteFillObject,
     flex: 1,
-  },
-  policySheetHeader: {
-    borderBottomWidth: 1,
-    paddingTop: 12,
   },
   policyModalContent: {
     flex: 1,

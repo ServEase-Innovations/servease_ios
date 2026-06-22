@@ -34,6 +34,8 @@ import { debounce } from "./utils/debounce";
 import TnC from "./TermsAndConditions/TnC";
 import PrivacyPolicy from "./TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "./TermsAndConditions/KeyFactsStatement";
+import { HomeHeroPageHeader } from "./common/HomeHeroPageHeader";
+import { HOME_M3 } from "./theme/brandColors";
 import providerInstance from "./services/providerInstance";
 import BasicInformation from "./Registration/BasicInformation";
 import AddressComponent from "./Registration/AddressComponent";
@@ -796,7 +798,7 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const renderPolicyContent = () => {
     switch (activePolicy) {
       case 'terms': return <TnC />;
-      case 'privacy': return <PrivacyPolicy />;
+      case 'privacy': return <PrivacyPolicy embedded />;
       case 'keyfacts': return <KeyFactsStatement />;
       default: return null;
     }
@@ -1150,12 +1152,22 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
               </View>
             </ScrollView>
             <Modal visible={policyModalVisible} animationType="slide" transparent={false} onRequestClose={() => setPolicyModalVisible(false)}>
-              <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
-                <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.policyModalHeader}>
-                  <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>{activePolicy === 'terms' ? "Terms and Conditions" : activePolicy === 'privacy' ? "Privacy Policy" : "Key Facts Statement"}</Text>
-                  <TouchableOpacity style={styles.policyModalClose} onPress={() => setPolicyModalVisible(false)}><Icon name="close" size={24} color="#fff" /></TouchableOpacity>
-                </LinearGradient>
-                <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>{renderPolicyContent()}</ScrollView>
+              <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.surface }]}>
+                <HomeHeroPageHeader
+                  title={
+                    activePolicy === 'terms'
+                      ? 'Terms and Conditions'
+                      : activePolicy === 'privacy'
+                        ? 'Privacy Policy'
+                        : 'Key Facts Statement'
+                  }
+                  onBack={() => setPolicyModalVisible(false)}
+                  backIcon="close"
+                  titleFontSize={fontSizes.title}
+                />
+                <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
+                  {renderPolicyContent()}
+                </ScrollView>
               </View>
             </Modal>
             {showDatePicker && <DateTimePicker value={selectedDate || new Date()} mode="date" display={Platform.OS === "ios" ? "spinner" : "default"} onChange={handleDateChange} maximumDate={new Date()} />}
@@ -1213,9 +1225,6 @@ const styles = StyleSheet.create({
   snackbarText: { color: 'white', flex: 1, marginRight: 12, lineHeight: 20 },
   errorText: { marginTop: 4, marginBottom: 8 },
   policyModalContainer: { flex: 1 },
-  policyModalHeader: { paddingTop: Platform.OS === "ios" ? 50 : 20, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  policyModalTitle: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
-  policyModalClose: { position: 'absolute', right: 16, top: Platform.OS === "ios" ? 50 : 20 },
   policyModalContent: { flex: 1, padding: 16 },
 });
 

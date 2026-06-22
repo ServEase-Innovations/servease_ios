@@ -20,6 +20,8 @@ import { TermsCheckboxes } from '../common/TermsCheckboxes';
 import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
+import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
+import { HOME_M3 } from "../theme/brandColors";
 import { CouponDialog, Coupon } from '../Coupons/CouponDialog';
 import { fetchCustomerCoupons, resolveCustomerId } from '../services/couponService';
 import { useAppUser } from '../context/AppUserContext';
@@ -293,7 +295,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
       case 'terms':
         return <TnC />;
       case 'privacy':
-        return <PrivacyPolicy />;
+        return <PrivacyPolicy embedded />;
       case 'keyfacts':
         return <KeyFactsStatement />;
       default:
@@ -672,25 +674,19 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         transparent={false}
         onRequestClose={() => setPolicyModalVisible(false)}
       >
-        <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
-          <LinearGradient
-            colors={["#0b5bd3", "#4f8ff7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.policyModalHeader}
-          >
-            <Text style={[styles.policyModalTitle, { fontSize: fontSizes.title }]}>
-              {activePolicy === 'terms' && 'Terms and Conditions'}
-              {activePolicy === 'privacy' && 'Privacy Policy'}
-              {activePolicy === 'keyfacts' && 'Key Facts Statement'}
-            </Text>
-            <TouchableOpacity
-              style={styles.policyModalClose}
-              onPress={() => setPolicyModalVisible(false)}
-            >
-              <Icon name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-          </LinearGradient>
+        <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.surface }]}>
+          <HomeHeroPageHeader
+            title={
+              activePolicy === 'terms'
+                ? 'Terms and Conditions'
+                : activePolicy === 'privacy'
+                  ? 'Privacy Policy'
+                  : 'Key Facts Statement'
+            }
+            onBack={() => setPolicyModalVisible(false)}
+            backIcon="close"
+            titleFontSize={fontSizes.title}
+          />
           <ScrollView style={styles.policyModalContent}>
             {renderPolicyContent()}
           </ScrollView>
@@ -1330,22 +1326,6 @@ const styles = StyleSheet.create({
   priceValue: {},
   policyModalContainer: {
     flex: 1,
-  },
-  policyModalHeader: {
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  policyModalTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  policyModalClose: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
   },
   policyModalContent: {
     flex: 1,

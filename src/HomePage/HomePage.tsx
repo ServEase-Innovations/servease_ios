@@ -684,9 +684,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
       <ServiceDetailsDialog open={serviceDetailsOpen} onClose={() => setServiceDetailsOpen(false)} serviceType={selectedServiceType} />
 
-      <Modal visible={showAgentRegistration} animationType="slide">
+      {showAgentRegistration && (
         <AgentRegistrationForm onBackToLogin={() => setShowAgentRegistration(false)} />
-      </Modal>
+      )}
 
       {showRegistration && <ServiceProviderRegistration onBackToLogin={() => setShowRegistration(false)} />}
     </View>
