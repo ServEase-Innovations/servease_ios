@@ -23,7 +23,7 @@ import { clearCustomer } from "../features/customerSlice";
 import { clearMobileAuthStorage, tryClearAuth0Session } from "../utils/signOutSession";
 import { logAuth0Error, runAuth0Authorize } from "../utils/auth0Config";
 import Snackbar from "react-native-snackbar";
-import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET, SETTINGS } from "../Constants/pagesConstants";
+import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET, SETTINGS, SP_CALENDAR, SP_EARNINGS } from "../Constants/pagesConstants";
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../Settings/ThemeContext";
@@ -446,13 +446,33 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   if (isMobile) {
     const tabs: MobileTab[] = [];
 
-    if (isServiceProvider) {
-      tabs.push({
-        key: DASHBOARD,
-        label: t("navigation.home"),
-        iconName: "home",
-        onPress: handleHomeButtonClick,
-      });
+    if (isAuthenticated && isServiceProvider) {
+      tabs.push(
+        {
+          key: DASHBOARD,
+          label: t("navigation.dashboard"),
+          iconName: "dashboard",
+          onPress: () => onNavigateToPage(DASHBOARD),
+        },
+        {
+          key: SP_CALENDAR,
+          label: t("navigation.calendar"),
+          iconName: "calendar-month",
+          onPress: () => onNavigateToPage(SP_CALENDAR),
+        },
+        {
+          key: SP_EARNINGS,
+          label: t("navigation.earnings"),
+          iconName: "payments",
+          onPress: () => onNavigateToPage(SP_EARNINGS),
+        },
+        {
+          key: PROFILE,
+          label: t("navigation.profile"),
+          isAccount: true,
+          onPress: () => onNavigateToPage(PROFILE),
+        }
+      );
     } else if (isVendor) {
       tabs.push({
         key: AGENT_DASHBOARD,
@@ -469,7 +489,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       });
     }
 
-    if (isAuthenticated) {
+    if (isAuthenticated && !isServiceProvider) {
       tabs.push({
         key: "ACCOUNT",
         label: t("navigation.account"),
@@ -492,6 +512,15 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         });
       }
 
+      if (isVendor) {
+        tabs.push({
+          key: AGENT_DASHBOARD,
+          label: "Agent",
+          iconName: "business-center",
+          onPress: handleAgentDashboardButtonClick,
+        });
+      }
+
       tabs.push({
         key: "SIGN_OUT",
         label: t("navigation.signOut"),
@@ -500,7 +529,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         disabled: isSigningOut,
         onPress: handleSignOut,
       });
-    } else {
+    } else if (!isAuthenticated) {
       tabs.push({
         key: "ACCOUNT",
         label: t("navigation.signIn"),
@@ -544,7 +573,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
             {tabs.map((tab) => {
               const isActive =
                 tab.variant !== "destructive" &&
-                (activePage === tab.key || (tab.key === "ACCOUNT" && activePage === PROFILE));
+                (activePage === tab.key ||
+                  (tab.key === "ACCOUNT" && activePage === PROFILE));
               const isDisabled = !!tab.disabled;
 
               return (

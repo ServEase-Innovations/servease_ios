@@ -1,24 +1,28 @@
 /* eslint-disable */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
   Dimensions,
   Platform,
+  Linking,
 } from "react-native";
-import { Calendar } from "react-native-calendars";
-import LinearGradient from "react-native-linear-gradient";
+import { Calendar, DateData } from "react-native-calendars";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import moment from "moment";
 import PaymentInstance from "../services/paymentInstance";
-import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
+import { getServiceTitle } from "../common/BookingUtils";
+import { BRAND, HOME_M3 } from "../theme/brandColors";
 
-const { width, height } = Dimensions.get("window");
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CONTENT_HORIZONTAL = 20;
+const CARD_PADDING = 12;
+const CALENDAR_WIDTH = SCREEN_WIDTH - CONTENT_HORIZONTAL * 2 - CARD_PADDING * 2;
+const DAY_CELL_SIZE = Math.floor((CALENDAR_WIDTH - 8) / 7);
 
 interface CalendarEntry {
   id: number;
@@ -33,6 +37,16 @@ interface CalendarEntry {
   slot_end_epoch?: number | null;
   status: string;
 }
+
+const STATUS_COLORS = {
+  BOOKED: { dot: HOME_M3.secondary, bg: "rgba(51,91,175,0.14)", gradient: [HOME_M3.primary, HOME_M3.secondary] as const },
+  QUEUE_STANDBY: { dot: "#14b8a6", bg: "rgba(20,184,166,0.14)", gradient: ["#0f766e", "#14b8a6"] as const },
+  AVAILABLE: { dot: "#10b981", bg: "rgba(16,185,129,0.14)", gradient: ["#10b981", "#059669"] as const },
+  UNAVAILABLE: { dot: "#64748b", bg: "rgba(100,116,139,0.14)", gradient: ["#64748b", "#475569"] as const },
+  VACATION: { dot: "#f59e0b", bg: "rgba(245,158,11,0.14)", gradient: ["#f59e0b", "#d97706"] as const },
+  FREE: { dot: BRAND.bookingSky, bg: "rgba(79,143,247,0.14)", gradient: [BRAND.accent, BRAND.bookingSky] as const },
+  DEFAULT: { dot: BRAND.bookingSky, bg: "rgba(79,143,247,0.14)", gradient: [BRAND.accent, BRAND.bookingSky] as const },
+};
 
 function normalizeTime(value: string | null | undefined): string {
   if (!value) return "00:00";
@@ -112,16 +126,162 @@ interface Event {
   engagement_id?: number;
 }
 
+interface EngagementMeta {
+  customerName: string;
+  serviceType: string;
+  mobileno: string | null;
+}
+
+const AVATAR_COLORS = ["#3b82f6", "#6366f1", "#0ea5e9", "#8b5cf6"];
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return "CU";
+}
+
+function getAccentColor(status: string): string {
+  switch (String(status).toUpperCase()) {
+    case "BOOKED":
+      return HOME_M3.primary;
+    case "QUEUE_STANDBY":
+      return "#14b8a6";
+    case "AVAILABLE":
+      return "#10b981";
+    case "UNAVAILABLE":
+      return "#64748b";
+    case "VACATION":
+      return "#f59e0b";
+    default:
+      return HOME_M3.secondary;
+  }
+}
+
+function findNextAvailableSlot(events: Event[], afterDate: string): Event | null {
+  const after = moment(afterDate, "YYYY-MM-DD").endOf("day");
+  return (
+    events
+      .filter((event) => ["AVAILABLE", "FREE"].includes(event.status))
+      .filter((event) => moment(event.start).isAfter(after))
+      .sort((a, b) => a.start.getTime() - b.start.getTime())[0] ?? null
+  );
+}
+
+function buildEngagementMap(payload: Record<string, unknown>): Record<number, EngagementMeta> {
+  const map: Record<number, EngagementMeta> = {};
+  const buckets = ["current", "upcoming", "past"] as const;
+  buckets.forEach((key) => {
+    const rows = payload[key];
+    if (!Array.isArray(rows)) return;
+    rows.forEach((row: Record<string, unknown>) => {
+      const id = Number(row.engagement_id);
+      if (!Number.isFinite(id) || id < 1) return;
+      const customerName =
+        [row.firstname, row.lastname].filter(Boolean).join(" ").trim() || "Customer";
+      map[id] = {
+        customerName,
+        serviceType: String(row.service_type || row.serviceType || ""),
+        mobileno: row.mobileno ? String(row.mobileno) : null,
+      };
+    });
+  });
+  return map;
+}
+
 interface MarkedDate {
   selected?: boolean;
   marked?: boolean;
-  selectedColor?: string;
   dotColor?: string;
   customStyles?: {
     container?: object;
     text?: object;
   };
 }
+
+function getStatusPalette(status: string) {
+  const key = String(status || "").toUpperCase() as keyof typeof STATUS_COLORS;
+  return STATUS_COLORS[key] ?? STATUS_COLORS.DEFAULT;
+}
+
+const calendarTheme = {
+  backgroundColor: HOME_M3.surfaceContainerLowest,
+  calendarBackground: HOME_M3.surfaceContainerLowest,
+  textSectionTitleColor: HOME_M3.onSurfaceVariant,
+  selectedDayBackgroundColor: HOME_M3.secondary,
+  selectedDayTextColor: HOME_M3.onPrimary,
+  todayTextColor: HOME_M3.secondary,
+  dayTextColor: HOME_M3.onSurface,
+  textDisabledColor: HOME_M3.outlineVariant,
+  dotColor: HOME_M3.secondary,
+  selectedDotColor: HOME_M3.onPrimary,
+  arrowColor: HOME_M3.secondary,
+  monthTextColor: HOME_M3.onSurface,
+  textDayFontWeight: "500" as const,
+  textMonthFontWeight: "700" as const,
+  textDayHeaderFontWeight: "600" as const,
+  textDayFontSize: 15,
+  textMonthFontSize: 0,
+  textDayHeaderFontSize: 12,
+  "stylesheet.calendar.main": {
+    container: {
+      paddingLeft: 0,
+      paddingRight: 0,
+    },
+    week: {
+      marginTop: 2,
+      marginBottom: 2,
+      flexDirection: "row",
+      justifyContent: "flex-start",
+      width: CALENDAR_WIDTH,
+    },
+  },
+  "stylesheet.calendar.header": {
+    header: {
+      height: 0,
+      overflow: "hidden",
+    },
+    week: {
+      marginTop: 4,
+      marginBottom: 8,
+      flexDirection: "row",
+      justifyContent: "flex-start",
+      width: CALENDAR_WIDTH,
+    },
+    dayHeader: {
+      marginTop: 0,
+      marginBottom: 0,
+      width: DAY_CELL_SIZE,
+      textAlign: "center",
+      fontSize: 12,
+      fontWeight: "600",
+      color: HOME_M3.onSurfaceVariant,
+    },
+  },
+  "stylesheet.day.basic": {
+    base: {
+      width: DAY_CELL_SIZE,
+      height: DAY_CELL_SIZE,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    text: {
+      marginTop: Platform.OS === "ios" ? 4 : 2,
+      fontSize: 15,
+      fontWeight: "500",
+      color: HOME_M3.onSurface,
+      textAlign: "center",
+    },
+  },
+  "stylesheet.day.period": {
+    base: {
+      width: DAY_CELL_SIZE,
+      height: DAY_CELL_SIZE,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+  },
+};
 
 export default function ProviderCalendarBig({
   providerId,
@@ -133,10 +293,9 @@ export default function ProviderCalendarBig({
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(
-    moment().format("YYYY-MM-DD")
-  );
-  const [markedDates, setMarkedDates] = useState({});
+  const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
+  const [markedDates, setMarkedDates] = useState<Record<string, MarkedDate>>({});
+  const [engagementMap, setEngagementMap] = useState<Record<number, EngagementMeta>>({});
 
   useEffect(() => {
     const fetchCalendar = async () => {
@@ -153,7 +312,7 @@ export default function ProviderCalendarBig({
           .filter((event): event is Event => event != null);
 
         setEvents(evts);
-        updateMarkedDates(evts);
+        updateMarkedDates(evts, selectedDate);
       } catch (err) {
         console.error("Error fetching calendar", err);
         Alert.alert("Error", "Failed to load calendar data");
@@ -162,87 +321,113 @@ export default function ProviderCalendarBig({
       }
     };
 
-    fetchCalendar();
+    void fetchCalendar();
+  }, [providerId, currentDate, refreshToken]);
+
+  useEffect(() => {
+    const month = moment(currentDate).format("YYYY-MM");
+    let cancelled = false;
+    PaymentInstance.get(`/api/service-providers/${providerId}/engagements?month=${month}`)
+      .then((res) => {
+        if (cancelled) return;
+        setEngagementMap(buildEngagementMap(res.data ?? {}));
+      })
+      .catch(() => {
+        if (!cancelled) setEngagementMap({});
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [providerId, currentDate, refreshToken]);
 
   useEffect(() => {
     if (events.length > 0) {
-      updateMarkedDates(events);
+      updateMarkedDates(events, selectedDate);
     }
-  }, [selectedDate]);
+  }, [selectedDate, events]);
 
-  const updateMarkedDates = (evts: Event[]) => {
-    const marked: { [key: string]: MarkedDate } = {};
+  const updateMarkedDates = (evts: Event[], activeDate: string) => {
+    const marked: Record<string, MarkedDate> = {};
+    const priority: Record<string, number> = {
+      BOOKED: 5,
+      QUEUE_STANDBY: 4,
+      VACATION: 3,
+      UNAVAILABLE: 2,
+      AVAILABLE: 1,
+      FREE: 0,
+    };
 
     evts.forEach((event) => {
       const dateKey = moment(event.start).format("YYYY-MM-DD");
-      
-      let dotColor = "#3b82f6"; // default blue
-      let backgroundColor = "rgba(59,130,246,0.1)";
-      if (event.status === "BOOKED") {
-        dotColor = "#8b5cf6"; // purple for booked
-        backgroundColor = "rgba(139,92,246,0.1)";
-      } else if (event.status === "QUEUE_STANDBY") {
-        dotColor = "#14b8a6"; // teal for backup queue
-        backgroundColor = "rgba(20,184,166,0.12)";
-      } else if (event.status === "AVAILABLE") {
-        dotColor = "#10b981"; // green for available
-        backgroundColor = "rgba(16,185,129,0.1)";
-      } else if (event.status === "UNAVAILABLE") {
-        dotColor = "#64748b"; // slate gray for unavailable
-        backgroundColor = "rgba(100,116,139,0.1)";
-      } else if (event.status === "VACATION") {
-        dotColor = "#f59e0b";
-        backgroundColor = "rgba(245,158,11,0.12)";
-      } else if (event.status === "FREE") {
-        dotColor = "#3b82f6";
-        backgroundColor = "rgba(59,130,246,0.1)";
-      }
+      const palette = getStatusPalette(event.status);
+      const existing = marked[dateKey];
 
-      if (marked[dateKey]) {
-        const existing = marked[dateKey];
-        if (event.status === "BOOKED" || existing.dotColor === "#8b5cf6") {
-          marked[dateKey].dotColor = "#5660ee";
-          marked[dateKey].selectedColor = "#122475";
-        } else if (event.status === "QUEUE_STANDBY" || existing.dotColor === "#14b8a6") {
-          marked[dateKey].dotColor = "#14b8a6";
-          marked[dateKey].selectedColor = "#0f766e";
-        } else if (event.status === "AVAILABLE" || existing.dotColor === "#10b981") {
-          marked[dateKey].dotColor = "#10b981";
-          marked[dateKey].selectedColor = "#10b981";
-        }
-      } else {
+      if (!existing) {
         marked[dateKey] = {
           marked: true,
-          dotColor,
-          selectedColor: dotColor,
+          dotColor: palette.dot,
           customStyles: {
             container: {
-              backgroundColor: dateKey === selectedDate ? backgroundColor : "transparent",
-              borderRadius: 8,
+              backgroundColor: "transparent",
+              borderRadius: DAY_CELL_SIZE / 2,
+              width: DAY_CELL_SIZE,
+              height: DAY_CELL_SIZE,
+              alignItems: "center",
+              justifyContent: "center",
             },
           },
+        };
+        return;
+      }
+
+      const existingPriority = priority[
+        Object.keys(STATUS_COLORS).find((k) => STATUS_COLORS[k as keyof typeof STATUS_COLORS].dot === existing.dotColor) ?? "DEFAULT"
+      ] ?? 0;
+      const nextPriority = priority[event.status] ?? 0;
+      if (nextPriority >= existingPriority) {
+        marked[dateKey] = {
+          ...existing,
+          dotColor: palette.dot,
         };
       }
     });
 
-    // Add selected date styling
-    if (marked[selectedDate]) {
-      marked[selectedDate].selected = true;
-      marked[selectedDate].customStyles = {
+    Object.keys(marked).forEach((dateKey) => {
+      marked[dateKey].customStyles = {
         container: {
-          backgroundColor: "rgba(59,130,246,0.15)",
-          borderRadius: 8,
+          backgroundColor:
+            dateKey === activeDate ? "rgba(51,91,175,0.16)" : "transparent",
+          borderRadius: DAY_CELL_SIZE / 2,
+          width: DAY_CELL_SIZE,
+          height: DAY_CELL_SIZE,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        text: {
+          color: dateKey === activeDate ? HOME_M3.secondary : HOME_M3.onSurface,
+          fontWeight: dateKey === activeDate ? "700" : "500",
         },
       };
-    } else {
-      marked[selectedDate] = {
+      if (dateKey === activeDate) {
+        marked[dateKey].selected = true;
+      }
+    });
+
+    if (!marked[activeDate]) {
+      marked[activeDate] = {
         selected: true,
-        selectedColor: "#3b82f6",
         customStyles: {
           container: {
-            backgroundColor: "rgba(59,130,246,0.15)",
-            borderRadius: 8,
+            backgroundColor: "rgba(51,91,175,0.16)",
+            borderRadius: DAY_CELL_SIZE / 2,
+            width: DAY_CELL_SIZE,
+            height: DAY_CELL_SIZE,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          text: {
+            color: HOME_M3.secondary,
+            fontWeight: "700",
           },
         },
       };
@@ -251,20 +436,44 @@ export default function ProviderCalendarBig({
     setMarkedDates(marked);
   };
 
-  const getEventsForSelectedDate = () => {
-    return events.filter((event) => {
-      const eventDate = moment(event.start).format("YYYY-MM-DD");
-      return eventDate === selectedDate;
+  const dailyEvents = useMemo(
+    () =>
+      events
+        .filter((event) => moment(event.start).format("YYYY-MM-DD") === selectedDate)
+        .sort((a, b) => a.start.getTime() - b.start.getTime()),
+    [events, selectedDate]
+  );
+
+  const bookedDayCount = useMemo(
+    () =>
+      dailyEvents.filter((event) =>
+        ["BOOKED", "QUEUE_STANDBY", "VACATION"].includes(event.status)
+      ).length,
+    [dailyEvents]
+  );
+
+  const nextAvailableSlot = useMemo(
+    () => findNextAvailableSlot(events, selectedDate),
+    [events, selectedDate]
+  );
+
+  const handleChatPress = (mobileno: string | null | undefined) => {
+    if (!mobileno) {
+      Alert.alert("Contact unavailable", "No phone number is available for this customer.");
+      return;
+    }
+    const url = Platform.OS === "ios" ? `sms:${mobileno}` : `sms:${mobileno}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert("Unable to open messages", "Please contact the customer from your phone app.");
     });
   };
 
-  const handleDateSelect = (date: { dateString: string }) => {
+  const handleDateSelect = (date: DateData) => {
     setSelectedDate(date.dateString);
   };
 
-  const handleMonthChange = (month: { dateString: string }) => {
-    const newDate = moment(month.dateString, "YYYY-MM-DD").toDate();
-    setCurrentDate(newDate);
+  const handleMonthChange = (month: DateData) => {
+    setCurrentDate(moment(month.dateString, "YYYY-MM-DD").toDate());
   };
 
   const shiftMonth = (delta: number) => {
@@ -283,299 +492,251 @@ export default function ProviderCalendarBig({
       event.status === "BOOKED"
         ? `This time slot is BOOKED\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
         : event.status === "QUEUE_STANDBY"
-        ? `You are backup in the queue for this booking\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
-        : event.status === "VACATION"
-        ? `Customer vacation for this booking\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
-        : event.status === "FREE"
-        ? `This time slot is FREE\nTime: ${timeRange}`
-        : event.status === "AVAILABLE"
-        ? `This time slot is AVAILABLE\nTime: ${timeRange}\nYou can book this slot.`
-        : `This time slot is UNAVAILABLE\nTime: ${timeRange}\nPlease select another time.`;
-    
+          ? `You are backup in the queue for this booking\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
+          : event.status === "VACATION"
+            ? `Customer vacation for this booking\nEngagement #${event.engagement_id}\nTime: ${timeRange}`
+            : event.status === "FREE"
+              ? `This time slot is FREE\nTime: ${timeRange}`
+              : event.status === "AVAILABLE"
+                ? `This time slot is AVAILABLE\nTime: ${timeRange}\nYou can book this slot.`
+                : `This time slot is UNAVAILABLE\nTime: ${timeRange}\nPlease select another time.`;
+
     Alert.alert(
       event.status === "BOOKED"
         ? "Booked Slot"
         : event.status === "QUEUE_STANDBY"
-        ? "Backup queue"
-        : event.status === "VACATION"
-        ? "Vacation"
-        : event.status === "FREE"
-        ? "Free slot"
-        : event.status === "AVAILABLE"
-        ? "Available Slot"
-        : "Unavailable Slot",
+          ? "Backup queue"
+          : event.status === "VACATION"
+            ? "Vacation"
+            : event.status === "FREE"
+              ? "Free slot"
+              : event.status === "AVAILABLE"
+                ? "Available Slot"
+                : "Unavailable Slot",
       message,
       [{ text: "OK", style: "default" }]
     );
   };
 
-  const getStatusColor = (status: string): { bg: string; text: string; icon: string; gradientStart: string; gradientEnd: string } => {
-    switch (status) {
-      case "BOOKED":
-        return { 
-          bg: "#717fff", 
-          text: "#ffffff", 
-          icon: "calendar-clock",
-          gradientStart: "#00115c",
-          gradientEnd: "#5f8aff"
-        };
-      case "QUEUE_STANDBY":
-        return {
-          bg: "#14b8a6",
-          text: "#ffffff",
-          icon: "account-clock",
-          gradientStart: "#0f766e",
-          gradientEnd: "#14b8a6",
-        };
-      case "AVAILABLE":
-        return { 
-          bg: "#10b981", 
-          text: "#ffffff", 
-          icon: "calendar-check",
-          gradientStart: "#10b981",
-          gradientEnd: "#059669"
-        };
-      case "UNAVAILABLE":
-        return { 
-          bg: "#64748b", 
-          text: "#ffffff", 
-          icon: "calendar-remove",
-          gradientStart: "#64748b",
-          gradientEnd: "#475569"
-        };
-      case "VACATION":
-        return {
-          bg: "#f59e0b",
-          text: "#ffffff",
-          icon: "beach",
-          gradientStart: "#f59e0b",
-          gradientEnd: "#d97706",
-        };
-      case "FREE":
-        return {
-          bg: "#3b82f6",
-          text: "#ffffff",
-          icon: "calendar-blank",
-          gradientStart: "#3b82f6",
-          gradientEnd: "#2563eb",
-        };
-      default:
-        return { 
-          bg: "#3b82f6", 
-          text: "#ffffff", 
-          icon: "calendar",
-          gradientStart: "#3b82f6",
-          gradientEnd: "#2563eb"
-        };
-    }
-  };
-
-  const formatTime = (date: Date) => {
-    return moment(date).format("h:mm A");
-  };
+  const formatTime = (date: Date) => moment(date).format("h:mm A");
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "BOOKED": return "Booked";
-      case "QUEUE_STANDBY": return "Backup queue";
-      case "AVAILABLE": return "Available";
-      case "UNAVAILABLE": return "Unavailable";
-      case "VACATION": return "Vacation";
-      case "FREE": return "Free";
-      default: return status;
+      case "BOOKED":
+        return "Booked";
+      case "QUEUE_STANDBY":
+        return "Backup queue";
+      case "AVAILABLE":
+        return "Available";
+      case "UNAVAILABLE":
+        return "Unavailable";
+      case "VACATION":
+        return "Vacation";
+      case "FREE":
+        return "Free";
+      default:
+        return status;
     }
   };
 
   const monthLabel = moment(currentDate).format("MMMM YYYY");
-  const dailyEvents = getEventsForSelectedDate();
 
   return (
     <View style={styles.container}>
-      {/* Calendar Header with Gradient */}
-      <LinearGradient
-        colors={[...BOOKING_HEADER_GRADIENT]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.calendarHeader}
-      >
-        <View style={styles.headerContent}>
-          <Icon name="calendar-month" size={22} color="#ffffff" />
-          <Text style={styles.headerTitle}>Service Calendar</Text>
-        </View>
-        <Text style={styles.headerSubtitle}>
-          View your schedule and availability
-        </Text>
+      <View style={styles.monthNavCard}>
+        <TouchableOpacity
+          style={styles.monthNavButton}
+          onPress={() => shiftMonth(-1)}
+          accessibilityLabel="Previous month"
+        >
+          <Icon name="chevron-left" size={22} color={HOME_M3.secondary} />
+        </TouchableOpacity>
 
-        <View style={styles.monthNavRow}>
-          <TouchableOpacity
-            style={styles.monthNavButton}
-            onPress={() => shiftMonth(-1)}
-            accessibilityLabel="Previous month"
-          >
-            <Icon name="chevron-left" size={24} color="#ffffff" />
-          </TouchableOpacity>
-
-          <View style={styles.monthNavCenter}>
-            <Text style={styles.monthNavLabel}>{monthLabel}</Text>
-            <TouchableOpacity onPress={goToToday}>
-              <Text style={styles.todayLink}>Today</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.monthNavButton}
-            onPress={() => shiftMonth(1)}
-            accessibilityLabel="Next month"
-          >
-            <Icon name="chevron-right" size={24} color="#ffffff" />
+        <View style={styles.monthNavCenter}>
+          <Text style={styles.monthNavLabel}>{monthLabel}</Text>
+          <TouchableOpacity onPress={goToToday} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.todayLink}>Today</Text>
           </TouchableOpacity>
         </View>
-      </LinearGradient>
 
-      {loading ? (
-        <View style={styles.inlineLoading}>
-          <ActivityIndicator size="small" color="#3b82f6" />
-          <Text style={styles.inlineLoadingText}>Loading {monthLabel}...</Text>
-        </View>
-      ) : null}
-
-      <Calendar
-        key={monthLabel}
-        current={moment(currentDate).format("YYYY-MM-DD")}
-        onDayPress={handleDateSelect}
-        onMonthChange={handleMonthChange}
-        markedDates={markedDates}
-        markingType="custom"
-        hideArrows
-        hideExtraDays
-        enableSwipeMonths
-        renderHeader={() => <View style={styles.hiddenCalendarHeader} />}
-        theme={{
-          selectedDayBackgroundColor: "#3b82f6",
-          todayTextColor: "#3b82f6",
-          arrowColor: "#3b82f6",
-          monthTextColor: "#1e293b",
-          textMonthFontWeight: "700",
-          textMonthFontSize: 16,
-          textDayHeaderFontWeight: "600",
-          textDayHeaderFontSize: 13,
-          textDayFontSize: 14,
-        }}
-        style={styles.calendar}
-      />
-
-      {/* Legend */}
-      <View style={styles.legendContainer}>
-        <View style={styles.legendItem}>
-          <LinearGradient colors={["#10b981", "#059669"]} style={styles.legendDot} />
-          <Text style={styles.legendText}>Available</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <LinearGradient colors={["#8b5cf6", "#7c3aed"]} style={styles.legendDot} />
-          <Text style={styles.legendText}>Booked</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <LinearGradient colors={["#14b8a6", "#0f766e"]} style={styles.legendDot} />
-          <Text style={styles.legendText}>Backup queue</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <LinearGradient colors={["#64748b", "#475569"]} style={styles.legendDot} />
-          <Text style={styles.legendText}>Unavailable</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.monthNavButton}
+          onPress={() => shiftMonth(1)}
+          accessibilityLabel="Next month"
+        >
+          <Icon name="chevron-right" size={22} color={HOME_M3.secondary} />
+        </TouchableOpacity>
       </View>
-      
-      {/* Events List */}
-      <View style={styles.eventsContainer}>
+
+      <View style={styles.calendarCard}>
+        {loading ? (
+          <View style={styles.inlineLoading}>
+            <ActivityIndicator size="small" color={HOME_M3.secondary} />
+            <Text style={styles.inlineLoadingText}>Loading {monthLabel}...</Text>
+          </View>
+        ) : null}
+
+        <Calendar
+          key={monthLabel}
+          current={moment(currentDate).format("YYYY-MM-DD")}
+          calendarWidth={CALENDAR_WIDTH}
+          onDayPress={handleDateSelect}
+          onMonthChange={handleMonthChange}
+          markedDates={markedDates}
+          markingType="custom"
+          hideArrows
+          hideExtraDays
+          enableSwipeMonths
+          renderHeader={() => <View style={styles.hiddenCalendarHeader} />}
+          theme={calendarTheme}
+          style={styles.calendar}
+        />
+      </View>
+
+      <View style={styles.legendCard}>
+        {(
+          [
+            { key: "AVAILABLE", label: "Available" },
+            { key: "BOOKED", label: "Booked" },
+            { key: "QUEUE_STANDBY", label: "Backup queue" },
+            { key: "UNAVAILABLE", label: "Unavailable" },
+          ] as const
+        ).map((item) => {
+          const palette = getStatusPalette(item.key);
+          return (
+            <View key={item.key} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: palette.dot }]} />
+              <Text style={styles.legendText}>{item.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+
+      <View style={styles.eventsSection}>
         <View style={styles.eventsHeader}>
-          <LinearGradient colors={["#3b82f6", "#2563eb"]} style={styles.eventsHeaderIcon}>
-            <Icon name="clock-outline" size={18} color="#ffffff" />
-          </LinearGradient>
           <Text style={styles.eventsTitle}>
             {moment(selectedDate).format("MMMM D, YYYY")}
           </Text>
-        </View>
-        
-        <ScrollView 
-          style={styles.eventsList}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.eventsListContent}
-        >
-          {dailyEvents.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Icon name="calendar-blank" size={48} color="#cbd5e1" />
-              <Text style={styles.noEvents}>No events scheduled</Text>
-              <Text style={styles.noEventsSubtext}>
-                This date has no time slots configured
+          {bookedDayCount > 0 ? (
+            <View style={styles.bookingBadge}>
+              <Text style={styles.bookingBadgeText}>
+                {bookedDayCount} Booking{bookedDayCount !== 1 ? "s" : ""}
               </Text>
             </View>
-          ) : (
-            dailyEvents.map((event) => {
-              const statusColors = getStatusColor(event.status);
-              return (
-                <TouchableOpacity
-                  key={event.id}
-                  onPress={() => handleEventPress(event)}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient
-                    colors={[statusColors.gradientStart, statusColors.gradientEnd]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.eventItem}
-                  >
-                    <View style={styles.eventTimeContainer}>
-                      <Icon name="clock-outline" size={14} color="rgba(255,255,255,0.85)" />
-                      <Text style={styles.eventTime}>
+          ) : dailyEvents.length > 0 ? (
+            <View style={styles.bookingBadgeMuted}>
+              <Text style={styles.bookingBadgeMutedText}>
+                {dailyEvents.length} slot{dailyEvents.length !== 1 ? "s" : ""}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {dailyEvents.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Icon name="calendar-blank-outline" size={40} color={HOME_M3.outlineVariant} />
+            <Text style={styles.noEvents}>No events scheduled</Text>
+            <Text style={styles.noEventsSubtext}>Pick another date or check your availability</Text>
+          </View>
+        ) : (
+          dailyEvents.map((event, index) => {
+            const meta =
+              event.engagement_id != null ? engagementMap[event.engagement_id] : undefined;
+            const isBookingSlot = ["BOOKED", "QUEUE_STANDBY", "VACATION"].includes(event.status);
+            const serviceTitle = meta?.serviceType
+              ? getServiceTitle(meta.serviceType)
+              : getStatusLabel(event.status);
+            const customerName = meta?.customerName ?? "Customer";
+            const bookingRef =
+              event.engagement_id != null
+                ? `${getStatusLabel(event.status)} #${event.engagement_id}`
+                : getStatusLabel(event.status);
+
+            return (
+              <View key={event.id} style={styles.slotCard}>
+                <View
+                  style={[styles.slotAccent, { backgroundColor: getAccentColor(event.status) }]}
+                />
+                <View style={styles.slotBody}>
+                  <View style={styles.slotTopRow}>
+                    <View style={styles.slotTopText}>
+                      <Text style={styles.slotTime}>
                         {formatTime(event.start)} - {formatTime(event.end)}
                       </Text>
+                      <Text style={styles.slotServiceTitle}>{serviceTitle}</Text>
+                      <Text style={styles.slotBookingRef}>{bookingRef}</Text>
                     </View>
-                    <View style={styles.eventInfo}>
-                      <View style={styles.eventIconContainer}>
-                        <Icon name={statusColors.icon} size={20} color="#ffffff" />
-                      </View>
-                      <View style={styles.eventDetails}>
-                        <Text style={styles.eventTitle}>{event.title}</Text>
-                        <View style={styles.eventStatusBadge}>
-                          <Text style={styles.eventStatus}>
-                            {getStatusLabel(event.status)}
-                          </Text>
-                        </View>
-                      </View>
-                      <Icon name="chevron-right" size={20} color="rgba(255,255,255,0.6)" />
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </ScrollView>
-      </View>
+                    <TouchableOpacity
+                      style={styles.slotCalendarBtn}
+                      onPress={() => handleEventPress(event)}
+                      accessibilityLabel="Slot details"
+                    >
+                      <Icon name="calendar-check" size={18} color={HOME_M3.secondary} />
+                    </TouchableOpacity>
+                  </View>
 
-      {/* Status Summary */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryItem}>
-          <LinearGradient colors={["#10b981", "#059669"]} style={styles.summaryDot} />
-          <Text style={styles.summaryLabel}>Available</Text>
-          <Text style={styles.summaryCount}>
-            {events.filter(e => e.status === "AVAILABLE").length}
-          </Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <LinearGradient colors={["#8b5cf6", "#7c3aed"]} style={styles.summaryDot} />
-          <Text style={styles.summaryLabel}>Booked</Text>
-          <Text style={styles.summaryCount}>
-            {events.filter(e => e.status === "BOOKED").length}
-          </Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <LinearGradient colors={["#64748b", "#475569"]} style={styles.summaryDot} />
-          <Text style={styles.summaryLabel}>Unavailable</Text>
-          <Text style={styles.summaryCount}>
-            {events.filter(e => e.status === "UNAVAILABLE").length}
-          </Text>
-        </View>
+                  {isBookingSlot ? (
+                    <View style={styles.slotCustomerRow}>
+                      <View
+                        style={[
+                          styles.slotAvatar,
+                          { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                        ]}
+                      >
+                        <Text style={styles.slotAvatarText}>{getInitials(customerName)}</Text>
+                      </View>
+                      <View style={styles.slotCustomerInfo}>
+                        <Text style={styles.slotCustomerName}>{customerName}</Text>
+                        {meta?.mobileno ? (
+                          <Text style={styles.slotCustomerMeta}>{meta.mobileno}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.slotActions}>
+                    <TouchableOpacity
+                      style={styles.slotDetailsBtn}
+                      onPress={() => handleEventPress(event)}
+                      activeOpacity={0.9}
+                    >
+                      <Text style={styles.slotDetailsText}>View Details</Text>
+                      <Icon name="chevron-right" size={18} color="#ffffff" />
+                    </TouchableOpacity>
+                    {isBookingSlot ? (
+                      <TouchableOpacity
+                        style={styles.slotChatBtn}
+                        onPress={() => handleChatPress(meta?.mobileno)}
+                        accessibilityLabel="Message customer"
+                      >
+                        <Icon name="message-outline" size={20} color={HOME_M3.secondary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            );
+          })
+        )}
+
+        {nextAvailableSlot ? (
+          <View style={styles.nextSlotBanner}>
+            <View style={styles.nextSlotIconWrap}>
+              <Icon name="lightbulb-on-outline" size={18} color="#ffffff" />
+            </View>
+            <View style={styles.nextSlotTextWrap}>
+              <Text style={styles.nextSlotTitle}>Next available slot</Text>
+              <Text style={styles.nextSlotSubtitle}>
+                {moment(nextAvailableSlot.start).calendar(null, {
+                  sameDay: "[Today at] h:mm A",
+                  nextDay: "[Tomorrow,] MMMM D [at] h:mm A",
+                  nextWeek: "dddd, MMMM D [at] h:mm A",
+                  sameElse: "MMMM D, YYYY [at] h:mm A",
+                })}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -583,85 +744,67 @@ export default function ProviderCalendarBig({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
+    width: "100%",
+    paddingBottom: 8,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8fafc",
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: "#64748b",
-  },
-  calendarHeader: {
-    paddingTop: Platform.OS === "ios" ? 12 : 12,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.85)",
-  },
-  monthNavRow: {
+  monthNavCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.15)",
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    marginBottom: 12,
   },
   monthNavButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: HOME_M3.surfaceContainerLow,
   },
   monthNavCenter: {
     flex: 1,
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   monthNavLabel: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#ffffff",
+    color: HOME_M3.onSurface,
+    letterSpacing: -0.2,
   },
   todayLink: {
-    marginTop: 4,
+    marginTop: 2,
     fontSize: 12,
     fontWeight: "600",
-    color: "rgba(255,255,255,0.9)",
-    textDecorationLine: "underline",
+    color: HOME_M3.secondary,
+  },
+  calendarCard: {
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    paddingVertical: CARD_PADDING,
+    paddingHorizontal: CARD_PADDING,
+    marginBottom: 12,
+    alignItems: "center",
+    overflow: "hidden",
   },
   inlineLoading: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 10,
-    marginHorizontal: 12,
+    paddingBottom: 8,
   },
   inlineLoadingText: {
     fontSize: 13,
-    color: "#64748b",
+    color: HOME_M3.onSurfaceVariant,
     fontWeight: "500",
   },
   hiddenCalendarHeader: {
@@ -669,189 +812,252 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   calendar: {
-    backgroundColor: "#ffffff",
-    marginHorizontal: 12,
-    marginTop: 16,
-    marginBottom: 8,
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    width: CALENDAR_WIDTH,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
   },
-  legendContainer: {
+  legendCard: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "center",
-    gap: 20,
+    gap: 10,
+    rowGap: 8,
     paddingVertical: 12,
-    marginHorizontal: 12,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    paddingHorizontal: 12,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    marginBottom: 16,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    minWidth: "42%",
+    justifyContent: "center",
   },
   legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendText: {
-    fontSize: 12,
-    color: "#475569",
-    fontWeight: "500",
-  },
-  eventsContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  eventsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 16,
-  },
-  eventsHeaderIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  eventsTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1e293b",
-  },
-  eventsList: {
-    flex: 1,
-  },
-  eventsListContent: {
-    paddingBottom: 20,
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 48,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  noEvents: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#64748b",
-    marginTop: 16,
-    marginBottom: 4,
-  },
-  noEventsSubtext: {
-    fontSize: 13,
-    color: "#94a3b8",
-    textAlign: "center",
-  },
-  eventItem: {
-    marginBottom: 12,
-    borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    padding: 14,
-  },
-  eventTimeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 8,
-  },
-  eventTime: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.85)",
-    fontWeight: "500",
-  },
-  eventInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  eventIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  eventDetails: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  eventTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  eventStatusBadge: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-  },
-  eventStatus: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.9)",
-    textTransform: "uppercase",
-    fontWeight: "600",
-  },
-  summaryContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#ffffff",
-    borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
-  },
-  summaryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  summaryDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  summaryLabel: {
+  legendText: {
     fontSize: 12,
-    color: "#64748b",
+    color: HOME_M3.onSurfaceVariant,
+    fontWeight: "600",
+  },
+  eventsSection: {
+    marginBottom: 16,
+  },
+  eventsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+    gap: 12,
+  },
+  eventsTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "800",
+    color: HOME_M3.onSurface,
+    letterSpacing: -0.3,
+  },
+  bookingBadge: {
+    backgroundColor: HOME_M3.secondary,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  bookingBadgeText: {
+    color: HOME_M3.onPrimary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  bookingBadgeMuted: {
+    backgroundColor: HOME_M3.surfaceContainerLow,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  bookingBadgeMutedText: {
+    color: HOME_M3.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+  },
+  noEvents: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: HOME_M3.onSurfaceVariant,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  noEventsSubtext: {
+    fontSize: 13,
+    color: HOME_M3.outline,
+    textAlign: "center",
+  },
+  slotCard: {
+    flexDirection: "row",
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    marginBottom: 14,
+    overflow: "hidden",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  slotAccent: {
+    width: 5,
+  },
+  slotBody: {
+    flex: 1,
+    padding: 14,
+  },
+  slotTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  slotTopText: {
+    flex: 1,
+  },
+  slotTime: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: HOME_M3.secondary,
+    marginBottom: 4,
+  },
+  slotServiceTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: HOME_M3.onSurface,
+    letterSpacing: -0.3,
+    marginBottom: 2,
+  },
+  slotBookingRef: {
+    fontSize: 13,
+    color: HOME_M3.onSurfaceVariant,
     fontWeight: "500",
   },
-  summaryCount: {
+  slotCalendarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: HOME_M3.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+  },
+  slotCustomerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
+    paddingTop: 2,
+  },
+  slotAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  slotAvatarText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  slotCustomerInfo: {
+    flex: 1,
+  },
+  slotCustomerName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: HOME_M3.onSurface,
+    marginBottom: 2,
+  },
+  slotCustomerMeta: {
+    fontSize: 12,
+    color: HOME_M3.onSurfaceVariant,
+  },
+  slotActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  slotDetailsBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: HOME_M3.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    paddingHorizontal: 16,
+  },
+  slotDetailsText: {
+    color: "#ffffff",
     fontSize: 14,
     fontWeight: "700",
-    color: "#1e293b",
   },
-  summaryDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: "#e2e8f0",
+  slotChatBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderWidth: 1.5,
+    borderColor: HOME_M3.secondary,
+  },
+  nextSlotBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: HOME_M3.secondaryFixed,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 4,
+  },
+  nextSlotIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: HOME_M3.secondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nextSlotTextWrap: {
+    flex: 1,
+  },
+  nextSlotTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: HOME_M3.onSurface,
+    marginBottom: 2,
+  },
+  nextSlotSubtitle: {
+    fontSize: 13,
+    color: HOME_M3.onSurfaceVariant,
+    lineHeight: 18,
   },
 });

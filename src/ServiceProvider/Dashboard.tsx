@@ -7,21 +7,16 @@ import {
   ScrollView, 
   TouchableOpacity, 
   Alert, 
-  ActivityIndicator, 
   RefreshControl,
-  SafeAreaView,
   Modal,
   Linking,
-  Image,
   BackHandler,
   Platform,
   Animated,
-  Dimensions,
   StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import { DashboardMetricCard, METRIC_CARD_WIDTH } from './DashboardMetricCard';
 import TodayVisitsCard, { TodayBookingSlot } from './TodayVisitsCard';
 import { useAuth0 } from 'react-native-auth0';
 import { AllBookingsDialog } from './AllBookingsDialog';
@@ -29,16 +24,14 @@ import { getServiceTitle } from '../common/BookingUtils';
 import { ReviewsDialog } from './ReviewDialog';
 import axios, { AxiosResponse } from 'axios';
 import PaymentInstance from '../services/paymentInstance';
+import providerInstance from '../services/providerInstance';
 import { useAppUser } from '../context/AppUserContext';
-import { useTheme } from '../Settings/ThemeContext';
-import { BRAND, GRADIENTS, PRIMARY_BUTTON_GRADIENT } from '../theme/brandColors';
-import ProviderCalendarBig from './ProviderCalendarBig';
+import { BRAND, HOME_HERO_GRADIENT, HOME_M3 } from '../theme/brandColors';
+import HomeHeroChrome from '../HomePage/HomeHeroChrome';
 import { OtpVerificationDialog } from './OtpVerificationDialog';
 import WithdrawalDialog from './WithdrawalDialog';
 import { WithdrawalHistoryDialog } from './WithdrawalHistoryDialog';
 import TrackAddress from './TrackAddress';
-
-const { width, height } = Dimensions.get('window');
 
 // Types for API response
 interface CustomerHoliday {
@@ -170,208 +163,49 @@ const getCurrentMonthYear = () => {
   return `${year}-${month}`;
 };
 
-// Modern Card Component
-const Card = ({ style, children, gradient = false }: { style?: any; children: React.ReactNode; gradient?: boolean }) => {
-  if (gradient) {
-    return (
-      <LinearGradient
-        colors={['#ffffff', '#f8fafc']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[
-          {
-            borderRadius: 20,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.08,
-            shadowRadius: 12,
-            elevation: 4,
-            marginBottom: 16,
-          },
-          style,
-        ]}
-      >
-        {children}
-      </LinearGradient>
-    );
-  }
-  
-  return (
-    <View
-      style={[
-        {
-          backgroundColor: '#FFFFFF',
-          borderRadius: 20,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.06,
-          shadowRadius: 10,
-          elevation: 3,
-          marginBottom: 16,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
-};
-
-// Modern Badge Component
-const Badge = ({ 
-  variant = 'default', 
-  style, 
-  children 
-}: { 
-  variant?: 'default' | 'secondary' | 'destructive' | 'success' | 'primary' | 'outline' | 'warning';
-  style?: any;
-  children: React.ReactNode;
-}) => {
-  const getVariantStyle = () => {
-    switch (variant) {
-      case 'secondary':
-        return {
-          backgroundColor: 'rgba(59, 130, 246, 0.12)',
-        };
-      case 'destructive':
-        return {
-          backgroundColor: 'rgba(239, 68, 68, 0.12)',
-        };
-      case 'success':
-        return {
-          backgroundColor: '#10b981',
-        };
-      case 'primary':
-        return {
-          backgroundColor: '#3b82f6',
-        };
-      case 'warning':
-        return {
-          backgroundColor: '#f59e0b',
-        };
-      case 'outline':
-        return {
-          backgroundColor: 'transparent',
-          borderWidth: 1,
-          borderColor: '#cbd5e1',
-        };
-      default:
-        return {
-          backgroundColor: '#f1f5f9',
-        };
-    }
-  };
-
-  const getTextColor = () => {
-    switch (variant) {
-      case 'success':
-      case 'primary':
-      case 'warning':
-        return '#ffffff';
-      case 'destructive':
-        return '#dc2626';
-      case 'outline':
-        return '#475569';
-      default:
-        return '#1e293b';
-    }
-  };
-
-  return (
-    <View
-      style={[
-        {
-          borderRadius: 10,
-          paddingHorizontal: 10,
-          paddingVertical: 5,
-          alignSelf: 'flex-start',
-        },
-        getVariantStyle(),
-        style,
-      ]}
-    >
-      {typeof children === 'string' ? (
-        <Text
-          style={{
-            fontSize: 11,
-            fontWeight: '600',
-            color: getTextColor(),
-          }}
-        >
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
-    </View>
-  );
-};
-
-// Modern Quick Action Row
 function QuickActionRow({
   icon,
   iconBg,
   label,
   subtitle,
   onPress,
+  isLast = false,
 }: {
   icon: React.ReactNode;
   iconBg: string;
   label: string;
   subtitle?: string;
   onPress: () => void;
+  isLast?: boolean;
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.98,
-      friction: 5,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 5,
-      useNativeDriver: true,
-    }).start();
-  };
-
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity 
-        style={styles.quickActionRow} 
-        onPress={onPress} 
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.quickActionIcon, { backgroundColor: iconBg }]}>{icon}</View>
-        <View style={styles.quickActionTextCol}>
-          <Text style={styles.quickActionLabel}>{label}</Text>
-          {subtitle ? <Text style={styles.quickActionSubtitle}>{subtitle}</Text> : null}
-        </View>
-        <MaterialIcon name="chevron-right" size={20} color="#94a3b8" />
-      </TouchableOpacity>
-    </Animated.View>
+    <TouchableOpacity
+      style={[styles.quickActionRow, isLast && styles.quickActionRowLast]}
+      onPress={onPress}
+      activeOpacity={0.82}
+    >
+      <View style={[styles.quickActionIcon, { backgroundColor: iconBg }]}>{icon}</View>
+      <View style={styles.quickActionTextCol}>
+        <Text style={styles.quickActionLabel}>{label}</Text>
+        {subtitle ? <Text style={styles.quickActionSubtitle}>{subtitle}</Text> : null}
+      </View>
+      <MaterialIcon name="chevron-right" size={22} color="#94a3b8" />
+    </TouchableOpacity>
   );
 }
 
 interface DashboardProps {
-  onProfilePress: () => void;
   onBackToHome?: () => void;
+  onLogoPress?: () => void;
+  closeDropdowns?: boolean;
 }
 
-export default function Dashboard({ onProfilePress, onBackToHome }: DashboardProps) {
+export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = false }: DashboardProps) {
   const { user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
-  const { colors } = useTheme();
   const [bookings, setBookings] = useState<BookingHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [userName, setUserName] = useState<string | null>(null);
   const [serviceProviderId, setServiceProviderId] = useState<number | null>(null);
   const [showAllBookings, setShowAllBookings] = useState(false);
   const [reviewsDialogOpen, setReviewsDialogOpen] = useState(false);
@@ -389,7 +223,7 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
   const [trackAddressDialogOpen, setTrackAddressDialogOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [todaySchedule, setTodaySchedule] = useState<TodayBookingSlot[]>([]);
-  const [calendarRefresh, setCalendarRefresh] = useState(0);
+  const [providerDisplayName, setProviderDisplayName] = useState("");
 
   const verificationCompletedRef = useRef(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -468,18 +302,43 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
   // Extract name and serviceProviderId from Auth0 user and AppUser context
   useEffect(() => {
     if (isAuthenticated && auth0User) {
-      const name = appUser?.name || auth0User.name || null;
       const id = appUser?.serviceProviderId 
         ? Number(appUser.serviceProviderId)
         : auth0User.serviceProviderId || auth0User["https://yourdomain.com/serviceProviderId"] || null;
 
-      setUserName(name);
       setServiceProviderId(id ? Number(id) : null);
+
+      const fallbackName =
+        [appUser?.firstName, appUser?.lastName].filter(Boolean).join(" ").trim() ||
+        appUser?.name ||
+        auth0User.given_name ||
+        auth0User.name ||
+        "";
+      if (fallbackName) setProviderDisplayName(String(fallbackName).trim());
     }
   }, [isAuthenticated, auth0User, appUser]);
 
+  useEffect(() => {
+    if (!serviceProviderId) return;
+    let cancelled = false;
+    providerInstance
+      .get(`/api/service-providers/serviceprovider/${serviceProviderId}`)
+      .then((response) => {
+        if (cancelled) return;
+        const data = (response?.data?.data ?? response?.data) as Record<string, unknown> | null;
+        const name = [data?.firstName ?? data?.firstname, data?.lastName ?? data?.lastname]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+        if (name) setProviderDisplayName(name);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [serviceProviderId]);
+
   const availableBalance = payout?.summary?.available_to_withdraw ?? 0;
-  const depositPaid = Boolean(payout?.summary?.security_deposit_paid);
 
   const formatInr = (amount: number) => {
     const abs = Math.abs(amount);
@@ -491,41 +350,10 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
     return amount < 0 ? `-₹${formatted}` : `₹${formatted}`;
   };
 
-  const metrics = [
-    {
-      title: "Total Earnings",
-      value: formatInr(payout?.summary?.total_earned ?? 0),
-      icon: "rupee" as const,
-      variant: "earnings" as const,
-      hint: "This month",
-      hintVariant: "default" as const,
-    },
-    {
-      title: "Security Deposit",
-      value: formatInr(payout?.summary?.security_deposit_amount ?? 0),
-      icon: "shield" as const,
-      variant: "deposit" as const,
-      hint: depositPaid ? "Paid" : "Pending",
-      hintVariant: depositPaid ? ("success" as const) : ("warning" as const),
-    },
-    {
-      title: "Total Withdrawn",
-      value: formatInr(payout?.summary?.total_withdrawn ?? 0),
-      icon: "credit-card" as const,
-      variant: "withdrawn" as const,
-      hint: "All time",
-      hintVariant: "default" as const,
-    },
-    {
-      title: "Available Balance",
-      value: formatInr(availableBalance),
-      icon: "wallet" as const,
-      variant: "balance" as const,
-      hint: availableBalance < 0 ? "Negative" : "Net available",
-      hintVariant: availableBalance < 0 ? ("danger" as const) : ("default" as const),
-      valueTone: availableBalance < 0 ? ("negative" as const) : ("default" as const),
-    },
-  ];
+  const bookingPreviewCount =
+    (bookings?.current?.length ?? 0) +
+    (bookings?.upcoming?.length ?? 0) +
+    (bookings?.past?.length ?? 0);
 
   const handleTrackAddress = (address: string) => {
     if (!address || address === "Address not available") {
@@ -726,34 +554,13 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
     setCurrentBooking(null);
   };
 
-  const userDisplayName = userName || auth0User?.name || "Guest";
-  const welcomeName = (() => {
-    const raw = userDisplayName.trim();
-    if (!raw) return "there";
-    if (raw.includes("@")) return raw.split("@")[0] || "there";
-    return raw.split(/\s+/)[0] || "there";
-  })();
-  const avatarUrl = (appUser?.picture as string) || (auth0User?.picture as string) || null;
-  const userInitials = userDisplayName
-    .split(/\s+/)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "SP";
-
-  const currentHour = new Date().getHours();
-  const greeting = currentHour < 12 ? "Good Morning" : currentHour < 17 ? "Good Afternoon" : "Good Evening";
-
-  const bookingPreviewCount =
-    (bookings?.current?.length ?? 0) +
-    (bookings?.upcoming?.length ?? 0) +
-    (bookings?.past?.length ?? 0);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={BRAND.bookingNavy}
+        translucent
+        backgroundColor="transparent"
       />
       
       <ScrollView
@@ -769,48 +576,21 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient
-          colors={[...GRADIENTS.bookingHeader]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.gradientHeader}
-        >
-          <View style={styles.headerTop}>
-            <View style={styles.headerTitleBlock}>
-              <Text style={styles.headerEyebrow}>Service Provider</Text>
-              <Text style={styles.headerTitle}>Dashboard</Text>
-            </View>
-            <TouchableOpacity style={styles.profileButton} onPress={onProfilePress}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-              ) : (
-                <LinearGradient
-                  colors={[...PRIMARY_BUTTON_GRADIENT]}
-                  style={styles.avatarFallback}
-                >
-                  <Text style={styles.avatarInitials}>{userInitials}</Text>
-                </LinearGradient>
-              )}
-            </TouchableOpacity>
-          </View>
+        <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.heroGradient}>
+          <HomeHeroChrome closeDropdowns={closeDropdowns} onLogoPress={onLogoPress} />
 
-          <Animated.View style={[styles.heroSection, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <Text style={styles.heroGreeting}>{greeting}</Text>
-            <Text style={styles.heroTitle}>Welcome back, {welcomeName}!</Text>
-            <Text style={styles.heroSubtitle}>
-              Track earnings, manage today's visits, and stay on top of your schedule.
-            </Text>
+          <Animated.View
+            style={[
+              styles.heroBody,
+              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            <Text style={styles.heroEyebrow}>Namaste,</Text>
+            <Text style={styles.heroPageTitle}>{providerDisplayName || "Guest"}</Text>
           </Animated.View>
         </LinearGradient>
 
-        <View style={styles.mainContent}>
-          <View style={styles.metricsGrid}>
-            {metrics.map((metric, index) => (
-              <DashboardMetricCard key={metric.title} {...metric} />
-            ))}
-          </View>
-
-          {/* Today's Schedule Card */}
+        <View style={styles.contentSheet}>
           <TodayVisitsCard
             loading={loading}
             todaySchedule={todaySchedule}
@@ -821,103 +601,67 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
             onStopTask={handleStopTask}
           />
 
-          {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            <Card gradient>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Quick Actions</Text>
-                <MaterialIcon name="bolt" size={20} color="#3b82f6" />
-              </View>
-              <View style={styles.cardContent}>
-                <QuickActionRow
-                  iconBg={BRAND.accentSoft}
-                  icon={<MaterialIcon name="calendar-month" size={18} color={BRAND.accent} />}
-                  label="View all bookings"
-                  subtitle={
-                    bookingPreviewCount > 0
-                      ? `${bookingPreviewCount} booking${bookingPreviewCount !== 1 ? "s" : ""} this month`
-                      : "Browse current, upcoming & past"
-                  }
-                  onPress={() => setShowAllBookings(true)}
-                />
-                <QuickActionRow
-                  iconBg="#ecfdf5"
-                  icon={<MaterialIcon name="account-balance-wallet" size={18} color="#059669" />}
-                  label="Request withdrawal"
-                  subtitle={
-                    availableBalance >= 500
-                      ? `${formatInr(availableBalance)} available`
-                      : availableBalance < 0
-                        ? "Balance is negative"
-                        : "Minimum ₹500 required"
-                  }
-                  onPress={() => setWithdrawalDialogOpen(true)}
-                />
-                <QuickActionRow
-                  iconBg={BRAND.accentSoft}
-                  icon={<MaterialIcon name="receipt-long" size={18} color={BRAND.accent} />}
-                  label="Withdrawal history"
-                  subtitle="Earnings, withdrawals & payouts"
-                  onPress={() => setWithdrawalHistoryDialogOpen(true)}
-                />
-                <QuickActionRow
-                  iconBg="#fee2e2"
-                  icon={<MaterialIcon name="star" size={18} color="#dc2626" />}
-                  label="View reviews"
-                  onPress={() => setReviewsDialogOpen(true)}
-                />
-                <QuickActionRow
-                  iconBg="#e0e7ff"
-                  icon={<MaterialIcon name="calendar-today" size={18} color="#4f46e5" />}
-                  label="Apply leave"
-                  onPress={() => Alert.alert("Apply leave", "Use the web dashboard to apply for leave.")}
-                />
-              </View>
-            </Card>
-
-            {/* Service Status Card */}
-            {/* <Card gradient>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Service Status</Text>
-                <MaterialIcon name="check-circle" size={20} color="#10b981" />
-              </View>
-              <View style={styles.cardContent}>
-                <View style={styles.statusItem}>
-                  <Text style={styles.statusLabel}>Profile Status</Text>
-                  <Badge variant="success">Active</Badge>
-                </View>
-                <View style={styles.statusItem}>
-                  <Text style={styles.statusLabel}>Verification</Text>
-                  <Badge variant="success">Verified</Badge>
-                </View>
-                <View style={styles.statusItem}>
-                  <Text style={styles.statusLabel}>Availability</Text>
-                  <Badge variant="primary">Available Today</Badge>
-                </View>
-                <View style={styles.statusItem}>
-                  <Text style={styles.statusLabel}>Completed Tasks</Text>
-                  <Badge variant="warning">12 This Week</Badge>
-                </View>
-              </View>
-            </Card> */}
-          </View>
-
-          {/* Calendar Section */}
-          {serviceProviderId !== null && (
-            <View style={styles.calendarContainer}>
-              <LinearGradient
-                colors={['#ffffff', '#f8fafc']}
-                style={styles.calendarHeader}
-              >
-                <MaterialIcon name="event" size={20} color="#3b82f6" />
-                <Text style={styles.calendarTitle}>Schedule Calendar</Text>
-              </LinearGradient>
-              <ProviderCalendarBig
-                providerId={serviceProviderId}
-                refreshToken={calendarRefresh}
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActionsCard}>
+            {[
+              {
+                key: "bookings",
+                iconBg: BRAND.accentSoft,
+                icon: <MaterialIcon name="smartphone" size={20} color={BRAND.accent} />,
+                label: "View all bookings",
+                subtitle:
+                  bookingPreviewCount > 0
+                    ? `${bookingPreviewCount} booking${bookingPreviewCount !== 1 ? "s" : ""} this month`
+                    : "Browse current, upcoming & past",
+                onPress: () => setShowAllBookings(true),
+              },
+              {
+                key: "withdraw",
+                iconBg: "#ecfdf5",
+                icon: <MaterialIcon name="account-balance-wallet" size={20} color="#059669" />,
+                label: "Request withdrawal",
+                subtitle:
+                  availableBalance >= 500
+                    ? `${formatInr(availableBalance)} available`
+                    : availableBalance < 0
+                      ? "Balance is negative"
+                      : "Minimum ₹500 required",
+                onPress: () => setWithdrawalDialogOpen(true),
+              },
+              {
+                key: "history",
+                iconBg: BRAND.accentSoft,
+                icon: <MaterialIcon name="history" size={20} color={BRAND.accent} />,
+                label: "Withdrawal history",
+                subtitle: "Earnings, withdrawals & payouts",
+                onPress: () => setWithdrawalHistoryDialogOpen(true),
+              },
+              {
+                key: "reviews",
+                iconBg: "#fee2e2",
+                icon: <MaterialIcon name="star" size={20} color="#dc2626" />,
+                label: "View reviews",
+                onPress: () => setReviewsDialogOpen(true),
+              },
+              {
+                key: "leave",
+                iconBg: "#e0e7ff",
+                icon: <MaterialIcon name="event-busy" size={20} color="#4f46e5" />,
+                label: "Apply leave",
+                onPress: () => Alert.alert("Apply leave", "Use the web dashboard to apply for leave."),
+              },
+            ].map((action, index, list) => (
+              <QuickActionRow
+                key={action.key}
+                iconBg={action.iconBg}
+                icon={action.icon}
+                label={action.label}
+                subtitle={action.subtitle}
+                onPress={action.onPress}
+                isLast={index === list.length - 1}
               />
-            </View>
-          )}
+            ))}
+          </View>
         </View>
       </ScrollView>
 
@@ -977,13 +721,14 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
           destinationAddress={selectedAddress || undefined}
         />
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: HOME_M3.surface,
   },
   scrollView: {
     flex: 1,
@@ -991,131 +736,68 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-  gradientHeader: {
-    paddingTop: Platform.OS === "android" ? 8 : 4,
+  heroGradient: {
     paddingBottom: 36,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 5,
+    overflow: "visible",
   },
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 8,
+  heroBody: {
+    paddingHorizontal: 20,
     paddingBottom: 4,
   },
-  headerTitleBlock: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  headerEyebrow: {
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    color: "rgba(255,255,255,0.65)",
-    marginBottom: 2,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#ffffff",
-    letterSpacing: -0.4,
-  },
-  profileButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    overflow: "hidden",
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  avatarFallback: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarInitials: {
+  heroEyebrow: {
+    color: HOME_M3.onPrimaryContainer,
     fontSize: 14,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  heroSection: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  heroGreeting: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.75)",
-    letterSpacing: 0.4,
+    fontWeight: "500",
     marginBottom: 4,
   },
-  heroTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#ffffff",
-    letterSpacing: -0.3,
-    marginBottom: 6,
+  heroPageTitle: {
+    color: HOME_M3.onPrimary,
+    fontSize: 32,
+    fontWeight: "800",
+    lineHeight: 38,
+    letterSpacing: -0.6,
   },
-  heroSubtitle: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.72)",
-    lineHeight: 19,
-    maxWidth: "92%",
-  },
-  mainContent: {
-    paddingHorizontal: 12,
-    paddingTop: 0,
-    paddingBottom: 24,
+  contentSheet: {
+    backgroundColor: HOME_M3.surface,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     marginTop: -18,
+    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    minHeight: 400,
   },
-  metricsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    columnGap: 10,
-    rowGap: 10,
-    marginBottom: 20,
-    width: METRIC_CARD_WIDTH * 2 + 10,
-    alignSelf: "center",
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: HOME_M3.onSurface,
+    letterSpacing: -0.3,
+    marginBottom: 12,
+    lineHeight: 26,
   },
-  quickActions: {
-    width: '100%',
+  quickActionsCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e8edf4",
+    overflow: "hidden",
+    marginBottom: 24,
   },
   quickActionRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#f1f5f9",
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  quickActionRowLast: {
+    borderBottomWidth: 0,
   },
   quickActionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
@@ -1124,66 +806,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   quickActionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1e293b",
+    fontSize: 15,
+    fontWeight: "700",
+    color: HOME_M3.onSurface,
   },
   quickActionSubtitle: {
     fontSize: 12,
-    color: "#64748b",
+    color: HOME_M3.onSurfaceVariant,
     marginTop: 2,
     fontWeight: "500",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0f172a",
-    letterSpacing: -0.3,
-  },
-  cardContent: {
-    padding: 16,
-  },
-  statusItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-    paddingVertical: 4,
-  },
-  statusLabel: {
-    color: "#64748b",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  calendarContainer: {
-    width: "100%",
-    marginTop: 8,
-    marginBottom: 32,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    overflow: "hidden",
-  },
-  calendarHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  calendarTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#0f172a",
   },
 });

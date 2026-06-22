@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { AppState, AppStateStatus } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
 import PaymentInstance from "../services/paymentInstance";
 import {
   BookingRequestPayload,
@@ -9,13 +10,16 @@ import {
   normalizeSocketBookingForToast,
 } from "../Notifications/inAppNotificationUtils";
 import {
-  dismissProviderNewBookingNotifications,
+  dismissProviderNewBookingNotificationsBatch,
   parseEngagementId,
   resolveServiceProviderId,
 } from "../services/engagementService";
 
-/** Poll interval for new paid on-demand bookings (Accept/Decline popup). */
-const POLL_MS = 5000;
+/** Base poll interval for new paid on-demand bookings (Accept/Decline popup). */
+const POLL_MS = 8000;
+
+/** Max backoff after repeated network failures. */
+const MAX_POLL_MS = 60_000;
 
 /** Grace before session start — clock skew / same-second creates. */
 const SESSION_START_GRACE_MS = 15_000;
@@ -82,6 +86,17 @@ function isNotificationFromCurrentSession(
   return created >= sessionStartedAt - SESSION_START_GRACE_MS;
 }
 
+function isTransientNetworkError(err: unknown): boolean {
+  const ax = err as { message?: string; code?: string; response?: unknown };
+  if (ax.response != null) return false;
+  const msg = String(ax.message || "").toLowerCase();
+  return (
+    ax.code === "ERR_NETWORK" ||
+    msg.includes("network error") ||
+    msg.includes("network request failed")
+  );
+}
+
 type Options = {
   appUser: any | null;
   isUserLoading: boolean;
@@ -111,7 +126,7 @@ export function useProviderBookingSocket({
   const activeIdRef = useRef(activeEngagementId);
   const pollInFlightRef = useRef(false);
   const providerSessionStartedAtRef = useRef(0);
-  const dismissedHistoricalRef = useRef(new Set<number>());
+  const historicalDismissDoneRef = useRef(false);
 
   onRequestRef.current = onBookingRequest;
   onClosedRef.current = onBookingClosed;
@@ -152,37 +167,59 @@ export function useProviderBookingSocket({
     if (!isProvider || providerId == null) {
       resetProviderBookingPopupState();
       providerSessionStartedAtRef.current = 0;
-      dismissedHistoricalRef.current.clear();
+      historicalDismissDoneRef.current = false;
       return;
     }
 
     providerSessionStartedAtRef.current = Date.now();
     resetProviderBookingPopupState();
-    dismissedHistoricalRef.current.clear();
+    historicalDismissDoneRef.current = false;
 
-    const dismissHistoricalUnread = (alerts: InAppNotification[]) => {
-      const sessionStart = providerSessionStartedAtRef.current;
-      for (const n of alerts) {
-        if (isNotificationFromCurrentSession(n, sessionStart)) continue;
-        const eid = parseEngagementId(n.engagementId);
-        if (eid == null || dismissedHistoricalRef.current.has(eid)) continue;
-        dismissedHistoricalRef.current.add(eid);
-        void dismissProviderNewBookingNotifications(eid, providerId);
-      }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pollDelayMs = POLL_MS;
+    let lastWarnAt = 0;
+    const appStateRef = { current: AppState.currentState as AppStateStatus };
+
+    const scheduleNext = (delayMs: number) => {
+      if (cancelled) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void poll();
+      }, delayMs);
     };
 
     const poll = async () => {
-      if (pollInFlightRef.current) return;
+      if (cancelled || pollInFlightRef.current) {
+        scheduleNext(pollDelayMs);
+        return;
+      }
+
+      if (appStateRef.current !== "active") {
+        scheduleNext(POLL_MS);
+        return;
+      }
+
+      const net = await NetInfo.fetch();
+      if (net.isConnected === false || net.isInternetReachable === false) {
+        pollDelayMs = Math.min(Math.max(pollDelayMs * 2, POLL_MS), MAX_POLL_MS);
+        scheduleNext(pollDelayMs);
+        return;
+      }
+
       pollInFlightRef.current = true;
       try {
         const { data } = await PaymentInstance.get("/api/in-app-notifications", {
           params: {
             recipientType: "provider",
             recipientId: String(providerId),
-            limit: 30,
+            unreadOnly: "true",
+            limit: 20,
           },
         });
         const list = (data?.notifications || []) as InAppNotification[];
+
+        pollDelayMs = POLL_MS;
 
         for (const n of list) {
           const eid = parseEngagementId(n.engagementId);
@@ -206,8 +243,16 @@ export function useProviderBookingSocket({
           isNotificationFromCurrentSession(n, sessionStart)
         );
 
-        if (popupCandidates.length < bookingAlerts.length) {
-          dismissHistoricalUnread(bookingAlerts);
+        if (
+          !historicalDismissDoneRef.current &&
+          bookingAlerts.length > popupCandidates.length
+        ) {
+          historicalDismissDoneRef.current = true;
+          const historicalEids = bookingAlerts
+            .filter((n) => !isNotificationFromCurrentSession(n, sessionStart))
+            .map((n) => parseEngagementId(n.engagementId))
+            .filter((id): id is number => id != null);
+          void dismissProviderNewBookingNotificationsBatch(providerId, historicalEids);
         }
 
         if (popupCandidates.length > 0) {
@@ -219,21 +264,33 @@ export function useProviderBookingSocket({
           handleInAppNotification(pick ?? popupCandidates[0], "poll");
         }
       } catch (e) {
-        console.warn("[sp-booking] poll failed", e);
+        if (isTransientNetworkError(e)) {
+          pollDelayMs = Math.min(Math.max(pollDelayMs * 2, POLL_MS), MAX_POLL_MS);
+        }
+        if (__DEV__ && Date.now() - lastWarnAt > 60_000) {
+          lastWarnAt = Date.now();
+          const msg = (e as { message?: string })?.message || String(e);
+          console.warn(`[sp-booking] poll failed (retry in ${pollDelayMs}ms): ${msg}`);
+        }
       } finally {
         pollInFlightRef.current = false;
+        scheduleNext(pollDelayMs);
       }
     };
 
     void poll();
-    const interval = setInterval(() => void poll(), POLL_MS);
 
     const appStateSub = AppState.addEventListener("change", (next: AppStateStatus) => {
-      if (next === "active") void poll();
+      appStateRef.current = next;
+      if (next === "active") {
+        pollDelayMs = POLL_MS;
+        void poll();
+      }
     });
 
     return () => {
-      clearInterval(interval);
+      cancelled = true;
+      if (timer) clearTimeout(timer);
       appStateSub.remove();
     };
   }, [isProvider, providerId, handleInAppNotification]);

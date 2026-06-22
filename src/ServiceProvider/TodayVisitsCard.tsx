@@ -7,8 +7,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
-import { BRAND } from "../theme/brandColors";
-import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from "../common/BookingUtils";
+import { effectiveProviderTaskStatus } from "../common/BookingUtils";
+import { BRAND, HOME_M3 } from "../theme/brandColors";
 
 export interface TodayBookingSlot {
   availability_id: number;
@@ -31,6 +31,8 @@ export interface TodayBookingSlot {
   service_day_status: string | null;
 }
 
+const AVATAR_COLORS = ["#3b82f6", "#6366f1", "#0ea5e9", "#8b5cf6"];
+
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return "";
   try {
@@ -45,6 +47,55 @@ const formatTimeToAMPM = (timeString: string): string => {
     return timeString;
   }
 };
+
+function getInitials(first: string | null, last: string | null): string {
+  const f = (first || "").trim();
+  const l = (last || "").trim();
+  if (f && l) return `${f[0]}${l[0]}`.toUpperCase();
+  if (f) return f.slice(0, 2).toUpperCase();
+  return "CU";
+}
+
+function getServiceTitle(serviceType: string): string {
+  const key = String(serviceType || "").toUpperCase();
+  if (key === "COOK" || key.includes("COOK")) return "Home Cook";
+  if (key === "MAID" || key.includes("MAID") || key.includes("CLEAN")) return "Cleaning Help";
+  if (key === "NANNY" || key.includes("NANNY") || key.includes("CARE")) return "Caregiver";
+  return serviceType || "Service";
+}
+
+function formatBookingType(bookingType: string): string {
+  const key = String(bookingType || "").toUpperCase();
+  if (key === "MONTHLY") return "Monthly";
+  if (key === "SHORT_TERM") return "Short Term";
+  if (key === "ON_DEMAND") return "On Demand";
+  return bookingType.replace(/_/g, " ");
+}
+
+function formatTodayDate(): string {
+  return new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function resolveStatusLabel(slot: TodayBookingSlot): {
+  label: string;
+  variant: "progress" | "pending" | "complete";
+} {
+  const displayStatus = effectiveProviderTaskStatus(
+    slot.task_status,
+    slot.service_day_status
+  ).toUpperCase();
+  if (displayStatus === "IN_PROGRESS" || displayStatus === "STARTED") {
+    return { label: "IN PROGRESS", variant: "progress" };
+  }
+  if (displayStatus === "COMPLETED") {
+    return { label: "COMPLETED", variant: "complete" };
+  }
+  return { label: "NOT STARTED", variant: "pending" };
+}
 
 type Props = {
   loading: boolean;
@@ -65,413 +116,424 @@ export default function TodayVisitsCard({
   onStartTodayVisit,
   onStopTask,
 }: Props) {
-  const visitCount = todaySchedule.length;
-  const subtitle = loading
-    ? "Loading schedule..."
-    : visitCount === 0
-      ? "No visits scheduled today"
-      : visitCount === 1
-        ? "1 visit scheduled today"
-        : `${visitCount} visits scheduled today`;
+  const sorted = [...todaySchedule].sort((a, b) =>
+    (a.start_time_ist || "").localeCompare(b.start_time_ist || "")
+  );
 
   return (
-    <View style={styles.card}>
-      <View style={styles.accentBar} />
-
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerIcon}>
-            <MaterialIcon name="event-available" size={20} color={BRAND.accent} />
-          </View>
-
-          <View style={styles.headerTextCol}>
-            <Text style={styles.title}>Today's Visits</Text>
-            <Text style={styles.subtitle} numberOfLines={2}>
-              {subtitle}
-            </Text>
-          </View>
-
-          {!loading ? (
-            <View style={styles.countBadge}>
-              <Text style={styles.countText}>{visitCount}</Text>
-            </View>
-          ) : null}
-        </View>
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Today's Visits</Text>
+        <Text style={styles.sectionDate}>{formatTodayDate()}</Text>
       </View>
 
-      <View style={styles.body}>
-        {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={BRAND.bookingSky} />
-            <Text style={styles.loadingText}>Loading today's schedule...</Text>
-          </View>
-        ) : todaySchedule.length === 0 ? (
-          <View style={styles.empty}>
-            <MaterialIcon name="event-busy" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyTitle}>No Visits Today</Text>
-            <Text style={styles.emptyText}>
-              You have no scheduled visits for today. Enjoy your day off!
-            </Text>
-          </View>
-        ) : (
-          todaySchedule.map((b, index) => {
-            const clientName =
-              [b.customer_firstname, b.customer_lastname].filter(Boolean).join(" ").trim() ||
-              "Customer";
-            const sd = String(b.service_day_status ?? "").toUpperCase();
-            const taskU = String(b.task_status ?? "").toUpperCase();
-            const recurring = b.booking_type === "MONTHLY" || b.booking_type === "SHORT_TERM";
-            const isOnDemand = String(b.booking_type || "").toUpperCase() === "ON_DEMAND";
-            const showComplete = b.service_day_id != null && sd === "IN_PROGRESS";
-            const showStart =
-              !showComplete &&
-              taskU !== "COMPLETED" &&
-              taskU !== "IN_PROGRESS" &&
-              taskU !== "STARTED" &&
-              (sd === "SCHEDULED" ||
-                (isOnDemand && (b.service_day_id == null || !sd)) ||
-                (recurring && (b.service_day_id == null || sd === "")));
-            const timeRange =
-              b.start_time_ist && b.end_time_ist
-                ? `${formatTimeToAMPM(b.start_time_ist)} – ${formatTimeToAMPM(b.end_time_ist)}`
-                : b.start_time_ist
-                  ? formatTimeToAMPM(b.start_time_ist)
-                  : "Time TBD";
-            const amountLabel =
-              b.base_amount != null
-                ? `₹${Number(b.base_amount).toLocaleString("en-IN", {
-                    maximumFractionDigits: 0,
-                  })}`
-                : null;
-            const busy = !!taskStatusUpdating[String(b.engagement_id)];
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={HOME_M3.secondary} />
+          <Text style={styles.loadingText}>Loading today's schedule...</Text>
+        </View>
+      ) : sorted.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <MaterialIcon name="event-busy" size={40} color="#cbd5e1" />
+          <Text style={styles.emptyTitle}>No visits today</Text>
+          <Text style={styles.emptyText}>You have no scheduled visits for today.</Text>
+        </View>
+      ) : (
+        sorted.map((slot, index) => {
+          const clientName =
+            [slot.customer_firstname, slot.customer_lastname].filter(Boolean).join(" ").trim() ||
+            "Customer";
+          const timeRange =
+            slot.start_time_ist && slot.end_time_ist
+              ? `${formatTimeToAMPM(slot.start_time_ist)} - ${formatTimeToAMPM(slot.end_time_ist)}`
+              : slot.start_time_ist
+                ? formatTimeToAMPM(slot.start_time_ist)
+                : "Time TBD";
+          const amountLabel =
+            slot.base_amount != null
+              ? `₹${Number(slot.base_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+              : null;
+          const status = resolveStatusLabel(slot);
+          const sd = String(slot.service_day_status ?? "").toUpperCase();
+          const displayStatus = effectiveProviderTaskStatus(
+            slot.task_status,
+            slot.service_day_status
+          ).toUpperCase();
+          const recurring = slot.booking_type === "MONTHLY" || slot.booking_type === "SHORT_TERM";
+          const isOnDemand = String(slot.booking_type || "").toUpperCase() === "ON_DEMAND";
+          const showComplete = slot.service_day_id != null && sd === "IN_PROGRESS";
+          const showStart =
+            !showComplete &&
+            displayStatus !== "COMPLETED" &&
+            displayStatus !== "IN_PROGRESS" &&
+            displayStatus !== "STARTED" &&
+            (sd === "SCHEDULED" ||
+              (isOnDemand && (slot.service_day_id == null || !sd)) ||
+              (recurring && (slot.service_day_id == null || sd === "")));
+          const busy = !!taskStatusUpdating[String(slot.engagement_id)];
+          const inProgress = showComplete;
 
-            return (
-              <View
-                key={`${b.availability_id}-${b.engagement_id}`}
-                style={[styles.visitItem, index > 0 && styles.visitItemBorder]}
-              >
-                <View style={styles.visitTopRow}>
-                  <View style={styles.timeBadge}>
-                    <MaterialIcon name="schedule" size={14} color="#3b82f6" />
-                    <Text style={styles.timeRangeText}>{timeRange}</Text>
-                  </View>
-                  {amountLabel ? (
-                    <View style={styles.amountPill}>
-                      <Text style={styles.amountText}>{amountLabel}</Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <Text style={styles.clientName}>{clientName}</Text>
-
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailChip}>
-                    <MaterialIcon name="receipt" size={12} color="#64748b" />
-                    <Text style={styles.detailText}>#{b.engagement_id}</Text>
-                  </View>
-                  <View style={styles.detailChip}>
-                    <MaterialIcon name="build" size={12} color="#64748b" />
-                    <Text style={styles.detailText} numberOfLines={1}>
-                      {getServiceTitle(b.service_type || "")}
+          return (
+            <View key={`${slot.engagement_id}-${index}`} style={styles.visitCard}>
+              <View style={styles.visitTopRow}>
+                <View style={styles.clientRow}>
+                  <View
+                    style={[
+                      styles.avatar,
+                      { backgroundColor: AVATAR_COLORS[index % AVATAR_COLORS.length] },
+                    ]}
+                  >
+                    <Text style={styles.avatarText}>
+                      {getInitials(slot.customer_firstname, slot.customer_lastname)}
                     </Text>
                   </View>
+                  <Text style={styles.clientName} numberOfLines={1}>
+                    {clientName.toUpperCase()}
+                  </Text>
                 </View>
+                {amountLabel ? <Text style={styles.amount}>{amountLabel}</Text> : null}
+              </View>
 
-                <View style={styles.badgeRow}>
-                  {getBookingTypeBadge(b.booking_type)}
-                  {getStatusBadge(b.task_status)}
+              <View style={styles.timeStatusRow}>
+                <View style={styles.timeRow}>
+                  <MaterialIcon name="schedule" size={16} color={HOME_M3.onSurfaceVariant} />
+                  <Text style={styles.timeText}>{timeRange}</Text>
                 </View>
+                <View
+                  style={[
+                    styles.statusPill,
+                    status.variant === "progress" && styles.statusPillProgress,
+                    status.variant === "pending" && styles.statusPillPending,
+                    status.variant === "complete" && styles.statusPillComplete,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusPillText,
+                      status.variant === "progress" && styles.statusPillTextProgress,
+                      status.variant === "pending" && styles.statusPillTextPending,
+                    ]}
+                  >
+                    {status.label}
+                  </Text>
+                </View>
+              </View>
 
-                <View style={styles.actionButtons}>
-                  {b.mobileno && (
+              <View style={styles.chipRow}>
+                <View style={styles.chip}>
+                  <Text style={styles.chipText}>#{slot.engagement_id}</Text>
+                </View>
+                <View style={styles.chip}>
+                  <Text style={styles.chipText}>{getServiceTitle(slot.service_type)}</Text>
+                </View>
+                <View style={styles.chip}>
+                  <Text style={styles.chipText}>{formatBookingType(slot.booking_type)}</Text>
+                </View>
+              </View>
+
+              {inProgress ? (
+                <View style={styles.dualActionRow}>
+                  {slot.mobileno ? (
                     <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => onCallCustomer(b.mobileno!, clientName)}
+                      style={styles.wideActionBtn}
+                      onPress={() => onCallCustomer(slot.mobileno!, clientName)}
                     >
-                      <MaterialIcon name="phone" size={16} color="#3b82f6" />
-                      <Text style={styles.actionButtonText}>Call</Text>
+                      <MaterialIcon name="phone" size={18} color={BRAND.accent} />
+                      <Text style={styles.wideActionText}>Call</Text>
                     </TouchableOpacity>
-                  )}
-                  
-                  {b.address && (
+                  ) : null}
+                  {slot.address ? (
                     <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => onTrackAddress(b.address!)}
+                      style={styles.wideActionBtn}
+                      onPress={() => onTrackAddress(slot.address!)}
                     >
-                      <MaterialIcon name="location-on" size={16} color="#3b82f6" />
-                      <Text style={styles.actionButtonText}>Map</Text>
+                      <MaterialIcon name="near-me" size={18} color={BRAND.accent} />
+                      <Text style={styles.wideActionText}>Map</Text>
                     </TouchableOpacity>
-                  )}
-                  
-                  {showStart && (
+                  ) : null}
+                  {showComplete ? (
                     <TouchableOpacity
-                      style={[styles.actionButton, styles.startButton]}
+                      style={[styles.wideActionBtn, styles.completeBtn]}
+                      onPress={() =>
+                        onStopTask(String(slot.engagement_id), {
+                          today_service: {
+                            service_day_id: slot.service_day_id,
+                            status: slot.service_day_status,
+                          },
+                        })
+                      }
+                    >
+                      <MaterialIcon name="check-circle" size={18} color="#ffffff" />
+                      <Text style={styles.completeBtnText}>Complete</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={styles.actionRow}>
+                  {slot.mobileno ? (
+                    <TouchableOpacity
+                      style={styles.iconActionBtn}
+                      onPress={() => onCallCustomer(slot.mobileno!, clientName)}
+                    >
+                      <MaterialIcon name="phone" size={20} color={BRAND.accent} />
+                    </TouchableOpacity>
+                  ) : null}
+                  {slot.address ? (
+                    <TouchableOpacity
+                      style={styles.iconActionBtn}
+                      onPress={() => onTrackAddress(slot.address!)}
+                    >
+                      <MaterialIcon name="near-me" size={20} color={BRAND.accent} />
+                    </TouchableOpacity>
+                  ) : null}
+                  {showStart ? (
+                    <TouchableOpacity
+                      style={styles.startVisitBtn}
                       disabled={busy}
-                      onPress={() => void onStartTodayVisit(b)}
+                      onPress={() => void onStartTodayVisit(slot)}
                     >
                       {busy ? (
                         <ActivityIndicator size="small" color="#ffffff" />
                       ) : (
                         <>
-                          <MaterialIcon name="play-arrow" size={16} color="#ffffff" />
-                          <Text style={[styles.actionButtonText, styles.startButtonText]}>Start</Text>
+                          <Text style={styles.startVisitText}>Start Visit</Text>
+                          <MaterialIcon name="chevron-right" size={20} color="#ffffff" />
                         </>
                       )}
                     </TouchableOpacity>
-                  )}
-                  
-                  {showComplete && (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.completeButton]}
-                      onPress={() =>
-                        onStopTask(String(b.engagement_id), {
-                          today_service: {
-                            service_day_id: b.service_day_id,
-                            status: b.service_day_status,
-                          },
-                        })
-                      }
-                    >
-                      <MaterialIcon name="check-circle" size={16} color="#ffffff" />
-                      <Text style={[styles.actionButtonText, styles.completeButtonText]}>Complete</Text>
-                    </TouchableOpacity>
-                  )}
+                  ) : null}
                 </View>
-              </View>
-            );
-          })
-        )}
-      </View>
+              )}
+            </View>
+          );
+        })
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    width: "100%",
-    alignSelf: "stretch",
-    backgroundColor: BRAND.surface,
-    borderRadius: 16,
-    marginBottom: 20,
-    overflow: "hidden",
-    shadowColor: BRAND.bookingNavy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: BRAND.line,
+  section: {
+    marginBottom: 24,
   },
-  accentBar: {
-    height: 3,
-    width: "100%",
-    backgroundColor: BRAND.accent,
-  },
-  header: {
-    backgroundColor: BRAND.accentSoft,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.line,
-  },
-  headerRow: {
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
   },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
-    backgroundColor: BRAND.surface,
-    borderWidth: 1,
-    borderColor: BRAND.line,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  headerTextCol: {
-    flex: 1,
-    minWidth: 0,
-    marginLeft: 12,
-    marginRight: 10,
-    justifyContent: "center",
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: BRAND.text,
-    letterSpacing: -0.2,
-    lineHeight: 21,
-  },
-  subtitle: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: BRAND.textMuted,
-    marginTop: 2,
-    fontWeight: "500",
-  },
-  countBadge: {
-    minWidth: 32,
-    height: 32,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    backgroundColor: BRAND.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  countText: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: "800",
-    color: "#ffffff",
+    color: HOME_M3.onSurface,
+    letterSpacing: -0.3,
   },
-  body: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  sectionDate: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: HOME_M3.secondary,
   },
-  centered: {
+  loadingWrap: {
     paddingVertical: 40,
     alignItems: "center",
-    justifyContent: "center",
+    gap: 12,
   },
   loadingText: {
-    marginTop: 12,
     fontSize: 14,
-    color: "#64748b",
+    color: HOME_M3.onSurfaceVariant,
   },
-  empty: {
+  emptyCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 32,
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 48,
+    borderWidth: 1,
+    borderColor: "#e8edf4",
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1e293b",
+    fontWeight: "700",
+    color: HOME_M3.onSurface,
     marginTop: 12,
-    marginBottom: 4,
   },
   emptyText: {
     fontSize: 13,
-    color: "#64748b",
+    color: HOME_M3.onSurfaceVariant,
+    marginTop: 4,
     textAlign: "center",
   },
-  visitItem: {
-    paddingVertical: 12,
-  },
-  visitItemBorder: {
-    borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-    marginTop: 4,
-    paddingTop: 16,
+  visitCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e8edf4",
+    shadowColor: "#0c1e3d",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   visitTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 12,
     gap: 8,
-    marginBottom: 10,
   },
-  timeBadge: {
+  clientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  clientName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800",
+    color: HOME_M3.onSurface,
+    letterSpacing: 0.3,
+  },
+  amount: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: HOME_M3.onSurface,
+  },
+  timeStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    gap: 8,
+  },
+  timeRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: "#eff6ff",
-    borderRadius: 999,
-    flexShrink: 1,
+    flex: 1,
   },
-  timeRangeText: {
-    fontSize: 12,
+  timeText: {
+    fontSize: 13,
     fontWeight: "600",
-    color: "#2563eb",
+    color: HOME_M3.onSurfaceVariant,
   },
-  amountPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
+  statusPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: "#ecfdf5",
     borderRadius: 999,
   },
-  amountText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#0f766e",
+  statusPillProgress: {
+    backgroundColor: "#dbeafe",
   },
-  clientName: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: 8,
+  statusPillPending: {
+    backgroundColor: "#f1f5f9",
   },
-  detailsRow: {
+  statusPillComplete: {
+    backgroundColor: "#d1fae5",
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  statusPillTextProgress: {
+    color: "#1d4ed8",
+  },
+  statusPillTextPending: {
+    color: "#64748b",
+  },
+  chipRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 14,
   },
-  detailChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
+  chip: {
     backgroundColor: "#f8fafc",
-    paddingHorizontal: 9,
-    paddingVertical: 5,
     borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    maxWidth: "100%",
   },
-  detailText: {
+  chipText: {
     fontSize: 12,
+    fontWeight: "600",
     color: "#475569",
-    fontWeight: "500",
-    flexShrink: 1,
   },
-  badgeRow: {
+  dualActionRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
   },
-  actionButtons: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  actionButton: {
+  wideActionBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 10,
+    gap: 6,
+    backgroundColor: BRAND.accentSoft,
+    borderRadius: 12,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: "#dbeafe",
-    backgroundColor: "#f8fafc",
-    minWidth: 72,
   },
-  actionButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#475569",
+  wideActionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: BRAND.accent,
   },
-  startButton: {
-    backgroundColor: BRAND.accent,
-    borderColor: BRAND.accent,
-  },
-  startButtonText: {
-    color: "#ffffff",
-  },
-  completeButton: {
+  completeBtn: {
     backgroundColor: "#ef4444",
     borderColor: "#ef4444",
   },
-  completeButtonText: {
+  completeBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
     color: "#ffffff",
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  iconActionBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: BRAND.accentSoft,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+  },
+  startVisitBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    backgroundColor: BRAND.bookingNavy,
+    borderRadius: 12,
+    paddingVertical: 12,
+    minHeight: 44,
+  },
+  startVisitText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

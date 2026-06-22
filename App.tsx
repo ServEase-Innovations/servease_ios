@@ -55,11 +55,13 @@ import Chatbot from "./src/Chatbot/Chatbot";
 import ChatbotButton from "./src/Chatbot/ChatbotButton";
 import Booking, { BookingRef } from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
+import ProviderCalendarScreen from "./src/ServiceProvider/ProviderCalendarScreen";
+import ProviderEarningsScreen from "./src/ServiceProvider/ProviderEarningsScreen";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard";
 import WalletPage from "./src/UserProfile/WalletDialog";
 import Settings from "./src/Settings/Settings";
-import { BOOKINGS, DASHBOARD, PROFILE, SETTINGS, HOME, AGENT_DASHBOARD, WALLET, DETAILS } from "./src/Constants/pagesConstants";
+import { BOOKINGS, DASHBOARD, PROFILE, SETTINGS, HOME, AGENT_DASHBOARD, WALLET, DETAILS, SP_CALENDAR, SP_EARNINGS } from "./src/Constants/pagesConstants";
 import { resolveRoleHomeView } from "./src/utils/resolveRoleHomeView";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
@@ -228,8 +230,16 @@ const MainApp = () => {
     currentView === WALLET ||
     currentView === SETTINGS ||
     currentView === DASHBOARD ||
+    currentView === SP_CALENDAR ||
+    currentView === SP_EARNINGS ||
     currentView === AGENT_DASHBOARD ||
     currentView === PROFILE;
+
+  /** Full-bleed hero under the status bar (dark bg + light status icons). */
+  const usesDarkHeroSafeArea =
+    currentView === HOME ||
+    currentView === DASHBOARD ||
+    currentView === SP_CALENDAR;
 
   // Function to handle outside touch and close dropdowns
   const handleOutsideTouch = useCallback(() => {
@@ -864,23 +874,19 @@ const MainApp = () => {
         return <WalletPage onBack={navigateToRoleHome} />;
         
       case DASHBOARD:
-        return showProfileFromDashboard ? (
-          <ProfileScreen
-            onBack={() => setShowProfileFromDashboard(false)}
-            onNavigateToBookings={() => setCurrentView(BOOKINGS)}
-            onOpenSettings={() => {
-              setSettingsReturnView(DASHBOARD);
-              setCurrentView(SETTINGS);
-            }}
-            onContact={handleContactClick}
-            onSignOutComplete={handleAppRelaunchAfterSignOut}
-          />
-        ) : (
+        return (
           <Dashboard 
-            onProfilePress={handleDashboardProfilePress} 
             onBackToHome={navigateToRoleHome}
+            onLogoPress={handleHomeClick}
+            closeDropdowns={closeAllDropdowns}
           />
         );
+
+      case SP_CALENDAR:
+        return <ProviderCalendarScreen />;
+
+      case SP_EARNINGS:
+        return <ProviderEarningsScreen />;
         
       case AGENT_DASHBOARD:
         return <AgentDashboard />;
@@ -928,18 +934,18 @@ const MainApp = () => {
           style={[
             styles.safeArea,
             {
-              backgroundColor:
-                currentView === HOME || currentView === PROFILE
-                  ? HOME_M3.primary
-                  : currentView === BOOKINGS ||
-                      currentView === WALLET ||
-                      currentView === PROFILE ||
-                      currentView === SETTINGS
-                    ? colors.background
-                    : colors.chromeEnd,
+              backgroundColor: usesDarkHeroSafeArea
+                ? HOME_M3.primary
+                : currentView === SP_EARNINGS ||
+                    currentView === BOOKINGS ||
+                    currentView === WALLET ||
+                    currentView === PROFILE ||
+                    currentView === SETTINGS
+                  ? colors.background
+                  : colors.chromeEnd,
             },
           ]}
-          edges={currentView === HOME || currentView === PROFILE ? [] : ["top"]}
+          edges={usesDarkHeroSafeArea ? [] : ["top"]}
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>
@@ -960,7 +966,11 @@ const MainApp = () => {
                 currentView !== BOOKINGS &&
                 currentView !== WALLET &&
                 currentView !== PROFILE &&
-                currentView !== SETTINGS && (
+                currentView !== SETTINGS &&
+                currentView !== DASHBOARD &&
+                currentView !== SP_CALENDAR &&
+                currentView !== SP_EARNINGS &&
+                currentView !== AGENT_DASHBOARD && (
                 <View style={[styles.headerWrapper, { backgroundColor: colors.chromeEnd }]}>
                   <Head
                     sendDataToParent={handleViewChange}
@@ -980,14 +990,21 @@ const MainApp = () => {
                   styles.contentContainer,
                   {
                     backgroundColor:
-                      currentView === HOME ? HOME_M3.surface : colors.background,
+                      currentView === HOME ||
+                      currentView === DASHBOARD ||
+                      currentView === SP_CALENDAR ||
+                      currentView === SP_EARNINGS
+                        ? HOME_M3.surface
+                        : colors.background,
                   },
                   (currentView === HOME ||
+                    currentView === DASHBOARD ||
+                    currentView === SP_CALENDAR ||
+                    currentView === SP_EARNINGS ||
                     currentView === BOOKINGS ||
                     currentView === WALLET ||
                     currentView === PROFILE ||
-                    currentView === SETTINGS ||
-                    (currentView === DASHBOARD && showProfileFromDashboard)) &&
+                    currentView === SETTINGS) &&
                     styles.contentContainerFullScreen,
                 ]}
               >
@@ -1011,7 +1028,11 @@ const MainApp = () => {
                       needsMobileTabBarScrollInset && {
                         paddingBottom: mobileTabBarClearance,
                       },
-                      (currentView === BOOKINGS || currentView === DASHBOARD || currentView === AGENT_DASHBOARD) &&
+                      (currentView === BOOKINGS ||
+                        currentView === DASHBOARD ||
+                        currentView === SP_CALENDAR ||
+                        currentView === SP_EARNINGS ||
+                        currentView === AGENT_DASHBOARD) &&
                         styles.fullScreenScrollContent,
                     ]}
                     contentInsetAdjustmentBehavior="automatic"
@@ -1045,6 +1066,12 @@ const MainApp = () => {
                         setCurrentView(BOOKINGS);
                       } else if (page === DASHBOARD) {
                         setCurrentView(DASHBOARD);
+                        setShowProfileFromDashboard(false);
+                      } else if (page === SP_CALENDAR) {
+                        setCurrentView(SP_CALENDAR);
+                        setShowProfileFromDashboard(false);
+                      } else if (page === SP_EARNINGS) {
+                        setCurrentView(SP_EARNINGS);
                         setShowProfileFromDashboard(false);
                       } else if (page === AGENT_DASHBOARD) {
                         setCurrentView(AGENT_DASHBOARD);

@@ -26,11 +26,14 @@ interface LocationData {
 type HomeHeroChromeProps = {
   closeDropdowns?: boolean;
   onLogoPress?: () => void;
+  /** Tighter header for SP tab screens (hides location row). */
+  compact?: boolean;
 };
 
 const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   closeDropdowns = false,
   onLogoPress,
+  compact = false,
 }) => {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -121,14 +124,20 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
   return (
     <>
-      <View style={[styles.topRow, { paddingTop: Math.max(insets.top, 8) }]}>
+      <View
+        style={[
+          styles.topRow,
+          compact && styles.topRowCompact,
+          { paddingTop: Math.max(insets.top, compact ? 4 : 8) },
+        ]}
+      >
         <TouchableOpacity
           onPress={onLogoPress}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="ServEaso home"
         >
-          <Text style={styles.wordmark}>ServEaso</Text>
+          <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>ServEaso</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowNotifications(true)}
@@ -146,18 +155,20 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.locationRow}>
-        <LocationSelector
-          key={String(resolveCustomerId(appUser) ?? "guest")}
-          userPreference={userPreference}
-          setUserPreference={setUserPreference}
-          onLocationChange={handleLocationChange}
-          closeDropdown={closeDropdowns}
-          locationPreferencesReady={locationPreferencesReady}
-          isUserLoading={isUserLoading}
-          variant="chrome"
-        />
-      </View>
+      {!compact ? (
+        <View style={styles.locationRow}>
+          <LocationSelector
+            key={String(resolveCustomerId(appUser) ?? "guest")}
+            userPreference={userPreference}
+            setUserPreference={setUserPreference}
+            onLocationChange={handleLocationChange}
+            closeDropdown={closeDropdowns}
+            locationPreferencesReady={locationPreferencesReady}
+            isUserLoading={isUserLoading}
+            variant="chrome"
+          />
+        </View>
+      ) : null}
 
       <NotificationsDialog
         visible={showNotifications}
@@ -180,11 +191,18 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     zIndex: 20,
   },
+  topRowCompact: {
+    paddingBottom: 4,
+  },
   wordmark: {
     color: "#ffffff",
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.5,
+  },
+  wordmarkCompact: {
+    fontSize: 22,
+    lineHeight: 26,
   },
   locationRow: {
     paddingHorizontal: 16,

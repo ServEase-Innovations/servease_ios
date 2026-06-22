@@ -86,7 +86,25 @@ export async function dismissProviderNewBookingNotifications(
   providerId: number
 ): Promise<void> {
   const eid = parseEngagementId(engagementId);
-  if (eid == null || !Number.isFinite(providerId) || providerId < 1) return;
+  if (eid == null) return;
+  await dismissProviderNewBookingNotificationsBatch(providerId, [eid]);
+}
+
+/** One list fetch + batched read marks (avoids N parallel notification polls). */
+export async function dismissProviderNewBookingNotificationsBatch(
+  providerId: number,
+  engagementIds: number[]
+): Promise<void> {
+  if (!Number.isFinite(providerId) || providerId < 1) return;
+
+  const uniqueIds = [
+    ...new Set(
+      engagementIds
+        .map((id) => parseEngagementId(id))
+        .filter((id): id is number => id != null)
+    ),
+  ];
+  if (uniqueIds.length === 0) return;
 
   try {
     const { data } = await PaymentInstance.get("/api/in-app-notifications", {
@@ -103,11 +121,14 @@ export async function dismissProviderNewBookingNotifications(
       readAt?: string | null;
     }>;
 
+    const idSet = new Set(uniqueIds.map(String));
     const targets = list.filter((n) => {
       if (n.readAt) return false;
-      if (String(n.engagementId) !== String(eid)) return false;
+      if (!idSet.has(String(n.engagementId))) return false;
       return isNewBookingNotificationType(n.type || "");
     });
+
+    if (targets.length === 0) return;
 
     await Promise.all(
       targets.map((n) =>

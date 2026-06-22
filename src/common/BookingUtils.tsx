@@ -1,259 +1,111 @@
-/* eslint-disable */
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react-native";
 
-// Custom Badge component
-const Badge = ({ 
-  variant = "default", 
-  className, 
-  style,
-  children 
-}: { 
-  variant?: string;
-  className?: string;
-  style?: any;
-  children: React.ReactNode;
-}) => {
-  const getVariantStyle = () => {
-    switch (variant) {
-      case "secondary":
-        return styles.badgeSecondary;
-      case "outline":
-        return styles.badgeOutline;
-      default:
-        return styles.badgeDefault;
-    }
-  };
+/** Prefer today's service_days.status over stale engagements.task_status. */
+export function effectiveProviderTaskStatus(
+  storedTaskStatus: string | undefined | null,
+  todayServiceStatus?: string | null,
+  localOverride?: "IN_PROGRESS" | "COMPLETED"
+): string {
+  if (localOverride) return localOverride;
+  const sd = String(todayServiceStatus ?? "").toUpperCase();
+  if (sd === "IN_PROGRESS" || sd === "STARTED") return "IN_PROGRESS";
+  if (sd === "COMPLETED" || sd === "DONE") return "COMPLETED";
+  if (sd === "SCHEDULED" || !sd) {
+    const t = String(storedTaskStatus ?? "").toUpperCase();
+    if (t === "COMPLETED") return "COMPLETED";
+    return "NOT_STARTED";
+  }
+  const t = String(storedTaskStatus ?? "").toUpperCase();
+  if (t === "STARTED") return "IN_PROGRESS";
+  if (t) return t;
+  return "NOT_STARTED";
+}
 
+export function getServiceTitle(serviceType: string): string {
+  const key = String(serviceType || "").toUpperCase();
+  if (key === "COOK" || key.includes("COOK")) return "Home Cook";
+  if (key === "MAID" || key.includes("MAID") || key.includes("CLEAN")) return "Cleaning Help";
+  if (key === "NANNY" || key.includes("NANNY") || key.includes("CARE")) return "Caregiver";
+  return serviceType || "Service";
+}
+
+function formatBookingType(bookingType: string): string {
+  const key = String(bookingType || "").toUpperCase();
+  if (key === "MONTHLY") return "Monthly";
+  if (key === "SHORT_TERM") return "Short Term";
+  if (key === "ON_DEMAND") return "On Demand";
+  return bookingType.replace(/_/g, " ");
+}
+
+function formatStatus(status: string): string {
+  const key = String(status || "").toUpperCase();
+  if (key === "IN_PROGRESS" || key === "STARTED") return "In Progress";
+  if (key === "QUEUE_STANDBY") return "Queue Standby";
+  if (key === "COMPLETED") return "Completed";
+  if (key === "SCHEDULED") return "Scheduled";
+  return key.replace(/_/g, " ") || "Pending";
+}
+
+export function getBookingTypeBadge(bookingType: string) {
   return (
-    <View style={[styles.badge, getVariantStyle(), style]}>
-      {children}
+    <View style={styles.chip}>
+      <Text style={styles.chipText}>{formatBookingType(bookingType)}</Text>
     </View>
   );
-};
+}
 
-// ✅ Function to get status badge for service provider dashboard
-export const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "ACTIVE":
-      return (
-        <Badge variant="secondary" style={styles.activeBadge}>
-          <AlertCircle size={12} color="#3b82f6" style={styles.iconMargin} />
-          <Text style={styles.activeText}>Active</Text>
-        </Badge>
-      );
-    case "COMPLETED":
-      return (
-        <Badge variant="secondary" style={styles.completedBadge}>
-          <CheckCircle size={12} color="#10b981" style={styles.iconMargin} />
-          <Text style={styles.completedText}>Completed</Text>
-        </Badge>
-      );
-    case "CANCELLED":
-      return (
-        <Badge variant="secondary" style={styles.cancelledBadge}>
-          <XCircle size={12} color="#ef4444" style={styles.iconMargin} />
-          <Text style={styles.cancelledText}>Cancelled</Text>
-        </Badge>
-      );
-    case "IN_PROGRESS":
-      return (
-        <Badge variant="secondary" style={styles.inProgressBadge}>
-          <Clock size={12} color="#6b7280" style={styles.iconMargin} />
-          <Text style={styles.inProgressText}>In Progress</Text>
-        </Badge>
-      );
-    case "NOT_STARTED":
-      return (
-        <Badge variant="secondary" style={styles.notStartedBadge}>
-          <Clock size={12} color="#6b7280" style={styles.iconMargin} />
-          <Text style={styles.notStartedText}>Not Started</Text>
-        </Badge>
-      );
-    case "QUEUE_STANDBY":
-      return (
-        <Badge variant="secondary" style={styles.queueStandbyBadge}>
-          <Clock size={12} color="#0f766e" style={styles.iconMargin} />
-          <Text style={styles.queueStandbyText}>Backup queue</Text>
-        </Badge>
-      );
-    default:
-      return null;
-  }
-};
-
-// ✅ Function to get booking type badge
-export const getBookingTypeBadge = (type: string) => {
-  switch (type) {
-    case "ON_DEMAND":
-      return (
-        <Badge variant="outline" style={styles.onDemandBadge}>
-          <Text style={styles.onDemandText}>On Demand</Text>
-        </Badge>
-      );
-    case "MONTHLY":
-      return (
-        <Badge variant="outline" style={styles.monthlyBadge}>
-          <Text style={styles.monthlyText}>Monthly</Text>
-        </Badge>
-      );
-    case "SHORT_TERM":
-      return (
-        <Badge variant="outline" style={styles.shortTermBadge}>
-          <Text style={styles.shortTermText}>Short Term</Text>
-        </Badge>
-      );
-    default:
-      return (
-        <Badge variant="outline" style={styles.defaultTypeBadge}>
-          <Text style={styles.defaultTypeText}>{type}</Text>
-        </Badge>
-      );
-  }
-};
-
-// ✅ Function to get service title
-export const getServiceTitle = (type: string) => {
-  switch (type?.toLowerCase()) {
-    case "cook":
-      return "Home Cook";
-    case "maid":
-      return "Maid Service";
-    case "nanny":
-      return "Caregiver Service";
-    case "cleaning":
-      return "Cleaning Service";
-    default:
-      return "Home Service";
-  }
-};
+export function getStatusBadge(status: string) {
+  const key = String(status || "").toUpperCase();
+  const isProgress = key === "IN_PROGRESS" || key === "STARTED";
+  const isComplete = key === "COMPLETED";
+  return (
+    <View
+      style={[
+        styles.chip,
+        isProgress && styles.chipProgress,
+        isComplete && styles.chipComplete,
+      ]}
+    >
+      <Text
+        style={[
+          styles.chipText,
+          isProgress && styles.chipTextProgress,
+          isComplete && styles.chipTextComplete,
+        ]}
+      >
+        {formatStatus(status)}
+      </Text>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
-  // Base badge styles
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  chip: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderWidth: 1,
-    alignSelf: 'flex-start',
+    borderColor: "#e2e8f0",
   },
-  badgeDefault: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
+  chipProgress: {
+    backgroundColor: "#dbeafe",
+    borderColor: "#bfdbfe",
   },
-  badgeSecondary: {
-    backgroundColor: 'transparent',
+  chipComplete: {
+    backgroundColor: "#d1fae5",
+    borderColor: "#a7f3d0",
   },
-  badgeOutline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
+  chipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#475569",
   },
-  iconMargin: {
-    marginRight: 4,
+  chipTextProgress: {
+    color: "#1d4ed8",
   },
-  
-  // Status badge specific styles
-  activeBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  activeText: {
-    color: '#3b82f6',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  completedBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  completedText: {
-    color: '#10b981',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  cancelledBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  cancelledText: {
-    color: '#ef4444',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  inProgressBadge: {
-    backgroundColor: 'rgba(107, 114, 128, 0.5)',
-    borderColor: '#6b7280',
-  },
-  inProgressText: {
-    color: '#1f2937',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  notStartedBadge: {
-    backgroundColor: 'rgba(107, 114, 128, 0.5)',
-    borderColor: '#6b7280',
-  },
-  notStartedText: {
-    color: '#1f2937',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-
-  queueStandbyBadge: {
-    backgroundColor: 'rgba(20, 184, 166, 0.12)',
-    borderColor: 'rgba(20, 184, 166, 0.35)',
-  },
-  queueStandbyText: {
-    color: '#0f766e',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  // Booking type badge styles
-  onDemandBadge: {
-    backgroundColor: 'rgba(147, 51, 234, 0.1)',
-    borderColor: 'rgba(147, 51, 234, 0.2)',
-  },
-  onDemandText: {
-    color: '#9333ea',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  monthlyBadge: {
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  monthlyText: {
-    color: '#3b82f6',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  shortTermBadge: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-  },
-  shortTermText: {
-    color: '#22c55e',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  
-  defaultTypeBadge: {
-    backgroundColor: 'rgba(156, 163, 175, 0.1)',
-    borderColor: 'rgba(156, 163, 175, 0.2)',
-  },
-  defaultTypeText: {
-    color: '#6b7280',
-    fontSize: 12,
-    fontWeight: '500',
+  chipTextComplete: {
+    color: "#047857",
   },
 });
