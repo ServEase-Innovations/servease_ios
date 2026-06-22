@@ -44,6 +44,12 @@ const nannyImage = require("../../assets/images/Nannynew.png");
 
 type ServiceType = "COOK" | "MAID" | "NANNY";
 
+const HERO_FEATURE_CHIPS = [
+  { key: "trusted", icon: "check-circle-outline", label: "Trusted Pros" },
+  { key: "booking", icon: "auto-awesome", label: "Easy Booking" },
+  { key: "slots", icon: "event", label: "Flexible Slots" },
+] as const;
+
 const SERVICE_ICONS: Record<ServiceType, string> = {
   COOK: "restaurant",
   MAID: "cleaning-services",
@@ -469,6 +475,15 @@ const HomePage: React.FC<ChildComponentProps> = ({
               {t("home.hero.subtitle")}
             </Text>
 
+            <View style={styles.chipsRow}>
+              {HERO_FEATURE_CHIPS.map((chip) => (
+                <View key={chip.key} style={styles.heroChip}>
+                  <Icon name={chip.icon} size={17} color={HOME_M3.onPrimaryContainer} />
+                  <Text style={styles.heroChipText}>{chip.label}</Text>
+                </View>
+              ))}
+            </View>
+
             <View style={styles.searchWrap}>
               <Icon name="search" size={20} color={HOME_M3.outline} style={styles.searchIcon} />
               <TextInput
@@ -486,14 +501,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
               ) : (
                 <Icon name="tune" size={20} color={HOME_M3.outline} />
               )}
-            </View>
-
-            <View style={styles.chipsRow}>
-              {["Trusted Pros", "Easy Booking", "Flexible Slots"].map((chip) => (
-                <View key={chip} style={styles.heroChip}>
-                  <Text style={styles.heroChipText}>{chip}</Text>
-                </View>
-              ))}
             </View>
           </View>
         </LinearGradient>
@@ -697,7 +704,7 @@ const styles = StyleSheet.create({
   heroSubtitle: { color: HOME_M3.onPrimaryContainer, lineHeight: 20, marginBottom: 16, maxWidth: "95%" },
   searchWrap: {
     flexDirection: "row", alignItems: "center", backgroundColor: HOME_M3.surfaceContainerLowest,
-    borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 14,
+    borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 4,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 6,
   },
   searchIcon: { marginRight: 8 },
@@ -705,18 +712,22 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 4,
+    alignItems: "center",
+    columnGap: 18,
+    rowGap: 10,
+    marginBottom: 14,
   },
   heroChip: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  heroChipText: { color: HOME_M3.onPrimary, fontSize: 13, fontWeight: "600", letterSpacing: 0.1 },
+  heroChipText: {
+    color: HOME_M3.onPrimaryContainer,
+    fontSize: 12,
+    fontWeight: "500",
+    letterSpacing: 0.1,
+  },
   mainCanvas: {
     marginTop: -18,
     borderTopLeftRadius: 32,

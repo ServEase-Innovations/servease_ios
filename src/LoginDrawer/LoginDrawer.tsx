@@ -26,7 +26,6 @@ import { useDispatch } from "react-redux";
 import { add } from "../features/userSlice";
 import providerInstance from "../services/providerInstance";
 import { useTheme } from "../Settings/ThemeContext";
-import { getMobileTabBarHeight } from "../Constants/mobileLayout";
 import { AGENT_DASHBOARD, DASHBOARD } from "../Constants/pagesConstants";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -153,8 +152,7 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
     const onKeyboardShow = (event: KeyboardEvent) => {
       if (!showMobileFormRef.current) return;
 
-      const tabClearance = getMobileTabBarHeight(insets.bottom);
-      const lift = event.endCoordinates.height - tabClearance + 24;
+      const lift = event.endCoordinates.height - insets.bottom + 24;
 
       animateKeyboardShift(
         -Math.max(lift, 0),
@@ -330,7 +328,6 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
   if (!visible) return null;
 
   const drawerTitle = showMobileForm ? "Mobile Login" : "Choose Login Method";
-  const tabBarClearance = getMobileTabBarHeight(insets.bottom);
 
   const renderPrimaryActionButton = (
     label: string,
@@ -520,16 +517,20 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
           <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
         </TouchableWithoutFeedback>
 
-        <View style={[styles.drawerAnchor, { bottom: tabBarClearance }]}>
-          <Animated.View
-            style={{ transform: [{ translateY: Animated.add(slideAnim, keyboardShift) }] }}
-          >
-            <View style={styles.drawer}>
-            <View style={styles.handleRow}>
-              <View style={styles.handle} />
-            </View>
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              paddingBottom: Math.max(insets.bottom, 30),
+              transform: [{ translateY: Animated.add(slideAnim, keyboardShift) }],
+            },
+          ]}
+        >
+          <View style={styles.handleRow}>
+            <View style={styles.handle} />
+          </View>
 
-            <View style={styles.header}>
+          <View style={styles.header}>
               <View style={styles.headerSide}>
                 {showMobileForm ? (
                   <TouchableOpacity onPress={handleBack} hitSlop={10} style={styles.headerIconBtn}>
@@ -601,9 +602,7 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
                 <View style={styles.drawerFooter}>{renderOtpPrimaryButton()}</View>
               </ScrollView>
             )}
-            </View>
-          </Animated.View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -614,26 +613,22 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
-  drawerAnchor: {
+  drawer: {
     position: "absolute",
+    bottom: 0,
     left: 0,
     right: 0,
-    width: "100%",
-  },
-  drawer: {
-    width: "100%",
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 12,
     overflow: "visible",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
   },
   formScroll: {
     width: "100%",
