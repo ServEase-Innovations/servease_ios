@@ -36,7 +36,6 @@ import CookServiceDialog from "../ServiceDialogs/CookServiceDialog";
 import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import ServiceProviderRegistration from "../Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
-import Footer from "../Footer/Footer";
 
 const cookImage = require("../../assets/images/Cooknew.png");
 const maidImage = require("../../assets/images/Maidnew.png");
@@ -665,11 +664,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
           sendDataToParent={sendDataToParent}
         />
 
-        {showSiteFooter ? (
-          <View style={styles.siteFooterWrap}>
-            <Footer />
-          </View>
-        ) : null}
         </View>
       </ScrollView>
 

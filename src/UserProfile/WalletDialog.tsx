@@ -17,7 +17,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/Settings/ThemeContext';
-import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import { BOOKING_HEADER_GRADIENT, GRADIENTS } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
 import { getMobileTabBarHeight } from '../Constants/mobileLayout';
 import {

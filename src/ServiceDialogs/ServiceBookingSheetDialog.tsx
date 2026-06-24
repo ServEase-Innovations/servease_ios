@@ -16,6 +16,7 @@ import { useDispatch } from "react-redux";
 import { useAuth0 } from "react-native-auth0";
 import Snackbar from "react-native-snackbar";
 import { BOOKINGS, DASHBOARD, AGENT_DASHBOARD } from "../Constants/pagesConstants";
+import dayjs from "dayjs";
 import BookingSuccessDialog from "../common/BookingSuccessDialog";
 import { EnhancedProviderDetails } from "../types/ProviderDetailsType";
 import LoginDrawer from "../LoginDrawer/LoginDrawer";
@@ -124,6 +125,16 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
   }, [successShowing, handleClose, dragY, dispatch]);
 
   const handleCheckoutSuccess = useCallback((details: BookingSuccessDetails) => {
+    try {
+      const bookingDate = details?.bookingDate;
+      if (bookingDate) {
+        const isFuture = dayjs(bookingDate).isAfter(dayjs(), 'day');
+        (global as any).pendingOpenBookingsTab = isFuture ? 'upcoming' : 'today';
+      } else {
+        (global as any).pendingOpenBookingsTab = 'today';
+      }
+    } catch (e) {}
+
     setBookingSuccessDetails(details);
     setSuccessShowing(true);
     onBookingSuccess?.();
