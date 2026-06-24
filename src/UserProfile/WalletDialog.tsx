@@ -17,7 +17,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/Settings/ThemeContext';
-import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import { BOOKING_HEADER_GRADIENT, GRADIENTS } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
 import { getMobileTabBarHeight } from '../Constants/mobileLayout';
 import {
@@ -229,7 +229,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   // Updated header with BOOKING_HEADER_GRADIENT
   const renderHeader = () => (
     <LinearGradient
-      colors={[...BOOKING_HEADER_GRADIENT]}
+      colors={[...(isDarkMode ? GRADIENTS.walletDark : GRADIENTS.walletLight)]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.headerGradient}
