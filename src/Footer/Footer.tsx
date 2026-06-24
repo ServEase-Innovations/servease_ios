@@ -16,7 +16,6 @@ import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIc
 import LinearGradient from 'react-native-linear-gradient';
 import { GRADIENTS, HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
 import { useTheme } from '../Settings/ThemeContext';
-import TnC from '../TermsAndConditions/TnC';
 import {
   DEFAULT_FOOTER_SETTINGS,
   FOOTER_SOCIAL_ORDER,
@@ -44,7 +43,6 @@ const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
 const Footer = () => {
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDarkMode } = useTheme();
-  const [showTnC, setShowTnC] = useState(false);
   const [footerSettings, setFooterSettings] = useState<FooterSettings>(DEFAULT_FOOTER_SETTINGS);
 
   useEffect(() => {
@@ -171,9 +169,6 @@ const Footer = () => {
             })}
           </View>
 
-          <TouchableOpacity onPress={() => setShowTnC(true)} hitSlop={8} style={styles.tncBtn}>
-            <Text style={[styles.tncText, { color: accentColor }]}>Terms & Conditions</Text>
-          </TouchableOpacity>
         </View>
 
         <LinearGradient
@@ -186,27 +181,6 @@ const Footer = () => {
         </LinearGradient>
       </View>
 
-      <Modal
-        visible={showTnC}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowTnC(false)}
-      >
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={[...GRADIENTS.chrome]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.modalHeader, { paddingTop: Platform.OS === 'ios' ? 50 : 16 }]}
-          >
-            <Text style={styles.modalTitle}>Terms and Conditions</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowTnC(false)}>
-              <MaterialCommunityIcon name="close" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </LinearGradient>
-          <TnC />
-        </View>
-      </Modal>
     </>
   );
 };
