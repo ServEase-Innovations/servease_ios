@@ -229,7 +229,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   // Updated header with BOOKING_HEADER_GRADIENT
   const renderHeader = () => (
     <LinearGradient
-      colors={[...(isDarkMode ? GRADIENTS.walletDark : GRADIENTS.walletLight)]}
+      colors={[...BOOKING_HEADER_GRADIENT]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.headerGradient}
