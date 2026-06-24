@@ -649,7 +649,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [futureBookings, setFutureBookings] = useState<Booking[]>([]);
   const [cancelledBookings, setCancelledBookings] = useState<Booking[]>([]);
-  const [viewTab, setViewTab] = useState<BookingsViewTab>('upcoming');
+  const [viewTab, setViewTab] = useState<BookingsViewTab>('today');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -774,6 +774,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   };
   const fontSizes = getFontSizes();
   const footerClearance = getMobileTabBarHeight(insets.bottom) + 28;
+
+  useEffect(() => {
+    // Honor one-time navigation flag set by booking flow. Only act after bookings finished loading.
+    try {
+      const pending = (global as any)?.pendingOpenBookingsTab;
+      if (pending && !isLoading) {
+        setViewTab(pending === 'upcoming' ? 'upcoming' : 'today');
+        try { delete (global as any).pendingOpenBookingsTab; } catch (e) {}
+      }
+    } catch (e) {}
+  }, [isLoading]);
 
   const convertBookingForChildComponents = (booking: Booking | null): any => {
     if (!booking) return null;

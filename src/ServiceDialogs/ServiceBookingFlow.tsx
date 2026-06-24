@@ -73,6 +73,7 @@ import { useBookingScheduleFlow } from "../hooks/useBookingScheduleFlow";
 import { isCustomerCheckoutReady } from "../utils/authSession";
 import BookingLocationSection from "./BookingLocationSection";
 import { useTranslation } from "react-i18next";
+import dayjs from "dayjs";
 
 export type BookingSuccessDetails = {
   providerName?: string;
@@ -627,6 +628,19 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   };
 
   const publishCheckoutSuccess = (details: BookingSuccessDetails) => {
+    // Set a one-time navigation hint so Bookings opens the correct tab after navigation
+    try {
+      const bookingDate = details?.bookingDate;
+      if (bookingDate) {
+        const isFuture = dayjs(bookingDate).isAfter(dayjs(), 'day');
+        (global as any).pendingOpenBookingsTab = isFuture ? 'upcoming' : 'today';
+      } else {
+        (global as any).pendingOpenBookingsTab = 'today';
+      }
+    } catch (e) {
+      // ignore
+    }
+
     if (delegateSuccess) {
       onCheckoutSuccess?.(details);
       return;

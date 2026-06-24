@@ -23,6 +23,7 @@ import BookingService from '../services/bookingService';
 import { CartDialog } from '../CartDiaog/CartDialog';
 import LinearGradient from 'react-native-linear-gradient';
 import BookingSuccessDialog from '../common/BookingSuccessDialog';
+import dayjs from 'dayjs';
 import { BOOKINGS } from '../Constants/pagesConstants';
 
 // Type definitions
@@ -488,6 +489,16 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
     
     // Use setTimeout to ensure all dialogs are closed before navigation
     setTimeout(() => {
+      try {
+        const bookingDate = bookingSuccessDetails?.bookingDate;
+        if (bookingDate) {
+          const isFuture = dayjs(bookingDate).isAfter(dayjs(), 'day');
+          (global as any).pendingOpenBookingsTab = isFuture ? 'upcoming' : 'today';
+        } else {
+          (global as any).pendingOpenBookingsTab = 'today';
+        }
+      } catch (e) {}
+
       // Priority 1: Use onBookingSuccess callback if provided
       if (onBookingSuccess) {
         console.log("✅ Nanny Service: Using onBookingSuccess callback");
