@@ -355,7 +355,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       {renderSettingsHeader()}
 
       <ScrollView
@@ -855,11 +854,6 @@ const styles = StyleSheet.create({
   },
   sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   sectionHeaderIcon: { marginRight: 6 },
-  tsText: {
-    marginTop: 16,
-    fontWeight: '600',
-  },
-})
-
+});
 
 export default Settings;

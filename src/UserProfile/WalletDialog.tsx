@@ -590,7 +590,6 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       {renderHeader()}
 
       {banner ? (

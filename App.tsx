@@ -172,10 +172,7 @@ const MainApp = () => {
   /** Dark chrome header (home, dashboard, …) needs white status icons in light theme. */
   const statusBarStyle = useMemo((): "light-content" | "dark-content" => {
     if (isDarkMode) return "light-content";
-    const lightTopChrome =
-      currentView === WALLET ||
-      currentView === PROFILE ||
-      currentView === SETTINGS;
+    const lightTopChrome = currentView === PROFILE;
     return lightTopChrome ? "dark-content" : "light-content";
   }, [currentView, isDarkMode]);
 
@@ -239,7 +236,9 @@ const MainApp = () => {
     currentView === HOME ||
     currentView === DASHBOARD ||
     currentView === SP_CALENDAR ||
-    currentView === BOOKINGS;
+    currentView === BOOKINGS ||
+    currentView === WALLET ||
+    currentView === SETTINGS;
 
   // Function to handle outside touch and close dropdowns
   const handleOutsideTouch = useCallback(() => {

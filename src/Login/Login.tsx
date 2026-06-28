@@ -620,7 +620,7 @@ export const Login: React.FC<ChildComponentProps> = ({
                 disabled={verifyingOtp}
               >
                 <LinearGradient
-                  colors={["#10b981", "#047857"]}
+                  colors={["#3b82f6", "#1e40af"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[styles.submitGradient, { paddingVertical: verticalScale(14) }]}

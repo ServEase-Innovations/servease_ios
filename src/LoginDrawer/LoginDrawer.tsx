@@ -415,7 +415,7 @@ const LoginDrawer: React.FC<LoginDrawerProps> = ({
           "Verifying...",
           verifyingOtp,
           handleVerifyOtpPress,
-          ["#10b981", "#047857"]
+          ["#3b82f6", "#1e40af"]
         )}
 
         <TouchableOpacity
