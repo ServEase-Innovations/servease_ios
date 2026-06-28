@@ -11,13 +11,14 @@ import {
   RefreshControl,
   BackHandler,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/Settings/ThemeContext';
-import { BOOKING_HEADER_GRADIENT } from '../theme/brandColors';
+import { HOME_HERO_GRADIENT, HOME_M3 } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
 import { getMobileTabBarHeight } from '../Constants/mobileLayout';
 import {
@@ -117,11 +118,11 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   const fontSizes = useMemo(() => {
     switch (fontSize) {
       case 'small':
-        return { title: 18, balance: 30, text: 13, small: 11, button: 12, header: 18 };
+        return { title: 18, balance: 34, text: 13, small: 11, button: 12, header: 18 };
       case 'large':
-        return { title: 24, balance: 36, text: 17, small: 15, button: 16, header: 24 };
+        return { title: 24, balance: 42, text: 17, small: 15, button: 16, header: 24 };
       default:
-        return { title: 20, balance: 32, text: 15, small: 13, button: 14, header: 20 };
+        return { title: 20, balance: 38, text: 15, small: 13, button: 14, header: 20 };
     }
   }, [fontSize]);
 
@@ -226,33 +227,41 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
 
   const transactions = wallet?.transactions ?? [];
 
-  // Updated header with BOOKING_HEADER_GRADIENT
+  // Header matching My Bookings style
   const renderHeader = () => (
-    <LinearGradient
-      colors={[...BOOKING_HEADER_GRADIENT]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.headerGradient}
+    <View
+      style={[
+        styles.headerShell,
+        { paddingTop: insets.top },
+      ]}
     >
-      <View style={styles.headerContent}>
-        <TouchableOpacity
-          style={[styles.headerSideSlot, styles.headerBackBtn]}
-          onPress={handleBackPress}
-          accessibilityLabel="Go back"
-        >
-          <Icon name="arrow-left" size={24} color="#ffffff" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleBlock} pointerEvents="none">
-          <Text style={[styles.headerTitle, { fontSize: fontSizes.header + 2 }]} numberOfLines={1}>
+      <LinearGradient
+        colors={[...HOME_HERO_GRADIENT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.headerInner}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={handleBackPress}
+            accessibilityLabel="Go back"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="arrow-left" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <Text
+            style={[styles.headerTitle, { fontSize: fontSizes.header }]}
+            numberOfLines={1}
+          >
             {t('wallet.title')}
           </Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {t('wallet.subtitle', { defaultValue: 'Manage your balance and rewards' })}
-          </Text>
+          <View style={styles.headerSideSlot} />
         </View>
-        <View style={styles.headerSideSlot} />
       </View>
-    </LinearGradient>
+    </View>
   );
 
   const renderTabSwitcher = () => (
@@ -404,8 +413,6 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
               <Text
                 style={[styles.balanceAmount, { color: colors.text, fontSize: fontSizes.balance }]}
                 numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.65}
               >
                 {formatMoney(displayBalance)}
               </Text>
@@ -582,13 +589,14 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       {renderHeader()}
 
       {banner ? (
         <View
           style={[
-            styles.banner,
+            styles.bannerWrap,
             {
               backgroundColor:
                 banner.type === 'success'
@@ -628,7 +636,7 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
       ) : null}
 
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, { backgroundColor: colors.background }]}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: footerClearance }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -658,61 +666,46 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerGradient: {
+  headerShell: {
     width: '100%',
     alignSelf: 'stretch',
-    backgroundColor: 'transparent',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingBottom: 12,
-    paddingTop: 6,
+    backgroundColor: HOME_M3.primary,
+    paddingBottom: 4,
     overflow: 'hidden',
+    position: 'relative',
   },
-  headerContent: {
+  headerInner: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    minHeight: 68,
-    paddingHorizontal: HORIZONTAL_GUTTER,
+    height: 44,
+    paddingHorizontal: 12,
   },
-  headerSideSlot: {
+  headerIconBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
   },
-  headerBackBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.20)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  headerTitleBlock: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    minWidth: 0,
-  },
   headerTitle: {
+    flex: 1,
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: -0.3,
-    textAlign: 'center',
-    width: '100%',
+    textAlign: 'left',
+    lineHeight: 24,
+    marginLeft: 2,
+    marginRight: 4,
   },
-  headerSubtitle: {
-    color: 'rgba(219, 234, 254, 0.95)',
-    textAlign: 'center',
-    fontSize: 13,
-    marginTop: 4,
-    fontWeight: '500',
+  headerSideSlot: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
   },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1 },
@@ -758,12 +751,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 4,
     letterSpacing: -0.5,
-    lineHeight: 38,
+    lineHeight: 46,
   },
   walletIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -849,7 +842,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   payButtonText: { color: '#fff', fontWeight: '700' },
-  banner: {
+  bannerWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,

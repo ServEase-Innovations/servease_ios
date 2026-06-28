@@ -107,6 +107,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [use24HourFormat, setUse24HourFormat] = useState<boolean>(false);
   const [isDateChanged, setIsDateChanged] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [localOption, setLocalOption] = useState<string>("Date");
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
@@ -172,14 +173,14 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setLocalEndTime(end);
     setEndTime(end);
 
-    if (selectedOption === "Date") {
+    if (localOption === "Date") {
       setLocalEndDate(end.format("YYYY-MM-DD"));
       setEndDate(end.format("YYYY-MM-DD"));
-    } else if (selectedOption === "Monthly") {
+    } else if (localOption === "Monthly") {
       const endDateValue = start.add(1, "month");
       setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
       setEndDate(endDateValue.format("YYYY-MM-DD"));
-    } else if (selectedOption === "Short term") {
+    } else if (localOption === "Short term") {
       if (!localEndDate) {
         const endDateValue = start.add(1, "day");
         setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
@@ -208,6 +209,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
     openSessionInitializedRef.current = true;
 
+    setLocalOption("Date");
+    onOptionChange("Date");
     setLocalStartDate(startDate);
     setLocalEndDate(endDate);
     setLocalStartTime(startTime);
@@ -585,6 +588,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setStartTime(null);
     setEndTime(null);
     setTempSelectedTime(null);
+    setLocalOption(val);
     onOptionChange(val);
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -594,7 +598,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const isConfirmDisabled = () => {
     if (isServiceDisabled) return true;
     
-    switch (selectedOption) {
+    switch (localOption) {
       case "Date":
         return !localStartDate || !localStartTime;
       case "Short term":
@@ -648,7 +652,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
     
     onSave({
-      option: selectedOption,
+      option: localOption,
       startDate: localStartDate,
       endDate: localEndDate,
       startTime: localStartTime,
@@ -693,7 +697,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   const isStepValid = (step: number) => {
     if (step === 1) {
-      return ["Date", "Short term", "Monthly"].includes(selectedOption);
+      return ["Date", "Short term", "Monthly"].includes(localOption);
     }
     if (step === 2) {
       return !isConfirmDisabled();
@@ -752,11 +756,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const fontSizes = getFontSizes();
-  const hasValidOption = ["Date", "Short term", "Monthly"].includes(selectedOption);
+  const hasValidOption = ["Date", "Short term", "Monthly"].includes(localOption);
   const hasScheduleInputs =
-    (selectedOption === "Date" && !!localStartDate && !!localStartTime) ||
-    (selectedOption === "Monthly" && !!localStartDate && !!localStartTime) ||
-    (selectedOption === "Short term" && !!localStartDate && !!localEndDate && !!localStartTime && !!localEndTime);
+    (localOption === "Date" && !!localStartDate && !!localStartTime) ||
+    (localOption === "Monthly" && !!localStartDate && !!localStartTime) ||
+    (localOption === "Short term" && !!localStartDate && !!localEndDate && !!localStartTime && !!localEndTime);
   const progressStep = !hasValidOption ? 1 : !hasScheduleInputs ? 2 : 3;
 
   // Render Duration Control (appears first in the dialog)
@@ -764,9 +768,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     const hasStartTime = !!localStartTime;
     
     const getDurationMessage = () => {
-      if (selectedOption === "Short term") {
+      if (localOption === "Short term") {
         return "Applies to each day of service";
-      } else if (selectedOption === "Monthly") {
+      } else if (localOption === "Monthly") {
         return "Applies to each day of subscription";
       }
       return "Adjust the duration of your service";
@@ -853,7 +857,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </View>
           <View style={[styles.bookingTypeBadge, { backgroundColor: colors.primary + "16", borderColor: colors.primary + "3a" }]}>
             <Text style={[styles.bookingTypeBadgeText, { color: colors.primary, fontSize: fontSizes.small }]}>
-              {selectedOption}
+              {localOption}
             </Text>
           </View>
         </View>
@@ -868,7 +872,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </Text>
           </View>
 
-          {selectedOption === "Monthly" && localEndDate && (
+          {localOption === "Monthly" && localEndDate && (
             <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Date:
@@ -879,7 +883,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
           )}
 
-          {selectedOption === "Short term" && localEndDate && (
+          {localOption === "Short term" && localEndDate && (
             <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Date:
@@ -919,20 +923,20 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </Text>
           </View>
 
-          {selectedOption === "Short term" && localEndDate && localStartTime && localEndTime && (
+          {localOption === "Short term" && localEndDate && localStartTime && localEndTime && (
             <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Service will run from {dayjs(localStartDate).format('MMMM D')} to {dayjs(localEndDate).format('MMMM D, YYYY')}, 
               daily from {localStartTime.format('h:mm A')} to {localEndTime.format('h:mm A')}
             </Text>
           )}
 
-          {selectedOption === "Monthly" && localEndDate && (
+          {localOption === "Monthly" && localEndDate && (
             <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Monthly subscription from {dayjs(localStartDate).format('MMMM D, YYYY')} to {dayjs(localEndDate).format('MMMM D, YYYY')}
             </Text>
           )}
 
-          {selectedOption === "Date" && localStartDate && localStartTime && (
+          {localOption === "Date" && localStartDate && localStartTime && (
             <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Service will start on {dayjs(localStartDate).format('MMMM D, YYYY')} at {localStartTime.format('h:mm A')}
             </Text>
@@ -1218,9 +1222,9 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   }
 
   const bookingTypeOptions = [
-    { value: "Monthly", label: "Monthly" },
-    { value: "Short term", label: "Short-term" },
     { value: "Date", label: "One-time" },
+    { value: "Short term", label: "Short-term" },
+    { value: "Monthly", label: "Monthly" },
   ];
 
   return (
@@ -1280,7 +1284,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
               <View style={[styles.segmentedControl, { backgroundColor: isDarkMode ? colors.surface2 : "#e8ecf1" }]}>
                 {bookingTypeOptions.map((opt) => {
-                  const selected = selectedOption === opt.value;
+                  const selected = localOption === opt.value;
                   return (
                     <TouchableOpacity
                       key={opt.value}
@@ -1312,7 +1316,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
               </View>
             </View>
 
-            {selectedOption === "Date" && (
+            {localOption === "Date" && (
               <>
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker

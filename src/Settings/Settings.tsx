@@ -14,6 +14,7 @@ import {
   Animated,
   Dimensions,
   BackHandler,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -28,7 +29,7 @@ import PrivacyPolicy from '../TermsAndConditions/PrivacyPolicy';
 import { HomeHeroPageHeader } from '../common/HomeHeroPageHeader';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
-import { BOOKING_HEADER_GRADIENT, BRAND, HOME_M3 } from '../theme/brandColors';
+import { BOOKING_HEADER_GRADIENT, BRAND, HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
 import { requestPushNotificationPermission } from '../services/pushNotifications';
 import { refreshPushRegistration } from '../services/pushApi';
 import { useAppUser } from '../context/AppUserContext';
@@ -217,23 +218,14 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   };
 
   // Setting row
-  const SettingItem = ({ icon, label, value, onPress, rightIcon = 'chevron-right', showSwitch = false, switchValue = false, onSwitchChange, isLast = false }: any) => {
+  const SettingItem = ({ icon, label, value, onPress, rightIcon = 'chevron-right', showSwitch = false, switchValue = false, onSwitchChange, isLast = false, iconBg, valueDanger = false }: any) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
-      Animated.spring(scaleAnim, {
-        toValue: 0.98,
-        friction: 5,
-        useNativeDriver: true,
-      }).start();
+      Animated.spring(scaleAnim, { toValue: 0.98, friction: 5, useNativeDriver: true }).start();
     };
-
     const handlePressOut = () => {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 5,
-        useNativeDriver: true,
-      }).start();
+      Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }).start();
     };
 
     return (
@@ -243,7 +235,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             styles.settingItem,
             {
               borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
-              borderBottomColor: colors.divider,
+              borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
             },
           ]}
           onPress={onPress}
@@ -253,28 +245,25 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           activeOpacity={0.65}
         >
           <View style={styles.settingItemLeft}>
-            <LinearGradient colors={iconGradient} style={styles.settingIconBg}>
-              <MaterialIcon name={icon} size={20} color="#ffffff" />
-            </LinearGradient>
-            <Text
-              style={[
-                styles.settingLabel,
-                { color: colors.textPrimary, fontSize: fontStyles.textSize },
-              ]}
-            >
+            <View style={[styles.settingIconBg, { backgroundColor: iconBg || (isDarkMode ? '#334155' : '#e8eef8') }]}>
+              <MaterialIcon name={icon} size={20} color={isDarkMode ? '#e2e8f0' : '#3b5bdb'} />
+            </View>
+            <Text style={[styles.settingLabel, { color: colors.textPrimary, fontSize: fontStyles.textSize }]}>
               {label}
             </Text>
           </View>
           <View style={styles.settingItemRight}>
             {value && !showSwitch ? (
-              <View style={[styles.valuePill, { backgroundColor: colors.accentSoft }]}>
-                <Text
-                  style={[
-                    styles.settingValue,
-                    { color: colors.primary, fontSize: fontStyles.smallText },
-                  ]}
-                  numberOfLines={1}
-                >
+              <View style={[
+                styles.valuePill,
+                valueDanger
+                  ? { backgroundColor: '#fee2e2' }
+                  : { backgroundColor: isDarkMode ? colors.accentSoft : '#e8eef8' },
+              ]}>
+                <Text style={[
+                  styles.settingValue,
+                  { color: valueDanger ? '#ef4444' : (isDarkMode ? colors.primary : '#3b5bdb'), fontSize: fontStyles.smallText },
+                ]} numberOfLines={1}>
                   {value}
                 </Text>
               </View>
@@ -283,12 +272,12 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               <Switch
                 value={switchValue}
                 onValueChange={onSwitchChange}
-                trackColor={{ false: colors.border, true: colors.primary }}
+                trackColor={{ false: isDarkMode ? '#475569' : '#cbd5e1', true: '#3b5bdb' }}
                 thumbColor="#ffffff"
-                ios_backgroundColor={colors.border}
+                ios_backgroundColor={isDarkMode ? '#475569' : '#cbd5e1'}
               />
             ) : (
-              <MaterialIcon name={rightIcon} size={22} color={colors.textTertiary} />
+              <MaterialIcon name={rightIcon} size={20} color={isDarkMode ? '#475569' : '#94a3b8'} />
             )}
           </View>
         </TouchableOpacity>
@@ -296,20 +285,10 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     );
   };
 
-  const SectionHeader = ({ title, icon }: { title: string; icon?: string }) => (
-    <View style={styles.sectionHeaderContainer}>
-      {icon ? (
-        <MaterialIcon name={icon} size={16} color={colors.primary} style={styles.sectionHeaderIcon} />
-      ) : null}
-      <Text
-        style={[
-          styles.sectionHeader,
-          { color: colors.primary, fontSize: fontStyles.smallText },
-        ]}
-      >
-        {title.toUpperCase()}
-      </Text>
-    </View>
+  const SectionHeader = ({ title }: { title: string; icon?: string }) => (
+    <Text style={[styles.sectionHeader, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
+      {title.toUpperCase()}
+    </Text>
   );
 
   // Modal Component
@@ -349,97 +328,87 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   );
 
   const renderSettingsHeader = () => (
-    <LinearGradient
-      colors={[...BOOKING_HEADER_GRADIENT]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.headerGradient}
-    >
-      <View style={styles.headerContent}>
+    <View style={[styles.headerShell, { paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={[...HOME_HERO_GRADIENT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.headerTopRow}>
         <TouchableOpacity
-          style={[styles.headerSideSlot, styles.headerBackBtn]}
+          style={styles.headerIconBtn}
           onPress={onBack}
           accessibilityLabel="Go back"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Icon name="arrow-left" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <View style={styles.headerTitleBlock} pointerEvents="none">
-          <Text
-            style={[styles.headerTitle, { fontSize: fontStyles.headingSize + 2 }]}
-            numberOfLines={1}
-          >
-            Settings
-          </Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>
-            Customize your app experience
-          </Text>
-        </View>
-        <View style={[styles.headerSideSlot, { alignItems: 'flex-end' }]} />
+        <Text style={[styles.headerTitle, { fontSize: fontStyles.headingSize }]} numberOfLines={1}>
+          Settings
+        </Text>
+        <View style={styles.headerSideSlot} />
       </View>
-    </LinearGradient>
+    </View>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       {renderSettingsHeader()}
 
       <ScrollView
-        style={styles.mainScrollView}
+        style={[styles.mainScrollView, { backgroundColor: isDarkMode ? colors.background : '#f1f5f9' }]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: footerClearance }}
+        contentContainerStyle={{ paddingBottom: footerClearance, paddingTop: 8 }}
       >
+        {/* APPEARANCE */}
         <View style={styles.section}>
-          <SectionHeader title="Appearance" icon="palette" />
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border + '20',
-              },
-            ]}
-          >
+          <SectionHeader title="Appearance" />
+          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
             <SettingItem
               icon="palette"
               label="Theme"
+              iconBg={isDarkMode ? '#1e3a5f' : '#dbeafe'}
               value={themeOptions.find(t => t.value === theme)?.label}
               onPress={() => setShowThemeModal(true)}
             />
             <SettingItem
               icon="format-size"
               label="Font Size"
+              iconBg={isDarkMode ? '#1e3a5f' : '#dbeafe'}
               value={fontSizes.find(f => f.value === fontSize)?.label}
               onPress={() => setShowFontSizeModal(true)}
             />
             <SettingItem
               icon="language"
               label="Language"
-              value={languages.find(l => l.code === language)?.nativeName}
+              iconBg={isDarkMode ? '#1e3a5f' : '#dbeafe'}
+              value={languages.find(l => l.code === language)?.name}
               onPress={() => setShowLanguageModal(true)}
               isLast
             />
           </View>
         </View>
 
+        {/* PREFERENCES */}
         <View style={styles.section}>
-          <SectionHeader title="Preferences" icon="tune" />
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border + '20' },
-            ]}
-          >
+          <SectionHeader title="Preferences" />
+          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
             <SettingItem
               icon="notifications-active"
               label="Push Notifications"
-              showSwitch={true}
+              iconBg={isDarkMode ? '#1e3a5f' : '#dbeafe'}
+              showSwitch
               switchValue={notifications}
               onSwitchChange={handleNotificationToggle}
             />
             <SettingItem
               icon="dashboard"
               label="Compact Mode"
-              showSwitch={true}
+              iconBg={isDarkMode ? '#1e3a5f' : '#dbeafe'}
+              showSwitch
               switchValue={compactMode}
               onSwitchChange={setCompactMode}
               isLast
@@ -447,87 +416,55 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           </View>
         </View>
 
+        {/* PRIVACY & SECURITY */}
         <View style={styles.section}>
-          <SectionHeader title="Privacy & Security" icon="lock" />
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border + '20' },
-            ]}
-          >
+          <SectionHeader title="Privacy & Security" />
+          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
             <SettingItem
               icon="lock"
               label="Privacy Policy"
+              iconBg={isDarkMode ? '#3b2800' : '#fef3c7'}
               onPress={() => setShowPrivacyPolicyModal(true)}
             />
             <SettingItem
               icon="security"
               label="Security"
+              iconBg={isDarkMode ? '#3b2800' : '#fef3c7'}
               onPress={() => Alert.alert('Security', 'Manage your security preferences.')}
             />
             <SettingItem
               icon="gpp-good"
               label="Data Sharing"
+              iconBg={isDarkMode ? '#3b2800' : '#fef3c7'}
               value="Disabled"
+              valueDanger
               onPress={() => Alert.alert('Coming Soon', 'This feature will be available soon.')}
               isLast
             />
           </View>
         </View>
 
+        {/* ABOUT */}
         <View style={styles.section}>
-          <SectionHeader title="About" icon="info" />
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border + '20' },
-            ]}
-          >
-            <SettingItem
-              icon="info"
-              label="About App"
-              onPress={() => setShowAboutModal(true)}
-            />
-            <SettingItem
-              icon="phone"
-              label="Contact Us"
-              onPress={() => setShowContactModal(true)}
-            />
-            <SettingItem
-              icon="description"
-              label="Terms & Conditions"
+          <SectionHeader title="About" />
+          <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
+            <View style={[styles.aboutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }]}>
+              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>Version</Text>
+              <Text style={[styles.aboutValue, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>{appVersionLabel || '2.4.0 (Enterprise)'}</Text>
+            </View>
+            <View style={[styles.aboutRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }]}>
+              <Text style={[styles.aboutLabel, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>Last Updated</Text>
+              <Text style={[styles.aboutValue, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>Oct 12, 2023</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.termsLinkRow}
               onPress={() => setShowTnCModal(true)}
-            />
-            <SettingItem
-              icon="star"
-              label="Rate App"
-              onPress={() => Alert.alert('Rate Us', 'Thank you for rating our app!')}
-            />
-            <SettingItem
-              icon="update"
-              label="App Version"
-              value={appVersionLabel || '—'}
-              onPress={() => {}}
-              isLast
-            />
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.termsLink, { fontSize: fontStyles.textSize }]}>Terms of Service</Text>
+            </TouchableOpacity>
           </View>
         </View>
-
-        <TouchableOpacity
-          style={[
-            styles.resetButton,
-            {
-              borderColor: colors.error,
-              backgroundColor: isDarkMode ? 'rgba(248, 113, 113, 0.12)' : colors.errorLight,
-            },
-          ]}
-          onPress={clearAllPreferences}
-        >
-          <MaterialIcon name="settings-backup-restore" size={20} color={colors.error} />
-          <Text style={[styles.resetButtonText, { color: colors.error, fontSize: fontStyles.textSize }]}>
-            Reset All Settings
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
 
         {/* Theme Selection Modal */}
@@ -695,92 +632,67 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerGradient: {
+  // ── Header ──────────────────────────────────────────────────────
+  headerShell: {
     width: '100%',
-    alignSelf: 'stretch',
-    backgroundColor: 'transparent',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingBottom: 12,
-    paddingTop: 6,
+    backgroundColor: HOME_M3.primary,
+    paddingBottom: 4,
     overflow: 'hidden',
+    position: 'relative',
   },
-  headerContent: {
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    minHeight: 68,
-    paddingHorizontal: HORIZONTAL_GUTTER,
+    height: 44,
+    paddingHorizontal: 12,
   },
-  headerSideSlot: {
+  headerIconBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
   },
-  headerBackBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.20)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  headerTitleBlock: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    minWidth: 0,
-  },
   headerTitle: {
+    flex: 1,
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: -0.3,
-    textAlign: 'center',
-    width: '100%',
+    textAlign: 'left',
+    lineHeight: 24,
+    marginLeft: 2,
   },
-  headerSubtitle: {
-    color: 'rgba(219, 234, 254, 0.95)',
-    textAlign: 'center',
-    fontSize: 13,
-    marginTop: 4,
-    fontWeight: '500',
+  headerSideSlot: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
   },
+  // ── Scroll / Sections ───────────────────────────────────────────
   mainScrollView: {
     flex: 1,
   },
   section: {
-    width: '100%',
-    alignSelf: 'stretch',
-    paddingHorizontal: HORIZONTAL_GUTTER,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  card: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 4,
-    borderWidth: 1,
-  },
-  sectionHeaderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 8,
-    paddingTop: 4,
-  },
-  sectionHeaderIcon: {
-    marginRight: 6,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 2,
   },
   sectionHeader: {
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.7,
+    marginBottom: 8,
   },
+  // ── Card ────────────────────────────────────────────────────────
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  // ── Setting row ─────────────────────────────────────────────────
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -798,13 +710,13 @@ const styles = StyleSheet.create({
   settingIconBg: {
     width: 36,
     height: 36,
-    borderRadius: 9,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   settingLabel: {
-    fontWeight: '600',
+    fontWeight: '500',
     flexShrink: 1,
   },
   settingItemRight: {
@@ -814,29 +726,37 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   valuePill: {
-    maxWidth: 130,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
   settingValue: {
     fontWeight: '600',
   },
-  resetButton: {
+  // ── About section rows ──────────────────────────────────────────
+  aboutRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    marginBottom: 8,
-    marginHorizontal: HORIZONTAL_GUTTER,
+    justifyContent: 'space-between',
     paddingVertical: 14,
-    borderWidth: 1,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    minHeight: 48,
   },
-  resetButtonText: {
+  aboutLabel: {
+    fontWeight: '400',
+  },
+  aboutValue: {
     fontWeight: '700',
   },
+  termsLinkRow: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  termsLink: {
+    color: '#3b5bdb',
+    fontWeight: '600',
+  },
+  // ── Modals ──────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -846,7 +766,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: width * 0.85,
     maxHeight: height * 0.7,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   modalHeader: {
@@ -917,6 +837,29 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontWeight: '600',
   },
-});
+  // kept for legacy modal usage
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 8,
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  resetButtonText: {
+    fontWeight: '700',
+  },
+  sectionHeaderContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  sectionHeaderIcon: { marginRight: 6 },
+  tsText: {
+    marginTop: 16,
+    fontWeight: '600',
+  },
+})
+
 
 export default Settings;

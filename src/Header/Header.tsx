@@ -31,6 +31,7 @@ import {
 import { useAuth0 } from "react-native-auth0";
 import LinearGradient from "react-native-linear-gradient";
 import TnC from "../TermsAndConditions/TnC";
+import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
 import AboutPage from "../AboutUs/AboutPage";
 import ContactUs from "../ContactUs/ContactUs";
 import LocationSelector from "../Header/LocationSelector";
@@ -542,17 +543,10 @@ const Head: React.FC<ChildComponentProps> = ({
         onRequestClose={() => setShowTnC(false)}
       >
         <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={chromeGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>Terms and Conditions</Text>
-            <TouchableOpacity onPress={() => setShowTnC(false)}>
-              <Icon name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-          </LinearGradient>
+          <HomeHeroPageHeader
+            title="Terms & Conditions"
+            onBack={() => setShowTnC(false)}
+          />
           <TnC />
         </View>
       </Modal>

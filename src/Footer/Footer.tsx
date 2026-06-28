@@ -9,14 +9,14 @@ import {
   Image,
   Modal,
   useWindowDimensions,
-  Platform,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
-import { GRADIENTS, HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
+import { HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
 import { useTheme } from '../Settings/ThemeContext';
 import TnC from '../TermsAndConditions/TnC';
+import { HomeHeroPageHeader } from '../common/HomeHeroPageHeader';
 import {
   DEFAULT_FOOTER_SETTINGS,
   FOOTER_SOCIAL_ORDER,
@@ -43,7 +43,7 @@ const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
 
 const Footer = () => {
   const { width: screenWidth } = useWindowDimensions();
-  const { colors, isDarkMode } = useTheme();
+  const { colors, isDarkMode, fontSize } = useTheme();
   const [showTnC, setShowTnC] = useState(false);
   const [footerSettings, setFooterSettings] = useState<FooterSettings>(DEFAULT_FOOTER_SETTINGS);
 
@@ -79,6 +79,7 @@ const Footer = () => {
   const helplineLabel = formatPhoneDisplay(footerSettings.helplinePhone);
   const joinUsLabel = formatPhoneDisplay(footerSettings.joinUsPhone);
   const iconSize = screenWidth < 360 ? 16 : 18;
+  const termsTitleSize = fontSize === 'large' ? 24 : fontSize === 'small' ? 18 : 20;
 
   const renderSocialIcon = (key: FooterSocialKey) => {
     if (key === 'x') {
@@ -186,24 +187,13 @@ const Footer = () => {
         </LinearGradient>
       </View>
 
-      <Modal
-        visible={showTnC}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowTnC(false)}
-      >
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={[...GRADIENTS.chrome]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.modalHeader, { paddingTop: Platform.OS === 'ios' ? 50 : 16 }]}
-          >
-            <Text style={styles.modalTitle}>Terms and Conditions</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowTnC(false)}>
-              <MaterialCommunityIcon name="close" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </LinearGradient>
+      <Modal visible={showTnC} animationType="slide" onRequestClose={() => setShowTnC(false)}>
+        <View style={[styles.termsModalRoot, { backgroundColor: isDarkMode ? colors.background : HOME_M3.surface }]}>
+          <HomeHeroPageHeader
+            title="Terms & Conditions"
+            onBack={() => setShowTnC(false)}
+            titleFontSize={termsTitleSize}
+          />
           <TnC />
         </View>
       </Modal>

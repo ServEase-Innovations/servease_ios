@@ -339,8 +339,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   };
 
   const renderMobileTabIcon = (tab: MobileTab, isActive: boolean) => {
-    const iconMuted = isDarkMode ? "#94a3b8" : "#64748b";
-    const iconActiveColor = activePage === HOME ? HOME_M3.onSecondaryContainer : colors.primary;
+    const iconMuted = "rgba(255,255,255,0.7)";
+    const iconActiveColor = HOME_M3.primary;
 
     if (tab.hideIcon) {
       return <View style={styles.navIconSlot} />;
@@ -473,6 +473,12 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onPress: () => onNavigateToPage(PROFILE),
         },
         {
+          key: SETTINGS,
+          label: t("navigation.settings") || "Settings",
+          iconName: "settings",
+          onPress: handleSettingsOpen,
+        },
+        {
           key: "SIGN_OUT",
           label: t("navigation.signOut"),
           iconName: "logout",
@@ -530,6 +536,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
       }
 
       tabs.push({
+        key: SETTINGS,
+        label: t("navigation.settings") || "Settings",
+        iconName: "settings",
+        onPress: handleSettingsOpen,
+      });
+
+      tabs.push({
         key: "SIGN_OUT",
         label: t("navigation.signOut"),
         iconName: "logout",
@@ -560,8 +573,8 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
     const navSurface = isDarkMode ? colors.card : "#ffffff";
     const navBorder = isDarkMode ? colors.border : "#e2e8f0";
-    const textMuted = isDarkMode ? "#94a3b8" : "#64748b";
-    const textActiveColor = activePage === HOME ? HOME_M3.onSecondaryContainer : colors.primary;
+    const textMuted = "rgba(255,255,255,0.7)";
+    const textActiveColor = HOME_M3.primary;
     const bottomPad = getMobileTabBarBottomPad(safeBottom);
 
     return (
@@ -570,7 +583,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           style={[
             styles.mobileNavShell,
             {
-              backgroundColor: navSurface,
+              backgroundColor: HOME_M3.primary,
               borderTopColor: navBorder,
               paddingTop: MOBILE_TAB_BAR_TOP_PAD,
               paddingBottom: bottomPad,
@@ -592,14 +605,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                   disabled={isDisabled}
                   style={[
                     styles.mobileNavItem,
-                    isActive &&
-                      tab.key === HOME &&
-                      activePage === HOME &&
-                      styles.mobileNavItemActiveHome,
-                    isActive &&
-                      !(tab.key === HOME && activePage === HOME) && {
-                        backgroundColor: `${colors.primary}1A`,
-                      },
+                    isActive && styles.mobileNavItemActiveHome,
                     isDisabled && styles.disabledTab,
                   ]}
                   activeOpacity={0.72}
@@ -612,7 +618,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                       style={[
                         styles.mobileNavText,
                         {
-                          color: textMuted,
+                          color: "rgba(255,255,255,0.7)",
                           fontSize: moderateScale(10),
                           lineHeight: moderateScale(12),
                         },
@@ -779,7 +785,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   mobileNavItemActiveHome: {
-    backgroundColor: HOME_M3.secondaryContainer,
+    backgroundColor: "white",
     transform: [{ scale: 0.92 }],
   },
   mobileNavContainer: {

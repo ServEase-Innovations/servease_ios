@@ -10,6 +10,7 @@ import {
   Dimensions,
   Linking,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Modal,
@@ -22,15 +23,16 @@ import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
 import io, { Socket } from 'socket.io-client';
 import { useAppUser } from '../context/AppUserContext';
-import { BRAND, GRADIENTS } from '../theme/brandColors';
+import { HOME_HERO_GRADIENT, HOME_M3 } from '../theme/brandColors';
+import { fetchMyTickets } from '../services/ticketsService';
 
 const ENDPOINT = 'https://chat-b3wl.onrender.com';
 const ADMIN_ID = '698ace8b8ea84c91bdc93678';
 
 const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
-const SHEET_MIN = SCREEN_H * 0.46;
-const SHEET_DEFAULT = SCREEN_H * 0.72;
-const SHEET_MAX = SCREEN_H * 0.9;
+const SHEET_MIN = SCREEN_H * 0.58;
+const SHEET_DEFAULT = SCREEN_H * 0.88;
+const SHEET_MAX = SCREEN_H * 0.96;
 const DISMISS_DRAG = 100;
 
 interface MessageType {
@@ -45,17 +47,14 @@ interface ChatbotProps {
 }
 
 const generalFaqData = [
-  { question: 'What services do you offer?', answer: 'We offer Home Cook, Cleaning Help, and Caregiver services.' },
-  { question: 'How do I book a service?', answer: 'Choose a provider, pick a time slot, and confirm payment.' },
-  { question: 'Are providers verified?', answer: 'Yes — every provider completes our verification process.' },
-  { question: 'Can I cancel a booking?', answer: 'Yes, from My Bookings in your profile.' },
-  { question: 'How do I contact support?', answer: 'Use live chat below, email, or phone.' },
+  { question: 'How do I book a home cook?', answer: 'Simply go to the Home tab, select Home Cook, choose your preferences, pick an available provider and confirm your booking.' },
+  { question: 'Can I cancel my booking?', answer: 'Yes, cancellations are free up to 2 hours before the scheduled visit. Open My Bookings and choose the booking you want to cancel.' },
+  { question: 'How are service providers verified?', answer: 'All our partners undergo rigorous identity, document, and service quality checks before they can accept bookings.' },
 ];
 
 const customerFaqData = [
-  { question: 'How do I track my booking?', answer: "Open My Bookings to see today's visit and status." },
-  { question: 'Can I reschedule?', answer: 'Yes — open the booking and tap Modify (where available).' },
-  { question: 'How do I pay?', answer: 'Card, UPI, and wallet options appear at checkout.' },
+  { question: 'Where can I see my bookings?', answer: 'Open your profile and tap My Bookings to view upcoming, ongoing, and completed services.' },
+  { question: 'How do I raise a complaint?', answer: 'Open the booking, tap Report issue, and our support team will track it as a ticket.' },
 ];
 
 const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
@@ -73,10 +72,12 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [mongoUser, setMongoUser] = useState<any>(null);
   const [startingChat, setStartingChat] = useState(false);
+  const [loadingTickets, setLoadingTickets] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const sheetHeight = useRef(new Animated.Value(0)).current;
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
   const dragStartHeight = useRef(SHEET_DEFAULT);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
@@ -100,6 +101,33 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   useEffect(() => {
     scrollToEnd();
   }, [messages, showAccordion, expandedFaq, scrollToEnd]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      const nextOffset = Math.max(0, event.endCoordinates.height - insets.bottom);
+      Animated.timing(keyboardOffset, {
+        toValue: -nextOffset,
+        duration: event.duration ?? 250,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (event) => {
+      Animated.timing(keyboardOffset, {
+        toValue: 0,
+        duration: event.duration ?? 200,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [insets.bottom, keyboardOffset]);
 
   const resetChat = useCallback(() => {
     setChatOpen(false);
@@ -195,7 +223,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
   };
 
   const startLiveChat = async () => {
-    if (!appUser || startingChat) return;
+    if (!appUser) {
+      Alert.alert('Sign in required', 'Please sign in to start a live support chat.');
+      return;
+    }
+    if (startingChat) return;
     setStartingChat(true);
     try {
       const { data: userData } = await axios.post(`${ENDPOINT}/api/user/find-or-create`, {
@@ -230,11 +262,48 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     }
   };
 
+  const getCustomerId = () => {
+    const raw = appUser?.customerId ?? appUser?.customerid ?? appUser?.id;
+    const parsed = raw != null && raw !== '' ? Number(raw) : NaN;
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const handleOpenTickets = async () => {
+    const customerId = getCustomerId();
+    if (!customerId) {
+      Alert.alert('Sign in required', 'Please sign in to view your support tickets.');
+      return;
+    }
+    if (loadingTickets) return;
+    setLoadingTickets(true);
+    try {
+      const tickets = await fetchMyTickets(customerId);
+      if (!tickets.length) {
+        Alert.alert('Your tickets', 'No tickets yet. Use Report issue on a booking to raise a complaint.');
+        return;
+      }
+      const lines = tickets
+        .slice(0, 8)
+        .map(
+          (ticket) =>
+            `${ticket.ticket_number}: ${ticket.subject}\n${ticket.status}${ticket.is_overdue ? ' (overdue)' : ''}`
+        )
+        .join('\n\n');
+      Alert.alert('Your tickets', lines);
+    } catch {
+      Alert.alert('Error', 'Could not load tickets. Please try again.');
+    } finally {
+      setLoadingTickets(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
     if (!isLiveChat) {
       setMessages((prev) => [...prev, { content: inputText.trim(), sender: 'user' }]);
+      setChatOpen(true);
+      setShowAccordion(false);
       setInputText('');
       return;
     }
@@ -267,7 +336,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
             <Icon
               name={isAdmin ? 'headset' : 'robot-outline'}
               size={16}
-              color={isAdmin ? BRAND.accent : BRAND.textMuted}
+              color={isAdmin ? HOME_M3.secondary : HOME_M3.onSurfaceVariant}
             />
           </View>
         )}
@@ -293,12 +362,20 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
           <Pressable style={StyleSheet.absoluteFill} onPress={closeSheet} />
         </Animated.View>
 
-        <Animated.View style={[styles.sheet, { height: sheetHeight }]}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              height: sheetHeight,
+              transform: [{ translateY: keyboardOffset }],
+            },
+          ]}
+        >
           <View style={styles.sheetColumn}>
             <LinearGradient
-              colors={[...GRADIENTS.bookingHeader]}
+              colors={[...HOME_HERO_GRADIENT]}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.header}
             >
               <View style={styles.dragZone} {...panResponder.panHandlers}>
@@ -313,7 +390,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                     accessibilityLabel="Back to help options"
                     accessibilityRole="button"
                   >
-                    <Icon name="arrow-left" size={24} color="#ffffff" />
+                    <Icon name="arrow-left" size={22} color={HOME_M3.onPrimary} />
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.headerIconSpacer} />
@@ -333,7 +410,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                   accessibilityLabel="Close chat"
                   accessibilityRole="button"
                 >
-                  <Icon name="close" size={24} color="#ffffff" />
+                  <Icon name="close" size={24} color={HOME_M3.onPrimary} />
                 </TouchableOpacity>
               </View>
             </LinearGradient>
@@ -350,13 +427,40 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {messages.map(renderMessage)}
+              {(chatOpen || isLiveChat) && messages.map(renderMessage)}
 
-              {!isLiveChat && (
+              {!isLiveChat && !chatOpen && (
                 <>
+                  <View style={styles.supportActions}>
+                    <TouchableOpacity
+                      style={[styles.supportActionCard, styles.liveSupportCard]}
+                      onPress={startLiveChat}
+                      disabled={startingChat}
+                      accessibilityRole="button"
+                      accessibilityLabel="Start live support"
+                    >
+                      <Icon name="headset" size={22} color={HOME_M3.onPrimary} />
+                      <Text style={styles.liveSupportTitle}>
+                        {startingChat ? 'Connecting...' : 'Live Support'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.supportActionCard, styles.ticketCard]}
+                      onPress={() => void handleOpenTickets()}
+                      disabled={loadingTickets}
+                      accessibilityRole="button"
+                      accessibilityLabel="View your tickets"
+                    >
+                      <Icon name="history" size={22} color={HOME_M3.onSecondaryContainer} />
+                      <Text style={styles.ticketTitle}>
+                        {loadingTickets ? 'Loading...' : 'Your Tickets'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   {showAccordion && (
                     <View style={styles.faqBlock}>
-                      <Text style={styles.faqHeading}>Quick answers</Text>
+                      <Text style={styles.faqHeading}>Frequently Asked Questions</Text>
                       {allFaqs.map((faq, index) => (
                         <View key={index} style={styles.faqItem}>
                           <TouchableOpacity
@@ -369,7 +473,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                             <Icon
                               name={expandedFaq === index ? 'chevron-up' : 'chevron-down'}
                               size={20}
-                              color={BRAND.textMuted}
+                              color={HOME_M3.outline}
                             />
                           </TouchableOpacity>
                           {expandedFaq === index && (
@@ -380,44 +484,37 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                     </View>
                   )}
 
-                  <TouchableOpacity
-                    onPress={() => setShowAccordion((v) => !v)}
-                    style={styles.faqToggle}
-                  >
-                    <Text style={styles.faqToggleText}>
-                      {showAccordion ? 'Hide quick answers' : 'Show quick answers'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {appUser ? (
+                  <Text style={styles.connectHeading}>Other ways to connect</Text>
+                  <View style={styles.contactList}>
                     <TouchableOpacity
-                      style={[styles.liveChatBtn, startingChat && styles.liveChatBtnDisabled]}
-                      onPress={startLiveChat}
-                      disabled={startingChat}
-                    >
-                      <Icon name="message-processing-outline" size={20} color="#fff" />
-                      <Text style={styles.liveChatBtnText}>
-                        {startingChat ? 'Connecting…' : 'Chat with support'}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={styles.loginHint}>Sign in to start a live chat with our team.</Text>
-                  )}
-
-                  <View style={styles.contactRow}>
-                    <TouchableOpacity
-                      style={styles.contactChip}
+                      style={styles.contactCard}
                       onPress={() => Linking.openURL('mailto:support@serveaso.com')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Email support"
                     >
-                      <Icon name="email-outline" size={18} color={BRAND.accent} />
-                      <Text style={styles.contactChipText}>Email</Text>
+                      <View style={styles.contactIconWrap}>
+                        <Icon name="email-outline" size={19} color={HOME_M3.secondary} />
+                      </View>
+                      <View style={styles.contactTextBlock}>
+                        <Text style={styles.contactTitle}>Email Us</Text>
+                        <Text style={styles.contactSubtitle}>support@serveaso.com</Text>
+                      </View>
+                      <Icon name="chevron-right" size={20} color={HOME_M3.outline} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.contactChip}
-                      onPress={() => Linking.openURL('tel:080123456789')}
+                      style={styles.contactCard}
+                      onPress={() => Linking.openURL('tel:+918792827744')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Call helpline"
                     >
-                      <Icon name="phone-outline" size={18} color={BRAND.accent} />
-                      <Text style={styles.contactChipText}>Call</Text>
+                      <View style={styles.contactIconWrap}>
+                        <Icon name="phone-outline" size={19} color={HOME_M3.secondary} />
+                      </View>
+                      <View style={styles.contactTextBlock}>
+                        <Text style={styles.contactTitle}>Call Helpline</Text>
+                        <Text style={styles.contactSubtitle}>+91 87928 27744</Text>
+                      </View>
+                      <Icon name="chevron-right" size={20} color={HOME_M3.outline} />
                     </TouchableOpacity>
                   </View>
                 </>
@@ -425,12 +522,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
             </ScrollView>
 
             <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+              <Icon name="message-outline" size={18} color={HOME_M3.outline} style={styles.queryIcon} />
               <TextInput
                 style={styles.textInput}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder={isLiveChat ? 'Type a message…' : 'Ask a question…'}
-                placeholderTextColor={BRAND.textMuted}
+                placeholder={isLiveChat ? 'Type a message...' : 'Type your query here...'}
+                placeholderTextColor={HOME_M3.outline}
                 onSubmitEditing={handleSendMessage}
                 returnKeyType="send"
                 multiline
@@ -441,7 +539,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
                 onPress={handleSendMessage}
                 disabled={!inputText.trim()}
               >
-                <Icon name="send" size={20} color="#fff" />
+                <Icon name="send" size={22} color={HOME_M3.onPrimary} />
               </TouchableOpacity>
             </View>
             </KeyboardAvoidingView>
@@ -463,9 +561,9 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: SCREEN_W,
-    backgroundColor: BRAND.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: HOME_M3.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -480,9 +578,9 @@ const styles = StyleSheet.create({
   header: {
     width: '100%',
     flexShrink: 0,
-    backgroundColor: BRAND.bookingNavy,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: HOME_M3.primary,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
   },
   dragZone: {
@@ -500,20 +598,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingBottom: 12,
-    minHeight: 48,
+    paddingBottom: 14,
+    minHeight: 56,
   },
   headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   headerIconSpacer: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
   },
   headerTitles: {
     flex: 1,
@@ -522,30 +620,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   headerText: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#ffffff',
+    color: HOME_M3.onPrimary,
   },
   headerSubtext: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    color: HOME_M3.onPrimaryContainer,
+    fontWeight: '500',
     marginTop: 2,
   },
   body: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: HOME_M3.surface,
   },
   messagesScroll: {
     flex: 1,
   },
   messagesContent: {
-    padding: 14,
-    paddingBottom: 8,
+    paddingHorizontal: 10,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   messageRow: {
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: 12,
     maxWidth: '92%',
   },
   messageRowUser: {
@@ -555,74 +655,100 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
-    marginTop: 2,
+    marginTop: 4,
   },
   avatarBot: {
-    backgroundColor: BRAND.accentSoft,
+    backgroundColor: HOME_M3.secondaryFixed,
   },
   avatarAdmin: {
-    backgroundColor: '#e0e7ff',
+    backgroundColor: HOME_M3.secondaryFixed,
   },
   messageBubble: {
     flexShrink: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 18,
     maxWidth: '100%',
   },
   botBubble: {
-    backgroundColor: BRAND.surface,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
     borderBottomLeftRadius: 4,
   },
   adminBubble: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: HOME_M3.secondaryFixed,
     borderWidth: 1,
-    borderColor: '#c7d2fe',
+    borderColor: HOME_M3.outlineVariant,
     borderBottomLeftRadius: 4,
   },
   userBubble: {
-    backgroundColor: BRAND.accent,
+    backgroundColor: HOME_M3.secondary,
     borderBottomRightRadius: 4,
   },
   senderLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: BRAND.textMuted,
-    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: HOME_M3.onSurfaceVariant,
+    marginBottom: 3,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 21,
-    color: BRAND.text,
+    fontSize: 16,
+    lineHeight: 23,
+    color: HOME_M3.onSurface,
   },
   userMessageText: {
     color: '#fff',
   },
+  supportActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 18,
+  },
+  supportActionCard: {
+    flex: 1,
+    minHeight: 104,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  liveSupportCard: {
+    backgroundColor: HOME_M3.primary,
+  },
+  ticketCard: {
+    backgroundColor: HOME_M3.secondaryContainer,
+  },
+  liveSupportTitle: {
+    color: HOME_M3.onPrimary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  ticketTitle: {
+    color: HOME_M3.onSecondaryContainer,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   faqBlock: {
-    marginTop: 8,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   faqHeading: {
     fontSize: 13,
-    fontWeight: '700',
-    color: BRAND.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    fontWeight: '500',
+    color: HOME_M3.onSurface,
+    marginBottom: 8,
   },
   faqItem: {
-    backgroundColor: BRAND.surface,
-    borderRadius: 12,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
     marginBottom: 8,
     overflow: 'hidden',
   },
@@ -630,107 +756,103 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
   },
   faqQuestion: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND.text,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: HOME_M3.onSurface,
     marginRight: 8,
   },
   faqAnswer: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: BRAND.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    color: HOME_M3.onSurfaceVariant,
     paddingHorizontal: 12,
     paddingBottom: 12,
   },
-  faqToggle: {
-    alignSelf: 'center',
-    paddingVertical: 6,
-    marginBottom: 10,
+  connectHeading: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: HOME_M3.onSurface,
+    marginBottom: 8,
   },
-  faqToggleText: {
-    color: BRAND.accent,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  liveChatBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: BRAND.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginBottom: 12,
-  },
-  liveChatBtnDisabled: {
-    opacity: 0.7,
-  },
-  liveChatBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  loginHint: {
-    textAlign: 'center',
-    color: BRAND.textMuted,
-    fontSize: 14,
-    marginBottom: 12,
-    paddingHorizontal: 12,
-  },
-  contactRow: {
-    flexDirection: 'row',
+  contactList: {
     gap: 10,
     marginBottom: 8,
   },
-  contactChip: {
-    flex: 1,
+  contactCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    minHeight: 70,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: BRAND.surface,
+    borderRadius: 8,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     borderWidth: 1,
-    borderColor: BRAND.line,
+    borderColor: HOME_M3.outlineVariant,
+    shadowColor: '#001630',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  contactChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: BRAND.accent,
+  contactIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HOME_M3.secondaryFixed,
+    marginRight: 12,
+  },
+  contactTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  contactTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: HOME_M3.onSurface,
+    marginBottom: 2,
+  },
+  contactSubtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: HOME_M3.onSurfaceVariant,
   },
   inputBar: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingTop: 10,
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: BRAND.line,
-    backgroundColor: BRAND.surface,
+    borderTopColor: HOME_M3.outlineVariant,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+  },
+  queryIcon: {
+    marginLeft: 2,
+    marginRight: 6,
   },
   textInput: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 100,
-    backgroundColor: BRAND.canvas,
-    borderWidth: 1,
-    borderColor: BRAND.line,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: BRAND.text,
+    minHeight: 36,
+    maxHeight: 86,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: HOME_M3.onSurface,
     marginRight: 8,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: BRAND.accent,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: HOME_M3.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
