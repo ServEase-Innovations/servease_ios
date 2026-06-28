@@ -33,6 +33,11 @@ export function HomeHeroPageHeader({
   subtitleFontSize = 13,
 }: HomeHeroPageHeaderProps) {
   const insets = useSafeAreaInsets();
+  // Guard against insets.top being 0 inside Modal contexts on some devices
+  const safeTop = Math.max(
+    insets.top,
+    Platform.OS === 'ios' ? 44 : (StatusBar.currentHeight ?? 24)
+  );
   const bodyHeight = TOOLBAR_HEIGHT + (subtitle ? SUBTITLE_BLOCK_HEIGHT : 0);
 
   return (
@@ -41,7 +46,7 @@ export function HomeHeroPageHeader({
       <View
         style={[
           styles.shell,
-          { paddingTop: insets.top, height: insets.top + bodyHeight },
+          { paddingTop: safeTop, height: safeTop + bodyHeight },
         ]}
       >
         <LinearGradient
