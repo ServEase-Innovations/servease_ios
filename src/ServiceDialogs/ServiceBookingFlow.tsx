@@ -73,6 +73,7 @@ import { useBookingScheduleFlow } from "../hooks/useBookingScheduleFlow";
 import { isCustomerCheckoutReady } from "../utils/authSession";
 import BookingLocationSection from "./BookingLocationSection";
 import { useTranslation } from "react-i18next";
+import MobileNumberDialog from "../UserProfile/MobileNumberDialog";
 
 export type BookingSuccessDetails = {
   providerName?: string;
@@ -205,6 +206,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
 
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
   const [bookingSuccessDetails, setBookingSuccessDetails] = useState<any>(null);
+  const [mobileDialogVisible, setMobileDialogVisible] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<CouponOption[]>([]);
   const [couponModalOpen, setCouponModalOpen] = useState(false);
   const [couponInput, setCouponInput] = useState("");
@@ -649,6 +651,20 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     return bookingDate === today ? 'today' : 'upcoming';
   };
 
+  const handleMobileDialogClose = () => {
+    setMobileDialogVisible(false);
+  };
+
+  const handleMobileNumberSuccess = () => {
+    setMobileDialogVisible(false);
+    // After successfully adding mobile number, allow user to retry checkout
+    Alert.alert(
+      "Contact Number Added",
+      "Your contact number has been saved. Please proceed with checkout again.",
+      [{ text: "OK" }]
+    );
+  };
+
   const applyCouponCode = (code: string) => {
     const normalized = String(code || "").trim().toUpperCase();
     if (!normalized) return;
@@ -679,6 +695,12 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   const handleCheckout = async () => {
     if (!isCheckoutAuthenticated) {
       onLoginRequired?.();
+      return;
+    }
+
+    // Validate contact number before checkout
+    if (!appUser?.mobileNo) {
+      setMobileDialogVisible(true);
       return;
     }
 
@@ -1218,6 +1240,15 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
           onNavigateToBookings={handleNavigateToBookings}
         />
       )}
+
+      <MobileNumberDialog
+        visible={mobileDialogVisible}
+        onClose={handleMobileDialogClose}
+        customerId={resolveCustomerId(appUser) || 0}
+        mobileNo={appUser?.mobileNo}
+        alternativeMobileNo={appUser?.alternateNo}
+        onSuccess={handleMobileNumberSuccess}
+      />
     </>
   );
 };
