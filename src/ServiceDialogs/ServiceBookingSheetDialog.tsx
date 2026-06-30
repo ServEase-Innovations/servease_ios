@@ -118,7 +118,8 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
   const dismissSheet = useCallback(() => {
     if (successShowing) return;
     dragY.setValue(0);
-    dispatch(resetBookingSchedule());
+    // DON'T reset booking schedule - user may want to return to provider details
+    // dispatch(resetBookingSchedule());
     dispatch(closeBookingDialog());
     handleClose();
   }, [successShowing, handleClose, dragY, dispatch]);
@@ -140,15 +141,17 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
 
   const handleSuccessDialogClose = useCallback(() => {
     handleClose();
+    dispatch(resetBookingSchedule()); // Reset after successful booking completion
     finishAndUnmount();
-  }, [handleClose, finishAndUnmount]);
+  }, [handleClose, finishAndUnmount, dispatch]);
 
   /** Navigate first, never re-show the booking sheet under the success modal. */
   const handleNavigateToBookings = useCallback(() => {
     sendDataToParent?.(BOOKINGS);
     handleClose();
+    dispatch(resetBookingSchedule()); // Reset after successful booking
     finishAndUnmount();
-  }, [handleClose, sendDataToParent, finishAndUnmount]);
+  }, [handleClose, sendDataToParent, finishAndUnmount, dispatch]);
 
   const handleEmailLogin = useCallback(async () => {
     try {
