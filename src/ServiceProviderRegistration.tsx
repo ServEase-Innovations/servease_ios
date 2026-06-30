@@ -226,6 +226,12 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
   const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
 
+  // Debug: Log modal visibility changes
+  useEffect(() => {
+    console.log('🔴 policyModalVisible changed to:', policyModalVisible);
+    console.log('🔴 activePolicy:', activePolicy);
+  }, [policyModalVisible, activePolicy]);
+
   // Date picker
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -791,8 +797,10 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   };
 
   const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
+    console.log('🔵 handleOpenPolicy called with type:', policyType);
     setActivePolicy(policyType);
     setPolicyModalVisible(true);
+    console.log('🔵 Policy modal should now be visible');
   };
 
   const renderPolicyContent = () => {
@@ -1131,56 +1139,67 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   };
 
   return (
-    <Modal visible={true} animationType="slide" transparent={false}>
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}>
-          <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.headerContainer}>
-              <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={() => onBackToLogin(true)}><Icon name="close" size={24} color="#fff" /></TouchableOpacity>
-            </LinearGradient>
-            <ScrollView ref={scrollViewRef} style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
-              {renderStepper()}
-              {renderStepContent(activeStep)}
-              <View style={styles.buttonContainer}>
-                <Button variant="outline" size="medium" onPress={handleBack} disabled={isSubmitting} startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}>Back</Button>
-                {activeStep === steps.length - 1 ? (
-                  <Button variant="primary" size="medium" onPress={handleSubmit} disabled={isNextDisabled || isSubmitting} loading={isSubmitting}>Submit</Button>
-                ) : (
-                  <Button variant="primary" size="medium" onPress={handleNext} disabled={isNextDisabled || isSubmitting} endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}>Next</Button>
-                )}
-              </View>
+    <>
+      <Modal visible={!policyModalVisible} animationType="slide" transparent={false}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardView} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}>
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+              <LinearGradient colors={["#0b5bd3", "#4f8ff7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.headerContainer}>
+                <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
+                <TouchableOpacity style={styles.closeButton} onPress={() => onBackToLogin(true)}><Icon name="close" size={24} color="#fff" /></TouchableOpacity>
+              </LinearGradient>
+              <ScrollView ref={scrollViewRef} style={[styles.content, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+                {renderStepper()}
+                {renderStepContent(activeStep)}
+                <View style={styles.buttonContainer}>
+                  <Button variant="outline" size="medium" onPress={handleBack} disabled={isSubmitting} startIcon={<Icon name="arrow-back" size={20} color={colors.primary} />}>Back</Button>
+                  {activeStep === steps.length - 1 ? (
+                    <Button variant="primary" size="medium" onPress={handleSubmit} disabled={isNextDisabled || isSubmitting} loading={isSubmitting}>Submit</Button>
+                  ) : (
+                    <Button variant="primary" size="medium" onPress={handleNext} disabled={isNextDisabled || isSubmitting} endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}>Next</Button>
+                  )}
+                </View>
+              </ScrollView>
+              {showDatePicker && <DateTimePicker value={selectedDate || new Date()} mode="date" display={Platform.OS === "ios" ? "spinner" : "default"} onChange={handleDateChange} maximumDate={new Date()} />}
+              {snackbarOpen && (
+                <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
+                  <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
+                  <TouchableOpacity onPress={handleCloseSnackbar}><Icon name="close" size={20} color="white" /></TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+      
+      <Modal 
+        visible={policyModalVisible} 
+        animationType="slide" 
+        transparent={false} 
+        presentationStyle="fullScreen"
+        onRequestClose={() => setPolicyModalVisible(false)}
+      >
+        <SafeAreaView style={[styles.policyModalContainer, { backgroundColor: HOME_M3.primary }]}>
+          <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.surface }]}>
+            <HomeHeroPageHeader
+              title={
+                activePolicy === 'terms'
+                  ? 'Terms and Conditions'
+                  : activePolicy === 'privacy'
+                    ? 'Privacy Policy'
+                    : 'Key Facts Statement'
+              }
+              onBack={() => setPolicyModalVisible(false)}
+              backIcon="close"
+              titleFontSize={fontSizes.title}
+            />
+            <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
+              {renderPolicyContent()}
             </ScrollView>
-            <Modal visible={policyModalVisible} animationType="slide" transparent={false} onRequestClose={() => setPolicyModalVisible(false)}>
-              <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.surface }]}>
-                <HomeHeroPageHeader
-                  title={
-                    activePolicy === 'terms'
-                      ? 'Terms and Conditions'
-                      : activePolicy === 'privacy'
-                        ? 'Privacy Policy'
-                        : 'Key Facts Statement'
-                  }
-                  onBack={() => setPolicyModalVisible(false)}
-                  backIcon="close"
-                  titleFontSize={fontSizes.title}
-                />
-                <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
-                  {renderPolicyContent()}
-                </ScrollView>
-              </View>
-            </Modal>
-            {showDatePicker && <DateTimePicker value={selectedDate || new Date()} mode="date" display={Platform.OS === "ios" ? "spinner" : "default"} onChange={handleDateChange} maximumDate={new Date()} />}
-            {snackbarOpen && (
-              <View style={[styles.snackbar, styles[`snackbar${snackbarSeverity}`], { backgroundColor: colors[snackbarSeverity] || colors.primary }]}>
-                <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.text }]}>{snackbarMessage}</Text>
-                <TouchableOpacity onPress={handleCloseSnackbar}><Icon name="close" size={20} color="white" /></TouchableOpacity>
-              </View>
-            )}
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+        </SafeAreaView>
+      </Modal>
+    </>
   );
 };
 

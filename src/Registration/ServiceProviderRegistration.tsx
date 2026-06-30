@@ -450,6 +450,12 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
   const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
 
+  // Debug: Log modal visibility changes
+  useEffect(() => {
+    console.log('🔴 policyModalVisible changed to:', policyModalVisible);
+    console.log('🔴 activePolicy:', activePolicy);
+  }, [policyModalVisible, activePolicy]);
+
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -738,8 +744,10 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   }, [activeStep, formData, errors, validationResults, isSameAddress, checkStepCompletion]);
 
   const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
+    console.log('🔵 handleOpenPolicy called with type:', policyType);
     setActivePolicy(policyType);
     setPolicyModalVisible(true);
+    console.log('🔵 Policy modal should now be visible');
   };
 
   const renderPolicyContent = () => {
@@ -2227,24 +2235,30 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
             </ScrollView>
 
             {policyModalVisible && (
-              <Portal>
-              <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.surface }]}>
-                <HomeHeroPageHeader
-                  title={
-                    activePolicy === "terms"
-                      ? "Terms and Conditions"
-                      : activePolicy === "privacy"
-                        ? "Privacy Policy"
-                        : "Key Facts Statement"
-                  }
-                  onBack={() => setPolicyModalVisible(false)}
-                  backIcon="close"
-                />
-                <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
-                  {renderPolicyContent()}
-                </ScrollView>
-              </View>
-              </Portal>
+              <Modal
+                visible={policyModalVisible}
+                animationType="slide"
+                transparent={false}
+                presentationStyle="fullScreen"
+                onRequestClose={() => setPolicyModalVisible(false)}
+              >
+                <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.primary, flex: 1 }]}>
+                  <HomeHeroPageHeader
+                    title={
+                      activePolicy === "terms"
+                        ? "Terms and Conditions"
+                        : activePolicy === "privacy"
+                          ? "Privacy Policy"
+                          : "Key Facts Statement"
+                    }
+                    onBack={() => setPolicyModalVisible(false)}
+                    backIcon="close"
+                  />
+                  <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
+                    {renderPolicyContent()}
+                  </ScrollView>
+                </View>
+              </Modal>
             )}
 
             {snackbarOpen && (
