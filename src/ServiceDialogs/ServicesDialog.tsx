@@ -389,7 +389,8 @@ const ServicesDialog: React.FC<ServicesDialogProps> = ({
       housekeepingRole: selectedType,
       startTime: formatTime(bookingDetails.startTime),
       endTime: formatTime(bookingDetails.endTime),
-      timeSlot: timeSlot
+      timeSlot: timeSlot,
+      genderPreference: bookingDetails?.genderPreference || "No Preference",
     };
 
     dispatch(addBooking(booking));

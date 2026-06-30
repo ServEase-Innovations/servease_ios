@@ -9,4 +9,5 @@ export type Bookingtype = {
     startTime?: string;  // Added from BookingForm
     endTime?: string;    // Added from BookingForm
     serviceType?: 'Regular' | 'Premium';  // Added from BookingForm
+    genderPreference?: string;  // Added for provider gender preference filtering
 }

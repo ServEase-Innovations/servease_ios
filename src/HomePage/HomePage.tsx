@@ -295,6 +295,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
       timeSlot,
       bookingPreference: selectedRadioButtonValue,
       housekeepingRole: selectedType,
+      genderPreference: bookingDetails?.genderPreference || "No Preference",
     };
 
     if (selectedRadioButtonValue === "Date") {
