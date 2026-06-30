@@ -1320,6 +1320,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   };
 
   const handleReportIssueClick = (booking: Booking) => {
+    console.log('🟡 Report Issue clicked for booking:', booking.id);
     setSelectedComplaintBooking(booking);
     setComplaintDialogVisible(true);
   };
@@ -2505,19 +2506,23 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     );
   };
 
-  const reportIssueButton = (booking: Booking) => (
-    <TouchableOpacity
-      style={[styles.iconButton, { backgroundColor: colors.warning + '10' }]}
-      onPress={() => handleReportIssueClick(booking)}
-    >
-      <Icon name="alert-circle-outline" size={20} color={colors.warning} />
-      <Text style={[styles.iconButtonText, { color: colors.warning, fontSize: fontSizes.buttonText }]}>
-        Report issue
-      </Text>
-    </TouchableOpacity>
-  );
+  const reportIssueButton = (booking: Booking) => {
+    console.log('🔴 Rendering reportIssueButton for booking:', booking.id, 'status:', booking.taskStatus);
+    return (
+      <TouchableOpacity
+        style={[styles.iconButton, { backgroundColor: colors.warning + '10' }]}
+        onPress={() => handleReportIssueClick(booking)}
+      >
+        <Icon name="alert-circle-outline" size={20} color={colors.warning} />
+        <Text style={[styles.iconButtonText, { color: colors.warning, fontSize: fontSizes.buttonText }]}>
+          Report Issue
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderActionButtons = (booking: Booking) => {
+    console.log('🔵 Rendering action buttons for booking:', booking.id, 'status:', booking.taskStatus);
     const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
     const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
     const modificationDisabled = isModificationDisabled(booking);
@@ -2641,7 +2646,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
             </TouchableOpacity>
           </ActionRow>
         );
-      default: return null;
+      default: 
+        // Always show Report Issue button for any status not specifically handled
+        return (
+          <ActionRow>
+            {reportIssueButton(booking)}
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleBookAgain(booking)}>
+              <Icon name="calendar-plus" size={20} color={colors.info} />
+              <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>Book Again</Text>
+            </TouchableOpacity>
+          </ActionRow>
+        );
     }
   };
 

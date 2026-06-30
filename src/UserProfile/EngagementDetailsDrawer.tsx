@@ -28,6 +28,7 @@ import PaymentInstance from '../services/paymentInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import Invoice from '../Invoice/Invoice';
 import VacationManagementDialog from './VacationManagement';
+import RaiseComplaintDialog from './RaiseComplaintDialog';
 import { HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
 
 const cookImage = require('../../assets/images/Cooknew.png');
@@ -274,6 +275,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
+  const [complaintDialogVisible, setComplaintDialogVisible] = React.useState(false);
   
   // Animation values
   const slideAnim = React.useRef(new Animated.Value(height)).current;
@@ -579,6 +581,12 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     setVacationManagementDialogOpen(false);
   };
 
+  // Report Issue Handler
+  const handleReportIssueClick = () => {
+    console.log('🟡 Report Issue clicked from EngagementDetailsDrawer for booking:', booking.id);
+    setComplaintDialogVisible(true);
+  };
+
   const handleModifyClick = () => {
     if (onModify) {
       onModify(booking);
@@ -844,6 +852,17 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                     </Text>
                   </TouchableOpacity>
                 ) : null}
+
+                {/* Report Issue Button - Show for all bookings */}
+                <TouchableOpacity
+                  style={styles.reportIssueButton}
+                  onPress={handleReportIssueClick}
+                >
+                  <Icon name="alert-triangle" size={16} color="#dc2626" />
+                  <Text style={[styles.reportIssueButtonText, { fontSize: fontSizes.actionButtonText }]}>
+                    Report Issue
+                  </Text>
+                </TouchableOpacity>
               </>
             ) : (
               <View style={styles.primaryActionRow}>
@@ -1101,6 +1120,22 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           onSuccess={handleVacationSuccess}
         />
       ) : null}
+
+      {/* Report Issue Dialog */}
+      <RaiseComplaintDialog
+        visible={complaintDialogVisible}
+        onClose={() => setComplaintDialogVisible(false)}
+        booking={booking}
+        onSubmitted={() => {
+          setComplaintDialogVisible(false);
+          Snackbar.show({
+            text: 'Complaint submitted successfully',
+            duration: Snackbar.LENGTH_SHORT,
+            backgroundColor: colors.success,
+            textColor: '#FFFFFF',
+          });
+        }}
+      />
 
       {/* Cancel Dialog */}
       {showCancelDialog && (
@@ -1388,6 +1423,24 @@ const styles = StyleSheet.create({
   },
   secondaryFullButtonText: {
     color: HOME_M3.secondary,
+    fontWeight: '700',
+  },
+  reportIssueButton: {
+    marginTop: 10,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#fca5a5',
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    alignSelf: 'stretch',
+  },
+  reportIssueButtonText: {
+    color: '#dc2626',
     fontWeight: '700',
   },
   paymentTimeoutNotice: {
