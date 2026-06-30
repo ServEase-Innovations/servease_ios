@@ -353,7 +353,21 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   
   const fontSizes = getFontSizes();
 
-  if (!booking) return null;
+  if (!booking || !booking.id) return null;
+  
+  // Ensure critical booking properties have safe defaults
+  const safeBooking = {
+    ...booking,
+    id: booking.id || 0,
+    service_type: booking.service_type || booking.serviceType || 'other',
+    bookingType: booking.bookingType || 'ON_DEMAND',
+    taskStatus: booking.taskStatus || 'NOT_STARTED',
+    serviceProviderName: booking.serviceProviderName || 'Not Assigned',
+    start_time: booking.start_time || '',
+    end_time: booking.end_time || '',
+    startDate: booking.startDate || booking.date || '',
+    providerRating: booking.providerRating || 0,
+  };
 
   const getBookingTypeBadge = (type: string) => {
     switch (type) {
@@ -431,10 +445,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const isProviderAssigned = () => {
     const notAssignedString = 'Not Assigned';
     return !!(
-      booking.serviceProviderName &&
-      booking.serviceProviderName !== notAssignedString &&
-      booking.serviceProviderName.trim() !== '' &&
-      booking.serviceProviderName !== 'Not Assigned'
+      safeBooking.serviceProviderName &&
+      safeBooking.serviceProviderName !== notAssignedString &&
+      safeBooking.serviceProviderName.trim() !== '' &&
+      safeBooking.serviceProviderName !== 'Not Assigned'
     );
   };
 
@@ -522,7 +536,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     setIsCallLoading(true);
     setTimeout(() => {
       setIsCallLoading(false);
-      Alert.alert('Call', `Calling ${booking.serviceProviderName || 'service provider'}...`);
+      Alert.alert('Call', `Calling ${safeBooking.serviceProviderName || 'service provider'}...`);
     }, 500);
   };
 
@@ -534,7 +548,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       await PaymentInstance.post(`/api/v2/engagements/${booking.id}/cancel`, {});
       setShowCancelDialog(false);
       Snackbar.show({
-        text: `${getServiceTitle(booking.service_type)} service cancelled successfully`,
+        text: `${getServiceTitle(safeBooking.service_type)} service cancelled successfully`,
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: colors.success,
         textColor: '#FFFFFF',
@@ -599,21 +613,21 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   const isEngagementCancelled = () => {
-    const life = String((booking as any)?.engagement_status ?? '').toUpperCase();
-    return life === 'CANCELLED' || booking.taskStatus === 'CANCELLED';
+    const life = String((safeBooking as any)?.engagement_status ?? '').toUpperCase();
+    return life === 'CANCELLED' || safeBooking.taskStatus === 'CANCELLED';
   };
 
-  const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(booking.taskStatus) && !isEngagementCancelled();
+  const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(safeBooking.taskStatus) && !isEngagementCancelled();
   const hasExistingVacation = hasVacation(booking);
   const modificationDisabled = isModificationDisabled(booking);
   const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
-  const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
+  const canShowPaymentButton = isPaymentPending && safeBooking.taskStatus !== 'CANCELLED';
   
-  const shouldShowModifyButton = booking.bookingType === "MONTHLY" && booking.taskStatus === 'NOT_STARTED';
-  const shouldShowVacationButton = booking.bookingType === "MONTHLY" && booking.taskStatus !== 'CANCELLED' && booking.taskStatus !== 'COMPLETED';
+  const shouldShowModifyButton = safeBooking.bookingType === "MONTHLY" && safeBooking.taskStatus === 'NOT_STARTED';
+  const shouldShowVacationButton = safeBooking.bookingType === "MONTHLY" && safeBooking.taskStatus !== 'CANCELLED' && safeBooking.taskStatus !== 'COMPLETED';
   const canBookAgain =
     Boolean(onBookAgain) &&
-    (booking.taskStatus === 'COMPLETED' || booking.taskStatus === 'CANCELLED');
+    (safeBooking.taskStatus === 'COMPLETED' || safeBooking.taskStatus === 'CANCELLED');
   const showPaymentTimeoutNotice = isPaymentTimeoutCancellation(booking);
 
   const convertBookingForChildComponents = (bookingData: any): any => {
@@ -727,18 +741,18 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
             <View style={styles.rowBetween}>
               <View>
                 <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Booking ID</Text>
-                <Text style={[styles.bookingIdHero, { fontSize: fontSizes.bookingIdText + 6 }]}>#{booking.id}</Text>
+                <Text style={[styles.bookingIdHero, { fontSize: fontSizes.bookingIdText + 6 }]}>#{safeBooking.id}</Text>
               </View>
               <View style={styles.statusStack}>
-                {getBookingTypeBadge(booking.bookingType)}
-                {getStatusBadge(booking.taskStatus)}
+                {getBookingTypeBadge(safeBooking.bookingType)}
+                {getStatusBadge(safeBooking.taskStatus)}
               </View>
             </View>
 
             <View style={styles.serviceCard}>
               <View style={styles.serviceImageWrap}>
                 <Image
-                  source={getServiceImage(booking.service_type)}
+                  source={getServiceImage(safeBooking.service_type)}
                   style={styles.serviceImage}
                   resizeMode="cover"
                 />
@@ -746,7 +760,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               <View style={styles.serviceTextCol}>
                 <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Service Type</Text>
                 <Text style={[styles.serviceTitle, { fontSize: fontSizes.serviceTitle }]}>
-                  {getServiceTitle(booking.service_type)}
+                  {getServiceTitle(safeBooking.service_type)}
                 </Text>
               </View>
             </View>
@@ -940,14 +954,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               <View style={[styles.sectionCard, styles.providerRow]}>
                 <View style={styles.providerAvatar}>
                   <Text style={styles.providerAvatarText}>
-                    {getProviderInitials(booking.serviceProviderName)}
+                    {getProviderInitials(safeBooking.serviceProviderName)}
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.providerName, { fontSize: fontSizes.providerName }]}>
-                    {booking.serviceProviderName}
+                    {safeBooking.serviceProviderName}
                   </Text>
-                  {booking.providerRating > 0 ? (
+                  {safeBooking.providerRating > 0 ? (
                     <Text style={styles.providerRatingText}>⭐ {booking.providerRating.toFixed(1)}</Text>
                   ) : null}
                 </View>
@@ -1143,7 +1157,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           visible={showCancelDialog}
           onClose={() => setShowCancelDialog(false)}
           onConfirm={confirmCancelBooking}
-          serviceName={getServiceTitle(booking.service_type)}
+          serviceName={getServiceTitle(safeBooking.service_type)}
           isLoading={isCancelLoading}
         />
       )}
