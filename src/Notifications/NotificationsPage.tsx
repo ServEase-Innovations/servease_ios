@@ -391,7 +391,7 @@ export default function NotificationsPage({
                 onPress={() => {
                   setDetailError(null);
                   setDetailFor(n);
-                  if (unreadItem && isSpAssignedConfirmed) void markRead(n);
+                  if (unreadItem) void markRead(n);
                 }}
               >
                 <MaterialIcon name="visibility" size={16} color="#3b82f6" />
