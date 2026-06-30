@@ -151,6 +151,7 @@ const MainApp = () => {
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [currentView, setCurrentView] = useState<string>(HOME);
   const [bookingInitialTab, setBookingInitialTab] = useState<'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' | undefined>(undefined);
+  const [previousView, setPreviousView] = useState<string>(HOME); // Track where user came from
   const [settingsReturnView, setSettingsReturnView] = useState<string>(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
@@ -813,6 +814,9 @@ const MainApp = () => {
         // Reset when navigating away from bookings
         setBookingInitialTab(undefined);
       }
+      
+      // Track previous view before changing
+      setPreviousView(currentView);
       setCurrentView(view);
     }
   };
@@ -874,13 +878,23 @@ const MainApp = () => {
             ref={bookingsRef}
             onBackToHome={navigateToRoleHome}
             onNavigateToDetails={() => setCurrentView(DETAILS)}
-            onOpenWallet={() => setCurrentView(WALLET)}
+            onOpenWallet={() => {
+              setPreviousView(BOOKINGS);
+              setCurrentView(WALLET);
+            }}
             initialTab={bookingInitialTab}
           />
         );
         
       case WALLET:
-        return <WalletPage onBack={navigateToRoleHome} />;
+        return <WalletPage onBack={() => {
+          // Return to where user came from (e.g., BOOKINGS)
+          if (previousView === BOOKINGS || previousView === DASHBOARD || previousView === AGENT_DASHBOARD) {
+            setCurrentView(previousView);
+          } else {
+            navigateToRoleHome();
+          }
+        }} />;
         
       case DASHBOARD:
         return (
@@ -1086,6 +1100,7 @@ const MainApp = () => {
                         setCurrentView(AGENT_DASHBOARD);
                         setShowProfileFromDashboard(false);
                       } else if (page === WALLET) {
+                        setPreviousView(currentView); // Track where we came from
                         setCurrentView(WALLET);
                         setShowProfileFromDashboard(false);
                       } else if (page === HOME) {
