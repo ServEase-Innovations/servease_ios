@@ -336,6 +336,7 @@ interface BookingProps {
   onBackToHome?: () => void;
   onNavigateToDetails?: () => void;
   onOpenWallet?: () => void;
+  initialTab?: BookingsViewTab;
 }
 
 type BookingsViewTab = 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending';
@@ -639,7 +640,7 @@ function getBookingsTheme(isDarkMode: boolean, colors: Record<string, string>): 
   };
 }
 
-const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigateToDetails, onOpenWallet }, ref) => {
+const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigateToDetails, onOpenWallet, initialTab }, ref) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -649,7 +650,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [futureBookings, setFutureBookings] = useState<Booking[]>([]);
   const [cancelledBookings, setCancelledBookings] = useState<Booking[]>([]);
-  const [viewTab, setViewTab] = useState<BookingsViewTab>('upcoming');
+  const [viewTab, setViewTab] = useState<BookingsViewTab>(initialTab || 'today');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');

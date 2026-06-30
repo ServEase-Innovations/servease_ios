@@ -150,6 +150,7 @@ const MainApp = () => {
 
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [currentView, setCurrentView] = useState<string>(HOME);
+  const [bookingInitialTab, setBookingInitialTab] = useState<'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' | undefined>(undefined);
   const [settingsReturnView, setSettingsReturnView] = useState<string>(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
@@ -800,10 +801,18 @@ const MainApp = () => {
     setAcceptError(null);
   };
 
-  const handleViewChange = (view: string) => {
+  const handleViewChange = (view: string, data?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => {
     if (view === "" || view === "FORCE_HOME") {
       navigateToRoleHome();
     } else {
+      // If navigating to bookings with a specific tab, store it
+      if (view === BOOKINGS && data?.initialTab) {
+        console.log('📍 Setting booking initial tab to:', data.initialTab);
+        setBookingInitialTab(data.initialTab);
+      } else if (view !== BOOKINGS) {
+        // Reset when navigating away from bookings
+        setBookingInitialTab(undefined);
+      }
       setCurrentView(view);
     }
   };
@@ -866,6 +875,7 @@ const MainApp = () => {
             onBackToHome={navigateToRoleHome}
             onNavigateToDetails={() => setCurrentView(DETAILS)}
             onOpenWallet={() => setCurrentView(WALLET)}
+            initialTab={bookingInitialTab}
           />
         );
         

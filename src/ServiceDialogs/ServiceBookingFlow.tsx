@@ -90,7 +90,7 @@ export interface ServiceBookingFlowProps {
   /** When true, parent sheet renders the header (full-width + close). */
   hideHeader?: boolean;
   providerDetails?: EnhancedProviderDetails;
-  sendDataToParent?: (data: string) => void;
+  sendDataToParent?: (data: string, options?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => void;
   onSuccessDialogChange?: (open: boolean) => void;
   /** Parent sheet shows success UI and navigates (same as web dialog flow). */
   onCheckoutSuccess?: (details: BookingSuccessDetails) => void;
@@ -621,9 +621,15 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   };
 
   const handleNavigateToBookings = () => {
+    // Calculate which tab to show based on booking date
+    const bookingDate = bookingSuccessDetails?.bookingDate;
+    const tab = calculateBookingTab(bookingDate);
+    
+    console.log('📅 Navigating to bookings with date:', bookingDate, 'tab:', tab);
+    
     setSuccessDialogOpen(false);
     onClose();
-    sendDataToParent?.(BOOKINGS);
+    sendDataToParent?.(BOOKINGS, { bookingDate, initialTab: tab });
   };
 
   const publishCheckoutSuccess = (details: BookingSuccessDetails) => {
@@ -633,6 +639,14 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
     }
     setBookingSuccessDetails(details);
     setSuccessDialogOpen(true);
+  };
+
+  // Helper to determine which tab to show based on booking date
+  const calculateBookingTab = (bookingDate?: string): 'today' | 'upcoming' => {
+    if (!bookingDate) return 'upcoming';
+    
+    const today = new Date().toISOString().split('T')[0];
+    return bookingDate === today ? 'today' : 'upcoming';
   };
 
   const applyCouponCode = (code: string) => {
