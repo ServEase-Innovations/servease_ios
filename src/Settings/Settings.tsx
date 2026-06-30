@@ -15,6 +15,8 @@ import {
   Dimensions,
   BackHandler,
   StatusBar,
+  InteractionManager,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
@@ -77,6 +79,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [appVersionLabel, setAppVersionLabel] = useState('');
+  const [isChangingLanguage, setIsChangingLanguage] = useState(false);
 
   useEffect(() => {
     const version = DeviceInfo.getVersion();
@@ -178,10 +181,44 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   };
 
   const handleLanguageChange = async (code: string) => {
-    setLanguage(code);
-    await changeLanguage(code);
-    setShowLanguageModal(false);
-    setSearchQuery('');
+    try {
+      // Set loading state
+      setIsChangingLanguage(true);
+      
+      // Close the modal immediately to prevent UI blocking
+      setShowLanguageModal(false);
+      setSearchQuery('');
+      
+      // Use InteractionManager to defer language change until after animations complete
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          console.log(`🌐 Starting language change to: ${code}`);
+          
+          // Update the language in context first
+          setLanguage(code);
+          
+          // Change the language in i18n (this triggers re-renders)
+          await changeLanguage(code);
+          
+          console.log(`✅ Language successfully changed to: ${code}`);
+          
+          // Reset loading state
+          setIsChangingLanguage(false);
+        } catch (error) {
+          console.error('❌ Error changing language:', error);
+          setIsChangingLanguage(false);
+          
+          Alert.alert(
+            'Language Change Failed',
+            'Failed to change language. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error in handleLanguageChange:', error);
+      setIsChangingLanguage(false);
+    }
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
@@ -531,64 +568,148 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           ))}
         </CustomModal>
 
-        {/* Language Selection Modal */}
-        <CustomModal visible={showLanguageModal} onClose={() => { setShowLanguageModal(false); setSearchQuery(''); }} title="Select Language">
-          <View style={[styles.searchContainer, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
-            <MaterialIcon name="search" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-            <TextInput
-              style={[styles.searchInput, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}
-              placeholder="Search language..."
-              placeholderTextColor={isDarkMode ? '#94a3b8' : '#64748b'}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <MaterialIcon name="clear" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <ScrollView style={{ maxHeight: 400 }}>
-            {filteredLanguages.length > 0 ? (
-              filteredLanguages.map((lang, idx) => (
-                <TouchableOpacity
-                  key={lang.code}
+        {/* Language Selection Modal - Bottom Sheet Style */}
+        <Modal 
+          visible={showLanguageModal} 
+          transparent 
+          animationType="slide"
+          onRequestClose={() => { 
+            setShowLanguageModal(false); 
+            setSearchQuery(''); 
+          }}
+        >
+          <TouchableWithoutFeedback onPress={() => { setShowLanguageModal(false); setSearchQuery(''); }}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback>
+                <Animated.View 
                   style={[
-                    styles.modalItem,
-                    { borderBottomWidth: idx === filteredLanguages.length - 1 ? 0 : 1, borderBottomColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' },
-                    language === lang.code && { backgroundColor: isDarkMode ? 'rgba(56,189,248,0.15)' : 'rgba(59,130,246,0.1)' }
+                    styles.bottomSheetContent, 
+                    { 
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      paddingBottom: insets.bottom + 20,
+                    }
                   ]}
-                  onPress={() => handleLanguageChange(lang.code)}
                 >
-                  <View style={styles.modalItemLeft}>
-                    <LinearGradient colors={iconGradient} style={styles.modalIconBg}>
-                      <MaterialIcon name="language" size={20} color="#ffffff" />
-                    </LinearGradient>
-                    <View>
-                      <Text style={[styles.modalItemText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
-                        {lang.name}
+                  {/* Bottom Sheet Header */}
+                  <View style={styles.bottomSheetHeader}>
+                    <View style={styles.bottomSheetHandle} />
+                    <View style={styles.bottomSheetTitleRow}>
+                      <LinearGradient
+                        colors={iconGradient}
+                        style={styles.bottomSheetIconBg}
+                      >
+                        <MaterialIcon name="language" size={24} color="#ffffff" />
+                      </LinearGradient>
+                      <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.headingSize }]}>
+                        Select Language
                       </Text>
-                      <Text style={[styles.modalItemSubText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }]}>
-                        {lang.nativeName}
-                      </Text>
+                      <TouchableOpacity 
+                        onPress={() => { setShowLanguageModal(false); setSearchQuery(''); }} 
+                        style={styles.bottomSheetCloseBtn}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <MaterialIcon name="close" size={24} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                      </TouchableOpacity>
                     </View>
                   </View>
-                  {language === lang.code && (
-                    <MaterialIcon name="check-circle" size={22} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))
-            ) : (
-              <View style={styles.noResultsContainer}>
-                <MaterialIcon name="search-off" size={48} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                <Text style={[styles.noResultsText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
-                  No languages found
-                </Text>
-              </View>
-            )}
-          </ScrollView>
-        </CustomModal>
+
+                  {/* Search Bar */}
+                  <View style={[styles.bottomSheetSearchContainer, { 
+                    backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
+                    borderColor: isDarkMode ? '#334155' : '#e2e8f0',
+                  }]}>
+                    <MaterialIcon name="search" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                    <TextInput
+                      style={[styles.bottomSheetSearchInput, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}
+                      placeholder="Search language..."
+                      placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      autoFocus={false}
+                    />
+                    {searchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <MaterialIcon name="clear" size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Language List */}
+                  <ScrollView 
+                    style={styles.bottomSheetScrollView}
+                    showsVerticalScrollIndicator={false}
+                    bounces={true}
+                  >
+                    {filteredLanguages.length > 0 ? (
+                      filteredLanguages.map((lang, idx) => (
+                        <TouchableOpacity
+                          key={lang.code}
+                          style={[
+                            styles.bottomSheetLanguageItem,
+                            { borderBottomColor: isDarkMode ? '#334155' : '#e2e8f0' },
+                            language === lang.code && { 
+                              backgroundColor: isDarkMode ? 'rgba(56,189,248,0.12)' : 'rgba(59,130,246,0.08)',
+                              borderLeftWidth: 3,
+                              borderLeftColor: BRAND.primary,
+                            }
+                          ]}
+                          onPress={() => handleLanguageChange(lang.code)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.bottomSheetLanguageLeft}>
+                            <View style={[
+                              styles.bottomSheetLanguageIconBg,
+                              language === lang.code 
+                                ? { backgroundColor: isDarkMode ? '#1e3a8a' : '#dbeafe' }
+                                : { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }
+                            ]}>
+                              <Text style={styles.bottomSheetLanguageEmoji}>
+                                {lang.code === 'en' ? '🇬🇧' : '🇮🇳'}
+                              </Text>
+                            </View>
+                            <View style={styles.bottomSheetLanguageTextContainer}>
+                              <Text style={[
+                                styles.bottomSheetLanguageName, 
+                                { 
+                                  color: isDarkMode ? '#f8fafc' : '#1e293b', 
+                                  fontSize: fontStyles.textSize,
+                                  fontWeight: language === lang.code ? '700' : '600',
+                                }
+                              ]}>
+                                {lang.name}
+                              </Text>
+                              <Text style={[
+                                styles.bottomSheetLanguageNative, 
+                                { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.smallText }
+                              ]}>
+                                {lang.nativeName}
+                              </Text>
+                            </View>
+                          </View>
+                          {language === lang.code && (
+                            <View style={[styles.bottomSheetCheckBg, { backgroundColor: BRAND.primary }]}>
+                              <MaterialIcon name="check" size={18} color="#ffffff" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={styles.bottomSheetNoResults}>
+                        <MaterialIcon name="search-off" size={48} color={isDarkMode ? '#475569' : '#cbd5e1'} />
+                        <Text style={[styles.bottomSheetNoResultsText, { color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: fontStyles.textSize }]}>
+                          No languages found
+                        </Text>
+                        <Text style={[styles.bottomSheetNoResultsSubtext, { color: isDarkMode ? '#64748b' : '#94a3b8', fontSize: fontStyles.smallText }]}>
+                          Try a different search term
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </Animated.View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
 
         {/* About Us Modal */}
         <Modal visible={showAboutModal} animationType="slide" onRequestClose={() => setShowAboutModal(false)}>
@@ -623,6 +744,18 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             <PrivacyPolicy embedded />
           </View>
         </Modal>
+
+        {/* Language Change Loading Overlay */}
+        {isChangingLanguage && (
+          <View style={styles.loadingOverlay}>
+            <View style={[styles.loadingCard, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff' }]}>
+              <ActivityIndicator size="large" color={BRAND.primary} />
+              <Text style={[styles.loadingText, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.textSize }]}>
+                {t('common.changingLanguage') || 'Changing language...'}
+              </Text>
+            </View>
+          </View>
+        )}
     </View>
   );
 };
@@ -833,6 +966,157 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   noResultsText: {
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  // ── Bottom Sheet Styles ─────────────────────────────────────────
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: height * 0.85,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  bottomSheetHeader: {
+    paddingTop: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  bottomSheetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bottomSheetIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomSheetTitle: {
+    flex: 1,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  bottomSheetCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomSheetSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  bottomSheetSearchInput: {
+    flex: 1,
+    marginLeft: 10,
+    paddingVertical: 6,
+  },
+  bottomSheetScrollView: {
+    maxHeight: height * 0.6,
+    paddingHorizontal: 20,
+  },
+  bottomSheetLanguageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  bottomSheetLanguageLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 14,
+  },
+  bottomSheetLanguageIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomSheetLanguageEmoji: {
+    fontSize: 24,
+  },
+  bottomSheetLanguageTextContainer: {
+    flex: 1,
+  },
+  bottomSheetLanguageName: {
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  bottomSheetLanguageNative: {
+    fontWeight: '400',
+  },
+  bottomSheetCheckBg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomSheetNoResults: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  bottomSheetNoResultsText: {
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  bottomSheetNoResultsSubtext: {
+    marginTop: 4,
+    fontWeight: '400',
+  },
+  // ── Loading Overlay ─────────────────────────────────────────────
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  loadingCard: {
+    paddingHorizontal: 32,
+    paddingVertical: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loadingText: {
     marginTop: 16,
     fontWeight: '600',
   },

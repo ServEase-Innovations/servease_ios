@@ -185,16 +185,22 @@ export const changeLanguage = async (languageCode: string): Promise<boolean> => 
     // Check if RTL status needs to change
     const needsRTLChange = isRTL(languageCode) !== I18nManager.isRTL;
     
+    // Use a micro-task to prevent blocking the UI
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
     // Change language in i18n
     await i18n.changeLanguage(languageCode);
     
-    // Save to storage
-    try {
-      await AsyncStorage.setItem(LANGUAGE_KEY, languageCode);
-      console.log(`💾 Language saved to storage: ${languageCode}`);
-    } catch (storageError) {
-      console.warn('⚠️ Failed to save language to AsyncStorage:', storageError);
-    }
+    // Save to storage asynchronously (don't await to avoid blocking)
+    AsyncStorage.setItem(LANGUAGE_KEY, languageCode)
+      .then(() => {
+        console.log(`💾 Language saved to storage: ${languageCode}`);
+      })
+      .catch((storageError) => {
+        console.warn('⚠️ Failed to save language to AsyncStorage:', storageError);
+      });
+    
+    console.log(`✅ Language changed successfully to: ${languageCode}`);
     
     // Return whether RTL needs to change
     return needsRTLChange;
