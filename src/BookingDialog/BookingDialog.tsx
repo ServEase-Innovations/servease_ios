@@ -96,6 +96,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [localEndTime, setLocalEndTime] = useState<Dayjs | null>(null);
   const [serviceDurationHours, setServiceDurationHours] = useState(1);
   const [tempSelectedTime, setTempSelectedTime] = useState<string | null>(null);
+  const [genderPreference, setGenderPreference] = useState<string>("No Preference");
   const scrollViewRef = useRef<ScrollView>(null);
   const openSessionInitializedRef = useRef(false);
   const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(null);
@@ -252,6 +253,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setIsDateChanged(false);
       setTempSelectedTime(null);
       setCurrentStep(1);
+      setGenderPreference("No Preference");
     }
   }, [open]);
 
@@ -657,6 +659,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       endDate: localEndDate,
       startTime: localStartTime,
       endTime: localEndTime,
+      genderPreference: genderPreference,
     });
   };
 
@@ -762,6 +765,61 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     (localOption === "Monthly" && !!localStartDate && !!localStartTime) ||
     (localOption === "Short term" && !!localStartDate && !!localEndDate && !!localStartTime && !!localEndTime);
   const progressStep = !hasValidOption ? 1 : !hasScheduleInputs ? 2 : 3;
+
+  // Render Gender Preference Selector
+  const renderGenderPreference = () => {
+    const genderOptions = [
+      { value: "Male", label: "Male", icon: "male" },
+      { value: "Female", label: "Female", icon: "female" },
+      { value: "No Preference", label: "No Preference", icon: "people" },
+    ];
+
+    return (
+      <View style={[styles.genderPreferenceContainer, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.surface2 : "#f8fafc" }]}>
+        <View style={styles.genderPreferenceHeader}>
+          <Icon name="person" size={18} color={colors.primary} />
+          <Text style={[styles.genderPreferenceTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+            Provider Gender Preference
+          </Text>
+        </View>
+        
+        <Text style={[styles.genderPreferenceMessage, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+          Select your preferred provider gender (optional)
+        </Text>
+
+        <View style={styles.genderOptionsContainer}>
+          {genderOptions.map((option) => {
+            const isSelected = genderPreference === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.genderOptionButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  isSelected && [styles.genderOptionSelected, { backgroundColor: colors.primary + "16", borderColor: colors.primary }]
+                ]}
+                onPress={() => setGenderPreference(option.value)}
+                activeOpacity={0.7}
+              >
+                <Icon 
+                  name={option.icon} 
+                  size={22} 
+                  color={isSelected ? colors.primary : colors.textSecondary} 
+                />
+                <Text style={[
+                  styles.genderOptionText,
+                  { color: colors.text, fontSize: fontSizes.text },
+                  isSelected && { color: colors.primary, fontWeight: "700" }
+                ]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
 
   // Render Duration Control (appears first in the dialog)
   const renderDurationControl = () => {
@@ -1345,6 +1403,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                   />
                 </View>
                 {renderDurationControl()}
+                {renderGenderPreference()}
               </>
             )}
 
@@ -1951,6 +2010,49 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   endDateInfoText: {
+    textAlign: "center",
+  },
+  genderPreferenceContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  genderPreferenceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  genderPreferenceTitle: {
+    fontWeight: "700",
+  },
+  genderPreferenceMessage: {
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  genderOptionsContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  genderOptionButton: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    gap: 6,
+  },
+  genderOptionSelected: {
+    borderWidth: 2,
+  },
+  genderOptionText: {
+    fontWeight: "600",
     textAlign: "center",
   },
 });

@@ -783,6 +783,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
         payment_mode: "razorpay",
         use_wallet: useWalletBalance && walletBalance > 0,
         end_time: String(bookingType?.endTime || ""),
+        provider_gender_preference: bookingType?.genderPreference || "No Preference",
       };
 
       const result = await BookingService.bookAndPay(payload);
