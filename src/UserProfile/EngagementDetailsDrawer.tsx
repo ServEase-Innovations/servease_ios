@@ -288,6 +288,13 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
+  // Extension states
+  const [showExtendDialog, setShowExtendDialog] = React.useState(false);
+  const [extensionAvailability, setExtensionAvailability] = React.useState<any>(null);
+  const [loadingAvailability, setLoadingAvailability] = React.useState(false);
+  const [selectedExtension, setSelectedExtension] = React.useState<any>(null);
+  const [isExtending, setIsExtending] = React.useState(false);
+
   // Reset drawer scroll position when opened or when a different booking is shown
   React.useEffect(() => {
     if (!isOpen) return;
@@ -439,6 +446,99 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
         />
         <Text style={[styles.pillBadgeText, textStyle]}>{label}</Text>
       </View>
+    );
+  };
+
+  // ==================== EXTENSION HANDLERS ====================
+  
+  const canShowExtendButton = () => {
+    return (
+      safeBooking.bookingType === 'ON_DEMAND' &&
+      safeBooking.serviceProviderId &&
+      ['NOT_STARTED', 'IN_PROGRESS'].includes(safeBooking.taskStatus) &&
+      isProviderAssigned()
+    );
+  };
+
+  const handleExtendClick = async () => {
+    setShowExtendDialog(true);
+    await checkExtensionAvailability();
+  };
+
+  const checkExtensionAvailability = async () => {
+    try {
+      setLoadingAvailability(true);
+      const response = await PaymentInstance.get(
+        `/api/v2/engagements/${booking.id}/extension-availability`
+      );
+      setExtensionAvailability(response.data);
+      
+      if (!response.data.canExtend) {
+        Alert.alert(
+          'Cannot Extend',
+          response.data.reason || 'Booking cannot be extended at this time',
+          [{ text: 'OK', onPress: () => setShowExtendDialog(false) }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error checking availability:', error);
+      Alert.alert(
+        'Error',
+        'Unable to check extension availability. Please try again.',
+        [{ text: 'OK', onPress: () => setShowExtendDialog(false) }]
+      );
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
+  const handleExtendBooking = async () => {
+    if (!selectedExtension) {
+      Alert.alert('Error', 'Please select an extension option');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Extension',
+      `Extend booking by ${selectedExtension.hours} hour${selectedExtension.hours > 1 ? 's' : ''} for ₹${selectedExtension.additionalCost}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            try {
+              setIsExtending(true);
+              const response = await PaymentInstance.post(
+                `/api/v2/engagements/${booking.id}/extend`,
+                {
+                  extensionHours: selectedExtension.hours,
+                  newEndTime: selectedExtension.newEndTime,
+                  additionalAmount: selectedExtension.additionalCost,
+                  paymentMode: 'CASH' // Can be updated to support other payment modes
+                }
+              );
+
+              Snackbar.show({
+                text: response.data.message || 'Booking extended successfully',
+                duration: Snackbar.LENGTH_LONG,
+                backgroundColor: colors.success,
+                textColor: '#FFFFFF',
+              });
+
+              setShowExtendDialog(false);
+              setSelectedExtension(null);
+              
+              if (refreshBookings) await refreshBookings();
+              setTimeout(() => onClose(), 500);
+            } catch (error: any) {
+              const message = error?.response?.data?.error || 'Failed to extend booking';
+              Alert.alert('Error', message);
+            } finally {
+              setIsExtending(false);
+            }
+          }
+        }
+      ]
     );
   };
 
@@ -793,6 +893,19 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
             {!canShowPaymentButton ? (
               <>
+                {/* Extend Service Hour Button */}
+                {canShowExtendButton() && (
+                  <TouchableOpacity
+                    style={[styles.secondaryFullButton, { borderColor: colors.accent, marginBottom: 12 }]}
+                    onPress={handleExtendClick}
+                  >
+                    <Icon name="clock" size={18} color={colors.accent} />
+                    <Text style={[styles.secondaryFullButtonText, { color: colors.accent, fontSize: fontSizes.actionButtonText }]}>
+                      Extend Service Hour
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
                 <View style={styles.primaryActionRow}>
                   <TouchableOpacity
                     style={[styles.callButton, styles.primaryActionBtn]}
@@ -1161,6 +1274,192 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
           isLoading={isCancelLoading}
         />
       )}
+
+      {/* Extend Service Hour Dialog */}
+      <Modal
+        visible={showExtendDialog}
+        transparent
+        animationType="fade"
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => setShowExtendDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.extendDialogContainer, { backgroundColor: colors.card }]}>
+            <View style={styles.extendDialogHeader}>
+              <LinearGradient
+                colors={[...HOME_HERO_GRADIENT]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.extendHeaderContent}>
+                <Icon name="clock" size={22} color="#FFFFFF" />
+                <Text style={[styles.extendDialogTitle, { fontSize: fontSizes.serviceTitle }]}>
+                  Extend Service Hour
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.extendCloseButton}
+                onPress={() => setShowExtendDialog(false)}
+              >
+                <Icon name="x" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.extendDialogContent}>
+              {loadingAvailability ? (
+                <View style={styles.extendLoadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={[styles.extendLoadingText, { color: colors.text }]}>
+                    Checking provider availability...
+                  </Text>
+                </View>
+              ) : extensionAvailability && extensionAvailability.canExtend ? (
+                <>
+                  <View style={[styles.extendInfoBox, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.extendInfoLabel, { color: colors.textSecondary }]}>
+                      Current End Time
+                    </Text>
+                    <Text style={[styles.extendInfoValue, { color: colors.text }]}>
+                      {extensionAvailability.currentEndTimeFormatted}
+                    </Text>
+                    <Text style={[styles.extendInfoLabel, { color: colors.textSecondary, marginTop: 8 }]}>
+                      Hourly Rate
+                    </Text>
+                    <Text style={[styles.extendInfoValue, { color: colors.accent }]}>
+                      ₹{extensionAvailability.hourlyRate}/hour
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.extendSectionTitle, { color: colors.text }]}>
+                    Select Extension Duration
+                  </Text>
+
+                  {extensionAvailability.availableSlots?.map((slot: any, index: number) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.extendOptionCard,
+                        { 
+                          backgroundColor: selectedExtension?.hours === slot.hours 
+                            ? colors.primary + '15' 
+                            : colors.surface,
+                          borderColor: selectedExtension?.hours === slot.hours 
+                            ? colors.primary 
+                            : colors.border,
+                        }
+                      ]}
+                      onPress={() => setSelectedExtension(slot)}
+                    >
+                      <View style={styles.extendOptionLeft}>
+                        <View style={[
+                          styles.extendRadio,
+                          { borderColor: selectedExtension?.hours === slot.hours ? colors.primary : colors.border }
+                        ]}>
+                          {selectedExtension?.hours === slot.hours && (
+                            <View style={[styles.extendRadioInner, { backgroundColor: colors.primary }]} />
+                          )}
+                        </View>
+                        <View>
+                          <Text style={[styles.extendOptionHours, { color: colors.text }]}>
+                            +{slot.hours} hour{slot.hours > 1 ? 's' : ''}
+                          </Text>
+                          <Text style={[styles.extendOptionTime, { color: colors.textSecondary }]}>
+                            Until {slot.newEndTimeFormatted}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.extendOptionRight}>
+                        <Text style={[styles.extendOptionPrice, { color: colors.accent }]}>
+                          +₹{slot.additionalCost}
+                        </Text>
+                        <Text style={[styles.extendOptionTotal, { color: colors.textSecondary }]}>
+                          Total: ₹{slot.totalCost}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+
+                  {selectedExtension && (
+                    <View style={[styles.extendSummaryBox, { backgroundColor: colors.accent + '10', borderColor: colors.accent }]}>
+                      <Text style={[styles.extendSummaryTitle, { color: colors.text }]}>
+                        Extension Summary
+                      </Text>
+                      <View style={styles.extendSummaryRow}>
+                        <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                          Duration:
+                        </Text>
+                        <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                          +{selectedExtension.hours} hour{selectedExtension.hours > 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.extendSummaryRow}>
+                        <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                          New End Time:
+                        </Text>
+                        <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                          {selectedExtension.newEndTimeFormatted}
+                        </Text>
+                      </View>
+                      <View style={[styles.extendSummaryRow, styles.extendSummaryTotal]}>
+                        <Text style={[styles.extendSummaryLabel, { color: colors.text, fontWeight: '700' }]}>
+                          Additional Cost:
+                        </Text>
+                        <Text style={[styles.extendSummaryValue, { color: colors.accent, fontWeight: '700', fontSize: 18 }]}>
+                          ₹{selectedExtension.additionalCost}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.extendEmptyContainer}>
+                  <Icon name="alert-circle" size={48} color={colors.error} />
+                  <Text style={[styles.extendEmptyTitle, { color: colors.text }]}>
+                    Cannot Extend
+                  </Text>
+                  <Text style={[styles.extendEmptyMessage, { color: colors.textSecondary }]}>
+                    {extensionAvailability?.reason || 'This booking cannot be extended at this time'}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={[styles.extendDialogFooter, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.extendCancelButton, { borderColor: colors.border }]}
+                onPress={() => setShowExtendDialog(false)}
+                disabled={isExtending}
+              >
+                <Text style={[styles.extendCancelButtonText, { color: colors.textSecondary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.extendConfirmButton,
+                  { backgroundColor: colors.accent },
+                  (!selectedExtension || isExtending) && { opacity: 0.5 }
+                ]}
+                onPress={handleExtendBooking}
+                disabled={!selectedExtension || isExtending}
+              >
+                {isExtending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Icon name="check" size={18} color="#FFFFFF" />
+                    <Text style={styles.extendConfirmButtonText}>
+                      Confirm Extension
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -1656,6 +1955,228 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     marginVertical: 8,
+  },
+  // Extension Dialog Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  extendDialogContainer: {
+    width: '100%',
+    maxWidth: width - 40,
+    maxHeight: height * 0.85,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    overflow: 'hidden',
+  },
+  extendDialogHeader: {
+    minHeight: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  extendHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  extendDialogTitle: {
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
+  },
+  extendCloseButton: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendDialogContent: {
+    maxHeight: height * 0.65,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  extendLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  extendLoadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  extendInfoBox: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: HOME_M3.outline,
+  },
+  extendInfoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  extendInfoValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  extendSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  extendOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+  extendOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  extendRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendRadioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  extendOptionHours: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  extendOptionTime: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  extendOptionRight: {
+    alignItems: 'flex-end',
+  },
+  extendOptionPrice: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  extendOptionTotal: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  extendSummaryBox: {
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 2,
+  },
+  extendSummaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  extendSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  extendSummaryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  extendSummaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  extendSummaryTotal: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  extendEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  extendEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  extendEmptyMessage: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  extendDialogFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+  },
+  extendCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  extendConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendConfirmButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 
