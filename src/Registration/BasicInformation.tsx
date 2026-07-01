@@ -123,6 +123,8 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
     }
     const formattedDate = moment(selectedDate).format("YYYY-MM-DD");
     onDobChange({ target: { value: formattedDate, name: "dob" } });
+    // Close the date picker after selection
+    setShowDatePicker(false);
   };
 
   const handleDobClear = () => {

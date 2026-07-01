@@ -863,6 +863,27 @@ export default function DribbbleDateTimePicker(props: Props) {
         </View>
       )}
 
+      {/* OK Button for birthdate mode */}
+      {birthdateMode && selectedDate && (
+        <View style={styles.okButtonContainer}>
+          <TouchableOpacity
+            style={styles.okButton}
+            onPress={() => {
+              if (selectedDate && value instanceof Date) {
+                // Trigger the onChange callback with the selected date
+                props.onChange(value);
+              }
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Confirm date selection"
+          >
+            <Text style={styles.okButtonText}>OK</Text>
+            <Icon name="check" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {!hideTimeSelection && (
         <>
           <View style={styles.divider} />
@@ -1278,5 +1299,32 @@ const styles = StyleSheet.create({
   disabledTimeSlotText: {
     color: "#94A3B8",
     textDecorationLine: "line-through",
+  },
+  // OK Button styles for birthdate mode
+  okButtonContainer: {
+    marginTop: 16,
+    marginBottom: 4,
+    width: "100%",
+  },
+  okButton: {
+    backgroundColor: BRAND.accent,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  okButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 });
