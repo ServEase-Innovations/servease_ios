@@ -362,6 +362,9 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
 
   if (!booking || !booking.id) return null;
   
+  // Log booking data for debugging
+  console.log('=== Booking Object ===', JSON.stringify(booking, null, 2));
+  
   // Ensure critical booking properties have safe defaults
   const safeBooking = {
     ...booking,
@@ -370,11 +373,14 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     bookingType: booking.bookingType || 'ON_DEMAND',
     taskStatus: booking.taskStatus || 'NOT_STARTED',
     serviceProviderName: booking.serviceProviderName || 'Not Assigned',
+    serviceProviderId: booking.serviceProviderId || booking.serviceproviderid || booking.service_provider_id || booking.providerId || null,
     start_time: booking.start_time || '',
     end_time: booking.end_time || '',
     startDate: booking.startDate || booking.date || '',
     providerRating: booking.providerRating || 0,
   };
+  
+  console.log('=== safeBooking serviceProviderId ===', safeBooking.serviceProviderId);
 
   const getBookingTypeBadge = (type: string) => {
     switch (type) {
@@ -452,12 +458,19 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   // ==================== EXTENSION HANDLERS ====================
   
   const canShowExtendButton = () => {
-    return (
+    console.log('=== canShowExtendButton Debug ===');
+    console.log('bookingType:', safeBooking.bookingType);
+    console.log('taskStatus:', safeBooking.taskStatus);
+    console.log('isProviderAssigned:', isProviderAssigned());
+    
+    const result = (
       safeBooking.bookingType === 'ON_DEMAND' &&
-      safeBooking.serviceProviderId &&
       ['NOT_STARTED', 'IN_PROGRESS'].includes(safeBooking.taskStatus) &&
       isProviderAssigned()
     );
+    
+    console.log('canShowExtendButton result:', result);
+    return result;
   };
 
   const handleExtendClick = async () => {
@@ -891,21 +904,21 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
               </TouchableOpacity>
             ) : null}
 
+            {/* Extend Service Hour Button - Show for eligible bookings regardless of payment status */}
+            {canShowExtendButton() && (
+              <TouchableOpacity
+                style={[styles.secondaryFullButton, { borderColor: colors.accent, marginBottom: 12 }]}
+                onPress={handleExtendClick}
+              >
+                <Icon name="clock" size={18} color={colors.accent} />
+                <Text style={[styles.secondaryFullButtonText, { color: colors.accent, fontSize: fontSizes.actionButtonText }]}>
+                  Extend Service Hour
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {!canShowPaymentButton ? (
               <>
-                {/* Extend Service Hour Button */}
-                {canShowExtendButton() && (
-                  <TouchableOpacity
-                    style={[styles.secondaryFullButton, { borderColor: colors.accent, marginBottom: 12 }]}
-                    onPress={handleExtendClick}
-                  >
-                    <Icon name="clock" size={18} color={colors.accent} />
-                    <Text style={[styles.secondaryFullButtonText, { color: colors.accent, fontSize: fontSizes.actionButtonText }]}>
-                      Extend Service Hour
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
                 <View style={styles.primaryActionRow}>
                   <TouchableOpacity
                     style={[styles.callButton, styles.primaryActionBtn]}
