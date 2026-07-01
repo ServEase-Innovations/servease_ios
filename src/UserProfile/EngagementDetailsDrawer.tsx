@@ -1328,7 +1328,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                       Hourly Rate
                     </Text>
                     <Text style={[styles.extendInfoValue, { color: colors.accent }]}>
-                      ₹{extensionAvailability.hourlyRate}/hour
+                      {`₹${extensionAvailability.hourlyRate}/hour`}
                     </Text>
                   </View>
 
@@ -1363,19 +1363,19 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                         </View>
                         <View>
                           <Text style={[styles.extendOptionHours, { color: colors.text }]}>
-                            +{slot.hours} hour{slot.hours > 1 ? 's' : ''}
+                            {`+${slot.hours} hour${slot.hours > 1 ? 's' : ''}`}
                           </Text>
                           <Text style={[styles.extendOptionTime, { color: colors.textSecondary }]}>
-                            Until {slot.newEndTimeFormatted}
+                            {`Until ${slot.newEndTimeFormatted}`}
                           </Text>
                         </View>
                       </View>
                       <View style={styles.extendOptionRight}>
                         <Text style={[styles.extendOptionPrice, { color: colors.accent }]}>
-                          +₹{slot.additionalCost}
+                          {`+₹${slot.additionalCost}`}
                         </Text>
                         <Text style={[styles.extendOptionTotal, { color: colors.textSecondary }]}>
-                          Total: ₹{slot.totalCost}
+                          {`Total: ₹${slot.totalCost}`}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -1391,7 +1391,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                           Duration:
                         </Text>
                         <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
-                          +{selectedExtension.hours} hour{selectedExtension.hours > 1 ? 's' : ''}
+                          {`+${selectedExtension.hours} hour${selectedExtension.hours > 1 ? 's' : ''}`}
                         </Text>
                       </View>
                       <View style={styles.extendSummaryRow}>
@@ -1407,7 +1407,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                           Additional Cost:
                         </Text>
                         <Text style={[styles.extendSummaryValue, { color: colors.accent, fontWeight: '700', fontSize: 18 }]}>
-                          ₹{selectedExtension.additionalCost}
+                          {`₹${selectedExtension.additionalCost}`}
                         </Text>
                       </View>
                     </View>
