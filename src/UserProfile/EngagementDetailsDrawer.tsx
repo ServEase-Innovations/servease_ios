@@ -511,48 +511,91 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       return;
     }
 
-    Alert.alert(
-      'Confirm Extension',
-      `Extend booking by ${selectedExtension.hours} hour${selectedExtension.hours > 1 ? 's' : ''} for ₹${selectedExtension.additionalCost}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
+    try {
+      setIsExtending(true);
+      
+      // Step 1: Initiate extension and create Razorpay order
+      const response = await PaymentInstance.post(
+        `/api/v2/engagements/${booking.id}/extend`,
         {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              setIsExtending(true);
-              const response = await PaymentInstance.post(
-                `/api/v2/engagements/${booking.id}/extend`,
-                {
-                  extensionHours: selectedExtension.hours,
-                  newEndTime: selectedExtension.newEndTime,
-                  additionalAmount: selectedExtension.additionalCost,
-                  paymentMode: 'CASH' // Can be updated to support other payment modes
-                }
-              );
-
-              Snackbar.show({
-                text: response.data.message || 'Booking extended successfully',
-                duration: Snackbar.LENGTH_LONG,
-                backgroundColor: colors.success,
-                textColor: '#FFFFFF',
-              });
-
-              setShowExtendDialog(false);
-              setSelectedExtension(null);
-              
-              if (refreshBookings) await refreshBookings();
-              setTimeout(() => onClose(), 500);
-            } catch (error: any) {
-              const message = error?.response?.data?.error || 'Failed to extend booking';
-              Alert.alert('Error', message);
-            } finally {
-              setIsExtending(false);
-            }
-          }
+          extensionHours: selectedExtension.hours,
+          newEndTime: selectedExtension.newEndTime,
+          additionalAmount: selectedExtension.additionalCost
         }
-      ]
-    );
+      );
+
+      const {
+        razorpay_order_id,
+        razorpay_key_id,
+        amount,
+        currency
+      } = response.data;
+
+      if (!razorpay_order_id) {
+        Alert.alert('Error', 'Payment order could not be created. Please try again.');
+        setIsExtending(false);
+        return;
+      }
+
+      // Step 2: Open Razorpay checkout
+      const options = {
+        key: razorpay_key_id || 'rzp_test_lTdgjtSRlEwreA',
+        amount: amount,
+        currency: currency || 'INR',
+        order_id: razorpay_order_id,
+        name: 'Serveaso',
+        description: `Extend booking by ${selectedExtension.hours} hour${selectedExtension.hours > 1 ? 's' : ''}`,
+        prefill: {
+          name: booking.customerName || '',
+          contact: '9999999999',
+          email: '',
+        },
+        theme: { color: colors.primary },
+      };
+
+      // Open Razorpay and handle payment flow
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          try {
+            // Step 3: Verify payment
+            await PaymentInstance.post(`/api/v2/engagements/${booking.id}/extend/verify`, {
+              razorpay_order_id: data.razorpay_order_id,
+              razorpay_payment_id: data.razorpay_payment_id,
+              razorpay_signature: data.razorpay_signature,
+            });
+
+            Snackbar.show({
+              text: 'Booking extended successfully!',
+              duration: Snackbar.LENGTH_LONG,
+              backgroundColor: colors.success,
+              textColor: '#FFFFFF',
+            });
+
+            setShowExtendDialog(false);
+            setSelectedExtension(null);
+            
+            if (refreshBookings) await refreshBookings();
+            setTimeout(() => onClose(), 500);
+          } catch (verifyError: any) {
+            console.error('Extension payment verification error:', verifyError);
+            const message = verifyError?.response?.data?.error || 'Payment verification failed';
+            Alert.alert('Error', message);
+          } finally {
+            setIsExtending(false);
+          }
+        })
+        .catch((error: any) => {
+          setIsExtending(false);
+          if (error.code !== 2) { // code 2 = user cancelled
+            Alert.alert('Error', 'Payment failed. Please try again.');
+          }
+        });
+    } catch (error: any) {
+      console.error('Extension initiation error:', error);
+      const message = error?.response?.data?.error || error?.message || 'Failed to initiate extension';
+      Alert.alert('Error', message);
+      setIsExtending(false);
+    }
   };
 
   const isProviderAssigned = () => {
@@ -1397,8 +1440,55 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                   {selectedExtension && (
                     <View style={[styles.extendSummaryBox, { backgroundColor: colors.accent + '10', borderColor: colors.accent }]}>
                       <Text style={[styles.extendSummaryTitle, { color: colors.text }]}>
-                        Extension Summary
+                        Price Breakup
                       </Text>
+                      
+                      {/* Pricing Details */}
+                      {selectedExtension.pricing ? (
+                        <>
+                          <View style={styles.extendSummaryRow}>
+                            <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                              Base Amount:
+                            </Text>
+                            <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                              ₹{selectedExtension.pricing.baseNet.toFixed(2)}
+                            </Text>
+                          </View>
+                          
+                          {selectedExtension.discounts && selectedExtension.discounts.length > 0 && (
+                            <View style={styles.extendSummaryRow}>
+                              <Text style={[styles.extendSummaryLabel, { color: '#10b981' }]}>
+                                {selectedExtension.discounts[0].label}:
+                              </Text>
+                              <Text style={[styles.extendSummaryValue, { color: '#10b981' }]}>
+                                -₹{selectedExtension.discounts[0].amount.toFixed(2)}
+                              </Text>
+                            </View>
+                          )}
+                          
+                          <View style={styles.extendSummaryRow}>
+                            <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                              Platform Fee (6%):
+                            </Text>
+                            <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                              ₹{selectedExtension.pricing.platformFee.toFixed(2)}
+                            </Text>
+                          </View>
+                          
+                          <View style={styles.extendSummaryRow}>
+                            <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                              GST (18%):
+                            </Text>
+                            <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                              ₹{selectedExtension.pricing.gst.toFixed(2)}
+                            </Text>
+                          </View>
+                          
+                          <View style={[styles.extendSummaryDivider, { backgroundColor: colors.accent + '30' }]} />
+                        </>
+                      ) : null}
+                      
+                      {/* Duration and Time */}
                       <View style={styles.extendSummaryRow}>
                         <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
                           Duration:
@@ -1415,12 +1505,15 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                           {selectedExtension.newEndTimeFormatted}
                         </Text>
                       </View>
+                      
+                      <View style={[styles.extendSummaryDivider, { backgroundColor: colors.accent + '30' }]} />
+                      
                       <View style={[styles.extendSummaryRow, styles.extendSummaryTotal]}>
                         <Text style={[styles.extendSummaryLabel, { color: colors.text, fontWeight: '700' }]}>
-                          Additional Cost:
+                          Total Additional Cost:
                         </Text>
                         <Text style={[styles.extendSummaryValue, { color: colors.accent, fontWeight: '700', fontSize: 18 }]}>
-                          {`₹${selectedExtension.additionalCost}`}
+                          ₹{selectedExtension.additionalCost}
                         </Text>
                       </View>
                     </View>
@@ -2133,6 +2226,10 @@ const styles = StyleSheet.create({
   extendSummaryValue: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  extendSummaryDivider: {
+    height: 1,
+    marginVertical: 12,
   },
   extendSummaryTotal: {
     marginTop: 8,
