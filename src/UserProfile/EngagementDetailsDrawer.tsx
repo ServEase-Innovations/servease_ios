@@ -762,10 +762,15 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       onModify(booking);
       return;
     }
+    // Fallback: close drawer and show message only if onModify is not provided
     onClose();
     setTimeout(() => {
-      Alert.alert('Modify Booking', 'Please use the modify button from the main booking screen');
-    }, 500);
+      Snackbar.show({
+        text: 'Modification is not available for this booking type',
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: '#f59e0b',
+      });
+    }, 300);
   };
 
   const isEngagementCancelled = () => {

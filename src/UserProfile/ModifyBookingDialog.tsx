@@ -237,13 +237,10 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={[styles.infoCard, { backgroundColor: colors.infoLight }]}>
               <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                {t('modifyBooking.bookingInfo', { id: booking.id, service: booking.service_type })}
+                Booking #{booking.id} • {booking.service_type}
               </Text>
               <Text style={{ color: colors.text, marginTop: 4 }}>
-                {t('modifyBooking.scheduled', {
-                  date: dayjs(parseCalendarDateToDate(booking.startDate) ?? undefined).format('MMM D, YYYY'),
-                  time: booking.timeSlot,
-                })}
+                Currently scheduled for {dayjs(parseCalendarDateToDate(booking.startDate) ?? undefined).format('MMM D, YYYY')} at {booking.timeSlot}
               </Text>
             </View>
 

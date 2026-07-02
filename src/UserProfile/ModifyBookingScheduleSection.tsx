@@ -532,7 +532,7 @@ const ModifyBookingScheduleSection = forwardRef<
                     onPress={() => setDurationHours(h)}
                   >
                     <Text style={{ color: active ? '#fff' : colors.text, fontWeight: '700', fontSize: 13 }}>
-                      {t('modifyBooking.duration.hours', { count: h })}
+                      {h} hour{h > 1 ? 's' : ''}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -580,7 +580,7 @@ const ModifyBookingScheduleSection = forwardRef<
               <View style={styles.selectedSummary}>
                 <Icon name="schedule" size={16} color="#15803D" />
                 <Text style={styles.selectedSummaryText}>
-                  {timeSummary} · {t('modifyBooking.duration.hours', { count: durationHours })}
+                  {timeSummary} · {durationHours} hour{durationHours > 1 ? 's' : ''}
                 </Text>
               </View>
             ) : null}
@@ -596,7 +596,7 @@ const ModifyBookingScheduleSection = forwardRef<
             </Text>
             <Text style={{ color: colors.textSecondary }}>{originalScheduleRef.current?.timeSummary}</Text>
             <Text style={{ color: colors.textSecondary, marginTop: 4 }}>
-              {t('modifyBooking.duration.hours', { count: originalScheduleRef.current?.durationHours ?? 1 })}
+              {originalScheduleRef.current?.durationHours ?? 1} hour{(originalScheduleRef.current?.durationHours ?? 1) > 1 ? 's' : ''}
             </Text>
           </View>
           <View style={[styles.reviewCard, styles.reviewCardNew, { borderColor: BRAND.accent }]}>
@@ -604,7 +604,7 @@ const ModifyBookingScheduleSection = forwardRef<
             <Text style={[styles.reviewValue, { color: colors.text }]}>{dateSummary}</Text>
             <Text style={{ color: colors.textSecondary }}>{timeSummary}</Text>
             <Text style={{ color: colors.textSecondary, marginTop: 4 }}>
-              {t('modifyBooking.duration.hours', { count: durationHours })}
+              {durationHours} hour{durationHours > 1 ? 's' : ''}
             </Text>
           </View>
           {isChecking ? (
