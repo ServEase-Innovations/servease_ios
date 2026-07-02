@@ -736,7 +736,7 @@ const hubStyles = StyleSheet.create({
     width: 256,
     height: 256,
     borderRadius: 128,
-    backgroundColor: "rgba(13, 43, 77, 0.4)",
+    backgroundColor: "rgba(13, 43, 77, 0.08)",
   },
   heroInner: {
     alignItems: "center",
