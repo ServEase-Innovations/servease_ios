@@ -154,17 +154,21 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     if (!booking || modificationDisabled) return;
     const snapshot = scheduleRef.current?.getScheduleSnapshot();
     if (!snapshot) {
-      setError(t('modifyBooking.validation.completeSchedule'));
+      setError('Please complete the schedule selection');
       return;
     }
     if (!availabilityVerified) {
-      setError(t('modifyBooking.validation.checkAvailabilityFirst'));
+      setError('Please check availability before proceeding');
       return;
     }
 
+    console.log('[ModifyBooking] Starting modification for booking:', booking.id);
+    console.log('[ModifyBooking] Schedule snapshot:', snapshot);
+    
     setIsLoading(true);
     setError(null);
     try {
+      console.log('[ModifyBooking] Calling modifyScheduleWithPayment...');
       const result = await (BookingService as typeof BookingService & {
         modifyScheduleWithPayment: (payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
         verifyModifySchedulePayment: (payment: Record<string, unknown>) => Promise<unknown>;
@@ -179,7 +183,10 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
         modified_by_role: 'CUSTOMER',
       });
 
+      console.log('[ModifyBooking] Modification result:', result);
+
       if (result.requires_payment && result.razorpay_order_id) {
+        console.log('[ModifyBooking] Payment required, opening Razorpay...');
         const amountPaise = Number(result.amount);
         const paymentResponse = await BookingService.openRazorpay(
           String(result.razorpay_order_id),
@@ -187,12 +194,18 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
           String(result.currency || 'INR')
         );
         (paymentResponse as { engagementId?: number }).engagementId = booking.id;
+        
+        console.log('[ModifyBooking] Verifying payment...');
         await (BookingService as typeof BookingService & {
           verifyModifySchedulePayment: (payment: Record<string, unknown>) => Promise<unknown>;
         }).verifyModifySchedulePayment(paymentResponse);
+        console.log('[ModifyBooking] Payment verified successfully');
       }
 
-      if (customerId !== null) await refreshBookings();
+      if (customerId !== null) {
+        console.log('[ModifyBooking] Refreshing bookings...');
+        await refreshBookings();
+      }
 
       const displayTime = dayjs(snapshot.startTime, 'HH:mm').isValid()
         ? dayjs(snapshot.startTime, 'HH:mm').format('hh:mm A')
@@ -203,17 +216,49 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
         endDate: snapshot.endDate,
         timeSlot: displayTime,
       });
+      
+      console.log('[ModifyBooking] Modification completed successfully');
       setOpenSnackbar(true);
       setTimeout(() => onClose(), 1200);
     } catch (err: unknown) {
+      console.error('[ModifyBooking] Error during modification:', err);
+      
       if (isPaymentCancelledError(err)) {
-        setError(t('modifyBooking.messages.paymentCancelled'));
+        setError('Payment was cancelled. Please try again.');
         return;
       }
-      const apiMessage =
-        (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.error ||
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(apiMessage || t('modifyBooking.messages.error'));
+      
+      // Extract error message from API response
+      const apiError = err as { response?: { data?: { error?: string; message?: string } } };
+      let errorMessage = apiError?.response?.data?.error || apiError?.response?.data?.message;
+      
+      console.log('[ModifyBooking] Raw error message:', errorMessage);
+      
+      // Handle specific error types with user-friendly messages
+      if (errorMessage) {
+        const lowerError = errorMessage.toLowerCase();
+        
+        // Database deadlock error - provide user-friendly message
+        if (lowerError.includes('deadlock')) {
+          console.warn('[ModifyBooking] Deadlock detected - should have been retried automatically');
+          errorMessage = 'The system is busy processing your request. Please try again in a moment.';
+        }
+        // Transaction errors
+        else if (lowerError.includes('transaction')) {
+          errorMessage = 'Unable to process your request at this time. Please try again.';
+        }
+        // Timeout errors
+        else if (lowerError.includes('timeout') || lowerError.includes('timed out')) {
+          errorMessage = 'The request took too long. Please check your connection and try again.';
+        }
+        // Generic database errors - don't expose technical details
+        else if (lowerError.includes('database') || lowerError.includes('sql') || lowerError.includes('query')) {
+          errorMessage = 'A technical error occurred. Please try again or contact support if the issue persists.';
+        }
+      }
+      
+      console.log('[ModifyBooking] User-facing error message:', errorMessage);
+      setError(errorMessage || 'Failed to modify booking. Please try again.');
     } finally {
       setIsLoading(false);
     }

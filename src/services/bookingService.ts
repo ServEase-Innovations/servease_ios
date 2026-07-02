@@ -469,24 +469,63 @@ export const BookingServiceExtensions = {
     use_wallet?: boolean;
   }) => {
     const id = Number(payload.engagementId);
-    const res = await PaymentInstance.post(
-      `/api/v2/createEngagements/${id}/modify-schedule`,
-      {
-        start_date: payload.start_date,
-        end_date: payload.end_date,
-        start_time: payload.start_time,
-        end_time: payload.end_time,
-        modified_by_id: payload.modified_by_id,
-        modified_by_role: payload.modified_by_role,
-        use_wallet: payload.use_wallet,
-      },
-      { headers: { "Content-Type": "application/json" } }
-    );
-    const data = res.data;
-    if (data?.success === false) {
-      throw new Error(data.error || "Failed to modify schedule");
+    
+    // Helper function to make the API call
+    const makeRequest = async () => {
+      const res = await PaymentInstance.post(
+        `/api/v2/createEngagements/${id}/modify-schedule`,
+        {
+          start_date: payload.start_date,
+          end_date: payload.end_date,
+          start_time: payload.start_time,
+          end_time: payload.end_time,
+          modified_by_id: payload.modified_by_id,
+          modified_by_role: payload.modified_by_role,
+          use_wallet: payload.use_wallet,
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      return res.data;
+    };
+
+    // Retry logic for deadlock errors
+    let lastError: any;
+    const maxRetries = 2;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const data = await makeRequest();
+        
+        if (data?.success === false) {
+          throw new Error(data.error || "Failed to modify schedule");
+        }
+        
+        return data;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a deadlock error
+        const errorMessage = String(error?.response?.data?.error || error?.response?.data?.message || error?.message || '').toLowerCase();
+        const isDeadlock = errorMessage.includes('deadlock');
+        
+        console.log(`[ModifySchedule] Attempt ${attempt + 1}/${maxRetries + 1} failed:`, errorMessage);
+        
+        // Only retry on deadlock errors and if we haven't exhausted retries
+        if (isDeadlock && attempt < maxRetries) {
+          // Exponential backoff: wait 500ms, then 1000ms
+          const delay = 500 * (attempt + 1);
+          console.log(`[ModifySchedule] Deadlock detected, retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If it's not a deadlock or we've exhausted retries, throw the error
+        break;
+      }
     }
-    return data;
+    
+    // If we get here, all retries failed
+    throw lastError;
   },
 
   verifyModifySchedulePayment: async (paymentData: RazorpayPaymentResponse) => {
