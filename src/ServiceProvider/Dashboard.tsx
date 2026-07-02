@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import Snackbar from 'react-native-snackbar';
 import TodayVisitsCard, { TodayBookingSlot } from './TodayVisitsCard';
 import { useAuth0 } from 'react-native-auth0';
 import { AllBookingsDialog } from './AllBookingsDialog';
@@ -466,7 +467,12 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
         }
       );
 
-      Alert.alert("Success", "Task started successfully!");
+      Snackbar.show({
+        text: '✅ Task started successfully!',
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: '#10b981', // Green color for success
+        textColor: '#FFFFFF',
+      });
       await fetchData();
     } catch (err) {
       setTaskStatus(prev => ({ ...prev, [bookingId]: previousStatus }));

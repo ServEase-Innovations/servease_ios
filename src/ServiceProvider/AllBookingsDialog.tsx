@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
+import Snackbar from 'react-native-snackbar';
 import { getBookingTypeBadge, getServiceTitle, getStatusBadge } from "../common/BookingUtils";
 import PaymentInstance from "../services/paymentInstance";
 import dayjs, { Dayjs } from "dayjs";
@@ -351,7 +352,12 @@ export function AllBookingsDialog({
           },
         }
       );
-      Alert.alert("Success", "Task started successfully!");
+      Snackbar.show({
+        text: '✅ Task started successfully!',
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: '#10b981', // Green color for success
+        textColor: '#FFFFFF',
+      });
       await loadMonthBookings(selectedMonth, true);
     } catch (err) {
       setTaskStatus((prev) => ({ ...prev, [bookingId]: previousStatus }));
