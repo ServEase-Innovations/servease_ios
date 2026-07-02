@@ -1629,7 +1629,19 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
   };
 
   const handleNext = () => {
-    // No validation needed - just proceed
+    // Check if validation is in progress on step 0
+    if (activeStep === 0) {
+      const isValidating = validationResults.email.loading || 
+                          validationResults.mobile.loading || 
+                          validationResults.alternate.loading;
+      
+      if (isValidating) {
+        showSnackbar("Please wait for validation to complete", "warning");
+        return;
+      }
+    }
+
+    // Proceed to next step
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
     // Scroll to top when step changes
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -2225,7 +2237,14 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
                     variant="primary"
                     size="medium"
                     onPress={handleNext}
-                    disabled={isSubmitting}
+                    disabled={
+                      isSubmitting || 
+                      (activeStep === 0 && (
+                        validationResults.email.loading || 
+                        validationResults.mobile.loading || 
+                        validationResults.alternate.loading
+                      ))
+                    }
                     endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
                   >
                     Next
