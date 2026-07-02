@@ -529,12 +529,14 @@ export const BookingServiceExtensions = {
   },
 
   verifyModifySchedulePayment: async (paymentData: RazorpayPaymentResponse) => {
+    console.log('[verifyModifySchedulePayment] Payload:', JSON.stringify(paymentData));
     const res = await PaymentInstance.post(
       `/api/v2/createEngagements/modify-schedule/verify`,
       paymentData,
       { headers: { "Content-Type": "application/json" } }
     );
     const data = res.data;
+    console.log('[verifyModifySchedulePayment] Response:', JSON.stringify(data));
     if (data?.success === false) {
       throw new Error(data.error || "Failed to verify modification payment");
     }

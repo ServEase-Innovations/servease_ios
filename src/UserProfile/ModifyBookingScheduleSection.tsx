@@ -486,6 +486,9 @@ const ModifyBookingScheduleSection = forwardRef<
                 ? { startDate: startDate?.toDate(), endDate: endDate?.toDate() }
                 : startDate?.toDate()
             }
+            onChange={(payload: Date | { startDate: Date; endDate?: Date }) => {
+              // Required onChange callback (no-op since we use onDateChange)
+            }}
             onDateChange={(payload: Date | { startDate: Date; endDate?: Date }) => {
               markScheduleTouched();
               if (preference === 'Short term' && payload && typeof payload === 'object' && 'startDate' in payload) {
@@ -493,13 +496,31 @@ const ModifyBookingScheduleSection = forwardRef<
                 const end = payload.endDate ? dayjs(payload.endDate).startOf('day') : null;
                 setStartDate(start);
                 setEndDate(end);
+                
+                // Preserve time if already selected
+                if (startTime) {
+                  const preservedStart = start.hour(startTime.hour()).minute(startTime.minute()).second(0);
+                  const preservedEnd = endTime 
+                    ? start.hour(endTime.hour()).minute(endTime.minute()).second(0)
+                    : preservedStart.add(durationHours, 'hour');
+                  setStartTime(preservedStart);
+                  setEndTime(preservedEnd);
+                }
               } else {
                 const start = dayjs(payload as Date).startOf('day');
                 setStartDate(start);
                 setEndDate(start.add(1, 'month'));
+                
+                // Preserve time if already selected
+                if (startTime) {
+                  const preservedStart = start.hour(startTime.hour()).minute(startTime.minute()).second(0);
+                  const preservedEnd = endTime 
+                    ? start.hour(endTime.hour()).minute(endTime.minute()).second(0)
+                    : preservedStart.add(durationHours, 'hour');
+                  setStartTime(preservedStart);
+                  setEndTime(preservedEnd);
+                }
               }
-              setStartTime(null);
-              setEndTime(null);
               setValidationMsg(null);
             }}
           />
@@ -553,28 +574,40 @@ const ModifyBookingScheduleSection = forwardRef<
                 {t('modifyBooking.validation.noTimeSlots')}
               </Text>
             ) : (
-              <View style={styles.timeGrid}>
-                {displayedTimes.map((slot) => {
-                  const selected = startTime?.format('h:mm A') === slot;
-                  return (
-                    <TouchableOpacity
-                      key={slot}
-                      style={[
-                        styles.timeChip,
-                        {
-                          borderColor: selected ? BRAND.accent : chipBorder,
-                          backgroundColor: selected ? BRAND.accent : chipBg,
-                        },
-                      ]}
-                      onPress={() => applyQuickTime(slot)}
-                    >
-                      <Text style={{ color: selected ? '#fff' : colors.text, fontSize: 12, fontWeight: '600' }}>
-                        {slot}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <>
+                <View style={styles.timeGrid}>
+                  {displayedTimes.map((slot) => {
+                    const selected = startTime?.format('h:mm A') === slot;
+                    return (
+                      <TouchableOpacity
+                        key={slot}
+                        style={[
+                          styles.timeChip,
+                          {
+                            borderColor: selected ? BRAND.accent : chipBorder,
+                            backgroundColor: selected ? BRAND.accent : chipBg,
+                          },
+                        ]}
+                        onPress={() => applyQuickTime(slot)}
+                      >
+                        <Text style={{ color: selected ? '#fff' : colors.text, fontSize: 12, fontWeight: '600' }}>
+                          {slot}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {availableQuickTimes.length > 12 ? (
+                  <TouchableOpacity
+                    onPress={() => setShowAllTimes(!showAllTimes)}
+                    style={styles.showMoreButton}
+                  >
+                    <Text style={[styles.showMoreText, { color: BRAND.accent }]}>
+                      {showAllTimes ? 'Show less' : `Show ${availableQuickTimes.length - 12} more times`}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </>
             )}
             {startTime ? (
               <View style={styles.selectedSummary}>
@@ -689,6 +722,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
+  },
+  showMoreButton: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   reviewWrap: {
     gap: 10,

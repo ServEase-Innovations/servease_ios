@@ -75,6 +75,7 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availabilityVerified, setAvailabilityVerified] = useState(false);
+  const [availabilityCheckBlocked, setAvailabilityCheckBlocked] = useState(false);
   const [wizardState, setWizardState] = useState<ModifyWizardState>({
     step: 'schedule',
     canGoNext: false,
@@ -125,18 +126,21 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     if (open && booking) {
       setError(null);
       setAvailabilityVerified(false);
+      setAvailabilityCheckBlocked(false);
       setWizardState({ step: 'schedule', canGoNext: false, canGoBack: false, canSubmit: false });
     }
   }, [open, booking]);
 
   const handleAvailabilityVerifiedChange = useCallback((verified: boolean, message?: string) => {
     setAvailabilityVerified(verified);
-    if (!verified && message) setError(message);
+    if (!verified && message) {
+      setError(message);
+    }
   }, []);
 
   const handleScheduleChange = useCallback(() => {
     setAvailabilityVerified(false);
-    setError(null);
+    setAvailabilityCheckBlocked(false);
   }, []);
 
   const handleCheckAvailability = async () => {
@@ -144,7 +148,13 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     setIsCheckingAvailability(true);
     try {
       const ok = await scheduleRef.current?.checkAvailability();
-      if (!ok) setAvailabilityVerified(false);
+      if (ok) {
+        setAvailabilityVerified(true);
+        setAvailabilityCheckBlocked(false);
+      } else {
+        setAvailabilityVerified(false);
+        setAvailabilityCheckBlocked(true);
+      }
     } finally {
       setIsCheckingAvailability(false);
     }
@@ -167,7 +177,9 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     
     setIsLoading(true);
     setError(null);
-    try {
+    
+    // Helper function to make the modification request
+    const makeModificationRequest = async () => {
       console.log('[ModifyBooking] Calling modifyScheduleWithPayment...');
       const result = await (BookingService as typeof BookingService & {
         modifyScheduleWithPayment: (payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -191,10 +203,13 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
         const paymentResponse = await BookingService.openRazorpay(
           String(result.razorpay_order_id),
           amountPaise,
-          String(result.currency || 'INR')
+          String(result.currency || 'INR'),
+          undefined,  // prefill
+          String(result.razorpay_key_id || '')  // razorpay_key_id
         );
         (paymentResponse as { engagementId?: number }).engagementId = booking.id;
         
+        console.log('[ModifyBooking] Payment response before verification:', JSON.stringify(paymentResponse));
         console.log('[ModifyBooking] Verifying payment...');
         await (BookingService as typeof BookingService & {
           verifyModifySchedulePayment: (payment: Record<string, unknown>) => Promise<unknown>;
@@ -220,7 +235,40 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
       console.log('[ModifyBooking] Modification completed successfully');
       setOpenSnackbar(true);
       setTimeout(() => onClose(), 1200);
-    } catch (err: unknown) {
+    };
+    
+    // Retry logic for 409 conflicts (booking being modified)
+    let lastError: unknown;
+    const maxRetries = 1; // Only retry once for 409 errors
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await makeModificationRequest();
+        return; // Success!
+      } catch (err: unknown) {
+        lastError = err;
+        
+        const apiError = err as { response?: { data?: { error?: string; message?: string }; status?: number } };
+        const is409Conflict = apiError?.response?.status === 409;
+        
+        // Only retry on 409 conflicts and if we haven't exhausted retries
+        if (is409Conflict && attempt < maxRetries) {
+          const delay = 1500; // Wait 1.5 seconds before retry
+          console.log(`[ModifyBooking] 409 conflict detected, retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If it's not a 409 or we've exhausted retries, handle the error
+        break;
+      }
+    }
+    
+    // Handle the error
+    
+    // Handle the error
+    const err = lastError;
+    try {
       console.error('[ModifyBooking] Error during modification:', err);
       
       if (isPaymentCancelledError(err)) {
@@ -229,17 +277,28 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
       }
       
       // Extract error message from API response
-      const apiError = err as { response?: { data?: { error?: string; message?: string } } };
+      const apiError = err as { response?: { data?: { error?: string; message?: string }; status?: number } };
       let errorMessage = apiError?.response?.data?.error || apiError?.response?.data?.message;
       
       console.log('[ModifyBooking] Raw error message:', errorMessage);
+      console.log('[ModifyBooking] Status code:', apiError?.response?.status);
       
       // Handle specific error types with user-friendly messages
       if (errorMessage) {
         const lowerError = errorMessage.toLowerCase();
         
+        // 409 Conflict - booking is being modified by another process
+        if (apiError?.response?.status === 409) {
+          if (lowerError.includes('being modified') || lowerError.includes('currently being')) {
+            errorMessage = 'This booking is currently being processed. Please wait a moment and try again.';
+          } else if (lowerError.includes('overlap') || lowerError.includes('conflict')) {
+            errorMessage = 'Time conflict detected. Please choose a different time slot.';
+          } else {
+            errorMessage = 'Unable to modify booking at this time. Please try again in a moment.';
+          }
+        }
         // Database deadlock error - provide user-friendly message
-        if (lowerError.includes('deadlock')) {
+        else if (lowerError.includes('deadlock')) {
           console.warn('[ModifyBooking] Deadlock detected - should have been retried automatically');
           errorMessage = 'The system is busy processing your request. Please try again in a moment.';
         }
@@ -259,6 +318,9 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
       
       console.log('[ModifyBooking] User-facing error message:', errorMessage);
       setError(errorMessage || 'Failed to modify booking. Please try again.');
+    } catch (errorHandlingErr) {
+      console.error('[ModifyBooking] Error in error handling:', errorHandlingErr);
+      setError('Failed to modify booking. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -319,6 +381,8 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
                 onAvailabilityVerifiedChange={handleAvailabilityVerifiedChange}
                 onScheduleChange={handleScheduleChange}
                 onWizardStateChange={setWizardState}
+                availabilityVerified={availabilityVerified}
+                isCheckingAvailability={isCheckingAvailability}
               />
             )}
 
@@ -330,47 +394,67 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
           </ScrollView>
 
           {!modificationDisabled && canModifyType ? (
-            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+            <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
               {wizardState.step === 'review' ? (
-                <BrandButton variant="ghost" onPress={() => scheduleRef.current?.goBack()} style={styles.footerBtn}>
-                  {t('modifyBooking.actions.back')}
-                </BrandButton>
-              ) : null}
-
-              {wizardState.step === 'schedule' ? (
-                <BrandButton
-                  variant="primary"
-                  onPress={() => scheduleRef.current?.goNext()}
-                  disabled={!wizardState.canGoNext}
-                  style={styles.footerBtn}
-                >
-                  {t('modifyBooking.actions.review')}
-                </BrandButton>
-              ) : (
                 <>
-                  <BrandButton
-                    variant="ghost"
-                    onPress={handleCheckAvailability}
-                    disabled={isCheckingAvailability || isLoading}
-                    style={styles.footerBtn}
-                  >
-                    {isCheckingAvailability
-                      ? t('modifyBooking.review.checking')
-                      : t('modifyBooking.actions.checkAvailability')}
+                  <View style={styles.reviewButtons}>
+                    <BrandButton
+                      variant="ghost"
+                      onPress={onClose}
+                      disabled={isLoading || isCheckingAvailability}
+                      style={styles.halfBtn}
+                    >
+                      {t('common.cancel')}
+                    </BrandButton>
+                    <BrandButton
+                      variant="ghost"
+                      onPress={() => scheduleRef.current?.goBack()}
+                      disabled={isLoading || isCheckingAvailability}
+                      style={styles.halfBtn}
+                    >
+                      {t('modifyBooking.actions.back')}
+                    </BrandButton>
+                  </View>
+                  {availabilityVerified ? (
+                    <BrandButton
+                      variant="primary"
+                      onPress={handleSubmit}
+                      disabled={!wizardState.canSubmit || isLoading}
+                      fullWidth
+                    >
+                      {isLoading ? t('modifyBooking.actions.saving') : t('modifyBooking.actions.saveChanges')}
+                    </BrandButton>
+                  ) : (
+                    <BrandButton
+                      variant="primary"
+                      onPress={handleCheckAvailability}
+                      disabled={isCheckingAvailability || !wizardState.canSubmit || availabilityCheckBlocked}
+                      fullWidth
+                    >
+                      {isCheckingAvailability
+                        ? t('modifyBooking.review.checking')
+                        : t('modifyBooking.actions.checkAvailability')}
+                    </BrandButton>
+                  )}
+                </>
+              ) : (
+                <View style={styles.scheduleButtons}>
+                  <BrandButton variant="ghost" onPress={onClose} style={styles.halfBtn}>
+                    {t('common.cancel')}
                   </BrandButton>
                   <BrandButton
                     variant="primary"
-                    onPress={handleSubmit}
-                    disabled={!wizardState.canSubmit || !availabilityVerified || isLoading}
-                    style={styles.footerBtn}
+                    onPress={() => scheduleRef.current?.goNext()}
+                    disabled={!wizardState.canGoNext}
+                    style={styles.halfBtn}
                   >
-                    {isLoading ? t('modifyBooking.actions.saving') : t('modifyBooking.actions.saveChanges')}
+                    Continue
                   </BrandButton>
-                </>
+                </View>
               )}
             </View>
           ) : (
-            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+            <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.card }]}>
               <BrandButton variant="primary" onPress={onClose} fullWidth>
                 {t('common.close')}
               </BrandButton>
@@ -434,12 +518,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   footer: {
-    flexDirection: 'row',
-    gap: 10,
     padding: 16,
+    paddingBottom: 20,
     borderTopWidth: 1,
   },
-  footerBtn: {
+  scheduleButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  reviewButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  halfBtn: {
     flex: 1,
   },
   loadingOverlay: {
