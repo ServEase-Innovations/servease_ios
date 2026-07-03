@@ -962,13 +962,14 @@ const MainApp = () => {
                 : currentView === SP_EARNINGS ||
                     currentView === BOOKINGS ||
                     currentView === WALLET ||
-                    currentView === PROFILE ||
                     currentView === SETTINGS
                   ? colors.background
+                  : currentView === PROFILE
+                  ? HOME_M3.primary
                   : colors.chromeEnd,
             },
           ]}
-          edges={usesDarkHeroSafeArea ? [] : ["top"]}
+          edges={usesDarkHeroSafeArea || currentView === PROFILE ? [] : ["top"]}
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>

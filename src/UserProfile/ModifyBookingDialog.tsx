@@ -239,10 +239,15 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
     
     // Retry logic for 409 conflicts (booking being modified)
     let lastError: unknown;
-    const maxRetries = 1; // Only retry once for 409 errors
+    const maxRetries = 3; // Retry up to 3 times for 409 errors
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
+        // Show retry status to user
+        if (attempt > 0) {
+          setError(`Processing... Retry attempt ${attempt} of ${maxRetries}. Please wait.`);
+        }
+        
         await makeModificationRequest();
         return; // Success!
       } catch (err: unknown) {
@@ -253,8 +258,8 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
         
         // Only retry on 409 conflicts and if we haven't exhausted retries
         if (is409Conflict && attempt < maxRetries) {
-          const delay = 1500; // Wait 1.5 seconds before retry
-          console.log(`[ModifyBooking] 409 conflict detected, retrying after ${delay}ms...`);
+          const delay = 2000 + (attempt * 1000); // Progressive delay: 2s, 3s, 4s
+          console.log(`[ModifyBooking] 409 conflict detected (attempt ${attempt + 1}/${maxRetries + 1}), retrying after ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -290,11 +295,11 @@ const ModifyBookingDialog: React.FC<ModifyBookingDialogProps> = ({
         // 409 Conflict - booking is being modified by another process
         if (apiError?.response?.status === 409) {
           if (lowerError.includes('being modified') || lowerError.includes('currently being')) {
-            errorMessage = 'This booking is currently being processed. Please wait a moment and try again.';
+            errorMessage = 'This booking is currently being processed. Please wait 10-15 seconds and try again.';
           } else if (lowerError.includes('overlap') || lowerError.includes('conflict')) {
             errorMessage = 'Time conflict detected. Please choose a different time slot.';
           } else {
-            errorMessage = 'Unable to modify booking at this time. Please try again in a moment.';
+            errorMessage = 'Unable to modify booking at this time. Please wait a few seconds and try again.';
           }
         }
         // Database deadlock error - provide user-friendly message

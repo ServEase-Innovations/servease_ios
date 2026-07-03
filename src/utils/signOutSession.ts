@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { Platform, Linking } from "react-native";
 import { 
   AUTH0_DOMAIN, 
   ANDROID_PACKAGE, 
@@ -36,18 +36,65 @@ export async function tryClearAuth0Session(clearSession: ClearSessionFn): Promis
   try {
     const returnUrl = getLogoutReturnUrl();
     console.log(`🔓 Clearing Auth0 session with returnUrl: ${returnUrl}`);
+    console.log(`🔓 Platform: ${Platform.OS}`);
     
-    await clearSession(
-      { 
-        returnToUrl: returnUrl,
-        federated: true  // Clear federated session to ensure complete logout
-      },
-      {
-        ephemeralSession: true  // Prevents SSO dialog on iOS
-      }
-    );
+    // Create a promise that resolves when the deep link callback is triggered
+    const logoutPromise = new Promise<void>((resolve, reject) => {
+      let linkingSubscription: any;
+      let timeoutId: NodeJS.Timeout;
+      
+      // Set up deep link listener to detect when logout redirect completes
+      const handleUrl = ({ url }: { url: string }) => {
+        console.log(`🔗 Received deep link during logout: ${url}`);
+        
+        // Check if this is the logout callback
+        if (url.includes('/callback') || url.includes('auth0')) {
+          console.log('✅ Logout redirect completed');
+          cleanup();
+          resolve();
+        }
+      };
+      
+      const cleanup = () => {
+        if (linkingSubscription) {
+          linkingSubscription.remove();
+        }
+        clearTimeout(timeoutId);
+      };
+      
+      // Listen for the deep link callback
+      linkingSubscription = Linking.addEventListener('url', handleUrl);
+      
+      // Set a timeout to prevent hanging (5 seconds)
+      timeoutId = setTimeout(() => {
+        console.log('⏱️ Logout callback timeout - assuming success');
+        cleanup();
+        resolve();
+      }, 5000);
+      
+      // Initiate the actual Auth0 logout
+      clearSession(
+        { 
+          returnToUrl: returnUrl,
+          federated: true  // Clear federated session to ensure complete logout
+        },
+        {
+          ephemeralSession: true  // Prevents SSO dialog on iOS
+        }
+      ).then(() => {
+        console.log('📤 Auth0 clearSession call completed');
+        // Don't resolve immediately - wait for the callback or timeout
+      }).catch((error) => {
+        console.error('❌ Auth0 clearSession error:', error);
+        cleanup();
+        reject(error);
+      });
+    });
     
+    // Wait for the logout to complete
+    await logoutPromise;
     console.log("✅ Auth0 session cleared successfully");
+    
   } catch (e: any) {
     // Gracefully handle common logout scenarios
     const errorMessage = e?.message?.toLowerCase() || "";

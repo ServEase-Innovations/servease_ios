@@ -12,7 +12,9 @@ import {
   Alert,
   Modal,
   BackHandler,
+  StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Picker } from "@react-native-picker/picker";
 import { useAuth0 } from "react-native-auth0";
 import LinearGradient from "react-native-linear-gradient";
@@ -113,6 +115,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const { appUser } = useAppUser();
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   // USE REDUX STATE
   const dispatch = useDispatch();
@@ -1759,92 +1762,93 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      {/* Mobile Number Dialog */}
-      <MobileNumberDialog
-        visible={showMobileDialog}
-        onClose={() => setShowMobileDialog(false)}
-        customerId={appUser?.customerid}
-        onSuccess={handleMobileNumberUpdateSuccess}
-      />
+    <View style={[styles.container, { backgroundColor: isDarkMode ? "#0e305c" : "#1e3a5f" }]}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ backgroundColor: colors.background }}
+      >
+        {/* Mobile Number Dialog */}
+        <MobileNumberDialog
+          visible={showMobileDialog}
+          onClose={() => setShowMobileDialog(false)}
+          customerId={appUser?.customerid}
+          onSuccess={handleMobileNumberUpdateSuccess}
+        />
 
-      {/* Header with Linear Gradient and Back Button */}
-      // Header portion of ProfileScreen.tsx (lines 930-1000)
-
-{/* Header with Linear Gradient and Back Button */}
+        {/* Header with Linear Gradient and Back Button */}
 <LinearGradient
   colors={[
-    isDarkMode ? "rgba(14, 48, 92, 0.9)" : "rgba(177, 213, 232, 0.8)",
-    isDarkMode ? colors.background : "rgba(255, 255, 255, 1)",
+    isDarkMode ? "#0e305c" : "#1e3a5f",
+    isDarkMode ? "#0e305c" : "#1e3a5f",
   ]}
   start={{ x: 0, y: 0 }}
   end={{ x: 0, y: 1 }}
-  style={styles.header}
+  style={[styles.header, { paddingTop: Math.max(insets.top, 8) + 6 }]}
 >
-  <View style={styles.headerContent}>
-    {/* Back Button */}
+  {/* Header Bar with Back Button and Title */}
+  <View style={styles.headerBar}>
     <TouchableOpacity
-      style={[
-        styles.backButton,
-        { backgroundColor: "rgba(255, 255, 255, 0.9)" },
-      ]}
+      style={styles.backButtonHeader}
       onPress={handleBackPress}
     >
-      <Icon name="arrow-left" size={24} color={colors.primary} />
+      <Icon name="arrow-left" size={24} color="#ffffff" />
     </TouchableOpacity>
+    <Text style={styles.headerTitle}>Profile</Text>
+  </View>
 
-    {/* Profile Section */}
-    <View style={styles.profileSection}>
-      {renderProfilePicture()}
-      <View style={styles.profileTextContainer}>
-        <Text
-          style={[
-            styles.greeting,
-            { color: colors.text, fontSize: fontSizes.greeting },
-          ]}
-        >
-          Hello, {getDisplayName()}
+  {/* Profile Section - Centered */}
+  <View style={styles.profileSectionCentered}>
+    {renderProfilePicture()}
+    
+    <View style={styles.profileInfo}>
+      <Text style={styles.profileName}>
+        {auth0User?.email || appUser?.email || emailId || t('profile.page.user')} {getDisplayName()}
+      </Text>
+      <Text style={styles.profileUsername}>
+        @{(getDisplayName() || '').toLowerCase().replace(/\s+/g, '')}
+      </Text>
+    </View>
+
+    {/* Stats Section */}
+    <View style={styles.statsContainer}>
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>{customerData?.totalBookings || serviceProviderData?.totalBookings || '—'}</Text>
+        <Text style={styles.statLabel}>Orders</Text>
+      </View>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>—</Text>
+        <Text style={styles.statLabel}>Reviews</Text>
+      </View>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>
+          {customerData?.createdAt || serviceProviderData?.createdAt 
+            ? new Date(customerData?.createdAt || serviceProviderData?.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+            : '—'}
         </Text>
-        <Text
-          style={[
-            styles.roleText,
-            { color: colors.textSecondary, fontSize: fontSizes.roleText },
-          ]}
-        >
-          {userRole === "SERVICE_PROVIDER" ? "Service Provider" : "Customer"}
-          , ID: {getUserIdDisplay()}
-          {userRole === "CUSTOMER" && !hasMobileNumber && (
-            <Text
-              style={[styles.mobileWarningSmall, { color: colors.error }]}
-            >
-              {" "}⚠️ Mobile number required
-            </Text>
-          )}
-        </Text>
+        <Text style={styles.statLabel}>Joined</Text>
       </View>
     </View>
 
-    {/* Edit Button - Top Right like web version */}
+    {/* Edit Profile Button */}
     {!isEditing && (
       <TouchableOpacity
-        style={[
-          styles.editButtonTop,
-          { backgroundColor: colors.primary },
-        ]}
+        style={styles.editProfileButton}
         onPress={handleEditStart}
       >
-        <Icon name="edit-3" size={16} color="#fdfeffff" />
-        <Text
-          style={[
-            styles.editButtonText,
-            { color: "#fff", fontSize: fontSizes.buttonText },
-          ]}
-        >
-          Edit
-        </Text>
+        <Text style={styles.editProfileText}>Edit Profile</Text>
+        <Icon name="edit-3" size={16} color="#1e3a5f" />
       </TouchableOpacity>
+    )}
+
+    {userRole === "CUSTOMER" && !hasMobileNumber && (
+      <View style={styles.mobileWarningContainer}>
+        <Text style={[styles.mobileWarningSmall, { color: '#ef4444' }]}>
+          ⚠️ Mobile number required
+        </Text>
+      </View>
     )}
   </View>
 </LinearGradient>
@@ -3132,11 +3136,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         </Text>
       </View>
     </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   loadingContainer: {
@@ -3163,85 +3171,112 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 30,
+    paddingBottom: 20,
   },
-  headerContent: {
+  headerBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     paddingHorizontal: 20,
-    width: "100%",
+    paddingVertical: 12,
     position: "relative",
   },
-  backButton: {
-    position: "absolute",
-    left: 20,
-    top: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    zIndex: 10,
+  backButtonHeader: {
+    padding: 8,
   },
-  profileSection: {
+  headerTitle: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  profileSectionCentered: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  profileInfo: {
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#ffffff",
+    textAlign: "center",
+  },
+  profileUsername: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
+    marginTop: 4,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    width: "100%",
+    maxWidth: 320,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    marginHorizontal: 8,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  editProfileButton: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-    marginLeft: 40,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    gap: 8,
+  },
+  editProfileText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1e3a5f",
   },
   profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    borderColor: "#0b5bd3",
-    marginRight: 15,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   avatarFallback: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    borderColor: "#0b5bd3",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: "rgba(255, 255, 255, 0.3)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 15,
   },
   avatarText: {
     fontWeight: "bold",
     color: "white",
-  },
-  profileTextContainer: {
-    flex: 1,
-  },
-  greeting: {
-    fontWeight: "bold",
-  },
-  roleText: {
-    marginTop: 4,
-  },
-  editButtonTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  editButtonText: {
-    fontWeight: "600",
-    marginLeft: 6,
+    fontSize: 36,
   },
   mobileWarningSmall: {
     fontSize: 12,
