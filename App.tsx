@@ -238,6 +238,7 @@ const MainApp = () => {
     currentView === HOME ||
     currentView === DASHBOARD ||
     currentView === SP_CALENDAR ||
+    currentView === SP_EARNINGS ||
     currentView === BOOKINGS ||
     currentView === WALLET ||
     currentView === SETTINGS;
@@ -959,8 +960,9 @@ const MainApp = () => {
             {
               backgroundColor: usesDarkHeroSafeArea
                 ? HOME_M3.primary
-                : currentView === SP_EARNINGS ||
-                    currentView === BOOKINGS ||
+                : currentView === SP_EARNINGS
+                  ? HOME_M3.primary
+                  : currentView === BOOKINGS ||
                     currentView === WALLET ||
                     currentView === SETTINGS
                   ? colors.background
@@ -969,7 +971,7 @@ const MainApp = () => {
                   : colors.chromeEnd,
             },
           ]}
-          edges={usesDarkHeroSafeArea || currentView === PROFILE ? [] : ["top"]}
+          edges={usesDarkHeroSafeArea || currentView === PROFILE || currentView === SP_EARNINGS ? [] : ["top"]}
           key={`app-${appResetKey}`}
         >
           <View style={{ flex: 1 }}>

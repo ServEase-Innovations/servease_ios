@@ -8,13 +8,15 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import LinearGradient from "react-native-linear-gradient";
 import { AxiosResponse } from "axios";
 import PaymentInstance from "../services/paymentInstance";
 import { useAppUser } from "../context/AppUserContext";
-import { HOME_M3 } from "../theme/brandColors";
+import { HOME_M3, HOME_HERO_GRADIENT } from "../theme/brandColors";
 import { DashboardMetricCard, METRIC_CARD_WIDTH } from "./DashboardMetricCard";
 import type { ProviderPayoutResponse } from "./Dashboard";
 import WithdrawalDialog from "./WithdrawalDialog";
@@ -142,68 +144,80 @@ export default function ProviderEarningsScreen() {
   };
 
   return (
-    <>
+    <View style={styles.container}>
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
+      
       <ScrollView
-        style={styles.container}
+        style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: Math.max(insets.top, 12) + 8, paddingBottom: 100 },
+          { paddingBottom: 100 },
         ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Earnings</Text>
-        <Text style={styles.subtitle}>Track payouts, deposits, and withdrawals</Text>
-
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color={HOME_M3.secondary} />
+        <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.heroGradient}>
+          <View style={[styles.heroHeader, { paddingTop: insets.top + 16 }]}>
+            <Text style={styles.heroTitle}>Earnings</Text>
+            <Text style={styles.heroSubtitle}>Track payouts, deposits, and withdrawals</Text>
           </View>
-        ) : (
-          <>
-            <View style={styles.metricsGrid}>
-              {metrics.map((metric) => (
-                <DashboardMetricCard key={metric.title} {...metric} />
-              ))}
+        </LinearGradient>
+
+        <View style={styles.contentSheet}>
+          {loading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={HOME_M3.secondary} />
             </View>
+          ) : (
+            <>
+              <View style={styles.metricsGrid}>
+                {metrics.map((metric) => (
+                  <DashboardMetricCard key={metric.title} {...metric} />
+                ))}
+              </View>
 
-            <TouchableOpacity
-              style={styles.actionRow}
-              onPress={() => setWithdrawalDialogOpen(true)}
-              activeOpacity={0.88}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: "#ecfdf5" }]}>
-                <MaterialIcon name="account-balance-wallet" size={22} color="#059669" />
-              </View>
-              <View style={styles.actionCopy}>
-                <Text style={styles.actionTitle}>Request withdrawal</Text>
-                <Text style={styles.actionSubtitle}>
-                  {availableBalance >= 500
-                    ? `${formatInr(availableBalance)} available`
-                    : "Minimum ₹500 required"}
-                </Text>
-              </View>
-              <MaterialIcon name="chevron-right" size={22} color="#94a3b8" />
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={() => setWithdrawalDialogOpen(true)}
+                activeOpacity={0.88}
+              >
+                <View style={[styles.actionIcon, { backgroundColor: "#ecfdf5" }]}>
+                  <MaterialIcon name="account-balance-wallet" size={22} color="#059669" />
+                </View>
+                <View style={styles.actionCopy}>
+                  <Text style={styles.actionTitle}>Request withdrawal</Text>
+                  <Text style={styles.actionSubtitle}>
+                    {availableBalance >= 500
+                      ? `${formatInr(availableBalance)} available`
+                      : "Minimum ₹500 required"}
+                  </Text>
+                </View>
+                <MaterialIcon name="chevron-right" size={22} color="#94a3b8" />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.recentActivityRow}
-              onPress={() => setWithdrawalHistoryDialogOpen(true)}
-              activeOpacity={0.88}
-            >
-              <View style={styles.recentIcon}>
-                <MaterialIcon name="history" size={22} color={HOME_M3.secondary} />
-              </View>
-              <View style={styles.recentCopy}>
-                <Text style={styles.recentTitle}>Recent Activity</Text>
-                <Text style={styles.recentSubtitle}>
-                  {formatRelativePayment(latestPayoutDate)}
-                </Text>
-              </View>
-              <MaterialIcon name="chevron-right" size={22} color="#94a3b8" />
-            </TouchableOpacity>
-          </>
-        )}
+              <TouchableOpacity
+                style={styles.recentActivityRow}
+                onPress={() => setWithdrawalHistoryDialogOpen(true)}
+                activeOpacity={0.88}
+              >
+                <View style={styles.recentIcon}>
+                  <MaterialIcon name="history" size={22} color={HOME_M3.secondary} />
+                </View>
+                <View style={styles.recentCopy}>
+                  <Text style={styles.recentTitle}>Recent Activity</Text>
+                  <Text style={styles.recentSubtitle}>
+                    {formatRelativePayment(latestPayoutDate)}
+                  </Text>
+                </View>
+                <MaterialIcon name="chevron-right" size={22} color="#94a3b8" />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </ScrollView>
 
       <WithdrawalHistoryDialog
@@ -219,7 +233,7 @@ export default function ProviderEarningsScreen() {
         availableBalance={availableBalance}
         onWithdrawalSuccess={handleWithdrawalSuccess}
       />
-    </>
+    </View>
   );
 }
 
@@ -228,21 +242,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: HOME_M3.surface,
   },
-  content: {
-    paddingHorizontal: 20,
+  scrollView: {
+    flex: 1,
   },
-  title: {
-    fontSize: 24,
+  heroGradient: {
+    paddingBottom: 24,
+  },
+  heroHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  heroTitle: {
+    fontSize: 28,
     fontWeight: "800",
-    color: HOME_M3.onSurface,
-    letterSpacing: -0.4,
+    color: "#ffffff",
+    letterSpacing: -0.5,
     marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
-    color: HOME_M3.onSurfaceVariant,
-    marginBottom: 20,
+  heroSubtitle: {
+    fontSize: 15,
+    color: "rgba(255, 255, 255, 0.85)",
     lineHeight: 20,
+  },
+  contentSheet: {
+    backgroundColor: HOME_M3.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingTop: 24,
+    paddingHorizontal: 20,
+    minHeight: 400,
+  },
+  content: {
+    flexGrow: 1,
   },
   loadingWrap: {
     paddingVertical: 48,

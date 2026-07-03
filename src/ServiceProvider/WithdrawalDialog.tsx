@@ -13,10 +13,12 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import PaymentInstance from "../services/paymentInstance";
-import { BRAND, PRIMARY_BUTTON_GRADIENT } from "../theme/brandColors";
+import { BRAND, PRIMARY_BUTTON_GRADIENT, HOME_HERO_GRADIENT } from "../theme/brandColors";
 import LinearGradient from "react-native-linear-gradient";
 
 const MIN_WITHDRAWAL = 500;
@@ -42,6 +44,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
 }) => {
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!open) setAmount("");
@@ -145,25 +148,28 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
 
   return (
     <Modal visible={open} animationType="slide" onRequestClose={handleClose}>
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <View style={styles.sheet}>
-            <View style={styles.headerAccent} />
-            <View style={styles.header}>
-              <View style={styles.headerIcon}>
-                <MaterialIcon name="account-balance-wallet" size={22} color={BRAND.accent} />
-              </View>
-              <View style={styles.headerTextCol}>
-                <Text style={styles.headerTitle}>Request Withdrawal</Text>
-                <Text style={styles.headerSubtitle}>Transfer earnings to your bank account</Text>
-              </View>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={8}>
-                <MaterialIcon name="close" size={22} color={BRAND.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <View style={{ flex: 1, backgroundColor: HOME_HERO_GRADIENT[0] }}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        <SafeAreaView style={styles.safeArea}>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <View style={styles.sheet}>
+              <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.headerGradient}>
+                <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+                  <View style={styles.headerIcon}>
+                    <MaterialIcon name="account-balance-wallet" size={22} color="#ffffff" />
+                  </View>
+                  <View style={styles.headerTextCol}>
+                    <Text style={styles.headerTitle}>Request Withdrawal</Text>
+                    <Text style={styles.headerSubtitle}>Transfer earnings to your bank account</Text>
+                  </View>
+                  <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={8}>
+                    <MaterialIcon name="close" size={22} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
 
             <ScrollView
               style={styles.content}
@@ -352,6 +358,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -359,7 +366,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: BRAND.canvas,
+    backgroundColor: "transparent",
   },
   flex: {
     flex: 1,
@@ -368,26 +375,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BRAND.canvas,
   },
-  headerAccent: {
-    height: 3,
-    backgroundColor: BRAND.accent,
+  headerGradient: {
+    paddingBottom: 16,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: BRAND.accentSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.line,
   },
   headerIcon: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: BRAND.surface,
-    borderWidth: 1,
-    borderColor: BRAND.line,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -400,24 +401,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: BRAND.text,
-    letterSpacing: -0.2,
+    color: "#ffffff",
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 12,
-    color: BRAND.textMuted,
-    marginTop: 2,
-    fontWeight: "500",
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.85)",
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: BRAND.surface,
-    borderWidth: 1,
-    borderColor: BRAND.line,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   content: {
     flex: 1,
