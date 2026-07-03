@@ -116,12 +116,6 @@ export function formatSavedLocationAddress(saved: SavedLocationEntry): string {
   return saved?.name ? `${saved.name} location` : "";
 }
 
-const KNOWN_SAVED_LABELS: Record<string, string> = {
-  home: "home",
-  office: "office",
-  others: "others",
-};
-
 export function formatSavedLocationLabel(
   name: string,
   translate?: (key: string) => string
@@ -129,16 +123,32 @@ export function formatSavedLocationLabel(
   const raw = String(name || "").trim();
   if (!raw) return "Address";
 
-  const knownKey = KNOWN_SAVED_LABELS[raw.toLowerCase()];
-  if (knownKey && translate) {
-    const translated = translate(knownKey);
-    if (translated && translated !== knownKey) return translated;
+  const lowerName = raw.toLowerCase();
+  
+  // Use translation keys with proper namespace if available
+  // Try format: "common.addressType.home", "bookingLocation.home", etc.
+  if (translate) {
+    try {
+      // Try common namespace first
+      const commonKey = `common.addressType.${lowerName}`;
+      const translated = translate(commonKey);
+      
+      // Check if translation was successful (not returning the key itself or an object)
+      if (translated && typeof translated === 'string' && translated !== commonKey && !translated.includes('{')) {
+        return translated;
+      }
+    } catch (error) {
+      // Translation failed, use fallback
+      console.warn(`Translation failed for address type '${raw}':`, error);
+    }
   }
 
-  if (knownKey === "home") return "Home";
-  if (knownKey === "office") return "Office";
-  if (knownKey === "others") return "Other";
+  // Fallback to English labels for known types
+  if (lowerName === "home") return "Home";
+  if (lowerName === "work" || lowerName === "office") return "Office";
+  if (lowerName === "others" || lowerName === "other") return "Other";
 
+  // Capitalize the raw name for custom types
   return raw
     .split(/\s+/)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())

@@ -200,7 +200,9 @@ interface FormErrors {
 }
 
 // Regex for validation (kept for optional format checks)
-const nameRegex = /^[A-Za-z]+(?:[ ][A-Za-z]+)*$/;
+// Updated to properly support multi-word names with spaces
+// Examples: "Roy", "Singha Roy", "Das Gupta", "Roy Chowdhury"
+const nameRegex = /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/;
 const emailIdRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Z|a-z]{2,}$/;
 const strongPasswordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -1064,7 +1066,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
       if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: "First name should contain only letters",
+          firstName: "First name should contain only letters and spaces",
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
@@ -1084,7 +1086,7 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
       if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: "Last name should contain only letters",
+          lastName: "Last name should contain only letters and spaces",
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({

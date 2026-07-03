@@ -184,35 +184,39 @@ const BasicInformation: React.FC<BasicInformationProps> = ({
   const fontSizes = getFontSizes();
 
   const handleTextChange = (fieldName: string, text: string) => {
-    // Remove ALL spaces from the input automatically
-    let processedText = removeAllSpaces(text);
+    let processedText = text;
     
     // Additional field-specific processing
     switch (fieldName) {
       case 'firstName':
       case 'middleName':
       case 'lastName':
-        // For names, also capitalize first letter of each word (optional)
+        // For names, allow spaces but clean up multiple consecutive spaces
+        processedText = text.replace(/\s{2,}/g, ' '); // Replace multiple spaces with single space
+        // Capitalize first letter of each word (optional)
         processedText = processedText.replace(/\b\w/g, char => char.toUpperCase());
         break;
         
       case 'emailId':
-        // Convert to lowercase for email
-        processedText = processedText.toLowerCase();
+        // Remove ALL spaces from email and convert to lowercase
+        processedText = removeAllSpaces(text).toLowerCase();
         break;
         
       case 'mobileNo':
       case 'AlternateNumber':
-        // For phone numbers, only allow digits
-        processedText = processedText.replace(/[^0-9]/g, '');
+        // For phone numbers, remove ALL spaces and only allow digits
+        processedText = text.replace(/[^0-9]/g, '');
         break;
         
       case 'password':
       case 'confirmPassword':
-        // For passwords, just remove spaces (no other processing)
+        // For passwords, remove ALL spaces
+        processedText = removeAllSpaces(text);
         break;
         
       default:
+        // For other fields, remove ALL spaces
+        processedText = removeAllSpaces(text);
         break;
     }
     
