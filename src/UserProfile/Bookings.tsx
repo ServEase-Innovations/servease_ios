@@ -2752,127 +2752,132 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         ? Number(item.monthlyAmount)
         : Number(item.payment?.total_amount || item.payment?.base_amount || 0);
     const serviceDate = dayjs(item.startDate || item.date);
-    const serviceDateLabel = serviceDate.isValid()
-      ? serviceDate.format('dddd, MMMM D, YYYY')
-      : dayjs(item.date).format('dddd, MMMM D, YYYY');
+    const serviceDateShort = serviceDate.isValid()
+      ? serviceDate.format('D MMM YYYY')
+      : dayjs(item.date).format('D MMM YYYY');
 
     return (
       <TouchableOpacity
-        activeOpacity={0.95}
+        activeOpacity={0.7}
         onPress={() => handleViewDetails(item)}
         style={styles.compactCardTouch}
       >
         <View
           style={[
-            styles.webCard,
+            styles.cleanCard,
             {
               borderColor: bk.border,
               backgroundColor: bk.card,
             },
           ]}
         >
-          <View style={[styles.webCardAccent, { backgroundColor: bk.accentBar }]} />
-          <View style={styles.webCardBody}>
-          <View
-            style={[
-              styles.webCardHeader,
-              {
-                backgroundColor: bk.cardHeader,
-                borderBottomColor: bk.border,
-              },
-            ]}
-          >
-            <View style={styles.webCardHeaderRow}>
-              <View style={[styles.webCardIconBox, { backgroundColor: bk.iconBg }]}>
-                <Text style={styles.webCardEmoji}>{getServiceEmoji(serviceType)}</Text>
+          {/* Left accent bar */}
+          <View style={[styles.cleanCardAccent, { backgroundColor: bk.accentBar }]} />
+          
+          {/* Main content area */}
+          <View style={styles.cleanCardContent}>
+            {/* Service info row */}
+            <View style={styles.cleanCardHeader}>
+              <View style={[styles.cleanCardIconBox, { backgroundColor: bk.iconBg }]}>
+                <Text style={styles.cleanCardEmoji}>{getServiceEmoji(serviceType)}</Text>
               </View>
-              <View style={styles.webCardHeaderContent}>
-                <View style={styles.webCardTitleRow}>
+              <View style={styles.cleanCardHeaderText}>
+                <View style={styles.cleanCardTitleRow}>
                   <Text
-                    style={[styles.webCardTitle, { color: bk.text, fontSize: fontSizes.serviceTitle - 1 }]}
+                    style={[styles.cleanCardTitle, { color: bk.text, fontSize: fontSizes.serviceTitle }]}
                     numberOfLines={1}
                   >
                     {getServiceTitle(serviceType)}
                   </Text>
                   {!isPaymentPending && amountValue > 0 ? (
-                    <Text style={[styles.webCardAmount, { color: bk.text }]}>
+                    <Text style={[styles.cleanCardPrice, { color: bk.text, fontSize: fontSizes.infoText }]}>
                       ₹{amountValue.toFixed(2)}
                     </Text>
                   ) : null}
                 </View>
-                <Text style={[styles.webCardMeta, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
-                  Booking #{item.id} · Placed {formatPlacedAt(item)}
-                </Text>
-                <Text style={[styles.webCardMeta, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
-                  Provider: {item.serviceProviderName || 'Awaiting assignment'}
-                </Text>
-                <View style={styles.webCardBadgeRow}>
-                  <Badge variant={item.bookingType === 'MONTHLY' ? 'info' : item.bookingType === 'ON_DEMAND' ? 'warning' : 'success'}>
-                    <Text style={[styles.badgeText, { color: colors.primary, fontSize: fontSizes.badgeText - 1 }]}>
-                      {item.bookingType === 'ON_DEMAND' ? 'On demand' : item.bookingType === 'MONTHLY' ? 'Monthly' : 'Short term'}
-                    </Text>
-                  </Badge>
-                  <StatusChip status={displayTaskStatus} />
-                  {isPaymentPending ? (
-                    <Badge variant="warning">
-                      <Text style={[styles.badgeText, { color: colors.warning, fontSize: fontSizes.badgeText - 1 }]}>
-                        Payment pending
-                      </Text>
-                    </Badge>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.webCardContent}>
-            {renderAutoCancellationNotices(item)}
-
-            <View
-              style={[
-                styles.webScheduleBox,
-                {
-                  backgroundColor: bk.scheduleBg,
-                  borderColor: bk.border,
-                },
-              ]}
-            >
-              <View style={styles.webScheduleRow}>
-                <Icon name="calendar-blank-outline" size={15} color={bk.textMuted} />
-                <Text style={[styles.webScheduleText, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
-                  Service: {serviceDateLabel} · {formatTimeRange(item.start_time, item.end_time)}
-                </Text>
-              </View>
-              <View style={styles.webScheduleRow}>
-                <Icon name="clock-outline" size={15} color={bk.textMuted} />
-                <Text style={[styles.webScheduleText, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
-                  Placed {formatPlacedAt(item)}
-                </Text>
-              </View>
-              <View style={styles.webScheduleRow}>
-                <Icon name="map-marker-outline" size={15} color={bk.textMuted} />
-                <Text style={[styles.webScheduleText, { color: bk.textMuted, fontSize: fontSizes.infoText - 1 }]}>
-                  {item.address || 'Address not available'}
+                <Text style={[styles.cleanCardSubtitle, { color: bk.textMuted, fontSize: fontSizes.infoText - 2 }]}>
+                  Booking #{item.id}
                 </Text>
               </View>
             </View>
 
+            {/* Provider name */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="account" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.text, fontSize: fontSizes.infoText - 1 }]} numberOfLines={1}>
+                {item.serviceProviderName || 'Awaiting assignment'}
+              </Text>
+            </View>
+
+            {/* Date & Time - compact format */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="calendar-clock" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.text, fontSize: fontSizes.infoText - 1 }]}>
+                {serviceDateShort} · {formatTimeRange(item.start_time, item.end_time)}
+              </Text>
+            </View>
+
+            {/* Address */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="map-marker-outline" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.text, fontSize: fontSizes.infoText - 1 }]} numberOfLines={2}>
+                {item.address || 'Address not available'}
+              </Text>
+            </View>
+
+            {/* Booking placed time */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="clock-outline" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.textMuted, fontSize: fontSizes.infoText - 2 }]}>
+                Placed {formatPlacedAt(item)}
+              </Text>
+            </View>
+
+            {/* Badges row */}
+            <View style={styles.cleanCardBadges}>
+              <Badge variant={item.bookingType === 'MONTHLY' ? 'info' : item.bookingType === 'ON_DEMAND' ? 'warning' : 'success'}>
+                <Text style={[styles.badgeText, { color: colors.primary, fontSize: fontSizes.badgeText - 1 }]}>
+                  {item.bookingType === 'ON_DEMAND' ? 'On demand' : item.bookingType === 'MONTHLY' ? 'Monthly' : 'Short term'}
+                </Text>
+              </Badge>
+              <StatusChip status={displayTaskStatus} />
+              {isPaymentPending ? (
+                <Badge variant="warning">
+                  <Text style={[styles.badgeText, { color: colors.warning, fontSize: fontSizes.badgeText - 1 }]}>
+                    Payment pending
+                  </Text>
+                </Badge>
+              ) : null}
+            </View>
+
+            {/* Payment pending banner */}
             {isPaymentPending ? (
-              <View style={[styles.webPaymentBanner, { backgroundColor: colors.errorLight, borderColor: colors.error + '35' }]}>
-                <Text style={{ color: colors.error, fontSize: fontSizes.infoText - 1, flex: 1 }}>
-                  Payment required to confirm this booking.
+              <View style={[styles.cleanPaymentBanner, { backgroundColor: colors.errorLight, borderColor: colors.error + '35' }]}>
+                <Text style={{ color: colors.error, fontSize: fontSizes.infoText - 2, flex: 1 }}>
+                  Payment required
                 </Text>
                 <TouchableOpacity
-                  style={[styles.webPayButton, { backgroundColor: colors.error }]}
-                  onPress={() => handlePaymentClick(item)}
+                  style={[styles.cleanPayButton, { backgroundColor: colors.error }]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handlePaymentClick(item);
+                  }}
                 >
                   <Text style={{ color: '#fff', fontWeight: '600', fontSize: fontSizes.buttonText - 1 }}>Pay now</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
 
+            {/* Auto-cancellation notices */}
+            {renderAutoCancellationNotices(item)}
+
+            {/* Today service panel */}
             {renderTodayServicePanel(item)}
           </View>
+
+          {/* Trailing arrow icon */}
+          <View style={styles.cleanCardArrow}>
+            <Icon name="chevron-right" size={24} color={bk.textMuted} />
           </View>
         </View>
       </TouchableOpacity>
@@ -3548,6 +3553,103 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginBottom: 12,
   },
+  // ========== Clean Card Styles (Simplified UI) ==========
+  cleanCard: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cleanCardAccent: {
+    width: 4,
+  },
+  cleanCardContent: {
+    flex: 1,
+    padding: 16,
+    gap: 12,
+  },
+  cleanCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cleanCardIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cleanCardEmoji: {
+    fontSize: 24,
+  },
+  cleanCardHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cleanCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 2,
+  },
+  cleanCardTitle: {
+    fontWeight: '700',
+    flex: 1,
+  },
+  cleanCardSubtitle: {
+    lineHeight: 16,
+  },
+  cleanCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cleanCardText: {
+    flex: 1,
+    lineHeight: 20,
+  },
+  cleanCardBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  cleanCardPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
+  cleanCardPrice: {
+    fontWeight: '700',
+  },
+  cleanPaymentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  cleanPayButton: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cleanCardArrow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+  },
+  // ========== Old Web Card Styles (Legacy) ==========
   webCard: {
     flexDirection: 'row',
     borderRadius: 16,
