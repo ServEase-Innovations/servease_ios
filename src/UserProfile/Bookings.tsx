@@ -1908,18 +1908,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     [upcomingBookings, upcomingServiceFilter, upcomingDurationFilter, statusFilter]
   );
 
-  // Debug log when filter sheet opens
-  useEffect(() => {
-    if (filterSheetVisible) {
-      console.log('🔍 Opening filter sheet with options:', {
-        sortOptions: filterSheetSortOptions,
-        serviceOptions: filterSheetServiceOptions,
-        durationOptions: filterSheetDurationOptions,
-        statusOptions: filterSheetStatusOptions,
-      });
-    }
-  }, [filterSheetVisible]);
-
   useEffect(() => {
     if (viewTab !== 'upcoming' && statusFilter !== 'ALL') {
       setStatusFilter('ALL');

@@ -1,4 +1,3 @@
-/* eslint-disable */
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
@@ -67,19 +66,6 @@ const BookingsFilterSheet: React.FC<BookingsFilterSheetProps> = ({
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Debug log
-  useEffect(() => {
-    if (visible) {
-      console.log('📊 Filter Sheet Visible - Options received:', {
-        sort: sortOptions,
-        service: serviceOptions,
-        duration: durationOptions,
-        status: statusOptions,
-        currentFilters,
-      });
-    }
-  }, [visible, sortOptions, serviceOptions, durationOptions, statusOptions, currentFilters]);
-
   useEffect(() => {
     setTempFilters(currentFilters);
   }, [currentFilters]);
@@ -132,74 +118,6 @@ const BookingsFilterSheet: React.FC<BookingsFilterSheetProps> = ({
     onClose();
   };
 
-  const renderFilterSection = (
-    title: string,
-    icon: string,
-    options: FilterOption[],
-    currentValue: string,
-    onSelect: (value: string) => void
-  ) => {
-    // Safety check - don't render if no options
-    if (!options || options.length === 0) {
-      console.warn(`⚠️ No options for ${title}`);
-      return null;
-    }
-
-    return (
-      <View style={styles.filterSection}>
-        <View style={styles.filterSectionHeader}>
-          <Icon name={icon} size={18} color={colors.primary} />
-          <Text style={[styles.filterSectionTitle, { color: '#1e293b', fontSize: fontSizes.sectionTitle || 16 }]}>
-            {title}
-          </Text>
-        </View>
-        <View style={styles.filterOptionsGrid}>
-          {options.map((option) => {
-            const isSelected = currentValue === option.value;
-            const displayLabel =
-              option.count !== undefined ? `${option.label} (${option.count})` : option.label;
-
-            return (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.filterOption,
-                  {
-                    backgroundColor: isSelected ? colors.primary : '#f1f5f9',
-                    borderColor: isSelected ? colors.primary : '#cbd5e1',
-                  },
-                ]}
-                onPress={() => onSelect(option.value)}
-                activeOpacity={0.7}
-              >
-                {option.icon && (
-                  <Icon
-                    name={option.icon}
-                    size={16}
-                    color={isSelected ? '#fff' : '#64748b'}
-                  />
-                )}
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    {
-                      color: isSelected ? '#fff' : '#1e293b',
-                      fontSize: fontSizes.badgeText,
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {displayLabel}
-                </Text>
-                {isSelected && <Icon name="check" size={16} color="#fff" />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
-
   if (!visible) return null;
 
   return (
@@ -219,6 +137,7 @@ const BookingsFilterSheet: React.FC<BookingsFilterSheetProps> = ({
           style={[
             styles.sheet,
             {
+              height: SHEET_MAX_HEIGHT,
               backgroundColor: '#ffffff',
               borderTopColor: '#e2e8f0',
               paddingBottom: Math.max(insets.bottom, 16),
@@ -251,170 +170,165 @@ const BookingsFilterSheet: React.FC<BookingsFilterSheetProps> = ({
             contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 100 }}
             showsVerticalScrollIndicator={true}
           >
-              {/* Debug Info */}
-              <View style={{ padding: 10, backgroundColor: '#fef3c7', marginBottom: 16, borderRadius: 8 }}>
-                <Text style={{ color: '#78350f', fontSize: 12, fontWeight: 'bold' }}>
-                  Sort: {sortOptions?.length || 0} | Service: {serviceOptions?.length || 0} | Duration: {durationOptions?.length || 0} | Status: {statusOptions?.length || 0}
-                </Text>
-              </View>
-
               {/* Sort Section */}
-              <View style={{ marginBottom: 24, minHeight: 50 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Icon name="sort" size={18} color={colors.primary} />
+              <View style={{ marginBottom: 24 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Icon name="sort" size={18} color={colors.primary} style={{ marginRight: 8 }} />
                   <Text style={{ color: '#1e293b', fontSize: 16, fontWeight: '600' }}>
-                    Sort by ({sortOptions?.length || 0} options)
+                    Sort by
                   </Text>
                 </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, minHeight: 36 }}>
-                  {(sortOptions || []).map((option) => {
-                    const isSelected = tempFilters.sortOrder === option.value;
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+                  {(sortOptions || []).map((item, index) => {
+                    const isSelected = tempFilters.sortOrder === item.value;
                     return (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          minHeight: 36,
-                          backgroundColor: isSelected ? colors.primary : '#f1f5f9',
-                          borderColor: isSelected ? colors.primary : '#cbd5e1',
-                        }}
-                        onPress={() => setTempFilters({ ...tempFilters, sortOrder: option.value as UpcomingSortOrder })}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 13, fontWeight: '500' }}>
-                          {option.label}
-                        </Text>
-                        {isSelected && <Icon name="check" size={16} color="#fff" />}
-                      </TouchableOpacity>
+                      <View key={`sort-${item.value}-${index}`} style={{ width: '50%', padding: 4 }}>
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingHorizontal: 16,
+                            paddingVertical: 12,
+                            borderRadius: 8,
+                            borderWidth: 1.5,
+                            backgroundColor: isSelected ? colors.primary : '#f1f5f9',
+                            borderColor: isSelected ? colors.primary : '#cbd5e1',
+                          }}
+                          onPress={() => {
+                            setTempFilters({ ...tempFilters, sortOrder: item.value as UpcomingSortOrder });
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 14, fontWeight: '600' }}>
+                            {item.label}
+                          </Text>
+                          {isSelected && <Icon name="check" size={16} color="#fff" style={{ marginLeft: 6 }} />}
+                        </TouchableOpacity>
+                      </View>
                     );
                   })}
                 </View>
               </View>
 
               {/* Service Section */}
-              <View style={{ marginBottom: 24, minHeight: 50 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Icon name="briefcase-outline" size={18} color={colors.primary} />
+              <View style={{ marginBottom: 24 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Icon name="briefcase-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
                   <Text style={{ color: '#1e293b', fontSize: 16, fontWeight: '600' }}>
-                    Service ({serviceOptions?.length || 0} options)
+                    Service
                   </Text>
                 </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, minHeight: 36 }}>
-                  {(serviceOptions || []).map((option) => {
-                    const isSelected = tempFilters.serviceFilter === option.value;
-                    const displayLabel = option.count !== undefined ? `${option.label} (${option.count})` : option.label;
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+                  {(serviceOptions || []).map((item, index) => {
+                    const isSelected = tempFilters.serviceFilter === item.value;
+                    const displayLabel = item.count !== undefined ? `${item.label} (${item.count})` : item.label;
                     return (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          minHeight: 36,
-                          backgroundColor: isSelected ? colors.primary : '#f1f5f9',
-                          borderColor: isSelected ? colors.primary : '#cbd5e1',
-                        }}
-                        onPress={() => setTempFilters({ ...tempFilters, serviceFilter: option.value as UpcomingServiceFilter })}
-                        activeOpacity={0.7}
-                      >
-                        {option.icon && <Icon name={option.icon} size={16} color={isSelected ? '#fff' : '#64748b'} />}
-                        <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 13, fontWeight: '500' }}>
-                          {displayLabel}
-                        </Text>
-                        {isSelected && <Icon name="check" size={16} color="#fff" />}
-                      </TouchableOpacity>
+                      <View key={`service-${item.value}-${index}`} style={{ width: '50%', padding: 4 }}>
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            borderRadius: 8,
+                            borderWidth: 1.5,
+                            backgroundColor: isSelected ? colors.primary : '#f1f5f9',
+                            borderColor: isSelected ? colors.primary : '#cbd5e1',
+                          }}
+                          onPress={() => setTempFilters({ ...tempFilters, serviceFilter: item.value as UpcomingServiceFilter })}
+                          activeOpacity={0.7}
+                        >
+                          {item.icon && <Icon name={item.icon} size={16} color={isSelected ? '#fff' : '#64748b'} style={{ marginRight: 6 }} />}
+                          <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                            {displayLabel}
+                          </Text>
+                          {isSelected && <Icon name="check" size={16} color="#fff" style={{ marginLeft: 6 }} />}
+                        </TouchableOpacity>
+                      </View>
                     );
                   })}
                 </View>
               </View>
 
               {/* Duration/Type Section */}
-              <View style={{ marginBottom: 24, minHeight: 50 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Icon name="calendar-range" size={18} color={colors.primary} />
+              <View style={{ marginBottom: 24 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Icon name="calendar-range" size={18} color={colors.primary} style={{ marginRight: 8 }} />
                   <Text style={{ color: '#1e293b', fontSize: 16, fontWeight: '600' }}>
-                    Type ({durationOptions?.length || 0} options)
+                    Type
                   </Text>
                 </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, minHeight: 36 }}>
-                  {(durationOptions || []).map((option) => {
-                    const isSelected = tempFilters.durationFilter === option.value;
-                    const displayLabel = option.count !== undefined ? `${option.label} (${option.count})` : option.label;
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+                  {(durationOptions || []).map((item, index) => {
+                    const isSelected = tempFilters.durationFilter === item.value;
+                    const displayLabel = item.count !== undefined ? `${item.label} (${item.count})` : item.label;
                     return (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          minHeight: 36,
-                          backgroundColor: isSelected ? colors.primary : '#f1f5f9',
-                          borderColor: isSelected ? colors.primary : '#cbd5e1',
-                        }}
-                        onPress={() => setTempFilters({ ...tempFilters, durationFilter: option.value as UpcomingDurationFilter })}
-                        activeOpacity={0.7}
-                      >
-                        {option.icon && <Icon name={option.icon} size={16} color={isSelected ? '#fff' : '#64748b'} />}
-                        <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 13, fontWeight: '500' }}>
-                          {displayLabel}
-                        </Text>
-                        {isSelected && <Icon name="check" size={16} color="#fff" />}
-                      </TouchableOpacity>
+                      <View key={`duration-${item.value}-${index}`} style={{ width: '50%', padding: 4 }}>
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            borderRadius: 8,
+                            borderWidth: 1.5,
+                            backgroundColor: isSelected ? colors.primary : '#f1f5f9',
+                            borderColor: isSelected ? colors.primary : '#cbd5e1',
+                          }}
+                          onPress={() => setTempFilters({ ...tempFilters, durationFilter: item.value as UpcomingDurationFilter })}
+                          activeOpacity={0.7}
+                        >
+                          {item.icon && <Icon name={item.icon} size={16} color={isSelected ? '#fff' : '#64748b'} style={{ marginRight: 6 }} />}
+                          <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                            {displayLabel}
+                          </Text>
+                          {isSelected && <Icon name="check" size={16} color="#fff" style={{ marginLeft: 6 }} />}
+                        </TouchableOpacity>
+                      </View>
                     );
                   })}
                 </View>
               </View>
 
               {/* Status Section */}
-              <View style={{ marginBottom: 24, minHeight: 50 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Icon name="filter-variant" size={18} color={colors.primary} />
+              <View style={{ marginBottom: 24 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Icon name="filter-variant" size={18} color={colors.primary} style={{ marginRight: 8 }} />
                   <Text style={{ color: '#1e293b', fontSize: 16, fontWeight: '600' }}>
-                    Status ({statusOptions?.length || 0} options)
+                    Status
                   </Text>
                 </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, minHeight: 36 }}>
-                  {(statusOptions || []).map((option) => {
-                    const isSelected = tempFilters.statusFilter === option.value;
-                    const displayLabel = option.count !== undefined ? `${option.label} (${option.count})` : option.label;
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+                  {(statusOptions || []).map((item, index) => {
+                    const isSelected = tempFilters.statusFilter === item.value;
+                    const displayLabel = item.count !== undefined ? `${item.label} (${item.count})` : item.label;
                     return (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: 8,
-                          borderWidth: 1,
-                          minHeight: 36,
-                          backgroundColor: isSelected ? colors.primary : '#f1f5f9',
-                          borderColor: isSelected ? colors.primary : '#cbd5e1',
-                        }}
-                        onPress={() => setTempFilters({ ...tempFilters, statusFilter: option.value })}
-                        activeOpacity={0.7}
-                      >
-                        {option.icon && <Icon name={option.icon} size={16} color={isSelected ? '#fff' : '#64748b'} />}
-                        <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 13, fontWeight: '500' }}>
-                          {displayLabel}
-                        </Text>
-                        {isSelected && <Icon name="check" size={16} color="#fff" />}
-                      </TouchableOpacity>
+                      <View key={`status-${item.value}-${index}`} style={{ width: '50%', padding: 4 }}>
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingHorizontal: 12,
+                            paddingVertical: 12,
+                            borderRadius: 8,
+                            borderWidth: 1.5,
+                            backgroundColor: isSelected ? colors.primary : '#f1f5f9',
+                            borderColor: isSelected ? colors.primary : '#cbd5e1',
+                          }}
+                          onPress={() => setTempFilters({ ...tempFilters, statusFilter: item.value })}
+                          activeOpacity={0.7}
+                        >
+                          {item.icon && <Icon name={item.icon} size={16} color={isSelected ? '#fff' : '#64748b'} style={{ marginRight: 6 }} />}
+                          <Text style={{ color: isSelected ? '#fff' : '#1e293b', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                            {displayLabel}
+                          </Text>
+                          {isSelected && <Icon name="check" size={16} color="#fff" style={{ marginLeft: 6 }} />}
+                        </TouchableOpacity>
+                      </View>
                     );
                   })}
                 </View>
