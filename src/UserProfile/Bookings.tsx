@@ -69,6 +69,7 @@ import MaidServiceDialog from '../ServiceDialogs/MaidServiceDialog';
 import CookServiceDialog from '../ServiceDialogs/CookServiceDialog';
 import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
 import { EnhancedProviderDetails } from '../types/ProviderDetailsType';
+import BookingsFilterSheet, { type FilterOptions } from './BookingsFilterSheet';
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -669,6 +670,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const [openFilterMenu, setOpenFilterMenu] = useState<
     'sort' | 'service' | 'duration' | 'status' | null
   >(null);
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
   const [onDemandRebookOpen, setOnDemandRebookOpen] = useState(false);
@@ -1825,6 +1827,28 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     setUpcomingDurationFilter('ALL');
   };
 
+  // Filter sheet handlers
+  const handleFilterSheetApply = (filters: FilterOptions) => {
+    setUpcomingSortOrder(filters.sortOrder);
+    setUpcomingServiceFilter(filters.serviceFilter);
+    setUpcomingDurationFilter(filters.durationFilter);
+    setStatusFilter(filters.statusFilter);
+  };
+
+  const handleFilterSheetClear = () => {
+    clearUpcomingFilters();
+    setUpcomingSortOrder('newest');
+  };
+
+  const getActiveFilterCount = (): number => {
+    let count = 0;
+    if (upcomingSortOrder !== 'newest') count++;
+    if (upcomingServiceFilter !== 'ALL') count++;
+    if (upcomingDurationFilter !== 'ALL') count++;
+    if (statusFilter !== 'ALL') count++;
+    return count;
+  };
+
   const upcomingStatusTabs = [
     { value: 'ALL', label: 'All', icon: 'view-dashboard', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'ALL' }) },
     {
@@ -1840,6 +1864,61 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
       count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'IN_PROGRESS' }),
     },
   ];
+
+  // Memoize filter options for the filter sheet
+  const filterSheetSortOptions = useMemo(() => {
+    return [
+      { value: 'newest', label: 'Newest first' },
+      { value: 'oldest', label: 'Oldest first' },
+    ];
+  }, []);
+  
+  const filterSheetServiceOptions = useMemo(
+    () => {
+      return [
+        { value: 'ALL', label: 'All services', icon: 'view-grid', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'ALL' }) },
+        { value: 'cook', label: 'Cook', icon: 'chef-hat', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'cook' }) },
+        { value: 'maid', label: 'Maid', icon: 'broom', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'maid' }) },
+        { value: 'nanny', label: 'Caregiver', icon: 'heart', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'nanny' }) },
+      ];
+    },
+    [upcomingBookings, upcomingServiceFilter, upcomingDurationFilter, statusFilter]
+  );
+
+  const filterSheetDurationOptions = useMemo(
+    () => {
+      return [
+        { value: 'ALL', label: 'All types', icon: 'calendar', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'ALL' }) },
+        { value: 'MONTHLY', label: 'Monthly', icon: 'calendar-month', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'MONTHLY' }) },
+        { value: 'SHORT_TERM', label: 'Short term', icon: 'calendar-clock', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'SHORT_TERM' }) },
+        { value: 'ON_DEMAND', label: 'On demand', icon: 'flash', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'ON_DEMAND' }) },
+      ];
+    },
+    [upcomingBookings, upcomingServiceFilter, upcomingDurationFilter, statusFilter]
+  );
+
+  const filterSheetStatusOptions = useMemo(
+    () => {
+      return [
+        { value: 'ALL', label: 'All', icon: 'view-dashboard', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'ALL' }) },
+        { value: 'NOT_STARTED', label: 'Not started', icon: 'clock-outline', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'NOT_STARTED' }) },
+        { value: 'IN_PROGRESS', label: 'In progress', icon: 'progress-clock', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'IN_PROGRESS' }) },
+      ];
+    },
+    [upcomingBookings, upcomingServiceFilter, upcomingDurationFilter, statusFilter]
+  );
+
+  // Debug log when filter sheet opens
+  useEffect(() => {
+    if (filterSheetVisible) {
+      console.log('🔍 Opening filter sheet with options:', {
+        sortOptions: filterSheetSortOptions,
+        serviceOptions: filterSheetServiceOptions,
+        durationOptions: filterSheetDurationOptions,
+        statusOptions: filterSheetStatusOptions,
+      });
+    }
+  }, [filterSheetVisible]);
 
   useEffect(() => {
     if (viewTab !== 'upcoming' && statusFilter !== 'ALL') {
@@ -1910,25 +1989,57 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
           {skeleton ? (
             <SkeletonLoader width="100%" height={44} variant="rectangular" style={{ borderRadius: 22 }} />
           ) : (
-            <View style={styles.headerSearchPill}>
-              <Icon name="magnify" size={20} color="#94a3b8" />
-              <TextInput
-                style={[styles.headerSearchInput, { fontSize: fontSizes.searchInput }]}
-                placeholder="Search booking #, provider, service..."
-                placeholderTextColor="#94a3b8"
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-              />
-              {searchTerm.length > 0 ? (
+            <View style={styles.headerSearchRow}>
+              <View style={styles.headerSearchPill}>
+                <Icon name="magnify" size={20} color="#94a3b8" />
+                <TextInput
+                  style={[styles.headerSearchInput, { fontSize: fontSizes.searchInput }]}
+                  placeholder="Search booking #, provider, service..."
+                  placeholderTextColor="#94a3b8"
+                  value={searchTerm}
+                  onChangeText={setSearchTerm}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+                {searchTerm.length > 0 ? (
+                  <TouchableOpacity
+                    onPress={() => setSearchTerm('')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Icon name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              
+              {/* Filter Button */}
+              {viewTab === 'upcoming' && (
                 <TouchableOpacity
-                  onPress={() => setSearchTerm('')}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={[
+                    styles.filterButton,
+                    { 
+                      backgroundColor: getActiveFilterCount() > 0 ? colors.primary : 'rgba(255, 255, 255, 0.95)',
+                      borderColor: getActiveFilterCount() > 0 ? colors.primary : 'rgba(226, 232, 240, 0.4)',
+                    }
+                  ]}
+                  onPress={() => setFilterSheetVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Open filters"
+                  accessibilityHint="Filter upcoming bookings"
                 >
-                  <Icon name="close-circle" size={18} color="#94a3b8" />
+                  <Icon 
+                    name="filter-variant" 
+                    size={20} 
+                    color={getActiveFilterCount() > 0 ? '#fff' : '#64748b'} 
+                  />
+                  {getActiveFilterCount() > 0 && (
+                    <View style={[styles.filterBadge, { backgroundColor: '#fff' }]}>
+                      <Text style={[styles.filterBadgeText, { color: colors.primary, fontSize: 10 }]}>
+                        {getActiveFilterCount()}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
-              ) : null}
+              )}
             </View>
           )}
         </View>
@@ -3008,7 +3119,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
               upcomingBookings.length,
               '#0ea5e9'
             )}
-            {renderUpcomingStatusFilter()}
             {renderBookingsList(filteredUpcomingBookings, renderUpcomingEmptyState())}
           </View>
         )}
@@ -3099,6 +3209,24 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         booking={convertBookingForChildComponents(selectedComplaintBooking)}
       />
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
+
+      {/* Filter Sheet */}
+      <BookingsFilterSheet
+        visible={filterSheetVisible}
+        onClose={() => setFilterSheetVisible(false)}
+        currentFilters={{
+          sortOrder: upcomingSortOrder,
+          serviceFilter: upcomingServiceFilter,
+          durationFilter: upcomingDurationFilter,
+          statusFilter: statusFilter,
+        }}
+        onApply={handleFilterSheetApply}
+        onClear={handleFilterSheetClear}
+        sortOptions={filterSheetSortOptions}
+        serviceOptions={filterSheetServiceOptions}
+        durationOptions={filterSheetDurationOptions}
+        statusOptions={filterSheetStatusOptions}
+      />
 
       <OnDemandRebookDialog
         open={onDemandRebookOpen}
@@ -3257,11 +3385,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
   },
+  headerSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+  },
   headerSearchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'stretch',
-    width: '100%',
+    flex: 1,
     backgroundColor: '#ffffff',
     borderRadius: 22,
     minHeight: 44,
@@ -3274,6 +3407,40 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     color: HOME_M3.onSurface,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
 
   searchSection: {
