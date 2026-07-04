@@ -40,7 +40,7 @@ export interface ServiceBookingSheetDialogProps {
   open: boolean;
   handleClose: () => void;
   providerDetails?: EnhancedProviderDetails;
-  sendDataToParent?: (data: string) => void;
+  sendDataToParent?: (data: string, options?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => void;
   onBookingSuccess?: () => void;
 }
 
@@ -147,11 +147,22 @@ const ServiceBookingSheetDialog: React.FC<ServiceBookingSheetDialogProps> = ({
 
   /** Navigate first, never re-show the booking sheet under the success modal. */
   const handleNavigateToBookings = useCallback(() => {
-    sendDataToParent?.(BOOKINGS);
+    // Calculate which tab to show based on booking date
+    const bookingDate = bookingSuccessDetails?.bookingDate;
+    let initialTab: 'today' | 'upcoming' = 'upcoming';
+    
+    if (bookingDate) {
+      const today = new Date().toISOString().split('T')[0];
+      initialTab = bookingDate === today ? 'today' : 'upcoming';
+    }
+    
+    console.log('📅 Navigating to bookings with date:', bookingDate, 'tab:', initialTab);
+    
+    sendDataToParent?.(BOOKINGS, { bookingDate, initialTab });
     handleClose();
     dispatch(resetBookingSchedule()); // Reset after successful booking
     finishAndUnmount();
-  }, [handleClose, sendDataToParent, finishAndUnmount, dispatch]);
+  }, [handleClose, sendDataToParent, finishAndUnmount, dispatch, bookingSuccessDetails]);
 
   const handleEmailLogin = useCallback(async () => {
     try {

@@ -7,7 +7,7 @@ interface MaidServiceDialogProps {
   open: boolean;
   handleClose: () => void;
   providerDetails?: EnhancedProviderDetails;
-  sendDataToParent?: (data: string) => void;
+  sendDataToParent?: (data: string, options?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => void;
   user?: unknown;
   bookingType?: unknown;
   onBookingSuccess?: () => void;

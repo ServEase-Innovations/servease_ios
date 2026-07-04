@@ -432,8 +432,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   };
 
   // Handle booking page
-  const handleBookingPage = (data: string) => {
-    console.log("📱 handleBookingPage called with:", data);
+  const handleBookingPage = (data: string, additionalData?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => {
+    console.log("📱 handleBookingPage called with:", data, additionalData);
     if (!data || !String(data).trim()) {
       return;
     }
@@ -441,8 +441,8 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
     setOpen(false);
     
     if (props.sendDataToParent) {
-      console.log("🔄 Navigating to:", data);
-      props.sendDataToParent(data);
+      console.log("🔄 Navigating to:", data, "with data:", additionalData);
+      props.sendDataToParent(data, additionalData);
     }
   };
 

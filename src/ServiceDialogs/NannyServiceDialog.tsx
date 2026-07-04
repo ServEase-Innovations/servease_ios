@@ -109,7 +109,7 @@ interface NannyServicesDialogProps {
   open: boolean;
   handleClose: () => void;
   providerDetails?: EnhancedProviderDetails;
-  sendDataToParent?: (data: string) => void;
+  sendDataToParent?: (data: string, options?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => void;
   user?: any;
   bookingType?: any;
   onBookingSuccess?: () => void; // Add this prop
@@ -478,9 +478,20 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
     setSuccessDialogOpen(false);
   };
 
-  // FIXED: Navigate to Bookings with proper callback
+  // FIXED: Navigate to Bookings with proper callback and tab selection
   const handleNavigateToBookings = () => {
     console.log("🎯 Nanny Service: Navigating to Bookings...");
+    
+    // Calculate which tab to show based on booking date
+    const bookingDate = bookingSuccessDetails?.bookingDate;
+    let initialTab: 'today' | 'upcoming' = 'upcoming';
+    
+    if (bookingDate) {
+      const today = new Date().toISOString().split('T')[0];
+      initialTab = bookingDate === today ? 'today' : 'upcoming';
+    }
+    
+    console.log('📅 Navigating to bookings with date:', bookingDate, 'tab:', initialTab);
     
     setSuccessDialogOpen(false);
     setShowCartDialog(false);
@@ -493,10 +504,10 @@ const NannyServicesDialog: React.FC<NannyServicesDialogProps> = ({
         console.log("✅ Nanny Service: Using onBookingSuccess callback");
         onBookingSuccess();
       }
-      // Priority 2: Use sendDataToParent
+      // Priority 2: Use sendDataToParent with tab information
       else if (sendDataToParent) {
-        console.log("✅ Nanny Service: Using sendDataToParent with BOOKINGS");
-        sendDataToParent(BOOKINGS);
+        console.log("✅ Nanny Service: Using sendDataToParent with BOOKINGS and tab:", initialTab);
+        sendDataToParent(BOOKINGS, { bookingDate, initialTab });
       }
       else {
         console.error("❌ Nanny Service: No navigation method available!");
