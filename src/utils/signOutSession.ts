@@ -38,7 +38,7 @@ export async function tryClearAuth0Session(clearSession: ClearSessionFn): Promis
     console.log(`🔓 Clearing Auth0 session with returnUrl: ${returnUrl}`);
     console.log(`🔓 Platform: ${Platform.OS}`);
     
-    // Create a promise that resolves when the deep link callback is triggered
+    // Create a promise that resolves when the deep link callback is triggered or timeout occurs
     const logoutPromise = new Promise<void>((resolve, reject) => {
       let linkingSubscription: any;
       let timeoutId: NodeJS.Timeout;
@@ -65,12 +65,13 @@ export async function tryClearAuth0Session(clearSession: ClearSessionFn): Promis
       // Listen for the deep link callback
       linkingSubscription = Linking.addEventListener('url', handleUrl);
       
-      // Set a timeout to prevent hanging (5 seconds)
+      // Reduced timeout to 2 seconds (was 5 seconds) to prevent hanging
+      // Most Auth0 logouts complete within 1-2 seconds
       timeoutId = setTimeout(() => {
-        console.log('⏱️ Logout callback timeout - assuming success');
+        console.log('⏱️ Logout callback timeout (2s) - assuming success');
         cleanup();
         resolve();
-      }, 5000);
+      }, 2000);
       
       // Initiate the actual Auth0 logout
       clearSession(
@@ -79,7 +80,7 @@ export async function tryClearAuth0Session(clearSession: ClearSessionFn): Promis
           federated: true  // Clear federated session to ensure complete logout
         },
         {
-          ephemeralSession: true  // Prevents SSO dialog on iOS
+          ephemeralSession: true  // Prevents SSO dialog on iOS and reduces blank screen
         }
       ).then(() => {
         console.log('📤 Auth0 clearSession call completed');
@@ -87,7 +88,8 @@ export async function tryClearAuth0Session(clearSession: ClearSessionFn): Promis
       }).catch((error) => {
         console.error('❌ Auth0 clearSession error:', error);
         cleanup();
-        reject(error);
+        // Don't reject - treat errors as success to avoid blocking sign-out
+        resolve();
       });
     });
     
@@ -106,5 +108,6 @@ export async function tryClearAuth0Session(clearSession: ClearSessionFn): Promis
     } else {
       console.warn("⚠️ Auth0 session clear error (non-critical):", e);
     }
+    // Always resolve successfully - don't block sign-out on Auth0 errors
   }
 }

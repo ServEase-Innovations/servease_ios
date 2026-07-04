@@ -1641,6 +1641,18 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
         showSnackbar("Please wait for validation to complete", "warning");
         return;
       }
+
+      // Check if email is validated and available
+      if (!validationResults.email.isAvailable) {
+        showSnackbar("Please use a valid and available email address", "error");
+        return;
+      }
+
+      // Check if mobile number is validated and available
+      if (!validationResults.mobile.isAvailable) {
+        showSnackbar("Please use a valid and available mobile number", "error");
+        return;
+      }
     }
 
     // Proceed to next step
@@ -2244,7 +2256,9 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
                       (activeStep === 0 && (
                         validationResults.email.loading || 
                         validationResults.mobile.loading || 
-                        validationResults.alternate.loading
+                        validationResults.alternate.loading ||
+                        !validationResults.email.isAvailable ||
+                        !validationResults.mobile.isAvailable
                       ))
                     }
                     endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}

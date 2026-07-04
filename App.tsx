@@ -408,14 +408,9 @@ const MainApp = () => {
     try {
       console.log("🔄 ===== STARTING COMPLETE APP RELAUNCH =====");
       
-      await clearMobileAuthStorage();
-
-      try {
-        await clearSession({ federated: true }, getAuth0WebAuthOptions());
-        console.log("✅ Auth0 session cleared");
-      } catch (authError) {
-        console.log("⚠️ Auth0 session clear may have already been called:", authError);
-      }
+      // Auth0 session and mobile storage are already cleared by the calling function
+      // (Header.tsx or NavigationFooter.tsx handleSignOut)
+      // No need to clear them again here to avoid double sign-out
       
       console.log("🔄 Resetting all app states...");
       setCurrentView(HOME);
@@ -458,20 +453,9 @@ const MainApp = () => {
       setAppResetKey(newKey);
       console.log(`✅ App reset key updated: ${newKey}`);
       
-      setShowSplash(true);
-      fadeAnim.setValue(1);
-      
-      setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }).start(() => {
-          setShowSplash(false);
-          setIsResetting(false);
-          console.log("✅ ===== APP RELAUNCH COMPLETED =====");
-        });
-      }, 1000);
+      // No splash screen after sign-out - just navigate to HOME
+      setIsResetting(false);
+      console.log("✅ ===== APP RELAUNCH COMPLETED - Navigating to HOME =====");
       
     } catch (error) {
       console.error("❌ Error during app relaunch:", error);
