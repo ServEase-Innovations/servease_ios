@@ -30,6 +30,13 @@ import Invoice from '../Invoice/Invoice';
 import VacationManagementDialog from './VacationManagement';
 import RaiseComplaintDialog from './RaiseComplaintDialog';
 import { HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
+import { 
+  BookingTimeline, 
+  MonthlyBookingTimeline, 
+  DateWiseTimeline,
+  type TimelineData,
+  type MonthlyTimelineData 
+} from '../common/BookingTimeline';
 
 const cookImage = require('../../assets/images/Cooknew.png');
 const maidImage = require('../../assets/images/Maidnew.png');
@@ -791,6 +798,67 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     (safeBooking.taskStatus === 'COMPLETED' || safeBooking.taskStatus === 'CANCELLED');
   const showPaymentTimeoutNotice = isPaymentTimeoutCancellation(booking);
 
+  /**
+   * Build timeline data for BookingTimeline component (ON_DEMAND)
+   */
+  const buildTimelineData = (): TimelineData => {
+    return {
+      scheduled: {
+        start_time: safeBooking.start_time,
+        end_time: safeBooking.end_time,
+        start_epoch: safeBooking.start_epoch,
+        end_epoch: safeBooking.end_epoch,
+      },
+      actual: safeBooking.actual_start_epoch ? {
+        start_epoch: safeBooking.actual_start_epoch,
+        end_epoch: safeBooking.actual_end_epoch,
+      } : undefined,
+      duration_minutes: safeBooking.duration_minutes,
+      is_recalculated: safeBooking.is_timeline_recalculated,
+      early_start_minutes: safeBooking.early_start_minutes,
+    };
+  };
+
+  /**
+   * Build timeline data for MonthlyBookingTimeline component (MONTHLY/SHORT_TERM)
+   */
+  const buildMonthlyTimelineData = (): MonthlyTimelineData => {
+    const todayService = booking.today_service;
+    
+    let earlyStartMinutes = 0;
+    if (todayService?.actual_start_epoch && safeBooking.start_epoch) {
+      earlyStartMinutes = Math.round((safeBooking.start_epoch - todayService.actual_start_epoch) / 60);
+    }
+    
+    return {
+      booking_period: {
+        start_date: safeBooking.startDate || '',
+        end_date: safeBooking.endDate || '',
+        total_days: safeBooking.leave_days || 0,
+      },
+      daily_schedule: {
+        scheduled_start_time: safeBooking.start_time || '',
+        scheduled_end_time: safeBooking.end_time || '',
+        duration_minutes: safeBooking.duration_minutes || 60,
+      },
+      current_service: todayService ? {
+        date: dayjs().format('YYYY-MM-DD'),
+        scheduled_start_time: safeBooking.start_time || '',
+        scheduled_end_time: safeBooking.end_time || '',
+        actual_start_time: todayService.actual_start_epoch 
+          ? dayjs.unix(todayService.actual_start_epoch).format('HH:mm')
+          : undefined,
+        actual_start_epoch: todayService.actual_start_epoch,
+        actual_end_time: todayService.actual_end_epoch 
+          ? dayjs.unix(todayService.actual_end_epoch).format('HH:mm')
+          : undefined,
+        actual_end_epoch: todayService.actual_end_epoch,
+        status: todayService.status || 'SCHEDULED',
+        early_start_minutes: earlyStartMinutes > 0 ? earlyStartMinutes : undefined,
+      } : undefined,
+    };
+  };
+
   const convertBookingForChildComponents = (bookingData: any): any => {
     if (!bookingData) return null;
     const vacationDetails = bookingData.vacationDetails
@@ -1117,6 +1185,34 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
                 </View>
               </View>
             </View>
+          </View>
+
+          {/* Service Timeline */}
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeader}>
+              <Icon name="clock" size={18} color={HOME_M3.secondary} />
+              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Service Timeline</Text>
+            </View>
+            
+            {safeBooking.bookingType === 'ON_DEMAND' ? (
+              <BookingTimeline 
+                timeline={buildTimelineData()} 
+                status={safeBooking.taskStatus}
+                showEarlyStartBadge={true}
+              />
+            ) : (
+              <>
+                <MonthlyBookingTimeline
+                  timeline={buildMonthlyTimelineData()}
+                  bookingType={safeBooking.bookingType || 'MONTHLY'}
+                />
+                
+                <DateWiseTimeline
+                  engagementId={safeBooking.id}
+                  bookingType={safeBooking.bookingType || 'MONTHLY'}
+                />
+              </>
+            )}
           </View>
 
           {isProviderAssigned() ? (

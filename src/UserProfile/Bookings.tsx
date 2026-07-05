@@ -219,12 +219,14 @@ export interface BookingRef {
 }
 
 interface TodayService {
-  service_day_id: string;
+  service_day_id: string | number;
   status: string;
   can_start: boolean;
   can_generate_otp: boolean;
   can_complete: boolean;
   otp_active: boolean;
+  actual_start_epoch?: number;
+  actual_end_epoch?: number;
 }
 
 interface CustomerTodayBookingSlot {
@@ -313,6 +315,7 @@ interface Booking {
   hasVacation?: boolean;
   assignmentStatus: string;
   start_epoch?: number;
+  end_epoch?: number;
   vacation?: any;
   vacationDetails?: {
     leave_type?: string;
@@ -331,6 +334,12 @@ interface Booking {
   latitude?: number | null;
   longitude?: number | null;
   cancellation?: BookingCancellationInfo | null;
+  // Timeline recalculation fields
+  actual_start_epoch?: number;
+  actual_end_epoch?: number;
+  duration_minutes?: number;
+  is_timeline_recalculated?: boolean;
+  early_start_minutes?: number;
 }
 
 interface BookingProps {
