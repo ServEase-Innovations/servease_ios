@@ -524,6 +524,13 @@ const formatTimeToAMPM = (timeString: string): string => {
 };
 
 const getEffectiveTaskStatus = (booking: Booking): string => {
+  // For MONTHLY and SHORT_TERM bookings, today_service only represents today's visit
+  // We should use the engagement-level taskStatus instead
+  if (booking.bookingType === 'MONTHLY' || booking.bookingType === 'SHORT_TERM') {
+    return booking.taskStatus;
+  }
+  
+  // For ON_DEMAND bookings, today_service reflects the overall status
   const visit = booking.today_service?.status?.toUpperCase();
   if (visit === 'IN_PROGRESS' || visit === 'STARTED') return 'IN_PROGRESS';
   if (visit === 'COMPLETED' || visit === 'DONE') return 'COMPLETED';
@@ -1019,6 +1026,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     const effectiveId = id || customerId;
     if (!effectiveId) return;
     try {
+      console.log('🔍 [DEBUG] Fetching bookings for customer ID:', effectiveId);
+      
       const [engagementsRes, todayRes] = await Promise.all([
         PaymentInstance.get(`/api/customers/${effectiveId}/engagements`, {
           timeout: 45000,
@@ -1034,6 +1043,30 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         cancelled: cancelledFromApi = [],
       } = engagementsRes.data || {};
 
+      console.log('📊 [DEBUG] API Response:', {
+        past: past.length,
+        ongoing: ongoing.length,
+        upcoming: upcoming.length,
+        cancelled: cancelledFromApi.length,
+        total: past.length + ongoing.length + upcoming.length + cancelledFromApi.length
+      });
+
+      // DEBUG: Check if booking 353 exists in any bucket
+      const allBookings = [...past, ...ongoing, ...upcoming, ...cancelledFromApi];
+      const booking353 = allBookings.find((b: any) => Number(b.engagement_id) === 353);
+      if (booking353) {
+        console.log('✅ [DEBUG] Booking 353 FOUND in API response:', {
+          id: booking353.engagement_id,
+          status: booking353.task_status,
+          service: booking353.service_type,
+          bucket: past.find((b: any) => Number(b.engagement_id) === 353) ? 'past' :
+                  ongoing.find((b: any) => Number(b.engagement_id) === 353) ? 'ongoing' :
+                  upcoming.find((b: any) => Number(b.engagement_id) === 353) ? 'upcoming' : 'cancelled'
+        });
+      } else {
+        console.log('❌ [DEBUG] Booking 353 NOT FOUND in API response for customer:', effectiveId);
+      }
+
       const partitioned = partitionEngagementLists(
         upcoming,
         ongoing,
@@ -1041,10 +1074,28 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         cancelledFromApi
       );
 
-      setPastBookings(mapBookingData(partitioned.past));
-      setCurrentBookings(mapBookingData(partitioned.ongoing));
-      setFutureBookings(mapBookingData(partitioned.upcoming));
-      setCancelledBookings(mapBookingData(partitioned.cancelled));
+      const mappedPast = mapBookingData(partitioned.past);
+      const mappedOngoing = mapBookingData(partitioned.ongoing);
+      const mappedUpcoming = mapBookingData(partitioned.upcoming);
+      const mappedCancelled = mapBookingData(partitioned.cancelled);
+
+      // DEBUG: Check if booking 353 survived mapping
+      const allMapped = [...mappedPast, ...mappedOngoing, ...mappedUpcoming, ...mappedCancelled];
+      const mapped353 = allMapped.find(b => b.id === 353);
+      if (mapped353) {
+        console.log('✅ [DEBUG] Booking 353 survived mapping:', {
+          id: mapped353.id,
+          taskStatus: mapped353.taskStatus,
+          service_type: mapped353.service_type
+        });
+      } else {
+        console.log('❌ [DEBUG] Booking 353 LOST during mapping');
+      }
+
+      setPastBookings(mappedPast);
+      setCurrentBookings(mappedOngoing);
+      setFutureBookings(mappedUpcoming);
+      setCancelledBookings(mappedCancelled);
       setTodaySchedule(todayRes.data?.bookings ?? []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -1094,6 +1145,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
     const nextCustomerId = resolvedCustomerId;
 
+    console.log('👤 [DEBUG] User Authentication Status:', {
+      isAuthenticated,
+      resolvedCustomerId: nextCustomerId,
+      appUser: appUser ? {
+        customerid: appUser.customerid,
+        customerId: appUser.customerId,
+        email: appUser.email,
+        firstname: appUser.firstname
+      } : 'null'
+    });
+
     if (!isAuthenticated || !nextCustomerId) {
       lastLoadedCustomerIdRef.current = null;
       setIsLoading(false);
@@ -1101,6 +1163,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     }
 
     if (lastLoadedCustomerIdRef.current === nextCustomerId) {
+      console.log('✅ [DEBUG] Same customer ID, skipping reload:', nextCustomerId);
       return;
     }
 
@@ -1790,6 +1853,45 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
     upcomingSortOrder
   );
 
+  // DEBUG: Check why booking 353 might not be in upcoming
+  React.useEffect(() => {
+    const booking353InCurrent = currentBookings.find(b => b.id === 353);
+    const booking353InFuture = futureBookings.find(b => b.id === 353);
+    
+    if (booking353InCurrent) {
+      const effectiveStatus = getEffectiveTaskStatus(booking353InCurrent);
+      const passesFilter = isUpcomingTabBooking(booking353InCurrent);
+      console.log('🔎 [DEBUG] Booking 353 in currentBookings:', {
+        id: booking353InCurrent.id,
+        taskStatus: booking353InCurrent.taskStatus,
+        today_service: booking353InCurrent.today_service,
+        effectiveStatus,
+        passesFilter,
+        shouldBeInUpcoming: passesFilter
+      });
+    }
+    
+    if (booking353InFuture) {
+      const effectiveStatus = getEffectiveTaskStatus(booking353InFuture);
+      const passesFilter = isUpcomingTabBooking(booking353InFuture);
+      console.log('🔎 [DEBUG] Booking 353 in futureBookings:', {
+        id: booking353InFuture.id,
+        taskStatus: booking353InFuture.taskStatus,
+        today_service: booking353InFuture.today_service,
+        effectiveStatus,
+        passesFilter,
+        shouldBeInUpcoming: passesFilter
+      });
+    }
+    
+    const booking353InUpcoming = upcomingBookings.find(b => b.id === 353);
+    if (booking353InUpcoming) {
+      console.log('✅ [DEBUG] Booking 353 IS in upcomingBookings after filter');
+    } else if (booking353InCurrent || booking353InFuture) {
+      console.log('❌ [DEBUG] Booking 353 was FILTERED OUT from upcomingBookings');
+    }
+  }, [currentBookings, futureBookings, upcomingBookings]);
+
   const pendingPaymentBookings = sortUpcomingByCreated(
     [...currentBookings, ...futureBookings, ...pastBookings].filter(isPaymentPendingBooking),
     upcomingSortOrder
@@ -1824,6 +1926,85 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const filteredCancelledBookings = filterBookings(sortedCancelledBookings, searchTerm);
   const filteredPendingPaymentBookings = filterBookings(pendingPaymentBookings, searchTerm);
   const filteredTodayBookings = filterBookings(todayBookings, searchTerm);
+
+  // DEBUG: Log booking 353 location
+  React.useEffect(() => {
+    const checkBooking353 = () => {
+      const allBookings = {
+        upcoming: upcomingBookings,
+        past: pastBookings,
+        current: currentBookings,
+        future: futureBookings,
+        cancelled: cancelledBookings,
+        pending: pendingPaymentBookings,
+        today: todayBookings
+      };
+
+      let found = false;
+      for (const [key, bookings] of Object.entries(allBookings)) {
+        const booking353 = bookings.find(b => b.id === 353);
+        if (booking353) {
+          console.log(`✅ [DEBUG] Booking 353 FOUND in ${key} list:`, {
+            id: booking353.id,
+            taskStatus: booking353.taskStatus,
+            service_type: booking353.service_type,
+            bookingType: booking353.bookingType,
+            startDate: booking353.startDate
+          });
+          found = true;
+        }
+      }
+
+      if (!found) {
+        console.log('❌ [DEBUG] Booking 353 NOT FOUND in any list');
+      }
+
+      // Check after filtering
+      const filtered = {
+        upcoming: filteredUpcomingBookings,
+        past: filteredPastBookings,
+        cancelled: filteredCancelledBookings,
+        pending: filteredPendingPaymentBookings,
+        today: filteredTodayBookings
+      };
+
+      let foundInFiltered = false;
+      for (const [key, bookings] of Object.entries(filtered)) {
+        const booking353 = bookings.find(b => b.id === 353);
+        if (booking353) {
+          console.log(`🔍 [DEBUG] Booking 353 visible in FILTERED ${key} list`);
+          foundInFiltered = true;
+        }
+      }
+
+      if (found && !foundInFiltered) {
+        console.log('⚠️ [DEBUG] Booking 353 was FILTERED OUT by search/filters:', {
+          searchTerm: searchTerm.trim(),
+          upcomingServiceFilter,
+          upcomingDurationFilter,
+          statusFilter
+        });
+      }
+
+      console.log('📊 [DEBUG] Booking counts:', {
+        upcoming: upcomingBookings.length,
+        past: pastBookings.length,
+        cancelled: cancelledBookings.length,
+        pending: pendingPaymentBookings.length,
+        filtered_upcoming: filteredUpcomingBookings.length,
+        filtered_past: filteredPastBookings.length,
+        currentTab: viewTab,
+        filters: {
+          search: searchTerm,
+          service: upcomingServiceFilter,
+          duration: upcomingDurationFilter,
+          status: statusFilter
+        }
+      });
+    };
+
+    checkBooking353();
+  }, [upcomingBookings, pastBookings, cancelledBookings, filteredUpcomingBookings, filteredPastBookings, viewTab, searchTerm, upcomingServiceFilter, upcomingDurationFilter, statusFilter]);
 
   const hasActiveUpcomingFilters =
     statusFilter !== 'ALL' ||
@@ -2853,8 +3034,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const serviceType = item.serviceType || item.service_type;
     const isPaymentPending = isPaymentPendingBooking(item);
-    const displayTaskStatus =
-      viewTab === 'today' ? getEffectiveTaskStatus(item) : item.taskStatus;
+    const displayTaskStatus = getEffectiveTaskStatus(item);
     const amountValue =
       Number(item.monthlyAmount || 0) > 0
         ? Number(item.monthlyAmount)
