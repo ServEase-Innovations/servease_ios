@@ -108,6 +108,26 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
     }
   }, [mapReady, customerLocation, providerLocation]);
 
+  // Force initial region on Android when map becomes ready
+  useEffect(() => {
+    if (mapReady && Platform.OS === 'android') {
+      // Android needs explicit region setting after map is ready
+      setTimeout(() => {
+        if (mapRef.current && customerLocation) {
+          console.log('🤖 Android: Setting initial region to customer location');
+          mapRef.current.animateToRegion({
+            ...customerLocation,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          }, 500);
+        } else if (mapRef.current) {
+          console.log('🤖 Android: Setting initial region to default');
+          mapRef.current.animateToRegion(initialRegion, 500);
+        }
+      }, 100);
+    }
+  }, [mapReady, customerLocation, initialRegion]);
+
   // Fit map when provider location updates or when map becomes ready
   useEffect(() => {
     if (providerLocation && mapReady && autoCenter) {
@@ -115,11 +135,11 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
       setTimeout(() => {
         fitMapToLocations();
       }, 500);
-    } else if (mapReady && customerLocation && !providerLocation) {
-      // If map is ready and we have customer location but no provider yet, center on customer
+    } else if (mapReady && customerLocation && !providerLocation && Platform.OS === 'ios') {
+      // iOS: If map is ready and we have customer location but no provider yet, center on customer
       setTimeout(() => {
         if (mapRef.current) {
-          console.log('📍 Centering on customer location initially');
+          console.log('📍 iOS: Centering on customer location initially');
           mapRef.current.animateToRegion({
             ...customerLocation,
             latitudeDelta: 0.02,
@@ -128,7 +148,7 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
         }
       }, 300);
     }
-  }, [providerLocation, mapReady, autoCenter, fitMapToLocations, customerLocation]);
+  }, [providerLocation, mapReady, autoCenter, fitMapToLocations, customerLocation, initialRegion]);
 
   // Fetch location and ETA
   useEffect(() => {
@@ -293,40 +313,57 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
                 title="Service Provider"
                 description="Provider is on the way"
                 anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
               >
-                <View style={styles.providerMarker}>
-                  {/* Blue motorcycle with rider - matching your brand image */}
-                  <View style={styles.bikeContainer}>
-                    {/* Rider body */}
-                    <View style={styles.riderBody}>
-                      <View style={styles.riderHead} />
-                    </View>
-                    
-                    {/* Motorcycle body */}
-                    <View style={styles.bikeBody}>
-                      {/* Handlebars */}
-                      <View style={styles.handlebars}>
-                        <View style={styles.leftMirror} />
-                        <View style={styles.rightMirror} />
+                {Platform.OS === 'ios' ? (
+                  <View style={styles.providerMarker}>
+                    {/* Blue motorcycle with rider - matching your brand image */}
+                    <View style={styles.bikeContainer}>
+                      {/* Rider body */}
+                      <View style={styles.riderBody}>
+                        <View style={styles.riderHead} />
                       </View>
                       
-                      {/* Tank with Serveaso branding */}
-                      <View style={styles.bikeTank}>
-                        <Text style={styles.bikeBrandText}>Serveaso</Text>
-                      </View>
-                      
-                      {/* Seat/Rear */}
-                      <View style={styles.bikeSeat}>
-                        <View style={styles.seatBranding}>
-                          <Text style={styles.seatBrandText}>S</Text>
+                      {/* Motorcycle body */}
+                      <View style={styles.bikeBody}>
+                        {/* Handlebars */}
+                        <View style={styles.handlebars}>
+                          <View style={styles.leftMirror} />
+                          <View style={styles.rightMirror} />
+                        </View>
+                        
+                        {/* Tank with Serveaso branding */}
+                        <View style={styles.bikeTank}>
+                          <Text style={styles.bikeBrandText}>Serveaso</Text>
+                        </View>
+                        
+                        {/* Seat/Rear */}
+                        <View style={styles.bikeSeat}>
+                          <View style={styles.seatBranding}>
+                            <Text style={styles.seatBrandText}>S</Text>
+                          </View>
                         </View>
                       </View>
                     </View>
+                    
+                    {/* Shadow/base */}
+                    <View style={styles.markerShadow} />
                   </View>
-                  
-                  {/* Shadow/base */}
-                  <View style={styles.markerShadow} />
-                </View>
+                ) : (
+                  /* Simplified marker for Android - better performance */
+                  <View style={styles.providerMarkerSimple}>
+                    <View style={styles.bikeContainerSimple}>
+                      {/* Rider */}
+                      <View style={styles.riderSimple} />
+                      
+                      {/* Bike with branding */}
+                      <View style={styles.bikeBodySimple}>
+                        <Text style={styles.bikeBrandTextSimple}>S</Text>
+                      </View>
+                    </View>
+                    <View style={styles.markerShadowSimple} />
+                  </View>
+                )}
               </Marker>
             )}
             
@@ -762,6 +799,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#10B981',
     fontWeight: '600',
+  },
+  // Simplified Android marker styles
+  providerMarkerSimple: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bikeContainerSimple: {
+    width: 60,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  riderSimple: {
+    position: 'absolute',
+    top: 5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    zIndex: 2,
+  },
+  bikeBodySimple: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#3B82F6',
+    borderWidth: 3,
+    borderColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+  },
+  bikeBrandTextSimple: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  markerShadowSimple: {
+    width: 50,
+    height: 6,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    marginTop: -3,
   },
 });
 
