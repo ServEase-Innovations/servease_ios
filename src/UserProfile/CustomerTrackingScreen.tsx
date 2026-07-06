@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
+  Image,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -52,14 +53,7 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
   const [mapReady, setMapReady] = useState(false);
   const [autoCenter, setAutoCenter] = useState(true);
 
-  const [region, setRegion] = useState<Region>({
-    latitude: customerLatitude || 12.9716,
-    longitude: customerLongitude || 77.5946,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
-
-  // Store initial region separately to ensure map always has a starting point
+  // Store initial region - use customer location if available, otherwise use default Bangalore coordinates
   const initialRegion = {
     latitude: customerLatitude || 12.9716,
     longitude: customerLongitude || 77.5946,
@@ -114,15 +108,27 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
     }
   }, [mapReady, customerLocation, providerLocation]);
 
-  // Fit map when provider location updates
+  // Fit map when provider location updates or when map becomes ready
   useEffect(() => {
     if (providerLocation && mapReady && autoCenter) {
       // Wait a bit for the marker to render
       setTimeout(() => {
         fitMapToLocations();
       }, 500);
+    } else if (mapReady && customerLocation && !providerLocation) {
+      // If map is ready and we have customer location but no provider yet, center on customer
+      setTimeout(() => {
+        if (mapRef.current) {
+          console.log('📍 Centering on customer location initially');
+          mapRef.current.animateToRegion({
+            ...customerLocation,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          }, 1000);
+        }
+      }, 300);
     }
-  }, [providerLocation, mapReady, autoCenter, fitMapToLocations]);
+  }, [providerLocation, mapReady, autoCenter, fitMapToLocations, customerLocation]);
 
   // Fetch location and ETA
   useEffect(() => {
@@ -175,14 +181,6 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
       
       if (data?.location) {
         setProviderLocation(data.location);
-        const newRegion = {
-          latitude: data.location.latitude,
-          longitude: data.location.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        };
-        console.log('🎯 Setting region to:', newRegion);
-        setRegion(newRegion);
         
         // Clear error if location is successfully fetched
         setError(null);
@@ -266,9 +264,8 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
             ref={mapRef}
             style={styles.map}
             initialRegion={initialRegion}
-            region={region}
             showsUserLocation
-            showsMyLocationButton
+            showsMyLocationButton={false}
             loadingEnabled
             loadingIndicatorColor="#3B82F6"
             loadingBackgroundColor="#F3F4F6"
@@ -295,14 +292,40 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
                 }}
                 title="Service Provider"
                 description="Provider is on the way"
+                anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={styles.providerMarker}>
-                  <View style={styles.providerMarkerCircle}>
-                    <Icon name="moped" size={24} color="#fff" />
+                  {/* Blue motorcycle with rider - matching your brand image */}
+                  <View style={styles.bikeContainer}>
+                    {/* Rider body */}
+                    <View style={styles.riderBody}>
+                      <View style={styles.riderHead} />
+                    </View>
+                    
+                    {/* Motorcycle body */}
+                    <View style={styles.bikeBody}>
+                      {/* Handlebars */}
+                      <View style={styles.handlebars}>
+                        <View style={styles.leftMirror} />
+                        <View style={styles.rightMirror} />
+                      </View>
+                      
+                      {/* Tank with Serveaso branding */}
+                      <View style={styles.bikeTank}>
+                        <Text style={styles.bikeBrandText}>Serveaso</Text>
+                      </View>
+                      
+                      {/* Seat/Rear */}
+                      <View style={styles.bikeSeat}>
+                        <View style={styles.seatBranding}>
+                          <Text style={styles.seatBrandText}>S</Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.brandLabel}>
-                    <Text style={styles.brandText}>ServEaso</Text>
-                  </View>
+                  
+                  {/* Shadow/base */}
+                  <View style={styles.markerShadow} />
                 </View>
               </Marker>
             )}
@@ -475,6 +498,126 @@ const styles = StyleSheet.create({
   },
   providerMarker: {
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bikeContainer: {
+    width: 80,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  riderBody: {
+    position: 'absolute',
+    top: 5,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  riderHead: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#1E293B',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+  },
+  bikeBody: {
+    width: 70,
+    height: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  handlebars: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 65,
+    height: 12,
+    marginBottom: 2,
+  },
+  leftMirror: {
+    width: 22,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3B82F6',
+    borderWidth: 2,
+    borderColor: '#1E293B',
+  },
+  rightMirror: {
+    width: 22,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3B82F6',
+    borderWidth: 2,
+    borderColor: '#1E293B',
+  },
+  bikeTank: {
+    width: 50,
+    height: 35,
+    borderRadius: 25,
+    backgroundColor: '#3B82F6',
+    borderWidth: 3,
+    borderColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.4,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  bikeBrandText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  bikeSeat: {
+    width: 55,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+    borderWidth: 2,
+    borderColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  seatBranding: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seatBrandText: {
+    color: '#1E293B',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  markerShadow: {
+    width: 60,
+    height: 8,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    marginTop: -5,
   },
   providerMarkerCircle: {
     backgroundColor: '#EF4444',
