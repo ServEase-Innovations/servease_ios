@@ -53,6 +53,14 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
   const [mapReady, setMapReady] = useState(false);
   const [autoCenter, setAutoCenter] = useState(true);
 
+  // Debug: Log received props
+  console.log('🎬 CustomerTrackingScreen props:', {
+    engagementId,
+    customerLatitude,
+    customerLongitude,
+    hasCustomerLocation: !!(customerLatitude && customerLongitude),
+  });
+
   // Store initial region - use customer location if available, otherwise use default Bangalore coordinates
   const initialRegion = {
     latitude: customerLatitude || 12.9716,
@@ -61,10 +69,14 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
     longitudeDelta: 0.05,
   };
 
+  console.log('🗺️ Initial region:', initialRegion);
+
   // Customer location for destination marker
   const customerLocation = customerLatitude && customerLongitude 
     ? { latitude: customerLatitude, longitude: customerLongitude }
     : null;
+
+  console.log('📍 Customer location:', customerLocation);
 
   // Fit map to show both customer and provider locations
   const fitMapToLocations = useCallback(() => {
@@ -108,23 +120,66 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
     }
   }, [mapReady, customerLocation, providerLocation]);
 
-  // Force initial region on Android when map becomes ready
+  // Force initial region on Android when map becomes ready (MORE AGGRESSIVE)
   useEffect(() => {
-    if (mapReady && Platform.OS === 'android') {
-      // Android needs explicit region setting after map is ready
-      setTimeout(() => {
-        if (mapRef.current && customerLocation) {
-          console.log('🤖 Android: Setting initial region to customer location');
-          mapRef.current.animateToRegion({
-            ...customerLocation,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          }, 500);
-        } else if (mapRef.current) {
-          console.log('🤖 Android: Setting initial region to default');
-          mapRef.current.animateToRegion(initialRegion, 500);
-        }
-      }, 100);
+    if (!mapReady) return;
+    
+    if (Platform.OS === 'android') {
+      console.log('🤖 Android map ready - applying fixes...');
+      
+      // Try multiple times with delays (Android MapView is finicky)
+      const timeouts = [
+        setTimeout(() => {
+          if (mapRef.current) {
+            const targetRegion = customerLocation || initialRegion;
+            console.log('🤖 Android: Attempt 1 - animating to region:', targetRegion);
+            mapRef.current.animateToRegion(
+              {
+                latitude: targetRegion.latitude,
+                longitude: targetRegion.longitude,
+                latitudeDelta: 0.02,
+                longitudeDelta: 0.02,
+              },
+              300
+            );
+          }
+        }, 100),
+        
+        setTimeout(() => {
+          if (mapRef.current) {
+            const targetRegion = customerLocation || initialRegion;
+            console.log('🤖 Android: Attempt 2 - setting region:', targetRegion);
+            mapRef.current.setRegion(
+              {
+                latitude: targetRegion.latitude,
+                longitude: targetRegion.longitude,
+                latitudeDelta: 0.015,
+                longitudeDelta: 0.015,
+              }
+            );
+          }
+        }, 500),
+        
+        setTimeout(() => {
+          if (mapRef.current) {
+            const targetRegion = customerLocation || initialRegion;
+            console.log('🤖 Android: Attempt 3 - final animation:', targetRegion);
+            mapRef.current.animateToRegion(
+              {
+                latitude: targetRegion.latitude,
+                longitude: targetRegion.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              },
+              500
+            );
+          }
+        }, 1000),
+      ];
+      
+      return () => {
+        timeouts.forEach(t => clearTimeout(t));
+      };
     }
   }, [mapReady, customerLocation, initialRegion]);
 
@@ -284,17 +339,27 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
             ref={mapRef}
             style={styles.map}
             initialRegion={initialRegion}
-            showsUserLocation
+            showsUserLocation={true}
             showsMyLocationButton={false}
-            loadingEnabled
+            loadingEnabled={true}
             loadingIndicatorColor="#3B82F6"
             loadingBackgroundColor="#F3F4F6"
+            minZoomLevel={Platform.OS === 'android' ? 10 : undefined}
+            maxZoomLevel={20}
+            rotateEnabled={false}
+            pitchEnabled={false}
+            scrollEnabled={true}
+            zoomEnabled={true}
             onMapReady={() => {
-              console.log('✅ Map is ready');
+              console.log('✅ Map is ready', Platform.OS);
               setMapReady(true);
             }}
             onRegionChangeComplete={(newRegion) => {
-              console.log('🗺️ Region changed:', newRegion);
+              console.log('🗺️ Region changed to:', {
+                lat: newRegion.latitude.toFixed(4),
+                lng: newRegion.longitude.toFixed(4),
+                latDelta: newRegion.latitudeDelta.toFixed(4),
+              });
             }}
             onPanDrag={() => {
               // User manually panned, disable auto-center
