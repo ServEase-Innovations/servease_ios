@@ -12,4 +12,5 @@ export const API_URLS = {
   coupons: "https://coupons-o26r.onrender.com",
   chat: "https://chat-b3wl.onrender.com",
   imageUploader: "https://imageuploader-5njj.onrender.com",
+  tracking: "https://notifications-mjdp.onrender.com",
 } as const;

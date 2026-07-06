@@ -9,6 +9,7 @@ import {
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import { effectiveProviderTaskStatus } from "../common/BookingUtils";
 import { BRAND, HOME_M3 } from "../theme/brandColors";
+import JourneyTrackingButton from "./JourneyTrackingButton";
 
 export interface TodayBookingSlot {
   availability_id: number;
@@ -230,6 +231,18 @@ export default function TodayVisitsCard({
                   <Text style={styles.chipText}>{formatBookingType(slot.booking_type)}</Text>
                 </View>
               </View>
+
+              {/* Journey Tracking Button - Shows before service starts */}
+              {!inProgress && displayStatus !== "COMPLETED" && (
+                <View style={styles.trackingSection}>
+                  <JourneyTrackingButton 
+                    engagementId={slot.engagement_id}
+                    onStatusChange={(status) => {
+                      console.log(`Journey status changed for ${slot.engagement_id}:`, status);
+                    }}
+                  />
+                </View>
+              )}
 
               {inProgress ? (
                 <View style={styles.dualActionRow}>
@@ -474,6 +487,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#475569",
+  },
+  trackingSection: {
+    marginBottom: 12,
   },
   dualActionRow: {
     flexDirection: "row",

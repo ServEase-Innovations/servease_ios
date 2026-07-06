@@ -70,6 +70,9 @@ import CookServiceDialog from '../ServiceDialogs/CookServiceDialog';
 import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
 import { EnhancedProviderDetails } from '../types/ProviderDetailsType';
 import BookingsFilterSheet, { type FilterOptions } from './BookingsFilterSheet';
+import { TrackProviderButton } from './TrackProviderButton';
+import { CustomerTrackingScreen } from './CustomerTrackingScreen';
+import { CompactETADisplay } from './CompactETADisplay';
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -713,6 +716,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
   const [complaintDialogVisible, setComplaintDialogVisible] = useState(false);
   const [selectedComplaintBooking, setSelectedComplaintBooking] = useState<Booking | null>(null);
+  const [trackingVisible, setTrackingVisible] = useState(false);
+  const [trackingEngagementId, setTrackingEngagementId] = useState<number | null>(null);
   const tooltipAnim = useRef(new Animated.Value(0)).current;
   const lastLoadedCustomerIdRef = useRef<string | null>(null);
 
@@ -3097,6 +3102,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
               </Text>
             </View>
 
+            {/* Show ETA badges for today's bookings when provider is assigned */}
+            {viewTab === 'today' && 
+             displayTaskStatus === 'IN_PROGRESS' && 
+             item.serviceProviderId && 
+             customerId && (
+              <CompactETADisplay 
+                engagementId={item.id} 
+                customerId={customerId}
+              />
+            )}
+
             {/* Date & Time - compact format */}
             <View style={styles.cleanCardRow}>
               <Icon name="calendar-clock" size={16} color={bk.textMuted} />
@@ -3161,6 +3177,27 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
 
             {/* Today service panel */}
             {renderTodayServicePanel(item)}
+            
+            {/* Track Provider Button - outside panel for SCHEDULED visits */}
+            {viewTab === 'today' && 
+             item.today_service && 
+             String(item.today_service.status || '').toUpperCase() === 'SCHEDULED' &&
+             item.serviceProviderId && 
+             customerId && (
+              <View style={{ marginTop: 12, paddingHorizontal: 4 }}>
+                <TrackProviderButton
+                  engagementId={item.id}
+                  customerId={customerId}
+                  onPress={() => {
+                    setTrackingEngagementId(item.id);
+                    setTrackingVisible(true);
+                  }}
+                  fullWidth={true}
+                  backgroundColor={colors.primary}
+                  fontSize={fontSizes.buttonText}
+                />
+              </View>
+            )}
           </View>
 
           {/* Trailing arrow icon */}
@@ -3385,6 +3422,32 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         }}
         booking={convertBookingForChildComponents(selectedComplaintBooking)}
       />
+      
+      {/* Customer Tracking Modal */}
+      {trackingVisible && trackingEngagementId && (
+        <RNModal
+          visible={trackingVisible}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setTrackingVisible(false)}
+        >
+          <CustomerTrackingScreen
+            engagementId={trackingEngagementId}
+            customerLatitude={
+              currentBookings.find(b => b.id === trackingEngagementId)?.latitude ||
+              futureBookings.find(b => b.id === trackingEngagementId)?.latitude ||
+              undefined
+            }
+            customerLongitude={
+              currentBookings.find(b => b.id === trackingEngagementId)?.longitude ||
+              futureBookings.find(b => b.id === trackingEngagementId)?.longitude ||
+              undefined
+            }
+            onClose={() => setTrackingVisible(false)}
+          />
+        </RNModal>
+      )}
+      
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
 
       {/* Filter Sheet */}
