@@ -337,6 +337,7 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
         <>
           <MapView
             ref={mapRef}
+            provider="google"
             style={styles.map}
             initialRegion={initialRegion}
             showsUserLocation={true}
@@ -350,6 +351,11 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
             pitchEnabled={false}
             scrollEnabled={true}
             zoomEnabled={true}
+            mapType="standard"
+            showsTraffic={false}
+            showsBuildings={true}
+            showsIndoors={false}
+            toolbarEnabled={false}
             onMapReady={() => {
               console.log('✅ Map is ready', Platform.OS);
               setMapReady(true);
@@ -367,6 +373,9 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = ({
                 console.log('🖐️ User panned map, disabling auto-center');
                 setAutoCenter(false);
               }
+            }}
+            onError={(error) => {
+              console.error('❌ Map error:', error);
             }}
           >
             {providerLocation && (
