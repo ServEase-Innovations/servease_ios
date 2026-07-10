@@ -3,6 +3,8 @@ import {
   fetchCookRateCard,
   fetchMaidQuote,
   fetchMaidRateCard,
+  fetchNannyQuote,
+  fetchNannyRateCard,
   parseQuoteTotal,
   type PricingQuoteResponse,
 } from "../services/pricingService";
@@ -11,7 +13,7 @@ import { formatDateOnly } from "../utils/maidPricingUtils";
 
 export { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
-export type ServiceBookingKind = "maid" | "cook";
+export type ServiceBookingKind = "maid" | "cook" | "nanny";
 
 export const SERVICE_BOOKING_CONFIG = {
   maid: {
@@ -33,6 +35,16 @@ export const SERVICE_BOOKING_CONFIG = {
     fetchRateCard: fetchCookRateCard,
     fetchQuote: fetchCookQuote,
     fetchQuoteFallback: fetchMaidQuote,
+  },
+  nanny: {
+    title: "Nanny / Caregiver",
+    successServiceLabel: "Nanny / Caregiver",
+    serviceType: "NANNY" as const,
+    cartType: "nanny" as const,
+    priceMetaReady: "Nanny pricing for your selected schedule",
+    fetchRateCard: fetchNannyRateCard,
+    fetchQuote: fetchNannyQuote,
+    fetchQuoteFallback: fetchNannyQuote,
   },
 } as const;
 

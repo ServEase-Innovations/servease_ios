@@ -21,7 +21,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import { BOOKINGS } from "../Constants/pagesConstants";
 import { EnhancedProviderDetails } from "../types/ProviderDetailsType";
 import { removeFromCart, selectCartItems } from "../features/addToSlice";
-import { isMaidCartItem, isMealCartItem } from "../types/cartSlice";
+import { isMaidCartItem, isMealCartItem, isNannyCartItem } from "../types/cartSlice";
 import BookingService, {
   BookingPayload,
   resolveServiceProviderIdForPayload,
@@ -133,7 +133,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
 
   const allCartItems = useSelector(selectCartItems);
   const legacyCartItems = allCartItems.filter(
-    serviceKind === "maid" ? isMaidCartItem : isMealCartItem
+    serviceKind === "maid" ? isMaidCartItem : serviceKind === "nanny" ? isNannyCartItem : isMealCartItem
   );
 
   const rawBooking = useSelector(
