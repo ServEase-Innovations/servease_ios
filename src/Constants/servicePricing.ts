@@ -5,12 +5,23 @@ export const MAID_COOK_MONTHLY_HOURLY = {
   daysLabel: "30 days",
 } as const;
 
+/** Matches payments pricing_plan NANNY_MONTHLY seed rate */
+export const NANNY_MONTHLY = {
+  price: 16999,
+  daysLabel: "30 days",
+} as const;
+
 export const MONTHLY_EXTRA_HOUR_DISCOUNT_PCT = 5;
 
 export function formatMonthlyHourlyRateBand(): string {
   const fmt = (n: number) => n.toLocaleString("en-IN");
   const { min, max, daysLabel } = MAID_COOK_MONTHLY_HOURLY;
   return `₹${fmt(min)} – ₹${fmt(max)} per hour · ${daysLabel}`;
+}
+
+export function formatNannyMonthlyRate(): string {
+  const fmt = (n: number) => n.toLocaleString("en-IN");
+  return `₹${fmt(NANNY_MONTHLY.price)} per month · ${NANNY_MONTHLY.daysLabel}`;
 }
 
 export function formatMonthlyExtraHourCoupon(

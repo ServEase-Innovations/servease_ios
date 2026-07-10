@@ -104,3 +104,13 @@ export async function fetchCookRateCard(bookingType: string) {
   }
   return fetchServiceRateCard("MAID", bookingType);
 }
+
+export async function fetchNannyQuote(
+  body: Omit<ServiceQuoteRequest, "serviceType"> & { serviceType?: string }
+): Promise<PricingQuoteResponse> {
+  return fetchServiceQuote({ ...body, serviceType: "NANNY" });
+}
+
+export async function fetchNannyRateCard(bookingType: string) {
+  return fetchServiceRateCard("NANNY", bookingType);
+}
