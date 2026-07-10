@@ -1011,17 +1011,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         leave_days: item.leave_days || 0,
         provider: item.provider,
         latitude:
-          item.latitude != null && item.latitude !== ''
+          item.latitude != null && item.latitude !== '' && Number(item.latitude) !== 0
             ? Number(item.latitude)
-            : item.lat != null
+            : item.lat != null && Number(item.lat) !== 0
               ? Number(item.lat)
-              : null,
+              : undefined,
         longitude:
-          item.longitude != null && item.longitude !== ''
+          item.longitude != null && item.longitude !== '' && Number(item.longitude) !== 0
             ? Number(item.longitude)
-            : item.lng != null
+            : item.lng != null && Number(item.lng) !== 0
               ? Number(item.lng)
-              : null,
+              : undefined,
         cancellation: item.cancellation ?? null,
       };
     });
