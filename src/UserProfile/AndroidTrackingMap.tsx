@@ -1,12 +1,15 @@
 /**
  * AndroidTrackingMap
  *
- * Uses a WebView + Google Maps JavaScript API with custom SVG markers.
- * - Provider: blue teardrop badge with motorcycle + rider silhouette
- * - Customer: green teardrop badge with home silhouette
- * - Route: white-cased blue polyline
+ * WebView + Google Maps JS API with SVG markers that match the iOS design:
+ *   Provider  — dark bike body / blue handlebar mirrors / blue "Serveaso"
+ *               tank / dark seat with white "S" circle — anchored at center
+ *   Customer  — green circle (white border) with white home icon
  *
- * The JS API renders everything reliably on all Android configurations.
+ * Colours match CustomerTrackingScreen StyleSheet exactly:
+ *   #1E293B  dark body / seat
+ *   #3B82F6  blue tank / mirrors
+ *   #10B981  green destination circle
  */
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -18,7 +21,6 @@ interface Coordinate {
   latitude: number;
   longitude: number;
 }
-
 interface Props {
   providerLocation: Coordinate | null;
   customerLocation: Coordinate | null;
@@ -27,62 +29,64 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
-// SVG marker definitions — embedded inline so they work offline too
+// SVG marker — Provider (matches iOS bikeContainer 80 × 105)
+// Rider head (dark + blue ring) → handlebar mirrors (blue) →
+// tank (blue, "Serveaso") → seat (dark, white "S" circle) → shadow
+// Anchor: visual centre of the bike body ≈ (40, 60)
 // ---------------------------------------------------------------------------
-
-// Blue teardrop pin with a motorcycle + rider silhouette
 const PROVIDER_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="54" height="70" viewBox="0 0 54 70">' +
-  // soft drop shadow
-  '<ellipse cx="27" cy="68" rx="11" ry="3.5" fill="rgba(0,0,0,0.22)"/>' +
-  // teardrop body
-  '<path d="M27 66 C27 66 4 46 4 27 C4 14.3 14.3 4 27 4 C39.7 4 50 14.3 50 27 C50 46 27 66 27 66Z" fill="%232563EB"/>' +
-  // inner ring / sheen
-  '<circle cx="27" cy="25" r="18" fill="%231D4ED8" opacity="0.6"/>' +
-  // rear wheel
-  '<circle cx="16" cy="31" r="7" fill="none" stroke="white" stroke-width="2.5"/>' +
-  // front wheel
-  '<circle cx="37" cy="31" r="7" fill="none" stroke="white" stroke-width="2.5"/>' +
-  // bike frame
-  '<path d="M16 31 L20 19 L33 19 L37 31" fill="none" stroke="white" stroke-width="2.2" stroke-linejoin="round"/>' +
-  // seat
-  '<path d="M20 22 L33 22" stroke="white" stroke-width="3.5" stroke-linecap="round"/>' +
-  // handlebars
-  '<path d="M33 19 L39 16" stroke="white" stroke-width="2.2" stroke-linecap="round"/>' +
-  // rider head
-  '<circle cx="21" cy="13" r="4.5" fill="white"/>' +
-  // rider body (leaning forward)
-  '<path d="M21 17 L23 22" stroke="white" stroke-width="2.5" stroke-linecap="round"/>' +
-  '</svg>';
-
-// Green teardrop pin with a house silhouette
-const CUSTOMER_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="54" height="70" viewBox="0 0 54 70">' +
-  '<ellipse cx="27" cy="68" rx="11" ry="3.5" fill="rgba(0,0,0,0.22)"/>' +
-  '<path d="M27 66 C27 66 4 46 4 27 C4 14.3 14.3 4 27 4 C39.7 4 50 14.3 50 27 C50 46 27 66 27 66Z" fill="%2310B981"/>' +
-  '<circle cx="27" cy="25" r="18" fill="%23059669" opacity="0.6"/>' +
-  // roof
-  '<path d="M13 29 L27 16 L41 29" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>' +
-  // walls
-  '<path d="M17 29 L17 39 L37 39 L37 29" stroke="white" stroke-width="2.5" fill="none" stroke-linejoin="round"/>' +
-  // door (filled white)
-  '<rect x="22" y="31" width="10" height="8" rx="1" fill="white"/>' +
-  // door knob
-  '<circle cx="30" cy="35" r="1" fill="%2310B981"/>' +
+  '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="110" viewBox="0 0 80 110">' +
+  // ground shadow
+  '<ellipse cx="40" cy="108" rx="28" ry="5" fill="rgba(0,0,0,0.2)"/>' +
+  // rider head — dark circle, blue ring
+  '<circle cx="40" cy="14" r="9" fill="%231E293B" stroke="%233B82F6" stroke-width="2.5"/>' +
+  // left handlebar mirror
+  '<rect x="4" y="27" width="23" height="11" rx="5" fill="%233B82F6" stroke="%231E293B" stroke-width="2"/>' +
+  // right handlebar mirror
+  '<rect x="53" y="27" width="23" height="11" rx="5" fill="%233B82F6" stroke="%231E293B" stroke-width="2"/>' +
+  // bike tank (blue pill)
+  '<rect x="15" y="41" width="50" height="34" rx="17" fill="%233B82F6" stroke="%231E293B" stroke-width="3"/>' +
+  // "Serveaso" text on tank
+  '<text x="40" y="62" text-anchor="middle" fill="white" font-size="8" font-weight="bold" font-family="Arial,sans-serif" letter-spacing="0.5">Serveaso</text>' +
+  // seat (dark rounded rect)
+  '<rect x="12" y="77" width="56" height="27" rx="8" fill="%231E293B"/>' +
+  // white branding circle on seat
+  '<circle cx="40" cy="91" r="12" fill="white"/>' +
+  // "S" branding text
+  '<text x="40" y="97" text-anchor="middle" fill="%231E293B" font-size="15" font-weight="bold" font-family="Arial,sans-serif">S</text>' +
   '</svg>';
 
 // ---------------------------------------------------------------------------
-// Build the full page HTML — SVG icons are defined once in the page JS
-// so that live injectJavaScript calls can reference them without repeating
-// the large string on every position update.
+// SVG marker — Customer / destination (matches iOS destinationMarkerCircle
+// 54 × 54 green circle, white border 3 px, home icon centred)
+// Anchor: centre of circle (30, 30) in a 60 × 64 canvas
+// ---------------------------------------------------------------------------
+const CUSTOMER_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="64" viewBox="0 0 60 64">' +
+  // ground shadow
+  '<ellipse cx="30" cy="62" rx="20" ry="4" fill="rgba(0,0,0,0.2)"/>' +
+  // green circle, white border (matches destinationMarkerCircle exactly)
+  '<circle cx="30" cy="30" r="27" fill="%2310B981" stroke="white" stroke-width="3"/>' +
+  // home icon — roof
+  '<path d="M11 32 L30 17 L49 32" stroke="white" stroke-width="3" fill="none" stroke-linejoin="round" stroke-linecap="round"/>' +
+  // home icon — walls
+  '<rect x="16" y="32" width="28" height="16" fill="none" stroke="white" stroke-width="3" rx="1"/>' +
+  // home icon — door (filled white, like the icon in iOS)
+  '<rect x="23" y="36" width="14" height="12" fill="white" rx="1"/>' +
+  '</svg>';
+
+// ---------------------------------------------------------------------------
+// Build full page HTML
 // ---------------------------------------------------------------------------
 const buildMapHTML = (
   providerLocation: Coordinate | null,
   customerLocation: Coordinate | null,
   routeCoordinates: Coordinate[],
 ): string => {
-  const centerLat = customerLocation?.latitude ?? providerLocation?.latitude ?? 12.9716;
-  const centerLng = customerLocation?.longitude ?? providerLocation?.longitude ?? 77.5946;
+  const centerLat =
+    customerLocation?.latitude ?? providerLocation?.latitude ?? 12.9716;
+  const centerLng =
+    customerLocation?.longitude ?? providerLocation?.longitude ?? 77.5946;
 
   const routePoints = routeCoordinates
     .map(c => `{lat:${c.latitude},lng:${c.longitude}}`)
@@ -91,26 +95,22 @@ const buildMapHTML = (
   const routeJS =
     routeCoordinates.length > 1
       ? `
-      new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'%23FFFFFF',strokeOpacity:1,strokeWeight:8,map:map,zIndex:0});
-      window.routePolyline = new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'%233B82F6',strokeOpacity:1,strokeWeight:5,map:map,zIndex:1});
-      `
+        new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'%23FFFFFF',strokeOpacity:1,strokeWeight:8,map:map,zIndex:0});
+        window.routePolyline=new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'%233B82F6',strokeOpacity:1,strokeWeight:5,map:map,zIndex:1});`
       : providerLocation && customerLocation
       ? `
-      var fallbackPath=[{lat:${providerLocation.latitude},lng:${providerLocation.longitude}},{lat:${customerLocation.latitude},lng:${customerLocation.longitude}}];
-      new google.maps.Polyline({path:fallbackPath,geodesic:true,strokeColor:'%23FFFFFF',strokeOpacity:1,strokeWeight:8,map:map,zIndex:0});
-      new google.maps.Polyline({path:fallbackPath,geodesic:true,strokeColor:'%233B82F6',strokeOpacity:1,strokeWeight:5,map:map,zIndex:1});
-      `
+        var fp=[{lat:${providerLocation.latitude},lng:${providerLocation.longitude}},{lat:${customerLocation.latitude},lng:${customerLocation.longitude}}];
+        new google.maps.Polyline({path:fp,geodesic:true,strokeColor:'%23FFFFFF',strokeOpacity:1,strokeWeight:8,map:map,zIndex:0});
+        new google.maps.Polyline({path:fp,geodesic:true,strokeColor:'%233B82F6',strokeOpacity:1,strokeWeight:5,map:map,zIndex:1});`
       : '';
 
-  const hasBoth = !!providerLocation && !!customerLocation;
-  const fitBoundsJS = hasBoth
-    ? `
-      var b=new google.maps.LatLngBounds();
-      b.extend({lat:${providerLocation!.latitude},lng:${providerLocation!.longitude}});
-      b.extend({lat:${customerLocation!.latitude},lng:${customerLocation!.longitude}});
-      map.fitBounds(b,{top:100,bottom:150,left:50,right:50});
-      `
-    : `map.setCenter({lat:${centerLat},lng:${centerLng}});map.setZoom(16);`;
+  const fitJS =
+    providerLocation && customerLocation
+      ? `var b=new google.maps.LatLngBounds();
+         b.extend({lat:${providerLocation.latitude},lng:${providerLocation.longitude}});
+         b.extend({lat:${customerLocation.latitude},lng:${customerLocation.longitude}});
+         map.fitBounds(b,{top:100,bottom:150,left:50,right:50});`
+      : `map.setCenter({lat:${centerLat},lng:${centerLng}});map.setZoom(16);`;
 
   return `<!DOCTYPE html>
 <html>
@@ -126,19 +126,20 @@ const buildMapHTML = (
 <body>
   <div id="map"></div>
   <script>
-    // ---- SVG icon definitions (available for live injection too) ----
+    // Stored once — reused by live injectJavaScript calls
     window.PROVIDER_SVG = ${JSON.stringify(PROVIDER_SVG)};
     window.CUSTOMER_SVG = ${JSON.stringify(CUSTOMER_SVG)};
 
-    window.makeIcon = function(svg, w, h) {
+    // makeIcon(svg, w, h, anchorX, anchorY)
+    window.makeIcon = function(svg, w, h, ax, ay) {
       return {
         url: 'data:image/svg+xml,' + encodeURIComponent(svg),
         scaledSize: new google.maps.Size(w, h),
-        anchor: new google.maps.Point(w / 2, h - 4),
+        anchor: new google.maps.Point(ax, ay),
       };
     };
 
-    // ---- Live-update helpers called by injectJavaScript ----
+    // Live position update — called by injectJavaScript on every poll cycle
     window.updateProviderLocation = function(lat, lng) {
       if (!window.map) return;
       var pos = {lat: lat, lng: lng};
@@ -148,7 +149,8 @@ const buildMapHTML = (
         window.providerMarker = new google.maps.Marker({
           position: pos,
           map: window.map,
-          icon: window.makeIcon(window.PROVIDER_SVG, 54, 70),
+          // anchor at visual centre of bike body (40, 60) in 80×110 canvas
+          icon: window.makeIcon(window.PROVIDER_SVG, 80, 110, 40, 60),
           title: 'Service Provider',
           zIndex: 10,
         });
@@ -165,39 +167,33 @@ const buildMapHTML = (
       });
       window.map = map;
 
-      // ---- Provider marker ----
       ${
         providerLocation
-          ? `
-      window.providerMarker = new google.maps.Marker({
-        position:{lat:${providerLocation.latitude},lng:${providerLocation.longitude}},
-        map:map,
-        icon:window.makeIcon(window.PROVIDER_SVG,54,70),
-        title:'Service Provider',
-        zIndex:10,
-      });`
+          ? `window.providerMarker = new google.maps.Marker({
+               position:{lat:${providerLocation.latitude},lng:${providerLocation.longitude}},
+               map:map,
+               icon:window.makeIcon(window.PROVIDER_SVG,80,110,40,60),
+               title:'Service Provider',
+               zIndex:10
+             });`
           : ''
       }
 
-      // ---- Customer / destination marker ----
       ${
         customerLocation
-          ? `
-      window.customerMarker = new google.maps.Marker({
-        position:{lat:${customerLocation.latitude},lng:${customerLocation.longitude}},
-        map:map,
-        icon:window.makeIcon(window.CUSTOMER_SVG,54,70),
-        title:'Your Location',
-        zIndex:10,
-      });`
+          ? `window.customerMarker = new google.maps.Marker({
+               position:{lat:${customerLocation.latitude},lng:${customerLocation.longitude}},
+               map:map,
+               // anchor at centre of the 27-px-radius circle (30,30) in 60×64 canvas
+               icon:window.makeIcon(window.CUSTOMER_SVG,60,64,30,30),
+               title:'Your Location',
+               zIndex:10
+             });`
           : ''
       }
 
-      // ---- Route polyline ----
       ${routeJS}
-
-      // ---- Camera ----
-      ${fitBoundsJS}
+      ${fitJS}
 
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({type:'mapReady'}));
@@ -221,12 +217,15 @@ const AndroidTrackingMap: React.FC<Props> = ({
 }) => {
   const webViewRef = useRef<WebView>(null);
 
-  // Live-update provider pin position without reloading the whole page
+  // Live-update provider position without reloading the page
   useEffect(() => {
     if (!webViewRef.current || !providerLocation) return;
     webViewRef.current.injectJavaScript(`
       (function(){
-        window.updateProviderLocation(${providerLocation.latitude},${providerLocation.longitude});
+        window.updateProviderLocation(
+          ${providerLocation.latitude},
+          ${providerLocation.longitude}
+        );
       })();
       true;
     `);
@@ -242,18 +241,15 @@ const AndroidTrackingMap: React.FC<Props> = ({
     [onMapReady],
   );
 
-  // Rebuild HTML only when route or customer location changes (rare).
-  // Provider position is updated live via injectJavaScript.
   const html = useMemo(
     () => buildMapHTML(providerLocation, customerLocation, routeCoordinates),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      providerLocation?.latitude,
+      providerLocation?.longitude,
       customerLocation?.latitude,
       customerLocation?.longitude,
       routeCoordinates.length,
-      // Include provider on first build so the initial pin renders:
-      providerLocation?.latitude,
-      providerLocation?.longitude,
     ],
   );
 
