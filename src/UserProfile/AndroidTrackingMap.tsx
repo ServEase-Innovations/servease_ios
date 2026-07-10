@@ -31,16 +31,23 @@ const BIKE_MARKER_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADcAAAB4C
 // ---------------------------------------------------------------------------
 const CUSTOMER_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="64" viewBox="0 0 60 64">' +
+  '<style>' +
+  '@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }' +
+  '.bounce-icon { animation: bounce 1.5s infinite ease-in-out; }' +
+  '</style>' +
   // ground shadow
   '<ellipse cx="30" cy="62" rx="20" ry="4" fill="rgba(0,0,0,0.2)"/>' +
   // green circle, white border (matches destinationMarkerCircle exactly)
   '<circle cx="30" cy="30" r="27" fill="%2310B981" stroke="white" stroke-width="3"/>' +
+  // home icon (animated)
+  '<g class="bounce-icon">' +
   // home icon — roof
   '<path d="M11 32 L30 17 L49 32" stroke="white" stroke-width="3" fill="none" stroke-linejoin="round" stroke-linecap="round"/>' +
   // home icon — walls
   '<rect x="16" y="32" width="28" height="16" fill="none" stroke="white" stroke-width="3" rx="1"/>' +
   // home icon — door (filled white, like the icon in iOS)
   '<rect x="23" y="36" width="14" height="12" fill="white" rx="1"/>' +
+  '</g>' +
   '</svg>';
 
 // ---------------------------------------------------------------------------
@@ -63,13 +70,13 @@ const buildMapHTML = (
   const routeJS =
     routeCoordinates.length > 1
       ? `
-        new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'%23FFFFFF',strokeOpacity:1,strokeWeight:5,map:map,zIndex:0});
-        window.routePolyline=new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'%233B82F6',strokeOpacity:1,strokeWeight:3,map:map,zIndex:1});`
+        new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'#FFFFFF',strokeOpacity:1,strokeWeight:5,map:map,zIndex:0});
+        window.routePolyline=new google.maps.Polyline({path:[${routePoints}],geodesic:true,strokeColor:'#3B82F6',strokeOpacity:1,strokeWeight:3,map:map,zIndex:1});`
       : providerLocation && customerLocation
       ? `
         var fp=[{lat:${providerLocation.latitude},lng:${providerLocation.longitude}},{lat:${customerLocation.latitude},lng:${customerLocation.longitude}}];
-        new google.maps.Polyline({path:fp,geodesic:true,strokeColor:'%23FFFFFF',strokeOpacity:1,strokeWeight:5,map:map,zIndex:0});
-        new google.maps.Polyline({path:fp,geodesic:true,strokeColor:'%233B82F6',strokeOpacity:1,strokeWeight:3,map:map,zIndex:1});`
+        new google.maps.Polyline({path:fp,geodesic:true,strokeColor:'#FFFFFF',strokeOpacity:1,strokeWeight:5,map:map,zIndex:0});
+        new google.maps.Polyline({path:fp,geodesic:true,strokeColor:'#3B82F6',strokeOpacity:1,strokeWeight:3,map:map,zIndex:1});`
       : '';
 
   // Build the bounds JS: extend over ALL route points so the full route
