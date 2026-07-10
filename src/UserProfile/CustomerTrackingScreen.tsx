@@ -14,6 +14,7 @@ import MapView, { Marker, Polyline, Region, PROVIDER_GOOGLE } from 'react-native
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getLocationUpdate, calculateETA } from '../services/trackingService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AndroidTrackingMap from './AndroidTrackingMap';
 
 interface TrackingScreenProps {
   engagementId: number;
@@ -702,76 +703,21 @@ export const CustomerTrackingScreen: React.FC<TrackingScreenProps> = React.memo(
   }
 
   // ---------------------------------------------------------------------------
-  // Android: MapView is ALWAYS mounted so onLayout fires before the map is
-  // visible. React Native overlays (loading / error) sit on top via zIndex —
-  // this works on Android because native views respect the RN z-order there.
+  // Android: Use WebView + Google Maps JavaScript API instead of
+  // react-native-maps PROVIDER_GOOGLE. The native Marker/Polyline bridge
+  // silently fails on this Android configuration; the JS API is 100% reliable.
   // ---------------------------------------------------------------------------
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Always-mounted map — onLayout fires immediately on mount */}
-      <MapView
-        key="tracking-map-android"
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={initialRegion}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        loadingEnabled={true}
-        loadingIndicatorColor="#3B82F6"
-        loadingBackgroundColor="#F3F4F6"
-        minZoomLevel={5}
-        maxZoomLevel={20}
-        rotateEnabled={false}
-        pitchEnabled={false}
-        scrollEnabled={true}
-        zoomEnabled={true}
-        mapType="standard"
-        showsTraffic={false}
-        showsBuildings={true}
-        showsIndoors={false}
-        toolbarEnabled={false}
+      {/* WebView-based map — always visible, overlays sit on top via zIndex */}
+      <AndroidTrackingMap
+        providerLocation={providerLocation}
+        customerLocation={customerLocation}
+        routeCoordinates={routeCoordinates}
         onMapReady={handleMapReady}
-        onLayout={handleMapLayout}
-        onRegionChangeComplete={handleRegionChange}
-        onPanDrag={handlePanDrag}
-      >
-        {/* Provider marker — default red pin (no pinColor = most compatible) */}
-        <Marker
-          coordinate={
-            providerLocation && Math.abs(providerLocation.latitude) > 0.001
-              ? { latitude: providerLocation.latitude, longitude: providerLocation.longitude }
-              : { latitude: 0.001, longitude: 0.001 }
-          }
-          visible={!!providerLocation && Math.abs(providerLocation.latitude) > 0.001}
-          title="Service Provider"
-          description="Provider is on the way"
-        />
-
-
-        {/* Destination marker — default red pin */}
-        <Marker
-          coordinate={customerLocation || { latitude: 0.001, longitude: 0.001 }}
-          visible={!!customerLocation}
-          title="Your Location"
-          description="Service destination"
-        />
-
-        {/* Route polylines — ALWAYS MOUNTED, coordinates update as data arrives.
-            White casing + blue line give the iOS-style route appearance. */}
-        <Polyline
-          coordinates={effectiveRouteCoords}
-          strokeColor="#FFFFFF"
-          strokeWidth={7}
-        />
-        <Polyline
-          coordinates={effectiveRouteCoords}
-          strokeColor="#3B82F6"
-          strokeWidth={4}
-        />
-      </MapView>
+      />
 
       {/* Loading overlay on top of map */}
       {loading && (
