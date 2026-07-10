@@ -104,13 +104,29 @@ const buildMapHTML = (
         new google.maps.Polyline({path:fp,geodesic:true,strokeColor:'%233B82F6',strokeOpacity:1,strokeWeight:5,map:map,zIndex:1});`
       : '';
 
+  // Build the bounds JS: extend over ALL route points so the full route
+  // is visible, not just the tiny gap between the two nearby markers.
+  const routeBoundsJS =
+    routeCoordinates.length > 1
+      ? `window.routeBounds=new google.maps.LatLngBounds();
+         [${routePoints}].forEach(function(p){window.routeBounds.extend(p);});`
+      : providerLocation && customerLocation
+      ? `window.routeBounds=new google.maps.LatLngBounds();
+         window.routeBounds.extend({lat:${providerLocation.latitude},lng:${providerLocation.longitude}});
+         window.routeBounds.extend({lat:${customerLocation.latitude},lng:${customerLocation.longitude}});`
+      : '';
+
   const fitJS =
-    providerLocation && customerLocation
-      ? `var b=new google.maps.LatLngBounds();
-         b.extend({lat:${providerLocation.latitude},lng:${providerLocation.longitude}});
-         b.extend({lat:${customerLocation.latitude},lng:${customerLocation.longitude}});
-         map.fitBounds(b,{top:100,bottom:150,left:50,right:50});`
-      : `map.setCenter({lat:${centerLat},lng:${centerLng}});map.setZoom(16);`;
+    providerLocation || customerLocation
+      ? `(function(){
+           var b = window.routeBounds
+             ? new google.maps.LatLngBounds(window.routeBounds.getSouthWest(), window.routeBounds.getNorthEast())
+             : new google.maps.LatLngBounds();
+           ${providerLocation ? `b.extend({lat:${providerLocation.latitude},lng:${providerLocation.longitude}});` : ''}
+           ${customerLocation ? `b.extend({lat:${customerLocation.latitude},lng:${customerLocation.longitude}});` : ''}
+           map.fitBounds(b,{top:120,bottom:180,left:60,right:60});
+         })();`
+      : `map.setCenter({lat:${centerLat},lng:${centerLng}});map.setZoom(14);`;
 
   return `<!DOCTYPE html>
 <html>
@@ -139,7 +155,8 @@ const buildMapHTML = (
       };
     };
 
-    // Live position update — called by injectJavaScript on every poll cycle
+    // Live position update — called by injectJavaScript on every poll cycle.
+    // Also re-fits camera using route bounds so full route stays visible.
     window.updateProviderLocation = function(lat, lng) {
       if (!window.map) return;
       var pos = {lat: lat, lng: lng};
@@ -149,11 +166,17 @@ const buildMapHTML = (
         window.providerMarker = new google.maps.Marker({
           position: pos,
           map: window.map,
-          // anchor at visual centre of bike body (40, 60) in 80×110 canvas
           icon: window.makeIcon(window.PROVIDER_SVG, 80, 110, 40, 60),
           title: 'Service Provider',
           zIndex: 10,
         });
+        // First time provider appears — refit to show full route
+        var b = window.routeBounds
+          ? new google.maps.LatLngBounds(window.routeBounds.getSouthWest(), window.routeBounds.getNorthEast())
+          : new google.maps.LatLngBounds();
+        b.extend(pos);
+        if (window.customerMarker) b.extend(window.customerMarker.getPosition());
+        window.map.fitBounds(b, {top:120, bottom:180, left:60, right:60});
       }
     };
 
@@ -193,6 +216,7 @@ const buildMapHTML = (
       }
 
       ${routeJS}
+      ${routeBoundsJS}
       ${fitJS}
 
       if (window.ReactNativeWebView) {
