@@ -166,7 +166,7 @@ const buildMapHTML = (
         window.providerMarker = new google.maps.Marker({
           position: pos,
           map: window.map,
-          icon: window.makeIcon(window.PROVIDER_SVG, 80, 110, 40, 60),
+          icon: window.makeIcon(window.PROVIDER_SVG, 32, 44, 16, 24),
           title: 'Service Provider',
           zIndex: 10,
         });
@@ -195,7 +195,7 @@ const buildMapHTML = (
           ? `window.providerMarker = new google.maps.Marker({
                position:{lat:${providerLocation.latitude},lng:${providerLocation.longitude}},
                map:map,
-               icon:window.makeIcon(window.PROVIDER_SVG,80,110,40,60),
+               icon:window.makeIcon(window.PROVIDER_SVG,32,44,16,24),
                title:'Service Provider',
                zIndex:10
              });`
@@ -208,7 +208,7 @@ const buildMapHTML = (
                position:{lat:${customerLocation.latitude},lng:${customerLocation.longitude}},
                map:map,
                // anchor at centre of the 27-px-radius circle (30,30) in 60×64 canvas
-               icon:window.makeIcon(window.CUSTOMER_SVG,60,64,30,30),
+               icon:window.makeIcon(window.CUSTOMER_SVG,26,28,13,13),
                title:'Your Location',
                zIndex:10
              });`
