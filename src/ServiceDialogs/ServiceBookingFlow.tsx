@@ -880,6 +880,7 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
               active={active}
               providerId={providerId}
               onApplyingScheduleChange={setIsCheckingAvailability}
+              fixedDurationHours={serviceKind === "nanny" ? 8 : undefined}
             />
           </View>
 

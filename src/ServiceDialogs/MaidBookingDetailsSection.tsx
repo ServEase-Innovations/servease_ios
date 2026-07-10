@@ -164,13 +164,15 @@ interface MaidBookingDetailsSectionProps {
   active: boolean;
   providerId?: number | string | null;
   onApplyingScheduleChange?: (loading: boolean) => void;
+  /** When set, locks service duration to this many hours (hides chip selector). */
+  fixedDurationHours?: number;
 }
 
 const MaidBookingDetailsSection = forwardRef<
   MaidBookingDetailsSectionHandle,
   MaidBookingDetailsSectionProps
 >(function MaidBookingDetailsSection(
-  { active, providerId, onApplyingScheduleChange },
+  { active, providerId, onApplyingScheduleChange, fixedDurationHours },
   ref
 ) {
   const dispatch = useDispatch();
@@ -266,7 +268,17 @@ const MaidBookingDetailsSection = forwardRef<
   }, [preference]);
 
   const durationHours =
-    startTime && endTime ? Math.max(1, endTime.diff(startTime, "hour")) : 1;
+    fixedDurationHours ??
+    (startTime && endTime ? Math.max(1, endTime.diff(startTime, "hour")) : 1);
+
+  // Auto-apply end time when fixedDurationHours is set and start time changes.
+  useEffect(() => {
+    if (!fixedDurationHours || !startTime) return;
+    const newEnd = startTime.add(fixedDurationHours, 'hour');
+    setEndTime(newEnd);
+    if (preference === 'Date') setEndDate(newEnd);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedDurationHours, startTime?.valueOf()]);
 
   const localSchedulePatch = useMemo(
     () =>
@@ -453,47 +465,58 @@ const MaidBookingDetailsSection = forwardRef<
           <Icon name="timelapse" size={18} color="#0b5bd3" />
           <Text style={styles.summaryLabel}>Duration</Text>
           <Text style={styles.summaryValue}>
-            {durationHours} hour{durationHours > 1 ? "s" : ""}
+            {fixedDurationHours
+              ? `${fixedDurationHours} hour${fixedDurationHours > 1 ? 's' : ''} (fixed)`
+              : `${durationHours} hour${durationHours > 1 ? 's' : ''}`}
           </Text>
         </View>
       </View>
 
-      {(preference === "Date" || preference === "Short term" || preference === "Monthly") && (
-        <View style={styles.durationSection}>
-          <Text style={styles.durationHint}>
-            {preference === "Short term"
-              ? "Hours per visit — price updates for each day in your range."
-              : preference === "Monthly"
-                ? "Hours per visit — price updates for your monthly service."
-                : "Tap a duration to update your visit length."}
-          </Text>
-          <View style={styles.durationChips}>
-            {DURATION_OPTIONS.map((h) => {
-              const disabled = !startTime || !isDurationWithinWorkHours(startTime, h);
-              return (
-                <TouchableOpacity
-                  key={h}
-                  style={[
-                    styles.durationChip,
-                    durationHours === h && styles.durationChipActive,
-                    disabled && styles.durationChipDisabled,
-                  ]}
-                  disabled={disabled}
-                  onPress={() => setDurationHours(h)}
-                >
-                  <Text
-                    style={[
-                      styles.durationChipText,
-                      durationHours === h && styles.durationChipTextActive,
-                    ]}
-                  >
-                    {h}h
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+      {(preference === 'Date' || preference === 'Short term' || preference === 'Monthly') && (
+        fixedDurationHours ? (
+          <View style={[styles.durationSection, { backgroundColor: '#eff6ff', borderRadius: 8, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#bfdbfe' }]}>
+            <Icon name="timelapse" size={16} color="#1d4ed8" />
+            <Text style={{ color: '#1d4ed8', fontSize: 13, fontWeight: '600', flex: 1 }}>
+              This service is for {fixedDurationHours} hours · end time is set automatically
+            </Text>
           </View>
-        </View>
+        ) : (
+          <View style={styles.durationSection}>
+            <Text style={styles.durationHint}>
+              {preference === 'Short term'
+                ? 'Hours per visit — price updates for each day in your range.'
+                : preference === 'Monthly'
+                  ? 'Hours per visit — price updates for your monthly service.'
+                  : 'Tap a duration to update your visit length.'}
+            </Text>
+            <View style={styles.durationChips}>
+              {DURATION_OPTIONS.map((h) => {
+                const disabled = !startTime || !isDurationWithinWorkHours(startTime, h);
+                return (
+                  <TouchableOpacity
+                    key={h}
+                    style={[
+                      styles.durationChip,
+                      durationHours === h && styles.durationChipActive,
+                      disabled && styles.durationChipDisabled,
+                    ]}
+                    disabled={disabled}
+                    onPress={() => setDurationHours(h)}
+                  >
+                    <Text
+                      style={[
+                        styles.durationChipText,
+                        durationHours === h && styles.durationChipTextActive,
+                      ]}
+                    >
+                      {h}h
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )
       )}
 
       <View style={styles.sectionHead}>
