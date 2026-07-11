@@ -349,8 +349,13 @@ const ProviderDetails: React.FC<ProviderDetailsProps> = (props) => {
   // Get primary role (first in array) for display and logic purposes
   const getPrimaryHousekeepingRole = (): string => {
     const roles = getHousekeepingRoles();
+    const activeSearchRole = String(bookingType?.housekeepingRole || "").toUpperCase();
+    if (activeSearchRole && roles.includes(activeSearchRole)) {
+      console.log("Primary role (from active search):", activeSearchRole);
+      return activeSearchRole;
+    }
     const primaryRole = roles[0] || "UNKNOWN";
-    console.log("Primary role:", primaryRole);
+    console.log("Primary role (fallback):", primaryRole);
     return primaryRole;
   };
 
