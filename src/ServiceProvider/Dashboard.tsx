@@ -478,7 +478,8 @@ export default function Dashboard({ onBackToHome, onLogoPress, closeDropdowns = 
       setTaskStatus(prev => ({ ...prev, [bookingId]: previousStatus }));
       let errorMessage = "Failed to start service. Please try again.";
       if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || err.message || errorMessage;
+        const d = err.response?.data as { error?: string; message?: string } | undefined;
+        errorMessage = d?.error || d?.message || err.message || errorMessage;
       }
       Alert.alert("Error", errorMessage);
     } finally {
