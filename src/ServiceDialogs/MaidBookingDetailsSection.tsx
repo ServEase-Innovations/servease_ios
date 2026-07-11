@@ -268,7 +268,7 @@ const MaidBookingDetailsSection = forwardRef<
   }, [preference]);
 
   const defaultDuration = allowedDurationHours
-    ? (allowedDurationHours.includes(8) ? 8 : allowedDurationHours[0])
+    ? allowedDurationHours[0]
     : 1;
 
   const durationHours =
