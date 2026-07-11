@@ -124,7 +124,7 @@ export function computeDurationHours(
     if (hours != null && hours > 0) return hours;
     const fromRange = hoursFromTimeRange(timeRange);
     if (fromRange != null && fromRange > 0) return fromRange;
-    return 1;
+    return undefined;
   }
   return undefined;
 }
