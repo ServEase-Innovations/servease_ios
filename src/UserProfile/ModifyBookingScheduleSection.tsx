@@ -111,11 +111,12 @@ function parseTimeOnDate(dateStr: string | undefined, timeStr: string | undefine
   return base.hour(h).minute(Number.isFinite(m) ? m : 0);
 }
 
-function durationHoursFromTimes(start: Dayjs | null, end: Dayjs | null): number {
+function durationHoursFromTimes(start: Dayjs | null, end: Dayjs | null, serviceType?: string): number {
   if (!start || !end) return 0;
   const mins = end.diff(start, 'minute');
   if (mins <= 0) return 0;
-  return Math.max(1, Math.min(6, Math.round(mins / 60)));
+  const maxLimit = String(serviceType).toUpperCase() === 'NANNY' ? 8 : 6;
+  return Math.max(1, Math.min(maxLimit, Math.round(mins / 60)));
 }
 
 function timeMinutesOnDay(time: Dayjs): number {
@@ -126,9 +127,9 @@ function isDurationWithinWorkHours(start: Dayjs, hours: number): boolean {
   return timeMinutesOnDay(start) + hours * 60 <= WORK_DAY_END_MINUTES;
 }
 
-function maxAllowedDurationHours(start: Dayjs): number {
+function maxAllowedDurationHours(start: Dayjs, allowedOptions: number[]): number {
   let max = 0;
-  for (const h of DURATION_OPTIONS) {
+  for (const h of allowedOptions) {
     if (isDurationWithinWorkHours(start, h)) max = h;
   }
   return max;
@@ -207,7 +208,7 @@ const ModifyBookingScheduleSection = forwardRef<
     setEndDate(ed);
     setStartTime(st);
     setEndTime(et);
-    const dur = durationHoursFromTimes(st, et);
+    const dur = durationHoursFromTimes(st, et, serviceType);
     setSelectedDurationHours(dur > 0 ? dur : 1);
     setValidationMsg(null);
     setShowAllTimes(false);
@@ -221,7 +222,7 @@ const ModifyBookingScheduleSection = forwardRef<
       st && et ? `${st.format('h:mm A')} – ${et.format('h:mm A')}` : st?.format('h:mm A') ?? '—';
 
     originalScheduleRef.current = { dateSummary, timeSummary, durationHours: dur > 0 ? dur : 1 };
-  }, [bookingHydrationKey, preference]);
+  }, [bookingHydrationKey, preference, serviceType]);
 
   const markScheduleTouched = useCallback(() => {
     onAvailabilityVerifiedChangeRef.current?.(false);
@@ -238,7 +239,7 @@ const ModifyBookingScheduleSection = forwardRef<
     return isBookingScheduleComplete(localSchedulePatch as Record<string, unknown>, bookingTypeCode);
   }, [localSchedulePatch, preference]);
 
-  const durationFromTimes = useMemo(() => durationHoursFromTimes(startTime, endTime), [startTime, endTime]);
+  const durationFromTimes = useMemo(() => durationHoursFromTimes(startTime, endTime, serviceType), [startTime, endTime, serviceType]);
   const durationHours = durationFromTimes > 0 ? durationFromTimes : selectedDurationHours;
 
   const datesComplete =
@@ -466,7 +467,8 @@ const ModifyBookingScheduleSection = forwardRef<
       ? availableQuickTimes
       : availableQuickTimes.slice(0, 12);
 
-  const maxDurationHours = startTime ? maxAllowedDurationHours(startTime) : 6;
+  const allowedOptions = String(serviceType).toUpperCase() === 'NANNY' ? [4, 8] : DURATION_OPTIONS;
+  const maxDurationHours = startTime ? maxAllowedDurationHours(startTime, allowedOptions) : (String(serviceType).toUpperCase() === 'NANNY' ? 8 : 6);
   const chipBorder = isDarkMode ? colors.border : '#E2E8F0';
   const chipBg = isDarkMode ? colors.card : '#fff';
 
@@ -535,7 +537,7 @@ const ModifyBookingScheduleSection = forwardRef<
                 : t('modifyBooking.duration.monthlyHint')}
             </Text>
             <View style={styles.chipRow}>
-              {DURATION_OPTIONS.map((h) => {
+              {allowedOptions.map((h) => {
                 const disabled = !datesComplete || (Boolean(startTime) && h > maxDurationHours);
                 const active = durationHours === h;
                 return (
