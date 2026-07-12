@@ -11,7 +11,7 @@
     </item>
     <item android:gravity="center">
         <bitmap
-            android:src="@mipmap/serveasonew"
+            android:src="@mipmap/ic_launcher"
             android:gravity="center" />
     </item>
 </layer-list>
