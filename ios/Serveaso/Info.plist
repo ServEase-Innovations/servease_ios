@@ -32,6 +32,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>serveaso</string>
+				<string>com.serveaso</string>
 			</array>
 		</dict>
 		<dict>

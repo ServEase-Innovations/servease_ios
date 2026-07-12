@@ -441,7 +441,7 @@ export function AllBookingsDialog({
       await loadMonthBookings(selectedMonth, true);
       setOtpDialogOpen(false);
     } catch (err) {
-      throw err;
+      return Promise.reject(err);
     } finally {
       setVerifyingOtp(false);
     }
