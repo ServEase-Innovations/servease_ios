@@ -5,10 +5,10 @@ import axios, {
 } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const REVIEWS_URL = 'https://reviews-19oo.onrender.com';
+import { API_URLS } from '../config/apiUrls';
 
 const reviewsInstance = axios.create({
-  baseURL: REVIEWS_URL,
+  baseURL: API_URLS.reviews,
   timeout: 10000, // Add timeout for mobile networks
   headers: {
     'Content-Type': 'application/json',

@@ -1,5 +1,5 @@
 // BroadcastMessage.tsx - With Modern Switch at Top and Snackbar
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,22 @@ import {
   Dimensions,
   Platform,
   TouchableWithoutFeedback,
+  InteractionManager,
+  BackHandler,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Snackbar from 'react-native-snackbar';
+import { BRAND, GRADIENTS } from '../theme/brandColors';
 
 const { width, height } = Dimensions.get('window');
+
+/** Run after the current commit/animation frame (avoids useInsertionEffect update errors). */
+const runAfterFrame = (fn: () => void) => {
+  InteractionManager.runAfterInteractions(() => {
+    setTimeout(fn, 0);
+  });
+};
 
 interface Coupon {
   id: string;
@@ -63,10 +73,61 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
   const bannerSlideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const shineAnim = useRef(new Animated.Value(0)).current;
+  
+  // Track if component is mounted to prevent state updates after unmount
+  const isMounted = useRef(true);
 
-  // Rotate through messages every 2 seconds
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      // Clean up any ongoing animations
+      fadeAnim.stopAnimation();
+      bannerSlideAnim.stopAnimation();
+      pulseAnim.stopAnimation();
+      shineAnim.stopAnimation();
+      slideAnim.stopAnimation();
+      switchAnim.stopAnimation();
+    };
+  }, [fadeAnim, bannerSlideAnim, pulseAnim, shineAnim, slideAnim, switchAnim]);
+
+  // Handle back button press - close modal first
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (modalVisible) {
+        closeModal();
+        return true; // Prevent default behavior (going back)
+      }
+      return false; // Let default behavior happen (go back to previous screen)
+    });
+
+    return () => backHandler.remove();
+  }, [modalVisible]);
+
+  const advanceBanner = useCallback(() => {
+    if (!isMounted.current) return;
+    
+    setCurrentIndex((prev) => (prev + 1) % coupons.length);
+    bannerSlideAnim.setValue(50);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bannerSlideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, bannerSlideAnim]);
+
+  // Rotate through messages every 3 seconds
   useEffect(() => {
     const interval = setInterval(() => {
+      if (!isMounted.current) return;
+      
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -78,26 +139,18 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
           duration: 500,
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        setCurrentIndex((prev) => (prev + 1) % coupons.length);
-        bannerSlideAnim.setValue(50);
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(bannerSlideAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ]).start();
+      ]).start(({ finished }) => {
+        if (!finished || !isMounted.current) return;
+        runAfterFrame(() => {
+          if (isMounted.current) {
+            advanceBanner();
+          }
+        });
       });
-    }, 2000);
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [fadeAnim, bannerSlideAnim]);
+  }, [fadeAnim, bannerSlideAnim, advanceBanner]);
 
   // Pulse animation for attention
   useEffect(() => {
@@ -140,6 +193,8 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
   }, [pulseAnim, shineAnim]);
 
   const openModal = (coupon: Coupon) => {
+    if (!isMounted.current) return;
+    
     setSelectedCoupon(coupon);
     setModalVisible(true);
     Animated.spring(slideAnim, {
@@ -151,13 +206,19 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
   };
 
   const closeModal = () => {
+    if (!isMounted.current) return;
+    
     Animated.timing(slideAnim, {
       toValue: height,
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      setModalVisible(false);
-      setSelectedCoupon(null);
+      runAfterFrame(() => {
+        if (isMounted.current) {
+          setModalVisible(false);
+          setSelectedCoupon(null);
+        }
+      });
     });
   };
 
@@ -165,33 +226,40 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
     try {
       await Clipboard.setString(couponCode);
       
-      // Show snackbar instead of alert
-      Snackbar.show({
-        text: `🎉 Coupon "${couponCode}" copied! Get ${selectedCoupon?.discount}% OFF`,
-        duration: Snackbar.LENGTH_LONG,
-        backgroundColor: '#4caf50',
-        textColor: '#ffffff',
-        action: {
-          text: 'USE NOW',
-          textColor: '#FFD700',
-          onPress: () => {
-            if (onCouponApplied) {
-              onCouponApplied(couponCode);
-            }
+      runAfterFrame(() => {
+        if (!isMounted.current) return;
+        
+        Snackbar.show({
+          text: `🎉 Coupon "${couponCode}" copied! Get ${selectedCoupon?.discount}% OFF`,
+          duration: Snackbar.LENGTH_LONG,
+          backgroundColor: '#4caf50',
+          textColor: '#ffffff',
+          action: {
+            text: 'USE NOW',
+            textColor: '#FFD700',
+            onPress: () => {
+              if (onCouponApplied && isMounted.current) {
+                onCouponApplied(couponCode);
+              }
+            },
           },
-        },
+        });
       });
-      
-      if (onCouponApplied) {
+
+      if (onCouponApplied && isMounted.current) {
         onCouponApplied(couponCode);
       }
       closeModal();
     } catch (error) {
-      Snackbar.show({
-        text: '❌ Failed to copy coupon. Please try again!',
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: '#f44336',
-        textColor: '#ffffff',
+      runAfterFrame(() => {
+        if (!isMounted.current) return;
+        
+        Snackbar.show({
+          text: '❌ Failed to copy coupon. Please try again!',
+          duration: Snackbar.LENGTH_SHORT,
+          backgroundColor: '#f44336',
+          textColor: '#ffffff',
+        });
       });
     }
   };
@@ -216,6 +284,8 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
 
   // Switch between coupons
   const switchToCoupon = (coupon: Coupon) => {
+    if (!isMounted.current) return;
+    
     // Animate switch
     Animated.sequence([
       Animated.timing(switchAnim, {
@@ -231,13 +301,16 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
     ]).start();
     
     setSelectedCoupon(coupon);
-    
-    // Show snackbar on switch
-    Snackbar.show({
-      text: `Switched to ${coupon.discount}% OFF coupon`,
-      duration: Snackbar.LENGTH_SHORT,
-      backgroundColor: '#0a2a66ff',
-      textColor: '#ffffff',
+
+    runAfterFrame(() => {
+      if (!isMounted.current) return;
+      
+      Snackbar.show({
+        text: `Switched to ${coupon.discount}% OFF coupon`,
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: BRAND.accent,
+        textColor: '#ffffff',
+      });
     });
   };
 
@@ -255,7 +328,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
       >
         <Animated.View style={[styles.bannerContainer, { transform: [{ scale: pulseAnim }] }]}>
           <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
+            colors={[...GRADIENTS.bookingHeader]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.bannerGradient}
@@ -336,7 +409,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
                         >
                           <LinearGradient
                             colors={selectedCoupon?.id === coupon.id 
-                              ? ["#0a2a66ff", "#004aadff"] 
+                              ? [...GRADIENTS.bookingHeader] 
                               : ["#f0f0f0", "#e0e0e0"]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
@@ -403,21 +476,21 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
                     <Text style={styles.sectionTitle}>📋 Offer Details</Text>
                     
                     <View style={styles.detailRow}>
-                      <Icon name="info" size={20} color="#0a2a66ff" />
+                      <Icon name="info" size={20} color={BRAND.accent} />
                       <Text style={styles.detailText}>
                         {selectedCoupon?.description}
                       </Text>
                     </View>
                     
                     <View style={styles.detailRow}>
-                      <Icon name="attach-money" size={20} color="#0a2a66ff" />
+                      <Icon name="attach-money" size={20} color={BRAND.accent} />
                       <Text style={styles.detailText}>
                         Minimum Order: ₹{selectedCoupon?.minAmount}
                       </Text>
                     </View>
                     
                     <View style={styles.detailRow}>
-                      <Icon name="event" size={20} color="#0a2a66ff" />
+                      <Icon name="event" size={20} color={BRAND.accent} />
                       <Text style={styles.detailText}>
                         Valid Till: {selectedCoupon && formatDate(selectedCoupon.validUntil)}
                       </Text>
@@ -463,7 +536,7 @@ const BroadcastMessage: React.FC<BroadcastMessageProps> = ({ onCouponApplied }) 
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={["#0a2a66ff", "#004aadff"]}
+                      colors={[...GRADIENTS.bookingHeader]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.applyGradient}
@@ -608,7 +681,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   switchItemActive: {
-    shadowColor: '#0a2a66ff',
+    shadowColor: BRAND.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -648,7 +721,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   switchCodeActive: {
-    color: '#0a2a66ff',
+    color: BRAND.accent,
   },
   switchMin: {
     fontSize: 10,
@@ -656,7 +729,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   switchMinActive: {
-    color: '#004aadff',
+    color: '#4f8ff7',
   },
 
   modalScrollContent: {
@@ -666,7 +739,7 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#0a2a66ff',
+    backgroundColor: BRAND.accent,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -721,7 +794,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#0a2a66ff',
+    color: BRAND.accent,
     marginBottom: 12,
   },
   detailRow: {
@@ -751,7 +824,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#004aadff',
+    backgroundColor: '#4f8ff7',
     marginRight: 10,
   },
   termText: {

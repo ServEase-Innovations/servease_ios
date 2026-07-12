@@ -24,6 +24,8 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
   onLinkPress,
   initialValues = { keyFacts: false, terms: false, privacy: false },
 }) => {
+  console.log('🟡 TermsCheckboxes rendered, onLinkPress:', typeof onLinkPress, onLinkPress);
+  
   const [checkAll, setCheckAll] = useState(false);
   const [keyFacts, setKeyFacts] = useState(initialValues.keyFacts);
   const [terms, setTerms] = useState(initialValues.terms);
@@ -121,64 +123,82 @@ export const TermsCheckboxes: React.FC<TermsCheckboxesProps> = ({
       <View style={styles.divider} />
 
       {/* Key Facts Statement - Individual checkbox */}
-      <TouchableOpacity
-        style={styles.checkboxRow}
-        onPress={() => handleIndividualCheck(setKeyFacts, keyFacts, 'keyFacts')}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.checkbox, keyFacts && styles.checkboxChecked]}>
-          {keyFacts && <Icon name="check" size={18} color="#fff" />}
-        </View>
-        <Text style={styles.checkboxLabel}>
-          I agree to the{' '}
-          <Text
-            style={styles.linkText}
-            onPress={() => onLinkPress('keyfacts')}
+      <View style={styles.checkboxRow}>
+        <TouchableOpacity
+          onPress={() => handleIndividualCheck(setKeyFacts, keyFacts, 'keyFacts')}
+          activeOpacity={0.7}
+          style={styles.checkboxTouchable}
+        >
+          <View style={[styles.checkbox, keyFacts && styles.checkboxChecked]}>
+            {keyFacts && <Icon name="check" size={18} color="#fff" />}
+          </View>
+        </TouchableOpacity>
+        <View style={styles.labelContainer}>
+          <Text style={styles.checkboxLabel}>I agree to the </Text>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('🟢 Key Facts link pressed');
+              onLinkPress('keyfacts');
+              console.log('🟢 onLinkPress called with keyfacts');
+            }} 
+            activeOpacity={0.7}
           >
-            ServEaso Key Facts Statement
-          </Text>
-        </Text>
-      </TouchableOpacity>
+            <Text style={styles.linkText}>ServEaso Key Facts Statement</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Terms and Conditions - Individual checkbox */}
-      <TouchableOpacity
-        style={styles.checkboxRow}
-        onPress={() => handleIndividualCheck(setTerms, terms, 'terms')}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.checkbox, terms && styles.checkboxChecked]}>
-          {terms && <Icon name="check" size={18} color="#fff" />}
-        </View>
-        <Text style={styles.checkboxLabel}>
-          I agree to the{' '}
-          <Text
-            style={styles.linkText}
-            onPress={() => onLinkPress('terms')}
+      <View style={styles.checkboxRow}>
+        <TouchableOpacity
+          onPress={() => handleIndividualCheck(setTerms, terms, 'terms')}
+          activeOpacity={0.7}
+          style={styles.checkboxTouchable}
+        >
+          <View style={[styles.checkbox, terms && styles.checkboxChecked]}>
+            {terms && <Icon name="check" size={18} color="#fff" />}
+          </View>
+        </TouchableOpacity>
+        <View style={styles.labelContainer}>
+          <Text style={styles.checkboxLabel}>I agree to the </Text>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('🟢 Terms link pressed');
+              onLinkPress('terms');
+              console.log('🟢 onLinkPress called with terms');
+            }} 
+            activeOpacity={0.7}
           >
-            ServEaso Terms and Conditions
-          </Text>
-        </Text>
-      </TouchableOpacity>
+            <Text style={styles.linkText}>ServEaso Terms and Conditions</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Privacy Statement - Individual checkbox */}
-      <TouchableOpacity
-        style={styles.checkboxRow}
-        onPress={() => handleIndividualCheck(setPrivacy, privacy, 'privacy')}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.checkbox, privacy && styles.checkboxChecked]}>
-          {privacy && <Icon name="check" size={18} color="#fff" />}
-        </View>
-        <Text style={styles.checkboxLabel}>
-          I agree to the{' '}
-          <Text
-            style={styles.linkText}
-            onPress={() => onLinkPress('privacy')}
+      <View style={styles.checkboxRow}>
+        <TouchableOpacity
+          onPress={() => handleIndividualCheck(setPrivacy, privacy, 'privacy')}
+          activeOpacity={0.7}
+          style={styles.checkboxTouchable}
+        >
+          <View style={[styles.checkbox, privacy && styles.checkboxChecked]}>
+            {privacy && <Icon name="check" size={18} color="#fff" />}
+          </View>
+        </TouchableOpacity>
+        <View style={styles.labelContainer}>
+          <Text style={styles.checkboxLabel}>I agree to the </Text>
+          <TouchableOpacity 
+            onPress={() => {
+              console.log('🟢 Privacy link pressed');
+              onLinkPress('privacy');
+              console.log('🟢 onLinkPress called with privacy');
+            }} 
+            activeOpacity={0.7}
           >
-            ServEaso Privacy Statement
-          </Text>
-        </Text>
-      </TouchableOpacity>
+            <Text style={styles.linkText}>ServEaso Privacy Statement</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 };
@@ -204,13 +224,25 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     paddingVertical: 4,
   },
+  checkboxTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  checkboxTouchable: {
+    marginRight: 12,
+  },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 4,
     borderWidth: 2,
     borderColor: '#1976d2',
-    marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },

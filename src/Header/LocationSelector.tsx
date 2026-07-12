@@ -17,6 +17,8 @@ import {
   ScrollView,
   Animated,
   TouchableWithoutFeedback,
+  Pressable,
+  StatusBar,
 } from "react-native";
 import axios from "axios";
 import { keys } from "../env";
@@ -31,13 +33,68 @@ import { useDispatch, useSelector } from "react-redux";
 import { add } from "../features/userSlice";
 import { addLocation } from "../features/geoLocationSlice";
 import { useAppUser } from "../context/AppUserContext";
+import { resolveCustomerId } from "../services/couponService";
+import preferenceInstance from "../services/preferenceInstance";
+import {
+  formatServiceAddressFromGeoLocation,
+  normalizeGeoLocationPayload,
+  resolveLocationLat,
+  resolveLocationLng,
+} from "../utils/bookingLocation";
 import LinearGradient from "react-native-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { BRAND, GRADIENTS, BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 import { useTranslation } from 'react-i18next';
 
 Geocoder.init(keys.api_key);
 
-const { width } = Dimensions.get("window");
+const { width, height: WINDOW_HEIGHT } = Dimensions.get("window");
+const MAP_PREVIEW_HEIGHT = Math.min(260, Math.max(200, Math.round(WINDOW_HEIGHT * 0.28)));
+
+function isCoordinateLike(value?: string): boolean {
+  if (!value) return false;
+  const s = value.trim();
+  return (
+    /^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(s) ||
+    /^-?\d+\.\d{4,}$/.test(s)
+  );
+}
+
+function shortenAddress(address: string, maxParts = 2): string {
+  const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= maxParts) return parts.join(", ");
+  return `${parts.slice(0, maxParts).join(", ")}…`;
+}
+
+function getSavedLocationsList(pref: any): any[] {
+  if (!pref) return [];
+  if (Array.isArray(pref) && pref[0]?.savedLocations) return pref[0].savedLocations;
+  if (pref.savedLocations && Array.isArray(pref.savedLocations)) return pref.savedLocations;
+  return [];
+}
+
+async function resolveAddressFromCoords(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await Geocoder.from(lat, lng);
+    const addr = res.results?.[0]?.formatted_address;
+    if (addr) return addr;
+  } catch {
+    /* try nominatim */
+  }
+  try {
+    const res = await axios.get(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      {
+        headers: { "User-Agent": "ServeasoApp", "Accept-Language": "en" },
+      }
+    );
+    if (res.data?.display_name) return res.data.display_name;
+  } catch {
+    /* fall through */
+  }
+  return "";
+}
 
 interface LocationData {
   formatted_address: string;
@@ -58,6 +115,10 @@ interface LocationSelectorProps {
   onLocationChange?: (location: string, locationData?: LocationData) => void;
   currentLocationText?: string;
   closeDropdown?: boolean;
+  locationPreferencesReady?: boolean;
+  isUserLoading?: boolean;
+  /** `hero` — light text on dark home header; `chrome` — two-line location on app chrome bar */
+  variant?: "default" | "hero" | "chrome";
 }
 
 const LocationSelector: React.FC<LocationSelectorProps> = ({
@@ -66,20 +127,31 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   onLocationChange,
   currentLocationText = "",
   closeDropdown = false,
+  locationPreferencesReady = false,
+  isUserLoading = false,
+  variant = "default",
 }) => {
   const { t } = useTranslation();
   const { colors, fontSize, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
   
   const dispatch = useDispatch();
   const locationDispatch = useDispatch();
   const { appUser } = useAppUser();
+  const geoLocationFromStore = useSelector(
+    (state: { geoLocation?: { value?: unknown; updatedAt?: number } }) =>
+      state?.geoLocation?.value
+  );
+  const geoLocationUpdatedAt = useSelector(
+    (state: { geoLocation?: { value?: unknown; updatedAt?: number } }) =>
+      state?.geoLocation?.updatedAt ?? 0
+  );
   
   const [location, setLocation] = useState(currentLocationText || "");
   const [locationAs, setLocationAs] = useState("");
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([
     { name: t('locationSelector.detectLocation'), index: 1 },
-    { name: t('locationSelector.addAddress'), index: 2 },
   ]);
   const [dataFromMap, setDataFromMap] = useState<LocationData | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -93,7 +165,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
   const [permissionDeniedPermanently, setPermissionDeniedPermanently] = useState(false);
-  const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
+  const locationRequestIdRef = useRef(0);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [selectedSaveOption, setSelectedSaveOption] = useState<string | null>(null);
@@ -114,7 +186,25 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const [locationMethod, setLocationMethod] = useState<'auto' | 'manual' | null>(null);
 
-  const isAuthenticated = appUser && appUser.customerid;
+  const userPickedLocationRef = useRef(false);
+  const triedGpsForCustomerRef = useRef(false);
+  const guestGpsStartedRef = useRef(false);
+
+  const customerId = resolveCustomerId(appUser);
+  const isAuthenticated = !!customerId;
+  const isCustomer =
+    isAuthenticated && String(appUser?.role || "").toUpperCase() === "CUSTOMER";
+
+  const headerDisplayText = (() => {
+    const fromStore = formatServiceAddressFromGeoLocation(geoLocationFromStore);
+    const raw = fromStore || address || location || currentLocationText;
+    const waitingForSavedLocation = !!customerId && !locationPreferencesReady;
+    if ((loading || isUserLoading || waitingForSavedLocation) && !raw) {
+      return t("locationSelector.gettingYourLocation");
+    }
+    if (!raw || isCoordinateLike(raw)) return t("locationSelector.tapToChooseLocation");
+    return shortenAddress(raw, variant === "chrome" ? 2 : 3);
+  })();
 
   // Close dropdown when parent triggers it
   useEffect(() => {
@@ -123,7 +213,42 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   }, [closeDropdown]);
 
-  // Animate dropdown
+  useEffect(() => {
+    if (!open && !OpenSaveOptionForSave) return;
+    StatusBar.setBarStyle("light-content", true);
+    if (Platform.OS === "android") {
+      StatusBar.setBackgroundColor(BRAND.bookingNavy, true);
+    }
+  }, [open, OpenSaveOptionForSave]);
+
+  useEffect(() => {
+    const saved = getSavedLocationsList(userPreference);
+    const base = [{ name: t("locationSelector.detectLocation"), index: 1 }];
+    if (isCustomer) {
+      base.push({ name: t("locationSelector.addAddress"), index: 2 });
+    }
+    const savedSuggestions = saved.map((loc: { name: string }, i: number) => ({
+      name: loc.name,
+      index: i + (isCustomer ? 3 : 2),
+    }));
+    setSuggestions([...base, ...savedSuggestions]);
+  }, [userPreference, t, isCustomer]);
+
+  // Keep header label in sync when location changes elsewhere (e.g. checkout).
+  useEffect(() => {
+    if (!geoLocationUpdatedAt) return;
+    const display = formatServiceAddressFromGeoLocation(geoLocationFromStore);
+    if (!display) {
+      setLocation("");
+      setAddress("");
+      userPickedLocationRef.current = false;
+      return;
+    }
+    setLocation(display);
+    setAddress(display);
+    userPickedLocationRef.current = true;
+  }, [geoLocationFromStore, geoLocationUpdatedAt]);
+
   useEffect(() => {
     if (showDropdown) {
       Animated.spring(dropdownAnimation, {
@@ -208,10 +333,35 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const fontSizes = getFontSizes();
+  const activeLocationMethod = locationMethod ?? "auto";
 
   const isValidCoordinates = (lat: number | null, lng: number | null): boolean => {
     return lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0;
   };
+
+  const hydrateCoordsFromStore = () => {
+    const storedLat = resolveLocationLat(geoLocationFromStore);
+    const storedLng = resolveLocationLng(geoLocationFromStore);
+    if (isValidCoordinates(storedLat, storedLng)) {
+      setLatitude(storedLat);
+      setLongitude(storedLng);
+      const storedAddr = formatServiceAddressFromGeoLocation(geoLocationFromStore);
+      if (storedAddr) {
+        setAddress(storedAddr);
+      }
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    const lat = resolveLocationLat(geoLocationFromStore);
+    const lng = resolveLocationLng(geoLocationFromStore);
+    if (isValidCoordinates(lat, lng)) {
+      setLatitude(lat);
+      setLongitude(lng);
+    }
+  }, [geoLocationFromStore, geoLocationUpdatedAt]);
 
   const createLocationData = (lat: number, lng: number, addr: string): LocationData => {
     return {
@@ -238,24 +388,62 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     };
   };
 
-  const updateLocationInStore = useCallback((lat: number, lng: number, addr: string) => {
+  const updateLocationInStore = useCallback((lat: number, lng: number, addr: string, pickedByUser = false) => {
     console.log("📍 Updating location in Redux:", { lat, lng, addr });
     
     const locationData = createLocationData(lat, lng, addr);
+    const normalized = normalizeGeoLocationPayload(locationData) ?? locationData;
     
-    dispatch(add(locationData));
-    locationDispatch(addLocation(locationData));
+    dispatch(add(normalized));
+    locationDispatch(addLocation(normalized));
     
-    setDataFromMap(locationData);
+    setDataFromMap(normalized as LocationData);
     setLocation(addr);
     setAddress(addr);
-    
-    if (onLocationChange) {
-      onLocationChange(addr, locationData);
+
+    if (pickedByUser) {
+      userPickedLocationRef.current = true;
     }
     
-    return locationData;
+    if (onLocationChange) {
+      onLocationChange(addr, normalized as LocationData);
+    }
+    
+    return normalized as LocationData;
   }, [dispatch, locationDispatch, onLocationChange]);
+
+  const applySavedLocationSelection = useCallback((savedLocation: any) => {
+    const locationData = savedLocation?.location;
+    if (!locationData) return;
+
+    let displayAddress = savedLocation.name ? `${savedLocation.name} location` : t("locationSelector.locationNotFound");
+
+    if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
+      displayAddress = locationData.address[0].formatted_address;
+    } else if (locationData.formatted_address) {
+      displayAddress = locationData.formatted_address;
+    } else {
+      const formatted = formatServiceAddressFromGeoLocation(locationData);
+      if (formatted) displayAddress = formatted;
+    }
+
+    userPickedLocationRef.current = true;
+    setLocation(displayAddress);
+    setAddress(displayAddress);
+
+    const normalized = normalizeGeoLocationPayload(locationData) ?? locationData;
+    dispatch(add(normalized));
+    locationDispatch(addLocation(normalized));
+    setDataFromMap(normalized as LocationData);
+    onLocationChange?.(displayAddress, normalized as LocationData);
+
+    const lat = resolveLocationLat(locationData);
+    const lng = resolveLocationLng(locationData);
+    if (lat != null && lng != null) {
+      setLatitude(lat);
+      setLongitude(lng);
+    }
+  }, [dispatch, locationDispatch, onLocationChange, t]);
 
   const searchLocation = async (query: string) => {
     if (!query || query.trim().length < 3) {
@@ -318,19 +506,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const checkLocationPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === "android") {
-        const hasPermission = await PermissionsAndroid.check(
+        return await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
         );
-
-        if (hasPermission) {
-          getCurrentLocation();
-          return true;
-        }
-        return false;
-      } else {
-        getCurrentLocation();
-        return true;
       }
+      return true;
     } catch (err) {
       console.warn("Error checking location permission:", err);
       return false;
@@ -357,8 +537,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
 
     if (hasRequestedPermission) {
-      getCurrentLocation();
-      return true;
+      return checkLocationPermission();
     }
 
     try {
@@ -377,7 +556,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         setHasRequestedPermission(true);
 
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          getCurrentLocation();
           return true;
         } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
           setPermissionDeniedPermanently(true);
@@ -402,7 +580,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           return false;
         }
       } else {
-        getCurrentLocation();
         return true;
       }
     } catch (err) {
@@ -477,94 +654,137 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   };
 
-  const getCurrentLocation = useCallback(() => {
-    if (locationWatchId !== null) {
-      Geolocation.clearWatch(locationWatchId);
+  const handleLocationError = useCallback((error: { code: number; PERMISSION_DENIED: number; POSITION_UNAVAILABLE: number; TIMEOUT: number }, requestId: number) => {
+    if (requestId !== locationRequestIdRef.current) {
+      return;
     }
 
-    const watchId = Geolocation.watchPosition(
-      async (position) => {
-        if (locationWatchId !== null) {
-          Geolocation.clearWatch(locationWatchId);
-          setLocationWatchId(null);
-        }
+    console.error("Location error:", error);
 
-        const { latitude, longitude } = position.coords;
-        
-        if (!isValidCoordinates(latitude, longitude)) {
-          console.warn("Invalid coordinates received:", { latitude, longitude });
-          setLoading(false);
-          setShowGPSButton(true);
+    let errorMessage = t('locationSelector.unableToFetchLocation');
+
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        errorMessage = t('locationSelector.permissionDeniedMessage');
+        break;
+      case error.POSITION_UNAVAILABLE:
+        errorMessage = t('locationSelector.positionUnavailable');
+        break;
+      case error.TIMEOUT:
+        errorMessage = t('locationSelector.timeoutMessage');
+        break;
+    }
+
+    Alert.alert(t('common.error'), errorMessage);
+    setLoading(false);
+    setShowGPSButton(true);
+  }, [t]);
+
+  const applyPositionReading = useCallback(async (
+    latitude: number,
+    longitude: number,
+    requestId: number
+  ) => {
+    if (requestId !== locationRequestIdRef.current || userPickedLocationRef.current) {
+      setLoading(false);
+      return;
+    }
+
+    if (!isValidCoordinates(latitude, longitude)) {
+      console.warn("Invalid coordinates received:", { latitude, longitude });
+      setLoading(false);
+      setShowGPSButton(true);
+      return;
+    }
+
+    setLatitude(latitude);
+    setLongitude(longitude);
+    setLocationMethod('auto');
+    setLoading(false);
+    setShowGPSButton(false);
+
+    const resolved = await resolveAddressFromCoords(latitude, longitude);
+    if (requestId !== locationRequestIdRef.current || userPickedLocationRef.current) {
+      return;
+    }
+
+    const fallbackAddress = resolved || t("locationSelector.tapToChooseLocation");
+    setLocation(resolved ? shortenAddress(resolved, 3) : fallbackAddress);
+    setAddress(fallbackAddress);
+    if (resolved) {
+      updateLocationInStore(latitude, longitude, resolved);
+    }
+  }, [t, updateLocationInStore]);
+
+  const getCurrentLocation = useCallback(() => {
+    const requestId = ++locationRequestIdRef.current;
+
+    const onSuccess = (position: { coords: { latitude: number; longitude: number } }) => {
+      void applyPositionReading(
+        position.coords.latitude,
+        position.coords.longitude,
+        requestId
+      );
+    };
+
+    const onError = (error: { code: number; PERMISSION_DENIED: number; POSITION_UNAVAILABLE: number; TIMEOUT: number }) => {
+      handleLocationError(error, requestId);
+    };
+
+    const requestPosition = (
+      options: {
+        enableHighAccuracy: boolean;
+        timeout: number;
+        maximumAge: number;
+      },
+      fallbackOnError?: () => void
+    ) => {
+      try {
+        Geolocation.getCurrentPosition(
+          onSuccess,
+          fallbackOnError ?? onError,
+          options
+        );
+      } catch (err) {
+        console.warn("getCurrentPosition invoke failed:", err);
+        if (fallbackOnError) {
+          fallbackOnError();
           return;
         }
-        
-        setLatitude(latitude);
-        setLongitude(longitude);
-
-        try {
-          const res = await axios.get(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-            {
-              headers: {
-                "User-Agent": "ReactNativeApp",
-                "Accept-Language": "en",
-              },
-            }
-          );
-
-          if (res.data?.display_name) {
-            const newLocation = res.data.display_name;
-            setLocation(newLocation);
-            setAddress(newLocation);
-            setLocationMethod('auto');
-            
-            updateLocationInStore(latitude, longitude, newLocation);
-          }
-        } catch (error) {
-          console.error("Error getting address:", error);
-          const fallbackAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-          updateLocationInStore(latitude, longitude, fallbackAddress);
-        } finally {
-          setLoading(false);
-          setShowGPSButton(false);
-        }
-      },
-      (error) => {
-        console.error("Location error:", error);
-
-        if (locationWatchId !== null) {
-          Geolocation.clearWatch(locationWatchId);
-          setLocationWatchId(null);
-        }
-
-        let errorMessage = t('locationSelector.unableToFetchLocation');
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = t('locationSelector.permissionDeniedMessage');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = t('locationSelector.positionUnavailable');
-            break;
-          case error.TIMEOUT:
-            errorMessage = t('locationSelector.timeoutMessage');
-            break;
-        }
-
-        Alert.alert(t('common.error'), errorMessage);
-        setLoading(false);
-        setShowGPSButton(true);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 10000,
-        distanceFilter: 10,
+        onError({
+          code: 2,
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+        });
       }
-    );
+    };
 
-    setLocationWatchId(watchId);
-  }, [updateLocationInStore]);
+    if (Platform.OS === "android") {
+      // Network/cached fix first, then GPS — avoids RNFusedLocation + Play Services 21 crash.
+      requestPosition(
+        {
+          enableHighAccuracy: false,
+          timeout: 12000,
+          maximumAge: 300000,
+        },
+        () => {
+          requestPosition({
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 10000,
+          });
+        }
+      );
+      return;
+    }
+
+    requestPosition({
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 10000,
+    });
+  }, [applyPositionReading, handleLocationError]);
 
   const fetchLocation = () => {
     setLoading(true);
@@ -572,7 +792,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     getCurrentLocation();
   };
 
-  const fetchLocationWithChecks = async () => {
+  const fetchLocationWithChecks = async (options?: { promptHighAccuracy?: boolean }) => {
     setIsCheckingLocation(true);
     setLoading(true);
     setLocationMethod('auto');
@@ -610,7 +830,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         return;
       }
 
-      await checkLocationAccuracy();
+      if (options?.promptHighAccuracy) {
+        await checkLocationAccuracy();
+      }
       fetchLocation();
     } catch (error) {
       console.warn("Location fetch error:", error);
@@ -655,7 +877,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         })
         .catch(console.error);
     } else {
-      fetchLocationWithChecks();
+      fetchLocationWithChecks({ promptHighAccuracy: true });
     }
   };
 
@@ -664,92 +886,42 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       setLoading(false);
       setIsCheckingLocation(false);
       setShowGPSButton(false);
-      setLocationMethod(null);
-      if (!isAuthenticated) {
-        Alert.alert(
-          t('common.authenticationRequired'),
-          t('locationSelector.loginToSaveLocations'),
-          [
-            { text: t('common.ok'), style: "default" }
-          ]
-        );
+      if (!isCustomer) {
         return;
       }
+      setLocationMethod('auto');
       setOpen(true);
       setIsPinSelected(false);
       setSelectedPinLocation(null);
       setSearchQuery("");
       setSearchResults([]);
       setShowSearchResults(false);
+      hydrateCoordsFromStore();
+      fetchLocationWithChecks({ promptHighAccuracy: false });
     } else if (newValue === t('locationSelector.detectLocation')) {
-      fetchLocationWithChecks();
+      userPickedLocationRef.current = false;
+      triedGpsForCustomerRef.current = true;
+      guestGpsStartedRef.current = true;
+      setLocationMethod('auto');
+      setOpen(true);
+      hydrateCoordsFromStore();
+      fetchLocationWithChecks({ promptHighAccuracy: true });
     } else {
-      if (!userPreference || (Array.isArray(userPreference) && userPreference.length === 0)) {
-        Alert.alert(t('common.error'), t('locationSelector.noSavedLocations'));
+      const savedLocations = getSavedLocationsList(userPreference);
+
+      if (savedLocations.length === 0) {
+        Alert.alert(t("common.error"), t("locationSelector.noSavedLocations"));
         return;
       }
-      
-      let savedLocations = [];
-      if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
-        savedLocations = userPreference[0].savedLocations;
-      } else if (userPreference?.savedLocations) {
-        savedLocations = userPreference.savedLocations;
-      }
-      
+
       const savedLocation = savedLocations.find(
         (location: any) => location.name === newValue
       ) || savedLocations.find(
         (location: any) => location.name?.toLowerCase() === newValue.toLowerCase()
       );
-      
-      if (savedLocation?.location) {
-        let addressToSet = "";
-        let lat = null;
-        let lng = null;
-        let locationData = savedLocation.location;
-        
-        if (locationData.address && Array.isArray(locationData.address) && locationData.address[0]?.formatted_address) {
-          addressToSet = locationData.address[0].formatted_address;
-          if (locationData.address[0]?.geometry?.location) {
-            lat = locationData.address[0].geometry.location.lat;
-            lng = locationData.address[0].geometry.location.lng;
-          }
-        } else if (locationData.formatted_address) {
-          addressToSet = locationData.formatted_address;
-          if (locationData.geometry?.location) {
-            lat = locationData.geometry.location.lat;
-            lng = locationData.geometry.location.lng;
-          }
-        } else if (typeof locationData === 'string') {
-          addressToSet = locationData;
-        }
-        
-        if (addressToSet && lat && lng) {
-          setLocation(addressToSet);
-          setAddress(addressToSet);
-          setLatitude(lat);
-          setLongitude(lng);
-          
-          updateLocationInStore(lat, lng, addressToSet);
-        } else if (addressToSet) {
-          setLocation(addressToSet);
-          setAddress(addressToSet);
-          Geocoder.from(addressToSet)
-            .then(json => {
-              const location = json.results[0].geometry.location;
-              if (location) {
-                setLatitude(location.lat);
-                setLongitude(location.lng);
-                updateLocationInStore(location.lat, location.lng, addressToSet);
-              }
-            })
-            .catch(error => {
-              console.error("Geocoding error:", error);
-              Alert.alert(t('common.error'), t('locationSelector.couldNotRetrieveAddress'));
-            });
-        } else {
-          Alert.alert(t('common.error'), t('locationSelector.couldNotRetrieveAddress'));
-        }
+
+      if (savedLocation) {
+        applySavedLocationSelection(savedLocation);
       } else {
         Alert.alert(t('common.notFound'), t('locationSelector.locationNotFound'));
       }
@@ -787,6 +959,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
     
     setOpen(false);
+    userPickedLocationRef.current = true;
     
     if (!isAuthenticated) {
       Alert.alert(
@@ -837,7 +1010,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       throw new Error(t('errors.authenticationRequired'));
     }
 
-    if (!appUser.customerid) {
+    if (!customerId) {
       throw new Error(t('errors.profileNotLoaded'));
     }
 
@@ -876,20 +1049,21 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
 
     const payload = {
-      customerId: appUser.customerid,
+      customerId,
       savedLocations: updatedLocations,
     };
     
-    const response = await axios.put(
-      `https://utils-ndt3.onrender.com/user-settings/${appUser.customerid}`,
+    const response = await preferenceInstance.put(
+      `/api/user-settings/${customerId}`,
       payload
     );
 
     if (response.status === 200 || response.status === 201) {
-      const updatedUserPreference = {
-        customerId: appUser.customerid,
-        savedLocations: updatedLocations
-      };
+      const updatedUserPreference = [{
+        ...(Array.isArray(userPreference) ? userPreference[0] : userPreference),
+        customerId,
+        savedLocations: updatedLocations,
+      }];
       
       setUserPreference(updatedUserPreference);
       
@@ -923,42 +1097,42 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   useEffect(() => {
-    fetchLocationWithChecks();
-    
-    return () => {
-      if (locationWatchId !== null) {
-        Geolocation.clearWatch(locationWatchId);
+    if (isUserLoading) {
+      return;
+    }
+
+    const startGps = () => {
+      if (customerId) {
+        if (!locationPreferencesReady) {
+          return;
+        }
+
+        if (userPickedLocationRef.current) {
+          return;
+        }
+
+        if (!triedGpsForCustomerRef.current) {
+          triedGpsForCustomerRef.current = true;
+          fetchLocationWithChecks({ promptHighAccuracy: false });
+        }
+        return;
+      }
+
+      if (!guestGpsStartedRef.current && !userPickedLocationRef.current) {
+        guestGpsStartedRef.current = true;
+        fetchLocationWithChecks({ promptHighAccuracy: false });
       }
     };
-  }, []);
 
-  const updateSuggestions = () => {
-    const baseSuggestions = [
-      { name: t('locationSelector.detectLocation'), index: 1 },
-      { name: t('locationSelector.addAddress'), index: 2 },
-    ];
-
-    let savedLocationSuggestions = [];
-    
-    if (Array.isArray(userPreference) && userPreference[0]?.savedLocations) {
-      savedLocationSuggestions = userPreference[0].savedLocations.map((loc: any, i: number) => ({
-        name: loc.name,
-        index: i + 3,
-      }));
-    } else if (userPreference?.savedLocations) {
-      savedLocationSuggestions = userPreference.savedLocations.map((loc: any, i: number) => ({
-        name: loc.name,
-        index: i + 3,
-      }));
-    }
-    
-    const finalSuggestions = [...baseSuggestions, ...savedLocationSuggestions];
-    setSuggestions(finalSuggestions);
-  };
-
-  useEffect(() => {
-    updateSuggestions();
-  }, [userPreference]);
+    // Defer until the Android activity is attached before invoking location APIs.
+    const delayMs = Platform.OS === "android" ? 500 : 0;
+    const timer = setTimeout(startGps, delayMs);
+    return () => clearTimeout(timer);
+  }, [
+    customerId,
+    isUserLoading,
+    locationPreferencesReady,
+  ]);
 
   const dropdownScale = dropdownAnimation.interpolate({
     inputRange: [0, 1],
@@ -971,8 +1145,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <TouchableOpacity
           style={[
             styles.methodCard,
-            locationMethod === 'auto' && styles.methodCardActive,
-            { backgroundColor: colors.surface, borderColor: colors.border }
+            activeLocationMethod === 'auto' && styles.methodCardActive,
+            {
+              backgroundColor: activeLocationMethod === 'auto' ? colors.infoLight : colors.surface,
+              borderColor: activeLocationMethod === 'auto' ? colors.primary : colors.border,
+            },
           ]}
           onPress={() => {
             setLocationMethod('auto');
@@ -980,23 +1157,23 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           }}
         >
           <View style={styles.methodIconContainer}>
-            <MaterialIcon 
-              name="my-location" 
-              size={fontSizes.iconSize} 
-              color={locationMethod === 'auto' ? colors.primary : colors.textSecondary} 
+            <MaterialIcon
+              name="my-location"
+              size={fontSizes.iconSize}
+              color={activeLocationMethod === 'auto' ? colors.primary : colors.textSecondary}
             />
           </View>
           <Text style={[
             styles.methodTitle,
             { fontSize: fontSizes.methodTitle, color: colors.text },
-            locationMethod === 'auto' && { color: colors.primary }
+            activeLocationMethod === 'auto' && { color: colors.primary }
           ]}>
             {t('locationSelector.autoDetect')}
           </Text>
           <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
             {t('locationSelector.useYourCurrentLocation')}
           </Text>
-          {locationMethod === 'auto' && (
+          {activeLocationMethod === 'auto' && (
             <View style={styles.activeIndicator}>
               <MaterialIcon name="check-circle" size={20} color={colors.primary} />
             </View>
@@ -1006,29 +1183,32 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         <TouchableOpacity
           style={[
             styles.methodCard,
-            locationMethod === 'manual' && styles.methodCardActive,
-            { backgroundColor: colors.surface, borderColor: colors.border }
+            activeLocationMethod === 'manual' && styles.methodCardActive,
+            {
+              backgroundColor: activeLocationMethod === 'manual' ? colors.infoLight : colors.surface,
+              borderColor: activeLocationMethod === 'manual' ? colors.primary : colors.border,
+            },
           ]}
           onPress={() => setLocationMethod('manual')}
         >
           <View style={styles.methodIconContainer}>
-            <MaterialIcon 
-              name="search" 
-              size={fontSizes.iconSize} 
-              color={locationMethod === 'manual' ? colors.primary : colors.textSecondary} 
+            <MaterialIcon
+              name="search"
+              size={fontSizes.iconSize}
+              color={activeLocationMethod === 'manual' ? colors.primary : colors.textSecondary}
             />
           </View>
           <Text style={[
             styles.methodTitle,
             { fontSize: fontSizes.methodTitle, color: colors.text },
-            locationMethod === 'manual' && { color: colors.primary }
+            activeLocationMethod === 'manual' && { color: colors.primary }
           ]}>
             {t('locationSelector.searchManually')}
           </Text>
           <Text style={[styles.methodDescription, { fontSize: fontSizes.methodDescription, color: colors.textSecondary }]}>
             {t('locationSelector.searchOrTapOnMap')}
           </Text>
-          {locationMethod === 'manual' && (
+          {activeLocationMethod === 'manual' && (
             <View style={styles.activeIndicator}>
               <MaterialIcon name="check-circle" size={20} color={colors.primary} />
             </View>
@@ -1038,121 +1218,143 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     );
   };
 
+  const renderMapPreview = (
+    regionLat: number | null,
+    regionLng: number | null,
+    options?: {
+      onPress?: (e: any) => void;
+      showUserMarker?: boolean;
+      showPinMarker?: boolean;
+      scrollEnabled?: boolean;
+    }
+  ) => {
+    const hasCoords = isValidCoordinates(regionLat, regionLng);
+    const lat = hasCoords ? regionLat! : 12.9716;
+    const lng = hasCoords ? regionLng! : 77.5946;
+
+    return (
+      <View style={styles.autoMapContainer}>
+        <MapView
+          style={styles.map}
+          region={{
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.008,
+            longitudeDelta: 0.008,
+          }}
+          onPress={options?.onPress}
+          scrollEnabled={options?.scrollEnabled ?? false}
+          zoomEnabled
+          rotateEnabled={false}
+          pitchEnabled={false}
+        >
+          {options?.showUserMarker !== false && hasCoords && (
+            <Marker
+              coordinate={{ latitude: regionLat!, longitude: regionLng! }}
+              title={t('locationSelector.yourCurrentLocation')}
+              pinColor={colors.primary}
+            />
+          )}
+          {options?.showPinMarker && isPinSelected && selectedPinLocation && (
+            <Marker
+              coordinate={selectedPinLocation}
+              title={t('locationSelector.selectedLocation')}
+              pinColor={colors.error}
+            />
+          )}
+        </MapView>
+        {activeLocationMethod === 'auto' && (
+          <TouchableOpacity
+            style={[styles.smallRefreshButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={fetchLocationWithChecks}
+          >
+            <MaterialIcon name="refresh" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   const renderAutoDetectContent = () => {
-    if (isCheckingLocation) {
+    const showLoading = isCheckingLocation || loading;
+
+    if (showGPSButton) {
       return (
-        <View style={styles.statusContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>
-            {t('locationSelector.checkingLocationServices')}
-          </Text>
-        </View>
-      );
-    } else if (loading) {
-      return (
-        <View style={styles.statusContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.statusText, { color: colors.text, fontSize: fontSizes.statusText }]}>
-            {t('locationSelector.gettingYourLocation')}
-          </Text>
-          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
-            {t('locationSelector.thisMayTakeFewSeconds')}
-          </Text>
-        </View>
-      );
-    } else if (showGPSButton) {
-      return (
-        <View style={styles.statusContainer}>
-          <MaterialIcon name="location-off" size={50} color={colors.error} />
-          <Text style={[styles.statusText, { color: colors.error, fontWeight: '600', fontSize: fontSizes.statusText }]}>
-            {t('locationSelector.locationServicesDisabled')}
-          </Text>
-          <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
-            {t('locationSelector.pleaseEnableLocation')}
-          </Text>
+        <View style={styles.autoLocationContent}>
+          <View style={styles.statusContainerCompact}>
+            <MaterialIcon name="location-off" size={44} color={colors.error} />
+            <Text style={[styles.statusText, { color: colors.error, fontWeight: '600', fontSize: fontSizes.statusText }]}>
+              {t('locationSelector.locationServicesDisabled')}
+            </Text>
+            <Text style={[styles.statusText, { fontSize: 14, marginTop: 8, color: colors.textSecondary }]}>
+              {t('locationSelector.pleaseEnableLocation')}
+            </Text>
+          </View>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, width: '100%', height: fontSizes.buttonHeight }]}
+              style={[styles.primaryModalButton, { backgroundColor: colors.primary }]}
               onPress={handleOpenSettings}
             >
               <MaterialIcon name="settings" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-              <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>
+              <Text style={[styles.primaryModalButtonText, { fontSize: fontSizes.buttonText }]}>
                 {t('locationSelector.enableDeviceLocation')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, { marginTop: 12, width: '100%', height: fontSizes.buttonHeight, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
-              onPress={() => {
-                setLocationMethod('manual');
-              }}
+              style={[styles.secondaryModalButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={() => setLocationMethod('manual')}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+              <Text style={[styles.secondaryModalButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
                 {t('locationSelector.switchToManualSearch')}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
       );
-    } else {
-      return (
-        <View style={styles.autoLocationContent}>
-          <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
-            <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
-              {t('locationSelector.yourCurrentLocation')}
-            </Text>
-          </View>
-          
-          <View style={styles.autoMapContainer}>
-            <MapView
-              style={styles.map}
-              region={{
-                latitude: latitude || 37.7749,
-                longitude: longitude || -122.4194,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-            >
-              {latitude && longitude && (
-                <Marker
-                  coordinate={{
-                    latitude: latitude,
-                    longitude: longitude,
-                  }}
-                  title={t('locationSelector.yourCurrentLocation')}
-                  pinColor={colors.primary}
-                />
-              )}
-            </MapView>
-            
-            <TouchableOpacity
-              style={[styles.smallRefreshButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={fetchLocationWithChecks}
-            >
-              <MaterialIcon name="refresh" size={16} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
+    }
 
-          <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
-            <View style={styles.locationInfo}>
-              <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
-              <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
-                {address || t('locationSelector.fetchingLocation')}
+    return (
+      <View style={styles.autoLocationContent}>
+        <View style={[styles.mapInstructions, { backgroundColor: colors.infoLight, borderLeftColor: colors.primary }]}>
+          <Text style={[styles.instructionsText, { color: colors.primary, fontSize: fontSizes.instructionsText }]}>
+            {t('locationSelector.yourCurrentLocation')}
+          </Text>
+        </View>
+
+        <View style={styles.mapPreviewWrap}>
+          {renderMapPreview(latitude, longitude)}
+          {showLoading && (
+            <View style={styles.mapLoadingOverlay}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.mapLoadingText, { color: colors.text, fontSize: fontSizes.statusText }]}>
+                {isCheckingLocation
+                  ? t('locationSelector.checkingLocationServices')
+                  : t('locationSelector.gettingYourLocation')}
               </Text>
             </View>
-            {latitude && longitude && (
-              <View style={styles.coordinatesContainer}>
-                <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-                  Lat: {latitude.toFixed(4)}
-                </Text>
-                <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
-                  Lng: {longitude.toFixed(4)}
-                </Text>
-              </View>
-            )}
-          </View>
+          )}
         </View>
-      );
-    }
+
+        <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
+          <View style={styles.locationInfo}>
+            <MaterialIcon name="location-on" size={fontSizes.iconSize} color={colors.primary} />
+            <Text style={[styles.addressText, { color: colors.text, fontSize: fontSizes.addressText }]} numberOfLines={2}>
+              {address || t('locationSelector.fetchingLocation')}
+            </Text>
+          </View>
+          {isValidCoordinates(latitude, longitude) && (
+            <View style={styles.coordinatesContainer}>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+                Lat: {latitude!.toFixed(4)}
+              </Text>
+              <Text style={[styles.coordinateText, { color: colors.textSecondary, fontSize: fontSizes.coordinateText }]}>
+                Lng: {longitude!.toFixed(4)}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
   };
 
   const renderManualDetectContent = () => {
@@ -1244,37 +1446,11 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           </Text>
         </View>
         
-        <View style={styles.mapContainer}>
-          <MapView
-            style={styles.map}
-            region={{
-              latitude: isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude || 37.7749,
-              longitude: isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude || -122.4194,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            onPress={handleMapPress}
-          >
-            {latitude && longitude && (
-              <Marker
-                coordinate={{
-                  latitude: latitude,
-                  longitude: longitude,
-                }}
-                title={t('locationSelector.yourCurrentLocation')}
-                pinColor={colors.primary}
-              />
-            )}
-            
-            {isPinSelected && selectedPinLocation && (
-              <Marker
-                coordinate={selectedPinLocation}
-                title={t('locationSelector.selectedLocation')}
-                pinColor={colors.error}
-              />
-            )}
-          </MapView>
-        </View>
+        {renderMapPreview(
+          isPinSelected && selectedPinLocation ? selectedPinLocation.latitude : latitude,
+          isPinSelected && selectedPinLocation ? selectedPinLocation.longitude : longitude,
+          { onPress: handleMapPress, showPinMarker: true, scrollEnabled: true }
+        )}
 
         <View style={[styles.locationInfoContainer, { backgroundColor: colors.surface }]}>
           <View style={styles.locationInfo}>
@@ -1311,18 +1487,43 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   };
 
   const renderLocationModalContent = () => {
-    return (
-      <View style={styles.modalContent}>
-        {renderLocationMethodSelector()}
-        
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        
-        {locationMethod === 'auto' && renderAutoDetectContent()}
-        {locationMethod === 'manual' && renderManualDetectContent()}
+    const canConfirm = Boolean(address || selectedPinAddress);
 
-        <View style={styles.buttonGroup}>
+    return (
+      <View style={styles.modalBody}>
+        {activeLocationMethod === 'manual' ? (
+          <>
+            <View style={styles.modalMethodHeader}>
+              {renderLocationMethodSelector()}
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            </View>
+            <View style={styles.modalMethodBody}>{renderManualDetectContent()}</View>
+          </>
+        ) : (
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {renderLocationMethodSelector()}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            {renderAutoDetectContent()}
+          </ScrollView>
+        )}
+
+        <View
+          style={[
+            styles.modalFooter,
+            {
+              borderTopColor: colors.border,
+              backgroundColor: isDarkMode ? colors.card : '#f8fafc',
+              paddingBottom: Math.max(insets.bottom, 14),
+            },
+          ]}
+        >
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, flex: 1, height: fontSizes.buttonHeight }]}
+            style={[styles.cancelModalButton, { borderColor: colors.primary }]}
             onPress={() => {
               setOpen(false);
               setIsPinSelected(false);
@@ -1333,20 +1534,20 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               setLocationMethod(null);
             }}
           >
-            <Text style={[styles.secondaryButtonText, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+            <Text style={[styles.cancelModalButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
               {t('common.cancel')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
-              styles.button, 
-              { backgroundColor: colors.primary, flex: 1, height: fontSizes.buttonHeight },
-              (!address && !selectedPinAddress && !(locationMethod === 'auto' && address)) && { backgroundColor: colors.disabled }
+              styles.confirmModalButton,
+              { backgroundColor: colors.primary },
+              !canConfirm && { backgroundColor: colors.disabled, opacity: 0.6 },
             ]}
             onPress={handleLocationSave}
-            disabled={!address && !selectedPinAddress}
+            disabled={!canConfirm}
           >
-            <Text style={[styles.buttonText, { color: '#ffffff', fontSize: fontSizes.buttonText }]}>
+            <Text style={[styles.confirmModalButtonText, { fontSize: fontSizes.buttonText }]}>
               {t('locationSelector.confirmLocation')}
             </Text>
           </TouchableOpacity>
@@ -1355,59 +1556,116 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     );
   };
 
+  const isChromeVariant = variant === "chrome";
+  const isHeroVariant = variant === "hero";
+  const isLightOnDark = isHeroVariant || isChromeVariant;
+
   const dynamicStyles = StyleSheet.create({
-    locationContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.surface + 'cc',
-      borderRadius: 10,
-      paddingHorizontal: 10,
-      borderColor: colors.border,
-      minWidth: 140,
-      width: "100%",
-      height: "100%",
-      justifyContent: "space-between",
+    locationContainer: isChromeVariant
+      ? {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "transparent",
+          borderWidth: 0,
+          width: "100%",
+          minHeight: 44,
+          paddingHorizontal: 0,
+          paddingVertical: 2,
+          justifyContent: "flex-start",
+          gap: 10,
+        }
+      : {
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: isHeroVariant ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.94)",
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 0,
+          borderWidth: 1,
+          borderColor: isHeroVariant ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.35)",
+          width: "100%",
+          height: 36,
+          justifyContent: "space-between",
+        },
+    chromeTextColumn: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: "center",
+    },
+    chromeLocationLabel: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: BRAND.headerTint,
+      letterSpacing: 0.2,
+      marginBottom: 1,
+    },
+    chromeAddressText: {
+      fontSize: fontSizes.locationText,
+      fontWeight: "700",
+      color: "#ffffff",
+      letterSpacing: -0.2,
     },
     locationText: {
-      fontSize: fontSizes.locationText,
-      color: colors.text,
-      marginHorizontal: 6,
-      fontWeight: "500",
+      fontSize: fontSizes.locationText - 1,
+      color: isLightOnDark ? "#ffffff" : colors.text,
+      marginHorizontal: 4,
+      fontWeight: "600",
       flex: 1,
     },
     locationIcon: {
       marginRight: 4,
     },
+    locationContainerOpen: {
+      borderColor: "#cbd5e1",
+      borderBottomLeftRadius: 4,
+      borderBottomRightRadius: 4,
+    },
     dropdownContainer: {
       position: "absolute",
-      top: 50,
+      top: isChromeVariant ? 48 : isHeroVariant ? 40 : 48,
       left: 0,
       right: 0,
       borderRadius: 12,
-      overflow: 'hidden',
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 8,
-      zIndex: 1000,
+      overflow: "hidden",
+      backgroundColor: "#ffffff",
+      borderWidth: 1,
+      borderColor: "#e2e8f0",
+      shadowColor: "#0f172a",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
+      elevation: 24,
+      zIndex: 9999,
+    },
+    dropdownBackdrop: {
+      position: "absolute",
+      top: -800,
+      left: -width,
+      width: width * 3,
+      height: 1600,
+      backgroundColor: "rgba(15, 23, 42, 0.22)",
+      zIndex: 9998,
     },
     dropdownHeader: {
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 14,
+      paddingTop: 10,
+      paddingBottom: 8,
+      backgroundColor: "#f8fafc",
+      borderBottomWidth: 1,
+      borderBottomColor: "#e2e8f0",
     },
     dropdownHeaderText: {
-      fontSize: 10,
-      fontWeight: "700",
-      letterSpacing: 1.2,
-      marginBottom: 8,
-      color: "#94a3b8",
+      fontSize: 11,
+      fontWeight: "600",
+      letterSpacing: 0.6,
+      color: "#475569",
+      textTransform: "uppercase",
     },
     dropdownItem: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 12,
-      paddingHorizontal: 12,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
       backgroundColor: "#ffffff",
     },
     dropdownItemIcon: {
@@ -1426,12 +1684,15 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       flex: 1,
     },
     dropdownDivider: {
-      height: 1,
+      height: StyleSheet.hairlineWidth,
       backgroundColor: "#e2e8f0",
-      marginVertical: 4,
-      marginHorizontal: 12,
+      marginHorizontal: 14,
     },
     modalContainer: {
+      flex: 1,
+      backgroundColor: BRAND.bookingNavy,
+    },
+    modalBodySurface: {
       flex: 1,
       backgroundColor: colors.background,
     },
@@ -1440,8 +1701,6 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       justifyContent: "space-between",
       alignItems: "center",
       padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: '#e5e7eb',
     },
     modalTitle: {
       fontSize: fontSizes.modalTitle,
@@ -1502,14 +1761,16 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       borderRadius: 12,
       overflow: "hidden",
       marginBottom: 16,
-      height: "45%",
+      height: MAP_PREVIEW_HEIGHT,
+      width: "100%",
       position: "relative",
     },
     mapContainer: {
       borderRadius: 12,
       overflow: "hidden",
       marginBottom: 16,
-      height: "45%",
+      height: MAP_PREVIEW_HEIGHT,
+      width: "100%",
     },
     map: {
       width: "100%",
@@ -1728,32 +1989,108 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     },
   });
 
+  const renderModalChrome = (
+    title: string,
+    onClose: () => void,
+    children: React.ReactNode
+  ) => (
+    <View style={dynamicStyles.modalContainer}>
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor={BRAND.bookingNavy}
+      />
+      <LinearGradient
+        colors={[...BOOKING_HEADER_GRADIENT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.locationModalHeader, { paddingTop: insets.top + 6 }]}
+      >
+        <View style={styles.locationModalHeaderRow}>
+          <Text
+            style={[styles.locationModalTitle, { fontSize: fontSizes.modalTitle }]}
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.modalCloseBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Close"
+          >
+            <MaterialIcon name="close" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+      <View style={dynamicStyles.modalBodySurface}>{children}</View>
+    </View>
+  );
+
   return (
     <View style={styles.locationSection}>
+      {showDropdown && (
+        <Pressable
+          style={dynamicStyles.dropdownBackdrop}
+          onPress={() => setShowDropdown(false)}
+        />
+      )}
+
       <TouchableOpacity
-        style={dynamicStyles.locationContainer}
-        onPress={() =>{ 
-          setShowDropdown(!showDropdown);
-          updateSuggestions();
+        style={[
+          dynamicStyles.locationContainer,
+          showDropdown && !isChromeVariant && dynamicStyles.locationContainerOpen,
+        ]}
+        activeOpacity={0.85}
+        onPress={() => {
+          setShowDropdown((prev) => !prev);
         }}
       >
-        <MaterialIcon
-          name="location-on"
-          size={16}
-          color={colors.primary}
-          style={dynamicStyles.locationIcon}
-        />
-        <Text
-          style={dynamicStyles.locationText}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {address || location || currentLocationText || t('locationSelector.searching')}
-        </Text> 
-        <MaterialIcon name="arrow-drop-down" size={18} color={colors.primary} />
+        {isChromeVariant ? (
+          <>
+            <MaterialIcon name="location-on" size={22} color="#ffffff" />
+            <View style={dynamicStyles.chromeTextColumn}>
+              <Text style={dynamicStyles.chromeLocationLabel}>
+                {t("locationSelector.locationLabel", { defaultValue: "Location" })}
+              </Text>
+              <Text
+                style={dynamicStyles.chromeAddressText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {headerDisplayText}
+              </Text>
+            </View>
+            <MaterialIcon
+              name={showDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+              size={22}
+              color="#ffffff"
+            />
+          </>
+        ) : (
+          <>
+            <MaterialIcon
+              name="location-on"
+              size={16}
+              color={isLightOnDark ? "#ffffff" : colors.primary}
+              style={dynamicStyles.locationIcon}
+            />
+            <Text
+              style={dynamicStyles.locationText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {headerDisplayText}
+            </Text>
+            <MaterialIcon
+              name={showDropdown ? "arrow-drop-up" : "arrow-drop-down"}
+              size={20}
+              color={isLightOnDark ? "#ffffff" : colors.primary}
+            />
+          </>
+        )}
       </TouchableOpacity>
 
-      {/* Enhanced Dropdown Menu with GRADIENT effect */}
       {showDropdown && (
         <Animated.View 
           style={[
@@ -1764,17 +2101,12 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
             }
           ]}
         >
-          {/* Gradient Header for Dropdown */}
-          <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.dropdownHeader}
-          >
+          {/* Dropdown menu anchored below location pill */}
+          <View style={dynamicStyles.dropdownHeader}>
             <Text style={dynamicStyles.dropdownHeaderText}>
-              SET LOCATION
+              Set location
             </Text>
-          </LinearGradient>
+          </View>
 
           {loadingLocations ? (
             <View style={dynamicStyles.dropdownItem}>
@@ -1819,7 +2151,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
                       {suggestion.name}
                     </Text>
                   </TouchableOpacity>
-                  {index === 1 && suggestions.length > 2 && (
+                  {index === (isCustomer ? 1 : 0) &&
+                    suggestions.length > (isCustomer ? 2 : 1) && (
                     <View style={dynamicStyles.dropdownDivider} />
                   )}
                 </React.Fragment>
@@ -1844,29 +2177,19 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           setLocationMethod(null);
         }}
       >
-        <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>{t('locationSelector.selectYourLocation')}</Text>
-            <TouchableOpacity onPress={() => {
-              setOpen(false);
-              setIsPinSelected(false);
-              setSelectedPinLocation(null);
-              setSearchQuery("");
-              setSearchResults([]);
-              setShowSearchResults(false);
-              setLocationMethod(null);
-            }}>
-              <Icon name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </LinearGradient>
-
-          {renderLocationModalContent()}
-        </View>
+        {renderModalChrome(
+          t('locationSelector.selectYourLocation'),
+          () => {
+            setOpen(false);
+            setIsPinSelected(false);
+            setSelectedPinLocation(null);
+            setSearchQuery("");
+            setSearchResults([]);
+            setShowSearchResults(false);
+            setLocationMethod(null);
+          },
+          renderLocationModalContent()
+        )}
       </Modal>
 
       {/* Save Location Modal */}
@@ -1876,18 +2199,9 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
         transparent={false}
         onRequestClose={() => setOpenSaveOptionForSave(false)}
       >
-        <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>{t('locationSelector.saveAs')}</Text>
-            <TouchableOpacity onPress={() => setOpenSaveOptionForSave(false)}>
-              <Icon name="close" size={24} color="#ffffff" />
-            </TouchableOpacity>
-          </LinearGradient>
+        {renderModalChrome(
+          t('locationSelector.saveAs'),
+          () => setOpenSaveOptionForSave(false),
           <View style={dynamicStyles.modalContent}>
             <Text style={dynamicStyles.saveAsText}>{t('locationSelector.saveAs')}:</Text>
             <View style={styles.saveOptionsContainer}>
@@ -1977,7 +2291,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        )}
       </Modal>
     </View>
   );
@@ -1985,21 +2299,148 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
 const styles = StyleSheet.create({
   locationSection: {
-    flex: 2,
-    marginHorizontal: 12,
+    width: "100%",
+    minWidth: 0,
     position: "relative",
+    zIndex: 200,
+    overflow: "visible",
+    alignSelf: "center",
+  },
+  locationModalHeader: {
+    width: "100%",
+    paddingBottom: 12,
+    overflow: "hidden",
+  },
+  locationModalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    minHeight: 48,
+  },
+  locationModalTitle: {
+    flex: 1,
+    marginRight: 12,
+    color: "#ffffff",
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.28)",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
   },
   modalContent: {
     flex: 1,
     padding: 16,
+  },
+  modalBody: {
+    flex: 1,
+  },
+  modalMethodHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  modalMethodBody: {
+    flex: 1,
+    minHeight: 0,
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  modalFooter: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  cancelModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelModalButtonText: {
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  confirmModalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmModalButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  mapPreviewWrap: {
+    position: "relative",
+    width: "100%",
+    height: MAP_PREVIEW_HEIGHT,
+    marginBottom: 16,
+  },
+  mapLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.78)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    zIndex: 2,
+  },
+  mapLoadingText: {
+    marginTop: 10,
+    textAlign: "center",
+    fontWeight: "500",
+    paddingHorizontal: 16,
+  },
+  statusContainerCompact: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  primaryModalButton: {
+    width: "100%",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    marginBottom: 10,
+  },
+  primaryModalButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
+  secondaryModalButton: {
+    width: "100%",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  secondaryModalButtonText: {
+    fontWeight: "600",
   },
   saveOptionsContainer: {
     flexDirection: "row",
@@ -2057,20 +2498,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   autoLocationContent: {
-    flex: 1,
+    paddingHorizontal: 16,
   },
   autoMapContainer: {
     borderRadius: 12,
     overflow: "hidden",
-    marginBottom: 16,
-    height: "45%",
+    height: MAP_PREVIEW_HEIGHT,
+    width: "100%",
     position: "relative",
   },
   mapContainer: {
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 16,
-    height: "45%",
+    height: MAP_PREVIEW_HEIGHT,
+    width: "100%",
   },
   map: {
     width: "100%",

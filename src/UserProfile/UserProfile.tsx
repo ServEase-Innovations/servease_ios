@@ -106,7 +106,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ goBack }) => {
         },
         additional: {
           idNo: userInfo.idNo || '',
-          languageKnown: userInfo.languageKnown || '',
+          languageKnown: Array.isArray(userInfo.languageKnown)
+            ? userInfo.languageKnown.join(', ')
+            : userInfo.languageKnown || '',
           housekeepingRole: userInfo.housekeepingRole || '',
           cookingSpeciality: userInfo.cookingSpeciality || '',
           diet: userInfo.diet || '',

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,386 +8,653 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Dimensions,
   RefreshControl,
-  Platform,
+  BackHandler,
+  TextInput,
+  StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { HOME_HERO_GRADIENT, HOME_M3 } from '../theme/brandColors';
 import { useAppUser } from '../context/AppUserContext';
-import PaymentInstance from '../services/paymentInstance';
+import { getMobileTabBarHeight } from '../Constants/mobileLayout';
+import {
+  CustomerWallet,
+  fetchCustomerWallet,
+  formatWalletMoney,
+  formatWalletTransactionDisplayLabel,
+  groupWalletTransactions,
+  isCreditTransaction,
+  isPaymentCancelledError,
+  topUpCustomerWallet,
+  WALLET_TOPUP_MAX_INR,
+  WALLET_TOPUP_MIN_INR,
+  WalletTransaction,
+} from '../services/walletService';
+import { resolveCustomerId } from '../services/couponService';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const HORIZONTAL_GUTTER = 16;
+const TOP_UP_PRESETS = [500, 1000, 2000, 5000];
 
 interface WalletPageProps {
   onBack?: () => void;
 }
 
-interface Wallet {
-  balance: number;
-  transactions: {
-    transaction_id: number;
-    transaction_type: string;
-    amount: number;
-    description: string;
-    created_at: string;
-    status: string;
-  }[];
-  rewards: number;
-}
+const formatMoney = (value: number) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '₹0.00';
+  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const formatMoneyCompact = (value: number) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '₹0';
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
+  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+  if (n >= 1000) return `₹${(n / 1000).toFixed(1)}k`;
+  return `₹${Math.round(n)}`;
+};
+
+
+const formatTime = (dateString: string) => {
+  try {
+    return new Date(dateString).toLocaleTimeString('en-IN', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '';
+  }
+};
 
 const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
   const { colors, isDarkMode, fontSize } = useTheme();
+  const { t } = useTranslation();
   const { appUser } = useAppUser();
-  
+  const insets = useSafeAreaInsets();
+  const footerClearance = getMobileTabBarHeight(insets.bottom) + 28;
+
   const [activeTab, setActiveTab] = useState<'transactions' | 'rewards'>('transactions');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [wallet, setWallet] = useState<CustomerWallet | null>(null);
+  const [displayBalance, setDisplayBalance] = useState(0);
+  const [addMoneyOpen, setAddMoneyOpen] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState('');
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [banner, setBanner] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
 
-  // Get font sizes based on settings
-  const getFontSizes = () => {
+  const customerId = resolveCustomerId(appUser);
+  const parsedTopUpAmount = Number(topUpAmount);
+  const topUpAmountValid =
+    Number.isFinite(parsedTopUpAmount) &&
+    parsedTopUpAmount >= WALLET_TOPUP_MIN_INR &&
+    parsedTopUpAmount <= WALLET_TOPUP_MAX_INR;
+
+  const customerPrefill = useMemo(() => {
+    const user = appUser as Record<string, unknown> | null | undefined;
+    const first = String(user?.firstname || user?.firstName || user?.given_name || '').trim();
+    const last = String(user?.lastname || user?.lastName || user?.family_name || '').trim();
+    return {
+      name: [first, last].filter(Boolean).join(' ').trim() || undefined,
+      email: String(user?.emailid || user?.email || '').trim() || undefined,
+      contact: String(user?.mobileno || user?.mobile || user?.phone || '').trim() || undefined,
+    };
+  }, [appUser]);
+
+  const transactionGroups = useMemo(
+    () => groupWalletTransactions(wallet?.transactions ?? []),
+    [wallet?.transactions]
+  );
+
+  const fontSizes = useMemo(() => {
     switch (fontSize) {
       case 'small':
-        return { 
-          title: 20, 
-          balance: 28, 
-          text: 13, 
-          smallText: 11, 
-          buttonText: 12, 
-          headerTitle: 24,
-          headerSubtitle: 14 
-        };
+        return { title: 18, balance: 34, text: 13, small: 11, button: 12, header: 18 };
       case 'large':
-        return { 
-          title: 26, 
-          balance: 34, 
-          text: 17, 
-          smallText: 15, 
-          buttonText: 16, 
-          headerTitle: 32,
-          headerSubtitle: 18 
-        };
+        return { title: 24, balance: 42, text: 17, small: 15, button: 16, header: 24 };
       default:
-        return { 
-          title: 22, 
-          balance: 30, 
-          text: 15, 
-          smallText: 13, 
-          buttonText: 14, 
-          headerTitle: 28,
-          headerSubtitle: 16 
-        };
+        return { title: 20, balance: 38, text: 15, small: 13, button: 14, header: 20 };
     }
-  };
+  }, [fontSize]);
 
-  const fontSizes = getFontSizes();
-
-  // Get customer ID from appUser context
-  const customerId = appUser?.customerid;
-
-  const fetchWalletData = async (showLoading = true) => {
-    if (!customerId) {
-      setHasError(true);
-      setIsLoading(false);
-      return;
-    }
-
-    if (showLoading) {
-      setIsLoading(true);
-    }
-    setHasError(false);
-    
-    try {
-      console.log("Fetching wallet for user:", customerId);
-      const response = await PaymentInstance.get(`/api/wallets/${customerId}`);
-      console.log("Wallet API Response:", response.data);
-      setWallet(response.data);
-    } catch (error: any) {
-      console.error("Wallet fetch error:", error);
-      if (error.response?.data?.error === "Wallet not found for this customer" || 
-          error.message?.includes("Wallet not found")) {
+  const fetchWalletData = useCallback(
+    async (showLoading = true) => {
+      if (!customerId) {
         setHasError(true);
+        setIsLoading(false);
+        return;
       }
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+
+      if (showLoading) setIsLoading(true);
+      setHasError(false);
+
+      try {
+        const data = await fetchCustomerWallet(customerId);
+        setWallet(data);
+        setDisplayBalance(Number(data.balance ?? 0));
+        setHasError(false);
+      } catch (error: unknown) {
+        console.error('Wallet fetch error:', error);
+        setHasError(true);
+        setWallet(null);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [customerId]
+  );
 
   useEffect(() => {
-    if (customerId) {
-      fetchWalletData(true);
-    } else {
-      setIsLoading(false);
-      setHasError(true);
-    }
-  }, [customerId]);
+    void fetchWalletData(true);
+  }, [fetchWalletData]);
 
-  // Pull to refresh handler
-  const onRefresh = async () => {
+  // Handle back button press - returns to homepage
+  const handleBackPress = () => {
+    if (onBack) {
+      onBack();
+      return true;
+    }
+    return false;
+  };
+
+  // Set up back handler when component mounts
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    
+    // Clean up the event listener when component unmounts
+    return () => backHandler.remove();
+  }, [onBack]);
+
+  const onRefresh = () => {
     setIsRefreshing(true);
-    await fetchWalletData(false);
+    void fetchWalletData(false);
   };
 
-  // Retry fetching wallet
-  const handleRetry = () => {
-    fetchWalletData(true);
+  const showBanner = (type: 'success' | 'error' | 'info', message: string) => {
+    setBanner({ type, message });
   };
 
-  // Format date
-  const formatDate = (dateString: string) => {
+  const handleTopUp = async () => {
+    if (!customerId || !topUpAmountValid || topUpLoading) return;
+
+    setTopUpLoading(true);
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      });
-    } catch {
-      return dateString;
+      const result = await topUpCustomerWallet(
+        customerId,
+        parsedTopUpAmount,
+        customerPrefill
+      );
+      setAddMoneyOpen(false);
+      setTopUpAmount('');
+      await fetchWalletData(false);
+      setDisplayBalance(Number(result.balance ?? 0));
+      showBanner(
+        'success',
+        result.alreadyProcessed
+          ? t('wallet.topUp.alreadyDone')
+          : t('wallet.topUp.success', {
+              amount: parsedTopUpAmount.toLocaleString('en-IN'),
+            })
+      );
+    } catch (error) {
+      if (isPaymentCancelledError(error)) {
+        showBanner('info', t('wallet.topUp.cancelled'));
+      } else {
+        const msg =
+          error &&
+          typeof error === 'object' &&
+          'response' in error &&
+          (error as { response?: { data?: { error?: string } } }).response?.data?.error;
+        showBanner(
+          'error',
+          typeof msg === 'string' && msg.trim() ? msg : t('wallet.topUp.failed')
+        );
+      }
+    } finally {
+      setTopUpLoading(false);
     }
   };
 
-  // Render loading state
-  const renderLoading = () => (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={[styles.loadingText, { color: colors.text, fontSize: fontSizes.text }]}>
-        Loading Wallet...
-      </Text>
-      <Text style={[styles.loadingSubtext, { color: colors.textSecondary, fontSize: fontSizes.smallText }]}>
-        Retrieving account info
-      </Text>
+  const transactions = wallet?.transactions ?? [];
+
+  // Header matching My Bookings style
+  const renderHeader = () => (
+    <View
+      style={[
+        styles.headerShell,
+        { paddingTop: insets.top },
+      ]}
+    >
+      <LinearGradient
+        colors={[...HOME_HERO_GRADIENT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.headerInner}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={handleBackPress}
+            accessibilityLabel="Go back"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="arrow-left" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <Text
+            style={[styles.headerTitle, { fontSize: fontSizes.header }]}
+            numberOfLines={1}
+          >
+            {t('wallet.title')}
+          </Text>
+          <View style={styles.headerSideSlot} />
+        </View>
+      </View>
     </View>
   );
 
-  // Render error state
-  const renderError = () => (
-    <View style={styles.errorContainer}>
-      <View style={[styles.errorIconContainer, { backgroundColor: colors.border }]}>
-        <Icon name="wallet-outline" size={40} color={colors.textSecondary} />
+  const renderTabSwitcher = () => (
+    <View style={styles.tabRow}>
+      {(
+        [
+          { key: 'transactions' as const, label: 'Transactions', icon: 'history', count: transactions.length },
+          { key: 'rewards' as const, label: 'Rewards', icon: 'star-outline', count: wallet?.rewards ?? 0 },
+        ] as const
+      ).map((tab) => {
+        const active = activeTab === tab.key;
+        return (
+          <TouchableOpacity
+            key={tab.key}
+            style={[
+              styles.tabChip,
+              {
+                backgroundColor: active ? colors.primary : isDarkMode ? colors.card : '#ffffff',
+                borderColor: active ? colors.primary : colors.border + '55',
+              },
+            ]}
+            onPress={() => setActiveTab(tab.key)}
+            activeOpacity={0.85}
+          >
+            <Icon name={tab.icon} size={16} color={active ? '#fff' : colors.textSecondary} />
+            <Text style={[styles.tabChipText, { color: active ? '#fff' : colors.textSecondary, fontSize: fontSizes.small }]}>
+              {tab.label}
+            </Text>
+            <View style={[styles.tabCount, { backgroundColor: active ? 'rgba(255,255,255,0.28)' : colors.border + '90' }]}>
+              <Text style={[styles.tabCountText, { color: active ? '#fff' : colors.textSecondary }]}>{tab.count}</Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const renderAddMoneyPanel = () => (
+    <View
+      style={[
+        styles.addMoneyPanel,
+        {
+          backgroundColor: isDarkMode ? colors.surface : '#f8fafc',
+          borderColor: colors.border + '55',
+        },
+      ]}
+    >
+      <Text style={[styles.addMoneyHint, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+        {t('wallet.topUp.hint')}
+      </Text>
+
+      <View style={styles.presetRow}>
+        {TOP_UP_PRESETS.map((preset) => {
+          const selected = parsedTopUpAmount === preset;
+          return (
+            <TouchableOpacity
+              key={preset}
+              style={[
+                styles.presetChip,
+                {
+                  borderColor: selected ? colors.primary : colors.border,
+                  backgroundColor: selected ? colors.primary : colors.card,
+                },
+              ]}
+              onPress={() => setTopUpAmount(String(preset))}
+              disabled={topUpLoading}
+            >
+              <Text
+                style={[
+                  styles.presetChipText,
+                  {
+                    color: selected ? '#fff' : colors.text,
+                    fontSize: fontSizes.small,
+                  },
+                ]}
+              >
+                {formatWalletMoney(preset, { compact: true })}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-      <Text style={[styles.errorTitle, { color: colors.text, fontSize: fontSizes.title }]}>
-        No Wallet Found
+
+      <Text style={[styles.inputLabel, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+        {t('wallet.topUp.enterAmount')}
       </Text>
-      <Text style={[styles.errorMessage, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-        You don't have a wallet yet. Start using our services to create one.
+      <View style={[styles.amountInputWrap, { borderColor: topUpAmount.length > 0 && !topUpAmountValid ? colors.error : colors.border, backgroundColor: colors.card }]}>
+        <Text style={[styles.currencyPrefix, { color: colors.textSecondary }]}>₹</Text>
+        <TextInput
+          style={[styles.amountInput, { color: colors.text, fontSize: fontSizes.text }]}
+          value={topUpAmount}
+          onChangeText={(text) => setTopUpAmount(text.replace(/[^\d]/g, ''))}
+          keyboardType="number-pad"
+          placeholder={`${WALLET_TOPUP_MIN_INR} – ${WALLET_TOPUP_MAX_INR.toLocaleString('en-IN')}`}
+          placeholderTextColor={colors.placeholder}
+          editable={!topUpLoading}
+        />
+      </View>
+      <Text style={[styles.limitsText, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+        {t('wallet.topUp.limits', {
+          min: WALLET_TOPUP_MIN_INR,
+          max: WALLET_TOPUP_MAX_INR.toLocaleString('en-IN'),
+        })}
       </Text>
-      <TouchableOpacity 
-        style={[styles.retryButton, { backgroundColor: colors.primary }]} 
-        onPress={handleRetry}
+
+      <TouchableOpacity
+        style={[
+          styles.payButton,
+          {
+            backgroundColor: colors.primary,
+            opacity: !topUpAmountValid || topUpLoading ? 0.55 : 1,
+          },
+        ]}
+        onPress={() => void handleTopUp()}
+        disabled={!topUpAmountValid || topUpLoading}
       >
-        <Text style={[styles.retryButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-          Try Again
-        </Text>
+        {topUpLoading ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <>
+            <Icon name="shield-check-outline" size={18} color="#fff" />
+            <Text style={[styles.payButtonText, { fontSize: fontSizes.button }]}>
+              {t('wallet.topUp.proceedToPay')}
+            </Text>
+          </>
+        )}
       </TouchableOpacity>
     </View>
   );
 
-  // Render balance card with gradient
-  const renderBalanceCard = () => (
-    <LinearGradient
-      colors={['#0a2a66ff', '#004aadff']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
-      style={styles.balanceCard}
-    >
-      <Text style={[styles.balanceLabel, { color: '#ffffffCC', fontSize: fontSizes.smallText }]}>
-        Current Balance
-      </Text>
-      <Text style={[styles.balanceAmount, { color: '#fff', fontSize: fontSizes.balance }]}>
-        ₹{wallet ? wallet.balance : 0}
-      </Text>
-      <View style={styles.balanceButtonsContainer}>
-        <TouchableOpacity 
-          style={[styles.addMoneyButton, { backgroundColor: '#fff' }]} 
-          onPress={() => Alert.alert('Add Money', 'This feature will be available soon')}
-        >
-          <Icon name="plus" size={18} color="#004aadff" />
-          <Text style={[styles.addMoneyButtonText, { color: '#004aadff', fontSize: fontSizes.buttonText }]}>
-            Add Money
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.transferButton, { backgroundColor: '#ffffff40' }]} 
-          onPress={() => Alert.alert('Transfer', 'This feature will be available soon')}
-        >
-          <Icon name="swap-horizontal" size={18} color="#fff" />
-          <Text style={[styles.transferButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-            Transfer
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </LinearGradient>
-  );
-
-  // Render transactions tab
-  const renderTransactions = () => (
-    <View style={styles.tabContent}>
-      <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.text }]}>
-        Recent Transactions
-      </Text>
-      <ScrollView 
-        style={styles.transactionsList}
-        showsVerticalScrollIndicator={false}
+  const renderBalanceCard = () => {
+    const cardBg = isDarkMode ? colors.card : '#ffffff';
+    return (
+      <View
+        style={[
+          styles.balanceCardShell,
+          {
+            backgroundColor: cardBg,
+            borderColor: colors.border + (isDarkMode ? '55' : '35'),
+          },
+        ]}
       >
-        {(wallet?.transactions || []).map((transaction) => (
-          <View key={transaction.transaction_id} style={[styles.transactionItem, { borderBottomColor: colors.border }]}>
-            <View style={[
-              styles.transactionIconContainer,
-              { backgroundColor: transaction.transaction_type === 'credit' ? colors.success + '20' : colors.error + '20' }
-            ]}>
-              <Icon 
-                name={transaction.transaction_type === 'credit' ? 'arrow-up' : 'arrow-down'} 
-                size={20} 
-                color={transaction.transaction_type === 'credit' ? colors.success : colors.error} 
-              />
-            </View>
-            <View style={styles.transactionDetails}>
-              <Text style={[styles.transactionDescription, { color: colors.text, fontSize: fontSizes.text }]}>
-                {transaction.description}
+        <View style={styles.balanceCardContent}>
+          <View style={styles.balanceTop}>
+            <View style={styles.balanceMain}>
+              <Text style={[styles.balanceLabel, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+                {t('wallet.availableBalance')}
               </Text>
-              <Text style={[styles.transactionMeta, { color: colors.textSecondary, fontSize: fontSizes.smallText }]}>
-                {formatDate(transaction.created_at)} • {transaction.status}
+              <Text
+                style={[styles.balanceAmount, { color: colors.text, fontSize: fontSizes.balance }]}
+                numberOfLines={1}
+              >
+                {formatMoney(displayBalance)}
               </Text>
             </View>
-            <Text style={[
-              styles.transactionAmount,
-              { 
-                color: transaction.transaction_type === 'credit' ? colors.success : colors.error,
-                fontSize: fontSizes.text
-              }
-            ]}>
-              {transaction.transaction_type === 'credit' ? '+' : '-'}₹{transaction.amount}
-            </Text>
+            <View style={[styles.walletIconWrap, { backgroundColor: colors.primary + '12' }]}>
+              <Icon name="wallet-outline" size={24} color={colors.primary} />
+            </View>
           </View>
-        ))}
-        {(wallet?.transactions || []).length === 0 && (
-          <View style={styles.emptyTransactions}>
-            <Icon name="history" size={48} color={colors.textSecondary} />
-            <Text style={[styles.emptyTransactionsText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-              No transactions yet
-            </Text>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.primaryAction, { backgroundColor: colors.primary }]}
+              onPress={() => setAddMoneyOpen((open) => !open)}
+              activeOpacity={0.9}
+              disabled={topUpLoading}
+            >
+              <Icon name={addMoneyOpen ? 'close' : 'plus'} size={18} color="#ffffff" />
+              <Text style={[styles.primaryActionText, { color: '#ffffff', fontSize: fontSizes.button }]}>
+                {addMoneyOpen ? t('wallet.topUp.close') : t('wallet.addMoney')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.secondaryAction,
+                {
+                  backgroundColor: isDarkMode ? colors.surface : '#f8fafc',
+                  borderColor: colors.primary + '45',
+                },
+              ]}
+              onPress={() => Alert.alert(t('wallet.transfer'), t('wallet.transferComingSoon', { defaultValue: 'This feature will be available soon.' }))}
+              activeOpacity={0.9}
+            >
+              <Icon name="swap-horizontal" size={18} color={colors.primary} />
+              <Text style={[styles.secondaryActionText, { color: colors.primary, fontSize: fontSizes.button }]}>
+                {t('wallet.transfer')}
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
+
+          {addMoneyOpen ? renderAddMoneyPanel() : null}
+        </View>
+      </View>
+    );
+  };
+
+  const renderTransactionItem = (transaction: WalletTransaction) => {
+    const isCredit = isCreditTransaction(transaction.transaction_type);
+    return (
+      <View
+        key={String(transaction.transaction_id)}
+        style={[styles.txCard, { backgroundColor: colors.card, borderColor: colors.border + '30' }]}
+      >
+        <View
+          style={[
+            styles.txIcon,
+            { backgroundColor: isCredit ? colors.success + '18' : colors.error + '18' },
+          ]}
+        >
+          <Icon
+            name={isCredit ? 'arrow-bottom-left' : 'arrow-top-right'}
+            size={20}
+            color={isCredit ? colors.success : colors.error}
+          />
+        </View>
+        <View style={styles.txBody}>
+          <Text style={[styles.txTitle, { color: colors.text, fontSize: fontSizes.text }]} numberOfLines={2}>
+            {formatWalletTransactionDisplayLabel(transaction)}
+          </Text>
+          <Text style={[styles.txMeta, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+            {formatTime(transaction.created_at)} · {transaction.status || 'completed'}
+          </Text>
+        </View>
+        <View style={styles.txAmountCol}>
+          <Text
+            style={[styles.txAmount, { color: isCredit ? colors.success : colors.error, fontSize: fontSizes.text }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {isCredit ? '+' : '-'}
+            {formatMoney(transaction.amount)}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const groupLabel = (labelKey: 'today' | 'yesterday' | 'earlier', dateLabel?: string) => {
+    if (labelKey === 'today') return t('wallet.groups.today');
+    if (labelKey === 'yesterday') return t('wallet.groups.yesterday');
+    return dateLabel || t('wallet.groups.earlier');
+  };
+
+  const renderTransactions = () => (
+    <View style={styles.section}>
+      <Text style={[styles.sectionLabel, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+        {t('wallet.recentActivity')}
+      </Text>
+      {transactions.length > 0 ? (
+        transactionGroups.map((group) => (
+          <View key={group.key}>
+            <Text style={[styles.groupLabel, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+              {groupLabel(group.labelKey, group.dateLabel)}
+            </Text>
+            {group.items.map(renderTransactionItem)}
+          </View>
+        ))
+      ) : (
+        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border + '25' }]}>
+          <Icon name="history" size={44} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text, fontSize: fontSizes.title }]}>
+            {t('wallet.noTransactions')}
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+            {t('wallet.noTransactionsDesc')}
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+            onPress={() => setAddMoneyOpen(true)}
+          >
+            <Text style={[styles.retryBtnText, { fontSize: fontSizes.button }]}>{t('wallet.addMoney')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 
-  // Render rewards tab with gradient
   const renderRewards = () => (
-    <View style={styles.tabContent}>
-      <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.text }]}>
-        Your Rewards
-      </Text>
+    <View style={styles.section}>
       <LinearGradient
-        colors={['#0a2a66ff', '#004aadff']}
+        colors={isDarkMode ? ['#312e81', '#4338ca'] : ['#4f46e5', '#6366f1']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={styles.rewardsCard}
       >
-        <View style={styles.rewardsPointsContainer}>
-          <Icon name="star" size={24} color="#fff" />
-          <Text style={[styles.rewardsPoints, { color: '#fff', fontSize: fontSizes.balance }]}>
-            {wallet?.rewards ?? 0} Points
-          </Text>
+        <View style={styles.rewardsHeader}>
+          <Icon name="star-four-points" size={32} color="#fde68a" />
+          <View>
+            <Text style={[styles.rewardsPoints, { fontSize: fontSizes.balance }]}>{wallet?.rewards ?? 0}</Text>
+            <Text style={[styles.rewardsLabel, { fontSize: fontSizes.small }]}>Reward points</Text>
+          </View>
         </View>
-        <Text style={[styles.rewardsMessage, { color: '#ffffffCC', fontSize: fontSizes.smallText }]}>
-          Complete more bookings to earn more points!
+        <Text style={[styles.rewardsHint, { fontSize: fontSizes.text }]}>
+          Earn points when you complete bookings. Redeem them for offers soon.
         </Text>
-        <TouchableOpacity 
-          style={styles.rewardsButton}
-          onPress={() => Alert.alert('Rewards Catalog', 'This feature will be available soon')}
+        <TouchableOpacity
+          style={styles.rewardsCta}
+          onPress={() => Alert.alert('Rewards', 'Rewards catalog coming soon.')}
         >
-          <Text style={[styles.rewardsButtonText, { color: '#004aadff', fontSize: fontSizes.buttonText }]}>
-            View Rewards Catalog
-          </Text>
+          <Text style={[styles.rewardsCtaText, { color: '#4338ca', fontSize: fontSizes.button }]}>View rewards catalog</Text>
         </TouchableOpacity>
       </LinearGradient>
     </View>
   );
 
-  // Render tabs
-  const renderTabs = () => (
-    <View style={[styles.tabsContainer, { borderBottomColor: colors.border }]}>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'transactions' && styles.activeTab]}
-        onPress={() => setActiveTab('transactions')}
-      >
-        <Text style={[
-          styles.tabText,
-          { color: activeTab === 'transactions' ? colors.primary : colors.textSecondary, fontSize: fontSizes.text }
-        ]}>
-          Transactions
-        </Text>
-        {activeTab === 'transactions' && (
-          <View style={[styles.activeTabIndicator, { backgroundColor: colors.primary }]} />
-        )}
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === 'rewards' && styles.activeTab]}
-        onPress={() => setActiveTab('rewards')}
-      >
-        <Text style={[
-          styles.tabText,
-          { color: activeTab === 'rewards' ? colors.primary : colors.textSecondary, fontSize: fontSizes.text }
-        ]}>
-          Rewards
-        </Text>
-        {activeTab === 'rewards' && (
-          <View style={[styles.activeTabIndicator, { backgroundColor: colors.primary }]} />
-        )}
+  const renderLoading = () => (
+    <View style={styles.centered}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={[styles.centeredTitle, { color: colors.text, fontSize: fontSizes.text }]}>Loading wallet…</Text>
+    </View>
+  );
+
+  const renderError = () => (
+    <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border + '25', marginTop: 8 }]}>
+      <Icon name="wallet-plus-outline" size={48} color={colors.primary} />
+      <Text style={[styles.emptyTitle, { color: colors.text, fontSize: fontSizes.title }]}>No wallet yet</Text>
+      <Text style={[styles.emptyText, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+        Book a service to activate your wallet and track payments in one place.
+      </Text>
+      <TouchableOpacity style={[styles.retryBtn, { backgroundColor: colors.primary }]} onPress={() => void fetchWalletData(true)}>
+        <Text style={[styles.retryBtnText, { fontSize: fontSizes.button }]}>Try again</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header with gradient matching Bookings component */}
-      <LinearGradient
-        colors={[isDarkMode ? 'rgba(14, 48, 92, 0.9)' : 'rgba(139, 187, 221, 0.8)', isDarkMode ? 'rgba(30, 64, 108, 0.9)' : 'rgba(213, 229, 233, 0.8)', isDarkMode ? colors.background : 'rgba(255,255,255,1)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>
-              My Wallet
-            </Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>
-              Manage your wallet and rewards
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
+    <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
+      {renderHeader()}
 
-      {/* Content with Pull to Refresh */}
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
+      {banner ? (
+        <View
+          style={[
+            styles.bannerWrap,
+            {
+              backgroundColor:
+                banner.type === 'success'
+                  ? colors.successLight
+                  : banner.type === 'error'
+                    ? colors.error + '18'
+                    : colors.infoLight,
+              borderColor:
+                banner.type === 'success'
+                  ? colors.success
+                  : banner.type === 'error'
+                    ? colors.error
+                    : colors.primary,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.bannerText,
+              {
+                color:
+                  banner.type === 'success'
+                    ? colors.success
+                    : banner.type === 'error'
+                      ? colors.error
+                      : colors.primary,
+                fontSize: fontSizes.small,
+              },
+            ]}
+          >
+            {banner.message}
+          </Text>
+          <TouchableOpacity onPress={() => setBanner(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Icon name="close" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <ScrollView
+        style={[styles.scroll, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: footerClearance }]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
             tintColor={colors.primary}
             colors={[colors.primary]}
-            progressBackgroundColor={colors.card}
           />
         }
-        showsVerticalScrollIndicator={false}
       >
         {isLoading ? (
           renderLoading()
-        ) : hasError ? (
+        ) : hasError || !wallet ? (
           renderError()
         ) : (
           <>
-            {renderBalanceCard()}
-            {renderTabs()}
+            <View style={[styles.contentPad, styles.balanceSection]}>{renderBalanceCard()}</View>
+            <View style={[styles.contentPad, styles.tabSection]}>{renderTabSwitcher()}</View>
             {activeTab === 'transactions' ? renderTransactions() : renderRewards()}
           </>
         )}
@@ -397,232 +664,317 @@ const WalletPage: React.FC<WalletPageProps> = ({ onBack }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  headerShell: {
+    width: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: HOME_M3.primary,
+    paddingBottom: 4,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  header: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+  headerInner: {
+    width: '100%',
+    alignSelf: 'stretch',
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    width: '100%',
+    height: 44,
+    paddingHorizontal: 12,
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  headerSubtitle: {
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  loadingSubtext: {
-    marginTop: 8,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  errorIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  errorTitle: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  errorMessage: {
-    textAlign: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 20,
-    lineHeight: 22,
-  },
-  retryButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  retryButtonText: {
-    fontWeight: '600',
-  },
-  balanceCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  balanceLabel: {
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  balanceAmount: {
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  balanceButtonsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  addMoneyButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    gap: 8,
-  },
-  addMoneyButtonText: {
-    fontWeight: '600',
-  },
-  transferButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    gap: 8,
-  },
-  transferButtonText: {
-    fontWeight: '600',
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    marginBottom: 20,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  activeTab: {},
-  tabText: {
-    fontWeight: '500',
-  },
-  activeTabIndicator: {
-    position: 'absolute',
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 2,
-  },
-  tabContent: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  transactionsList: {
-    maxHeight: 500,
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  transactionIconContainer: {
+  headerIconBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    flexShrink: 0,
   },
-  transactionDetails: {
+  headerTitle: {
     flex: 1,
+    color: '#ffffff',
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textAlign: 'left',
+    lineHeight: 24,
+    marginLeft: 2,
+    marginRight: 4,
   },
-  transactionDescription: {
-    fontWeight: '500',
-    marginBottom: 4,
+  headerSideSlot: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
   },
-  transactionMeta: {
-    opacity: 0.7,
+  scroll: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  contentPad: {
+    paddingHorizontal: HORIZONTAL_GUTTER,
   },
-  transactionAmount: {
-    fontWeight: '600',
+  balanceSection: {
+    paddingTop: 16,
+    paddingBottom: 4,
   },
-  emptyTransactions: {
-    alignItems: 'center',
-    paddingVertical: 40,
+  tabSection: {
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  emptyTransactionsText: {
-    marginTop: 12,
-  },
-  rewardsCard: {
+  balanceCardShell: {
+    width: '100%',
     borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
+    borderWidth: 1,
+    shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  rewardsPointsContainer: {
+  balanceCardContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  balanceTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 12,
   },
-  rewardsPoints: {
-    fontWeight: 'bold',
+  balanceMain: {
+    flex: 1,
+    minWidth: 0,
   },
-  rewardsMessage: {
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 18,
+  balanceLabel: { fontWeight: '600', letterSpacing: 0.2 },
+  balanceAmount: {
+    fontWeight: '800',
+    marginTop: 4,
+    letterSpacing: -0.5,
+    lineHeight: 46,
   },
-  rewardsButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  walletIconWrap: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  primaryAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 46,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  primaryActionText: { fontWeight: '700' },
+  secondaryAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    minHeight: 46,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  secondaryActionText: { fontWeight: '700' },
+  addMoneyPanel: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+  },
+  addMoneyHint: { lineHeight: 18 },
+  presetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  presetChip: {
+    flexGrow: 1,
+    minWidth: '22%',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
   },
-  rewardsButtonText: {
+  presetChipText: { fontWeight: '700' },
+  inputLabel: {
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  amountInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    minHeight: 46,
+  },
+  currencyPrefix: { fontWeight: '700', marginRight: 6, fontSize: 16 },
+  amountInput: {
+    flex: 1,
+    paddingVertical: 10,
     fontWeight: '600',
   },
+  limitsText: { lineHeight: 18 },
+  payButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 46,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  payButtonText: { color: '#fff', fontWeight: '700' },
+  bannerWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: HORIZONTAL_GUTTER,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  bannerText: { flex: 1, lineHeight: 18, fontWeight: '500' },
+  groupLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  tabChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  tabChipText: { fontWeight: '700' },
+  tabCount: {
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: 'center',
+  },
+  tabCountText: { fontSize: 10, fontWeight: '700' },
+  section: {
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  sectionLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  txCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 12,
+  },
+  txIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  txBody: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    paddingRight: 4,
+  },
+  txTitle: { fontWeight: '600', lineHeight: 20 },
+  txMeta: { marginTop: 4, lineHeight: 18 },
+  txAmountCol: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    maxWidth: 118,
+    minHeight: 44,
+  },
+  txAmount: {
+    fontWeight: '700',
+    textAlign: 'right',
+    lineHeight: 20,
+  },
+  rewardsCard: {
+    borderRadius: 18,
+    padding: 22,
+  },
+  rewardsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 12,
+  },
+  rewardsPoints: { color: '#fff', fontWeight: '800' },
+  rewardsLabel: { color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+  rewardsHint: { color: 'rgba(255,255,255,0.9)', lineHeight: 22, marginBottom: 16 },
+  rewardsCta: {
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  rewardsCtaText: { fontWeight: '700' },
+  emptyCard: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  emptyTitle: { fontWeight: '700', marginTop: 14, textAlign: 'center' },
+  emptyText: { marginTop: 8, textAlign: 'center', lineHeight: 22 },
+  retryBtn: {
+    marginTop: 18,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryBtnText: { color: '#fff', fontWeight: '700' },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  centeredTitle: { marginTop: 12, fontWeight: '600' },
 });
 
 export default WalletPage;

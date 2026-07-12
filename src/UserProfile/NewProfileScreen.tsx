@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -7,692 +7,1071 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
   Platform,
   StatusBar,
-} from 'react-native';
-import { useAuth0 } from 'react-native-auth0';
-import { useAppUser } from '../context/AppUserContext';
-import { useTranslation } from 'react-i18next';
-import Icon from 'react-native-vector-icons/Feather';
-import LinearGradient from 'react-native-linear-gradient';
-import providerInstance from '../services/providerInstance';
-import { useTheme } from '../../src/Settings/ThemeContext';
-import Svg, { Path, Line, Defs, Pattern, Rect, Circle } from 'react-native-svg';
+  Animated,
+  BackHandler,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth0 } from "react-native-auth0";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import LinearGradient from "react-native-linear-gradient";
+import { useAppUser } from "../context/AppUserContext";
+import { useTranslation } from "react-i18next";
+import providerInstance from "../services/providerInstance";
+import { useTheme } from "../Settings/ThemeContext";
+import CustomerProfileSection from "./CustomerProfileSection";
+import ServiceProviderProfileSection from "./ServiceProviderProfileSection";
+import VendorProfileSection from "./VendorProfileSection";
+import MobileNumberDialog from "./MobileNumberDialog";
+import { ProfileHubSkeleton } from "../common/ProfileHubSkeleton";
+import {
+  extractContactFromPayload,
+  formatContactDisplay,
+  isValidContact,
+  parseAlternateContact,
+} from "../utils/profileContact";
+import preferenceInstance from "../services/preferenceInstance";
+import PaymentInstance from "../services/paymentInstance";
+import { HOME_M3 } from "../theme/brandColors";
 
-// Import sections
-import CustomerProfileSection from './CustomerProfileSection';
-import ServiceProviderProfileSection from './ServiceProviderProfileSection';
-import VendorProfileSection from './VendorProfileSection';
-import MobileNumberDialog from './MobileNumberDialog';
+type ProfileSubView = "hub" | "edit";
+type ProfileEditIntent = "profile" | "addAddress";
 
-const { width, height } = Dimensions.get('window');
+type HubAddress = {
+  id: string;
+  type: string;
+  street: string;
+};
 
-interface AppUser {
-  name?: string;
-  email?: string;
-  picture?: string;
-  role?: 'CUSTOMER' | 'SERVICE_PROVIDER' | 'VENDOR';
-  customerid?: number;
-  serviceProviderId?: number;
-  vendorId?: number;
+type HubProfileDetails = {
+  firstName: string;
+  lastName: string;
+  altContact: string;
+  joinedAt: string | null;
+};
+
+const formatJoinedLabel = (raw: string | null | undefined): string => {
+  if (!raw) return "—";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+};
+
+const SectionTitle = ({ children }: { children: string }) => (
+  <Text style={hubStyles.sectionTitle}>{children}</Text>
+);
+
+const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
+  <View style={hubStyles.fieldWrap}>
+    <Text style={hubStyles.fieldLabel}>{label}</Text>
+    <View style={hubStyles.fieldBox}>
+      <Text style={hubStyles.fieldValue} numberOfLines={3}>
+        {value || "—"}
+      </Text>
+    </View>
+  </View>
+);
+
+export interface ProfileScreenProps {
+  onBack: () => void;
+  onNavigateToBookings?: () => void;
+  onOpenSettings?: () => void;
+  onContact?: () => void;
+  onSignOutComplete?: () => Promise<void>;
 }
 
-const ProfileScreen: React.FC = () => {
+const PROFILE_NAV_ROW_HEIGHT = 28;
+
+const ProfileNavBar = ({
+  onBack,
+  topInset,
+}: {
+  onBack: () => void;
+  topInset: number;
+}) => (
+  <View style={[hubStyles.navBar, { paddingTop: topInset }]}>
+    <TouchableOpacity
+      onPress={onBack}
+      style={hubStyles.navBackBtn}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <MaterialIcon name="arrow-back" size={18} color={HOME_M3.onPrimary} />
+    </TouchableOpacity>
+    <Text style={hubStyles.navTitle}>Profile</Text>
+    <View style={hubStyles.navSpacer} />
+  </View>
+);
+
+const ProfileScreen: React.FC<ProfileScreenProps> = ({
+  onBack,
+  onNavigateToBookings,
+  onOpenSettings,
+  onContact,
+  onSignOutComplete,
+}) => {
   const { t } = useTranslation();
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
   const { appUser } = useAppUser();
-  const { colors, fontSize, isDarkMode } = useTheme();
+  const { isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
 
+  const [subView, setSubView] = useState<ProfileSubView>("hub");
+  const [editIntent, setEditIntent] = useState<ProfileEditIntent>("profile");
   const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-  const [userRole, setUserRole] = useState<'CUSTOMER' | 'SERVICE_PROVIDER' | 'VENDOR'>('CUSTOMER');
+  const [userRole, setUserRole] = useState<"CUSTOMER" | "SERVICE_PROVIDER" | "VENDOR">(
+    "CUSTOMER"
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [dialogShownInSession, setDialogShownInSession] = useState(false);
+  const [contactNumber, setContactNumber] = useState<string | null>(null);
   const [hasMobileNumber, setHasMobileNumber] = useState<boolean | null>(null);
+  const [profileDetails, setProfileDetails] = useState<HubProfileDetails>({
+    firstName: "",
+    lastName: "",
+    altContact: "",
+    joinedAt: null,
+  });
+  const [addresses, setAddresses] = useState<HubAddress[]>([]);
+  const [orderCount, setOrderCount] = useState<number | null>(null);
 
-  // Get font sizes based on theme
-  const getFontSizes = () => {
-    switch (fontSize) {
-      case 'small':
-        return {
-          title: 24,
-          subtitle: 14,
-          body: 12,
-          button: 12,
-          smallText: 10,
-        };
-      case 'large':
-        return {
-          title: 32,
-          subtitle: 18,
-          body: 16,
-          button: 16,
-          smallText: 14,
-        };
-      default:
-        return {
-          title: 28,
-          subtitle: 16,
-          body: 14,
-          button: 14,
-          smallText: 12,
-        };
-    }
+  // Animation values
+  const headerScale = useRef(new Animated.Value(0.9)).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const statsOpacity = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const prevSubViewRef = useRef<ProfileSubView>("hub");
+
+  // Handle device back button
+  useEffect(() => {
+    const backAction = () => {
+      if (mobileDialogOpen) {
+        setMobileDialogOpen(false);
+        return true;
+      }
+      if (subView === "edit") {
+        setEditIntent("profile");
+        setSubView("hub");
+        return true;
+      }
+      onBack();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [mobileDialogOpen, subView, onBack]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(headerScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(headerOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(statsOpacity, {
+        toValue: 1,
+        duration: 800,
+        delay: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const loadProfileContact = useCallback(
+    async (
+      role: "CUSTOMER" | "SERVICE_PROVIDER" | "VENDOR",
+      id: number
+    ) => {
+      try {
+        let contact = "";
+        if (role === "CUSTOMER") {
+          const response = await providerInstance.get(`/api/customer/${id}`);
+          contact = extractContactFromPayload(response.data?.data);
+        } else if (role === "SERVICE_PROVIDER") {
+          const response = await providerInstance.get(
+            `/api/service-providers/serviceprovider/${id}`
+          );
+          contact = extractContactFromPayload(response.data?.data);
+        } else if (role === "VENDOR") {
+          const response = await providerInstance.get(`/api/vendor/${id}`);
+          contact = extractContactFromPayload(response.data?.data);
+        }
+
+        const valid = isValidContact(contact);
+        setContactNumber(valid ? contact : null);
+        setHasMobileNumber(valid);
+
+        if (role === "CUSTOMER" && !valid && !dialogShownInSession) {
+          setTimeout(() => {
+            setMobileDialogOpen(true);
+            setDialogShownInSession(true);
+          }, 800);
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile contact:", error);
+        setContactNumber(null);
+        setHasMobileNumber(null);
+      }
+    },
+    [dialogShownInSession]
+  );
+
+  const parseAddressesFromPreferences = (data: unknown): HubAddress[] => {
+    if (!Array.isArray(data) || data.length === 0) return [];
+    const allSavedLocations = data.flatMap((doc: { savedLocations?: unknown[] }) => doc.savedLocations || []);
+    const unique = new Map<string, HubAddress>();
+
+    allSavedLocations.forEach((loc: any, idx: number) => {
+      const primaryAddress = loc?.location?.address?.[0];
+      const formatted = primaryAddress?.formatted_address;
+      if (!formatted) return;
+      const key =
+        loc?.location?.lat && loc?.location?.lng
+          ? `${loc.location.lat},${loc.location.lng}`
+          : formatted;
+      if (!unique.has(key)) {
+        unique.set(key, {
+          id: String(loc?._id || `addr_${idx}`),
+          type: String(loc?.name || "Home"),
+          street: formatted,
+        });
+      }
+    });
+
+    return Array.from(unique.values());
   };
 
-  const fontSizes = getFontSizes();
+  const loadHubProfileData = useCallback(
+    async (role: "CUSTOMER" | "SERVICE_PROVIDER" | "VENDOR", id: number) => {
+      try {
+        if (role === "CUSTOMER") {
+          const [custRes, prefRes, engagementsRes] = await Promise.all([
+            providerInstance.get(`/api/customer/${id}`),
+            preferenceInstance.get(`/api/user-settings/${id}`).catch(() => null),
+            PaymentInstance.get(`/api/customers/${id}/engagements`).catch(() => null),
+          ]);
 
-  // Check mobile number for customers
-  const checkMobileNumber = useCallback(async (customerId: number) => {
-    try {
-      const response = await providerInstance.get(`/api/customer/${customerId}`);
-      const mobileExists = !!response.data?.data?.mobileno;
-      setHasMobileNumber(mobileExists);
+          const data = custRes.data?.data || {};
+          setProfileDetails({
+            firstName: String(data.firstName || data.firstname || ""),
+            lastName: String(data.lastName || data.lastname || ""),
+            altContact: parseAlternateContact(data),
+            joinedAt: data.created_at || data.createdAt || null,
+          });
+          setAddresses(parseAddressesFromPreferences(prefRes?.data));
 
-      if (!mobileExists && !dialogShownInSession) {
-        setTimeout(() => {
-          setMobileDialogOpen(true);
-          setDialogShownInSession(true);
-        }, 1000);
+          const bucket = engagementsRes?.data || {};
+          const total =
+            (bucket.current?.length || 0) +
+            (bucket.upcoming?.length || 0) +
+            (bucket.past?.length || 0);
+          setOrderCount(total);
+        } else if (role === "SERVICE_PROVIDER") {
+          const response = await providerInstance.get(`/api/service-providers/serviceprovider/${id}`);
+          const data = response.data?.data || {};
+          setProfileDetails({
+            firstName: String(data.firstName || data.firstname || ""),
+            lastName: String(data.lastName || data.lastname || ""),
+            altContact: parseAlternateContact(data),
+            joinedAt: data.created_at || data.createdAt || null,
+          });
+          setAddresses([]);
+          setOrderCount(null);
+        } else {
+          const response = await providerInstance.get(`/api/vendor/${id}`);
+          const data = response.data?.data || response.data || {};
+          setProfileDetails({
+            firstName: String(data.firstName || data.firstname || ""),
+            lastName: String(data.lastName || data.lastname || ""),
+            altContact: parseAlternateContact(data),
+            joinedAt: data.created_at || data.createdAt || null,
+          });
+          setAddresses([]);
+          setOrderCount(null);
+        }
+      } catch (error) {
+        console.error("Failed to load profile hub data:", error);
       }
-    } catch (error) {
-      console.error('Failed to fetch customer data:', error);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (prevSubViewRef.current === "edit" && subView === "hub" && userId) {
+      void loadHubProfileData(userRole, userId);
+      void loadProfileContact(userRole, userId);
     }
-  }, [dialogShownInSession]);
+    prevSubViewRef.current = subView;
+  }, [subView, userId, userRole, loadHubProfileData, loadProfileContact]);
 
   useEffect(() => {
     const initializeProfile = async () => {
       setIsLoading(true);
-
       if (appUser) {
         const name = appUser.name || null;
-        const email = appUser.email || auth0User?.email || null;
-        const role = appUser.role || 'CUSTOMER';
-
+        const email = appUser.email || null;
+        const role = appUser.role || "CUSTOMER";
         setUserRole(role);
         setUserName(name);
         setUserEmail(email);
 
-        let id = null;
-        if (role === 'SERVICE_PROVIDER') {
-          id = appUser.serviceProviderId;
-        } else if (role === 'CUSTOMER') {
-          id = appUser.customerid;
-        } else if (role === 'VENDOR') {
-          id = appUser.vendorId;
+        let id: number | null = null;
+        if (role === "SERVICE_PROVIDER") {
+          id = appUser.serviceProviderId ? Number(appUser.serviceProviderId) : null;
+        } else if (role === "CUSTOMER") {
+          id = appUser.customerid ? Number(appUser.customerid) : null;
+        } else if (role === "VENDOR") {
+          id = appUser.vendorId ? Number(appUser.vendorId) : null;
         }
+        setUserId(id);
 
-        const numericId = id ? Number(id) : null;
-        setUserId(numericId);
-
-        if (role === 'CUSTOMER' && numericId) {
-          await checkMobileNumber(numericId);
-        } else if (role === 'SERVICE_PROVIDER' || role === 'VENDOR') {
-          setHasMobileNumber(true);
+        if (id) {
+          await Promise.all([loadProfileContact(role, id), loadHubProfileData(role, id)]);
+        } else {
+          setContactNumber(null);
+          setHasMobileNumber(null);
         }
       }
-
       setIsLoading(false);
     };
-
     initializeProfile();
-  }, [appUser, auth0User?.email, checkMobileNumber]);
+  }, [appUser, loadProfileContact, loadHubProfileData]);
 
-  const getRoleDisplay = () => {
-    switch (userRole) {
-      case 'CUSTOMER':
-        return t('profile.page.customer');
-      case 'SERVICE_PROVIDER':
-        return t('profile.page.serviceProvider');
-      case 'VENDOR':
-        return t('profile.page.vendor');
-      default:
-        return t('profile.page.user');
-    }
+  const getHandle = () => {
+    const email = userEmail || appUser?.email || auth0User?.email;
+    if (!email) return "@user";
+    const local = email.split("@")[0] || "user";
+    return `@${local.toLowerCase().replace(/[^a-z0-9._]/g, "")}`;
   };
 
-  const getAvatarSource = () => {
-    const pictureUri = appUser?.picture || auth0User?.picture;
-    if (pictureUri) {
-      return { uri: pictureUri };
-    }
-    return undefined;
+  const getDisplayName = () => {
+    const full = `${profileDetails.firstName} ${profileDetails.lastName}`.trim();
+    if (full) return full;
+    return userName || appUser?.name || t("profile.page.user");
   };
 
-  const getUserInitial = () => {
-    const name = userName || t('profile.page.user');
-    return name.charAt(0).toUpperCase();
+  const getAvatarUri = () => appUser?.picture || auth0User?.picture || null;
+
+  const getInitials = () => {
+    const first = profileDetails.firstName?.trim();
+    const last = profileDetails.lastName?.trim();
+    if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+    if (first) return first.slice(0, 2).toUpperCase();
+    const name = getDisplayName();
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase() || "U";
   };
 
-  const getAvatarBackgroundColor = (initial: string) => {
-    const colorsList = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
-    const charCode = initial.charCodeAt(0);
-    return colorsList[charCode % colorsList.length];
-  };
+  const showProfileSkeleton = isLoading || (auth0Loading && !appUser);
 
-  // Diagonal line pattern
-  const DiagonalPattern = () => (
-    <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-      <Defs>
-        <Pattern
-          id="diagonalPattern"
-          patternUnits="userSpaceOnUse"
-          width={30}
-          height={30}
-          patternTransform="rotate(45)"
-        >
-          <Line
-            x1="0"
-            y1="15"
-            x2="30"
-            y2="15"
-            stroke="rgba(255,255,255,0.12)"
-            strokeWidth="1.5"
-          />
-        </Pattern>
-      </Defs>
-      <Rect width="100%" height="100%" fill="url(#diagonalPattern)" />
-    </Svg>
-  );
+  if (showProfileSkeleton) {
+    return <ProfileHubSkeleton />;
+  }
 
-  // Dot pattern for texture
-  const DotPattern = () => (
-    <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-      <Defs>
-        <Pattern
-          id="dotPattern"
-          patternUnits="userSpaceOnUse"
-          width={20}
-          height={20}
-        >
-          <Circle cx="10" cy="10" r="1.2" fill="rgba(255,255,255,0.1)" />
-        </Pattern>
-      </Defs>
-      <Rect width="100%" height="100%" fill="url(#dotPattern)" />
-    </Svg>
-  );
+  if (subView === "edit") {
+    const editTitle = editIntent === "addAddress" ? "Add New Address" : "Edit Profile";
 
-  // Loading skeleton for the entire profile
-  if (isLoading || auth0Loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-        <LinearGradient
-          colors={['#0d1935', '#1c4485', '#255697']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerSkeleton}
-        >
-          <View style={styles.headerContentSkeleton}>
-            <View style={styles.profileInfoSkeleton}>
-              <View style={[styles.avatarSkeleton, { backgroundColor: colors.surface }]} />
-              <View style={styles.textInfoSkeleton}>
-                <View style={[styles.nameSkeleton, { backgroundColor: colors.surface }]} />
-                <View style={[styles.roleSkeleton, { backgroundColor: colors.surface }]} />
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
-        <ScrollView 
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.mainContent}>
-            <View style={[styles.skeletonCard, { backgroundColor: colors.card }]}>
-              {/* Skeleton content */}
-              <View style={styles.skeletonHeader}>
-                <View style={[styles.skeletonTitle, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonEditButton, { backgroundColor: colors.surface }]} />
-              </View>
-              <View style={styles.skeletonSection}>
-                <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
-                <View style={styles.skeletonRow}>
-                  <View style={styles.skeletonInputGroup}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
+      <View style={[styles.container, { backgroundColor: isDarkMode ? "#0f172a" : "#f1f5f9" }]}>
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+        <View style={[styles.editHeader, { paddingTop: insets.top > 0 ? insets.top : 4 }]}>
+          <TouchableOpacity
+            onPress={() => {
+              setEditIntent("profile");
+              setSubView("hub");
+            }}
+            style={styles.editBackButton}
+          >
+            <MaterialIcon name="arrow-back" size={22} color={isDarkMode ? "#f8fafc" : "#1e293b"} />
+          </TouchableOpacity>
+          <Text style={[styles.editHeaderTitle, { color: isDarkMode ? "#f8fafc" : "#1e293b" }]}>
+            {editTitle}
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.editBody}>
+          {userRole === "CUSTOMER" ? (
+            <CustomerProfileSection
+              userId={userId}
+              userEmail={userEmail}
+              onBack={() => {
+                setEditIntent("profile");
+                setSubView("hub");
+              }}
+              embedMode
+              initialOpenAddAddress={editIntent === "addAddress"}
+            />
+          ) : userRole === "SERVICE_PROVIDER" ? (
+            <ServiceProviderProfileSection userId={userId} userEmail={userEmail} />
+          ) : (
+            <VendorProfileSection userId={userId} userEmail={userEmail} onBack={() => setSubView("hub")} />
+          )}
+        </View>
       </View>
     );
   }
 
+  const avatarUri = getAvatarUri();
+  const navTop = insets.top > 0 ? insets.top : 0;
+  const navHeight = navTop + PROFILE_NAV_ROW_HEIGHT;
+  const primaryContact = contactNumber ? formatContactDisplay(contactNumber) : null;
+  const altContact = profileDetails.altContact
+    ? formatContactDisplay(profileDetails.altContact)
+    : null;
+  const joinedLabel = formatJoinedLabel(profileDetails.joinedAt);
+  const ordersLabel = orderCount != null ? String(orderCount) : "—";
+
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      
-      <ScrollView 
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContentContainer}
+    <View style={[styles.container, { backgroundColor: HOME_M3.primary }]}>
+      <StatusBar barStyle="light-content" backgroundColor={HOME_M3.primary} />
+
+      <ProfileNavBar onBack={onBack} topInset={navTop} />
+
+      <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
+        style={hubStyles.scroll}
+        contentContainerStyle={[
+          hubStyles.scrollContent,
+          { paddingTop: navHeight, paddingBottom: 12 },
+        ]}
       >
-        {/* Header with curved bottom edge */}
-        <View style={styles.headerWrapper}>
-          <LinearGradient
-            colors={['#0d1935', '#1c4485', '#255697']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.header}
+        <LinearGradient
+          colors={[HOME_M3.primaryContainer, HOME_M3.primary]}
+          style={hubStyles.hero}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.8, y: 1 }}
+        >
+          <View style={hubStyles.heroDecorA} />
+          <View style={hubStyles.heroDecorB} />
+
+          <Animated.View
+            style={[
+              hubStyles.heroInner,
+              { transform: [{ scale: headerScale }], opacity: headerOpacity },
+            ]}
           >
-            {/* Texture patterns */}
-            <DiagonalPattern />
-            <DotPattern />
-            
-            <View style={styles.headerContent}>
-              <View style={styles.profileInfo}>
-                <View style={styles.avatarRing}>
-                  {appUser?.picture || auth0User?.picture ? (
-                    <Image
-                      source={getAvatarSource()}
-                      style={styles.avatar}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.avatarFallback,
-                        { backgroundColor: getAvatarBackgroundColor(getUserInitial()) },
-                      ]}
-                    >
-                      <Text style={[styles.avatarText, { fontSize: fontSizes.title, color: '#fff' }]}>
-                        {getUserInitial()}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.userInfo}>
-                  <Text style={[styles.greeting, { color: '#ffffff', fontSize: fontSizes.title }]}>
-                    Hello, {userName || t('profile.page.user')}
-                  </Text>
-                  <View style={styles.roleContainer}>
-                    <Text style={[styles.roleText, { color: '#cbd5e1', fontSize: fontSizes.subtitle }]}>
-                      {getRoleDisplay()}
-                    </Text>
-                    {userRole === 'CUSTOMER' && hasMobileNumber === false && (
-                      <Text style={[styles.mobileWarning, { color: '#fde047', fontSize: fontSizes.body }]}>
-                        {' '}⚠️ Mobile number required
-                      </Text>
-                    )}
+            <View style={hubStyles.avatarOuter}>
+              <View style={hubStyles.avatarBorder}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={hubStyles.avatarImage} />
+                ) : (
+                  <View style={hubStyles.avatarFallback}>
+                    <Text style={hubStyles.avatarInitials}>{getInitials()}</Text>
                   </View>
-                </View>
+                )}
               </View>
-
-              {/* Add Mobile Button - Only for Customers */}
-              {userRole === 'CUSTOMER' && hasMobileNumber === false && (
-                <TouchableOpacity
-                  style={styles.addMobileButton}
-                  onPress={() => setMobileDialogOpen(true)}
-                >
-                  <Icon name="phone" size={16} color="#fde047" />
-                  <Text style={[styles.addMobileText, { color: '#fde047', fontSize: fontSizes.button }]}>
-                    Add Mobile Number
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Vendor ID Display */}
-              {userRole === 'VENDOR' && userId && (
-                <View style={styles.vendorIdBadge}>
-                  <Text style={[styles.vendorIdText, { color: '#bae6fd', fontSize: fontSizes.body }]}>
-                    Vendor ID: {userId}
-                  </Text>
-                </View>
-              )}
             </View>
 
-            {/* Curved bottom edge decoration - like the image */}
-            <View style={styles.curveOverlay} />
-          </LinearGradient>
-          
-          {/* Curved white overlay to create the rounded edge effect */}
-          <View style={styles.bottomCurve} />
-        </View>
+            <Text style={hubStyles.displayName}>{getDisplayName()}</Text>
+            <Text style={hubStyles.handle}>{getHandle()}</Text>
 
-        {/* Profile Section - starts with curved top */}
-        <View style={styles.profileSectionContainer}>
-          {userRole === 'CUSTOMER' ? (
-            <CustomerProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {}}
-            />
-          ) : userRole === 'SERVICE_PROVIDER' ? (
-            <ServiceProviderProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {}}
-            />
-          ) : userRole === 'VENDOR' ? (
-            <VendorProfileSection
-              userId={userId}
-              userEmail={userEmail}
-              onBack={() => {}}
-            />
-          ) : null}
-        </View>
+            <Animated.View style={[hubStyles.statsBar, { opacity: statsOpacity }]}>
+              <View style={hubStyles.statItem}>
+                <Text style={hubStyles.statValue}>{ordersLabel}</Text>
+                <Text style={hubStyles.statLabel}>Orders</Text>
+              </View>
+              <View style={hubStyles.statDivider} />
+              <View style={hubStyles.statItem}>
+                <Text style={hubStyles.statValue}>—</Text>
+                <Text style={hubStyles.statLabel}>Reviews</Text>
+              </View>
+              <View style={hubStyles.statDivider} />
+              <View style={hubStyles.statItem}>
+                <Text style={hubStyles.statValue}>{joinedLabel}</Text>
+                <Text style={hubStyles.statLabel}>Joined</Text>
+              </View>
+            </Animated.View>
 
-        {/* Mobile Dialog */}
-        {mobileDialogOpen && userId && userRole === 'CUSTOMER' && (
-          <MobileNumberDialog
-            visible={mobileDialogOpen}
-            onClose={() => setMobileDialogOpen(false)}
-            customerId={userId}
-            onSuccess={() => {
-              setHasMobileNumber(true);
-              setMobileDialogOpen(false);
-            }}
-          />
-        )}
+            {userRole === "CUSTOMER" && hasMobileNumber === false ? (
+              <TouchableOpacity style={hubStyles.mobileHint} onPress={() => setMobileDialogOpen(true)}>
+                <MaterialIcon name="phone-android" size={16} color="#f59e0b" />
+                <Text style={hubStyles.mobileHintText}>Add mobile number</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <View style={hubStyles.editBtnWrap}>
+              <TouchableOpacity
+                style={hubStyles.editBtn}
+                onPress={() => {
+                  setEditIntent("profile");
+                  setSubView("edit");
+                }}
+                activeOpacity={0.9}
+              >
+                <Text style={hubStyles.editBtnText}>Edit Profile</Text>
+                <MaterialIcon name="edit" size={18} color={HOME_M3.primary} />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </LinearGradient>
+
+        <View style={hubStyles.contentSheet}>
+          <View style={hubStyles.contentInner}>
+            <View style={hubStyles.section}>
+              <SectionTitle>User Information</SectionTitle>
+              <View style={hubStyles.fieldGrid}>
+                <ReadOnlyField label="Email Address" value={userEmail || ""} />
+                <ReadOnlyField label="User ID" value={userId != null ? String(userId) : ""} />
+                <ReadOnlyField label="First Name" value={profileDetails.firstName} />
+                <ReadOnlyField label="Last Name" value={profileDetails.lastName} />
+              </View>
+            </View>
+
+            <View style={hubStyles.section}>
+              <SectionTitle>Contact Information</SectionTitle>
+              <View style={hubStyles.contactCard}>
+                <View style={hubStyles.contactRow}>
+                  <View style={hubStyles.contactIconPrimary}>
+                    <MaterialIcon name="call" size={20} color={HOME_M3.secondary} />
+                  </View>
+                  <View style={hubStyles.contactTextCol}>
+                    <Text style={hubStyles.contactLabel}>Primary Contact</Text>
+                    <Text style={hubStyles.contactValue}>
+                      {primaryContact || "Not added"}
+                    </Text>
+                  </View>
+                </View>
+                {primaryContact && isValidContact(contactNumber || "") ? (
+                  <View style={hubStyles.verifiedBadge}>
+                    <MaterialIcon name="check-circle" size={12} color="#004A77" />
+                    <Text style={hubStyles.verifiedText}>VERIFIED</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {altContact ? (
+                <View style={[hubStyles.contactCard, hubStyles.contactCardAlt]}>
+                  <View style={hubStyles.contactRow}>
+                    <View style={hubStyles.contactIconAlt}>
+                      <MaterialIcon name="contact-phone" size={20} color={HOME_M3.outline} />
+                    </View>
+                    <View style={hubStyles.contactTextCol}>
+                      <Text style={hubStyles.contactLabel}>Alternative Contact</Text>
+                      <Text style={hubStyles.contactValue}>{altContact}</Text>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
+            {userRole === "CUSTOMER" ? (
+              <View style={hubStyles.section}>
+                <View style={hubStyles.sectionHeaderRow}>
+                  <SectionTitle>Saved Addresses</SectionTitle>
+                  <TouchableOpacity
+                    style={hubStyles.addNewBtn}
+                    onPress={() => {
+                      setEditIntent("addAddress");
+                      setSubView("edit");
+                    }}
+                  >
+                    <MaterialIcon name="add" size={18} color={HOME_M3.secondary} />
+                    <Text style={hubStyles.addNewText}>Add New</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {addresses.length === 0 ? (
+                  <View style={hubStyles.emptyAddressCard}>
+                    <Text style={hubStyles.emptyAddressText}>No saved addresses yet</Text>
+                  </View>
+                ) : (
+                  addresses.map((addr) => (
+                    <View key={addr.id} style={hubStyles.addressCard}>
+                      <View style={hubStyles.addressRow}>
+                        <View style={hubStyles.addressIconWrap}>
+                          <MaterialIcon name="home" size={22} color={HOME_M3.secondary} />
+                        </View>
+                        <View style={hubStyles.addressBody}>
+                          <View style={hubStyles.addressTitleRow}>
+                            <Text style={hubStyles.addressTitle}>{addr.type}</Text>
+                            <TouchableOpacity onPress={() => setSubView("edit")} hitSlop={8}>
+                              <MaterialIcon name="more-vert" size={20} color={HOME_M3.outline} />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={hubStyles.addressText}>{addr.street}</Text>
+                        </View>
+                      </View>
+                      <MaterialIcon
+                        name="map"
+                        size={110}
+                        color={HOME_M3.onSurface}
+                        style={hubStyles.addressWatermark}
+                      />
+                    </View>
+                  ))
+                )}
+              </View>
+            ) : null}
+          </View>
+        </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+
+      {mobileDialogOpen && userId && userRole === "CUSTOMER" && (
+        <MobileNumberDialog
+          visible={mobileDialogOpen}
+          onClose={() => setMobileDialogOpen(false)}
+          customerId={userId}
+          onSuccess={() => {
+            setHasMobileNumber(true);
+            setMobileDialogOpen(false);
+            if (userId) {
+              loadProfileContact("CUSTOMER", userId);
+              loadHubProfileData("CUSTOMER", userId);
+            }
+          }}
+        />
+      )}
+
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: "100%",
   },
-  scrollContainer: {
+  editBody: {
     flex: 1,
   },
-  scrollContentContainer: {
-    flexGrow: 1,
-    paddingBottom: 20,
-  },
-  headerWrapper: {
-    position: 'relative',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    overflow: 'hidden',
-  },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40 + (StatusBar.currentHeight || 0),
-    paddingBottom: 50,
-    position: 'relative',
-  },
-  curveOverlay: {
-    position: 'absolute',
-    bottom: -2,
-    left: 0,
-    right: 0,
-    height: 30,
-    backgroundColor: 'transparent',
-  },
-  bottomCurve: {
-    position: 'absolute',
-    bottom: -1,
-    left: 0,
-    right: 0,
-    height: 30,
-    backgroundColor: '#f8fafc',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
+  editHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    gap: 12,
-    zIndex: 10,
+    paddingBottom: 8,
+    backgroundColor: "transparent",
   },
-  profileInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+  editBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
+  editHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+});
+
+const hubStyles = StyleSheet.create({
+  navBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingBottom: 0,
+    backgroundColor: HOME_M3.primary,
+  },
+  navBackBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: HOME_M3.onPrimary,
+    letterSpacing: -0.1,
+    lineHeight: 18,
+  },
+  navSpacer: {
+    width: 28,
+  },
+  scroll: {
     flex: 1,
+    width: "100%",
   },
-  avatarRing: {
-    padding: 3,
-    borderRadius: 40,
-    backgroundColor: '#3b82f6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  scrollContent: {
+    width: "100%",
+    alignItems: "stretch",
   },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+  hero: {
+    width: "100%",
+    alignSelf: "stretch",
+    paddingTop: 4,
+    paddingBottom: 28,
+    overflow: "visible",
+    zIndex: 2,
+  },
+  heroDecorA: {
+    position: "absolute",
+    top: -48,
+    right: -48,
+    width: 192,
+    height: 192,
+    borderRadius: 96,
+    backgroundColor: "rgba(51, 91, 175, 0.12)",
+  },
+  heroDecorB: {
+    position: "absolute",
+    bottom: -96,
+    left: -48,
+    width: 256,
+    height: 256,
+    borderRadius: 128,
+    backgroundColor: "rgba(13, 43, 77, 0.08)",
+  },
+  heroInner: {
+    alignItems: "center",
+    zIndex: 2,
+    width: "100%",
+    paddingHorizontal: 16,
+  },
+  avatarOuter: {
+    marginBottom: 24,
+  },
+  avatarBorder: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    borderWidth: 4,
+    borderColor: "rgba(255,255,255,0.2)",
+    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 60,
   },
   avatarFallback: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    width: "100%",
+    height: "100%",
+    borderRadius: 60,
+    backgroundColor: "#FFB3C6",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  avatarText: {
-    fontWeight: 'bold',
+  avatarInitials: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#D42A5C",
+    letterSpacing: -0.5,
   },
-  userInfo: {
-    flex: 1,
-  },
-  greeting: {
-    fontWeight: 'bold',
+  displayName: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: HOME_M3.onPrimary,
+    textAlign: "center",
+    letterSpacing: -0.5,
     marginBottom: 4,
+    paddingHorizontal: 12,
   },
-  roleContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+  handle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 24,
   },
-  roleText: {
-    fontWeight: '500',
-  },
-  mobileWarning: {
-    fontWeight: '500',
-  },
-  addMobileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  statsBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 32,
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 12,
-    gap: 8,
-    backgroundColor: 'rgba(253, 224, 71, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(253, 224, 71, 0.3)',
-  },
-  addMobileText: {
-    fontWeight: '600',
-  },
-  vendorIdBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  vendorIdText: {
-    fontWeight: '600',
-  },
-  profileSectionContainer: {
-    backgroundColor: '#f8fafc',
-    paddingTop: 10,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: -20,
-    zIndex: 20,
-  },
-  mainContent: {
-    alignItems: 'center',
-    padding: 16,
-  },
-  skeletonCard: {
-    width: width - 32,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  skeletonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 12,
-    marginBottom: 16,
-  },
-  skeletonTitle: {
-    width: 120,
-    height: 24,
-    borderRadius: 4,
-  },
-  skeletonEditButton: {
-    width: 80,
-    height: 36,
-    borderRadius: 20,
-  },
-  skeletonSection: {
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 32,
+    paddingVertical: 16,
     marginBottom: 20,
   },
-  skeletonSectionTitle: {
-    width: 150,
-    height: 20,
-    borderRadius: 4,
-    marginBottom: 16,
+  statItem: {
+    alignItems: "center",
   },
-  skeletonRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 12,
+  statValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: HOME_M3.onPrimary,
   },
-  skeletonInputGroup: {
-    flex: 1,
-    minWidth: 200,
+  statLabel: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.6)",
+    marginTop: 4,
+    fontWeight: "500",
   },
-  skeletonLabel: {
-    width: 80,
-    height: 16,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonInput: {
-    width: '100%',
-    height: 40,
-    borderRadius: 8,
-  },
-  skeletonDivider: {
-    height: 1,
-    marginVertical: 20,
-  },
-  skeletonAddressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  skeletonAddButton: {
-    width: 120,
+  statDivider: {
+    width: 1,
     height: 32,
-    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
-  skeletonAddressCard: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 16,
+  mobileHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.3)",
   },
-  skeletonAddressTitle: {
-    width: 80,
-    height: 20,
-    borderRadius: 4,
+  mobileHintText: {
+    fontSize: 13,
+    color: "#f59e0b",
+    fontWeight: "600",
   },
-  skeletonAddressIcon: {
-    width: 60,
-    height: 20,
-    borderRadius: 4,
-  },
-  skeletonAddressLine: {
-    width: '100%',
-    height: 20,
-    borderRadius: 4,
-    marginTop: 8,
+  editBtnWrap: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 4,
     marginBottom: 4,
+    zIndex: 10,
+    elevation: 10,
   },
-  skeletonAddressLineShort: {
-    width: '80%',
-    height: 20,
-    borderRadius: 4,
+  editBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: HOME_M3.onPrimary,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    minHeight: 44,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  skeletonFooter: {
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 20,
+  editBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: HOME_M3.primary,
+    letterSpacing: 0.5,
   },
-  skeletonFooterText: {
-    width: 200,
-    height: 16,
-    borderRadius: 4,
+  contentSheet: {
+    marginTop: -12,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    width: "100%",
+    alignSelf: "stretch",
+    zIndex: 1,
   },
-  headerSkeleton: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 50,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+  contentInner: {
+    width: "100%",
+    gap: 28,
   },
-  headerContentSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  profileInfoSkeleton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  section: {
     gap: 16,
   },
-  avatarSkeleton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  textInfoSkeleton: {
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: HOME_M3.outline,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  fieldGrid: {
+    gap: 16,
+  },
+  fieldWrap: {
     gap: 8,
   },
-  nameSkeleton: {
-    width: 160,
-    height: 28,
-    borderRadius: 4,
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: HOME_M3.onSurfaceVariant,
+    paddingHorizontal: 4,
   },
-  roleSkeleton: {
-    width: 96,
-    height: 16,
-    borderRadius: 4,
+  fieldBox: {
+    backgroundColor: HOME_M3.surfaceContainerLow,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(196, 198, 207, 0.3)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  buttonSkeleton: {
-    width: 128,
+  fieldValue: {
+    fontSize: 14,
+    color: HOME_M3.onSurface,
+    lineHeight: 20,
+  },
+  contactCard: {
+    backgroundColor: HOME_M3.surfaceContainerLow,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(196, 198, 207, 0.3)",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  contactCardAlt: {
+    marginTop: 12,
+  },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    flex: 1,
+  },
+  contactIconPrimary: {
+    width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "rgba(130, 166, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contactIconAlt: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#e0e3e5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contactTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  contactLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: HOME_M3.onSurfaceVariant,
+    marginBottom: 2,
+  },
+  contactValue: {
+    fontSize: 14,
+    color: HOME_M3.onSurface,
+    fontWeight: "400",
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#D1E9FF",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  verifiedText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#004A77",
+    letterSpacing: 0.3,
+  },
+  addNewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  addNewText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: HOME_M3.secondary,
+    letterSpacing: 0.3,
+  },
+  addressCard: {
+    backgroundColor: HOME_M3.surfaceContainerLow,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(196, 198, 207, 0.3)",
+    padding: 20,
+    overflow: "hidden",
+    position: "relative",
+  },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 16,
+    zIndex: 2,
+  },
+  addressIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  addressBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  addressTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  addressTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: HOME_M3.onSurface,
+  },
+  addressText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: HOME_M3.onSurfaceVariant,
+  },
+  addressWatermark: {
+    position: "absolute",
+    right: -8,
+    bottom: -16,
+    opacity: 0.03,
+  },
+  emptyAddressCard: {
+    backgroundColor: HOME_M3.surfaceContainerLow,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(196, 198, 207, 0.3)",
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyAddressText: {
+    fontSize: 14,
+    color: HOME_M3.onSurfaceVariant,
   },
 });
 

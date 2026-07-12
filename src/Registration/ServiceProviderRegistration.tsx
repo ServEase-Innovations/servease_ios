@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import moment from "moment";
 import {
   View,
@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   Alert,
   Modal,
@@ -14,13 +15,14 @@ import {
   Platform,
   Linking,
   Dimensions,
-  KeyboardAvoidingView,
-  SafeAreaView,
+  Keyboard,
+  Animated,
+  AppState,
 } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import axios from "axios";
-import LinearGradient from 'react-native-linear-gradient';
 import { keys } from "../env";
 import axiosInstance from "../services/axiosInstance";
 import CustomFileInput from "./CustomFileInput";
@@ -30,15 +32,27 @@ import { debounce } from "../utils/debounce";
 import { useFieldValidation } from "./useFieldValidation";
 import Geolocation from "@react-native-community/geolocation";
 import Geocoder from "react-native-geocoding";
-import { PERMISSIONS, request, RESULTS } from "react-native-permissions";
-import Slider from '@react-native-community/slider';
+import { PERMISSIONS, request, check, RESULTS } from "react-native-permissions";
+import { useSelector } from "react-redux";
+import MapComponent from "../MapComponent/MapComponent";
+import {
+  formatServiceAddressFromGeoLocation,
+  resolveLocationCoords,
+} from "../utils/bookingLocation";
 import ProfileImageUpload from "./ProfileImageUpload";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
+import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
+import { HOME_M3 } from "../theme/brandColors";
 import { Button } from "../common/Button";
+import {
+  RegistrationAndroidKeyboardBar,
+  RegistrationKeyboardAccessory,
+} from "../common/RegistrationKeyboardAccessory";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { useAuth0 } from "react-native-auth0";
 
 // Import the new components
 import BasicInformation from "./BasicInformation";
@@ -46,8 +60,19 @@ import ServiceDetails from "./ServiceDetails";
 import KYCVerification from "./KYCVerification";
 import BankDetails, { BankDetailsData, BankDetailsErrors } from "./BankDetails";
 import providerInstance from "../services/providerInstance";
+import { API_URLS } from "../config/apiUrls";
+import { Portal } from "react-native-paper";
+import {
+  clearSpRegistrationDraft,
+  hasMeaningfulDraft,
+  loadSpRegistrationDraft,
+  sanitizeFormDataForDraft,
+  saveSpRegistrationDraft,
+} from "./spRegistrationDraft";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.94;
+const SHEET_RADIUS = 18;
 
 // Define the shape of formData using an interface
 interface FormData {
@@ -174,8 +199,10 @@ interface FormErrors {
   bankDetails?: BankDetailsErrors;
 }
 
-// Regex for validation
-const nameRegex = /^[A-Za-z]+(?:[ ][A-Za-z]+)*$/;
+// Regex for validation (kept for optional format checks)
+// Updated to properly support multi-word names with spaces
+// Examples: "Roy", "Singha Roy", "Das Gupta", "Roy Chowdhury"
+const nameRegex = /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/;
 const emailIdRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Z|a-z]{2,}$/;
 const strongPasswordRegex =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -198,14 +225,187 @@ const steps = [
   "Confirmation",
 ];
 
+const createEmptySpFormData = (): FormData => ({
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  gender: "",
+  emailId: "",
+  password: "",
+  confirmPassword: "",
+  mobileNo: "",
+  AlternateNumber: "",
+  buildingName: "",
+  locality: "",
+  street: "",
+  currentLocation: "",
+  nearbyLocation: "",
+  pincode: "",
+  latitude: 0,
+  longitude: 0,
+  AADHAR: "",
+  pan: "",
+  panImage: null,
+  housekeepingRole: [],
+  description: "",
+  experience: "",
+  kyc: "AADHAR",
+  documentImage: null,
+  otherDetails: "",
+  profileImage: null,
+  cookingSpeciality: "",
+  nannyCareType: "",
+  age: "",
+  diet: "",
+  dob: "",
+  profilePic: "",
+  timeslot: "06:00-20:00",
+  referralCode: "",
+  agreeToTerms: false,
+  terms: false,
+  privacy: false,
+  keyFacts: false,
+  kycType: "AADHAR",
+  kycNumber: "",
+  agentReferralId: "",
+  permanentAddress: {
+    apartment: "",
+    street: "",
+    city: "",
+    state: "",
+    country: "",
+    pincode: "",
+  },
+  correspondenceAddress: {
+    apartment: "",
+    street: "",
+    city: "",
+    state: "",
+    country: "",
+    pincode: "",
+  },
+  bankDetails: {
+    bankName: "",
+    ifscCode: "",
+    accountHolderName: "",
+    accountNumber: "",
+    accountType: "",
+    upiId: "",
+  },
+});
+
+const mergeLoadedSpFormData = (partial: Record<string, unknown>): FormData => {
+  const base = createEmptySpFormData();
+  const permanent = (partial.permanentAddress as FormData["permanentAddress"]) ?? {};
+  const correspondence =
+    (partial.correspondenceAddress as FormData["correspondenceAddress"]) ?? {};
+  const bankDetails = (partial.bankDetails as FormData["bankDetails"]) ?? {};
+
+  return {
+    ...base,
+    ...(partial as Partial<FormData>),
+    panImage: null,
+    documentImage: null,
+    profileImage: null,
+    permanentAddress: { ...base.permanentAddress, ...permanent },
+    correspondenceAddress: { ...base.correspondenceAddress, ...correspondence },
+    bankDetails: { ...base.bankDetails, ...bankDetails },
+    housekeepingRole: Array.isArray(partial.housekeepingRole)
+      ? (partial.housekeepingRole as string[])
+      : base.housekeepingRole,
+  };
+};
+
 interface RegistrationProps {
   onBackToLogin: (data: boolean) => void;
   onRegistrationSuccess?: () => void;
 }
 
-const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
-  onBackToLogin, onRegistrationSuccess,
+interface RegistrationContentProps extends RegistrationProps {
+  onDismiss: () => void;
+}
+
+const ServiceProviderRegistration: React.FC<RegistrationProps> = (props) => (
+  <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={() => props.onBackToLogin(true)}>
+    <SafeAreaProvider>
+      <RegistrationSheetHost {...props} />
+    </SafeAreaProvider>
+  </Modal>
+);
+
+const RegistrationSheetHost: React.FC<RegistrationProps> = (props) => {
+  const insets = useSafeAreaInsets();
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const dismissWithAnimation = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      slideAnim.setValue(SCREEN_HEIGHT);
+      fadeAnim.setValue(0);
+      props.onBackToLogin(true);
+    });
+  }, [slideAnim, fadeAnim, props]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 70,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [slideAnim, fadeAnim]);
+
+  return (
+    <View style={styles.modalRoot}>
+      <Animated.View style={[styles.sheetOverlay, { opacity: fadeAnim }]}>
+        <TouchableWithoutFeedback onPress={dismissWithAnimation}>
+          <View style={styles.sheetOverlayTap} />
+        </TouchableWithoutFeedback>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            maxHeight: SHEET_MAX_HEIGHT,
+            paddingBottom: Math.max(insets.bottom, 8),
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <ServiceProviderRegistrationContent {...props} onDismiss={dismissWithAnimation} />
+      </Animated.View>
+    </View>
+  );
+};
+
+const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = ({
+  onBackToLogin,
+  onRegistrationSuccess,
+  onDismiss,
 }) => {
+  const insets = useSafeAreaInsets();
+  const { user: auth0User } = useAuth0();
+  const auth0LoginEmail = (auth0User?.email ?? "").trim().toLowerCase();
+  const isAuth0Authenticated = Boolean(auth0LoginEmail);
   const { colors, fontSize, isDarkMode } = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [isFieldsDisabled, setIsFieldsDisabled] = useState(false);
@@ -226,140 +426,184 @@ const ServiceProviderRegistration: React.FC<RegistrationProps> = ({
   const [image, setImage] = useState<RNFile | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [pendingMapSelection, setPendingMapSelection] = useState<{
+    lat: number;
+    lng: number;
+    locationData: any;
+  } | null>(null);
+  const geoLocation = useSelector(
+    (state: { geoLocation?: { value?: unknown } }) => state?.geoLocation?.value
+  );
   const [isSameAddress, setIsSameAddress] = useState(false);
   const [isDobValid, setIsDobValid] = useState(true);
+  const [useCustomPassword, setUseCustomPassword] = useState(() => !auth0LoginEmail);
   const scrollViewRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
   
   // Add selectedLanguages state
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
-  
-  // New state variables for multi-slot time selection
-  const [morningSlots, setMorningSlots] = useState<number[][]>([[6, 12]]);
-  const [eveningSlots, setEveningSlots] = useState<number[][]>([[12, 20]]);
-  const [isFullTime, setIsFullTime] = useState(true);
-  const [selectedTimeSlots, setSelectedTimeSlots] = useState<string>("06:00-20:00");
+
+  // NEW: State for KYC document upload
+  const [kycDocumentUrl, setKycDocumentUrl] = useState<string>("");
+  const [isKycUploading, setIsKycUploading] = useState(false);
 
   // Policy modal states
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
   const [activePolicy, setActivePolicy] = useState<'terms' | 'privacy' | 'keyfacts'>('terms');
 
+  // Debug: Log modal visibility changes
+  useEffect(() => {
+    console.log('🔴 policyModalVisible changed to:', policyModalVisible);
+    console.log('🔴 activePolicy:', activePolicy);
+  }, [policyModalVisible, activePolicy]);
+
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
-  // State to track if next button should be disabled
-  const [isNextDisabled, setIsNextDisabled] = useState(true);
+  // State to track if next button should be disabled - NOW ALWAYS FALSE (no validation blocking)
+  const [isNextDisabled, setIsNextDisabled] = useState(false);
 
-  const [formData, setFormData] = useState<FormData>({
-    firstName: "",
-    middleName: "",
-    lastName: "",
-    gender: "",
-    emailId: "",
-    password: "",
-    confirmPassword: "",
-    mobileNo: "",
-    AlternateNumber: "",
-    buildingName: "",
-    locality: "",
-    street: "",
-    currentLocation: "",
-    nearbyLocation: "",
-    pincode: "",
-    latitude: 0,
-    longitude: 0,
-    AADHAR: "",
-    pan: "",
-    panImage: null,
-    housekeepingRole: [],
-    description: "",
-    experience: "",
-    kyc: "AADHAR",
-    documentImage: null,
-    otherDetails: "",
-    profileImage: null,
-    cookingSpeciality: "",
-    nannyCareType: "",
-    age: "",
-    diet: "",
-    dob: "",
-    profilePic: "",
-    timeslot: "06:00-20:00",
-    referralCode: "",
-    agreeToTerms: false,
-    terms: false,
-    privacy: false,
-    keyFacts: false,
-    kycType: "AADHAR",
-    kycNumber: "",
-    agentReferralId: "",
-    permanentAddress: {
-      apartment: "",
-      street: "",
-      city: "",
-      state: "",
-      country: "",
-      pincode: ""
-    },
-    correspondenceAddress: {
-      apartment: "",
-      street: "",
-      city: "",
-      state: "",
-      country: "",
-      pincode: ""
-    },
-    // NEW: Bank details initial state
-    bankDetails: {
-      bankName: "",
-      ifscCode: "",
-      accountHolderName: "",
-      accountNumber: "",
-      accountType: "",
-      upiId: ""
-    }
-  });
+  const [formData, setFormData] = useState<FormData>(createEmptySpFormData);
+  const [draftReady, setDraftReady] = useState(false);
+  const restoredDraftRef = useRef(false);
 
   const [errors, setErrors] = useState<FormErrors>({});
 
   // NEW: Handler for bank details field changes
- // These handlers are already in your code - keep them as is:
-const handleBankFieldChange = (fieldName: string, value: string) => {
-  setFormData(prev => ({
-    ...prev,
-    bankDetails: {
-      ...prev.bankDetails,
-      [fieldName]: value
+  const handleBankFieldChange = (fieldName: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      bankDetails: {
+        ...prev.bankDetails,
+        [fieldName]: value
+      }
+    }));
+    if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        bankDetails: {
+          ...prev.bankDetails,
+          [fieldName]: ""
+        }
+      }));
     }
-  }));
-  if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
-    setErrors(prev => ({
-      ...prev,
-      bankDetails: {
-        ...prev.bankDetails,
-        [fieldName]: ""
-      }
-    }));
-  }
-  checkStepCompletion();
-};
+  };
 
-const handleBankFieldFocus = (fieldName: string) => {
-  if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
-    setErrors(prev => ({
-      ...prev,
-      bankDetails: {
-        ...prev.bankDetails,
-        [fieldName]: ""
-      }
-    }));
-  }
-};
+  const handleBankFieldFocus = (fieldName: string) => {
+    if (errors.bankDetails && errors.bankDetails[fieldName as keyof BankDetailsErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        bankDetails: {
+          ...prev.bankDetails,
+          [fieldName]: ""
+        }
+      }));
+    }
+  };
+
+  const buildDraftSnapshot = useCallback(
+    () => ({
+      activeStep,
+      formData: sanitizeFormDataForDraft(formData as unknown as Record<string, unknown>),
+      selectedLanguages,
+      isCookSelected,
+      isNannySelected,
+      currentLocation,
+      isSameAddress,
+      kycDocumentUrl,
+      useCustomPassword,
+      selectedDate: selectedDate ? selectedDate.toISOString() : null,
+    }),
+    [
+      activeStep,
+      formData,
+      selectedLanguages,
+      isCookSelected,
+      isNannySelected,
+      currentLocation,
+      isSameAddress,
+      kycDocumentUrl,
+      useCustomPassword,
+      selectedDate,
+    ]
+  );
+
+  const persistDraftNow = useCallback(() => {
+    if (!draftReady) return;
+    const snapshot = buildDraftSnapshot();
+    if (!hasMeaningfulDraft({ version: 1, savedAt: Date.now(), ...snapshot })) {
+      return;
+    }
+    void saveSpRegistrationDraft(snapshot);
+  }, [buildDraftSnapshot, draftReady]);
+
+  const debouncedPersistDraft = useMemo(
+    () => debounce(() => persistDraftNow(), 500),
+    [persistDraftNow]
+  );
 
   // Initialize Geocoder
   useEffect(() => {
     Geocoder.init(keys.api_key);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      const draft = await loadSpRegistrationDraft();
+      if (!active || !draft || !hasMeaningfulDraft(draft)) {
+        if (active) setDraftReady(true);
+        return;
+      }
+
+      restoredDraftRef.current = true;
+      setActiveStep(Math.min(Math.max(draft.activeStep, 0), steps.length - 1));
+      setFormData(mergeLoadedSpFormData(draft.formData));
+      setSelectedLanguages(draft.selectedLanguages ?? []);
+      setIsCookSelected(Boolean(draft.isCookSelected));
+      setIsNannySelected(Boolean(draft.isNannySelected));
+      setCurrentLocation(draft.currentLocation ?? null);
+      setIsSameAddress(Boolean(draft.isSameAddress));
+      setKycDocumentUrl(draft.kycDocumentUrl ?? "");
+      setUseCustomPassword(Boolean(draft.useCustomPassword));
+      if (draft.selectedDate) {
+        const parsed = new Date(draft.selectedDate);
+        if (!Number.isNaN(parsed.getTime())) {
+          setSelectedDate(parsed);
+        }
+      }
+      if (active) {
+        setDraftReady(true);
+        setSnackbarMessage("Your registration progress was restored.");
+        setSnackbarSeverity("info");
+        setSnackbarOpen(true);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    debouncedPersistDraft();
+  }, [draftReady, debouncedPersistDraft, buildDraftSnapshot]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "background" || nextState === "inactive") {
+        persistDraftNow();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [draftReady, persistDraftNow]);
 
   // Cleanup snackbar timeout on unmount
   useEffect(() => {
@@ -437,89 +681,75 @@ const handleBankFieldFocus = (fieldName: string) => {
 
   const { validationResults, validateField, resetValidation } = useFieldValidation();
 
-  const checkStepCompletion = useCallback(() => {
-    let isComplete = false;
-    
-    switch(activeStep) {
-      case 0:
-        isComplete = formData.firstName.trim() !== "" &&
-                     formData.lastName.trim() !== "" &&
-                     formData.gender !== "" &&
-                     formData.emailId.trim() !== "" &&
-                     formData.password.trim() !== "" &&
-                     formData.confirmPassword.trim() !== "" &&
-                     formData.mobileNo.trim() !== "" &&
-                     formData.dob.trim() !== "" &&
-                     !errors.firstName &&
-                     !errors.lastName &&
-                     !errors.gender &&
-                     !errors.emailId &&
-                     !errors.password &&
-                     !errors.confirmPassword &&
-                     !errors.mobileNo &&
-                     !errors.dob &&
-                     validationResults.email.isAvailable !== false &&
-                     validationResults.mobile.isAvailable !== false;
-        break;
-        
-      case 1:
-        isComplete = formData.permanentAddress.apartment?.trim() !== "" &&
-                     formData.permanentAddress.street?.trim() !== "" &&
-                     formData.permanentAddress.city?.trim() !== "" &&
-                     formData.permanentAddress.state?.trim() !== "" &&
-                     formData.permanentAddress.country?.trim() !== "" &&
-                     formData.permanentAddress.pincode?.trim() !== "" &&
-                     formData.permanentAddress.pincode.length === 6 &&
-                     (isSameAddress || (
-                       formData.correspondenceAddress.apartment?.trim() !== "" &&
-                       formData.correspondenceAddress.street?.trim() !== "" &&
-                       formData.correspondenceAddress.city?.trim() !== "" &&
-                       formData.correspondenceAddress.state?.trim() !== "" &&
-                       formData.correspondenceAddress.country?.trim() !== "" &&
-                       formData.correspondenceAddress.pincode?.trim() !== "" &&
-                       formData.correspondenceAddress.pincode.length === 6
-                     ));
-        break;
-        
-      case 2:
-        isComplete = formData.housekeepingRole.length > 0 &&
-                     formData.diet !== "" &&
-                     formData.experience !== "" &&
-                     !isNaN(Number(formData.experience)) &&
-                     Number(formData.experience) >= 0 &&
-                     (!formData.housekeepingRole.includes("COOK") || formData.cookingSpeciality !== "") &&
-                     (!formData.housekeepingRole.includes("NANNY") || formData.nannyCareType !== "");
-        break;
-        
-      case 3:
-        isComplete = formData.kycType !== "" &&
-                     formData.kycNumber !== "" &&
-                     formData.documentImage !== null;
-        break;
-        
-      case 4:
-        // Bank Details - Optional step, always complete
-        isComplete = true;
-        break;
-        
-      case 5:
-        isComplete = formData.keyFacts && formData.terms && formData.privacy;
-        break;
-        
-      default:
-        isComplete = false;
+  useEffect(() => {
+    if (!draftReady || !auth0LoginEmail) return;
+    setFormData((prev) => ({
+      ...prev,
+      emailId: auth0LoginEmail,
+    }));
+    validateField("email", auth0LoginEmail);
+  }, [auth0LoginEmail, validateField, draftReady]);
+
+  useEffect(() => {
+    if (auth0LoginEmail) {
+      setUseCustomPassword(false);
+      setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+      setErrors((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+    } else {
+      setUseCustomPassword(true);
     }
-    
-    setIsNextDisabled(!isComplete);
-  }, [activeStep, formData, errors, validationResults, isSameAddress]);
+  }, [auth0LoginEmail]);
+
+  const handleCustomPasswordModeChange = useCallback((custom: boolean) => {
+    setUseCustomPassword(custom);
+    if (!custom) {
+      setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+      setErrors((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+    }
+  }, []);
+
+  const scrollInputIntoView = useCallback((fieldRef: View | null) => {
+    if (!fieldRef || !scrollViewRef.current) return;
+
+    const scrollDelay = Platform.OS === "ios" ? 280 : 120;
+    setTimeout(() => {
+      fieldRef.measureInWindow((_x, y, _w, fieldHeight) => {
+        const keyboardHeight = Keyboard.metrics()?.height ?? 0;
+        const windowHeight = Dimensions.get("window").height;
+        const fieldBottom = y + fieldHeight;
+        const visibleBottom = windowHeight - keyboardHeight - 40;
+
+        if (fieldBottom > visibleBottom) {
+          const delta = fieldBottom - visibleBottom;
+          scrollViewRef.current?.scrollTo({
+            y: scrollYRef.current + delta,
+            animated: true,
+          });
+        }
+      });
+    }, scrollDelay);
+  }, []);
+
+  // Helper function to check if step 0 is ready for next - **NOW ALWAYS TRUE**
+  const isStep0ReadyForNext = () => {
+    // All fields are optional - always allow next
+    return true;
+  };
+
+  const checkStepCompletion = useCallback(() => {
+    // NO VALIDATION - Always allow next/submit
+    setIsNextDisabled(false);
+  }, []);
 
   useEffect(() => {
     checkStepCompletion();
   }, [activeStep, formData, errors, validationResults, isSameAddress, checkStepCompletion]);
 
   const handleOpenPolicy = (policyType: 'terms' | 'privacy' | 'keyfacts') => {
+    console.log('🔵 handleOpenPolicy called with type:', policyType);
     setActivePolicy(policyType);
     setPolicyModalVisible(true);
+    console.log('🔵 Policy modal should now be visible');
   };
 
   const renderPolicyContent = () => {
@@ -527,224 +757,11 @@ const handleBankFieldFocus = (fieldName: string) => {
       case 'terms':
         return <TnC />;
       case 'privacy':
-        return <PrivacyPolicy />;
+        return <PrivacyPolicy embedded />;
       case 'keyfacts':
         return <KeyFactsStatement />;
       default:
         return null;
-    }
-  };
-
-  const isRangeOverlapping = (range1: number[], range2: number[]): boolean => {
-    return !(range1[1] <= range2[0] || range1[0] >= range2[1]);
-  };
-
-  const formatDisplayTime = (value: number): string => {
-    const hour = Math.floor(value);
-    const minute = Math.round((value - hour) * 60);
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour > 12 ? hour - 12 : hour;
-    const displayHourFormatted = displayHour === 0 ? 12 : displayHour;
-    const minuteFormatted = minute === 30 ? '30' : '00';
-    return `${displayHourFormatted}:${minuteFormatted} ${period}`;
-  };
-
-  const formatTimeForStorage = (value: number): string => {
-    const hour = Math.floor(value);
-    const minute = value % 1 === 0.5 ? "30" : "00";
-    const formattedHour = hour < 10 ? `0${hour}` : `${hour}`;
-    return `${formattedHour}:${minute}`;
-  };
-
-  const updateSelectedTimeSlots = useCallback(() => {
-    if (isFullTime) {
-      setSelectedTimeSlots("Full Day (6:00 AM - 8:00 PM)");
-      setFormData((prev) => ({ ...prev, timeslot: "06:00-20:00" }));
-      return;
-    }
-
-    const morningSlotStrings = morningSlots.map(([start, end]) => 
-      `${formatTimeForStorage(start)}-${formatTimeForStorage(end)}`
-    );
-    
-    const eveningSlotStrings = eveningSlots.map(([start, end]) => 
-      `${formatTimeForStorage(start)}-${formatTimeForStorage(end)}`
-    );
-
-    let displaySlots: string[] = [];
-    let storageSlots: string[] = [];
-
-    morningSlots.forEach(([start, end]) => {
-      displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
-    });
-    
-    eveningSlots.forEach(([start, end]) => {
-      displaySlots.push(`${formatDisplayTime(start)} - ${formatDisplayTime(end)}`);
-    });
-
-    morningSlotStrings.forEach(slot => storageSlots.push(slot));
-    eveningSlotStrings.forEach(slot => storageSlots.push(slot));
-
-    if (displaySlots.length > 0) {
-      setSelectedTimeSlots(displaySlots.join(', '));
-      setFormData((prev) => ({ ...prev, timeslot: storageSlots.join(', ') }));
-    } else {
-      setSelectedTimeSlots("No slots selected");
-      setFormData((prev) => ({ ...prev, timeslot: '' }));
-    }
-  }, [isFullTime, morningSlots, eveningSlots]);
-
-  useEffect(() => {
-    updateSelectedTimeSlots();
-  }, [morningSlots, eveningSlots, isFullTime, updateSelectedTimeSlots]);
-
-  const handleAddMorningSlot = () => {
-    setMorningSlots(prevSlots => {
-      const existingRanges = prevSlots;
-      let newStart = 6;
-      let newEnd = 6.5;
-      let foundAvailableSlot = false;
-
-      for (let time = 6; time < 12; time += 0.5) {
-        const potentialEnd = time + 0.5;
-        const hasConflict = existingRanges.some(range => 
-          isRangeOverlapping([time, potentialEnd], range)
-        );
-        
-        if (!hasConflict) {
-          newStart = time;
-          newEnd = potentialEnd;
-          foundAvailableSlot = true;
-          break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        for (let time = 6; time < 12; time += 0.5) {
-          for (let endTime = time + 0.5; endTime <= 12; endTime += 0.5) {
-            const hasConflict = existingRanges.some(range => 
-              isRangeOverlapping([time, endTime], range)
-            );
-            
-            if (!hasConflict) {
-              newStart = time;
-              newEnd = endTime;
-              foundAvailableSlot = true;
-              break;
-            }
-          }
-          if (foundAvailableSlot) break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        showSnackbar("No available morning slots to add", "warning");
-        return prevSlots;
-      }
-
-      return [...prevSlots, [newStart, newEnd]];
-    });
-  };
-
-  const handleRemoveMorningSlot = (index: number) => {
-    const newSlots = morningSlots.filter((_, i) => i !== index);
-    setMorningSlots(newSlots.length > 0 ? newSlots : []);
-  };
-
-  const handleAddEveningSlot = () => {
-    setEveningSlots(prevSlots => {
-      const existingRanges = prevSlots;
-      let newStart = 12;
-      let newEnd = 12.5;
-      let foundAvailableSlot = false;
-
-      for (let time = 12; time < 20; time += 0.5) {
-        const potentialEnd = time + 0.5;
-        const hasConflict = existingRanges.some(range => 
-          isRangeOverlapping([time, potentialEnd], range)
-        );
-        
-        if (!hasConflict) {
-          newStart = time;
-          newEnd = potentialEnd;
-          foundAvailableSlot = true;
-          break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        for (let time = 12; time < 20; time += 0.5) {
-          for (let endTime = time + 0.5; endTime <= 20; endTime += 0.5) {
-            const hasConflict = existingRanges.some(range => 
-              isRangeOverlapping([time, endTime], range)
-            );
-            
-            if (!hasConflict) {
-              newStart = time;
-              newEnd = endTime;
-              foundAvailableSlot = true;
-              break;
-            }
-          }
-          if (foundAvailableSlot) break;
-        }
-      }
-
-      if (!foundAvailableSlot) {
-        showSnackbar("No available evening slots to add", "warning");
-        return prevSlots;
-      }
-
-      return [...prevSlots, [newStart, newEnd]];
-    });
-  };
-
-  const handleRemoveEveningSlot = (index: number) => {
-    const newSlots = eveningSlots.filter((_, i) => i !== index);
-    setEveningSlots(newSlots.length > 0 ? newSlots : []);
-  };
-
-  const handleClearMorningSlots = () => {
-    setMorningSlots([]);
-  };
-
-  const handleClearEveningSlots = () => {
-    setEveningSlots([]);
-  };
-
-  const handleMorningSlotChange = (index: number, newValue: number[]) => {
-    const updatedSlots = [...morningSlots];
-    const otherSlots = updatedSlots.filter((_, i) => i !== index);
-    
-    const hasOverlap = otherSlots.some(slot => 
-      isRangeOverlapping(newValue, slot)
-    );
-    
-    if (!hasOverlap && newValue[0] <= newValue[1]) {
-      updatedSlots[index] = newValue;
-      setMorningSlots(updatedSlots);
-    }
-  };
-
-  const handleEveningSlotChange = (index: number, newValue: number[]) => {
-    const updatedSlots = [...eveningSlots];
-    const otherSlots = updatedSlots.filter((_, i) => i !== index);
-    
-    const hasOverlap = otherSlots.some(slot => 
-      isRangeOverlapping(newValue, slot)
-    );
-    
-    if (!hasOverlap && newValue[0] <= newValue[1]) {
-      updatedSlots[index] = newValue;
-      setEveningSlots(updatedSlots);
-    }
-  };
-
-  const handleFullTimeToggle = (checked: boolean) => {
-    setIsFullTime(checked);
-    if (checked) {
-      setMorningSlots([[6, 12]]);
-      setEveningSlots([[12, 20]]);
     }
   };
 
@@ -799,6 +816,60 @@ const handleBankFieldFocus = (fieldName: string) => {
     }));
   };
 
+  // NEW: Function to upload KYC document
+  const handleKycDocumentUpload = async (file: RNFile | null) => {
+    if (!file) {
+      setKycDocumentUrl("");
+      setFormData(prev => ({ ...prev, documentImage: null }));
+      return;
+    }
+
+    setIsKycUploading(true);
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", {
+        uri: file.uri,
+        type: file.type || 'image/jpeg',
+        name: file.name || 'kyc_document.jpg'
+      } as any);
+
+      const response = await axios.post(
+        `${API_URLS.imageUploader}/api/files/upload-file`,
+        uploadFormData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        const url =
+          response.data.file?.url ||
+          response.data.fileUrl ||
+          response.data.url ||
+          response.data.imageUrl ||
+          "";
+        if (url) {
+          setKycDocumentUrl(url);
+          setFormData(prev => ({ ...prev, documentImage: file }));
+          showSnackbar("KYC document uploaded successfully", "success");
+        } else {
+          throw new Error("No URL returned");
+        }
+      } else {
+        throw new Error("Upload failed");
+      }
+    } catch (error) {
+      console.error("KYC upload error:", error);
+      showSnackbar("Failed to upload KYC document", "error");
+      setKycDocumentUrl("");
+      setFormData(prev => ({ ...prev, documentImage: null }));
+    } finally {
+      setIsKycUploading(false);
+    }
+  };
+
   const handleAgentReferralIdChange = (text: string) => {
     setFormData(prev => ({
       ...prev,
@@ -829,6 +900,7 @@ const handleBankFieldFocus = (fieldName: string) => {
       const formattedDate = moment(date).format("YYYY-MM-DD");
       setFormData((prev) => ({ ...prev, dob: formattedDate }));
 
+      // Optional validation - just for UX, not blocking
       const { isValid, message } = validateAge(formattedDate);
       setIsDobValid(isValid);
 
@@ -976,10 +1048,11 @@ const handleBankFieldFocus = (fieldName: string) => {
     resetValidation('alternate');
   };
 
-  // Fixed handleRealTimeValidation - accepts event object with target
+  // Updated handleRealTimeValidation - only shows validation errors for UX, never blocks submission
   const handleRealTimeValidation = (e: any) => {
     const { name, value } = e.target;
     
+    // Clear error for this field when user starts typing
     if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({
         ...prev,
@@ -987,17 +1060,13 @@ const handleBankFieldFocus = (fieldName: string) => {
       }));
     }
 
-    if (name === "firstName") {
+    // Optional validation for UX only - never prevents submission
+    if (name === "firstName" && value.trim()) {
       const trimmedValue = value.trim();
-      if (!trimmedValue) {
+      if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          firstName: "First name is required",
-        }));
-      } else if (!nameRegex.test(trimmedValue)) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          firstName: "First name should contain only letters",
+          firstName: "First name should contain only letters and spaces",
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
@@ -1012,17 +1081,12 @@ const handleBankFieldFocus = (fieldName: string) => {
       }
     }
 
-    if (name === "lastName") {
+    if (name === "lastName" && value.trim()) {
       const trimmedValue = value.trim();
-      if (!trimmedValue) {
+      if (!nameRegex.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
-          lastName: "Last name is required",
-        }));
-      } else if (!nameRegex.test(trimmedValue)) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          lastName: "Last name should contain only letters",
+          lastName: "Last name should contain only letters and spaces",
         }));
       } else if (trimmedValue.length > MAX_NAME_LENGTH) {
         setErrors((prevErrors) => ({
@@ -1045,13 +1109,8 @@ const handleBankFieldFocus = (fieldName: string) => {
       return;
     }
 
-    if (name === "password") {
-      if (!value) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          password: "Password is required",
-        }));
-      } else if (value.length < 8) {
+    if (name === "password" && value.trim()) {
+      if (value.length < 8) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           password: "Password must be at least 8 characters",
@@ -1084,13 +1143,8 @@ const handleBankFieldFocus = (fieldName: string) => {
       }
     }
 
-    if (name === "confirmPassword") {
-      if (!value) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          confirmPassword: "Please confirm your password",
-        }));
-      } else if (value !== formData.password) {
+    if (name === "confirmPassword" && value.trim()) {
+      if (value !== formData.password) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           confirmPassword: "Passwords do not match",
@@ -1103,17 +1157,11 @@ const handleBankFieldFocus = (fieldName: string) => {
       }
     }
 
-    if (name === "emailId") {
+    if (name === "emailId" && value.trim()) {
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const trimmedValue = value.trim();
-      
-      if (!trimmedValue) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          emailId: "Email address is required",
-        }));
-        resetValidation('email');
-      } else if (!emailPattern.test(trimmedValue)) {
+
+      if (!emailPattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           emailId: "Please enter a valid email address",
@@ -1126,19 +1174,15 @@ const handleBankFieldFocus = (fieldName: string) => {
         }));
         debouncedEmailValidation(trimmedValue);
       }
+    } else if (name === "emailId" && !value.trim()) {
+      resetValidation('email');
     }
 
-    if (name === "mobileNo") {
+    if (name === "mobileNo" && value.trim()) {
       const mobilePattern = /^[0-9]{10}$/;
       const trimmedValue = value.trim();
-      
-      if (!trimmedValue) {
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          mobileNo: "Mobile number is required",
-        }));
-        resetValidation('mobile');
-      } else if (!mobilePattern.test(trimmedValue)) {
+
+      if (!mobilePattern.test(trimmedValue)) {
         setErrors((prevErrors) => ({
           ...prevErrors,
           mobileNo: "Please enter a valid 10-digit mobile number",
@@ -1151,12 +1195,14 @@ const handleBankFieldFocus = (fieldName: string) => {
         }));
         debouncedMobileValidation(trimmedValue);
       }
+    } else if (name === "mobileNo" && !value.trim()) {
+      resetValidation('mobile');
     }
 
-    if (name === "AlternateNumber" && value) {
+    if (name === "AlternateNumber" && value.trim()) {
       const mobilePattern = /^[0-9]{10}$/;
       const trimmedValue = value.trim();
-      
+
       if (trimmedValue === formData.mobileNo) {
         setErrors((prevErrors) => ({
           ...prevErrors,
@@ -1176,46 +1222,48 @@ const handleBankFieldFocus = (fieldName: string) => {
         }));
         debouncedAlternateValidation(trimmedValue);
       }
+    } else if (name === "AlternateNumber" && !value.trim()) {
+      resetValidation('alternate');
     }
 
-    if (name === "kycNumber") {
+    if (name === "kycNumber" && value.trim()) {
       const trimmedValue = value.trim();
-      
-      if (trimmedValue) {
-        let isValid = true;
-        let errorMessage = "";
-        
-        switch(formData.kycType) {
-          case "AADHAR":
-            isValid = /^[0-9]{12}$/.test(trimmedValue);
-            errorMessage = "Aadhaar number must be 12 digits";
-            break;
-          case "PAN":
-            isValid = panRegex.test(trimmedValue);
-            errorMessage = "PAN number must be in format: ABCDE1234F";
-            break;
-          case "DRIVING_LICENSE":
-            isValid = trimmedValue.length >= 8;
-            errorMessage = "Please enter a valid driving license number";
-            break;
-          case "VOTER_ID":
-            isValid = voterIdRegex.test(trimmedValue);
-            errorMessage = "Voter ID must be in format: ABC1234567";
-            break;
-          case "PASSPORT":
-            isValid = passportRegex.test(trimmedValue);
-            errorMessage = "Passport number must be 8 characters (1 letter + 7 digits)";
-            break;
-        }
-        
-        if (!isValid) {
-          setErrors(prev => ({ ...prev, kycNumber: errorMessage }));
-        } else {
-          setErrors(prev => ({ ...prev, kycNumber: "" }));
-        }
-      } else {
-        setErrors(prev => ({ ...prev, kycNumber: `${getKycLabel(formData.kycType)} number is required` }));
+      setFormData(prev => ({ ...prev, kycNumber: trimmedValue }));
+
+      // Optional validation for UX only
+      let isValid = true;
+      let errorMessage = "";
+
+      switch(formData.kycType) {
+        case "AADHAR":
+          isValid = /^[0-9]{12}$/.test(trimmedValue);
+          errorMessage = "Aadhaar number must be 12 digits";
+          break;
+        case "PAN":
+          isValid = panRegex.test(trimmedValue);
+          errorMessage = "PAN number must be in format: ABCDE1234F";
+          break;
+        case "DRIVING_LICENSE":
+          isValid = trimmedValue.length >= 8;
+          errorMessage = "Please enter a valid driving license number";
+          break;
+        case "VOTER_ID":
+          isValid = voterIdRegex.test(trimmedValue);
+          errorMessage = "Voter ID must be in format: ABC1234567";
+          break;
+        case "PASSPORT":
+          isValid = passportRegex.test(trimmedValue);
+          errorMessage = "Passport number must be 8 characters (1 letter + 7 digits)";
+          break;
       }
+
+      if (!isValid) {
+        setErrors(prev => ({ ...prev, kycNumber: errorMessage }));
+      } else {
+        setErrors(prev => ({ ...prev, kycNumber: "" }));
+      }
+    } else if (name === "kycNumber" && !value.trim()) {
+      setErrors(prev => ({ ...prev, kycNumber: "" }));
     }
 
     if (name === "gender") {
@@ -1232,7 +1280,7 @@ const handleBankFieldFocus = (fieldName: string) => {
 
     setFormData((prevData) => ({
       ...prevData,
-      [name]: value,
+      [name]: name === "emailId" ? String(value).trim().toLowerCase() : value,
     }));
     
     checkStepCompletion();
@@ -1297,10 +1345,14 @@ const handleBankFieldFocus = (fieldName: string) => {
     setFormData(prev => ({ ...prev, referralCode: text }));
   };
 
-  const handleDocumentUpload = (file: RNFile | null) => {
-    setFormData(prev => ({ ...prev, documentImage: file }));
-    checkStepCompletion();
-  };
+  const handleTimeSlotsChange = useCallback((timeslot: string) => {
+    setFormData((prev) => {
+      if (prev.timeslot === timeslot) {
+        return prev;
+      }
+      return { ...prev, timeslot };
+    });
+  }, []);
 
   // Handle DOB change for BasicInformation
   const handleDobChange = (e: any) => {
@@ -1322,6 +1374,27 @@ const handleBankFieldFocus = (fieldName: string) => {
 
   const fetchLocationData = async () => {
     try {
+      setLocationLoading(true);
+
+      const storedCoords = resolveLocationCoords(geoLocation);
+      if (storedCoords) {
+        showSnackbar("Using your saved location...", "info");
+        try {
+          const storedAddress = formatServiceAddressFromGeoLocation(geoLocation);
+          const res = await Geocoder.from(storedCoords.lat, storedCoords.lng);
+          const address = res.results[0]?.formatted_address || storedAddress;
+          const components = res.results[0]?.address_components || [];
+          applyAddressFromGeocode(storedCoords.lat, storedCoords.lng, address, components);
+          showSnackbar("Location fetched successfully!", "success");
+        } catch (error) {
+          console.error("Stored location geocoding error:", error);
+          showSnackbar("Error getting address from saved location", "warning");
+        } finally {
+          setLocationLoading(false);
+        }
+        return;
+      }
+
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
         Alert.alert(
@@ -1335,10 +1408,10 @@ const handleBankFieldFocus = (fieldName: string) => {
             { text: "Cancel", style: "cancel" },
           ]
         );
+        setLocationLoading(false);
         return;
       }
 
-      setLocationLoading(true);
       showSnackbar("Fetching your location...", "info");
 
       Geolocation.getCurrentPosition(
@@ -1348,78 +1421,8 @@ const handleBankFieldFocus = (fieldName: string) => {
           try {
             const res = await Geocoder.from(latitude, longitude);
             const address = res.results[0]?.formatted_address || "";
-
-            const parsedAddress = parseAddressComponents(res.results[0]?.address_components || []);
-
-            if (!parsedAddress.city || !parsedAddress.street) {
-              const addressParts = address.split(',').map(part => part.trim());
-
-              if (addressParts.length > 0) {
-                if (!parsedAddress.apartment) {
-                  parsedAddress.apartment = addressParts[0];
-                }
-                if (!parsedAddress.street && addressParts.length > 1) {
-                  parsedAddress.street = addressParts[1];
-                }
-                if (!parsedAddress.city) {
-                  for (let i = 1; i < addressParts.length - 2; i++) {
-                    if (addressParts[i].match(/\d{6}/)) {
-                      continue;
-                    }
-                    parsedAddress.city = addressParts[i];
-                    break;
-                  }
-                }
-              }
-            }
-
-            if (!parsedAddress.country) {
-              parsedAddress.country = "India";
-            }
-            if (!parsedAddress.state) {
-              parsedAddress.state = "Unknown";
-            }
-            if (!parsedAddress.city) {
-              parsedAddress.city = "Unknown";
-            }
-
-            const addressData = {
-              apartment: parsedAddress.apartment || "Current Location",
-              street: parsedAddress.street || "Current Location",
-              city: parsedAddress.city,
-              state: parsedAddress.state,
-              country: parsedAddress.country,
-              pincode: parsedAddress.pincode || "",
-            };
-
-            const newPermanentAddress = {
-              ...formData.permanentAddress,
-              ...addressData
-            };
-
-            const newCorrespondenceAddress = isSameAddress ?
-              newPermanentAddress :
-              formData.correspondenceAddress;
-
-            setFormData(prev => ({
-              ...prev,
-              latitude: latitude,
-              longitude: longitude,
-              currentLocation: address,
-              street: addressData.street,
-              locality: addressData.city,
-              pincode: addressData.pincode,
-              buildingName: addressData.apartment,
-              permanentAddress: newPermanentAddress,
-              correspondenceAddress: newCorrespondenceAddress,
-            }));
-
-            setCurrentLocation({
-              latitude: latitude,
-              longitude: longitude,
-              address: address
-            });
-
+            const components = res.results[0]?.address_components || [];
+            applyAddressFromGeocode(latitude, longitude, address, components);
             showSnackbar("Location fetched successfully!", "success");
           } catch (error) {
             console.error("Geocoding error:", error);
@@ -1433,13 +1436,130 @@ const handleBankFieldFocus = (fieldName: string) => {
           showSnackbar("Unable to fetch your location. Please check your GPS settings.", "error");
           setLocationLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        { enableHighAccuracy: Platform.OS === 'ios', timeout: 15000, maximumAge: 10000 }
       );
     } catch (error) {
       console.error("Location fetch error:", error);
       showSnackbar("Unable to fetch your location. Please try again.", "error");
       setLocationLoading(false);
     }
+  };
+
+  const applyAddressFromGeocode = (
+    latitude: number,
+    longitude: number,
+    address: string,
+    addressComponents: any[]
+  ) => {
+    const parsedAddress = parseAddressComponents(addressComponents);
+
+    if (!parsedAddress.city || !parsedAddress.street) {
+      const addressParts = address.split(',').map(part => part.trim());
+
+      if (addressParts.length > 0) {
+        if (!parsedAddress.apartment) {
+          parsedAddress.apartment = addressParts[0];
+        }
+        if (!parsedAddress.street && addressParts.length > 1) {
+          parsedAddress.street = addressParts[1];
+        }
+        if (!parsedAddress.city) {
+          for (let i = 1; i < addressParts.length - 2; i++) {
+            if (addressParts[i].match(/\d{6}/)) {
+              continue;
+            }
+            parsedAddress.city = addressParts[i];
+            break;
+          }
+        }
+      }
+    }
+
+    if (!parsedAddress.country) {
+      parsedAddress.country = "India";
+    }
+    if (!parsedAddress.state) {
+      parsedAddress.state = "Unknown";
+    }
+    if (!parsedAddress.city) {
+      parsedAddress.city = "Unknown";
+    }
+
+    const addressData = {
+      apartment: parsedAddress.apartment || "Current Location",
+      street: parsedAddress.street || "Current Location",
+      city: parsedAddress.city,
+      state: parsedAddress.state,
+      country: parsedAddress.country,
+      pincode: parsedAddress.pincode || "",
+    };
+
+    setFormData(prev => {
+      const newPermanentAddress = {
+        ...prev.permanentAddress,
+        ...addressData,
+      };
+      const newCorrespondenceAddress = isSameAddress
+        ? newPermanentAddress
+        : prev.correspondenceAddress;
+
+      return {
+        ...prev,
+        latitude,
+        longitude,
+        currentLocation: address,
+        street: addressData.street,
+        locality: addressData.city,
+        pincode: addressData.pincode,
+        buildingName: addressData.apartment,
+        permanentAddress: newPermanentAddress,
+        correspondenceAddress: newCorrespondenceAddress,
+      };
+    });
+
+    setCurrentLocation({
+      latitude,
+      longitude,
+      address,
+    });
+  };
+
+  const handleMapLocationSelect = (data: { address: any; lat: number; lng: number }) => {
+    const locationData = Array.isArray(data.address) ? data.address[0] : data.address;
+    setPendingMapSelection({
+      lat: data.lat,
+      lng: data.lng,
+      locationData,
+    });
+  };
+
+  const handleSaveMapSelection = () => {
+    if (!pendingMapSelection) {
+      showSnackbar("Please select a location from map first", "warning");
+      return;
+    }
+
+    const { lat, lng, locationData } = pendingMapSelection;
+    const address = locationData?.formatted_address || "";
+    const components = locationData?.address_components || [];
+    applyAddressFromGeocode(lat, lng, address, components);
+    setIsSameAddress(true);
+    setMapPickerOpen(false);
+    setPendingMapSelection(null);
+    showSnackbar("Location saved to address fields", "success");
+  };
+
+  const getMapInitialCenter = () => {
+    if (formData.latitude !== 0 || formData.longitude !== 0) {
+      return { lat: formData.latitude, lng: formData.longitude };
+    }
+
+    const storedCoords = resolveLocationCoords(geoLocation);
+    if (storedCoords) {
+      return storedCoords;
+    }
+
+    return null;
   };
 
   const parseAddressComponents = (addressComponents: any[]) => {
@@ -1481,11 +1601,19 @@ const handleBankFieldFocus = (fieldName: string) => {
   const requestLocationPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === "android") {
+        const currentStatus = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
+        if (currentStatus === RESULTS.GRANTED) {
+          return true;
+        }
         const fineStatus = await request(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
         return fineStatus === RESULTS.GRANTED;
       } else if (Platform.OS === "ios") {
+        const currentStatus = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        if (currentStatus === RESULTS.GRANTED || currentStatus === RESULTS.LIMITED) {
+          return true;
+        }
         const iosStatus = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
-        return iosStatus === RESULTS.GRANTED;
+        return iosStatus === RESULTS.GRANTED || iosStatus === RESULTS.LIMITED;
       }
       return false;
     } catch (err) {
@@ -1494,294 +1622,40 @@ const handleBankFieldFocus = (fieldName: string) => {
     }
   };
 
+  // ============================================================
+  // VALIDATION IS NOW DISABLED FOR ALL STEPS
+  // ============================================================
   const validateStep = (step: number): boolean => {
-    let tempErrors: FormErrors = {};
-    let isValid = true;
-
-    if (step === 0) {
-      if (!formData.firstName.trim()) {
-        tempErrors.firstName = "First name is required";
-        isValid = false;
-      } else if (!nameRegex.test(formData.firstName)) {
-        tempErrors.firstName = "First name should contain only letters";
-        isValid = false;
-      } else if (formData.firstName.length > MAX_NAME_LENGTH) {
-        tempErrors.firstName = `First name must be less than ${MAX_NAME_LENGTH} characters`;
-        isValid = false;
-      }
-
-      if (!formData.lastName.trim()) {
-        tempErrors.lastName = "Last name is required";
-        isValid = false;
-      } else if (!nameRegex.test(formData.lastName)) {
-        tempErrors.lastName = "Last name should contain only letters";
-        isValid = false;
-      } else if (formData.lastName.length > MAX_NAME_LENGTH) {
-        tempErrors.lastName = `Last name must be less than ${MAX_NAME_LENGTH} characters`;
-        isValid = false;
-      }
-
-      if (!formData.gender) {
-        tempErrors.gender = "Gender is required";
-        isValid = false;
-      }
-      
-      if (!formData.emailId.trim()) {
-        tempErrors.emailId = "Email address is required";
-        isValid = false;
-      } else if (!emailIdRegex.test(formData.emailId)) {
-        tempErrors.emailId = "Please enter a valid email address";
-        isValid = false;
-      } else if (validationResults.email.error) {
-        tempErrors.emailId = validationResults.email.error;
-        isValid = false;
-      } else if (!validationResults.email.isAvailable) {
-        tempErrors.emailId = "Email is already registered";
-        isValid = false;
-      }
-      
-      if (!formData.password.trim()) {
-        tempErrors.password = "Password is required";
-        isValid = false;
-      } else if (!strongPasswordRegex.test(formData.password)) {
-        tempErrors.password = "Password must be at least 8 characters and include uppercase, lowercase, number and special character";
-        isValid = false;
-      }
-      
-      if (!formData.confirmPassword.trim()) {
-        tempErrors.confirmPassword = "Please confirm your password";
-        isValid = false;
-      } else if (formData.password !== formData.confirmPassword) {
-        tempErrors.confirmPassword = "Passwords do not match";
-        isValid = false;
-      }
-      
-      if (!formData.mobileNo.trim()) {
-        tempErrors.mobileNo = "Mobile number is required";
-        isValid = false;
-      } else if (!phoneRegex.test(formData.mobileNo)) {
-        tempErrors.mobileNo = "Please enter a valid 10-digit mobile number";
-        isValid = false;
-      } else if (validationResults.mobile.error) {
-        tempErrors.mobileNo = validationResults.mobile.error;
-        isValid = false;
-      } else if (!validationResults.mobile.isAvailable) {
-        tempErrors.mobileNo = "Mobile number is already registered";
-        isValid = false;
-      }
-      
-      if (formData.AlternateNumber.trim()) {
-        if (!phoneRegex.test(formData.AlternateNumber)) {
-          tempErrors.AlternateNumber = "Please enter a valid 10-digit number";
-          isValid = false;
-        } else if (formData.AlternateNumber === formData.mobileNo) {
-          tempErrors.AlternateNumber = "Alternate number cannot be same as mobile number";
-          isValid = false;
-        } else if (!validationResults.alternate.isAvailable) {
-          tempErrors.AlternateNumber = "Alternate number is already registered";
-          isValid = false;
-        }
-      }
-
-      if (!formData.dob.trim()) {
-        tempErrors.dob = "Date of birth is required";
-        isValid = false;
-      } else {
-        const { isValid: isAgeValid, message } = validateAge(formData.dob);
-        if (!isAgeValid) {
-          tempErrors.dob = message;
-          isValid = false;
-        }
-      }
-    }
-
-    else if (step === 1) {
-      const permanentErrors: any = {};
-      if (!formData.permanentAddress.apartment?.trim()) {
-        permanentErrors.apartment = "Apartment/House number is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.street?.trim()) {
-        permanentErrors.street = "Street address is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.city?.trim()) {
-        permanentErrors.city = "City is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.state?.trim()) {
-        permanentErrors.state = "State is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.country?.trim()) {
-        permanentErrors.country = "Country is required";
-        isValid = false;
-      }
-      if (!formData.permanentAddress.pincode?.trim()) {
-        permanentErrors.pincode = "Pincode is required";
-        isValid = false;
-      } else if (formData.permanentAddress.pincode.length !== 6) {
-        permanentErrors.pincode = "Pincode must be 6 digits";
-        isValid = false;
-      }
-
-      if (Object.keys(permanentErrors).length > 0) {
-        tempErrors.permanentAddress = permanentErrors;
-      }
-
-      if (!isSameAddress) {
-        const correspondenceErrors: any = {};
-        if (!formData.correspondenceAddress.apartment?.trim()) {
-          correspondenceErrors.apartment = "Apartment/House number is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.street?.trim()) {
-          correspondenceErrors.street = "Street address is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.city?.trim()) {
-          correspondenceErrors.city = "City is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.state?.trim()) {
-          correspondenceErrors.state = "State is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.country?.trim()) {
-          correspondenceErrors.country = "Country is required";
-          isValid = false;
-        }
-        if (!formData.correspondenceAddress.pincode?.trim()) {
-          correspondenceErrors.pincode = "Pincode is required";
-          isValid = false;
-        } else if (formData.correspondenceAddress.pincode.length !== 6) {
-          correspondenceErrors.pincode = "Pincode must be 6 digits";
-          isValid = false;
-        }
-
-        if (Object.keys(correspondenceErrors).length > 0) {
-          tempErrors.correspondenceAddress = correspondenceErrors;
-        }
-      }
-    }
-
-    else if (step === 2) {
-      if (formData.housekeepingRole.length === 0) {
-        tempErrors.housekeepingRole = "Please select at least one service type";
-        isValid = false;
-      }
-      if (formData.housekeepingRole.includes("COOK") && !formData.cookingSpeciality) {
-        tempErrors.cookingSpeciality = "Please select cooking speciality";
-        isValid = false;
-      }
-      if (formData.housekeepingRole.includes("NANNY") && !formData.nannyCareType) {
-        tempErrors.nannyCareType = "Please select care type";
-        isValid = false;
-      }
-      if (!formData.diet) {
-        tempErrors.diet = "Please select diet preference";
-        isValid = false;
-      }
-      if (!formData.experience) {
-        tempErrors.experience = "Experience is required";
-        isValid = false;
-      } else if (isNaN(Number(formData.experience)) || Number(formData.experience) < 0) {
-        tempErrors.experience = "Please enter a valid number";
-        isValid = false;
-      }
-    }
-
-    else if (step === 3) {
-      if (!formData.kycType) {
-        tempErrors.kycType = "Please select document type";
-        isValid = false;
-      }
-      if (!formData.kycNumber) {
-        tempErrors.kycNumber = `${getKycLabel(formData.kycType)} number is required`;
-        isValid = false;
-      } else {
-        switch(formData.kycType) {
-          case "AADHAR":
-            if (!aadhaarRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Aadhaar number must be 12 digits";
-              isValid = false;
-            }
-            break;
-          case "PAN":
-            if (!panRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "PAN number must be in format: ABCDE1234F";
-              isValid = false;
-            }
-            break;
-          case "DRIVING_LICENSE":
-            if (formData.kycNumber.length < 8) {
-              tempErrors.kycNumber = "Please enter a valid driving license number";
-              isValid = false;
-            }
-            break;
-          case "VOTER_ID":
-            if (!voterIdRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Voter ID must be in format: ABC1234567";
-              isValid = false;
-            }
-            break;
-          case "PASSPORT":
-            if (!passportRegex.test(formData.kycNumber)) {
-              tempErrors.kycNumber = "Passport number must be 8 characters (1 letter + 7 digits)";
-              isValid = false;
-            }
-            break;
-        }
-      }
-      if (!formData.documentImage) {
-        tempErrors.documentImage = "Please upload document image";
-        isValid = false;
-      }
-    }
-
-    else if (step === 4) {
-      // Bank details are optional, always valid
-      isValid = true;
-    }
-
-    else if (step === 5) {
-      if (!formData.keyFacts) {
-        tempErrors.keyFacts = "You must agree to the Key Facts Statement";
-        isValid = false;
-      }
-      if (!formData.terms) {
-        tempErrors.terms = "You must agree to the Terms and Conditions";
-        isValid = false;
-      }
-      if (!formData.privacy) {
-        tempErrors.privacy = "You must agree to the Privacy Policy";
-        isValid = false;
-      }
-    }
-
-    setErrors(tempErrors);
-    
-    return isValid;
+    // All steps are always valid - no required fields
+    return true;
   };
 
   const handleNext = () => {
-    if (isNextDisabled) {
-      showSnackbar("Please fill all required fields", "warning");
-      return;
-    }
-    
+    // Check if validation is in progress on step 0
     if (activeStep === 0) {
-      if (validationResults.email.loading || validationResults.mobile.loading) {
-        showSnackbar("Please wait for email and mobile validation", "warning");
+      const isValidating = validationResults.email.loading || 
+                          validationResults.mobile.loading || 
+                          validationResults.alternate.loading;
+      
+      if (isValidating) {
+        showSnackbar("Please wait for validation to complete", "warning");
+        return;
+      }
+
+      // Check if email is validated and available
+      if (!validationResults.email.isAvailable) {
+        showSnackbar("Please use a valid and available email address", "error");
+        return;
+      }
+
+      // Check if mobile number is validated and available
+      if (!validationResults.mobile.isAvailable) {
+        showSnackbar("Please use a valid and available mobile number", "error");
         return;
       }
     }
-    
-    if (!validateStep(activeStep)) {
-      showSnackbar("Please fix the errors before proceeding", "error");
-      return;
-    }
-    
+
+    // Proceed to next step
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
     // Scroll to top when step changes
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -1792,7 +1666,7 @@ const handleBankFieldFocus = (fieldName: string) => {
 
   const handleBack = () => {
     if (activeStep === 0) {
-      onBackToLogin(true);
+      onDismiss();
     } else {
       setActiveStep((prevActiveStep) => prevActiveStep - 1);
       // Scroll to top when step changes
@@ -1800,170 +1674,227 @@ const handleBankFieldFocus = (fieldName: string) => {
     }
   };
   
+  const areTermsAccepted = (): boolean => {
+    return Boolean(formData.terms && formData.privacy && formData.keyFacts);
+  };
+
   const handleSubmit = async () => {
     if (activeStep !== steps.length - 1) return;
 
-    if (validateStep(activeStep)) {
-      setIsSubmitting(true);
-      try {
-        let profilePicUrl = "";
+    if (!areTermsAccepted()) {
+      showSnackbar("Please accept all agreements before submitting.", "error");
+      return;
+    }
 
-        if (image) {
-          const profileFormData = new FormData();
-          profileFormData.append("image", {
-            uri: image.uri,
-            type: image.type || 'image/jpeg',
-            name: image.name || 'profile.jpg'
-          } as any);
+    setIsSubmitting(true);
+    try {
+      let profilePicUrl = "";
 
-          const imageResponse = await axiosInstance.post(
-            "http://65.2.153.173:3000/upload",
-            profileFormData,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-              },
-            }
-          );
+      if (image) {
+        const profileFormData = new FormData();
+        profileFormData.append("image", {
+          uri: image.uri,
+          type: image.type || 'image/jpeg',
+          name: image.name || 'profile.jpg'
+        } as any);
 
-          if (imageResponse.status === 200) {
-            profilePicUrl = imageResponse.data.imageUrl;
-          }
-        }
-        
-        const selectedServices = formData.housekeepingRole;
-        const primaryRole = selectedServices.length > 0 ? selectedServices[0] : "";
-        
-        const calculateAge = (dob: string): number => {
-          if (!dob) return 0;
-          const birthDate = moment(dob, "YYYY-MM-DD");
-          const today = moment();
-          return today.diff(birthDate, "years");
-        };
-        
-        const age = calculateAge(formData.dob);
-        
-        // Prepare bank details object (only include non-empty fields)
-        const bankDetailsPayload = Object.fromEntries(
-          Object.entries(formData.bankDetails).filter(([_, v]) => v && v.trim() !== "")
-        );
-
-        const payload = {
-          firstName: formData.firstName,
-          middleName: formData.middleName,
-          lastName: formData.lastName,
-          mobileNo: parseInt(formData.mobileNo) || 0,
-          alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : 0,
-          emailId: formData.emailId,
-          gender: formData.gender,
-          buildingName: formData.buildingName,
-          locality: formData.locality,
-          latitude: currentLocation?.latitude || formData.latitude,
-          longitude: currentLocation?.longitude || formData.longitude,
-          street: formData.street,
-          pincode: parseInt(formData.pincode) || 0,
-          currentLocation: formData.currentLocation,
-          nearbyLocation: formData.nearbyLocation,
-          location: formData.currentLocation,
-          housekeepingRoles: selectedServices,
-          housekeepingRole: primaryRole,
-          serviceTypes: selectedServices,
-          diet: formData.diet,
-          languages: selectedLanguages,
-          age: age,
-          ...(selectedServices.includes("COOK") && {
-            cookingSpeciality: formData.cookingSpeciality
-          }),
-          ...(selectedServices.includes("NANNY") && {
-            nannyCareType: formData.nannyCareType
-          }),
-          timeslot: formData.timeslot,
-          expectedSalary: 0,
-          experience: parseInt(formData.experience) || 0,
-          username: formData.emailId,
-          password: formData.password,
-          agentReferralId: formData.agentReferralId || "",
-          privacy: formData.privacy,
-          keyFacts: formData.keyFacts,
-          permanentAddress: {
-            field1: formData.permanentAddress.apartment || "",
-            field2: formData.permanentAddress.street || "",
-            ctarea: formData.permanentAddress.city || "",
-            pinno: formData.permanentAddress.pincode || "",
-            state: formData.permanentAddress.state || "",
-            country: formData.permanentAddress.country || ""
-          },
-          correspondenceAddress: {
-            field1: formData.correspondenceAddress.apartment || "",
-            field2: formData.correspondenceAddress.street || "",
-            ctarea: formData.correspondenceAddress.city || "",
-            pinno: formData.correspondenceAddress.pincode || "",
-            state: formData.correspondenceAddress.state || "",
-            country: formData.correspondenceAddress.country || ""
-          },
-          active: true,
-          kycType: formData.kycType,
-          kycNumber: formData.kycNumber,
-          dob: formData.dob,
-          profilePic: profilePicUrl,
-          // Add bank details to payload matching React code structure
-          bankName: formData.bankDetails.bankName?.trim() || null,
-          ifscCode: formData.bankDetails.ifscCode?.trim() || null,
-          accountHolderName: formData.bankDetails.accountHolderName?.trim() || null,
-          accountNumber: formData.bankDetails.accountNumber?.trim() || null,
-          accountType: formData.bankDetails.accountType?.trim() || null,
-          upiId: formData.bankDetails.upiId?.trim() || null,
-        };
-
-        console.log("Submitting payload:", JSON.stringify(payload, null, 2));
-
-        const response = await providerInstance.post(
-          "/api/service-providers/serviceprovider/add",
-          payload,
+        const imageResponse = await axios.post(
+          `${API_URLS.imageUploader}/api/images/upload`,
+          profileFormData,
           {
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "multipart/form-data",
             },
           }
         );
 
-        showSnackbar("Registration successful!", "success");
+        if (imageResponse.status === 200) {
+          profilePicUrl = imageResponse.data.imageUrl || imageResponse.data.url || "";
+        }
+      }
 
+      let uploadedKycUrl = kycDocumentUrl;
+      if (!uploadedKycUrl && formData.documentImage) {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", {
+          uri: formData.documentImage.uri,
+          type: formData.documentImage.type || "image/jpeg",
+          name: formData.documentImage.name || "kyc_document.jpg",
+        } as any);
+
+        const uploadResponse = await axios.post(
+          `${API_URLS.imageUploader}/api/files/upload-file`,
+          uploadFormData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        if (uploadResponse.status === 200 || uploadResponse.status === 201) {
+          uploadedKycUrl =
+            uploadResponse.data.file?.url ||
+            uploadResponse.data.fileUrl ||
+            uploadResponse.data.url ||
+            "";
+          if (!uploadedKycUrl) {
+            throw new Error("No URL returned from KYC upload");
+          }
+        } else {
+          throw new Error("KYC upload failed");
+        }
+      }
+      
+      const selectedServices = formData.housekeepingRole;
+      
+      const toNull = (value: any) => (value === "" ? null : value);
+
+      const registrationEmail = (
+        isAuth0Authenticated && auth0LoginEmail
+          ? auth0LoginEmail
+          : (formData.emailId || "").trim().toLowerCase()
+      );
+      if (!registrationEmail) {
+        setIsSubmitting(false);
+        showSnackbar(
+          "Email is required. Sign in with Auth0 first or enter the same email you will use to log in.",
+          "error"
+        );
+        return;
+      }
+
+      const resolvedKycUrl = uploadedKycUrl || null;
+
+      const payload = {
+        firstName: toNull(formData.firstName),
+        middleName: toNull(formData.middleName),
+        lastName: toNull(formData.lastName),
+        mobileNo: formData.mobileNo ? parseInt(formData.mobileNo) : null,
+        alternateNo: formData.AlternateNumber ? parseInt(formData.AlternateNumber) : null,
+        emailId: registrationEmail,
+        gender: toNull(formData.gender),
+        buildingName: toNull(formData.buildingName),
+        locality: toNull(formData.locality),
+        latitude: currentLocation?.latitude || formData.latitude || null,
+        longitude: currentLocation?.longitude || formData.longitude || null,
+        street: toNull(formData.street),
+        pincode: formData.pincode ? parseInt(formData.pincode) : null,
+        currentLocation: toNull(formData.currentLocation),
+        nearbyLocation: toNull(formData.nearbyLocation),
+        location: toNull(formData.currentLocation),
+        housekeepingRoles: selectedServices.length ? selectedServices : null,
+        serviceTypes: selectedServices.length ? selectedServices : null,
+        diet: toNull(formData.diet),
+        languages: selectedLanguages.length ? selectedLanguages : null,
+        ...(selectedServices.includes("COOK") && formData.cookingSpeciality && {
+          cookingSpeciality: formData.cookingSpeciality
+        }),
+        ...(selectedServices.includes("NANNY") && formData.nannyCareType && {
+          nannyCareType: formData.nannyCareType
+        }),
+        timeslot: toNull(formData.timeslot),
+        expectedSalary: 0,
+        experience: formData.experience ? parseInt(formData.experience) : null,
+        username: registrationEmail,
+        password: toNull(formData.password),
+        agentReferralId: toNull(formData.agentReferralId),
+        privacy: formData.privacy || false,
+        keyFacts: formData.keyFacts || false,
+        permanentAddress: {
+          field1: toNull(formData.permanentAddress.apartment),
+          field2: toNull(formData.permanentAddress.street),
+          ctarea: toNull(formData.permanentAddress.city),
+          pinno: toNull(formData.permanentAddress.pincode),
+          state: toNull(formData.permanentAddress.state),
+          country: toNull(formData.permanentAddress.country)
+        },
+        correspondenceAddress: {
+          field1: toNull(formData.correspondenceAddress.apartment),
+          field2: toNull(formData.correspondenceAddress.street),
+          ctarea: toNull(formData.correspondenceAddress.city),
+          pinno: toNull(formData.correspondenceAddress.pincode),
+          state: toNull(formData.correspondenceAddress.state),
+          country: toNull(formData.correspondenceAddress.country)
+        },
+        active: true,
+        kycType: toNull(formData.kycType),
+        kycNumber: toNull(formData.kycNumber),
+        kycDocumentUrl: resolvedKycUrl,
+        kycImage: resolvedKycUrl,
+        dob: toNull(formData.dob),
+        ...(profilePicUrl ? { profilePic: profilePicUrl } : {}),
+        bankName: toNull(formData.bankDetails.bankName),
+        ifscCode: toNull(formData.bankDetails.ifscCode),
+        accountHolderName: toNull(formData.bankDetails.accountHolderName),
+        accountNumber: toNull(formData.bankDetails.accountNumber),
+        accountType: toNull(formData.bankDetails.accountType),
+        upiId: toNull(formData.bankDetails.upiId),
+      };
+
+      console.log("Submitting payload:", JSON.stringify(payload, null, 2));
+
+      const response = await providerInstance.post(
+        "/api/service-providers/serviceprovider/add",
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const created = response.data?.data ?? response.data;
+      const spId =
+        created?.serviceProviderId ??
+        created?.serviceproviderid ??
+        created?.id;
+      if (spId != null && isAuth0Authenticated && auth0LoginEmail) {
+        const storedEmail = String(created?.emailId ?? created?.emailid ?? "").toLowerCase();
+        if (storedEmail !== auth0LoginEmail) {
+          await providerInstance.put(`/api/service-providers/serviceprovider/${spId}`, {
+            emailId: auth0LoginEmail,
+          });
+        }
+      }
+
+      showSnackbar("Registration successful!", "success");
+      await clearSpRegistrationDraft();
+
+      if (registrationEmail && formData.password) {
         const authPayload = {
-          email: formData.emailId,
+          email: registrationEmail,
           password: formData.password,
-          name: `${formData.firstName} ${formData.lastName}`,
+          name: `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || "Service Provider",
         };
 
-        axios.post('https://utils-ndt3.onrender.com/authO/create-autho-user', authPayload)
+        axios.post(`${API_URLS.utils}/authO/create-autho-user`, authPayload)
           .then((authResponse) => {
             console.log("AuthO user created successfully:", authResponse.data);
           }).catch((authError) => {
             console.error("Error creating AuthO user:", authError);
           });
-
-        setTimeout(() => {
-          setIsSubmitting(false);
-          if (onRegistrationSuccess) {
-            onRegistrationSuccess();
-          } else {
-            onBackToLogin(true);
-          }
-        }, 3000);
-      } catch (error) {
-        setIsSubmitting(false);
-        
-        if (axios.isAxiosError(error) && error.response) {
-          const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
-          showSnackbar(errorMsg, "error");
-          console.error("Error submitting form:", error.response.data);
-        } else {
-          showSnackbar("Registration failed. Please try again.", "error");
-          console.error("Error submitting form:", error);
-        }
       }
-    } else {
+
+      setTimeout(() => {
+        setIsSubmitting(false);
+        if (onRegistrationSuccess) {
+          onRegistrationSuccess();
+        } else {
+          onBackToLogin(true);
+        }
+      }, 3000);
+    } catch (error) {
       setIsSubmitting(false);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        const errorMsg = error.response.data?.debugMessage || error.response.data?.message || "Registration failed. Please try again.";
+        showSnackbar(errorMsg, "error");
+        console.error("Error submitting form:", error.response.data);
+      } else {
+        showSnackbar("Registration failed. Please try again.", "error");
+        console.error("Error submitting form:", error);
+      }
     }
   };
 
@@ -1975,9 +1906,10 @@ const handleBankFieldFocus = (fieldName: string) => {
     setSnackbarOpen(false);
   };
 
+  // Validate age function - kept for informational purposes only (not blocking)
   const validateAge = (dob: string): { isValid: boolean; message: string } => {
     if (!dob) {
-      return { isValid: false, message: "Date of birth is required" };
+      return { isValid: true, message: "" }; // No error if empty
     }
 
     const birthDate = moment(dob, "YYYY-MM-DD");
@@ -2049,50 +1981,51 @@ const handleBankFieldFocus = (fieldName: string) => {
   const fontSizes = getFontSizes();
 
   const renderStepper = () => {
-  return (
-    <View style={styles.stepperWrapper}>
-      {steps.map((step, index) => (
-        <View key={index} style={styles.stepperItem}>
-          <View
-            style={[
-              styles.stepperCircle,
-              index < activeStep && styles.stepperCircleCompleted,
-              index === activeStep && styles.stepperCircleActive,
-              index > activeStep && styles.stepperCircleInactive,
-            ]}
-          >
-            {index < activeStep ? (
-              <Icon name="check" size={SCREEN_WIDTH < 380 ? 12 : 16} color="#fff" />
-            ) : (
-              <Text style={[styles.stepperNumber, { fontSize: SCREEN_WIDTH < 380 ? 10 : 12 }]}>{index + 1}</Text>
-            )}
-          </View>
-          <Text
-            style={[
-              styles.stepperLabel,
-              { 
-                fontSize: SCREEN_WIDTH < 380 ? 9 : (SCREEN_WIDTH < 480 ? 10 : 11),
-                textAlign: 'center'
-              },
-              index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
-            ]}
-            numberOfLines={2}
-          >
-            {step}
-          </Text>
-          {index < steps.length - 1 && (
+    return (
+      <View style={styles.stepperWrapper}>
+        {steps.map((step, index) => (
+          <View key={index} style={styles.stepperItem}>
             <View
               style={[
-                styles.stepperLine,
-                index < activeStep && styles.stepperLineActive,
+                styles.stepperCircle,
+                index < activeStep && styles.stepperCircleCompleted,
+                index === activeStep && styles.stepperCircleActive,
+                index > activeStep && styles.stepperCircleInactive,
               ]}
-            />
-          )}
-        </View>
-      ))}
-    </View>
-  );
-};
+            >
+              {index < activeStep ? (
+                <Icon name="check" size={SCREEN_WIDTH < 380 ? 12 : 16} color="#fff" />
+              ) : (
+                <Text style={[styles.stepperNumber, { fontSize: SCREEN_WIDTH < 380 ? 10 : 12 }]}>{index + 1}</Text>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.stepperLabel,
+                { 
+                  fontSize: SCREEN_WIDTH < 380 ? 9 : (SCREEN_WIDTH < 480 ? 10 : 11),
+                  textAlign: 'center'
+                },
+                index <= activeStep ? styles.stepperLabelActive : styles.stepperLabelInactive,
+              ]}
+              numberOfLines={2}
+            >
+              {step}
+            </Text>
+            {index < steps.length - 1 && (
+              <View
+                style={[
+                  styles.stepperLine,
+                  index < activeStep && styles.stepperLineActive,
+                ]}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -2114,6 +2047,10 @@ const handleBankFieldFocus = (fieldName: string) => {
             onClearEmail={handleClearEmail}
             onClearMobile={handleClearMobile}
             onClearAlternate={handleClearAlternate}
+            lockAuth0Email={Boolean(auth0LoginEmail)}
+            useCustomPassword={useCustomPassword}
+            onCustomPasswordModeChange={handleCustomPasswordModeChange}
+            onScrollInputIntoView={scrollInputIntoView}
           />
         );
       
@@ -2130,40 +2067,19 @@ const handleBankFieldFocus = (fieldName: string) => {
               }}
               onSameAddressToggle={handleSameAddressToggle}
               isSameAddress={isSameAddress}
+              onScrollInputIntoView={scrollInputIntoView}
+              locationSection={{
+                onFetchLocation: fetchLocationData,
+                onSelectFromMap: () => {
+                  setPendingMapSelection(null);
+                  setMapPickerOpen(true);
+                },
+                locationLoading,
+                detectedAddress: formData.currentLocation || undefined,
+                hasCoordinates: formData.latitude !== 0 || formData.longitude !== 0,
+                savedAddressPreview: formatServiceAddressFromGeoLocation(geoLocation) || undefined,
+              }}
             />
-
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.cardHeader}>
-                <Icon name="location-on" size={22} color={colors.primary} />
-                <Text style={[styles.cardTitle, { color: colors.text, fontSize: fontSizes.heading }]}>Current Location</Text>
-              </View>
-              <Text style={[styles.cardSubtitle, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
-                Use your current location to auto-fill address details
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.locationButton, { backgroundColor: colors.primary }, locationLoading && styles.buttonDisabled]}
-                onPress={fetchLocationData}
-                disabled={locationLoading}
-              >
-                {locationLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="my-location" size={18} color="#fff" />
-                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.button }]}>Fetch Current Location</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {(formData.latitude !== 0 || formData.longitude !== 0) && (
-                <View style={[styles.successAlert, { backgroundColor: colors.successLight, borderColor: colors.success }]}>
-                  <Text style={[styles.alertText, { color: colors.success, fontSize: fontSizes.small }]}>
-                    <Text style={{ fontWeight: 'bold' }}>Detected:</Text> {formData.currentLocation || "No address available"}
-                  </Text>
-                </View>
-              )}
-            </View>
           </View>
         );
 
@@ -2175,10 +2091,6 @@ const handleBankFieldFocus = (fieldName: string) => {
               errors={errors}
               isCookSelected={isCookSelected}
               isNannySelected={isNannySelected}
-              morningSlots={morningSlots}
-              eveningSlots={eveningSlots}
-              isFullTime={isFullTime}
-              selectedTimeSlots={selectedTimeSlots}
               onServiceTypeChange={handleServiceTypeChange}
               onCookingSpecialityChange={handleCookingSpecialityChange}
               onNannyCareTypeChange={handleNannyCareTypeChange}
@@ -2187,18 +2099,9 @@ const handleBankFieldFocus = (fieldName: string) => {
               onDescriptionChange={handleDescriptionChange}
               onReferralCodeChange={handleReferralCodeChange}
               onAgentReferralIdChange={handleAgentReferralIdChange}
-              onFullTimeToggle={handleFullTimeToggle}
-              onAddMorningSlot={handleAddMorningSlot}
-              onRemoveMorningSlot={handleRemoveMorningSlot}
-              onClearMorningSlots={handleClearMorningSlots}
-              onAddEveningSlot={handleAddEveningSlot}
-              onRemoveEveningSlot={handleRemoveEveningSlot}
-              onClearEveningSlots={handleClearEveningSlots}
-              onMorningSlotChange={handleMorningSlotChange}
-              onEveningSlotChange={handleEveningSlotChange}
-              formatDisplayTime={formatDisplayTime}
               selectedLanguages={selectedLanguages}
               onLanguagesChange={setSelectedLanguages}
+              onTimeSlotsChange={handleTimeSlotsChange}
             />
           </View>
         );
@@ -2211,23 +2114,25 @@ const handleBankFieldFocus = (fieldName: string) => {
               errors={errors}
               onFieldChange={handleRealTimeValidation}
               onFieldFocus={(fieldName) => setErrors(prev => ({ ...prev, [fieldName]: "" }))}
-              onDocumentUpload={handleDocumentUpload}
+              onDocumentUpload={handleKycDocumentUpload}
               onKycTypeChange={handleKycTypeChange}
+              isUploading={isKycUploading}
+              uploadedUrl={kycDocumentUrl}
             />
           </View>
         );
 
-  case 4:
-  return (
-    <View style={styles.stepContainer}>
-      <BankDetails
-        formData={formData.bankDetails}
-        errors={errors.bankDetails || {}}
-        onFieldChange={handleBankFieldChange}
-        onFieldFocus={handleBankFieldFocus}
-      />
-    </View>
-  );
+      case 4:
+        return (
+          <View style={styles.stepContainer}>
+            <BankDetails
+              formData={formData.bankDetails}
+              errors={errors.bankDetails || {}}
+              onFieldChange={handleBankFieldChange}
+              onFieldFocus={handleBankFieldFocus}
+            />
+          </View>
+        );
 
       case 5:
         return (
@@ -2249,6 +2154,11 @@ const handleBankFieldFocus = (fieldName: string) => {
             {errors.keyFacts && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.keyFacts}</Text>}
             {errors.terms && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.terms}</Text>}
             {errors.privacy && <Text style={[styles.errorText, { color: colors.error, fontSize: fontSizes.small }]}>{errors.privacy}</Text>}
+            {!areTermsAccepted() && (
+              <Text style={[styles.termsHint, { color: colors.warning || "#ed6c02", fontSize: fontSizes.small }]}>
+                Please accept all agreements above to enable the Submit button.
+              </Text>
+            )}
           </View>
         );
 
@@ -2257,41 +2167,61 @@ const handleBankFieldFocus = (fieldName: string) => {
     }
   };
 
-  return (
-    <Modal
-      visible={true}
-      animationType="slide"
-      transparent={false}
-    >
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardView}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-        >
-          <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.headerContainer}
-            >
-              <Text style={[styles.title, { color: '#fff', fontSize: fontSizes.title }]}>Service Provider Registration</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => onBackToLogin(true)}
-              >
-                <Icon name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </LinearGradient>
+  const headerSubtext = `Step ${activeStep + 1} of ${steps.length}`;
+  const surface = isDarkMode ? colors.surface : "#ffffff";
+  const textPrimary = isDarkMode ? colors.text : "#0f172a";
+  const textMuted = isDarkMode ? colors.textSecondary : "#64748b";
+  const borderColor = isDarkMode ? colors.border : "#e2e8f0";
 
-            <ScrollView 
-              ref={scrollViewRef}
-              style={[styles.content, { backgroundColor: colors.background }]} 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.contentContainer}
-              keyboardShouldPersistTaps="handled"
-            >
+  return (
+    <View style={[styles.sheetBody, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}>
+      <View style={[styles.sheetHeader, { backgroundColor: surface, borderBottomColor: borderColor }]}>
+        <View style={styles.headerAccent} />
+        <View style={styles.handleRow}>
+          <View style={[styles.sheetHandle, { backgroundColor: borderColor }]} />
+        </View>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerTextCol}>
+            <Text style={[styles.headerEyebrow, { color: textMuted }]}>Registration</Text>
+            <Text style={[styles.sheetHeaderTitle, { color: textPrimary }]}>
+              Service Provider
+            </Text>
+            <Text style={[styles.headerSub, { color: textMuted }]} numberOfLines={1}>
+              {headerSubtext}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={onDismiss}
+            style={[styles.sheetCloseBtn, { backgroundColor: isDarkMode ? colors.card : "#f1f5f9" }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Close registration"
+            accessibilityRole="button"
+          >
+            <Icon name="close" size={22} color={textPrimary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.keyboardView}>
+        <RegistrationKeyboardAccessory />
+        <RegistrationAndroidKeyboardBar />
+        <View style={[styles.container, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={[styles.content, { backgroundColor: isDarkMode ? colors.background : "#f8fafc" }]}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.contentContainer,
+              { paddingBottom: Math.max(insets.bottom, 16) + 48 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            onScroll={(event) => {
+              scrollYRef.current = event.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+          >
               {renderStepper()}
               {renderStepContent(activeStep)}
 
@@ -2311,7 +2241,7 @@ const handleBankFieldFocus = (fieldName: string) => {
                     variant="primary"
                     size="medium"
                     onPress={handleSubmit}
-                    disabled={isNextDisabled || isSubmitting}
+                    disabled={isSubmitting || !areTermsAccepted()}
                     loading={isSubmitting}
                   >
                     Submit
@@ -2321,7 +2251,16 @@ const handleBankFieldFocus = (fieldName: string) => {
                     variant="primary"
                     size="medium"
                     onPress={handleNext}
-                    disabled={isNextDisabled || isSubmitting}
+                    disabled={
+                      isSubmitting || 
+                      (activeStep === 0 && (
+                        validationResults.email.loading || 
+                        validationResults.mobile.loading || 
+                        validationResults.alternate.loading ||
+                        !validationResults.email.isAvailable ||
+                        !validationResults.mobile.isAvailable
+                      ))
+                    }
                     endIcon={<Icon name="arrow-forward" size={20} color="#fff" />}
                   >
                     Next
@@ -2330,45 +2269,31 @@ const handleBankFieldFocus = (fieldName: string) => {
               </View>
             </ScrollView>
 
-            <Modal
-              visible={policyModalVisible}
-              animationType="slide"
-              transparent={false}
-              onRequestClose={() => setPolicyModalVisible(false)}
-            >
-              <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
-                <LinearGradient
-                  colors={["#0a2a66ff", "#004aadff"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.policyModalHeader}
-                >
-                  <Text style={[styles.policyModalTitle, { color: '#fff', fontSize: fontSizes.title }]}>
-                    {activePolicy === 'terms' && "Terms and Conditions"}
-                    {activePolicy === 'privacy' && "Privacy Policy"}
-                    {activePolicy === 'keyfacts' && "Key Facts Statement"}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.policyModalClose}
-                    onPress={() => setPolicyModalVisible(false)}
-                  >
-                    <Icon name="close" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </LinearGradient>
-                <ScrollView style={[styles.policyModalContent, { backgroundColor: colors.background }]}>
-                  {renderPolicyContent()}
-                </ScrollView>
-              </View>
-            </Modal>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate || new Date()}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-              />
+            {policyModalVisible && (
+              <Modal
+                visible={policyModalVisible}
+                animationType="slide"
+                transparent={false}
+                presentationStyle="fullScreen"
+                onRequestClose={() => setPolicyModalVisible(false)}
+              >
+                <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.primary, flex: 1 }]}>
+                  <HomeHeroPageHeader
+                    title={
+                      activePolicy === "terms"
+                        ? "Terms and Conditions"
+                        : activePolicy === "privacy"
+                          ? "Privacy Policy"
+                          : "Key Facts Statement"
+                    }
+                    onBack={() => setPolicyModalVisible(false)}
+                    backIcon="close"
+                  />
+                  <ScrollView style={[styles.policyModalContent, { backgroundColor: HOME_M3.surface }]}>
+                    {renderPolicyContent()}
+                  </ScrollView>
+                </View>
+              </Modal>
             )}
 
             {snackbarOpen && (
@@ -2379,41 +2304,161 @@ const handleBankFieldFocus = (fieldName: string) => {
                 </TouchableOpacity>
               </View>
             )}
+
+            <Modal
+              visible={mapPickerOpen}
+              animationType="slide"
+              onRequestClose={() => setMapPickerOpen(false)}
+            >
+              <View style={[styles.mapPickerModal, { backgroundColor: colors.background }]}>
+                <View style={[styles.mapPickerHeader, { borderBottomColor: colors.border, paddingTop: Math.max(insets.top, 14) }]}>
+                  <Text style={[styles.mapPickerTitle, { color: colors.text, fontSize: fontSizes.heading }]}>
+                    Select location from map
+                  </Text>
+                  <TouchableOpacity onPress={() => setMapPickerOpen(false)}>
+                    <Icon name="close" size={22} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.mapPickerBody}>
+                  <MapComponent
+                    style={styles.mapPickerComponent}
+                    onLocationSelect={handleMapLocationSelect}
+                    initialCenter={getMapInitialCenter()}
+                    savedLocation={geoLocation}
+                  />
+
+                  <Text style={[styles.mapPickerHint, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+                    Click on the map to choose the exact service address, then press Save location.
+                  </Text>
+
+                  {pendingMapSelection ? (
+                    <View style={[styles.mapPickerSelection, { backgroundColor: colors.infoLight, borderColor: colors.primary }]}>
+                      <Text style={[styles.mapPickerSelectionText, { color: colors.primary, fontSize: fontSizes.small }]}>
+                        Selected: {pendingMapSelection.lat.toFixed(6)}, {pendingMapSelection.lng.toFixed(6)}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.mapPickerActions}>
+                    <TouchableOpacity
+                      style={[styles.mapPickerCancelButton, { borderColor: colors.border }]}
+                      onPress={() => setMapPickerOpen(false)}
+                    >
+                      <Text style={{ color: colors.text, fontSize: fontSizes.button }}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.mapPickerSaveButton,
+                        { backgroundColor: colors.primary },
+                        !pendingMapSelection && styles.buttonDisabled,
+                      ]}
+                      onPress={handleSaveMapSelection}
+                      disabled={!pendingMapSelection}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "600", fontSize: fontSizes.button }}>
+                        Save location
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  modalRoot: {
     flex: 1,
+    justifyContent: "flex-end",
+  },
+  sheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(2, 6, 23, 0.72)",
+  },
+  sheetOverlayTap: {
+    flex: 1,
+  },
+  sheet: {
+    width: SCREEN_WIDTH,
+    height: SHEET_MAX_HEIGHT,
+    backgroundColor: "#f8fafc",
+    borderTopLeftRadius: SHEET_RADIUS,
+    borderTopRightRadius: SHEET_RADIUS,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+  sheetBody: {
+    flex: 1,
+  },
+  sheetHeader: {
+    borderBottomWidth: 1,
+    flexShrink: 0,
+  },
+  headerAccent: {
+    height: 4,
+    width: "100%",
+    backgroundColor: "#2563eb",
+  },
+  handleRow: {
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  sheetHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  headerTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  headerEyebrow: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  sheetHeaderTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+    lineHeight: 26,
+  },
+  headerSub: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  sheetCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   keyboardView: {
     flex: 1,
   },
   container: {
     flex: 1,
-  },
-  headerContainer: {
-    paddingTop: Platform.OS === "ios" ? 12 : 16,
-    paddingBottom: Platform.OS === "ios" ? 12 : 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  title: {
-    color: '#fff',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  closeButton: {
-    position: 'absolute',
-    right: 16,
-    top: Platform.OS === "ios" ? 12 : 16,
   },
   content: {
     flex: 1,
@@ -2468,9 +2513,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   stepperLabel: {
-  fontWeight: '500',
-  lineHeight: 14,
-},
+    fontWeight: '500',
+    lineHeight: 14,
+  },
   stepperLabelActive: {
     color: '#1976d2',
     fontWeight: 'bold',
@@ -2521,6 +2566,79 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     marginBottom: 16,
+  },
+  locationButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  locationButtonHalf: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  locationButtonOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  mapPickerModal: {
+    flex: 1,
+  },
+  mapPickerHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+  },
+  mapPickerTitle: {
+    fontWeight: "700",
+    flex: 1,
+    paddingRight: 12,
+  },
+  mapPickerBody: {
+    flex: 1,
+    padding: 16,
+    gap: 12,
+  },
+  mapPickerComponent: {
+    flex: 1,
+    minHeight: 420,
+  },
+  mapPickerHint: {
+    lineHeight: 20,
+  },
+  mapPickerSelection: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  mapPickerSelectionText: {
+    fontWeight: "500",
+  },
+  mapPickerActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    paddingTop: 4,
+  },
+  mapPickerCancelButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  mapPickerSaveButton: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minWidth: 120,
+    alignItems: "center",
   },
   buttonText: {
     color: 'white',
@@ -2590,27 +2708,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
   },
+  termsHint: {
+    marginTop: 12,
+    lineHeight: 20,
+  },
   policyModalContainer: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
-  },
-  policyModalHeader: {
-    paddingTop: Platform.OS === "ios" ? 50 : 20,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  policyModalTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  policyModalClose: {
-    position: 'absolute',
-    right: 16,
-    top: Platform.OS === "ios" ? 50 : 20,
   },
   policyModalContent: {
     flex: 1,

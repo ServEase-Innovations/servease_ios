@@ -9,27 +9,30 @@ import {
   TouchableOpacity,
   Platform,
   ActivityIndicator,
-  SafeAreaView,
   Alert,
   RefreshControl,
   FlatList,
   Dimensions,
-  Image,
 } from "react-native";
-import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import providerInstance from "../services/providerInstance";
-import { CONFIRMATION } from "../Constants/pagesConstants";
+import providerInstance, { resolveProviderRequestUrl } from "../services/providerInstance";
 import ProviderDetailsComponent from "../DetailsView/ProviderDetails";
 import { useDispatch, useSelector } from "react-redux";
 import { usePricingFilterService } from '../utils/PricingFilter';
 import { ServiceProviderDTO } from "../types/ProviderDetailsType";
+import { resolveProviderId } from "../utils/providerId";
 import ProviderFilter, { FilterCriteria } from "./ProviderFilter";
 import { useTheme } from '../Settings/ThemeContext';
 import { SkeletonLoader } from '../common/SkeletonLoader';
 import dayjs, { Dayjs } from 'dayjs';
 import { useAppUser } from '../context/AppUserContext';
+import { formatDateOnly, getBookingTypeFromPreference } from '../utils/maidPricingUtils';
+import { resolveScheduleTimeFields } from '../utils/bookingSchedulePatch';
+import { buildLocationSearchKey, resolveLocationCoords } from '../utils/bookingLocation';
+import { isBookingScheduleComplete } from '../ServiceDialogs/serviceBookingConfig';
+import { useTranslation } from 'react-i18next';
+import { BRAND } from '../theme/brandColors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -48,6 +51,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 }) => {
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
   const { appUser } = useAppUser();
+  const { t } = useTranslation();
   
   const customerId = appUser?.role === "CUSTOMER" ? appUser?.customerid : null;
   
@@ -57,13 +61,9 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
-  const [previousLocationKey, setPreviousLocationKey] = useState<string>("");
-  const [isLocationValid, setIsLocationValid] = useState(false);
   
-  // Add a ref to track if initial load has been done
-  const initialLoadDone = useRef(false);
+  const lastLocationSearchKeyRef = useRef("");
   const isFetchingRef = useRef(false);
-  const locationKeyRef = useRef<string>("");
   
   // Infinite scroll state
   const [loading, setLoading] = useState(false);
@@ -72,6 +72,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const [hasMore, setHasMore] = useState(true);
   const [allProviders, setAllProviders] = useState<ServiceProviderDTO[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<null | 'timeout' | 'network' | 'generic'>(null);
   
   const flatListRef = useRef<FlatList>(null);
   
@@ -91,96 +92,124 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
 
   const { getBookingType, getPricingData, getFilteredPricing } = usePricingFilterService();
   const bookingType = getBookingType();
+
+  const providerSearchCriteria = useMemo(
+    () => ({
+      startDate: bookingType?.startDate,
+      endDate: bookingType?.endDate,
+      startTime: bookingType?.startTime,
+      endTime: bookingType?.endTime,
+      timeRange: bookingType?.timeRange,
+      timeSlot: bookingType?.timeSlot,
+      housekeepingRole: bookingType?.housekeepingRole,
+      bookingPreference: bookingType?.bookingPreference,
+    }),
+    [
+      bookingType?.startDate,
+      bookingType?.endDate,
+      bookingType?.startTime,
+      bookingType?.endTime,
+      bookingType?.timeRange,
+      bookingType?.timeSlot,
+      bookingType?.housekeepingRole,
+      bookingType?.bookingPreference,
+    ]
+  );
+
+  const providerSearchKey = useMemo(
+    () => JSON.stringify(providerSearchCriteria),
+    [providerSearchCriteria]
+  );
+
+  const canSearchProviders = useMemo(() => {
+    const bookingTypeCode = getBookingTypeFromPreference(
+      providerSearchCriteria.bookingPreference
+    );
+    return isBookingScheduleComplete(
+      providerSearchCriteria as Record<string, unknown>,
+      bookingTypeCode
+    );
+  }, [providerSearchCriteria]);
+
+  const scheduleRevision = useSelector(
+    (state: { bookingType?: { scheduleRevision?: number } }) =>
+      state.bookingType?.scheduleRevision ?? 0
+  );
+
+  const providerSearchTriggerKey = useMemo(
+    () =>
+      canSearchProviders ? `${providerSearchKey}:${scheduleRevision}` : "",
+    [canSearchProviders, providerSearchKey, scheduleRevision]
+  );
   
   const dispatch = useDispatch();
   const location = useSelector((state: any) => state?.geoLocation?.value);
-
-  // Helper function to check if location is valid
-  const isValidLocation = useCallback((loc: any): boolean => {
-    if (!loc) return false;
-    
-    let lat = null;
-    let lng = null;
-    
-    if (loc?.geometry?.location) {
-      lat = loc.geometry.location.lat;
-      lng = loc.geometry.location.lng;
-    } else if (loc?.lat && loc?.lng) {
-      lat = loc.lat;
-      lng = loc.lng;
-    } else if (typeof loc === 'string') {
-      return false;
-    }
-    
-    return lat !== null && lng !== null && lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng);
-  }, []);
-
-  const getLocationKey = useCallback(() => {
-    if (!location || !isValidLocation(location)) return "";
-    
-    let lat = null;
-    let lng = null;
-    
-    if (location?.geometry?.location) {
-      lat = location.geometry.location.lat;
-      lng = location.geometry.location.lng;
-    } else if (location?.lat && location?.lng) {
-      lat = location.lat;
-      lng = location.lng;
-    }
-    
-    if (lat && lng) {
-      return `${lat.toFixed(4)}-${lng.toFixed(4)}`;
-    }
-    
-    return "";
-  }, [location, isValidLocation]);
+  const locationSearchKey = useMemo(
+    () => buildLocationSearchKey(location),
+    [location]
+  );
 
   const filteredProviders = allProviders;
 
-  useEffect(() => {
-    if (selectedProviderType !== undefined && location && bookingType && initialLoadDone.current) {
-      console.log("Filters changed, resetting and searching");
-      resetAndSearch();
+  const formatDisplayTime = (hhmm?: string) => {
+    if (!hhmm) return "";
+    const parsed = dayjs(hhmm.trim(), ["HH:mm", "H:mm", "hh:mm A", "h:mm A"], true);
+    return parsed.isValid() ? parsed.format("h:mm A") : hhmm;
+  };
+
+  const formatDisplayDate = (value?: string) => {
+    const ymd = formatDateOnly(value);
+    return ymd ? dayjs(ymd).format("MMM D, YYYY") : "";
+  };
+
+  const searchContextSummary = useMemo(() => {
+    const pref = providerSearchCriteria.bookingPreference;
+    const bookingTypeCode = getBookingTypeFromPreference(pref);
+    const role = String(providerSearchCriteria.housekeepingRole || "COOK").toUpperCase();
+    const serviceLabel =
+      role === "MAID"
+        ? t("home.services.cleaningHelp") || "Maid"
+        : role === "NANNY"
+          ? t("home.services.caregiver") || "Nanny"
+          : t("home.services.homeCook") || "Cook";
+    const modeLabel =
+      bookingTypeCode === "ON_DEMAND"
+        ? "On demand"
+        : bookingTypeCode === "SHORT_TERM"
+          ? "Short term"
+          : "Monthly";
+
+    const start = formatDisplayDate(providerSearchCriteria.startDate);
+    const end = formatDisplayDate(providerSearchCriteria.endDate);
+    let dateLine = "";
+    if (bookingTypeCode === "SHORT_TERM" && start && end && start !== end) {
+      dateLine = `${start} – ${end}`;
+    } else if (start) {
+      dateLine = start;
+    } else if (end) {
+      dateLine = end;
     }
-  }, [activeFilters]);
+
+    const { startTime: resolvedStart, endTime: resolvedEnd } = resolveScheduleTimeFields(
+      providerSearchCriteria as Record<string, unknown>
+    );
+    const startT = formatDisplayTime(resolvedStart || providerSearchCriteria.startTime);
+    const endT = formatDisplayTime(resolvedEnd || providerSearchCriteria.endTime);
+    let timeLine = "";
+    if (startT && endT) {
+      timeLine = `${startT} – ${endT}`;
+    } else if (startT) {
+      timeLine = startT;
+    }
+
+    return { serviceLabel, modeLabel, dateLine, timeLine };
+  }, [providerSearchCriteria, t]);
 
   useEffect(() => {
-    const currentLocationKey = getLocationKey();
-    const locationValid = isValidLocation(location);
-    
-    setIsLocationValid(locationValid);
-    
-    const locationChanged = locationValid && currentLocationKey !== locationKeyRef.current;
-    
-    if (locationValid && bookingType && !initialLoadDone.current) {
-      console.log("Initial load triggered");
-      locationKeyRef.current = currentLocationKey;
-      initialLoadDone.current = true;
-      resetAndSearch();
-    } else if (locationValid && locationChanged && initialLoadDone.current) {
-      console.log("Location changed, resetting");
-      locationKeyRef.current = currentLocationKey;
-      resetAndSearch();
-    }
-  }, [location, bookingType]);
-
-  useEffect(() => {
-    if (selected && selected !== selectedProviderType && initialLoadDone.current) {
-      setSelectedProviderType(selected);
-      resetAndSearch();
-    } else if (selected && !initialLoadDone.current) {
+    if (selected) {
       setSelectedProviderType(selected);
     }
   }, [selected]);
-
-  const resetAndSearch = () => {
-    setCurrentPage(1);
-    setHasMore(true);
-    setAllProviders([]);
-    setHasFetchedOnce(false);
-    performSearch(true);
-  };
 
   const handleBackClick = () => {
     sendDataToParent("");
@@ -190,16 +219,10 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     if (selectedProvider) {
       selectedProvider(provider);
     }
-    sendDataToParent(CONFIRMATION);
-  }, [selectedProvider, sendDataToParent]);
-
-  const formatDateOnly = (dateString?: string) => {
-    if (!dateString) return "";
-    return dateString.split("T")[0];
-  };
+  }, [selectedProvider]);
 
   const formatTimeToHHMM = (time?: Dayjs | string | null): string => {
-    if (!time) return "08:00";
+    if (!time) return "09:00";
     
     if (typeof time === 'string') {
       const trimmedTime = time.trim();
@@ -210,14 +233,14 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       if (parsed.isValid()) {
         return parsed.format('HH:mm');
       }
-      return "08:00";
+      return "09:00";
     }
     
     if (time && typeof time === 'object' && 'format' in time) {
       return (time as Dayjs).format('HH:mm');
     }
     
-    return "08:00";
+    return "09:00";
   };
 
   const calculateDurationInMinutes = (startTime?: string, endTime?: string): number => {
@@ -269,7 +292,11 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     return 60;
   };
 
-  const fetchProviders = async (page: number, reset: boolean = false) => {
+  const fetchProviders = async (
+    page: number,
+    reset: boolean = false,
+    preserveList: boolean = false
+  ) => {
     if (isFetchingRef.current) {
       console.log("Fetch already in progress, skipping...");
       return;
@@ -279,21 +306,17 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       isFetchingRef.current = true;
       
       if (reset) {
-        setLoading(true);
+        setIsLoadingMore(false);
+        if (!preserveList) {
+          setLoading(true);
+        }
       } else {
         setIsLoadingMore(true);
       }
 
-      let latitude = 0;
-      let longitude = 0;
-
-      if (location?.geometry?.location) {
-        latitude = location.geometry.location.lat;
-        longitude = location.geometry.location.lng;
-      } else if (location?.lat && location?.lng) {
-        latitude = location.lat;
-        longitude = location.lng;
-      }
+      const coords = resolveLocationCoords(location);
+      const latitude = coords?.lat ?? 0;
+      const longitude = coords?.lng ?? 0;
 
       if (latitude === 0 || longitude === 0 || isNaN(latitude) || isNaN(longitude)) {
         Alert.alert(
@@ -308,45 +331,51 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         return;
       }
 
-      const startDate = formatDateOnly(bookingType?.startDate) || '2025-04-01';
-      const endDate = formatDateOnly(bookingType?.endDate) || '2025-04-30';
-      
-      let preferredStartTime = "08:00";
-      
-      if (bookingType?.timeRange) {
-        const startTimeFromRange = bookingType.timeRange.split('-')[0];
-        preferredStartTime = formatTimeToHHMM(startTimeFromRange);
-      } else if (bookingType?.startTime) {
-        preferredStartTime = formatTimeToHHMM(bookingType.startTime);
-      }
-      
-      const housekeepingRole = bookingType?.housekeepingRole || 'COOK';
+      const { startTime: resolvedStart, endTime: resolvedEnd } = resolveScheduleTimeFields(
+        providerSearchCriteria as Record<string, unknown>
+      );
+
       const serviceDurationMinutes = calculateDurationInMinutes(
-        bookingType?.startTime,
-        bookingType?.endTime
+        resolvedStart || providerSearchCriteria.startTime,
+        resolvedEnd || providerSearchCriteria.endTime
+      );
+
+      const bookingTypeCode = getBookingTypeFromPreference(
+        providerSearchCriteria.bookingPreference
       );
 
       const payload: any = {
         lat: latitude.toString(),
         lng: longitude.toString(),
         radius: 10,
-        startDate: startDate,
-        endDate: endDate,
-        preferredStartTime: preferredStartTime,
-        role: housekeepingRole,
-        serviceDurationMinutes: serviceDurationMinutes
+        startDate:
+          formatDateOnly(providerSearchCriteria.startDate) ||
+          dayjs().format("YYYY-MM-DD"),
+        endDate:
+          formatDateOnly(providerSearchCriteria.endDate) ||
+          formatDateOnly(providerSearchCriteria.startDate) ||
+          dayjs().format("YYYY-MM-DD"),
+        preferredStartTime:
+          String(resolvedStart || providerSearchCriteria.startTime || "").trim() ||
+          (providerSearchCriteria.timeRange
+            ? providerSearchCriteria.timeRange.split("-")[0]?.trim()
+            : "") ||
+          "09:00",
+        role: providerSearchCriteria.housekeepingRole || "COOK",
+        serviceDurationMinutes: serviceDurationMinutes,
+        bookingType: bookingTypeCode,
       };
 
       if (activeFilters) {
-        if (activeFilters.experience && (activeFilters.experience[0] > 0 || activeFilters.experience[1] < 30)) {
-          payload.minExperience = activeFilters.experience[0];
-          payload.maxExperience = activeFilters.experience[1];
+        const [minExp, maxExp] = activeFilters.experience;
+        if (minExp > 0 || maxExp < 30) {
+          payload.experienceRange = `${minExp}-${maxExp}`;
         }
         if (activeFilters.rating) {
           payload.minRating = activeFilters.rating;
         }
         if (activeFilters.distance && activeFilters.distance[1] < 50) {
-          payload.maxDistance = activeFilters.distance[1];
+          payload.radius = activeFilters.distance[1];
         }
         if (activeFilters.gender !== null && activeFilters.gender !== "") {
           payload.gender = activeFilters.gender;
@@ -357,27 +386,40 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
         if (activeFilters.language && activeFilters.language.length > 0) {
           payload.languages = activeFilters.language;
         }
-        if (activeFilters.availability && activeFilters.availability.length > 0) {
-          payload.availabilityStatuses = activeFilters.availability;
-        }
       }
 
       if (appUser?.role === "CUSTOMER" && customerId && customerId !== 0 && customerId !== null && customerId !== undefined) {
         payload.customerID = Number(customerId);
       }
       
-      console.log(`Fetching page ${page} with payload:`, payload);
+      const searchPath = `/api/service-providers/nearby-monthly?page=${page}&limit=10`;
+      const searchFullUrl = resolveProviderRequestUrl({ url: searchPath });
+
+      console.log('[DetailsView] nearby-monthly search', {
+        fullUrl: searchFullUrl,
+        page,
+        reset,
+        payload,
+      });
 
       const response = await providerInstance.post(
-        `/api/service-providers/nearby-monthly?page=${page}&limit=10`,
-        payload
+        searchPath,
+        payload,
+        { timeout: 90000 }
       );
 
-      await new Promise(resolve => setTimeout(resolve, 300));
-
       console.log("API Response:", response.data);
+      setFetchError(null);
 
-      const newProviders = response.data.providers || [];
+      const rawProviders = response.data.providers || [];
+      const newProviders: ServiceProviderDTO[] = rawProviders.map((p: ServiceProviderDTO) => {
+        const id = resolveProviderId(p as unknown as Record<string, unknown>);
+        return {
+          ...p,
+          serviceproviderid: id ?? "",
+          serviceProviderId: id ?? (p as { serviceProviderId?: string }).serviceProviderId,
+        };
+      });
       const total = response.data.count || 0;
       setTotalCount(total);
 
@@ -393,8 +435,19 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
       setCurrentPage(page);
 
     } catch (error: any) {
-      console.error("API error:", error.message || error);
-      Alert.alert('Error', error.response?.data?.message || 'An error occurred. Please try again.');
+      const message = String(error?.message || '');
+      const isTimeout =
+        error?.code === 'ECONNABORTED' || message.toLowerCase().includes('timeout');
+      const isNetwork = !error?.response && (error?.code === 'ERR_NETWORK' || message.includes('Network'));
+
+      if (isTimeout) {
+        setFetchError('timeout');
+      } else if (isNetwork) {
+        setFetchError('network');
+      } else {
+        setFetchError('generic');
+      }
+
       if (reset) {
         setAllProviders([]);
         setTotalCount(0);
@@ -409,15 +462,57 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     }
   };
 
-  const performSearch = async (reset: boolean = true) => {
+  const performSearch = useCallback(async (reset: boolean = true) => {
+    const preserveList =
+      reset &&
+      allProviders.length > 0 &&
+      lastLocationSearchKeyRef.current === locationSearchKey;
+
     if (reset) {
       setCurrentPage(1);
       setHasMore(true);
-      setAllProviders([]);
-      setHasFetchedOnce(false);
+      setFetchError(null);
+      if (!preserveList) {
+        setAllProviders([]);
+        setHasFetchedOnce(false);
+      }
     }
-    await fetchProviders(reset ? 1 : currentPage + 1, reset);
-  };
+
+    lastLocationSearchKeyRef.current = locationSearchKey;
+
+    await fetchProviders(reset ? 1 : currentPage + 1, reset, preserveList);
+  }, [
+    allProviders.length,
+    locationSearchKey,
+    location,
+    providerSearchCriteria,
+    activeFilters,
+    customerId,
+    appUser,
+    currentPage,
+  ]);
+
+  useEffect(() => {
+    if (
+      selectedProviderType !== undefined &&
+      locationSearchKey &&
+      canSearchProviders &&
+      providerSearchTriggerKey
+    ) {
+      performSearch(true);
+    }
+  }, [
+    selectedProviderType,
+    locationSearchKey,
+    canSearchProviders,
+    providerSearchTriggerKey,
+    activeFilters,
+    performSearch,
+  ]);
+
+  const resetAndSearch = useCallback(() => {
+    performSearch(true);
+  }, [performSearch]);
 
   const fetchMoreData = useCallback(() => {
     if (isLoadingMore || !hasMore || loading || isFetchingRef.current) {
@@ -444,7 +539,6 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     if (filters.gender !== null && filters.gender !== "") count++;
     if (filters.diet !== null && filters.diet !== "") count++;
     if (filters.language && filters.language.length > 0) count++;
-    if (filters.availability && filters.availability.length > 0) count++;
     
     setActiveFilterCount(count);
     setFilterOpen(false);
@@ -460,7 +554,7 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     
     return (
       <View style={[styles.footerLoader, { paddingVertical: 20 }]}>
-        <ActivityIndicator size="large" color="#0a2a66ff" />
+        <ActivityIndicator size="large" color="#0b5bd3" />
         <Text style={[styles.loadingMoreText, { color: '#64748B', fontSize: fontStyles.smallText }]}>
           Loading more providers...
         </Text>
@@ -469,70 +563,141 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   };
 
   const renderHeader = () => {
-    if (filteredProviders.length === 0 && !loading && !hasFetchedOnce) return null;
+    const showResultsHeader =
+      totalCount > 0 || activeFilters || (hasFetchedOnce && Boolean(searchContextSummary));
+
+    if (!showResultsHeader && !(canSearchProviders && searchContextSummary)) return null;
     
-    const resultsLabel = totalCount === 1 ? "1 service provider found" : `${totalCount} service providers found`;
+    const resultsLabel = fetchError
+      ? fetchError === 'timeout'
+        ? 'Search timed out — try again'
+        : fetchError === 'network'
+          ? 'Connection problem'
+          : 'Could not load providers'
+      : totalCount === 1
+        ? '1 service provider found'
+        : `${totalCount} service providers found`;
     
     return (
       <>
-        <View style={[styles.headerContainer, { paddingHorizontal: 16 * spacingMultiplier, marginBottom: 16 }]}>
-          {/* Left side - Back button */}
-          <View style={styles.headerLeft}>
-            <TouchableOpacity onPress={handleBackClick} style={styles.backButton}>
-              <Icon name="arrow-back" size={20} color="#1E293B" />
-              <Text style={[styles.backText, { color: '#1E293B', fontSize: fontStyles.smallText }]}>
-                Back
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Center - Results count */}
-          <View style={styles.headerCenter}>
-            <Text style={[styles.resultsCountText, { fontSize: fontStyles.smallText, color: '#475569' }]}>
+        <View style={styles.topNavRow}>
+          <TouchableOpacity
+            onPress={handleBackClick}
+            style={[
+              styles.backIconButton,
+              {
+                borderColor: colors.border,
+                backgroundColor: isDarkMode ? colors.card : '#F1F5F9',
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Icon name="arrow-back" size={20} color={BRAND.bookingNavy} />
+          </TouchableOpacity>
+
+          <View
+            style={[
+              styles.resultsPill,
+              {
+                backgroundColor: fetchError
+                  ? colors.error + '12'
+                  : isDarkMode
+                    ? colors.card
+                    : '#F1F5F9',
+                borderColor: fetchError ? colors.error + '40' : 'transparent',
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.resultsCountText,
+                {
+                  fontSize: fontStyles.smallText,
+                  color: fetchError ? colors.error : BRAND.bookingNavy,
+                },
+              ]}
+              numberOfLines={2}
+            >
               {resultsLabel}
             </Text>
           </View>
-          
-          {/* Right side - Filter button */}
-          <View style={styles.headerRight}>
-            <View style={[styles.filterContainer, { gap: 8 * spacingMultiplier }]}>
-              <TouchableOpacity
-                style={[styles.filterButton, { 
-                  backgroundColor: '#FFFFFF',
-                  borderColor: '#E2E8F0',
-                  paddingHorizontal: 12 * spacingMultiplier,
-                  paddingVertical: 8 * spacingMultiplier,
-                }]}
-                onPress={() => setFilterOpen(true)}
-                activeOpacity={0.7}
-              >
-                <Icon name="filter-list" size={18} color="#1E293B" />
-                <Text style={[styles.filterButtonText, { color: '#1E293B', fontSize: fontStyles.smallText }]}>
-                  Filter
-                </Text>
-                {activeFilterCount > 0 && (
-                  <View style={[styles.badge, { backgroundColor: '#0a2a66ff' }]}>
-                    <Text style={[styles.badgeText, { fontSize: fontStyles.badgeText, color: '#FFFFFF' }]}>{activeFilterCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              
-              {activeFilterCount > 0 && (
-                <TouchableOpacity
-                  style={[styles.clearButton, { padding: 8 * spacingMultiplier }]}
-                  onPress={handleClearFilters}
-                >
-                  <Text style={[styles.clearButtonText, { color: '#0a2a66ff', fontSize: fontStyles.smallText }]}>
-                    Clear all
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
         </View>
 
-        {/* Divider */}
-        <View style={[styles.divider, { backgroundColor: '#E2E8F0', marginBottom: 16 }]} />
+        {(canSearchProviders && searchContextSummary) ? (
+          <View
+            style={[
+              styles.summaryCard,
+              {
+                borderColor: colors.border,
+                backgroundColor: isDarkMode ? colors.surface : '#FFFFFF',
+              },
+            ]}
+          >
+            <View style={styles.searchContextRow}>
+              <View style={[styles.servicePillPrimary, { backgroundColor: BRAND.accentSoft }]}>
+                <Text style={[styles.servicePillPrimaryText, { color: BRAND.accent, fontSize: fontStyles.smallText }]}>
+                  {searchContextSummary.serviceLabel}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.servicePillSecondary,
+                  {
+                    backgroundColor: isDarkMode ? colors.card : '#F1F5F9',
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.servicePillSecondaryText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                  {searchContextSummary.modeLabel}
+                </Text>
+              </View>
+            </View>
+            {(searchContextSummary.dateLine || searchContextSummary.timeLine) ? (
+              <View style={styles.summaryMetaRow}>
+                <Icon name="event" size={15} color={colors.textSecondary} />
+                <Text style={[styles.summaryMetaText, { color: colors.textSecondary, fontSize: fontStyles.smallText }]}>
+                  {[searchContextSummary.dateLine, searchContextSummary.timeLine].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.sectionHeaderRow}>
+          <Text
+            style={[styles.sectionTitle, { color: BRAND.bookingNavy, fontSize: fontStyles.headingSize }]}
+            numberOfLines={2}
+          >
+            Available Providers
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: isDarkMode ? colors.card : '#FFFFFF',
+                borderColor: colors.border,
+                paddingHorizontal: 12 * spacingMultiplier,
+                paddingVertical: 8 * spacingMultiplier,
+              },
+            ]}
+            onPress={() => setFilterOpen(true)}
+            activeOpacity={0.8}
+          >
+            <Icon name="tune" size={18} color={BRAND.bookingNavy} />
+            <Text style={[styles.filterButtonText, { color: BRAND.bookingNavy, fontSize: fontStyles.smallText }]}>
+              Filter
+            </Text>
+            {activeFilterCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: BRAND.accent }]}>
+                <Text style={[styles.badgeText, { fontSize: fontStyles.badgeText, color: '#FFFFFF' }]}>
+                  {activeFilterCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </>
     );
   };
@@ -540,47 +705,84 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
   const renderEmptyComponent = () => {
     if (loading && !hasFetchedOnce) {
       return renderSkeletonLoader();
-    } else if (hasFetchedOnce && filteredProviders.length === 0 && !loading) {
+    }
+
+    if (hasFetchedOnce && filteredProviders.length === 0 && !loading) {
+      const isLoadError = Boolean(fetchError);
+
       return (
-        <View style={[styles.centerContainer, { minHeight: 400, paddingHorizontal: 20 }]}>
-          <LinearGradient
-            colors={['#F8FAFC', '#FFFFFF']}
-            style={styles.emptyGradientContainer}
+        <View style={styles.emptyStateWrap}>
+          <View
+            style={[
+              styles.emptyGradientContainer,
+              { backgroundColor: isDarkMode ? colors.card : '#FFFFFF', borderColor: colors.border },
+            ]}
           >
-            <View style={styles.emptyIconContainer}>
-              {activeFilters ? (
-                <FontAwesome name="sliders" size={40} color="#0a2a66ff" />
+            <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
+              {isLoadError ? (
+                <Icon name="wifi-off" size={40} color={colors.primary} />
+              ) : activeFilters ? (
+                <FontAwesome name="sliders" size={40} color={colors.primary} />
               ) : (
-                <Icon name="location-off" size={40} color="#0a2a66ff" />
+                <Icon name="location-off" size={40} color={colors.primary} />
               )}
             </View>
-            <Text style={[styles.emptyTitle, { color: '#0F172A', fontSize: fontStyles.headingSize }]}>
-              {activeFilters ? 'No Providers Match Your Filters' : 'Service Not Available in Your Area'}
+            <Text
+              style={[styles.emptyTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}
+              numberOfLines={3}
+            >
+              {isLoadError
+                ? fetchError === 'timeout'
+                  ? 'Search Timed Out'
+                  : fetchError === 'network'
+                    ? 'Connection Problem'
+                    : 'Unable to Load Providers'
+                : activeFilters
+                  ? 'No Providers Match Your Filters'
+                  : 'Service Not Available in Your Area'}
             </Text>
-            <Text style={[styles.emptyMessage, { color: '#64748B', fontSize: fontStyles.textSize }]}>
-              {activeFilters 
-                ? 'Try adjusting your filters to see more providers.'
-                : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
+            <Text
+              style={[styles.emptyMessage, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}
+            >
+              {isLoadError
+                ? 'The provider search is taking longer than usual. Check your connection and try again.'
+                : activeFilters
+                  ? 'Try adjusting your filters to see more providers.'
+                  : 'Currently, we are unable to provide services in your location. We hope to be available in your area soon.'}
             </Text>
-            
-            <View style={{ gap: 12 * spacingMultiplier, marginTop: 24 }}>
-              {activeFilters && (
+
+            <View style={styles.emptyActions}>
+              {isLoadError && (
                 <TouchableOpacity
-                  style={[styles.emptyButton, { backgroundColor: '#0a2a66ff' }]}
-                  onPress={handleClearFilters}
+                  style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+                  onPress={resetAndSearch}
                 >
-                  <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>Clear Filters</Text>
+                  <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>
+                    Try Again
+                  </Text>
                 </TouchableOpacity>
               )}
-              
+              {activeFilters && !isLoadError && (
+                <TouchableOpacity
+                  style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+                  onPress={handleClearFilters}
+                >
+                  <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>
+                    Clear Filters
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
-                style={[styles.emptyButtonOutline, { borderColor: '#0a2a66ff' }]}
-                onPress={() => sendDataToParent("")}
+                style={[styles.emptyButtonOutline, { borderColor: colors.primary }]}
+                onPress={() => sendDataToParent('')}
               >
-                <Text style={[styles.emptyButtonOutlineText, { fontSize: fontStyles.textSize, color: '#0a2a66ff' }]}>Go Back</Text>
+                <Text style={[styles.emptyButtonOutlineText, { fontSize: fontStyles.textSize, color: colors.primary }]}>
+                  Go Back
+                </Text>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </View>
       );
     }
@@ -619,131 +821,210 @@ export const DetailsView: React.FC<DetailsViewProps> = ({
     );
   };
 
-  const renderProviderItem = ({ item, index }: { item: ServiceProviderDTO; index: number }) => (
-    <View key={index} style={[styles.providerContainer, { marginBottom: 16 * spacingMultiplier }]}>
-      <ProviderDetailsComponent 
-        {...item} 
-        selectedProvider={handleSelectedProvider}
-        sendDataToParent={sendDataToParent} 
-      />
+  const renderProviderItem = ({ item, index }: { item: ServiceProviderDTO; index: number }) => {
+    return (
+      <View key={index} style={[styles.providerContainer, { marginBottom: 14 * spacingMultiplier }]}>
+        <ProviderDetailsComponent
+          {...item}
+          selectedProvider={handleSelectedProvider}
+          sendDataToParent={sendDataToParent}
+        />
+      </View>
+    );
+  };
+
+  const renderIncompleteSchedule = () => (
+    <View style={styles.emptyStateWrap}>
+      <View
+        style={[
+          styles.emptyGradientContainer,
+          { backgroundColor: isDarkMode ? colors.card : '#FFFFFF', borderColor: colors.border },
+        ]}
+      >
+        <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '15' }]}>
+          <Icon name="event-busy" size={40} color={colors.primary} />
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.text, fontSize: fontStyles.headingSize }]}>
+          Complete your booking schedule
+        </Text>
+        <Text style={[styles.emptyMessage, { color: colors.textSecondary, fontSize: fontStyles.textSize }]}>
+          Choose a service, booking type (monthly or short term), dates, and time from the home screen to search for providers.
+        </Text>
+        <TouchableOpacity
+          style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+          onPress={() => sendDataToParent('')}
+        >
+          <Text style={[styles.emptyButtonText, { fontSize: fontStyles.textSize, color: '#FFFFFF' }]}>
+            Go Back
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
-    <LinearGradient
-      colors={isDarkMode ? ['#0F172A', '#1E293B', '#0F172A'] : ['#F8FAFC', '#FFFFFF', '#F1F5F9']}
-      style={{ flex: 1 }}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        {loading && !hasFetchedOnce ? (
-          <View style={[styles.container]}>
-            {renderSkeletonLoader()}
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={filteredProviders}
-            renderItem={renderProviderItem}
-            keyExtractor={(item, index) => `provider-${item.serviceproviderid || index}`}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.contentContainer,
-              filteredProviders.length === 0 && { flexGrow: 1 }
-            ]}
-            ListHeaderComponent={renderHeader}
-            ListEmptyComponent={renderEmptyComponent}
-            ListFooterComponent={renderFooter}
-            onEndReached={fetchMoreData}
-            onEndReachedThreshold={0.3}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                colors={['#0a2a66ff']}
-                tintColor="#0a2a66ff"
-              />
-            }
-          />
-        )}
-
-        <ProviderFilter
-          open={filterOpen}
-          onClose={() => setFilterOpen(false)}
-          onApplyFilters={handleApplyFilters}
-          initialFilters={activeFilters || undefined}
+    <View style={[styles.screenRoot, { backgroundColor: isDarkMode ? colors.background : '#FFFFFF' }]}>
+      {!canSearchProviders ? (
+        <View style={styles.container}>
+          {renderHeader()}
+          {renderIncompleteSchedule()}
+        </View>
+      ) : loading && !hasFetchedOnce ? (
+        <View style={[styles.container, styles.contentContainer]}>
+          {renderSkeletonLoader()}
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={filteredProviders}
+          renderItem={renderProviderItem}
+          keyExtractor={(item, index) => `provider-${item.serviceproviderid || index}`}
+          showsVerticalScrollIndicator={false}
+          style={styles.list}
+          contentContainerStyle={[
+            styles.contentContainer,
+            filteredProviders.length === 0 && styles.contentContainerEmpty,
+          ]}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyComponent}
+          ListFooterComponent={renderFooter}
+          onEndReached={fetchMoreData}
+          onEndReachedThreshold={0.3}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#0b5bd3']}
+              tintColor="#0b5bd3"
+            />
+          }
         />
-      </SafeAreaView>
-    </LinearGradient>
+      )}
+
+      <ProviderFilter
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onApplyFilters={handleApplyFilters}
+        initialFilters={activeFilters || undefined}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screenRoot: {
+    flex: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    marginTop: -1,
+  },
+  list: {
     flex: 1,
   },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 130,
     paddingHorizontal: 16,
   },
-  headerContainer: {
+  contentContainerEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  topNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    gap: 12,
+  },
+  backIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  resultsPill: {
+    flex: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    borderWidth: 1,
+  },
+  resultsCountText: {
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  summaryCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  searchContextRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  servicePillPrimary: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  servicePillPrimaryText: {
+    fontWeight: '700',
+  },
+  servicePillSecondary: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  servicePillSecondaryText: {
+    fontWeight: '600',
+  },
+  summaryMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryMetaText: {
+    flex: 1,
+    fontWeight: '500',
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 14,
+    gap: 12,
   },
-  headerLeft: {
+  sectionTitle: {
+    fontWeight: '700',
     flex: 1,
-    alignItems: 'flex-start',
-  },
-  headerCenter: {
-    flex: 2,
-    alignItems: 'center',
-  },
-  headerRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  backText: {
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  resultsCountText: {
-    fontWeight: '500',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexShrink: 1,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     position: 'relative',
+    flexShrink: 0,
   },
   filterButtonText: {
     marginLeft: 6,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   badge: {
     position: 'absolute',
@@ -759,28 +1040,36 @@ const styles = StyleSheet.create({
   badgeText: {
     fontWeight: 'bold',
   },
-  clearButton: {},
-  clearButtonText: {
-    fontWeight: '500',
+  providerContainer: {
+    borderRadius: 18,
+    overflow: "hidden",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  divider: {
-    height: 1,
-    width: '100%',
-  },
-  providerContainer: {},
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  emptyStateWrap: {
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
   emptyGradientContainer: {
+    width: '100%',
+    alignSelf: 'stretch',
     alignItems: 'center',
-    padding: 32,
-    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 28,
+    paddingBottom: 28,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     borderStyle: 'dashed',
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -797,28 +1086,39 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyTitle: {
+    width: '100%',
     fontWeight: '700',
     marginBottom: 10,
     textAlign: 'center',
+    lineHeight: 28,
   },
   emptyMessage: {
+    width: '100%',
     lineHeight: 22,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
+  },
+  emptyActions: {
+    width: '100%',
+    marginTop: 20,
+    gap: 12,
+    alignItems: 'center',
   },
   emptyButton: {
+    width: '100%',
+    maxWidth: 280,
     paddingVertical: 12,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    minWidth: 180,
     alignItems: 'center',
   },
   emptyButtonOutline: {
+    width: '100%',
+    maxWidth: 280,
     paddingVertical: 12,
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     borderRadius: 12,
     borderWidth: 2,
-    minWidth: 180,
     alignItems: 'center',
   },
   emptyButtonText: {

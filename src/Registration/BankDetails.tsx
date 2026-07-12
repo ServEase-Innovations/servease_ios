@@ -11,6 +11,7 @@ import {
   FlatList,
 } from "react-native";
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 
 export interface BankDetailsData {
   bankName: string;
@@ -149,6 +150,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
           <View style={[styles.inputWrapper, errors.bankName && styles.inputWrapperError]}>
             <Icon name="account-balance" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
+              {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter bank name"
               placeholderTextColor="#999"
@@ -166,6 +168,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
           <View style={[styles.inputWrapper, errors.accountHolderName && styles.inputWrapperError]}>
             <Icon name="person" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
+              {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter account holder name"
               placeholderTextColor="#999"
@@ -183,6 +186,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
           <View style={[styles.inputWrapper, errors.accountNumber && styles.inputWrapperError]}>
             <Icon name="credit-card" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
+              {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter account number"
               placeholderTextColor="#999"
@@ -202,6 +206,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
           <View style={[styles.inputWrapper, errors.ifscCode && styles.inputWrapperError]}>
             <Icon name="code" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
+              {...registrationKeyboardInputProps}
               style={[styles.input, styles.uppercaseInput]}
               placeholder="Enter IFSC code (e.g., SBIN0001234)"
               placeholderTextColor="#999"
@@ -242,6 +247,7 @@ const BankDetails: React.FC<BankDetailsProps> = ({
           <View style={[styles.inputWrapper, errors.upiId && styles.inputWrapperError]}>
             <Icon name="payment" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
+              {...registrationKeyboardInputProps}
               style={styles.input}
               placeholder="Enter UPI ID (e.g., username@bankname)"
               placeholderTextColor="#999"

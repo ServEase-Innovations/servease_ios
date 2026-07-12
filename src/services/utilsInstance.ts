@@ -1,47 +1,49 @@
-// src/utilsInstance.ts
-import axios, {
-  AxiosResponse,
-  AxiosError,
-  InternalAxiosRequestConfig,
-} from "axios";
+import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getUtilsApiUrl } from "../config/devApi";
+
+let devLanOverride: string | null = null;
+try {
+  // Optional: apps/servease-ios/src/config/devApi.local.ts (gitignored)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+  const local = require("../config/devApi.local") as { DEV_LAN_HOST?: string | null };
+  if (local?.DEV_LAN_HOST) devLanOverride = local.DEV_LAN_HOST;
+} catch {
+  /* no local override */
+}
+
+const UTILS_BASE_URL =
+  process.env.UTILS_API_URL?.replace(/\/$/, "") ||
+  (devLanOverride ? `http://${devLanOverride}:3030` : getUtilsApiUrl());
+
+if (__DEV__) {
+  console.log("[utils] API base URL:", UTILS_BASE_URL);
+}
 
 const utilsInstance = axios.create({
-  baseURL: "https://utils-ndt3.onrender.com",
-  // You can also switch to your local/dev URLs
-  // baseURL: "http://localhost:8080",
+  baseURL: UTILS_BASE_URL,
+  timeout: 30000,
 });
 
-// Request Interceptor
 utilsInstance.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
       const token = await AsyncStorage.getItem("token");
       if (token) {
-        config.headers.set("Authorization", `Bearer ${token}`);
+        config.headers.Authorization = `Bearer ${token}`;
       }
-    } catch (err) {
-      console.error("Error reading token from AsyncStorage:", err);
+    } catch {
+      /* ignore */
     }
     return config;
   },
-  (error: AxiosError) => {
-    return Promise.reject(error);
-  }
+  (error: AxiosError) => Promise.reject(error)
 );
 
-// Response Interceptor
 utilsInstance.interceptors.response.use(
   (response: AxiosResponse) => response,
-  async (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      console.error("Unauthorized access - clearing token");
-      await AsyncStorage.removeItem("token");
-      // Optionally, you can navigate to Login screen here using your navigation system
-      // Example (if using React Navigation): NavigationService.navigate("Login");
-    }
-    return Promise.reject(error);
-  }
+  (error: AxiosError) => Promise.reject(error)
 );
 
 export default utilsInstance;
+export { UTILS_BASE_URL };

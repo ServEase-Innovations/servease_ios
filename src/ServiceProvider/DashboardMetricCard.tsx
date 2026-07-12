@@ -1,147 +1,190 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
-import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
-import FeatherIcon from 'react-native-vector-icons/Feather';
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import MaterialIcon from "react-native-vector-icons/MaterialIcons";
+import { BRAND } from "../theme/brandColors";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const GRID_PADDING = 20;
+const GRID_GAP = 12;
+export const METRIC_CARD_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP) / 2;
+export const METRIC_CARD_HEIGHT = 132;
+
+export type MetricIcon = "rupee" | "shield" | "credit-card" | "wallet";
+export type MetricVariant = "earnings" | "deposit" | "withdrawn" | "balance";
 
 interface DashboardMetricCardProps {
   title: string;
   value: string;
-  change?: string;
-  changeType?: "positive" | "negative" | "neutral";
-  icon: "rupee" | "calendar" | "star" | "trending-up" | "users" | "clock" | "home" | "bell";
-  description?: string;
+  icon: MetricIcon;
+  variant: MetricVariant;
+  hint?: string;
+  hintVariant?: "default" | "success" | "warning" | "danger";
+  highlighted?: boolean;
+  onPress?: () => void;
 }
+
+const ICON_NAME: Record<MetricIcon, string> = {
+  rupee: "payments",
+  shield: "lock-outline",
+  "credit-card": "account-balance-wallet",
+  wallet: "savings",
+};
+
+const ICON_COLORS: Record<MetricVariant, { bg: string; color: string }> = {
+  earnings: { bg: "#e8f1ff", color: BRAND.accent },
+  deposit: { bg: "#fee2e2", color: "#dc2626" },
+  withdrawn: { bg: "#f1f5f9", color: "#64748b" },
+  balance: { bg: "rgba(255,255,255,0.15)", color: "#ffffff" },
+};
 
 export function DashboardMetricCard({
   title,
   value,
-  change,
-  changeType = "neutral",
   icon,
-  description
+  variant,
+  hint = "",
+  hintVariant = "default",
+  highlighted = false,
+  onPress,
 }: DashboardMetricCardProps) {
-  const getChangeColor = () => {
-    switch (changeType) {
-      case "positive":
-        return { backgroundColor: '#10b981', color: '#ffffff' };
-      case "negative":
-        return { backgroundColor: '#ef4444', color: '#ffffff' };
-      default:
-        return { backgroundColor: '#e5e7eb', color: '#374151' };
-    }
-  };
+  const iconTheme = ICON_COLORS[variant];
+  const isPending = hintVariant === "warning" && hint.toUpperCase() === "PENDING";
 
-  const renderIcon = () => {
-    switch (icon) {
-      case 'rupee':
-        return <Icon name="rupee" size={24} color="#ffffff" />;
-      case 'calendar':
-        return <Icon name="calendar" size={24} color="#ffffff" />;
-      case 'star':
-        return <Icon name="star" size={24} color="#ffffff" />;
-      case 'trending-up':
-        return <MaterialIcon name="trending-up" size={24} color="#ffffff" />;
-      case 'users':
-        return <Icon name="users" size={24} color="#ffffff" />;
-      case 'clock':
-        return <Icon name="clock-o" size={24} color="#ffffff" />;
-      case 'home':
-        return <Icon name="home" size={24} color="#ffffff" />;
-      case 'bell':
-        return <Icon name="bell" size={24} color="#ffffff" />;
-      default:
-        return <Icon name="info-circle" size={24} color="#ffffff" />;
-    }
-  };
-
-  const changeColors = getChangeColor();
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardContent}>
-        <View style={styles.contentContainer}>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{title}</Text>
-            <View style={styles.valueContainer}>
-              <Text style={styles.value}>{value}</Text>
-              {change && (
-                <View style={[styles.changeBadge, { backgroundColor: changeColors.backgroundColor }]}>
-                  <Text style={[styles.changeText, { color: changeColors.color }]}>
-                    {change}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {description && (
-              <Text style={styles.description}>{description}</Text>
-            )}
-          </View>
-          <View style={styles.iconContainer}>
-            {renderIcon()}
-          </View>
-        </View>
+  const content = (
+    <View
+      style={[
+        styles.card,
+        highlighted ? styles.cardHighlighted : styles.cardDefault,
+      ]}
+    >
+      <View
+        style={[
+          styles.iconBadge,
+          { backgroundColor: highlighted ? iconTheme.bg : iconTheme.bg },
+        ]}
+      >
+        <MaterialIcon
+          name={ICON_NAME[icon]}
+          size={22}
+          color={highlighted ? iconTheme.color : iconTheme.color}
+        />
       </View>
+      <Text
+        style={[styles.title, highlighted && styles.titleHighlighted]}
+        numberOfLines={1}
+      >
+        {title}
+      </Text>
+      <Text
+        style={[styles.value, highlighted && styles.valueHighlighted]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
+        {value}
+      </Text>
+      {hint ? (
+        <Text
+          style={[
+            styles.hint,
+            highlighted && styles.hintHighlighted,
+            isPending && styles.hintPending,
+            hintVariant === "success" && styles.hintSuccess,
+          ]}
+          numberOfLines={1}
+        >
+          {hint.toUpperCase()}
+        </Text>
+      ) : null}
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={styles.container}
+        onPress={onPress}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={styles.container}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
+  container: {
+    width: METRIC_CARD_WIDTH,
+    height: METRIC_CARD_HEIGHT,
+  },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-    borderWidth: 0,
-    marginBottom: 16,
-    width: '48%', // For grid layout
-  },
-  cardContent: {
-    padding: 24,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  textContainer: {
     flex: 1,
-    gap: 8,
+    borderRadius: 14,
+    padding: 14,
+    justifyContent: "space-between",
+  },
+  cardDefault: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e8edf4",
+    shadowColor: "#0c1e3d",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardHighlighted: {
+    backgroundColor: BRAND.bookingNavy,
+    shadowColor: BRAND.bookingNavy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  iconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
   title: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: "600",
+    color: BRAND.textMuted,
+    marginBottom: 2,
   },
-  valueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  titleHighlighted: {
+    color: "rgba(255,255,255,0.75)",
   },
   value: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontSize: 20,
+    fontWeight: "800",
+    color: BRAND.text,
+    letterSpacing: -0.4,
   },
-  changeBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  valueHighlighted: {
+    color: "#ffffff",
   },
-  changeText: {
-    fontSize: 12,
-    fontWeight: '500',
+  hint: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: BRAND.textMuted,
+    letterSpacing: 0.4,
+    marginTop: 2,
   },
-  description: {
-    fontSize: 12,
-    color: '#6b7280',
+  hintHighlighted: {
+    color: "rgba(255,255,255,0.65)",
   },
-  iconContainer: {
-    padding: 12,
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
+  hintPending: {
+    color: "#fca5a5",
+  },
+  hintSuccess: {
+    color: "#6ee7b7",
   },
 });

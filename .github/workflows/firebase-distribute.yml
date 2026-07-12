@@ -1,12 +1,34 @@
-name: Android Release + Firebase Distribution
+name: Mobile Release Distribution
+
+# Android → Firebase App Distribution
+# iOS     → TestFlight (App Store Connect)
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Which platform(s) to release
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - android
+          - ios
+
+permissions:
+  contents: write
+
+env:
+  FIREBASE_ANDROID_APP_ID: 1:87480797347:android:f26b2cff897992b3eb9716
+  FIREBASE_TESTERS_GROUP: testers-1
+  IOS_BUNDLE_ID: in.serveaseinnovation.serveaso
+  IOS_SCHEME: Serveaso
+  IOS_WORKSPACE: ios/Serveaso.xcworkspace
 
 jobs:
   android:
+    if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -23,6 +45,15 @@ jobs:
       - name: Install JS dependencies
         run: npm ci
 
+      - name: Set Android version (incremental per CI build)
+        run: |
+          BUILD_NUM="${{ github.run_number }}"
+          VERSION_CODE="$BUILD_NUM"
+          VERSION_NAME="1.0.${BUILD_NUM}"
+          echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
+          echo "Building Android ${VERSION_NAME} (versionCode ${VERSION_CODE})"
+
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
@@ -30,14 +61,11 @@ jobs:
           java-version: 17
           cache: gradle
 
-      # 🔐 Decode keystore
       - name: Decode Android keystore
-        run: |
-          echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/release.keystore
+        run: echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/release.keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
-      # 🧱 Build APK
       - name: Build Release APK
         working-directory: android
         env:
@@ -45,26 +73,287 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
         run: |
           ./gradlew clean
           ./gradlew assembleRelease
 
-      # 🔥 Firebase CLI    
+      - name: Persist version.properties for repo
+        run: |
+          printf 'VERSION_CODE=%s\nVERSION_NAME=%s\n' \
+            "${{ env.VERSION_CODE }}" "${{ env.VERSION_NAME }}" > android/version.properties
+          cat android/version.properties
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-     # 🔥 Firebase CLI
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      # 🚀 Firebase App Distribution
-      - name: Upload to Firebase App Distribution
+      - name: Upload Android build to Firebase App Distribution
         run: |
           firebase appdistribution:distribute \
             android/app/build/outputs/apk/release/app-release.apk \
-            --app 1:87480797347:android:f26b2cff897992b3eb9716 \
-            --groups "testers-1" \
-            --release-notes "CI build from GitHub Actions"
+            --app "${{ env.FIREBASE_ANDROID_APP_ID }}" \
+            --groups "${{ env.FIREBASE_TESTERS_GROUP }}" \
+            --release-notes "ServEaso Android ${{ env.VERSION_NAME }} (build ${{ github.run_number }})"
+
+      - name: Commit Android version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/version.properties
+          git diff --staged --quiet || git commit -m "chore(android): bump version to ${{ env.VERSION_NAME }} [skip ci]"
+          git push || true
+
+  ios-testflight:
+    if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both'
+    runs-on: macos-26
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.4.1'
+
+      - name: Verify iOS SDK
+        run: |
+          set -euo pipefail
+          sudo xcodebuild -runFirstLaunch || true
+          # Warm CoreSimulator; -downloadPlatform iOS is flaky on macos-26 (exit 70).
+          xcrun simctl list > /dev/null 2>&1 || true
+          echo "--- Available SDKs ---"
+          xcodebuild -showsdks
+          if xcodebuild -showsdks | grep -q "iphoneos"; then
+            echo "iphoneos SDK is available; skipping platform download."
+            exit 0
+          fi
+          echo "iphoneos SDK missing; downloading with retries..."
+          for attempt in 1 2 3 4 5; do
+            xcrun simctl list > /dev/null 2>&1 || true
+            if xcodebuild -downloadPlatform iOS; then
+              echo "iOS platform downloaded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "downloadPlatform attempt ${attempt} failed; retrying in 15s..."
+            sleep 15
+          done
+          echo "Failed to obtain iphoneos SDK after 5 attempts."
+          exit 70
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Set iOS version (incremental per CI build)
+        run: |
+          BUILD_NUM="${{ github.run_number }}"
+          VERSION_CODE="$BUILD_NUM"
+          VERSION_NAME="1.0.${BUILD_NUM}"
+          echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
+          echo "Building iOS ${VERSION_NAME} (build ${VERSION_CODE}) for TestFlight"
+
+      - name: Apply iOS version to Xcode project
+        env:
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+        run: |
+          chmod +x ios/scripts/ci-set-version.sh
+          ios/scripts/ci-set-version.sh
+
+      - name: Prepare Xcode Node path
+        run: echo "export NODE_BINARY=$(command -v node)" > ios/.xcode.env.local
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-v6-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock', 'ios/Podfile') }}
+          restore-keys: |
+            pods-v6-${{ runner.os }}-
+
+      - name: Install CocoaPods dependencies
+        env:
+          LANG: en_US.UTF-8
+          LC_ALL: en_US.UTF-8
+          TOOLCHAINS: com.apple.dt.toolchain.XcodeDefault
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Verify Xcode 26 pod patches
+        run: |
+          set -euo pipefail
+          FMT_BASE="ios/Pods/fmt/include/fmt/base.h"
+          if [ ! -f "${FMT_BASE}" ]; then
+            echo "fmt/base.h not found after pod install"
+            exit 1
+          fi
+          if ! grep -q "Xcode 26 workaround" "${FMT_BASE}"; then
+            echo "fmt/base.h was not patched for Xcode 26"
+            exit 1
+          fi
+          if ! grep -q "#define FMT_USE_CONSTEVAL 0" "${FMT_BASE}"; then
+            echo "fmt/base.h does not force FMT_USE_CONSTEVAL=0"
+            exit 1
+          fi
+          echo "fmt Xcode 26 patch verified"
+
+      - name: Install iOS code signing assets
+        env:
+          IOS_DIST_CERTIFICATE_BASE64: ${{ secrets.IOS_DIST_CERTIFICATE_BASE64 }}
+          IOS_DIST_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DIST_CERTIFICATE_PASSWORD }}
+          IOS_DIST_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_BASE64 || secrets.IOS_DIST_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          chmod +x ios/scripts/ci-install-signing.sh
+          ios/scripts/ci-install-signing.sh
+
+      - name: Apply iOS code signing settings
+        env:
+          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          IOS_APPSTORE_PROVISIONING_PROFILE_NAME: ${{ secrets.IOS_APPSTORE_PROVISIONING_PROFILE_NAME }}
+          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
+        run: |
+          chmod +x ios/scripts/ci-set-signing.sh
+          ios/scripts/ci-set-signing.sh
+          echo "--- Signing.ci.xcconfig ---"
+          cat ios/Signing.ci.xcconfig
+
+      - name: Verify iOS signing setup
+        run: |
+          echo "Installed code signing identities:"
+          security find-identity -v -p codesigning || true
+          echo "--- Release build settings (signing) ---"
+          xcodebuild -showBuildSettings \
+            -workspace "${{ env.IOS_WORKSPACE }}" \
+            -scheme "${{ env.IOS_SCHEME }}" \
+            -configuration Release \
+            -sdk iphoneos \
+            2>/dev/null | grep -E '^(    )?(CODE_SIGN|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|PRODUCT_BUNDLE_IDENTIFIER)' || true
+
+      - name: Prepare App Store export options
+        env:
+          IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
+        run: |
+          chmod +x ios/scripts/ci-prepare-export-options.sh
+          ios/scripts/ci-prepare-export-options.sh
+          echo "--- exportOptions.ci.plist ---"
+          cat ios/exportOptions.ci.plist
+
+      - name: Archive iOS app
+        env:
+          IOS_KEYCHAIN_PATH: ${{ env.IOS_KEYCHAIN_PATH }}
+          IOS_KEYCHAIN_PASSWORD: ${{ env.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ARCHIVE_PATH="${{ runner.temp }}/Serveaso.xcarchive"
+          LOG_PATH="${{ runner.temp }}/xcodebuild-archive.log"
+          if [ -n "${IOS_KEYCHAIN_PATH:-}" ] && [ -n "${IOS_KEYCHAIN_PASSWORD:-}" ]; then
+            security unlock-keychain -p "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}" || true
+            export OTHER_CODE_SIGN_FLAGS="--keychain ${IOS_KEYCHAIN_PATH}"
+            echo "Using CI keychain for codesign: ${IOS_KEYCHAIN_PATH}"
+          fi
+          echo "--- Expected app version ---"
+          echo "VERSION_NAME=${VERSION_NAME} VERSION_CODE=${VERSION_CODE}"
+          cat ios/version.generated.xcconfig
+          set +e
+          xcodebuild archive \
+            -workspace "${{ env.IOS_WORKSPACE }}" \
+            -scheme "${{ env.IOS_SCHEME }}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "${ARCHIVE_PATH}" \
+            2>&1 | tee "${LOG_PATH}"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "${status}" -ne 0 ]; then
+            echo "===== xcodebuild archive failed (exit ${status}) ====="
+            echo "===== Compiler errors (last 40) ====="
+            grep -En ": error:|: fatal error:" "${LOG_PATH}" | tail -40 || true
+            grep -En "ARCHIVE FAILED|The following build commands failed|CodeSign.*failed|Signing for .* requires|errSec|Unable to find a destination|is not installed|UPLOAD FAILED|Validation failed" "${LOG_PATH}" || true
+            echo "===== Failed commands ====="
+            awk '/The following build commands failed:/{flag=1} flag' "${LOG_PATH}" | head -40 || true
+            echo "===== Last 120 log lines ====="
+            tail -n 120 "${LOG_PATH}" || true
+            exit "${status}"
+          fi
+          APP_INFO="${ARCHIVE_PATH}/Products/Applications/Serveaso.app/Info.plist"
+          echo "--- Archived app version ---"
+          /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "${APP_INFO}"
+          /usr/libexec/PlistBuddy -c "Print CFBundleVersion" "${APP_INFO}"
+
+      - name: Upload archive log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-archive-log
+          path: ${{ runner.temp }}/xcodebuild-archive.log
+          if-no-files-found: ignore
+
+      - name: Export App Store IPA
+        env:
+          IOS_KEYCHAIN_PATH: ${{ env.IOS_KEYCHAIN_PATH }}
+          IOS_KEYCHAIN_PASSWORD: ${{ env.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "${IOS_KEYCHAIN_PATH:-}" ] && [ -n "${IOS_KEYCHAIN_PASSWORD:-}" ]; then
+            security unlock-keychain -p "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${IOS_KEYCHAIN_PASSWORD}" "${IOS_KEYCHAIN_PATH}" || true
+          fi
+          echo "--- Installed provisioning profiles ---"
+          ls -la "${HOME}/Library/MobileDevice/Provisioning Profiles/" || true
+          ARCHIVE_PATH="${{ runner.temp }}/Serveaso.xcarchive"
+          EXPORT_PATH="${{ runner.temp }}/ipa"
+          mkdir -p "${EXPORT_PATH}"
+          xcodebuild -exportArchive \
+            -archivePath "${ARCHIVE_PATH}" \
+            -exportPath "${EXPORT_PATH}" \
+            -exportOptionsPlist ios/exportOptions.ci.plist
+          ls -la "${EXPORT_PATH}"
+
+      - name: Upload to TestFlight
+        env:
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          IPA_PATH: ${{ runner.temp }}/ipa/Serveaso.ipa
+          TZ: UTC
+        run: |
+          chmod +x ios/scripts/ci-upload-testflight.sh
+          ios/scripts/ci-upload-testflight.sh "${IPA_PATH}"
+
+      - name: Distribute build to TestFlight testers
+        env:
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          IOS_BUNDLE_ID: ${{ env.IOS_BUNDLE_ID }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          TESTFLIGHT_BETA_GROUP_NAME: Serveaso Team
+          TESTFLIGHT_POLL_MINUTES: 45
+        run: |
+          chmod +x ios/scripts/ci-distribute-testflight.sh
+          ios/scripts/ci-distribute-testflight.sh
+
+      - name: Commit iOS version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ios/version.properties
+          git diff --staged --quiet || git commit -m "chore(ios): bump version to ${{ env.VERSION_NAME }} [skip ci]"
+          git push || true

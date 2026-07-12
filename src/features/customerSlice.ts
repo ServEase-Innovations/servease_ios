@@ -1,6 +1,6 @@
 /* eslint-disable */
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import providerInstance from '../services/providerInstance'; // Updated import
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import providerInstance from "../services/providerInstance";
 
 interface CustomerState {
   customerId: string | null;
@@ -26,33 +26,35 @@ const initialState: CustomerState = {
   error: null,
 };
 
-// Async thunk to fetch customer details using providerInstance
 export const fetchCustomerDetails = createAsyncThunk(
-  'customer/fetchCustomerDetails',
+  "customer/fetchCustomerDetails",
   async (customerId: string, { rejectWithValue }) => {
     try {
-      const response = await providerInstance.get(
-        `/api/customer/${customerId}`
-      );
-      
-      // Assuming the response structure matches the provided example
-      if (response.data.status === 200 && response.data.data) {
-        return response.data.data;
-      } else {
-        throw new Error(response.data.message || 'Failed to fetch customer details');
+      const response = await providerInstance.get(`/api/customer/${customerId}`);
+      const body = response.data;
+
+      if (body?.status === 200 && body?.data) {
+        return body.data;
       }
-    } catch (error: any) {
+      if (body?.data) {
+        return body.data;
+      }
+      if (body && typeof body === "object" && !body.status) {
+        return body;
+      }
+
+      throw new Error(body?.message || "Failed to fetch customer details");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
       return rejectWithValue(
-        error.response?.data?.message || 
-        error.message || 
-        'Failed to fetch customer details'
+        err.response?.data?.message || err.message || "Failed to fetch customer details"
       );
     }
   }
 );
 
 const customerSlice = createSlice({
-  name: 'customer',
+  name: "customer",
   initialState,
   reducers: {
     setHasMobileNumber: (state, action: PayloadAction<boolean>) => {
@@ -73,7 +75,8 @@ const customerSlice = createSlice({
       state.lastName = null;
       state.emailId = null;
       state.hasMobileNumber = null;
-    }
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -83,13 +86,20 @@ const customerSlice = createSlice({
       })
       .addCase(fetchCustomerDetails.fulfilled, (state, action) => {
         state.loading = false;
-        state.customerId = action.payload.customerid;
-        state.firstName = action.payload.firstname;
-        state.lastName = action.payload.lastname;
-        state.emailId = action.payload.emailid;
-        state.mobileNo = action.payload.mobileno;
-        state.alternateNo = action.payload.alternateno;
-        state.hasMobileNumber = !!action.payload.mobileno;
+        const p = action.payload || {};
+        const mobileRaw = p.mobileNo ?? p.mobileno ?? p.mobile_no ?? null;
+        const altRaw = p.alternateNo ?? p.alternateno ?? p.alternate_no ?? null;
+        const mobileStr =
+          mobileRaw != null && mobileRaw !== "" ? String(mobileRaw).replace(/\D/g, "") : "";
+
+        state.customerId = String(p.customerId ?? p.customerid ?? "");
+        state.firstName = p.firstName ?? p.firstname ?? null;
+        state.lastName = p.lastName ?? p.lastname ?? null;
+        state.emailId = p.emailId ?? p.emailid ?? null;
+        state.mobileNo = mobileStr || null;
+        state.alternateNo =
+          altRaw != null && altRaw !== "" ? String(altRaw).replace(/\D/g, "") : null;
+        state.hasMobileNumber = mobileStr.length >= 10;
       })
       .addCase(fetchCustomerDetails.rejected, (state, action) => {
         state.loading = false;
@@ -99,10 +109,6 @@ const customerSlice = createSlice({
   },
 });
 
-export const { 
-  clearCustomer, 
-  setHasMobileNumber, 
-  setMobileNumber, 
-  setAlternateNumber 
-} = customerSlice.actions;
+export const { clearCustomer, setHasMobileNumber, setMobileNumber, setAlternateNumber } =
+  customerSlice.actions;
 export default customerSlice.reducer;

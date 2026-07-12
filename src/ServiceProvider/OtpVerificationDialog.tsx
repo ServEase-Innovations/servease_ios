@@ -1,16 +1,32 @@
 /* eslint-disable */
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
+  Pressable,
   TextInput,
   StyleSheet,
   ActivityIndicator,
+  Platform,
+  useWindowDimensions,
+  KeyboardAvoidingView,
+  ScrollView,
+  Keyboard,
+  InputAccessoryView,
+  Animated,
   Vibration,
+  Alert,
 } from "react-native";
-import { useTranslation } from 'react-i18next';
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { Portal } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HOME_M3 } from "../theme/brandColors";
+
+const OTP_ACCESSORY_ID = "otp-verification-accessory";
+const OTP_LENGTH = 6;
+const AUTO_VERIFY_DELAY_MS = 450;
 
 interface OtpVerificationDialogProps {
   open: boolean;
@@ -29,325 +45,595 @@ export function OtpVerificationDialog({
   onOpenChange,
   onVerify,
   verifying,
-  bookingInfo,
 }: OtpVerificationDialogProps) {
-  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [otpValue, setOtpValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const verificationCompletedRef = useRef(false);
+  const lastAutoVerifiedOtpRef = useRef("");
   const inputRef = useRef<TextInput>(null);
+  const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // Reset ref when dialog opens
+  const getVerifyErrorMessage = (err: unknown): string => {
+    if (err && typeof err === "object" && "response" in err) {
+      const data = (err as { response?: { data?: { error?: string; message?: string } } })
+        .response?.data;
+      if (data?.error) return data.error;
+      if (data?.message) return data.message;
+    }
+    if (err instanceof Error && err.message) return err.message;
+    return "Invalid or expired OTP. Please check the code and try again.";
+  };
+
+  const triggerShake = useCallback(() => {
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 12, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -12, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  }, [shakeAnim]);
+
+  const dismissKeyboard = useCallback(() => {
+    Keyboard.dismiss();
+    inputRef.current?.blur();
+  }, []);
+
+  const focusInput = useCallback(() => {
+    if (!verifying && !verifiedSuccess) {
+      inputRef.current?.focus();
+    }
+  }, [verifying, verifiedSuccess]);
+
+  const handleClose = useCallback(() => {
+    setOtpValue("");
+    setVerifyError(null);
+    setVerifiedSuccess(false);
+    lastAutoVerifiedOtpRef.current = "";
+    dismissKeyboard();
+    onOpenChange(false);
+  }, [dismissKeyboard, onOpenChange]);
+
+  const handleVerify = useCallback(async () => {
+    if (otpValue.trim().length !== OTP_LENGTH || verifying || verifiedSuccess) return;
+
+    setVerifyError(null);
+    try {
+      await onVerify(otpValue.trim());
+      verificationCompletedRef.current = true;
+      setVerifiedSuccess(true);
+      dismissKeyboard();
+    } catch (err) {
+      verificationCompletedRef.current = false;
+      lastAutoVerifiedOtpRef.current = "";
+      setVerifyError(getVerifyErrorMessage(err));
+      setOtpValue("");
+      triggerShake();
+      if (Platform.OS === "ios") {
+        Vibration.vibrate();
+      } else {
+        Vibration.vibrate(80);
+      }
+      setTimeout(() => focusInput(), 150);
+    }
+  }, [
+    otpValue,
+    onVerify,
+    verifying,
+    verifiedSuccess,
+    dismissKeyboard,
+    triggerShake,
+    focusInput,
+  ]);
+
   useEffect(() => {
     if (open) {
       verificationCompletedRef.current = false;
-      setError(null);
-      // Focus input when dialog opens
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 300);
+      setVerifyError(null);
+      setOtpValue("");
+      setVerifiedSuccess(false);
+      lastAutoVerifiedOtpRef.current = "";
+      setTimeout(() => focusInput(), 350);
     }
-  }, [open]);
+  }, [open, focusInput]);
 
-  // Handle successful verification completion
   useEffect(() => {
-    // Only run when verifying changes from true to false AND we were previously verifying
-    if (!verifying && verificationCompletedRef.current && !error) {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!verifying && verificationCompletedRef.current && verifiedSuccess) {
       const timer = setTimeout(() => {
         handleClose();
-      }, 500);
-      
+      }, 1400);
       return () => clearTimeout(timer);
     }
-  }, [verifying, error]);
+  }, [verifying, verifiedSuccess, handleClose]);
 
-  const handleVerify = async () => {
-    if (!otpValue.trim()) return;
-    
-    setError(null);
-    // Mark that verification is starting
-    verificationCompletedRef.current = true;
-    try {
-      await onVerify(otpValue.trim());
-    } catch (err: any) {
-      verificationCompletedRef.current = false;
-      Vibration.vibrate();
-      
-      let errorMsg = "Invalid OTP. Please enter the correct OTP and try again.";
-      if (err?.response?.data?.message) {
-        errorMsg = err.response.data.message;
-      } else if (typeof err === 'string') {
-        errorMsg = err;
-      } else if (err?.message && !err.isAxiosError) {
-        // Only use err.message if it's not a generic axios error to avoid "Request failed with status code 400"
-        errorMsg = err.message;
-      }
-      
-      setError(errorMsg);
+  useEffect(() => {
+    if (
+      !open ||
+      verifying ||
+      verifiedSuccess ||
+      otpValue.length !== OTP_LENGTH ||
+      otpValue === lastAutoVerifiedOtpRef.current
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      lastAutoVerifiedOtpRef.current = otpValue;
+      void handleVerify();
+    }, AUTO_VERIFY_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [otpValue, open, verifying, verifiedSuccess, handleVerify]);
+
+  const handleOtpChange = (text: string) => {
+    const numericText = text.replace(/[^0-9]/g, "").slice(0, OTP_LENGTH);
+    setOtpValue(numericText);
+    if (verifyError) setVerifyError(null);
+    if (numericText.length < OTP_LENGTH) {
+      lastAutoVerifiedOtpRef.current = "";
     }
   };
 
-  const handleClose = () => {
-    setOtpValue("");
-    setError(null);
-    onOpenChange(false);
+  const handleVerifyPress = useCallback(() => {
+    dismissKeyboard();
+    void handleVerify();
+  }, [dismissKeyboard, handleVerify]);
+
+  const handleResendHint = () => {
+    Alert.alert(
+      "Ask the client to resend",
+      "The customer can generate a new verification code from their booking in the Serveaso app. Ask them to open today's visit and tap to show or resend the code."
+    );
   };
 
-  const handleOtpChange = (text: string) => {
-    // Only allow numbers
-    const numericText = text.replace(/[^0-9]/g, '');
-    setOtpValue(numericText);
-    if (error) setError(null);
-  };
+  const canVerify = otpValue.trim().length === OTP_LENGTH && !verifying && !verifiedSuccess;
+  const progressRatio = otpValue.length / OTP_LENGTH;
+  const cardWidth = Math.min(windowWidth - 40, 400);
+  const otpDigits = Array.from({ length: OTP_LENGTH }, (_, index) => otpValue[index] ?? "");
+
+  const otpAccessoryBar = (
+    <View style={styles.accessoryBar}>
+      <TouchableOpacity onPress={dismissKeyboard} style={styles.accessoryButton}>
+        <Text style={styles.accessoryDoneText}>Done</Text>
+      </TouchableOpacity>
+      <View style={styles.accessoryCenter}>
+        <Text style={styles.accessoryProgress}>
+          {otpValue.length}/{OTP_LENGTH}
+        </Text>
+      </View>
+      <TouchableOpacity
+        onPress={handleVerifyPress}
+        style={[styles.accessoryVerifyButton, !canVerify && styles.accessoryVerifyDisabled]}
+        disabled={!canVerify}
+      >
+        <Text style={[styles.accessoryVerifyText, !canVerify && styles.accessoryVerifyTextDisabled]}>
+          Verify
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
-    <Modal
-      visible={open}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>{t('otpVerification.title')}</Text>
-              <TouchableOpacity 
-                onPress={handleClose}
-                style={styles.closeButton}
-                disabled={verifying}
-              >
-                <Text style={styles.closeIcon}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+    <Portal>
+      <Modal
+        visible={open}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleClose}
+      >
+        {Platform.OS === "ios" ? (
+          <InputAccessoryView nativeID={OTP_ACCESSORY_ID}>{otpAccessoryBar}</InputAccessoryView>
+        ) : null}
 
-          <View style={styles.content}>
-            {bookingInfo && (
-              <View style={styles.bookingInfoCard}>
-                <Text style={styles.bookingInfoTitle}>
-                  {t('otpVerification.serviceFor', { clientName: bookingInfo.clientName || t('common.client') })}
-                </Text>
-                <Text style={styles.bookingInfoSubtitle}>
-                  {t('otpVerification.bookingInfo', { 
-                    id: bookingInfo.bookingId || t('common.na'), 
-                    service: bookingInfo.service || t('common.service') 
-                  })}
-                </Text>
+        <KeyboardAvoidingView
+          style={styles.screen}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                paddingTop: Math.max(insets.top, 16) + 12,
+                paddingBottom: Math.max(insets.bottom, 20) + 16,
+              },
+              keyboardVisible && styles.scrollContentKeyboardOpen,
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.heroSection}>
+              <View style={styles.heroIconBox}>
+                <Icon name="shield-check" size={28} color={HOME_M3.secondary} />
               </View>
-            )}
-            
-            <View style={styles.otpSection}>
-              <Text style={styles.instructions}>
-                {t('otpVerification.instructions')}
+              <Text style={styles.heroTitle}>Service Verification</Text>
+              <Text style={styles.heroSubtitle}>
+                Enter the 6-digit code received by the client to verify the start of service.
               </Text>
-              
-              <View style={styles.otpInputContainer}>
-                <TextInput
-                  ref={inputRef}
-                  placeholder={t('otpVerification.enterOtp')}
-                  placeholderTextColor="#9CA3AF"
-                  value={otpValue}
-                  onChangeText={handleOtpChange}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  style={[
-                    styles.otpInput,
-                    error ? styles.otpInputError : null
-                  ]}
-                  editable={!verifying}
-                  selectionColor="#3B82F6"
-                />
-              </View>
+            </View>
 
-              {error ? (
-                <Text style={styles.errorText}>{error}</Text>
+            <View style={[styles.card, { width: cardWidth }]}>
+              {verifiedSuccess ? (
+                <View style={styles.successBlock}>
+                  <Icon name="check-circle" size={48} color="#10b981" />
+                  <Text style={styles.successTitle}>Verified!</Text>
+                  <Text style={styles.successSubtitle}>
+                    Service verified successfully. This screen will close shortly.
+                  </Text>
+                </View>
               ) : (
-                <Text style={styles.verificationNote}>
-                  {t('otpVerification.verificationNote')}
-                </Text>
+                <>
+                  {verifyError ? (
+                    <View style={styles.errorBanner}>
+                      <Icon name="alert-circle-outline" size={18} color="#b91c1c" />
+                      <Text style={styles.errorText}>{verifyError}</Text>
+                    </View>
+                  ) : null}
+
+                  <Animated.View
+                    style={[styles.otpRow, { transform: [{ translateX: shakeAnim }] }]}
+                  >
+                    <Pressable onPress={focusInput} style={styles.otpBoxesPressable}>
+                      {otpDigits.map((digit, index) => {
+                        const isActive = otpValue.length === index;
+                        const isFilled = otpValue.length > index;
+                        const hasError = Boolean(verifyError);
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.otpBox,
+                              isFilled && styles.otpBoxFilled,
+                              isActive && styles.otpBoxActive,
+                              hasError && styles.otpBoxError,
+                            ]}
+                          >
+                            <Text
+                              style={[styles.otpBoxDigit, isFilled && styles.otpBoxDigitFilled]}
+                            >
+                              {digit}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    <TextInput
+                      ref={inputRef}
+                      value={otpValue}
+                      onChangeText={handleOtpChange}
+                      keyboardType="number-pad"
+                      inputAccessoryViewID={Platform.OS === "ios" ? OTP_ACCESSORY_ID : undefined}
+                      maxLength={OTP_LENGTH}
+                      style={styles.hiddenInput}
+                      editable={!verifying}
+                      caretHidden
+                      autoComplete={Platform.OS === "android" ? "sms-otp" : "one-time-code"}
+                      textContentType="oneTimeCode"
+                      importantForAutofill="yes"
+                    />
+                  </Animated.View>
+
+                  <View style={styles.progressSection}>
+                    <Text style={styles.progressLabel}>
+                      {otpValue.length} of {OTP_LENGTH} digits entered
+                    </Text>
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.verifyButton,
+                      canVerify ? styles.verifyButtonEnabled : styles.verifyButtonDisabled,
+                    ]}
+                    onPress={handleVerifyPress}
+                    disabled={!canVerify}
+                    activeOpacity={0.9}
+                  >
+                    {verifying ? (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    ) : (
+                      <View style={styles.verifyButtonInner}>
+                        <Text style={styles.verifyButtonText}>Verify Service</Text>
+                        <Icon name="chevron-right" size={20} color="#ffffff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleClose}
+                    disabled={verifying}
+                    style={styles.cancelLinkBtn}
+                  >
+                    <Text style={styles.cancelLinkText}>Cancel & Back</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.resendText}>
+                    Didn&apos;t get a code?{" "}
+                    <Text style={styles.resendLink} onPress={handleResendHint}>
+                      Ask client to resend
+                    </Text>
+                  </Text>
+
+                  {Platform.OS === "android" && keyboardVisible ? otpAccessoryBar : null}
+                </>
               )}
             </View>
-            
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={handleClose}
-                disabled={verifying}
-              >
-                <Text style={styles.cancelButtonText}>{t('otpVerification.cancel')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  styles.verifyButton,
-                  (verifying || !otpValue.trim() || otpValue.length < 4) && styles.disabledButton,
-                ]}
-                onPress={handleVerify}
-                disabled={verifying || !otpValue.trim() || otpValue.length < 4}
-              >
-                {verifying ? (
-                  <View style={styles.verifyingContainer}>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.verifyingText}>{t('otpVerification.verifying')}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.verifyButtonText}>{t('otpVerification.verify')}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </View>
-    </Modal>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+    </Portal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  screen: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
+    backgroundColor: HOME_M3.surface,
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: "center",
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    width: "100%",
-    maxWidth: 400,
-    maxHeight: "80%",
-    overflow: "hidden",
-  },
-  header: {
-    backgroundColor: "#1E40AF",
     paddingHorizontal: 20,
-    paddingVertical: 16,
   },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  scrollContentKeyboardOpen: {
+    justifyContent: "flex-start",
+  },
+  heroSection: {
     alignItems: "center",
+    marginBottom: 28,
+    maxWidth: 340,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    flex: 1,
-  },
-  closeButton: {
-    padding: 4,
-    marginLeft: 16,
-  },
-  closeIcon: {
-    fontSize: 20,
-    fontWeight: "300",
-    color: "#FFFFFF",
-  },
-  content: {
-    padding: 20,
-  },
-  bookingInfoCard: {
-    backgroundColor: "#EFF6FF",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-  },
-  bookingInfoTitle: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#1E40AF",
-    marginBottom: 4,
-  },
-  bookingInfoSubtitle: {
-    fontSize: 12,
-    color: "#4B5563",
-  },
-  otpSection: {
-    marginBottom: 24,
-  },
-  instructions: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  otpInputContainer: {
-    marginBottom: 16,
-  },
-  otpInput: {
+  heroIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 20,
-    textAlign: "center",
-    letterSpacing: 8,
-    color: "#111827",
-    fontWeight: "500",
-    backgroundColor: "#FFFFFF",
+    borderColor: HOME_M3.outlineVariant,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  otpInputError: {
-    borderColor: "#EF4444",
-    borderWidth: 2,
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: HOME_M3.onSurface,
+    letterSpacing: -0.4,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: HOME_M3.onSurfaceVariant,
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    padding: 20,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
   },
   errorText: {
+    flex: 1,
     fontSize: 13,
-    color: "#EF4444",
     lineHeight: 18,
-    marginTop: 4,
-    textAlign: "center",
+    color: "#b91c1c",
+    fontWeight: "600",
   },
-  verificationNote: {
-    fontSize: 13,
-    color: "#6B7280",
-    lineHeight: 18,
+  otpRow: {
+    position: "relative",
+    marginBottom: 16,
   },
-  actions: {
+  otpBoxesPressable: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 8,
+    gap: 8,
   },
-  button: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    minWidth: 120,
-    alignItems: "center",
-  },
-  cancelButton: {
+  otpBox: {
+    flex: 1,
+    height: 52,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    backgroundColor: "#FFFFFF",
+    borderColor: HOME_M3.outlineVariant,
+    backgroundColor: HOME_M3.surfaceContainerLow,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cancelButtonText: {
-    fontSize: 14,
+  otpBoxFilled: {
+    borderColor: HOME_M3.secondary,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+  },
+  otpBoxActive: {
+    borderColor: HOME_M3.secondary,
+    borderWidth: 2,
+    backgroundColor: "#ffffff",
+  },
+  otpBoxError: {
+    borderColor: "#f87171",
+    backgroundColor: "#fef2f2",
+  },
+  otpBoxDigit: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: HOME_M3.outlineVariant,
+  },
+  otpBoxDigitFilled: {
+    color: HOME_M3.onSurface,
+  },
+  hiddenInput: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0,
+    color: "transparent",
+  },
+  progressSection: {
+    marginBottom: 18,
+  },
+  progressLabel: {
+    fontSize: 13,
+    color: HOME_M3.onSurfaceVariant,
+    marginBottom: 8,
     fontWeight: "500",
-    color: "#374151",
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: HOME_M3.outlineVariant,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: HOME_M3.secondary,
   },
   verifyButton: {
-    backgroundColor: "#3B82F6",
+    minHeight: 50,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
   },
-  disabledButton: {
-    backgroundColor: "#D1D5DB",
+  verifyButtonEnabled: {
+    backgroundColor: HOME_M3.primary,
   },
-  verifyButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#FFFFFF",
+  verifyButtonDisabled: {
+    backgroundColor: "#94a3b8",
   },
-  verifyingContainer: {
+  verifyButtonInner: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 4,
   },
-  verifyingText: {
+  verifyButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  cancelLinkBtn: {
+    alignItems: "center",
+    paddingVertical: 8,
+    marginBottom: 16,
+  },
+  cancelLinkText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: HOME_M3.secondary,
+  },
+  resendText: {
+    fontSize: 13,
+    color: HOME_M3.onSurfaceVariant,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  resendLink: {
+    color: HOME_M3.secondary,
+    fontWeight: "700",
+  },
+  successBlock: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 10,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#059669",
+  },
+  successSubtitle: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#FFFFFF",
-    marginLeft: 8,
+    color: HOME_M3.onSurfaceVariant,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  accessoryBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderTopWidth: 1,
+    borderTopColor: HOME_M3.outlineVariant,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  accessoryButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    minWidth: 56,
+  },
+  accessoryCenter: {
+    flex: 1,
+    alignItems: "center",
+  },
+  accessoryProgress: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: HOME_M3.onSurfaceVariant,
+  },
+  accessoryDoneText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: HOME_M3.secondary,
+  },
+  accessoryVerifyButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: HOME_M3.secondary,
+    minWidth: 72,
+    alignItems: "center",
+  },
+  accessoryVerifyDisabled: {
+    backgroundColor: HOME_M3.outlineVariant,
+  },
+  accessoryVerifyText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  accessoryVerifyTextDisabled: {
+    color: "#94a3b8",
   },
 });
+
+export default OtpVerificationDialog;

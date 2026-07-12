@@ -4,6 +4,7 @@ import PaymentInstance from "./paymentInstance";
 import store from "../store/userStore";
 import RazorpayCheckout from "react-native-razorpay";
 import dayjs from "dayjs";
+import { resolveProviderId } from "../utils/providerId";
 
 export interface BookingPayload {
   customerid: number;
@@ -15,6 +16,7 @@ export interface BookingPayload {
   service_type: string;
   base_amount: number;
   payment_mode?: "razorpay" | "UPI" | "CASH" | string;
+  use_wallet?: boolean;
   latitude?: number;
   longitude?: number;
   address?: string | null;
@@ -27,6 +29,21 @@ export interface RazorpayPaymentResponse {
   razorpay_order_id: string;
   razorpay_signature: string;
   engagementId: number;
+}
+
+export function resolveServiceProviderIdForPayload(
+  details: {
+    id?: string | number | null;
+    serviceProviderId?: string | number | null;
+    serviceproviderId?: string | number | null;
+    serviceproviderid?: string | number | null;
+  } | null | undefined
+): number | null {
+  const resolved = resolveProviderId(details as Record<string, unknown>);
+  if (!resolved) return null;
+  const n = Number(resolved);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
 // Location data interface
@@ -71,21 +88,24 @@ export const BookingService = {
   openRazorpay: async (
     orderId: string,
     amountPaise: number,
-    currency = "INR"
+    currency = "INR",
+    prefill?: { name?: string; email?: string; contact?: string },
+    razorpayKeyId?: string,
+    description = "Booking Payment"
   ): Promise<RazorpayPaymentResponse> => {
     return new Promise((resolve, reject) => {
       const options = {
-        description: "Booking Payment",
+        description,
         image: "https://your-logo-url.com/logo.png",
         currency,
-        key: "rzp_test_SHU1MPGbiCzst9",
+        key: razorpayKeyId || "rzp_test_lTdgjtSRlEwreA",
         amount: amountPaise,
         name: "Serveaso",
         order_id: orderId,
         prefill: {
-          email: "test@example.com",
-          contact: "9999999999",
-          name: "Test User",
+          email: prefill?.email || "test@example.com",
+          contact: prefill?.contact || "9999999999",
+          name: prefill?.name || "Test User",
         },
         theme: { color: "#0ea5e9" },
         notes: {
@@ -114,6 +134,10 @@ export const BookingService = {
         })
         .catch((error: any) => {
           console.error("Razorpay checkout error:", error);
+          if (isPaymentCancelledError(error)) {
+            reject(new PaymentCancelledError());
+            return;
+          }
           reject(error);
         });
     });
@@ -194,6 +218,7 @@ export const BookingService = {
       let latitude = 0;
       let longitude = 0;
       let address: string | null = null;
+      let location: any = null;
 
       // Use provided location data first (preferred method)
       if (locationData) {
@@ -214,7 +239,7 @@ export const BookingService = {
       } else {
         // Fallback to Redux store (backward compatibility)
         const state: any = store.getState();
-        const location = state?.geoLocation?.value ?? null;
+        location = state?.geoLocation?.value ?? null;
 
         console.log("Location from store:", location);
 
@@ -244,21 +269,28 @@ export const BookingService = {
       payload.serviceproviderid = payload.serviceproviderid === 0 ? null : payload.serviceproviderid;
       payload.latitude = latitude;
       payload.longitude = longitude;
-      payload.address = address || null;
-
-      console.log("Final payload with coordinates and address:", {
-        ...payload,
-        latitude,
-        longitude,
-        address
-      });
+      payload.address = location?.formatted_address || location?.address?.[0]?.formatted_address || null;
+      console.log("Location:", location);
+      console.log("Address:", location?.formatted_address);
+      console.log("Payload:", payload);
 
       // Create engagement
       console.log("Creating engagement with payload:", JSON.stringify(payload));
       const engagementData = await BookingService.createEngagement(payload);
       console.log("Engagement data received:", JSON.stringify(engagementData, null, 2));
 
-      // Extract order id using helper function
+      if (engagementData?.wallet_only) {
+        return {
+          engagementData,
+          paymentResponse: null,
+          verifyResult: {
+            success: true,
+            message: "Booking paid from wallet balance",
+          },
+        };
+      }
+
+      // Extract order id & amount
       const orderId = engagementData?.razorpay_order_id;
 
       if (!orderId) {
@@ -270,13 +302,16 @@ export const BookingService = {
 
       // Calculate amount in paise
       let amountPaise: number;
-      
-      // Try to extract amount from various possible locations
-      if (engagementData?.razorpayOrder?.amount) {
+
+      if (engagementData?.razorpay_amount != null) {
+        amountPaise = Math.round(Number(engagementData.razorpay_amount) * 100);
+      } else if (engagementData?.razorpayOrder?.amount) {
         amountPaise = Number(engagementData.razorpayOrder.amount);
+      } else if (engagementData?.total_amount != null) {
+        amountPaise = Math.round(Number(engagementData.total_amount) * 100);
       } else if (engagementData?.payment?.total_amount) {
         amountPaise = Math.round(Number(engagementData.payment.total_amount) * 100);
-      } else if (engagementData?.amount) {
+      } else if (engagementData?.amount != null) {
         amountPaise = Math.round(Number(engagementData.amount) * 100);
       } else {
         amountPaise = Math.round(payload.base_amount * 100);
@@ -287,7 +322,10 @@ export const BookingService = {
       // Open Razorpay
       const paymentResponse = await BookingService.openRazorpay(
         orderId,
-        amountPaise
+        amountPaise,
+        "INR",
+        undefined,
+        engagementData?.razorpay_key_id
       );
 
       // Set engagement ID for verification - try to extract from response
@@ -376,6 +414,137 @@ export const BookingService = {
     }
   },
 };
+
+export const PAYMENT_CANCELLED_MESSAGE = "Payment cancelled";
+
+export class PaymentCancelledError extends Error {
+  constructor(message = PAYMENT_CANCELLED_MESSAGE) {
+    super(message);
+    this.name = "PaymentCancelledError";
+  }
+}
+
+export function isPaymentCancelledError(err: unknown): boolean {
+  if (err instanceof PaymentCancelledError) return true;
+  const code = (err as { code?: number })?.code;
+  const description = String((err as { description?: string })?.description || "").toLowerCase();
+  const message = String((err as { message?: string })?.message || "").toLowerCase();
+  return (
+    code === 0 ||
+    code === 2 ||
+    description.includes("cancel") ||
+    message.includes("payment cancelled") ||
+    message.includes("user closed")
+  );
+}
+
+export const BookingServiceExtensions = {
+  getModificationFee: async (engagementId: number | string) => {
+    const id = Number(engagementId);
+    if (!Number.isFinite(id) || id < 1) {
+      throw new Error("Invalid engagement id");
+    }
+    const res = await PaymentInstance.get(`/api/engagements/${id}/modification-fee`);
+    const data = res.data;
+    if (data?.success === false) {
+      throw new Error(data.error || "Could not load modification fee");
+    }
+    return data as {
+      booking_base: number;
+      platform_fee: number;
+      gst: number;
+      taxes_and_fees: number;
+      total_amount: number;
+    };
+  },
+
+  modifyScheduleWithPayment: async (payload: {
+    engagementId: number | string;
+    start_date: string;
+    end_date: string;
+    start_time: string;
+    end_time?: string;
+    modified_by_id: number | null;
+    modified_by_role: "CUSTOMER";
+    use_wallet?: boolean;
+  }) => {
+    const id = Number(payload.engagementId);
+    
+    // Helper function to make the API call
+    const makeRequest = async () => {
+      const res = await PaymentInstance.post(
+        `/api/v2/createEngagements/${id}/modify-schedule`,
+        {
+          start_date: payload.start_date,
+          end_date: payload.end_date,
+          start_time: payload.start_time,
+          end_time: payload.end_time,
+          modified_by_id: payload.modified_by_id,
+          modified_by_role: payload.modified_by_role,
+          use_wallet: payload.use_wallet,
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      return res.data;
+    };
+
+    // Retry logic for deadlock errors
+    let lastError: any;
+    const maxRetries = 2;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const data = await makeRequest();
+        
+        if (data?.success === false) {
+          throw new Error(data.error || "Failed to modify schedule");
+        }
+        
+        return data;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a deadlock error
+        const errorMessage = String(error?.response?.data?.error || error?.response?.data?.message || error?.message || '').toLowerCase();
+        const isDeadlock = errorMessage.includes('deadlock');
+        
+        console.log(`[ModifySchedule] Attempt ${attempt + 1}/${maxRetries + 1} failed:`, errorMessage);
+        
+        // Only retry on deadlock errors and if we haven't exhausted retries
+        if (isDeadlock && attempt < maxRetries) {
+          // Exponential backoff: wait 500ms, then 1000ms
+          const delay = 500 * (attempt + 1);
+          console.log(`[ModifySchedule] Deadlock detected, retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If it's not a deadlock or we've exhausted retries, throw the error
+        break;
+      }
+    }
+    
+    // If we get here, all retries failed
+    throw lastError;
+  },
+
+  verifyModifySchedulePayment: async (paymentData: RazorpayPaymentResponse) => {
+    console.log('[verifyModifySchedulePayment] Payload:', JSON.stringify(paymentData));
+    const res = await PaymentInstance.post(
+      `/api/v2/createEngagements/modify-schedule/verify`,
+      paymentData,
+      { headers: { "Content-Type": "application/json" } }
+    );
+    const data = res.data;
+    console.log('[verifyModifySchedulePayment] Response:', JSON.stringify(data));
+    if (data?.success === false) {
+      throw new Error(data.error || "Failed to verify modification payment");
+    }
+    return data;
+  },
+};
+
+Object.assign(BookingService, BookingServiceExtensions);
 
 /**
  * Utility: Convert 12h time format to 24h format

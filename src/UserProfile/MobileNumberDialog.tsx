@@ -17,7 +17,6 @@ import { useAppUser } from "../context/AppUserContext";
 import providerInstance from "../services/providerInstance";
 import { useDispatch } from "react-redux";
 import { setHasMobileNumber } from "../features/customerSlice";
-import LinearGradient from "react-native-linear-gradient";
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
 
@@ -567,15 +566,21 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
     },
     headerTitle: {
-      color: '#fff',
       fontSize: fontSizes.headerTitle,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     closeButton: {
       padding: 4,
+    },
+    closeText: {
+      fontSize: 28,
+      lineHeight: 28,
+      fontWeight: '300',
     },
     content: {
       padding: 20,
@@ -720,17 +725,12 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
         style={dynamicStyles.modalContainer}
       >
         <View style={dynamicStyles.modalContent}>
-          <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.header}
-          >
-            <Text style={dynamicStyles.headerTitle}>{t('mobileDialog.title')}</Text>
-            <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
-              <Icon name="close" size={24} color="#fff" />
+          <View style={[dynamicStyles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
+            <Text style={[dynamicStyles.headerTitle, { color: colors.text }]}>{t('mobileDialog.title')}</Text>
+            <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={[dynamicStyles.closeText, { color: colors.text }]}>×</Text>
             </TouchableOpacity>
-          </LinearGradient>
+          </View>
 
           <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
             <Text style={dynamicStyles.description}>

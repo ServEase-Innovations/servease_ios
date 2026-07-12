@@ -17,7 +17,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import providerInstance from "../services/providerInstance";
-import { SkeletonLoader } from "../common/SkeletonLoader";
+import { ProfileContentSkeleton } from "../common/ProfileContentSkeleton";
 import TimeSlotSelector from "../common/TimeSlotSelector/TimeSlotSelector";
 
 const { height } = Dimensions.get('window');
@@ -915,18 +915,7 @@ const ServiceProviderProfileSection: React.FC<ServiceProviderProfileSectionProps
   ];
 
   if (isLoading) {
-    return (
-      <ScrollView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          {[...Array(8)].map((_, index) => (
-            <View key={index} style={styles.skeletonItem}>
-              <SkeletonLoader width={100} height={16} />
-              <SkeletonLoader height={40} style={styles.skeletonInput} />
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    );
+    return <ProfileContentSkeleton />;
   }
 
   return (

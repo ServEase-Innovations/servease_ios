@@ -20,7 +20,11 @@ import { TermsCheckboxes } from '../common/TermsCheckboxes';
 import TnC from "../TermsAndConditions/TnC";
 import PrivacyPolicy from "../TermsAndConditions/PrivacyPolicy";
 import KeyFactsStatement from "../TermsAndConditions/KeyFactsStatement";
+import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
+import { HOME_M3 } from "../theme/brandColors";
 import { CouponDialog, Coupon } from '../Coupons/CouponDialog';
+import { fetchCustomerCoupons, resolveCustomerId } from '../services/couponService';
+import { useAppUser } from '../context/AppUserContext';
 import { useTheme } from '../../src/Settings/ThemeContext';
 
 interface CartDialogProps {
@@ -66,6 +70,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
   
   const dispatch = useDispatch();
   const allCartItems = useSelector(selectCartItems);
+  const { appUser } = useAppUser();
   
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponDialogOpen, setCouponDialogOpen] = useState(false);
@@ -158,49 +163,60 @@ export const CartDialog: React.FC<CartDialogProps> = ({
       return;
     }
 
+    const customerId = resolveCustomerId(appUser);
+    if (!customerId) {
+      setCouponError('Please sign in to apply coupons');
+      return;
+    }
+
     setIsValidatingCoupon(true);
     setCouponError(null);
 
     try {
-      const response = await fetch(`https://coupons-o26r.onrender.com/api/coupons`);
-      const data = await response.json();
-      
-      if (data.success) {
-        const now = new Date();
-        const foundCoupon = data.data.find((coupon: Coupon) => 
-          coupon.coupon_code.toLowerCase() === couponCodeInput.toLowerCase() &&
-          coupon.isActive &&
-          (coupon.service_type === getServiceType() || coupon.service_type === 'ALL') &&
-          coupon.city === getUserCity() &&
-          new Date(coupon.start_date) <= now &&
-          new Date(coupon.end_date) >= now
-        );
+      const st = getServiceType() === 'MAID' ? 'MAID' : 'COOK';
+      const rows = await fetchCustomerCoupons(customerId, st, { userCity: getUserCity() });
+      const code = couponCodeInput.trim().toUpperCase();
+      const found = rows.find((c) => c.code === code);
 
-        if (foundCoupon) {
-          if (foundCoupon.minimum_order_value && totalPrice < foundCoupon.minimum_order_value) {
-            setCouponError(`Minimum order amount of ₹${foundCoupon.minimum_order_value} required`);
-            setIsValidatingCoupon(false);
-            return;
-          }
-
-          let discount = 0;
-          if (foundCoupon.discount_type === 'PERCENTAGE') {
-            discount = (totalPrice * foundCoupon.discount_value) / 100;
-          } else {
-            discount = foundCoupon.discount_value;
-          }
-          
-          setAppliedCoupon(foundCoupon);
-          setCouponDiscount(discount);
-          setCouponCodeInput('');
-          setCouponError(null);
-          Alert.alert('Success', 'Coupon applied successfully');
-        } else {
-          setCouponError('Invalid or expired coupon code');
-        }
-      } else {
-        setCouponError('Unable to validate coupon');
+      if (!found) {
+        setCouponError('Invalid or expired coupon code');
+        return;
       }
+
+      if (found.minimumOrderValue != null && found.minimumOrderValue > 0 && totalPrice < found.minimumOrderValue) {
+        setCouponError(`Minimum order amount of ₹${found.minimumOrderValue} required`);
+        return;
+      }
+
+      const legacyCoupon: Coupon = {
+        coupon_id: found.code,
+        coupon_code: found.code,
+        description: found.description || found.code,
+        service_type: found.serviceType,
+        discount_type: found.discountType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FLAT',
+        discount_value: found.discountValue,
+        minimum_order_value: found.minimumOrderValue ?? 0,
+        usage_limit: 0,
+        usage_per_user: 0,
+        start_date: new Date().toISOString(),
+        end_date: new Date(Date.now() + 86400000).toISOString(),
+        city: found.city ?? null,
+        isActive: true,
+        created_at: new Date().toISOString(),
+      };
+
+      let discount = 0;
+      if (legacyCoupon.discount_type === 'PERCENTAGE') {
+        discount = (totalPrice * legacyCoupon.discount_value) / 100;
+      } else {
+        discount = legacyCoupon.discount_value;
+      }
+
+      setAppliedCoupon(legacyCoupon);
+      setCouponDiscount(discount);
+      setCouponCodeInput('');
+      setCouponError(null);
+      Alert.alert('Success', 'Coupon applied successfully');
     } catch (error) {
       console.error('Error validating coupon:', error);
       setCouponError('Error validating coupon');
@@ -279,7 +295,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
       case 'terms':
         return <TnC />;
       case 'privacy':
-        return <PrivacyPolicy />;
+        return <PrivacyPolicy embedded />;
       case 'keyfacts':
         return <KeyFactsStatement />;
       default:
@@ -328,7 +344,7 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={["#0b5bd3", "#4f8ff7"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.dialogHeader}
@@ -658,25 +674,19 @@ export const CartDialog: React.FC<CartDialogProps> = ({
         transparent={false}
         onRequestClose={() => setPolicyModalVisible(false)}
       >
-        <View style={[styles.policyModalContainer, { backgroundColor: colors.background }]}>
-          <LinearGradient
-            colors={["#0a2a66ff", "#004aadff"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.policyModalHeader}
-          >
-            <Text style={[styles.policyModalTitle, { fontSize: fontSizes.title }]}>
-              {activePolicy === 'terms' && 'Terms and Conditions'}
-              {activePolicy === 'privacy' && 'Privacy Policy'}
-              {activePolicy === 'keyfacts' && 'Key Facts Statement'}
-            </Text>
-            <TouchableOpacity
-              style={styles.policyModalClose}
-              onPress={() => setPolicyModalVisible(false)}
-            >
-              <Icon name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-          </LinearGradient>
+        <View style={[styles.policyModalContainer, { backgroundColor: HOME_M3.surface }]}>
+          <HomeHeroPageHeader
+            title={
+              activePolicy === 'terms'
+                ? 'Terms and Conditions'
+                : activePolicy === 'privacy'
+                  ? 'Privacy Policy'
+                  : 'Key Facts Statement'
+            }
+            onBack={() => setPolicyModalVisible(false)}
+            backIcon="close"
+            titleFontSize={fontSizes.title}
+          />
           <ScrollView style={styles.policyModalContent}>
             {renderPolicyContent()}
           </ScrollView>
@@ -1316,22 +1326,6 @@ const styles = StyleSheet.create({
   priceValue: {},
   policyModalContainer: {
     flex: 1,
-  },
-  policyModalHeader: {
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  policyModalTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  policyModalClose: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
   },
   policyModalContent: {
     flex: 1,

@@ -209,7 +209,6 @@ metro-cache/
 /android/build/
 /android/app/build/
 android/local.properties
-android/app/google-services.json
 android/app/app-debug.keystore
 android/app/app-release.keystore
 android/app/app.jks
@@ -368,3 +367,11 @@ coverage/
 # =====================
 *.swp
 *.swo
+
+# Local API host override (physical device → Mac LAN IP)
+src/config/devApi.local.ts
+
+# Local Xcode signing (machine-specific)
+ios/Signing.local.xcconfig
+ios/Signing.ci.xcconfig
+ios/version.generated.xcconfig

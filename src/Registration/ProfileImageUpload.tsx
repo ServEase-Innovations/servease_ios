@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  Modal,
   StyleSheet,
   Dimensions,
   Text,
@@ -15,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Portal } from 'react-native-paper';
 
 interface RNFile {
   name: string;
@@ -387,13 +387,9 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
         {previewUrl ? 'Change Profile Picture' : 'Upload Profile Picture'}
       </Text>
 
-      {/* Crop Modal - Instagram/Facebook Style */}
-      <Modal
-        visible={isCropDialogOpen}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setIsCropDialogOpen(false)}
-      >
+      {/* Crop overlay — avoid nested Modal on Android (registration is already a Modal). */}
+      {isCropDialogOpen && (
+        <Portal>
         <View style={styles.fullScreenModal}>
           {/* Header */}
           <View style={styles.modalHeader}>
@@ -511,7 +507,8 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({ onImageSelect }
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+        </Portal>
+      )}
     </View>
   );
 };
@@ -590,6 +587,7 @@ const styles = StyleSheet.create({
   },
   // Full screen modal styles
   fullScreenModal: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
     backgroundColor: '#fff',
   },

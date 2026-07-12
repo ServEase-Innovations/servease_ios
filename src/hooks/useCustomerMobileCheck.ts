@@ -1,47 +1,55 @@
-/* eslint-disable */
-import { useEffect, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useAppUser } from '../context/AppUserContext';
-import { clearCustomer, fetchCustomerDetails } from '../features/customerSlice';
-import { RootState } from '../store/userStore';
+import { useEffect, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useAppUser } from "../context/AppUserContext";
+import { fetchCustomerDetails } from "../features/customerSlice";
+import { RootState } from "../store/userStore";
 
+/**
+ * Mirrors web useCustomerMobileCheck: after login, load customer profile and
+ * merge mobile/contact fields into AppUserContext.
+ */
 export const useCustomerMobileCheck = () => {
   const dispatch = useDispatch();
-  const { appUser } = useAppUser();
-  
-  // Get data from Redux
+  const { appUser, setAppUser } = useAppUser();
+
   const customerState = useSelector((state: RootState) => state.customer);
-  const hasMobileNumber = customerState.hasMobileNumber;
-  const loading = customerState.loading;
-  
-  const hasCheckedRef = useRef(false);
+  const { hasMobileNumber, loading, mobileNo, alternateNo } = customerState;
+
+  const lastCustomerIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Only check for customers
-    if (!appUser || appUser.role?.toUpperCase() !== "CUSTOMER") {
+    const role = appUser?.role?.toUpperCase();
+    const customerId = appUser?.customerid ?? appUser?.customerId;
+    if (!appUser || role !== "CUSTOMER" || customerId == null || customerId === "") {
       return;
     }
 
-    // Don't check again if already checked
-    if (hasCheckedRef.current) {
-      return;
+    const id = String(customerId);
+    if (lastCustomerIdRef.current !== id) {
+      lastCustomerIdRef.current = id;
+      dispatch(fetchCustomerDetails(id) as never);
     }
+  }, [appUser?.customerid, appUser?.customerId, appUser?.role, dispatch]);
 
-    // Fetch customer details
-    if (appUser.customerid) {
-      hasCheckedRef.current = true;
-      dispatch(fetchCustomerDetails(appUser.customerid) as any);
-    }
+  useEffect(() => {
+    if (hasMobileNumber !== true || !mobileNo) return;
 
-    // Cleanup
-    return () => {
-      dispatch(clearCustomer());
-    };
-  }, [appUser, dispatch]);
+    setAppUser((prev: Record<string, unknown> | null) => {
+      if (!prev) return prev;
+      if (prev.mobileNo === mobileNo && prev.alternateNo === (alternateNo ?? null)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        mobileNo,
+        alternateNo: alternateNo ?? null,
+      };
+    });
+  }, [hasMobileNumber, mobileNo, alternateNo, setAppUser]);
 
   return {
     hasMobileNumber,
     loading,
-    showMobileDialog: hasMobileNumber === false,
+    showMobileDialog: !loading && hasMobileNumber === false,
   };
 };

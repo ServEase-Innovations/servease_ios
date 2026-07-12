@@ -5,11 +5,16 @@ import {
   Text,
   Modal,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   Platform,
   Dimensions,
   ScrollView,
+  Animated,
+  PanResponder,
+  StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs, { Dayjs } from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
@@ -20,9 +25,13 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAppUser } from '../context/AppUserContext';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { HOME_HERO_GRADIENT, HOME_M3, BRAND } from "../theme/brandColors";
+
 
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrAfter);
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface BookingDialogProps {
   open: boolean;
@@ -67,6 +76,17 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const { appUser } = useAppUser();
   const { t } = useTranslation();
   const { colors, isDarkMode, fontSize } = useTheme();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0
+  );
+  const sheetMaxHeight = SCREEN_HEIGHT - topInset;
+  const sheetMinHeight = Math.min(SCREEN_HEIGHT * 0.8, sheetMaxHeight * 0.92);
+  const sheetInsetsStyle = {
+    maxHeight: sheetMaxHeight,
+    minHeight: sheetMinHeight,
+  };
   const [role, setRole] = useState<string | null>(null);
   const [isServiceDisabled, setIsServiceDisabled] = useState(false);
   const [lastSelectedDate, setLastSelectedDate] = useState<Dayjs | null>(null);
@@ -74,8 +94,11 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [localEndDate, setLocalEndDate] = useState<string | null>(null);
   const [localStartTime, setLocalStartTime] = useState<Dayjs | null>(null);
   const [localEndTime, setLocalEndTime] = useState<Dayjs | null>(null);
+  const [serviceDurationHours, setServiceDurationHours] = useState(1);
   const [tempSelectedTime, setTempSelectedTime] = useState<string | null>(null);
+  const [genderPreference, setGenderPreference] = useState<string>("No Preference");
   const scrollViewRef = useRef<ScrollView>(null);
+  const openSessionInitializedRef = useRef(false);
   const [showDatePicker, setShowDatePicker] = useState<"start" | "end" | null>(null);
   const [showCustomTimePicker, setShowCustomTimePicker] = useState<"start" | "end" | null>(null);
   const [tempDate, setTempDate] = useState<Date | null>(null);
@@ -84,6 +107,47 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const [customAmPm, setCustomAmPm] = useState<"AM" | "PM">("AM");
   const [use24HourFormat, setUse24HourFormat] = useState<boolean>(false);
   const [isDateChanged, setIsDateChanged] = useState<boolean>(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [localOption, setLocalOption] = useState<string>("Date");
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 4,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          sheetTranslateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 120 || gestureState.vy > 1.2) {
+          Animated.timing(sheetTranslateY, {
+            toValue: 500,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            handleSheetClose();
+            sheetTranslateY.setValue(0);
+          });
+          return;
+        }
+
+        Animated.spring(sheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 18,
+          bounciness: 0,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(sheetTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
 
   // Business hours configuration
   const BUSINESS_HOURS = {
@@ -96,6 +160,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const today = dayjs();
   const maxDate21Days = today.add(21, "day");
   const maxDate90Days = today.add(89, "day");
+  const MAX_SERVICE_DURATION_HOURS = BUSINESS_HOURS.cutoffHour - BUSINESS_HOURS.openingHour;
+
+  const applyEndFromStartAndDuration = (start: Dayjs, hours: number) => {
+    let end = start.add(hours, "hour");
+    if (end.hour() >= BUSINESS_HOURS.cutoffHour) {
+      end = start.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
+    }
+    return end;
+  };
+
+  const commitEndTimeForOption = (start: Dayjs, end: Dayjs) => {
+    setLocalEndTime(end);
+    setEndTime(end);
+
+    if (localOption === "Date") {
+      setLocalEndDate(end.format("YYYY-MM-DD"));
+      setEndDate(end.format("YYYY-MM-DD"));
+    } else if (localOption === "Monthly") {
+      const endDateValue = start.add(1, "month");
+      setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
+      setEndDate(endDateValue.format("YYYY-MM-DD"));
+    } else if (localOption === "Short term") {
+      if (!localEndDate) {
+        const endDateValue = start.add(1, "day");
+        setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
+        setEndDate(endDateValue.format("YYYY-MM-DD"));
+      }
+    }
+  };
 
   useEffect(() => {
     if (appUser) {
@@ -105,15 +198,42 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
   }, [appUser]);
 
-  // Sync local state with props when modal opens
+  // Sync local state with props and reset scroll only when the sheet opens — not on every parent date/time update.
   useEffect(() => {
-    if (open) {
-      setLocalStartDate(startDate);
-      setLocalEndDate(endDate);
-      setLocalStartTime(startTime);
-      setLocalEndTime(endTime);
+    if (!open) {
+      openSessionInitializedRef.current = false;
+      return;
     }
-  }, [open, startDate, endDate, startTime, endTime]);
+
+    if (openSessionInitializedRef.current) {
+      return;
+    }
+    openSessionInitializedRef.current = true;
+
+    setLocalOption("Date");
+    onOptionChange("Date");
+    setLocalStartDate(startDate);
+    setLocalEndDate(endDate);
+    setLocalStartTime(startTime);
+    setLocalEndTime(endTime);
+    if (startTime && endTime) {
+      const hours = Math.max(1, Math.round(endTime.diff(startTime, "hour", true)));
+      setServiceDurationHours(hours);
+    } else {
+      setServiceDurationHours(1);
+    }
+    // Soft snap-in animation for modern drawer feel
+    sheetTranslateY.setValue(28);
+    Animated.spring(sheetTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 0,
+    }).start();
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, [open, startDate, endDate, startTime, endTime, sheetTranslateY]);
 
   // Reset all booking state when modal closes
   useEffect(() => {
@@ -132,6 +252,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
       setUse24HourFormat(false);
       setIsDateChanged(false);
       setTempSelectedTime(null);
+      setCurrentStep(1);
+      setGenderPreference("No Preference");
     }
   }, [open]);
 
@@ -140,6 +262,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     if (isDateChanged) {
       setLocalStartTime(null);
       setLocalEndTime(null);
+      setServiceDurationHours(1);
       setCustomHours(12);
       setCustomMinutes(0);
       setCustomAmPm("AM");
@@ -327,33 +450,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setStartDate(adjustedDateTime.format("YYYY-MM-DD"));
     setStartTime(adjustedDateTime);
 
-    const defaultEndTime = adjustedDateTime.add(1, "hour");
-    let finalEndTime = defaultEndTime;
-    
-    if (defaultEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
-      finalEndTime = adjustedDateTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
-    }
-    
-    if (selectedOption === "Date") {
-      setLocalEndDate(finalEndTime.format("YYYY-MM-DD"));
-      setLocalEndTime(finalEndTime);
-      setEndDate(finalEndTime.format("YYYY-MM-DD"));
-      setEndTime(finalEndTime);
-    } else if (selectedOption === "Monthly") {
-      const endDateValue = adjustedDateTime.add(1, "month");
-      setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-      setLocalEndTime(finalEndTime);
-      setEndDate(endDateValue.format("YYYY-MM-DD"));
-      setEndTime(finalEndTime);
-    } else if (selectedOption === "Short term") {
-      setLocalEndTime(finalEndTime);
-      setEndTime(finalEndTime);
-      if (!localEndDate) {
-        const endDateValue = adjustedDateTime.add(1, "day");
-        setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-        setEndDate(endDateValue.format("YYYY-MM-DD"));
-      }
-    }
+    const finalEndTime = applyEndFromStartAndDuration(adjustedDateTime, serviceDurationHours);
+    commitEndTimeForOption(adjustedDateTime, finalEndTime);
   };
 
   const updateEndDateTime = (newDateTime: Dayjs) => {
@@ -407,34 +505,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setStartDate(adjustedTime.format("YYYY-MM-DD"));
     setStartTime(adjustedTime);
 
-    const defaultEndTime = adjustedTime.add(1, 'hour');
-    let finalEndTime = defaultEndTime;
-    
-    if (defaultEndTime.hour() >= BUSINESS_HOURS.cutoffHour) {
-      finalEndTime = adjustedTime.hour(BUSINESS_HOURS.cutoffHour - 1).minute(55);
-    }
-    
-    setLocalEndTime(finalEndTime);
-    setEndTime(finalEndTime);
-    
-    if (selectedOption === "Date") {
-      setLocalEndDate(finalEndTime.format("YYYY-MM-DD"));
-      setEndDate(finalEndTime.format("YYYY-MM-DD"));
-    } else if (selectedOption === "Monthly") {
-      const endDateValue = adjustedTime.add(1, "month");
-      setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-      setEndDate(endDateValue.format("YYYY-MM-DD"));
-      setLocalEndTime(finalEndTime);
-      setEndTime(finalEndTime);
-    } else if (selectedOption === "Short term") {
-      if (!localEndDate) {
-        const endDateValue = adjustedTime.add(1, "day");
-        setLocalEndDate(endDateValue.format("YYYY-MM-DD"));
-        setEndDate(endDateValue.format("YYYY-MM-DD"));
-      }
-      setLocalEndTime(finalEndTime);
-      setEndTime(finalEndTime);
-    }
+    const finalEndTime = applyEndFromStartAndDuration(adjustedTime, serviceDurationHours);
+    commitEndTimeForOption(adjustedTime, finalEndTime);
   };
 
   const handleDateTimeChange = (date: Date, time?: string, isRange?: boolean, startDateObj?: Date, endDateObj?: Date) => {
@@ -518,6 +590,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     setStartTime(null);
     setEndTime(null);
     setTempSelectedTime(null);
+    setLocalOption(val);
     onOptionChange(val);
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -527,7 +600,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   const isConfirmDisabled = () => {
     if (isServiceDisabled) return true;
     
-    switch (selectedOption) {
+    switch (localOption) {
       case "Date":
         return !localStartDate || !localStartTime;
       case "Short term":
@@ -540,53 +613,35 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
   };
 
-  const getDuration = () => {
-    if (!localStartTime || !localEndTime) return 1;
-    const durationHours = localEndTime.diff(localStartTime, "hour", true);
-    return Math.max(1, Math.round(durationHours));
-  };
-
-  const duration = getDuration();
+  const duration = serviceDurationHours;
 
   const canIncreaseDuration = () => {
-    if (!localStartTime) return false;
-    const newEndTime = localStartTime.add(duration + 1, 'hour');
-    return newEndTime.hour() < BUSINESS_HOURS.cutoffHour;
+    if (localStartTime) {
+      const newEndTime = localStartTime.add(serviceDurationHours + 1, "hour");
+      return newEndTime.hour() < BUSINESS_HOURS.cutoffHour;
+    }
+    return serviceDurationHours < MAX_SERVICE_DURATION_HOURS;
   };
 
-  const canDecreaseDuration = () => {
-    return localStartTime && duration > 1;
-  };
+  const canDecreaseDuration = () => serviceDurationHours > 1;
 
   const handleIncreaseDuration = () => {
-    if (!localStartTime) return;
-    const newEndTime = localStartTime.add(duration + 1, 'hour');
-    if (newEndTime.hour() >= BUSINESS_HOURS.cutoffHour) return;
-    
-    setLocalEndTime(newEndTime);
-    setEndTime(newEndTime);
-    if (selectedOption === "Date") {
-      setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-      setEndDate(newEndTime.format("YYYY-MM-DD"));
-    } else if (selectedOption === "Short term") {
-      setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-      setEndDate(newEndTime.format("YYYY-MM-DD"));
+    if (!canIncreaseDuration()) return;
+    const nextDuration = serviceDurationHours + 1;
+    setServiceDurationHours(nextDuration);
+    if (localStartTime) {
+      const newEndTime = applyEndFromStartAndDuration(localStartTime, nextDuration);
+      commitEndTimeForOption(localStartTime, newEndTime);
     }
   };
 
   const handleDecreaseDuration = () => {
-    if (!localStartTime) return;
-    if (duration > 1) {
-      const newEndTime = localStartTime.add(duration - 1, 'hour');
-      setLocalEndTime(newEndTime);
-      setEndTime(newEndTime);
-      if (selectedOption === "Date") {
-        setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-        setEndDate(newEndTime.format("YYYY-MM-DD"));
-      } else if (selectedOption === "Short term") {
-        setLocalEndDate(newEndTime.format("YYYY-MM-DD"));
-        setEndDate(newEndTime.format("YYYY-MM-DD"));
-      }
+    if (!canDecreaseDuration()) return;
+    const nextDuration = serviceDurationHours - 1;
+    setServiceDurationHours(nextDuration);
+    if (localStartTime) {
+      const newEndTime = applyEndFromStartAndDuration(localStartTime, nextDuration);
+      commitEndTimeForOption(localStartTime, newEndTime);
     }
   };
 
@@ -599,12 +654,76 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
     }
     
     onSave({
-      option: selectedOption,
+      option: localOption,
       startDate: localStartDate,
       endDate: localEndDate,
       startTime: localStartTime,
       endTime: localEndTime,
+      genderPreference: genderPreference,
     });
+  };
+
+  const handleResetProgress = () => {
+    setLocalStartDate(null);
+    setLocalEndDate(null);
+    setLocalStartTime(null);
+    setLocalEndTime(null);
+    setServiceDurationHours(1);
+    setLastSelectedDate(null);
+    setTempSelectedTime(null);
+    setShowDatePicker(null);
+    setShowCustomTimePicker(null);
+    setTempDate(null);
+    setCustomHours(12);
+    setCustomMinutes(0);
+    setCustomAmPm("AM");
+    setStartDate(null);
+    setEndDate(null);
+    setStartTime(null);
+    setEndTime(null);
+    onOptionChange("");
+  };
+
+  const handleSheetClose = () => {
+    setCurrentStep(1);
+    sheetTranslateY.setValue(0);
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    setStartDate(null);
+    setEndDate(null);
+    setStartTime(null);
+    setEndTime(null);
+    onOptionChange("Date");
+    onClose();
+  };
+
+  const getTotalSteps = () => 3;
+
+  const isStepValid = (step: number) => {
+    if (step === 1) {
+      return ["Date", "Short term", "Monthly"].includes(localOption);
+    }
+    if (step === 2) {
+      return !isConfirmDisabled();
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (currentStep < getTotalSteps() && isStepValid(currentStep)) {
+      setCurrentStep((prev) => prev + 1);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 50);
+    }
+  };
+
+  const handleBackStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep((prev) => prev - 1);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 50);
+    }
   };
 
   const getFontSizes = () => {
@@ -640,23 +759,83 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   };
 
   const fontSizes = getFontSizes();
+  const hasValidOption = ["Date", "Short term", "Monthly"].includes(localOption);
+  const hasScheduleInputs =
+    (localOption === "Date" && !!localStartDate && !!localStartTime) ||
+    (localOption === "Monthly" && !!localStartDate && !!localStartTime) ||
+    (localOption === "Short term" && !!localStartDate && !!localEndDate && !!localStartTime && !!localEndTime);
+  const progressStep = !hasValidOption ? 1 : !hasScheduleInputs ? 2 : 3;
+
+  // Render Gender Preference Selector
+  const renderGenderPreference = () => {
+    const genderOptions = [
+      { value: "Male", label: "Male", icon: "male" },
+      { value: "Female", label: "Female", icon: "female" },
+      { value: "No Preference", label: "No Preference", icon: "people" },
+    ];
+
+    return (
+      <View style={[styles.genderPreferenceContainer, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.surface2 : "#f8fafc" }]}>
+        <View style={styles.genderPreferenceHeader}>
+          <Icon name="person" size={18} color={colors.primary} />
+          <Text style={[styles.genderPreferenceTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+            Provider Gender Preference
+          </Text>
+        </View>
+        
+        <Text style={[styles.genderPreferenceMessage, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
+          Select your preferred provider gender (optional)
+        </Text>
+
+        <View style={styles.genderOptionsContainer}>
+          {genderOptions.map((option) => {
+            const isSelected = genderPreference === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.genderOptionButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  isSelected && [styles.genderOptionSelected, { backgroundColor: colors.primary + "16", borderColor: colors.primary }]
+                ]}
+                onPress={() => setGenderPreference(option.value)}
+                activeOpacity={0.7}
+              >
+                <Icon 
+                  name={option.icon} 
+                  size={22} 
+                  color={isSelected ? colors.primary : colors.textSecondary} 
+                />
+                <Text style={[
+                  styles.genderOptionText,
+                  { color: colors.text, fontSize: fontSizes.text },
+                  isSelected && { color: colors.primary, fontWeight: "700" }
+                ]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
 
   // Render Duration Control (appears first in the dialog)
   const renderDurationControl = () => {
     const hasStartTime = !!localStartTime;
-    const currentDuration = (hasStartTime && localEndTime) ? localEndTime.diff(localStartTime, 'hour') : 1;
     
     const getDurationMessage = () => {
-      if (selectedOption === "Short term") {
-        return "This duration applies to each day of service";
-      } else if (selectedOption === "Monthly") {
-        return "This duration applies to each day of your monthly subscription";
+      if (localOption === "Short term") {
+        return "Applies to each day of service";
+      } else if (localOption === "Monthly") {
+        return "Applies to each day of subscription";
       }
       return "Adjust the duration of your service";
     };
 
     return (
-      <View style={[styles.durationContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.durationContainer, { borderColor: colors.border }]}>
         <Text style={[styles.durationTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
           Service Duration
         </Text>
@@ -684,7 +863,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
           <View style={styles.durationDisplay}>
             <Text style={[styles.durationDisplayText, { color: colors.text, fontSize: fontSizes.title }]}>
-              {currentDuration} hour{currentDuration > 1 ? "s" : ""}
+              {duration} hour{duration > 1 ? "s" : ""}
             </Text>
             {hasStartTime && localEndTime && (
               <Text style={[styles.durationEndTime, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
@@ -693,7 +872,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             )}
             {!hasStartTime && (
               <Text style={[styles.selectTimeHint, { color: colors.textSecondary, fontSize: fontSizes.small }]}>
-                Select a start time to adjust duration
+                Applies when you pick a start time below
               </Text>
             )}
           </View>
@@ -724,17 +903,25 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
     return (
       <View style={[styles.bookingDetailsContainer, { 
-        backgroundColor: colors.primary + '10', 
+        backgroundColor: isDarkMode ? colors.surface2 : "#ffffff",
         borderColor: colors.border,
-        borderLeftWidth: 4,
-        borderLeftColor: colors.primary,
       }]}>
-        <Text style={[styles.bookingDetailsTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
-          Booking Details
-        </Text>
+        <View style={styles.bookingDetailsHeader}>
+          <View style={styles.bookingDetailsHeadingWrap}>
+            <Icon name="fact-check" size={18} color={colors.primary} />
+            <Text style={[styles.bookingDetailsTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+              Booking Details
+            </Text>
+          </View>
+          <View style={[styles.bookingTypeBadge, { backgroundColor: colors.primary + "16", borderColor: colors.primary + "3a" }]}>
+            <Text style={[styles.bookingTypeBadgeText, { color: colors.primary, fontSize: fontSizes.small }]}>
+              {localOption}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.bookingDetailsContent}>
-          <View style={styles.detailRow}>
+          <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
               Start Date:
             </Text>
@@ -743,8 +930,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </Text>
           </View>
 
-          {selectedOption === "Monthly" && localEndDate && (
-            <View style={styles.detailRow}>
+          {localOption === "Monthly" && localEndDate && (
+            <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Date:
               </Text>
@@ -754,8 +941,8 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
           )}
 
-          {selectedOption === "Short term" && localEndDate && (
-            <View style={styles.detailRow}>
+          {localOption === "Short term" && localEndDate && (
+            <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Date:
               </Text>
@@ -765,7 +952,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
           )}
 
-          <View style={styles.detailRow}>
+          <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
               Start Time:
             </Text>
@@ -775,7 +962,7 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
           </View>
 
           {localEndTime && (
-            <View style={styles.detailRow}>
+            <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
               <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 End Time:
               </Text>
@@ -785,21 +972,30 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
             </View>
           )}
 
-          {selectedOption === "Short term" && localEndDate && localStartTime && localEndTime && (
-            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small }]}>
+          <View style={[styles.detailRow, { backgroundColor: isDarkMode ? colors.card : "#f8fafc", borderColor: colors.border }]}>
+            <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
+              Duration:
+            </Text>
+            <Text style={[styles.detailValue, { color: colors.text, fontSize: fontSizes.text }]}>
+              {duration} {duration > 1 ? "hours" : "hour"}
+            </Text>
+          </View>
+
+          {localOption === "Short term" && localEndDate && localStartTime && localEndTime && (
+            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Service will run from {dayjs(localStartDate).format('MMMM D')} to {dayjs(localEndDate).format('MMMM D, YYYY')}, 
               daily from {localStartTime.format('h:mm A')} to {localEndTime.format('h:mm A')}
             </Text>
           )}
 
-          {selectedOption === "Monthly" && localEndDate && (
-            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small }]}>
+          {localOption === "Monthly" && localEndDate && (
+            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Monthly subscription from {dayjs(localStartDate).format('MMMM D, YYYY')} to {dayjs(localEndDate).format('MMMM D, YYYY')}
             </Text>
           )}
 
-          {selectedOption === "Date" && localStartDate && localStartTime && (
-            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small }]}>
+          {localOption === "Date" && localStartDate && localStartTime && (
+            <Text style={[styles.infoMessage, { color: colors.primary, fontSize: fontSizes.small, backgroundColor: colors.primary + "10" }]}>
               Service will start on {dayjs(localStartDate).format('MMMM D, YYYY')} at {localStartTime.format('h:mm A')}
             </Text>
           )}
@@ -1034,33 +1230,46 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
 
   if (isServiceDisabled) {
     return (
-      <Modal visible={open} transparent animationType="fade">
+      <Modal visible={open} transparent animationType="fade" onRequestClose={handleSheetClose}>
         <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-          <View style={[styles.container, { backgroundColor: colors.card }]}>
-            <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.headerContainer}
-            >
-              <View style={styles.headerContent}>
-                <View style={styles.headerLeft} />
-                <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>Service Unavailable</Text>
-                <View style={styles.headerRight}>
-                  <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
-                    <Icon name="close" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
+          <TouchableWithoutFeedback onPress={handleSheetClose}>
+            <View style={styles.backdropTapArea} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.container, sheetInsetsStyle, { backgroundColor: isDarkMode ? colors.card : "#f8fafc" }]}>
+            <View style={styles.sheetHandleWrap}>
+              <View style={[styles.sheetHandleBar, { backgroundColor: colors.border }]} />
+            </View>
+            <View style={styles.headerShell}>
+              <LinearGradient
+                colors={[...HOME_HERO_GRADIENT]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+                pointerEvents="none"
+              />
+              <View style={styles.headerToolbar}>
+                <View style={styles.headerSideBtn} />
+                <Text
+                  style={[
+                    styles.headerTitleCenter,
+                    { fontSize: fontSizes.title },
+                    Platform.OS === "android" ? { includeFontPadding: false } : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  Service Unavailable
+                </Text>
+                <View style={styles.headerSideBtn} />
               </View>
-            </LinearGradient>
+            </View>
 
-            <View style={[styles.disabledContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.disabledContainer, { backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}>
               <Icon name="info-outline" size={60} color="#FFA500" />
               <Text style={[styles.disabledTitle, { color: colors.text, fontSize: fontSizes.title }]}>Service Provider View</Text>
               <Text style={[styles.disabledMessage, { color: colors.textSecondary, fontSize: fontSizes.text }]}>
                 As a service provider, you cannot book services. Please switch to customer mode.
               </Text>
-              <TouchableOpacity style={[styles.disabledCloseButton, { backgroundColor: colors.primary }]} onPress={onClose}>
+              <TouchableOpacity style={[styles.disabledCloseButton, { backgroundColor: colors.primary }]} onPress={handleSheetClose}>
                 <Text style={[styles.disabledCloseButtonText, { color: '#fff', fontSize: fontSizes.button }]}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -1071,162 +1280,190 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
   }
 
   const bookingTypeOptions = [
-    { value: "Date", label: "Date" },
-    { value: "Short term", label: "Short term" },
+    { value: "Date", label: "One-time" },
+    { value: "Short term", label: "Short-term" },
     { value: "Monthly", label: "Monthly" },
   ];
 
   return (
-    <Modal visible={open} transparent animationType="fade">
+    <Modal visible={open} transparent animationType="slide" onRequestClose={handleSheetClose}>
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.container, { backgroundColor: colors.card }]}>
+        <TouchableWithoutFeedback onPress={handleSheetClose}>
+          <View style={styles.backdropTapArea} />
+        </TouchableWithoutFeedback>
+        <Animated.View
+          style={[
+            styles.container,
+            sheetInsetsStyle,
+            { backgroundColor: isDarkMode ? colors.card : "#f8fafc", transform: [{ translateY: sheetTranslateY }] },
+          ]}
+        >
+          <View style={styles.headerShell} {...panResponder.panHandlers}>
+            <LinearGradient
+              colors={[...HOME_HERO_GRADIENT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.headerToolbar}>
+              <TouchableOpacity
+                style={styles.headerSideBtn}
+                onPress={handleSheetClose}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <Icon name="arrow-back" size={22} color={HOME_M3.onPrimary} />
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.headerTitleCenter,
+                  Platform.OS === "android" ? { includeFontPadding: false } : null,
+                ]}
+                numberOfLines={1}
+              >
+                Book Service
+              </Text>
+              <View style={styles.headerSideBtn} />
+            </View>
+          </View>
           <ScrollView
             ref={scrollViewRef}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            style={styles.wizardScroll}
+            contentContainerStyle={styles.wizardScrollContent}
             showsVerticalScrollIndicator={true}
             nestedScrollEnabled={true}
           >
-            <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.headerContainer}
-            >
-              <View style={styles.headerContent}>
-                <View style={styles.headerLeft} />
-                <Text style={[styles.title, { color: "#fff", fontSize: fontSizes.title }]}>Select your Booking Option</Text>
-                <View style={styles.headerRight}>
-                  <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
-                    <Icon name="close" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </LinearGradient>
+            <View style={styles.bookingPlanSection}>
+              <Text style={[styles.sectionHeading, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+                Booking Plan
+              </Text>
 
-            {/* Booking Type Selection */}
-            <View style={styles.radioRow}>
-              {bookingTypeOptions.map((opt) => {
-                const selected = selectedOption === opt.value;
-                return (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[
-                      styles.radioOption,
-                      { borderColor: selected ? colors.primary : colors.border },
-                      selected && [styles.radioOptionSelected, { backgroundColor: colors.primary + '20' }],
-                    ]}
-                    onPress={() => handleOptionChange(opt.value)}
-                  >
-                    <View style={styles.radioContent}>
-                      <View style={[styles.radioCircle, { borderColor: selected ? colors.primary : colors.border }, selected && { backgroundColor: colors.primary }]}>
-                        {selected && <View style={styles.radioInnerCircle} />}
-                      </View>
-                      <Text style={[styles.radioText, { color: selected ? colors.primary : colors.text, fontSize: fontSizes.text }, selected && styles.radioTextSelected]}>
+              <View style={[styles.segmentedControl, { backgroundColor: isDarkMode ? colors.surface2 : "#e8ecf1" }]}>
+                {bookingTypeOptions.map((opt) => {
+                  const selected = localOption === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.segment,
+                        selected && [
+                          styles.segmentSelected,
+                          {
+                            backgroundColor: isDarkMode ? colors.card : "#ffffff",
+                            shadowColor: BRAND.bookingNavy,
+                          },
+                        ],
+                      ]}
+                      onPress={() => handleOptionChange(opt.value)}
+                      activeOpacity={0.85}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentText,
+                          { color: colors.textSecondary, fontSize: fontSizes.small },
+                          selected && { color: colors.text, fontWeight: "700" },
+                        ]}
+                      >
                         {opt.label}
                       </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
-            {/* Date Option */}
-            {selectedOption === "Date" && (
+            {localOption === "Date" && (
               <>
-                {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
                     mode="single"
                     value={localStartTime?.toDate()}
+                    maxDate={maxDate21Days.toDate()}
                     onChange={(date: Date) => {
                       if (date) {
                         const selected = dayjs(date);
                         const now = dayjs();
-                        
                         if (selected.isBefore(now.add(30, "minute"))) {
                           alert("Please select a time at least 30 minutes from now");
                           return;
                         }
-                        if (selected.hour() < BUSINESS_HOURS.openingHour || selected.hour() >= BUSINESS_HOURS.cutoffHour) {
-                          alert("Please select a time between 5 AM and 10 PM");
+                        if (selected.hour() < 6 || selected.hour() > 19) {
+                          alert("Please select a time between 6 AM and 7 PM");
                           return;
                         }
                         if (selected.isAfter(maxDate21Days)) {
                           alert("Date cannot exceed 21 days from today");
                           return;
                         }
-                        
                         updateStartDate(selected);
                       }
                     }}
                   />
                 </View>
-                {renderBookingDetails()}
-                <View style={[styles.relaxMessageContainer, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
-                  <Text style={[styles.relaxMessageText, { color: colors.primary, fontSize: fontSizes.small }]}>
-                    Relax! We'll handle the rest from here.
-                  </Text>
-                </View>
+                {renderDurationControl()}
+                {renderGenderPreference()}
               </>
             )}
 
-            {/* Short Term Option */}
             {selectedOption === "Short term" && (
               <>
-                {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
                     mode="range"
+                    maxRangeDays={14}
                     value={{
                       startDate: localStartTime?.toDate(),
                       endDate: localEndDate ? dayjs(localEndDate).toDate() : undefined,
                     }}
-                    onChange={(payload: { startDate: Date; endDate: Date; time: string }) => {
+                    onChange={(payload: { startDate: Date; endDate: Date; time?: string }) => {
+                      if (!payload.time) return;
                       const start = dayjs(payload.startDate);
                       const end = dayjs(payload.endDate);
                       const { hour, minute } = parseTimeFromString(payload.time);
-                      
                       const startWithTime = start.hour(hour).minute(minute);
-                      
+
                       if (!isDateDisabled(startWithTime)) {
                         setLocalStartDate(startWithTime.format("YYYY-MM-DD"));
                         setLocalStartTime(startWithTime);
                         setStartDate(startWithTime.format("YYYY-MM-DD"));
                         setStartTime(startWithTime);
-                        
-                        setLocalEndDate(end.format('YYYY-MM-DD'));
-                        setEndDate(end.format('YYYY-MM-DD'));
-                        
-                        const defaultEndTime = startWithTime.add(1, 'hour');
+
+                        setLocalEndDate(end.format("YYYY-MM-DD"));
+                        setEndDate(end.format("YYYY-MM-DD"));
+
+                        const defaultEndTime = applyEndFromStartAndDuration(
+                          startWithTime,
+                          serviceDurationHours
+                        );
                         setLocalEndTime(defaultEndTime);
                         setEndTime(defaultEndTime);
                       }
                     }}
                   />
                 </View>
-                {renderBookingDetails()}
+                {renderDurationControl()}
               </>
             )}
 
-            {/* Monthly Option */}
             {selectedOption === "Monthly" && (
               <>
-                {renderDurationControl()}
                 <View style={styles.dateTimeContainer}>
                   <DribbbleDateTimePicker
                     mode="single"
                     value={localStartTime?.toDate()}
+                    maxDate={maxDate90Days.toDate()}
                     onChange={(date: Date) => {
                       if (date) {
                         const selected = dayjs(date);
                         const now = dayjs();
-                        
                         if (selected.isBefore(now.add(30, "minute"))) {
                           alert("Please select a time at least 30 minutes from now");
                           return;
                         }
-                        if (selected.hour() < BUSINESS_HOURS.openingHour || selected.hour() >= BUSINESS_HOURS.cutoffHour) {
-                          alert("Please select a time between 5 AM and 10 PM");
+                        if (selected.hour() < 6 || selected.hour() > 19) {
+                          alert("Please select a time between 6 AM and 7 PM");
                           return;
                         }
                         if (selected.isAfter(maxDate90Days, "day")) {
@@ -1237,39 +1474,51 @@ const BookingDialog: React.FC<BookingDialogProps> = ({
                           alert("Please select a future date");
                           return;
                         }
-                        
                         updateStartDate(selected);
                       }
                     }}
                   />
                 </View>
-                {renderBookingDetails()}
+                {renderDurationControl()}
                 {localStartDate && localEndDate && (
-                  <View style={[styles.endDateInfo, { backgroundColor: colors.primary + '10' }]}>
+                  <View style={[styles.endDateInfo, { backgroundColor: colors.primary + "10" }]}>
                     <Text style={[styles.endDateInfoText, { color: colors.primary, fontSize: fontSizes.small }]}>
-                      📅 Monthly subscription: {dayjs(localStartDate).format('MMMM D, YYYY')} – {dayjs(localEndDate).format('MMMM D, YYYY')}
+                      Monthly subscription: {dayjs(localStartDate).format("MMMM D, YYYY")} - {dayjs(localEndDate).format("MMMM D, YYYY")}
                     </Text>
                   </View>
                 )}
               </>
             )}
-
-            {/* Action Buttons */}
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.cancelButton, { borderColor: colors.primary }]} onPress={onClose}>
-                <Text style={[styles.cancelText, { color: colors.primary, fontSize: fontSizes.button }]}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.confirmButton, { backgroundColor: colors.primary }, isConfirmDisabled() && [styles.disabledButton, { backgroundColor: colors.disabled }]]}
-                onPress={handleAccept}
-                disabled={isConfirmDisabled()}
-              >
-                <Text style={[styles.confirmText, { color: '#fff', fontSize: fontSizes.button }]}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
           </ScrollView>
-        </View>
+          <View
+            style={[
+              styles.actions,
+              {
+                borderTopColor: BRAND.bookingNavy,
+                backgroundColor: isDarkMode ? colors.card : "#f8fafc",
+                paddingBottom: Math.max(insets.bottom, 14),
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.cancelButton, { borderColor: colors.border, backgroundColor: isDarkMode ? colors.card : "#ffffff" }]}
+              onPress={handleSheetClose}
+            >
+              <Text style={[styles.cancelText, { color: colors.text, fontSize: fontSizes.button }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.confirmButton, { backgroundColor: BRAND.bookingNavy }, isConfirmDisabled() && [styles.disabledButton, { backgroundColor: colors.disabled }]]}
+              onPress={handleAccept}
+              disabled={isConfirmDisabled()}
+            >
+              <Text style={[styles.confirmText, { color: '#fff', fontSize: fontSizes.button }]}>Confirm Booking</Text>
+              <Icon name="arrow-forward" size={18} color="#fff" style={styles.confirmArrow} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -1280,84 +1529,152 @@ export default BookingDialog;
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-end",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(2, 6, 23, 0.18)",
+  },
+  backdropTapArea: {
+    ...StyleSheet.absoluteFillObject,
   },
   container: {
-    width: Dimensions.get("window").width * 0.95,
-    maxHeight: Dimensions.get("window").height * 0.9,
-    borderRadius: 16,
+    width: "100%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
+    borderColor: "rgba(148, 163, 184, 0.25)",
+  },
+  sheetHandleWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  sheetHandleBar: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    opacity: 0.9,
+  },
+  sheetHandleBarLight: {
+    width: 48,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.62)",
+  },
+  headerShell: {
+    position: "relative",
+    backgroundColor: HOME_M3.primary,
+    height: 60,
+    justifyContent: "center",
     overflow: "hidden",
   },
-  headerContainer: {
-    padding: 20,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  headerContent: {
+  headerToolbar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
+    height: 30,
+    paddingHorizontal: 8,
   },
-  headerLeft: {
+  headerSideBtn: {
     width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
-  headerRight: {
-    width: 40,
-    alignItems: "flex-end",
+  headerTitleCenter: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "700",
+    color: HOME_M3.onPrimary,
+    letterSpacing: -0.2,
+    lineHeight: 22,
+    paddingHorizontal: 4,
   },
   closeIcon: {
-    padding: 5,
-  },
-  title: {
-    fontWeight: "700",
-    textAlign: "center",
-    flex: 1,
-  },
-  radioRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginVertical: 12,
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  radioOption: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: "center",
-  },
-  radioOptionSelected: {
-    borderWidth: 2,
-  },
-  radioContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    marginRight: 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  radioInnerCircle: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#fff",
-  },
-  radioText: {
-    fontWeight: "500",
-  },
-  radioTextSelected: {
+  title: {
+    flex: 1,
     fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 22,
+    paddingHorizontal: 4,
+    letterSpacing: 0.2,
+    includeFontPadding: false,
+  },
+  stepMetaRow: {
+    marginTop: 6,
+    alignItems: "center",
+  },
+  stepMetaText: {
+    fontWeight: "600",
+  },
+  progressTrack: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+    gap: 6,
+  },
+  progressDot: {
+    height: 6,
+    borderRadius: 999,
+  },
+  progressDotActive: {
+    width: 22,
+    backgroundColor: "#ffffff",
+  },
+  progressDotInactive: {
+    width: 12,
+    backgroundColor: "rgba(255,255,255,0.45)",
+  },
+  wizardScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  wizardScrollContent: {
+    paddingBottom: 12,
+  },
+  bookingPlanSection: {
+    marginTop: 16,
+    marginHorizontal: 20,
+    marginBottom: 4,
+  },
+  segmentedControl: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 4,
+    marginTop: 12,
+    gap: 4,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentSelected: {
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  segmentText: {
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  sectionHeading: {
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   dateTimeContainer: {
     paddingHorizontal: 20,
@@ -1366,23 +1683,42 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 0,
+    marginBottom: 0,
     paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 14,
     gap: 12,
+    borderTopWidth: 3,
+  },
+  reviewSection: {
+    marginTop: 14,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingTop: 14,
+    paddingBottom: 14,
+    paddingHorizontal: 12,
   },
   cancelButton: {
     flex: 1,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     alignItems: "center",
   },
   confirmButton: {
     flex: 1,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  confirmArrow: {
+    marginLeft: 2,
   },
   confirmText: {
     textAlign: "center",
@@ -1402,6 +1738,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 12,
     marginBottom: 8,
+    backgroundColor: "#f1f5f9",
   },
   durationTitle: {
     fontWeight: "700",
@@ -1421,8 +1758,8 @@ const styles = StyleSheet.create({
   },
   durationButton: {
     borderWidth: 1,
-    borderRadius: 10,
-    minWidth: 44,
+    borderRadius: 22,
+    width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
@@ -1450,16 +1787,40 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   bookingDetailsContainer: {
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginHorizontal: 20,
     marginTop: 12,
     marginBottom: 8,
     borderWidth: 1,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  bookingDetailsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  bookingDetailsHeadingWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bookingTypeBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  bookingTypeBadgeText: {
+    fontWeight: "700",
   },
   bookingDetailsTitle: {
     fontWeight: "700",
-    marginBottom: 12,
   },
   bookingDetailsContent: {
     gap: 8,
@@ -1467,18 +1828,28 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   detailLabel: {
     fontWeight: "600",
+    flex: 0.95,
   },
   detailValue: {
-    fontWeight: "400",
+    fontWeight: "600",
+    flex: 1.05,
+    textAlign: "right",
   },
   infoMessage: {
-    fontStyle: "italic",
-    marginTop: 8,
+    fontStyle: "normal",
+    marginTop: 6,
     textAlign: "center",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   relaxMessageContainer: {
     alignItems: "center",
@@ -1639,6 +2010,49 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   endDateInfoText: {
+    textAlign: "center",
+  },
+  genderPreferenceContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  genderPreferenceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  genderPreferenceTitle: {
+    fontWeight: "700",
+  },
+  genderPreferenceMessage: {
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  genderOptionsContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  genderOptionButton: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    gap: 6,
+  },
+  genderOptionSelected: {
+    borderWidth: 2,
+  },
+  genderOptionText: {
+    fontWeight: "600",
     textAlign: "center",
   },
 });

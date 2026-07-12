@@ -14,8 +14,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  LayoutAnimation,
-  UIManager,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store/userStore';
@@ -30,11 +28,8 @@ import axiosInstance from '../services/axiosInstance';
 import providerInstance from '../services/providerInstance';
 import preferenceInstance from '../services/preferenceInstance'; // Changed from utilsInstance to preferenceInstance
 import { useTheme } from '../../src/Settings/ThemeContext';
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { ProfileContentSkeleton } from '../common/ProfileContentSkeleton';
+import { parseAlternateContact, parsePrimaryContact } from '../utils/profileContact';
 
 const { width } = Dimensions.get('window');
 
@@ -79,6 +74,10 @@ interface CustomerProfileSectionProps {
   initialData?: any;
   isExternalEdit?: boolean;
   setExternalEdit?: (val: boolean) => void;
+  /** When opened from profile hub "Edit Profile" — hide duplicate header, start in edit mode. */
+  embedMode?: boolean;
+  /** Open the add-address form when the screen loads (e.g. from profile hub "Add New"). */
+  initialOpenAddAddress?: boolean;
 }
 
 const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
@@ -88,6 +87,8 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   initialData,
   isExternalEdit,
   setExternalEdit,
+  embedMode = false,
+  initialOpenAddAddress = false,
 }) => {
   const dispatch = useDispatch();
   const { user: auth0User } = useAuth0();
@@ -96,14 +97,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   
   // Add refs for scroll handling
   const scrollViewRef = useRef<ScrollView>(null);
-  const activeInputRef = useRef<View | null>(null);
+  const addressesSectionY = useRef(0);
+  const didOpenAddAddressRef = useRef(false);
+  const firstNameFieldRef = useRef<View>(null);
+  const lastNameFieldRef = useRef<View>(null);
+  const contactFieldRef = useRef<View>(null);
+  const altContactFieldRef = useRef<View>(null);
 
   // Redux state
   const { customerId, hasMobileNumber: reduxHasMobileNumber } = useSelector(
     (state: RootState) => state.customer
   );
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(!!isExternalEdit || !!embedMode);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<UserData>({
@@ -155,29 +161,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   // Derive hasMobileNumber from actual userData
   const hasMobileNumber = !!userData.contactNumber;
 
-  // Keyboard listeners to prevent layout shift
+  // Keyboard listeners — avoid invalid LayoutAnimation configs on Android (can crash).
   useEffect(() => {
     const keyboardWillShow = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
+      () => {
         setKeyboardVisible(true);
-        // Disable LayoutAnimation during keyboard show to prevent glitch
-        LayoutAnimation.configureNext({
-          duration: 0,
-          update: { type: 'linear', property: 'opacity' },
-        });
       }
     );
-    
+
     const keyboardWillHide = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
-        // Disable LayoutAnimation during keyboard hide
-        LayoutAnimation.configureNext({
-          duration: 0,
-          update: { type: 'linear', property: 'opacity' },
-        });
       }
     );
 
@@ -261,10 +257,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       const data = response.data?.data;
 
       const userDataFromApi = {
-        firstName: data?.firstname || '',
-        lastName: data?.lastname || '',
-        contactNumber: data?.mobileno || '',
-        altContactNumber: data?.alternateno || '',
+        firstName: data?.firstName || data?.firstname || '',
+        lastName: data?.lastName || data?.lastname || '',
+        contactNumber: parsePrimaryContact(data),
+        altContactNumber: parseAlternateContact(data),
       };
 
       setUserData(userDataFromApi);
@@ -341,10 +337,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       if (userId) {
         if (initialData) {
           const userDataFromProps = {
-            firstName: initialData.firstname || '',
-            lastName: initialData.lastname || '',
-            contactNumber: initialData.mobileno || '',
-            altContactNumber: initialData.alternateno || '',
+            firstName: initialData.firstName || initialData.firstname || '',
+            lastName: initialData.lastName || initialData.lastname || '',
+            contactNumber: parsePrimaryContact(initialData),
+            altContactNumber: parseAlternateContact(initialData),
           };
           setUserData(userDataFromProps);
           setOriginalData(prev => ({
@@ -361,6 +357,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
     loadData();
   }, [userId, initialData]);
+
+  useEffect(() => {
+    if (!initialOpenAddAddress || isLoading || !isEditing || didOpenAddAddressRef.current) {
+      return;
+    }
+    didOpenAddAddressRef.current = true;
+    setShowAddAddress(true);
+    const timer = setTimeout(() => {
+      const y = Math.max(addressesSectionY.current - 16, 0);
+      scrollViewRef.current?.scrollTo({ y, animated: true });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [initialOpenAddAddress, isLoading, isEditing]);
 
   // Validation functions
   const validateMobileFormat = (number: string): boolean => {
@@ -440,18 +449,28 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
   const debouncedValidation = useDebouncedValidation();
 
-  // Input handlers with scroll adjustment
-  const handleInputFocus = (event: any, inputRef: View) => {
-    activeInputRef.current = inputRef;
-    // Small delay to ensure keyboard is shown before scrolling
+  const scrollFieldIntoView = (fieldRef: React.RefObject<View | null>) => {
+    const scrollView = scrollViewRef.current;
+    const field = fieldRef.current;
+    if (!scrollView || !field) return;
+
+    const delay = Platform.OS === 'android' ? 250 : 100;
     setTimeout(() => {
-      if (scrollViewRef.current && inputRef) {
-        // Measure the input position and scroll to it
-        inputRef.measureLayout(scrollViewRef.current as any, (x, y) => {
-          scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
-        });
+      try {
+        field.measureLayout(
+          scrollView as unknown as number,
+          (_x, y) => {
+            scrollViewRef.current?.scrollTo({
+              y: Math.max(y - 100, 0),
+              animated: true,
+            });
+          },
+          () => {}
+        );
+      } catch {
+        // measureLayout is unreliable with synthetic event targets on Android.
       }
-    }, 100);
+    }, delay);
   };
 
   const handleContactNumberChange = (value: string) => {
@@ -784,56 +803,14 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     { label: '+971 (UAE)', value: '+971' },
   ];
 
-  // Loading skeleton
   if (isLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.skeletonCard, { backgroundColor: colors.card }]}>
-          <View style={styles.skeletonHeader}>
-            <View style={[styles.skeletonTitle, { backgroundColor: colors.surface }]} />
-            <View style={[styles.skeletonButton, { backgroundColor: colors.surface }]} />
-          </View>
-          <View style={styles.skeletonSection}>
-            <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
-            <View style={styles.skeletonRow}>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-            </View>
-            <View style={styles.skeletonRow}>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-              <View style={styles.skeletonInputGroup}>
-                <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                <View style={[styles.skeletonInput, { backgroundColor: colors.surface }]} />
-              </View>
-            </View>
-          </View>
-          <View style={[styles.skeletonDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.skeletonSection}>
-            <View style={[styles.skeletonSectionTitle, { backgroundColor: colors.surface }]} />
-            <View style={styles.skeletonAddressCard}>
-              <View style={[styles.skeletonAddressTitle, { backgroundColor: colors.surface }]} />
-              <View style={[styles.skeletonAddressLine, { backgroundColor: colors.surface }]} />
-              <View style={[styles.skeletonAddressLineShort, { backgroundColor: colors.surface }]} />
-            </View>
-          </View>
-        </View>
-      </View>
-    );
+    return <ProfileContentSkeleton />;
   }
 
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <ScrollView
@@ -845,26 +822,27 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       >
         <View style={styles.mainContent}>
           <View style={[styles.formContainer, { backgroundColor: colors.card }]}>
-            {/* Header */}
-            <View style={[styles.formHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.formTitle, { color: colors.text, fontSize: fontSizes.formTitle }]}>
-                My Account
-              </Text>
-              {!isEditing && (
-                <TouchableOpacity
-                  style={[styles.editButtonTop, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    setOriginalData({ userData: { ...userData }, addresses: [...addresses] });
-                    setIsEditing(true);
-                  }}
-                >
-                  <Icon name="edit-3" size={16} color="#fff" />
-                  <Text style={[styles.editButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
-                    Edit
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            {!embedMode && (
+              <View style={[styles.formHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.formTitle, { color: colors.text, fontSize: fontSizes.formTitle }]}>
+                  My Account
+                </Text>
+                {!isEditing && (
+                  <TouchableOpacity
+                    style={[styles.editButtonTop, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      setOriginalData({ userData: { ...userData }, addresses: [...addresses] });
+                      setIsEditing(true);
+                    }}
+                  >
+                    <Icon name="edit-3" size={16} color="#fff" />
+                    <Text style={[styles.editButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                      Edit
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             {/* User Information */}
             <View>
@@ -914,7 +892,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               </View>
 
               <View style={styles.nameRow}>
-                <View style={styles.nameInput}>
+                <View style={styles.nameInput} ref={firstNameFieldRef} collapsable={false}>
                   <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
                     First Name
                   </Text>
@@ -934,10 +912,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     editable={isEditing}
                     placeholder="Enter first name"
                     placeholderTextColor={colors.placeholder}
-                    onFocus={(e) => handleInputFocus(e, e.target as any)}
+                    onFocus={() => scrollFieldIntoView(firstNameFieldRef)}
                   />
                 </View>
-                <View style={styles.nameInput}>
+                <View style={styles.nameInput} ref={lastNameFieldRef} collapsable={false}>
                   <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
                     Last Name
                   </Text>
@@ -957,7 +935,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     editable={isEditing}
                     placeholder="Enter last name"
                     placeholderTextColor={colors.placeholder}
-                    onFocus={(e) => handleInputFocus(e, e.target as any)}
+                    onFocus={() => scrollFieldIntoView(lastNameFieldRef)}
                   />
                 </View>
               </View>
@@ -987,7 +965,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     {hasMobileNumber ? ` ✓ Verified` : ` ⚠ Required`}
                   </Text>
                 </View>
-                <View style={styles.phoneInputContainer}>
+                <View style={styles.phoneInputContainer} ref={contactFieldRef} collapsable={false}>
                   {isEditing ? (
                     <TouchableOpacity
                       style={[
@@ -1038,7 +1016,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     editable={isEditing}
                     keyboardType="phone-pad"
                     maxLength={10}
-                    onFocus={(e) => handleInputFocus(e, e.target as any)}
+                    onFocus={() => scrollFieldIntoView(contactFieldRef)}
                   />
                   {isEditing && (
                     <View style={styles.validationIcon}>
@@ -1071,7 +1049,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
                   Alternative Contact
                 </Text>
-                <View style={styles.phoneInputContainer}>
+                <View style={styles.phoneInputContainer} ref={altContactFieldRef} collapsable={false}>
                   {isEditing ? (
                     <TouchableOpacity
                       style={[
@@ -1122,7 +1100,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     editable={isEditing}
                     keyboardType="phone-pad"
                     maxLength={10}
-                    onFocus={(e) => handleInputFocus(e, e.target as any)}
+                    onFocus={() => scrollFieldIntoView(altContactFieldRef)}
                   />
                   {isEditing && (
                     <View style={styles.validationIcon}>
@@ -1147,7 +1125,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             </View>
 
             {/* Addresses Section */}
-            <View style={styles.addressesSection}>
+            <View
+              style={styles.addressesSection}
+              onLayout={(e) => {
+                addressesSectionY.current = e.nativeEvent.layout.y;
+              }}
+            >
               <View style={styles.addressesHeader}>
                 <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
                   Addresses
@@ -1838,7 +1821,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6c757d',
   },
   saveButton: {
-    backgroundColor: '#0a2a66',
+    backgroundColor: '#0b5bd3',
   },
   disabledButton: {
     opacity: 0.6,

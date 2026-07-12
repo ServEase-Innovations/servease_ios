@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import {
   HelperText,
@@ -15,6 +16,7 @@ import {
 import CustomFileInput from "./CustomFileInput";
 import { useTheme } from "../../src/Settings/ThemeContext";
 import { useTranslation } from 'react-i18next';
+import { registrationKeyboardInputProps } from "../common/RegistrationKeyboardAccessory";
 
 interface KYCVerificationProps {
   formData: any;
@@ -23,6 +25,8 @@ interface KYCVerificationProps {
   onFieldFocus: (fieldName: string) => void;
   onDocumentUpload: (file: any) => void;
   onKycTypeChange: (kycType: string) => void;
+  isUploading?: boolean;
+  uploadedUrl?: string;
 }
 
 const KYCVerification: React.FC<KYCVerificationProps> = ({
@@ -32,6 +36,8 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
   onFieldFocus,
   onDocumentUpload,
   onKycTypeChange,
+  isUploading = false,
+  uploadedUrl = "",
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
   const { t } = useTranslation();
@@ -96,6 +102,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
           noteText: 12,
           buttonText: 14,
           errorText: 11,
+          successText: 11,
         };
       case 'large':
         return {
@@ -111,6 +118,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
           noteText: 15,
           buttonText: 16,
           errorText: 14,
+          successText: 14,
         };
       default:
         return {
@@ -126,6 +134,7 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
           noteText: 13,
           buttonText: 15,
           errorText: 12,
+          successText: 12,
         };
     }
   };
@@ -224,6 +233,12 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
       marginTop: 4,
       marginLeft: 0,
     },
+    successText: {
+      fontSize: fontSizes.successText,
+      color: colors.success,
+      marginTop: 6,
+      marginLeft: 4,
+    },
     divider: {
       height: 1,
       backgroundColor: colors.border,
@@ -272,6 +287,10 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
       color: colors.text,
       marginBottom: 8,
     },
+    uploadStatusContainer: {
+      marginTop: 6,
+      marginLeft: 4,
+    },
     noteContainer: {
       backgroundColor: colors.surface,
       padding: 16,
@@ -317,16 +336,27 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
       fontSize: fontSizes.buttonText,
       fontWeight: '500',
     },
+    uploadingIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 6,
+      marginLeft: 4,
+    },
+    uploadingText: {
+      fontSize: fontSizes.helper,
+      color: colors.textSecondary,
+      marginLeft: 8,
+    },
   });
 
   return (
     <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
       <View style={dynamicStyles.content}>
 
-        {/* KYC Type Selection */}
+        {/* KYC Type Selection - NON-MANDATORY (removed asterisk) */}
         <View style={dynamicStyles.section}>
           <Text style={dynamicStyles.sectionTitle}>
-            {t('registration.kyc.selectDocument')} <Text style={dynamicStyles.asterisk}>*</Text>
+            {t('registration.kyc.selectDocument')}
           </Text>
           
           <View style={dynamicStyles.optionsContainer}>
@@ -381,9 +411,10 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
             </Text>
           </View>
 
-          {/* Document Number Input */}
+          {/* Document Number Input - NON-MANDATORY */}
           <View style={dynamicStyles.inputWrapper}>
             <TextInput
+              {...registrationKeyboardInputProps}
               style={[
                 dynamicStyles.input,
                 errors.kycNumber && dynamicStyles.inputError
@@ -411,19 +442,37 @@ const KYCVerification: React.FC<KYCVerificationProps> = ({
             )}
           </View>
 
-          {/* Document Upload */}
+          {/* Document Upload - NON-MANDATORY */}
           <View style={dynamicStyles.uploadSection}>
             <Text style={dynamicStyles.uploadLabel}>
-              {t('registration.kyc.uploadDocument', { document: currentOption.label })} <Text style={dynamicStyles.asterisk}>*</Text>
+              {t('registration.kyc.uploadDocument', { document: currentOption.label })}
             </Text>
             <CustomFileInput
               name="documentImage"
               accept="image/*,.pdf"
-              required
               value={formData.documentImage}
               onChange={handleFileChange}
-              buttonText={t('registration.kyc.chooseFile')}
+              buttonText={isUploading ? t('registration.kyc.uploading') : t('registration.kyc.chooseFile')}
+              disabled={isUploading}
             />
+            
+            {/* Uploading indicator */}
+            {isUploading && (
+              <View style={dynamicStyles.uploadingIndicator}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={dynamicStyles.uploadingText}>
+                  {t('registration.kyc.uploading')}
+                </Text>
+              </View>
+            )}
+            
+            {/* Success message after upload */}
+            {uploadedUrl && !isUploading && (
+              <HelperText type="info" visible={true} style={{ color: colors.success, fontSize: fontSizes.successText }}>
+                ✓ {t('registration.kyc.documentUploaded')}
+              </HelperText>
+            )}
+            
             {errors.documentImage && (
               <HelperText type="error" visible={!!errors.documentImage} style={{ color: colors.error, fontSize: fontSizes.errorText }}>
                 {errors.documentImage}

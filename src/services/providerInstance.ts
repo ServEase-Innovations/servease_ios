@@ -1,16 +1,29 @@
 // src/services/providerInstance.ts
 import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URLS } from '../config/apiUrls';
 
 const providerInstance = axios.create({
-  baseURL: 'https://providers-08ug.onrender.com',
+  baseURL: API_URLS.providers,
   // Add timeout to prevent hanging requests
-  timeout: 30000, // 30 seconds
+  timeout: 90000, // nearby-monthly can be slow on cold Render instances
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
+
+/** Absolute URL for logging (baseURL + path + query). */
+export function resolveProviderRequestUrl(
+  config: Pick<InternalAxiosRequestConfig, 'baseURL' | 'url'>
+): string {
+  const base = String(
+    config.baseURL || providerInstance.defaults.baseURL || API_URLS.providers
+  ).replace(/\/$/, '');
+  const path = String(config.url || '');
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
 
 // Request Interceptor
 providerInstance.interceptors.request.use(
@@ -27,11 +40,14 @@ providerInstance.interceptors.request.use(
     
     // Add timestamp for debugging
     config.headers['X-Request-Timestamp'] = new Date().toISOString();
+
+    const fullUrl = resolveProviderRequestUrl(config);
     
-    console.log('🌐 API Request:', {
-      url: config.url,
-      method: config.method,
-      headers: config.headers,
+    console.log('🌐 Provider API Request:', {
+      fullUrl,
+      baseURL: config.baseURL || providerInstance.defaults.baseURL,
+      path: config.url,
+      method: config.method?.toUpperCase(),
       data: config.data,
     });
     
@@ -46,19 +62,24 @@ providerInstance.interceptors.request.use(
 // Response Interceptor
 providerInstance.interceptors.response.use(
   (response: AxiosResponse) => {
-    console.log('✅ API Response:', {
-      url: response.config.url,
+    const fullUrl = resolveProviderRequestUrl(response.config);
+    console.log('✅ Provider API Response:', {
+      fullUrl,
       status: response.status,
       data: response.data,
     });
     return response;
   },
   async (error: AxiosError) => {
-    console.error('❌ API Error:', {
-      url: error.config?.url,
+    const fullUrl = error.config ? resolveProviderRequestUrl(error.config) : 'unknown';
+    console.error('❌ Provider API Error:', {
+      fullUrl,
+      baseURL: error.config?.baseURL || providerInstance.defaults.baseURL,
+      path: error.config?.url,
       status: error.response?.status,
       message: error.message,
       responseData: error.response?.data,
+      requestBody: error.config?.data,
     });
 
     if (error.response?.status === 401) {

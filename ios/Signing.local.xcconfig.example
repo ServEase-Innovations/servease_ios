@@ -1,0 +1,8 @@
+// Copy to Signing.local.xcconfig (gitignored) and fill in your values.
+// Find your Team ID in Xcode → Settings → Accounts → [Your Apple ID] → Team ID
+// Or: security find-identity -v -p codesigning
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID_HERE
+
+// Servease Innovation team bundle id (App Store / TestFlight).
+PRODUCT_BUNDLE_IDENTIFIER = in.serveaseinnovation.serveaso

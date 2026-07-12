@@ -1,9 +1,8 @@
 // Head.tsx - UPDATED: Pass closeDropdowns to LocationSelector
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   Modal,
@@ -18,6 +17,8 @@ import FeatherIcon from "react-native-vector-icons/Feather";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import { useSelector, useDispatch } from "react-redux";
 import { add, remove } from "../features/userSlice";
+import { clearCustomer } from "../features/customerSlice";
+import { clearMobileAuthStorage, tryClearAuth0Session } from "../utils/signOutSession";
 import {
   ADMIN,
   BOOKINGS,
@@ -29,18 +30,25 @@ import {
 } from "../Constants/pagesConstants";
 import { useAuth0 } from "react-native-auth0";
 import LinearGradient from "react-native-linear-gradient";
-import WalletDialog from "../UserProfile/WalletDialog";
 import TnC from "../TermsAndConditions/TnC";
+import { HomeHeroPageHeader } from "../common/HomeHeroPageHeader";
 import AboutPage from "../AboutUs/AboutPage";
 import ContactUs from "../ContactUs/ContactUs";
 import LocationSelector from "../Header/LocationSelector";
 import axios from "axios";
+import preferenceInstance from "../services/preferenceInstance";
+import { logAuth0Error, runAuth0Authorize } from "../utils/auth0Config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Snackbar from "react-native-snackbar";
 import { useAppUser } from "../context/AppUserContext";
+import { resolveCustomerId } from "../services/couponService";
 import NotificationsDialog from "../Notifications/NotificationsPage";
-import { addLocation } from "../features/geoLocationSlice";
+import PaymentInstance from "../services/paymentInstance";
+import { recipientParams } from "../Notifications/inAppNotificationUtils";
+import { addLocation, remove as clearGeoLocation } from "../features/geoLocationSlice";
 import Booking from "../UserProfile/Bookings";
 import { useTheme } from "../../src/Settings/ThemeContext";
+import { BOOKING_HEADER_GRADIENT } from "../theme/brandColors";
 
 interface ChildComponentProps {
   sendDataToParent: (data: string) => void;
@@ -49,6 +57,7 @@ interface ChildComponentProps {
   onContactClick: () => void;
   onLogoClick: () => void;
   closeDropdowns?: boolean; // Add this prop
+  onSignOutComplete?: () => Promise<void>;
 }
 
 interface LocationData {
@@ -63,6 +72,8 @@ interface LocationData {
 
 const { width } = Dimensions.get("window");
 const isMobile = width < 768;
+export const HEADER_BAR_HEIGHT = 72;
+const HEADER_CONTROL_HEIGHT = 40;
 
 const Head: React.FC<ChildComponentProps> = ({ 
   sendDataToParent, 
@@ -70,31 +81,36 @@ const Head: React.FC<ChildComponentProps> = ({
   onAboutClick,
   onContactClick,
   onLogoClick,
-  closeDropdowns = false // Receive the prop
+  closeDropdowns = false,
+  onSignOutComplete,
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
-  const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
+  const chromeGradient = [...BOOKING_HEADER_GRADIENT];
   const {
     authorize,
     clearSession,
+    cancelWebAuth,
     user: auth0User,
     getCredentials,
     isLoading: auth0Loading,
   } = useAuth0();
 
   const dispatch = useDispatch();
+  const { setAppUser, clearAppUser, appUser, isLoading: isUserLoading } = useAppUser();
   const dropdownRef = useRef<View>(null);
+  const loadedPreferencesForRef = useRef<number | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("");
   const [userPreference, setUserPreference] = useState<any>([]);
-  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [showTnC, setShowTnC] = useState(false);
   const [showAboutUs, setShowAboutUs] = useState(false);
   const [showContactUs, setShowContactUs] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [inAppUnread, setInAppUnread] = useState(0);
   const [showBookings, setShowBookings] = useState(false);
   const [selectedService, setSelectedService] = useState("");
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
+  const [locationPreferencesReady, setLocationPreferencesReady] = useState(false);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -124,15 +140,6 @@ const Head: React.FC<ChildComponentProps> = ({
       setMenuVisible(false);
     }
   }, [closeDropdowns]);
-
-  const showSuccessSnackbar = (message: string) => {
-    Snackbar.show({
-      text: message,
-      duration: Snackbar.LENGTH_SHORT,
-      backgroundColor: colors.success,
-      textColor: "#ffffff",
-    });
-  };
 
   const showErrorSnackbar = (message: string) => {
     Snackbar.show({
@@ -176,6 +183,31 @@ const Head: React.FC<ChildComponentProps> = ({
     }
   };
 
+  const refreshInAppUnread = useCallback(async () => {
+    const r = recipientParams(appUser);
+    if (!r) {
+      setInAppUnread(0);
+      return;
+    }
+    try {
+      const { data } = await PaymentInstance.get("/api/in-app-notifications/unread-count", {
+        params: {
+          recipientType: r.recipientType,
+          recipientId: r.recipientId,
+        },
+      });
+      if (data?.count != null) setInAppUnread(Number(data.count));
+    } catch {
+      /* non-blocking */
+    }
+  }, [appUser]);
+
+  useEffect(() => {
+    void refreshInAppUnread();
+    const interval = setInterval(() => void refreshInAppUnread(), 30000);
+    return () => clearInterval(interval);
+  }, [refreshInAppUnread]);
+
   const handleNotificationClick = () => {
     setMenuVisible(false);
     setShowNotifications(true);
@@ -183,6 +215,7 @@ const Head: React.FC<ChildComponentProps> = ({
 
   const handleCloseNotifications = () => {
     setShowNotifications(false);
+    void refreshInAppUnread();
   };
 
   const handleCloseBookings = () => {
@@ -218,129 +251,33 @@ const Head: React.FC<ChildComponentProps> = ({
     console.log(`Service selected: ${service}, Type: ${serviceType}`);
   };
 
-  const { setAppUser, appUser } = useAppUser();
-
-  useEffect(() => {
-    const run = async () => {
-      if (!auth0User || auth0Loading || !auth0User?.email) {
-        console.log("Auth0 user not available yet");
-        return;
-      }
-
-      try {
-        const token = await getCredentials();
-        console.log("Access Token:", token?.accessToken);
-        console.log("User authenticated:", auth0User);
-
-        const email = auth0User.email ?? "";
-
-        const response = await axios.get(
-          `https://utils-ndt3.onrender.com/customer/check-email?email=${encodeURIComponent(
-            email
-          )}`
-        );
-        console.log("Email check response:", response.data);
-
-        if (!response.data.user_role) {
-          await createUser(auth0User);
-        } else if (response.data.user_role === "SERVICE_PROVIDER") {
-          setAppUser({
-            ...auth0User,
-            role: "SERVICE_PROVIDER",
-            serviceProviderId: response.data.id,
-          });
-        } else if (response.data.user_role === "VENDOR") {
-          setAppUser({
-            ...auth0User,
-            role: "VENDOR",
-            vendorId: response.data.id,
-          });
-        } else {
-          setAppUser({
-            ...auth0User,
-            role: "CUSTOMER",
-            customerid: response.data.id,
-          });
-          await getCustomerPreferences(Number(response.data.id));
-        }
-
-        console.log("Post-login steps complete ✅");
-      } catch (error) {
-        console.error("Error during post-login API call:", error);
-        showErrorSnackbar("Failed to complete login process");
-      }
-    };
-
-    run().catch((error) => {
-      console.error("Error in run function:", error);
-      showErrorSnackbar("Login process failed");
-    });
-  }, [auth0User, auth0Loading, getCredentials]);
-
-  const createUser = async (user: any) => {
-    try {
-      const userData = {
-        firstName: user.given_name || user.name?.split(" ")[0] || "User",
-        lastName: user.family_name || user.name?.split(" ")[1] || "",
-        emailId: user.email,
-        password: "password",
-      };
-
-      console.log("Creating user with data:", userData);
-
-      const response = await axios.post(
-        "https://servease-be-5x7f.onrender.com/api/customer/add-customer-new",
-        userData
-      );
-
-      console.log("User creation response:", response.data);
-
-      if (response.data && response.data.id) {
-        const customerId = Number(response.data.id);
-        setAppUser({
-          ...user,
-          role: "CUSTOMER",
-          customerid: response.data.id,
-        });
-        await getCustomerPreferences(customerId);
-      } else {
-        console.warn("Unexpected response format:", response.data);
-        showErrorSnackbar("Unexpected response during user creation");
-      }
-    } catch (error) {
-      console.error("Error creating user:", error);
-      showErrorSnackbar("Failed to create user account");
-    }
-  };
-
   const getCustomerPreferences = async (customerId: number) => {
+    if (loadedPreferencesForRef.current === customerId) {
+      setLocationPreferencesReady(true);
+      return;
+    }
+    setLocationPreferencesReady(false);
     try {
-      const response = await axios.get(
-        `https://utils-ndt3.onrender.com/user-settings/${customerId}`
+      const response = await preferenceInstance.get(
+        `/api/user-settings/${customerId}`
       );
       console.log("Response from user settings API:", response.data);
 
       if (response.status === 200) {
         console.log("Customer preferences fetched successfully:", response.data);
+        loadedPreferencesForRef.current = customerId;
         setUserPreference(response.data);
-        if (auth0User) {
-          setAppUser({
-            ...auth0User,
-            role: "CUSTOMER",
-            customerid: customerId,
-          });
-        }
-        if (auth0User) {
-          showSuccessSnackbar(`Welcome back, ${auth0User.name || auth0User.email}!`);
-        }
       }
     } catch (error: any) {
       if (error.response?.status === 404) {
-        createUserPreferences(customerId);
+        await createUserPreferences(customerId);
+        loadedPreferencesForRef.current = customerId;
       } else {
         console.error("Unexpected error fetching user settings:", error);
         showErrorSnackbar("Failed to load user preferences");
       }
+    } finally {
+      setLocationPreferencesReady(true);
     }
   };
 
@@ -353,16 +290,13 @@ const Head: React.FC<ChildComponentProps> = ({
 
       console.log("Creating user preferences with payload:", payload);
 
-      const response = await axios.post(
-        "https://utils-ndt3.onrender.com/user-settings",
+      const response = await preferenceInstance.post(
+        "/api/user-settings",
         payload
       );
 
       if (response.status === 200 || response.status === 201) {
-        setUserPreference(payload);
-        if (auth0User) {
-          showSuccessSnackbar(`Welcome to Serveaso, ${auth0User.name || auth0User.email}!`);
-        }
+        setUserPreference([{ customerId, savedLocations: [] }]);
       } else {
         console.warn("Unexpected response:", response);
         showErrorSnackbar("Failed to create user preferences");
@@ -372,6 +306,27 @@ const Head: React.FC<ChildComponentProps> = ({
       showErrorSnackbar("Failed to save user settings");
     }
   };
+
+  useEffect(() => {
+    if (auth0Loading) {
+      return;
+    }
+
+    const customerId = resolveCustomerId(appUser);
+    const role = String(appUser?.role || "").toUpperCase();
+    if (role !== "CUSTOMER" || !customerId || !appUser?.token) {
+      setLocationPreferencesReady(true);
+      return;
+    }
+
+    const idNum = Number(customerId);
+    if (loadedPreferencesForRef.current === idNum) {
+      setLocationPreferencesReady(true);
+      return;
+    }
+
+    void getCustomerPreferences(idNum);
+  }, [appUser, auth0Loading]);
 
   const handleClick = (e: string) => {
     setCurrentPage(e);
@@ -388,11 +343,33 @@ const Head: React.FC<ChildComponentProps> = ({
       sendDataToParent(e);
     }
   };
+
+  const resetHeaderLocationSession = useCallback(() => {
+    setUserPreference([]);
+    loadedPreferencesForRef.current = null;
+    setLocationPreferencesReady(false);
+    setCurrentLocation(null);
+    dispatch(clearGeoLocation());
+  }, [dispatch]);
+
   const handleSignOut = async () => {
     try {
+      resetHeaderLocationSession();
+      await clearMobileAuthStorage();
+      await clearAppUser();
+      await tryClearAuth0Session(clearSession);
+
+      dispatch(remove());
+      dispatch(clearCustomer());
+
       setMenuVisible(false);
-      setCurrentLocation(null);
-      handleClick("sign_out");
+
+      if (onSignOutComplete) {
+        await onSignOutComplete();
+      } else {
+        handleClick("sign_out");
+      }
+
       showInfoSnackbar("Signed out successfully");
     } catch (e) {
       console.log("Log out error:", e);
@@ -403,20 +380,10 @@ const Head: React.FC<ChildComponentProps> = ({
   const handleLoginClick = async () => {
     setMenuVisible(false);
     try {
-      await authorize(
-        {
-          scope: "openid profile email",
-          redirectUrl:
-            "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
-        },
-        {
-          customScheme: "com.serveaso",
-        }
-      );
-
-      const credentials = await getCredentials();
+      await runAuth0Authorize(authorize, cancelWebAuth);
+      await getCredentials();
     } catch (e) {
-      console.log("Login error:", e);
+      logAuth0Error("login failed", e);
       showErrorSnackbar("Login failed. Please try again.");
     }
   };
@@ -441,11 +408,6 @@ const Head: React.FC<ChildComponentProps> = ({
     handleClick(AGENT_DASHBOARD);
   };
 
-  const handleWalletClick = () => {
-    setMenuVisible(false);
-    setIsWalletOpen(true);
-  };
-
   const handleMenuPress = () => {
     setMenuVisible(!menuVisible);
   };
@@ -457,31 +419,31 @@ const Head: React.FC<ChildComponentProps> = ({
   const getLocationData = () => currentLocation;
 
   const dynamicStyles = StyleSheet.create({
-    headerContainer: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
+    headerShell: {
+      width: "100%",
+      height: HEADER_BAR_HEIGHT,
       zIndex: 50,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      overflow: "visible",
+    },
+    headerGradient: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    headerRow: {
+      height: HEADER_BAR_HEIGHT,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      height: 70,
-      elevation: 3,
-      // paddingHorizontal: 12,
+      paddingLeft: 16,
+      paddingRight: 12,
+      overflow: "visible",
+      gap: 8,
     },
     alertsButton: {
-      flex: 0.5,
+      flexShrink: 0,
       justifyContent: "center",
       alignItems: "center",
-      width: 90,
-      height: 90,
-      borderRadius: 45,
-      marginLeft: 4,
+      alignSelf: "center",
+      width: HEADER_CONTROL_HEIGHT,
+      height: HEADER_CONTROL_HEIGHT,
     },
     modalContainer: {
       flex: 1,
@@ -504,54 +466,52 @@ const Head: React.FC<ChildComponentProps> = ({
   });
 
   return (
-    <View style={{ position: "relative" }}>
-      <LinearGradient
-        colors={chromeGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={dynamicStyles.headerContainer}
-      >
-        {/* Logo Section */}
-        <View style={styles.logoContainer}>
-          <TouchableOpacity onPress={onLogoClick}>
-            <Image
-              source={require("../../assets/images/serveaso_text_logo.png")}
-              style={styles.logo}
+    <>
+      <View style={dynamicStyles.headerShell}>
+        <LinearGradient
+          colors={chromeGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={dynamicStyles.headerGradient}
+        />
+        <View style={dynamicStyles.headerRow}>
+          <View style={styles.locationContainer}>
+            <LocationSelector
+              key={String(resolveCustomerId(appUser) ?? "guest")}
+              userPreference={userPreference}
+              setUserPreference={setUserPreference}
+              onLocationChange={handleLocationChange}
+              closeDropdown={closeDropdowns}
+              locationPreferencesReady={locationPreferencesReady}
+              isUserLoading={isUserLoading}
+              variant="chrome"
             />
+          </View>
+
+          <TouchableOpacity
+            onPress={handleNotificationClick}
+            style={dynamicStyles.alertsButton}
+            accessibilityLabel="Notifications"
+          >
+            <View style={styles.alertsButtonInner}>
+              <MaterialIcon name="notifications-none" size={26} color="#fff" />
+              {inAppUnread > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>
+                    {inAppUnread > 99 ? "99+" : inAppUnread}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         </View>
-
-        {/* Location Selector - Pass closeDropdowns prop */}
-        <View style={styles.locationContainer}>
-          <LocationSelector
-            userPreference={userPreference}
-            setUserPreference={setUserPreference}
-            onLocationChange={handleLocationChange}
-            closeDropdown={closeDropdowns} // Pass the prop here
-          />
-        </View>
-
-        {/* Alerts Button */}
-        <TouchableOpacity
-          onPress={handleNotificationClick}
-          style={dynamicStyles.alertsButton}
-        >
-          <View style={styles.alertsButtonInner}>
-            <MaterialIcon name="notifications" size={22} color="#fff" />
-          </View>
-        </TouchableOpacity>
-      </LinearGradient>
-
-      {/* Wallet Dialog */}
-      <WalletDialog
-        open={isWalletOpen}
-        onClose={() => setIsWalletOpen(false)}
-      />
+      </View>
 
       {/* Notifications Dialog */}
       <NotificationsDialog
         visible={showNotifications}
         onClose={handleCloseNotifications}
+        onUnreadCountChange={setInAppUnread}
       />
 
       {/* Bookings Dialog */}
@@ -583,23 +543,18 @@ const Head: React.FC<ChildComponentProps> = ({
         onRequestClose={() => setShowTnC(false)}
       >
         <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={chromeGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>Terms and Conditions</Text>
-            <TouchableOpacity onPress={() => setShowTnC(false)}>
-              <Icon name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-          </LinearGradient>
+          <HomeHeroPageHeader
+            title="Terms & Conditions"
+            onBack={() => setShowTnC(false)}
+          />
           <TnC />
         </View>
       </Modal>
 
       {/* About Page */}
-      <AboutPage visible={showAboutUs} onBack={() => setShowAboutUs(false)} />
+      {showAboutUs ? (
+        <AboutPage visible={showAboutUs} onBack={() => setShowAboutUs(false)} />
+      ) : null}
 
       {/* Contact Us Modal */}
       <Modal
@@ -607,52 +562,46 @@ const Head: React.FC<ChildComponentProps> = ({
         animationType="slide"
         onRequestClose={() => setShowContactUs(false)}
       >
-        <View style={dynamicStyles.modalContainer}>
-          <LinearGradient
-            colors={chromeGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={dynamicStyles.modalHeader}
-          >
-            <Text style={dynamicStyles.modalTitle}>Contact Us</Text>
-            <TouchableOpacity onPress={() => setShowContactUs(false)}>
-              <Icon name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-          </LinearGradient>
-          <ContactUs />
-        </View>
+        <ContactUs onBack={() => setShowContactUs(false)} />
       </Modal>
-    </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  logoContainer: {
-    flex: 1,
-    alignItems: "flex-start",
-    justifyContent: "center",
-    paddingTop: 20,
-    paddingLeft: 10,
-  },
-  logo: {
-    height: 40,
-    width: 150,
-    resizeMode: "contain",
-  },
   locationContainer: {
-    flex: 2.5,
+    flex: 1,
+    minWidth: 0,
+    alignSelf: "center",
     justifyContent: "center",
-    alignItems: "stretch",
-    height: 50,
-    marginHorizontal: 8,
-    paddingBottom: 10,
+    zIndex: 200,
+    overflow: "visible",
   },
   alertsButtonInner: {
-    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    width: 70,
-    height: 70,
+    width: HEADER_CONTROL_HEIGHT,
+    height: HEADER_CONTROL_HEIGHT,
+    position: "relative",
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: 0,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+  },
+  unreadBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
   },
 });
 

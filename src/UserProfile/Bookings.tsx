@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable */
 
-import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   ViewStyle,
   TextStyle,
@@ -20,8 +19,12 @@ import {
   Linking,
   BackHandler,
   Animated,
-  Dimensions,
+  Modal as RNModal,
+  Platform,
+  InteractionManager,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth0 } from 'react-native-auth0';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import dayjs from 'dayjs';
@@ -31,13 +34,45 @@ import { SkeletonLoader } from '../common/SkeletonLoader';
 import ModifyBookingDialog from './ModifyBookingDialog';
 import ConfirmationDialog from './ConfirmationDialog';
 import AddReviewDialog from './AddReviewDialog';
+import RaiseComplaintDialog from './RaiseComplaintDialog';
+import { fetchMyTickets } from '../services/ticketsService';
 import EngagementDetailsDrawer from './EngagementDetailsDrawer';
+import VacationManagementDialog from './VacationManagement';
 import LinearGradient from 'react-native-linear-gradient';
 import PaymentInstance from '../services/paymentInstance';
 import { useAppUser } from '../context/AppUserContext';
 import ServicesDialog from '../ServiceDialogs/ServicesDialog';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import ActionRow from '../design-system/ActionRow';
+import { BOOKING_HEADER_GRADIENT, BRAND, HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
+import { getMobileTabBarHeight } from "../Constants/mobileLayout";
+import { resolveCustomerId } from "../services/couponService";
+import { useDispatch } from 'react-redux';
+import { commitSchedule, openBookingDialog, closeBookingDialog } from '../features/bookingTypeSlice';
+import { addLocation } from '../features/geoLocationSlice';
+import {
+  buildRebookPayload,
+  buildRebookGeoLocation,
+  isOnDemandBookingType,
+  type RebookSourceBooking,
+} from '../utils/rebookFromBooking';
+import { buildRebookProviderDetails } from '../utils/rebookProviderDetails';
+import {
+  getNoProviderAutoCancelMessage,
+  getPaymentTimeoutCancellationMessage,
+  isNoProviderAutoCancelCancellation,
+  isPaymentTimeoutCancellation,
+  type BookingCancellationInfo,
+} from '../utils/bookingCancellation';
+import { checkOnDemandProviderAvailability } from '../services/onDemandAvailability';
+import OnDemandRebookDialog from './OnDemandRebookDialog';
+import MaidServiceDialog from '../ServiceDialogs/MaidServiceDialog';
+import CookServiceDialog from '../ServiceDialogs/CookServiceDialog';
+import NannyServicesDialog from '../ServiceDialogs/NannyServiceDialog';
+import { EnhancedProviderDetails } from '../types/ProviderDetailsType';
+import BookingsFilterSheet, { type FilterOptions } from './BookingsFilterSheet';
+import { TrackProviderButton } from './TrackProviderButton';
+import { CustomerTrackingScreen } from './CustomerTrackingScreen';
+import { CompactETADisplay } from './CompactETADisplay';
 
 // ---------- Helper Components ----------
 const Card: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void }> = ({ children, style, onPress }) => {
@@ -58,16 +93,16 @@ const GradientButton: React.FC<{
   children: React.ReactNode;
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
+  innerStyle?: StyleProp<ViewStyle>;
   disabled?: boolean;
   gradientColors?: string[];
-}> = ({ children, onPress, style, disabled = false, gradientColors }) => {
-  const { colors } = useTheme();
-  const defaultGradient = [colors.primary, colors.primary + 'DD'];
+}> = ({ children, onPress, style, innerStyle, disabled = false, gradientColors }) => {
+  const defaultGradient = [...HOME_HERO_GRADIENT];
   
   if (disabled) {
     return (
       <View style={[styles.gradientButton, { opacity: 0.5 }, style]}>
-        <LinearGradient colors={['#9CA3AF', '#6B7280']} style={styles.gradientInner}>
+        <LinearGradient colors={['#9CA3AF', '#6B7280']} style={[styles.gradientInner, innerStyle]}>
           {children}
         </LinearGradient>
       </View>
@@ -75,13 +110,45 @@ const GradientButton: React.FC<{
   }
   
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.gradientButton, style]} activeOpacity={0.85}>
-      <LinearGradient colors={gradientColors || defaultGradient} style={styles.gradientInner}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.gradientButton, style]}
+      activeOpacity={0.85}
+    >
+      <LinearGradient
+        colors={gradientColors || defaultGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.gradientInner, styles.gradientInnerFill, innerStyle]}
+      >
         {children}
       </LinearGradient>
     </TouchableOpacity>
   );
 };
+
+const EmptyStateBookButton: React.FC<{
+  onPress: () => void;
+  labelFontSize: number;
+}> = ({ onPress, labelFontSize }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    activeOpacity={0.7}
+    style={styles.emptyStateCta}
+    accessibilityRole="button"
+    accessibilityLabel="Book a Service"
+  >
+    <View style={styles.emptyStateCtaContent}>
+      <Icon name="plus" size={20} color={BRAND.accent} />
+      <Text
+        allowFontScaling={false}
+        style={[styles.emptyStateButtonText, { fontSize: labelFontSize, color: BRAND.accent }]}
+      >
+        Book a Service
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
 
 const Badge: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; variant?: 'success' | 'warning' | 'info' | 'error' }> = ({ children, style, variant = 'info' }) => {
   const { colors } = useTheme();
@@ -121,7 +188,7 @@ const StatusChip: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-// ---------- Skeleton Loaders (Enhanced) ----------
+// ---------- Skeleton Loaders ----------
 const BookingCardSkeleton: React.FC<{ colors: any; fontSizes: any }> = ({ colors, fontSizes }) => {
   return (
     <View style={[styles.bookingCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
@@ -154,14 +221,38 @@ export interface BookingRef {
   forceRefresh: () => Promise<void>;
 }
 
-// [Keep all existing interface definitions unchanged]
 interface TodayService {
-  service_day_id: string;
+  service_day_id: string | number;
   status: string;
   can_start: boolean;
   can_generate_otp: boolean;
   can_complete: boolean;
   otp_active: boolean;
+  actual_start_epoch?: number;
+  actual_end_epoch?: number;
+}
+
+interface CustomerTodayBookingSlot {
+  availability_id: number;
+  engagement_id: number;
+  start_time_ist: string | null;
+  end_time_ist: string | null;
+  booking_type: string;
+  service_type: string;
+  task_status: string;
+  address: string | null;
+  base_amount?: number | null;
+  provider_firstname: string | null;
+  provider_lastname: string | null;
+  provider_mobileno: string | null;
+  service_day_id: number | null;
+  service_day_status: string | null;
+  today_service?: {
+    service_day_id: number;
+    status: string;
+    can_generate_otp?: boolean;
+    otp_active?: boolean;
+  } | null;
 }
 
 interface Task {
@@ -214,6 +305,7 @@ interface Booking {
   providerRating: number;
   taskStatus: string;
   bookingDate: string;
+  created_at?: string;
   engagements: string;
   service_type: string;
   serviceType: string;
@@ -226,6 +318,7 @@ interface Booking {
   hasVacation?: boolean;
   assignmentStatus: string;
   start_epoch?: number;
+  end_epoch?: number;
   vacation?: any;
   vacationDetails?: {
     leave_type?: string;
@@ -241,13 +334,90 @@ interface Booking {
   payment?: Payment;
   leave_days?: number;
   provider?: any;
+  latitude?: number | null;
+  longitude?: number | null;
+  cancellation?: BookingCancellationInfo | null;
+  // Timeline recalculation fields
+  actual_start_epoch?: number;
+  actual_end_epoch?: number;
+  duration_minutes?: number;
+  is_timeline_recalculated?: boolean;
+  early_start_minutes?: number;
 }
 
 interface BookingProps {
   onBackToHome?: () => void;
+  onNavigateToDetails?: () => void;
+  onOpenWallet?: () => void;
+  initialTab?: BookingsViewTab;
+}
+
+type BookingsViewTab = 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending';
+
+function toRebookSource(booking: Booking): RebookSourceBooking {
+  return {
+    service_type: booking.service_type,
+    bookingType: booking.bookingType,
+    startDate: booking.startDate,
+    endDate: booking.endDate,
+    start_time: booking.start_time,
+    end_time: booking.end_time,
+    address: booking.address,
+    latitude: booking.latitude,
+    longitude: booking.longitude,
+    responsibilities: booking.responsibilities,
+  };
+}
+
+function serviceTypeForOnDemandApi(serviceType: string): string {
+  const normalized = String(serviceType || '').toLowerCase();
+  if (normalized === 'cook') return 'COOK';
+  if (normalized === 'nanny') return 'NANNY';
+  return 'MAID';
+}
+
+function rebookServiceKind(serviceType: string): 'maid' | 'cook' | 'nanny' | null {
+  const normalized = String(serviceType || '').toLowerCase();
+  if (normalized === 'maid') return 'maid';
+  if (normalized === 'cook') return 'cook';
+  if (normalized === 'nanny') return 'nanny';
+  return null;
+}
+
+function durationMinutesFromHm(startTime?: string, endTime?: string): number {
+  if (!startTime) return 60;
+  if (!endTime) return 60;
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  const mins = eh * 60 + em - (sh * 60 + sm);
+  if (mins > 0) return Math.min(Math.max(mins, 15), 480);
+  return 60;
 }
 
 // ---------- Utility Functions ----------
+const getServiceEmoji = (type: string) => {
+  switch (type?.toLowerCase()) {
+    case 'cook':
+      return '👨‍🍳';
+    case 'maid':
+      return '🧹';
+    case 'nanny':
+      return '❤️';
+    default:
+      return '🏠';
+  }
+};
+
+const formatPlacedAt = (booking: Booking): string => {
+  const raw = booking.bookingDate || booking.created_at;
+  if (!raw) return '—';
+  const parsed = dayjs(raw);
+  return parsed.isValid() ? parsed.format('D MMM YYYY [at] h:mm a') : '—';
+};
+
+const isPaymentPendingBooking = (booking: Booking): boolean =>
+  Boolean(booking.payment && booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED');
+
 const getServiceIcon = (type: string) => {
   const serviceType = type || 'other';
   switch (serviceType) {
@@ -279,6 +449,68 @@ const getBookingTypeIcon = (type: string) => {
   }
 };
 
+type UpcomingServiceFilter = 'ALL' | 'cook' | 'maid' | 'nanny';
+type UpcomingDurationFilter = 'ALL' | 'MONTHLY' | 'SHORT_TERM' | 'ON_DEMAND';
+
+const UPCOMING_SERVICE_FILTERS: {
+  value: UpcomingServiceFilter;
+  label: string;
+  icon: string;
+}[] = [
+  { value: 'ALL', label: 'All services', icon: 'view-grid' },
+  { value: 'cook', label: 'Cook', icon: 'chef-hat' },
+  { value: 'maid', label: 'Maid', icon: 'broom' },
+  { value: 'nanny', label: 'Caregiver', icon: 'heart' },
+];
+
+const UPCOMING_DURATION_FILTERS: {
+  value: UpcomingDurationFilter;
+  label: string;
+  icon: string;
+}[] = [
+  { value: 'ALL', label: 'All types', icon: 'calendar' },
+  { value: 'MONTHLY', label: 'Monthly', icon: 'calendar-month' },
+  { value: 'SHORT_TERM', label: 'Short term', icon: 'calendar-clock' },
+  { value: 'ON_DEMAND', label: 'On demand', icon: 'flash' },
+];
+
+const normalizeBookingServiceType = (booking: Booking): string =>
+  String(booking.service_type || booking.serviceType || '')
+    .toLowerCase()
+    .trim();
+
+const matchesUpcomingServiceFilter = (
+  booking: Booking,
+  filter: UpcomingServiceFilter
+): boolean => {
+  if (filter === 'ALL') return true;
+  const serviceType = normalizeBookingServiceType(booking);
+  if (filter === 'nanny') return serviceType === 'nanny' || serviceType === 'caregiver';
+  if (filter === 'maid') return serviceType === 'maid' || serviceType === 'cleaning';
+  return serviceType === filter;
+};
+
+const matchesUpcomingDurationFilter = (
+  booking: Booking,
+  filter: UpcomingDurationFilter
+): boolean => {
+  if (filter === 'ALL') return true;
+  return String(booking.bookingType || '').toUpperCase() === filter;
+};
+
+const applyUpcomingTabFilters = (
+  bookings: Booking[],
+  serviceFilter: UpcomingServiceFilter,
+  durationFilter: UpcomingDurationFilter,
+  statusFilter: string
+): Booking[] =>
+  bookings
+    .filter((booking) => matchesUpcomingServiceFilter(booking, serviceFilter))
+    .filter((booking) => matchesUpcomingDurationFilter(booking, durationFilter))
+    .filter(
+      (booking) => statusFilter === 'ALL' || booking.taskStatus === statusFilter
+    );
+
 const formatTimeToAMPM = (timeString: string): string => {
   if (!timeString) return '';
   try {
@@ -294,33 +526,187 @@ const formatTimeToAMPM = (timeString: string): string => {
   }
 };
 
+const getEffectiveTaskStatus = (booking: Booking): string => {
+  // For MONTHLY and SHORT_TERM bookings, today_service only represents today's visit
+  // We should use the engagement-level taskStatus instead
+  if (booking.bookingType === 'MONTHLY' || booking.bookingType === 'SHORT_TERM') {
+    return booking.taskStatus;
+  }
+  
+  // For ON_DEMAND bookings, today_service reflects the overall status
+  const visit = booking.today_service?.status?.toUpperCase();
+  if (visit === 'IN_PROGRESS' || visit === 'STARTED') return 'IN_PROGRESS';
+  if (visit === 'COMPLETED' || visit === 'DONE') return 'COMPLETED';
+  return booking.taskStatus;
+};
+
+const isUpcomingTabBooking = (booking: Booking): boolean => {
+  const status = getEffectiveTaskStatus(booking);
+  return status !== 'CANCELLED' && status !== 'COMPLETED';
+};
+
+type UpcomingSortOrder = 'newest' | 'oldest';
+
+const UPCOMING_SORT_OPTIONS: { value: UpcomingSortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+];
+
+const getBookingCreatedEpoch = (booking: Booking): number => {
+  const raw = booking.bookingDate || booking.created_at;
+  if (!raw) return 0;
+  const epoch = new Date(raw).getTime();
+  return Number.isFinite(epoch) ? epoch : 0;
+};
+
+const sortUpcomingByCreated = (
+  bookings: Booking[],
+  order: UpcomingSortOrder
+): Booking[] => {
+  const direction = order === 'newest' ? -1 : 1;
+  return [...bookings].sort((a, b) => {
+    const createdDiff =
+      (getBookingCreatedEpoch(a) - getBookingCreatedEpoch(b)) * direction;
+    if (createdDiff !== 0) return createdDiff;
+    return (a.id - b.id) * direction;
+  });
+};
+
+const mapTodaySlotTaskStatus = (slot: CustomerTodayBookingSlot): string => {
+  const sd = String(slot.service_day_status ?? slot.today_service?.status ?? '').toUpperCase();
+  if (sd === 'IN_PROGRESS' || sd === 'STARTED') return 'IN_PROGRESS';
+  if (sd === 'COMPLETED' || sd === 'DONE') return 'COMPLETED';
+  return slot.task_status || 'NOT_STARTED';
+};
+
 const formatTimeRange = (startTime: string, endTime: string): string => {
   return `${formatTimeToAMPM(startTime)} - ${formatTimeToAMPM(endTime)}`;
 };
 
-// ---------- Main Booking Component ----------
-const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => {
-  const { colors, fontSize, isDarkMode } = useTheme();
+const isModificationTimeAllowed = (startEpoch: number | undefined): boolean => {
+  if (!startEpoch) return false;
+  const now = dayjs().unix();
+  const cutoff = startEpoch - 30 * 60;
+  return now < cutoff;
+};
 
-  // [Keep all existing state declarations unchanged]
+const isBookingAlreadyModified = (booking: Booking | null): boolean => {
+  if (!booking) return false;
+  return !!(booking.modifications?.some((mod) =>
+    mod.action === "Date Rescheduled" ||
+    mod.action === "Time Rescheduled" ||
+    mod.action === "Modified" ||
+    mod.action?.includes("Reschedule")
+  ));
+};
+
+const isModificationDisabled = (booking: Booking | null): boolean => {
+  if (!booking) return true;
+  return !isModificationTimeAllowed(booking.start_epoch) || isBookingAlreadyModified(booking);
+};
+
+const hasVacation = (booking: Booking): boolean => {
+  return booking.hasVacation || false;
+};
+
+// ---------- Main Booking Component ----------
+const HORIZONTAL_GUTTER = 10;
+
+type BookingsThemeTokens = {
+  canvas: string;
+  card: string;
+  cardHeader: string;
+  rail: string;
+  border: string;
+  text: string;
+  textMuted: string;
+  primary: string;
+  iconBg: string;
+  scheduleBg: string;
+  searchBg: string;
+  accentBar: string;
+};
+
+function getBookingsTheme(isDarkMode: boolean, colors: Record<string, string>): BookingsThemeTokens {
+  if (isDarkMode) {
+    return {
+      canvas: colors.background,
+      card: colors.card,
+      cardHeader: colors.surface ?? colors.card,
+      rail: colors.surface ?? colors.card,
+      border: colors.border,
+      text: colors.text,
+      textMuted: colors.textSecondary,
+      primary: colors.primary,
+      iconBg: `${colors.primary}12`,
+      scheduleBg: colors.surface ?? colors.card,
+      searchBg: colors.card,
+      accentBar: colors.primary,
+    };
+  }
+  return {
+    canvas: HOME_M3.surface,
+    card: HOME_M3.surfaceContainerLowest,
+    cardHeader: HOME_M3.surfaceContainerLow,
+    rail: HOME_M3.surfaceContainerLow,
+    border: HOME_M3.outlineVariant,
+    text: HOME_M3.onSurface,
+    textMuted: HOME_M3.onSurfaceVariant,
+    primary: HOME_M3.secondary,
+    iconBg: HOME_M3.secondaryFixed,
+    scheduleBg: HOME_M3.surfaceContainerLow,
+    searchBg: HOME_M3.surfaceContainerLowest,
+    accentBar: HOME_M3.primary,
+  };
+}
+
+const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigateToDetails, onOpenWallet, initialTab }, ref) => {
+  const { colors, fontSize, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
+  const dispatch = useDispatch();
+  const bk = useMemo(() => getBookingsTheme(isDarkMode, colors), [isDarkMode, colors]);
+
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [futureBookings, setFutureBookings] = useState<Booking[]>([]);
+  const [cancelledBookings, setCancelledBookings] = useState<Booking[]>([]);
+  const [viewTab, setViewTab] = useState<BookingsViewTab>(initialTab || 'today');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [generatedOTPs, setGeneratedOTPs] = useState<Record<number, string>>({});
+  const [todaySchedule, setTodaySchedule] = useState<CustomerTodayBookingSlot[]>([]);
   const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [upcomingServiceFilter, setUpcomingServiceFilter] =
+    useState<UpcomingServiceFilter>('ALL');
+  const [upcomingDurationFilter, setUpcomingDurationFilter] =
+    useState<UpcomingDurationFilter>('ALL');
+  const [upcomingSortOrder, setUpcomingSortOrder] =
+    useState<UpcomingSortOrder>('newest');
+  const [openFilterMenu, setOpenFilterMenu] = useState<
+    'sort' | 'service' | 'duration' | 'status' | null
+  >(null);
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [reviewedBookings, setReviewedBookings] = useState<number[]>([]);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
+  const [onDemandRebookOpen, setOnDemandRebookOpen] = useState(false);
+  const [rebookCandidate, setRebookCandidate] = useState<Booking | null>(null);
+  const [checkingSameProviderRebook, setCheckingSameProviderRebook] = useState(false);
+  const [sameProviderRebookError, setSameProviderRebookError] = useState<string | null>(null);
+  const [rebookCheckoutOpen, setRebookCheckoutOpen] = useState(false);
+  const [rebookCheckoutProvider, setRebookCheckoutProvider] = useState<EnhancedProviderDetails | null>(null);
+  const [rebookCheckoutKind, setRebookCheckoutKind] = useState<'maid' | 'cook' | 'nanny' | null>(null);
+  const rebookNavigateToDetailsRef = useRef(false);
+  const rebookCheckoutSucceededRef = useRef(false);
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
+  const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = useState(false);
+  const [selectedBookingForVacationManagement, setSelectedBookingForVacationManagement] =
+    useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isForceRefreshing, setIsForceRefreshing] = useState(false);
-  const [showRefreshAnimation, setShowRefreshAnimation] = useState(false);
   const [showRefreshTooltip, setShowRefreshTooltip] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState<number | null>(null);
@@ -328,8 +714,12 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   const [timeSlots] = useState<string[]>([]);
   const [reviewDialogVisible, setReviewDialogVisible] = useState(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [complaintDialogVisible, setComplaintDialogVisible] = useState(false);
+  const [selectedComplaintBooking, setSelectedComplaintBooking] = useState<Booking | null>(null);
+  const [trackingVisible, setTrackingVisible] = useState(false);
+  const [trackingEngagementId, setTrackingEngagementId] = useState<number | null>(null);
   const tooltipAnim = useRef(new Animated.Value(0)).current;
+  const lastLoadedCustomerIdRef = useRef<string | null>(null);
 
   const [confirmationDialog, setConfirmationDialog] = useState<{
     open: boolean;
@@ -348,67 +738,145 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   });
 
   const { user: auth0User } = useAuth0();
-  const isAuthenticated = auth0User !== undefined && auth0User !== null;
-  const { appUser } = useAppUser();
+  const { appUser, isLoading: isUserLoading } = useAppUser();
+  const isAuthenticated = useMemo(
+    () => !!(auth0User || appUser?.token),
+    [auth0User, appUser?.token]
+  );
+  const resolvedCustomerId = useMemo(() => resolveCustomerId(appUser), [appUser]);
 
-  // [Keep all existing useEffect hooks unchanged]
   useEffect(() => {
-    if (showRefreshTooltip) {
-      Animated.sequence([
-        Animated.timing(tooltipAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.delay(4000),
-        Animated.timing(tooltipAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+    if (!showRefreshTooltip) return;
+
+    tooltipAnim.setValue(0);
+    const animation = Animated.sequence([
+      Animated.timing(tooltipAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.delay(4000),
+      Animated.timing(tooltipAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start(({ finished }) => {
+      if (!finished) return;
+      InteractionManager.runAfterInteractions(() => {
         setShowRefreshTooltip(false);
       });
-    }
-  }, [showRefreshTooltip]);
+    });
+
+    return () => {
+      animation.stop();
+    };
+  }, [showRefreshTooltip, tooltipAnim]);
 
   useImperativeHandle(ref, () => ({
     refreshBookings: async () => {
       console.log("🔄 Manual refresh triggered from parent");
-      await performRefresh(false);
+      await performRefresh();
     },
     forceRefresh: async () => {
       console.log("💪 Force refresh triggered from parent");
-      await performRefresh(true);
+      await performRefresh();
     }
   }));
 
   const getFontSizes = () => {
     switch (fontSize) {
       case 'small':
-        return { headerTitle: 28, headerSubtitle: 14, sectionTitle: 22, sectionSubtitle: 13, serviceTitle: 17, infoText: 14, viewDetailsText: 12, buttonText: 12, badgeText: 11, emptyStateTitle: 20, emptyStateText: 15, searchInput: 15, tooltipText: 11 };
+        return { headerTitle: 18, headerSubtitle: 14, sectionTitle: 14, sectionSubtitle: 13, serviceTitle: 17, infoText: 14, viewDetailsText: 12, buttonText: 12, badgeText: 11, emptyStateTitle: 20, emptyStateText: 15, searchInput: 15, tooltipText: 11 };
       case 'large':
-        return { headerTitle: 34, headerSubtitle: 17, sectionTitle: 24, sectionSubtitle: 15, serviceTitle: 19, infoText: 16, viewDetailsText: 14, buttonText: 14, badgeText: 13, emptyStateTitle: 24, emptyStateText: 17, searchInput: 17, tooltipText: 13 };
+        return { headerTitle: 22, headerSubtitle: 17, sectionTitle: 14, sectionSubtitle: 15, serviceTitle: 19, infoText: 16, viewDetailsText: 14, buttonText: 14, badgeText: 13, emptyStateTitle: 24, emptyStateText: 17, searchInput: 17, tooltipText: 13 };
       default:
-        return { headerTitle: 30, headerSubtitle: 15, sectionTitle: 23, sectionSubtitle: 14, serviceTitle: 18, infoText: 15, viewDetailsText: 13, buttonText: 13, badgeText: 12, emptyStateTitle: 22, emptyStateText: 16, searchInput: 16, tooltipText: 12 };
+        return { headerTitle: 20, headerSubtitle: 15, sectionTitle: 14, sectionSubtitle: 14, serviceTitle: 18, infoText: 15, viewDetailsText: 13, buttonText: 13, badgeText: 12, emptyStateTitle: 22, emptyStateText: 16, searchInput: 16, tooltipText: 12 };
     }
   };
   const fontSizes = getFontSizes();
+  const footerClearance = getMobileTabBarHeight(insets.bottom) + 28;
 
   const convertBookingForChildComponents = (booking: Booking | null): any => {
     if (!booking) return null;
+    const vacationDetails = booking.vacationDetails
+      ? {
+          ...booking.vacationDetails,
+          leave_start_date:
+            booking.vacationDetails.leave_start_date || booking.vacationDetails.start_date,
+          leave_end_date:
+            booking.vacationDetails.leave_end_date || booking.vacationDetails.end_date,
+        }
+      : null;
+    const vacation =
+      booking.vacation?.start_date && booking.vacation?.end_date
+        ? booking.vacation
+        : vacationDetails
+          ? {
+              start_date: vacationDetails.start_date || vacationDetails.leave_start_date,
+              end_date: vacationDetails.end_date || vacationDetails.leave_end_date,
+              leave_days: vacationDetails.total_days ?? booking.leave_days,
+            }
+          : undefined;
     return {
       ...booking,
       serviceType: booking.serviceType || booking.service_type,
-      vacationDetails: booking.vacationDetails ? {
-        ...booking.vacationDetails,
-        leave_start_date: booking.vacationDetails.leave_start_date || booking.vacationDetails.start_date,
-        leave_end_date: booking.vacationDetails.leave_end_date || booking.vacationDetails.end_date,
-      } : null,
+      vacation,
+      vacationDetails,
     };
   };
 
-  // [Keep all existing data mapping functions unchanged]
+  /** True when DB lifecycle or stored task marks the engagement cancelled (works before API `cancelled` bucket is deployed). */
+  const isCancelledEngagementItem = (item: any): boolean => {
+    const life = String(item?.engagement_status ?? '').toUpperCase();
+    const stored = String(item?.task_status_stored ?? item?.task_status ?? '').toUpperCase();
+    return life === 'CANCELLED' || stored === 'CANCELLED';
+  };
+
+  const resolveTaskStatusFromEngagement = (item: any): string => {
+    if (isCancelledEngagementItem(item)) return 'CANCELLED';
+    return item?.task_status || '';
+  };
+
+  const partitionEngagementLists = (
+    upcoming: any[],
+    ongoing: any[],
+    past: any[],
+    cancelledFromApi: any[] = []
+  ) => {
+    const cancelled: any[] = [...cancelledFromApi];
+    const activeUpcoming: any[] = [];
+    const activeOngoing: any[] = [];
+    const activePast: any[] = [];
+
+    upcoming.forEach((item) =>
+      (isCancelledEngagementItem(item) ? cancelled : activeUpcoming).push(item)
+    );
+    ongoing.forEach((item) =>
+      (isCancelledEngagementItem(item) ? cancelled : activeOngoing).push(item)
+    );
+    past.forEach((item) =>
+      (isCancelledEngagementItem(item) ? cancelled : activePast).push(item)
+    );
+
+    const seen = new Set<number>();
+    const dedupedCancelled = cancelled.filter((item) => {
+      const id = Number(item?.engagement_id);
+      if (!Number.isFinite(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    return {
+      upcoming: activeUpcoming,
+      ongoing: activeOngoing,
+      past: activePast,
+      cancelled: dedupedCancelled,
+    };
+  };
+
   const mapBookingData = (data: any[]): Booking[] => {
     if (!Array.isArray(data)) return [];
 
@@ -418,7 +886,16 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
       let vacationDetails = undefined;
       if (hasVacationFlag) {
-        if (item.vacations && item.vacations.length > 0) {
+        if (item.vacation?.start_date && item.vacation?.end_date) {
+          vacationDetails = {
+            leave_type: "VACATION",
+            total_days: item.vacation.leave_days || item.leave_days,
+            leave_start_date: item.vacation.start_date,
+            leave_end_date: item.vacation.end_date,
+            start_date: item.vacation.start_date,
+            end_date: item.vacation.end_date,
+          };
+        } else if (item.vacations && item.vacations.length > 0) {
           const latestVacation = item.vacations[0];
           vacationDetails = {
             leave_type: "VACATION",
@@ -478,9 +955,19 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
       return {
         id: Number(item.engagement_id),
-        customerId: item.customerid ? Number(item.customerid) : undefined,
+        customerId:
+          item.customerId != null
+            ? Number(item.customerId)
+            : item.customerid != null
+              ? Number(item.customerid)
+              : undefined,
         name: item.customerName || '',
-        serviceProviderId: item.serviceproviderid ? Number(item.serviceproviderid) : 0,
+        serviceProviderId:
+          item.serviceProviderId != null
+            ? Number(item.serviceProviderId)
+            : item.serviceproviderid != null
+              ? Number(item.serviceproviderid)
+              : 0,
         timeSlot: item.start_time || '',
         date: item.start_date || '',
         startDate: item.start_date || '',
@@ -494,7 +981,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         customerName: item.customerName || '',
         serviceProviderName: serviceProviderName,
         providerRating: providerRating,
-        taskStatus: item.task_status || '',
+        taskStatus: resolveTaskStatusFromEngagement(item),
         engagements: item.engagements || '',
         bookingDate: item.created_at || new Date().toISOString(),
         service_type: serviceType,
@@ -508,13 +995,34 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         hasVacation: hasVacationFlag,
         assignmentStatus: item.assignment_status || "ASSIGNED",
         start_epoch: startEpoch,
-        vacation: item.vacation || null,
+        vacation: item.vacation?.start_date && item.vacation?.end_date
+          ? item.vacation
+          : vacationDetails
+            ? {
+                start_date: vacationDetails.start_date,
+                end_date: vacationDetails.end_date,
+                leave_days: vacationDetails.total_days,
+              }
+            : null,
         vacationDetails: vacationDetails,
         modifications: modifications,
         today_service: item.today_service,
         payment: item.payment,
         leave_days: item.leave_days || 0,
         provider: item.provider,
+        latitude:
+          item.latitude != null && item.latitude !== '' && Number(item.latitude) !== 0
+            ? Number(item.latitude)
+            : item.lat != null && Number(item.lat) !== 0
+              ? Number(item.lat)
+              : undefined,
+        longitude:
+          item.longitude != null && item.longitude !== '' && Number(item.longitude) !== 0
+            ? Number(item.longitude)
+            : item.lng != null && Number(item.lng) !== 0
+              ? Number(item.lng)
+              : undefined,
+        cancellation: item.cancellation ?? null,
       };
     });
   };
@@ -523,38 +1031,84 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     const effectiveId = id || customerId;
     if (!effectiveId) return;
     try {
-      const response = await PaymentInstance.get(`/api/customers/${effectiveId}/engagements`);
-      const { past = [], ongoing = [], upcoming = [], cancelled = [] } = response.data || {};
-      setPastBookings(mapBookingData(past));
-      setCurrentBookings(mapBookingData(ongoing));
-      setFutureBookings(mapBookingData(upcoming));
+      console.log('🔍 [DEBUG] Fetching bookings for customer ID:', effectiveId);
+      
+      const [engagementsRes, todayRes] = await Promise.all([
+        PaymentInstance.get(`/api/customers/${effectiveId}/engagements`, {
+          timeout: 45000,
+        }),
+        PaymentInstance.get(`/api/customers/${effectiveId}/today-bookings`, {
+          timeout: 45000,
+        }).catch(() => ({ data: { bookings: [] } })),
+      ]);
+      const {
+        past = [],
+        ongoing = [],
+        upcoming = [],
+        cancelled: cancelledFromApi = [],
+      } = engagementsRes.data || {};
+
+      console.log('📊 [DEBUG] API Response:', {
+        past: past.length,
+        ongoing: ongoing.length,
+        upcoming: upcoming.length,
+        cancelled: cancelledFromApi.length,
+        total: past.length + ongoing.length + upcoming.length + cancelledFromApi.length
+      });
+
+      // DEBUG: Check if booking 353 exists in any bucket
+      const allBookings = [...past, ...ongoing, ...upcoming, ...cancelledFromApi];
+      const booking353 = allBookings.find((b: any) => Number(b.engagement_id) === 353);
+      if (booking353) {
+        console.log('✅ [DEBUG] Booking 353 FOUND in API response:', {
+          id: booking353.engagement_id,
+          status: booking353.task_status,
+          service: booking353.service_type,
+          bucket: past.find((b: any) => Number(b.engagement_id) === 353) ? 'past' :
+                  ongoing.find((b: any) => Number(b.engagement_id) === 353) ? 'ongoing' :
+                  upcoming.find((b: any) => Number(b.engagement_id) === 353) ? 'upcoming' : 'cancelled'
+        });
+      } else {
+        console.log('❌ [DEBUG] Booking 353 NOT FOUND in API response for customer:', effectiveId);
+      }
+
+      const partitioned = partitionEngagementLists(
+        upcoming,
+        ongoing,
+        past,
+        cancelledFromApi
+      );
+
+      const mappedPast = mapBookingData(partitioned.past);
+      const mappedOngoing = mapBookingData(partitioned.ongoing);
+      const mappedUpcoming = mapBookingData(partitioned.upcoming);
+      const mappedCancelled = mapBookingData(partitioned.cancelled);
+
+      // DEBUG: Check if booking 353 survived mapping
+      const allMapped = [...mappedPast, ...mappedOngoing, ...mappedUpcoming, ...mappedCancelled];
+      const mapped353 = allMapped.find(b => b.id === 353);
+      if (mapped353) {
+        console.log('✅ [DEBUG] Booking 353 survived mapping:', {
+          id: mapped353.id,
+          taskStatus: mapped353.taskStatus,
+          service_type: mapped353.service_type
+        });
+      } else {
+        console.log('❌ [DEBUG] Booking 353 LOST during mapping');
+      }
+
+      setPastBookings(mappedPast);
+      setCurrentBookings(mappedOngoing);
+      setFutureBookings(mappedUpcoming);
+      setCancelledBookings(mappedCancelled);
+      setTodaySchedule(todayRes.data?.bookings ?? []);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       throw error;
     }
   };
 
-  const fetchBookings = async (id: string) => {
-    try {
-      await refreshBookings(id);
-    } catch (error) {
-      console.error('Error fetching booking details:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const performRefresh = async (showFullAnimation = true) => {
-    if (showFullAnimation) {
-      setIsForceRefreshing(true);
-      setShowRefreshAnimation(true);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-    
+  const performRefresh = async () => {
     try {
       if (customerId) {
         await refreshBookings();
@@ -567,17 +1121,6 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       setSnackbarMessage('Failed to refresh bookings');
       setOpenSnackbar(true);
       setTimeout(() => setOpenSnackbar(false), 3000);
-    } finally {
-      if (showFullAnimation) {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          setIsForceRefreshing(false);
-          setShowRefreshAnimation(false);
-        });
-      }
     }
   };
 
@@ -601,16 +1144,93 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   };
 
   useEffect(() => {
-    if (isAuthenticated && appUser?.customerid) {
-      setIsLoading(true);
-      setCustomerId(appUser.customerid);
-      fetchBookings(appUser.customerid);
-    } else {
-      setIsLoading(false);
+    if (isUserLoading) {
+      return;
     }
-  }, [appUser, isAuthenticated]);
+
+    const nextCustomerId = resolvedCustomerId;
+
+    console.log('👤 [DEBUG] User Authentication Status:', {
+      isAuthenticated,
+      resolvedCustomerId: nextCustomerId,
+      appUser: appUser ? {
+        customerid: appUser.customerid,
+        customerId: appUser.customerId,
+        email: appUser.email,
+        firstname: appUser.firstname
+      } : 'null'
+    });
+
+    if (!isAuthenticated || !nextCustomerId) {
+      lastLoadedCustomerIdRef.current = null;
+      setIsLoading(false);
+      return;
+    }
+
+    if (lastLoadedCustomerIdRef.current === nextCustomerId) {
+      console.log('✅ [DEBUG] Same customer ID, skipping reload:', nextCustomerId);
+      return;
+    }
+
+    let isActive = true;
+    lastLoadedCustomerIdRef.current = nextCustomerId;
+    setCustomerId(Number(nextCustomerId));
+    setIsLoading(true);
+
+    (async () => {
+      try {
+        await refreshBookings(nextCustomerId);
+      } catch (error: any) {
+        console.error('Error fetching booking details:', error);
+        const timedOut =
+          error?.code === 'ECONNABORTED' ||
+          (typeof error?.message === 'string' && error.message.toLowerCase().includes('timeout'));
+        setSnackbarMessage(timedOut ? 'Request timed out. Pull to refresh and try again.' : 'Failed to load bookings');
+        setOpenSnackbar(true);
+        setTimeout(() => setOpenSnackbar(false), 3000);
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isUserLoading, resolvedCustomerId, isAuthenticated]);
 
   // [Keep all existing handler functions unchanged]
+  const applyOtpGenerated = (engagementId: number, otp: string) => {
+    setGeneratedOTPs((prev) => ({ ...prev, [engagementId]: otp }));
+    const patch = (ts: TodayService | undefined) =>
+      ts ? { ...ts, otp_active: true, can_generate_otp: false } : ts;
+    setCurrentBookings((prev) =>
+      prev.map((b) =>
+        b.id === engagementId ? { ...b, today_service: patch(b.today_service) } : b
+      )
+    );
+    setFutureBookings((prev) =>
+      prev.map((b) =>
+        b.id === engagementId ? { ...b, today_service: patch(b.today_service) } : b
+      )
+    );
+    setTodaySchedule((prev) =>
+      prev.map((slot) =>
+        slot.engagement_id === engagementId && slot.today_service
+          ? {
+              ...slot,
+              today_service: {
+                ...slot.today_service,
+                otp_active: true,
+                can_generate_otp: false,
+              },
+            }
+          : slot
+      )
+    );
+  };
+
   const handleGenerateOTP = async (booking: Booking) => {
     if (!booking.today_service?.service_day_id) {
       Alert.alert('Error', 'Failed to generate OTP');
@@ -618,41 +1238,82 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     }
     try {
       setOtpLoading(booking.id);
-      const response = await PaymentInstance.post(`/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`);
+      const response = await PaymentInstance.post(
+        `/api/engagement-service/service-days/${booking.today_service.service_day_id}/otp`
+      );
       if (response.status === 200 || response.status === 201) {
         const otp = response.data.otp || response.data.data?.otp || '123456';
-        setGeneratedOTPs(prev => ({ ...prev, [booking.id]: otp }));
-        setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
-        setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, today_service: b.today_service ? { ...b.today_service, otp_active: true, can_generate_otp: false } : b.today_service } : b));
+        applyOtpGenerated(booking.id, otp);
         Alert.alert('Success', 'OTP generated successfully');
       }
     } catch (error: any) {
       console.error('Error generating OTP:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to generate OTP');
+      const errData = error.response?.data;
+      Alert.alert(
+        'Error',
+        errData?.error || errData?.message || 'Failed to generate OTP. Please try again.'
+      );
     } finally {
       setOtpLoading(null);
     }
   };
 
+  const afterPaymentSuccess = async () => {
+    const effectiveCustomerId =
+      customerId ?? appUser?.customerId ?? appUser?.customerid;
+    if (effectiveCustomerId) {
+      await refreshBookings(effectiveCustomerId);
+    }
+    setDetailsDrawerOpen(false);
+    setSelectedBooking(null);
+    setActiveSectionTab('upcoming');
+    setSnackbarMessage('Payment completed successfully');
+    setOpenSnackbar(true);
+    setTimeout(() => setOpenSnackbar(false), 3000);
+  };
+
   const handleCompletePayment = async (booking: Booking) => {
-    if (!booking.payment?.engagement_id) {
+    const engagementId = booking.payment?.engagement_id ?? booking.id;
+    if (!engagementId) {
       Alert.alert('Error', 'Failed to resume payment');
       return;
     }
     try {
       setPaymentLoading(booking.id);
-      const resumeRes = await PaymentInstance.get(`/api/payments/${booking.payment.engagement_id}/resume`);
-      const { razorpay_order_id, amount, currency, engagement_id, customer } = resumeRes.data;
-      const options = {
-        key: "rzp_test_lTdgjtSRlEwreA",
-        amount: amount * 100,
+      const resumeRes = await PaymentInstance.post(
+        '/api/v2/createEngagements/resume-payment',
+        { engagementId }
+      );
+      const {
+        razorpay_order_id,
+        razorpay_key_id,
+        amount,
+        amount_inr,
         currency,
+        engagementId: engagement_id,
+        engagement_id: engagement_id_snake,
+        customer,
+      } = resumeRes.data;
+      const resolvedEngagementId = engagement_id ?? engagement_id_snake ?? engagementId;
+      let amountPaise = Number(amount);
+      if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+        const inr = Number(amount_inr);
+        amountPaise = Math.round(inr * 100);
+      }
+      if (!razorpay_order_id) {
+        Alert.alert('Error', 'Payment order could not be created. Please try again.');
+        return;
+      }
+      const options = {
+        key: razorpay_key_id || 'rzp_test_lTdgjtSRlEwreA',
+        amount: amountPaise,
+        currency: currency || 'INR',
         order_id: razorpay_order_id,
         name: "Serveaso",
         description: `Payment for ${getServiceTitle(booking.service_type)}`,
         prefill: {
-          name: customer?.firstname || booking.customerName,
-          contact: customer?.contact || '9999999999',
+          name: customer?.firstName || customer?.firstname || booking.customerName,
+          contact: customer?.contact || customer?.mobile || '9999999999',
           email: customer?.email || auth0User?.email || '',
         },
         theme: { color: colors.primary },
@@ -660,14 +1321,13 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
       RazorpayCheckout.open(options)
         .then(async (data: any) => {
           try {
-            await PaymentInstance.post("/api/payments/verify", {
-              engagementId: engagement_id,
+            await PaymentInstance.post("/api/v2/createEngagements/verify", {
+              engagementId: resolvedEngagementId,
               razorpay_order_id: data.razorpay_order_id,
               razorpay_payment_id: data.razorpay_payment_id,
               razorpay_signature: data.razorpay_signature,
             });
-            Alert.alert('Success', 'Payment completed successfully');
-            if (customerId) await refreshBookings();
+            await afterPaymentSuccess();
           } catch (verifyError) {
             console.error('Payment verification error:', verifyError);
             Alert.alert('Error', 'Payment verification failed');
@@ -676,29 +1336,22 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         .catch((error: any) => {
           if (error.code !== 2) Alert.alert('Error', 'Payment failed');
         });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Complete payment error:', err);
-      Alert.alert('Error', 'Failed to resume payment');
+      const msg = err?.response?.data?.error || 'Failed to resume payment';
+      Alert.alert('Error', msg);
     } finally {
       setPaymentLoading(null);
     }
   };
 
   const handleCancelBooking = async (booking: Booking) => {
-    try {
-      setActionLoading(true);
-      await PaymentInstance.put(`/api/engagements/${booking.id}`, { task_status: "CANCELLED" });
-      await refreshBookings();
-      setSnackbarMessage('Booking cancelled successfully');
-      setOpenSnackbar(true);
-      setTimeout(() => setOpenSnackbar(false), 3000);
-    } catch (error) {
-      console.error('Error cancelling engagement:', error);
-      setCurrentBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
-      setFutureBookings(prev => prev.map(b => b.id === booking.id ? { ...b, taskStatus: "CANCELLED" } : b));
-    } finally {
-      setActionLoading(false);
-    }
+    await PaymentInstance.post(`/api/v2/engagements/${booking.id}/cancel`, {});
+    await refreshBookings();
+    setViewTab('cancelled');
+    setSnackbarMessage('Booking cancelled successfully');
+    setOpenSnackbar(true);
+    setTimeout(() => setOpenSnackbar(false), 3000);
   };
 
   const showConfirmation = (type: 'cancel' | 'modify' | 'payment', booking: Booking, title: string, message: string, severity: 'info' | 'warning' | 'error' | 'success' = 'info') => {
@@ -715,8 +1368,17 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
         case 'modify': setModifyDialogOpen(true); setSelectedBooking(booking); break;
         case 'payment': await handleCompletePayment(booking); break;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error performing action:', error);
+      if (type === 'cancel') {
+        const msg =
+          error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          'Failed to cancel booking. Please try again.';
+        setSnackbarMessage(msg);
+        setOpenSnackbar(true);
+        setTimeout(() => setOpenSnackbar(false), 4000);
+      }
     } finally {
       setActionLoading(false);
       setConfirmationDialog(prev => ({ ...prev, open: false }));
@@ -736,6 +1398,48 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     setReviewDialogVisible(true);
   };
 
+  const handleReportIssueClick = (booking: Booking) => {
+    console.log('🟡 Report Issue clicked for booking:', booking.id);
+    setSelectedComplaintBooking(booking);
+    setComplaintDialogVisible(true);
+  };
+
+  const handleOpenMyTickets = async () => {
+    const cid = customerId ? Number(customerId) : NaN;
+    if (!Number.isFinite(cid)) {
+      Alert.alert('Sign in required', 'Please sign in to view your support tickets.');
+      return;
+    }
+    try {
+      const tickets = await fetchMyTickets(cid);
+      if (!tickets.length) {
+        Alert.alert('Support tickets', 'No tickets yet. Use Report issue on a booking to raise a complaint.');
+        return;
+      }
+      const lines = tickets
+        .slice(0, 8)
+        .map(
+          (t) =>
+            `${t.ticket_number}: ${t.subject}\n${t.status}${t.is_overdue ? ' (overdue)' : ''}`
+        )
+        .join('\n\n');
+      Alert.alert('My support tickets', lines);
+    } catch {
+      Alert.alert('Error', 'Could not load tickets. Check tickets service URL.');
+    }
+  };
+
+  const handleVacationClick = (booking: Booking) => {
+    setSelectedBookingForVacationManagement(booking);
+    setVacationManagementDialogOpen(true);
+  };
+
+  const handleVacationSuccess = async (message = 'Vacation updated successfully!') => {
+    setSnackbarMessage(message);
+    setOpenSnackbar(true);
+    await performRefresh();
+  };
+
   const closeReviewDialog = () => {
     setReviewDialogVisible(false);
     setSelectedReviewBooking(null);
@@ -743,7 +1447,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
   const handleReviewSubmitted = (bookingId: number) => {
     setReviewedBookings(prev => [...prev, bookingId]);
-    performRefresh(false);
+    performRefresh();
   };
 
   const hasReview = (booking: Booking): boolean => reviewedBookings.includes(booking.id);
@@ -753,77 +1457,1336 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     setDetailsDrawerOpen(true);
   };
 
-  const handleSaveModifiedBooking = async () => {
-    setModifyDialogOpen(false);
-    await performRefresh(false);
-  };
-
-  // [Keep all existing filter functions unchanged]
-  const filterBookings = (bookings: Booking[], term: string) => {
-    if (!term) return bookings;
-    return bookings.filter(booking =>
-      getServiceTitle(booking.service_type).toLowerCase().includes(term.toLowerCase()) ||
-      booking.serviceProviderName.toLowerCase().includes(term.toLowerCase()) ||
-      booking.address.toLowerCase().includes(term.toLowerCase()) ||
-      booking.bookingType.toLowerCase().includes(term.toLowerCase())
-    );
-  };
-
-  const sortUpcomingBookings = (bookings: Booking[]): Booking[] => {
-    const statusOrder: Record<string, number> = { 'NOT_STARTED': 2, 'IN_PROGRESS': 1, 'COMPLETED': 3, 'CANCELLED': 4 };
-    return [...bookings].sort((a, b) => {
-      const statusComparison = statusOrder[a.taskStatus] - statusOrder[b.taskStatus];
-      if (statusComparison !== 0) return statusComparison;
-      return new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime();
+  const commitRebookToStore = (
+    booking: Booking,
+    options?: { serviceProviderId?: number | null; clearProvider?: boolean }
+  ) => {
+    const payload = buildRebookPayload(toRebookSource(booking), {
+      serviceProviderId: options?.serviceProviderId,
     });
+    if (!payload) return null;
+
+    const schedulePatch: Record<string, unknown> = { ...payload };
+    if (options?.clearProvider) {
+      schedulePatch.serviceproviderId = '';
+      schedulePatch.serviceProviderId = '';
+    }
+
+    dispatch(commitSchedule(schedulePatch));
+    const geo = buildRebookGeoLocation(toRebookSource(booking));
+    if (geo) {
+      dispatch(addLocation(geo));
+    }
+    return payload;
   };
 
-  const upcomingBookings = sortUpcomingBookings([...currentBookings, ...futureBookings]);
-  const filteredByStatus = statusFilter === 'ALL' ? upcomingBookings : upcomingBookings.filter(booking => booking.taskStatus === statusFilter);
-  const filteredUpcomingBookings = filterBookings(filteredByStatus, searchTerm);
-  const filteredPastBookings = filterBookings(pastBookings, searchTerm);
+  const openRebookCheckout = (
+    booking: Booking,
+    options?: {
+      providerDetails?: EnhancedProviderDetails | null;
+      providerId?: number;
+      navigateToDetailsOnClose?: boolean;
+    }
+  ) => {
+    const serviceKind = rebookServiceKind(booking.service_type);
+    if (!serviceKind) return false;
 
-  const statusTabs = [
-    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: upcomingBookings.length },
-    { value: 'NOT_STARTED', label: 'Not Started', icon: 'clock-outline', count: upcomingBookings.filter(b => b.taskStatus === 'NOT_STARTED').length },
-    { value: 'IN_PROGRESS', label: 'In Progress', icon: 'progress-clock', count: upcomingBookings.filter(b => b.taskStatus === 'IN_PROGRESS').length },
-    { value: 'COMPLETED', label: 'Completed', icon: 'check-circle', count: upcomingBookings.filter(b => b.taskStatus === 'COMPLETED').length },
-    { value: 'CANCELLED', label: 'Cancelled', icon: 'close-circle', count: upcomingBookings.filter(b => b.taskStatus === 'CANCELLED').length },
-  ];
+    const hasProvider =
+      options?.providerId != null &&
+      Number.isFinite(options.providerId) &&
+      options.providerId > 0;
 
-  // Refresh Animation Overlay Component
-  const RefreshAnimationOverlay = () => {
-    if (!showRefreshAnimation) return null;
-    
+    if (
+      !commitRebookToStore(booking, {
+        serviceProviderId: hasProvider ? options?.providerId : undefined,
+        clearProvider: !hasProvider,
+      })
+    ) {
+      return false;
+    }
+
+    if (hasProvider) {
+      dispatch(openBookingDialog(String(options!.providerId)));
+    } else {
+      dispatch(closeBookingDialog());
+    }
+
+    rebookNavigateToDetailsRef.current = options?.navigateToDetailsOnClose === true;
+    rebookCheckoutSucceededRef.current = false;
+    setRebookCheckoutKind(serviceKind);
+    setRebookCheckoutProvider(options?.providerDetails ?? null);
+    setRebookCheckoutOpen(true);
+    return true;
+  };
+
+  const handleBookAgain = (booking: Booking) => {
+    const payload = buildRebookPayload(toRebookSource(booking));
+    if (!payload) {
+      Alert.alert(
+        'Book again',
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    if (isOnDemandBookingType(booking.bookingType)) {
+      setRebookCandidate(booking);
+      setSameProviderRebookError(null);
+      setOnDemandRebookOpen(true);
+      return;
+    }
+
+    const providerId = Number(booking.serviceProviderId);
+    const hasProvider = Number.isFinite(providerId) && providerId > 0;
+
+    if (
+      !openRebookCheckout(booking, {
+        providerId: hasProvider ? providerId : undefined,
+        providerDetails: hasProvider ? buildRebookProviderDetails(booking) : null,
+        navigateToDetailsOnClose: true,
+      })
+    ) {
+      Alert.alert(
+        'Book again',
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+    }
+  };
+
+  const handleOnDemandRebookDifferentProvider = () => {
+    if (!rebookCandidate) return;
+
+    if (!openRebookCheckout(rebookCandidate)) {
+      setSameProviderRebookError(
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    setOnDemandRebookOpen(false);
+    setRebookCandidate(null);
+    setSameProviderRebookError(null);
+  };
+
+  const handleOnDemandRebookSameProvider = async () => {
+    if (!rebookCandidate) return;
+    const providerId = Number(rebookCandidate.serviceProviderId);
+    if (!Number.isFinite(providerId) || providerId < 1) {
+      setSameProviderRebookError(
+        'No provider was assigned on your last booking. Please choose a provider from the list.'
+      );
+      return;
+    }
+
+    const lat = Number(rebookCandidate.latitude);
+    const lng = Number(rebookCandidate.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setSameProviderRebookError(
+        'We need your service location to check provider availability. Choose a different provider and confirm your address on the map.'
+      );
+      return;
+    }
+
+    const payload = buildRebookPayload(toRebookSource(rebookCandidate), {
+      serviceProviderId: providerId,
+    });
+    if (!payload) {
+      setSameProviderRebookError(
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    const serviceKind = rebookServiceKind(rebookCandidate.service_type);
+    if (!serviceKind) {
+      setSameProviderRebookError(
+        'This service type cannot be rebooked automatically. Please book from the home page.'
+      );
+      return;
+    }
+
+    setCheckingSameProviderRebook(true);
+    setSameProviderRebookError(null);
+    try {
+      const availability = await checkOnDemandProviderAvailability({
+        latitude: lat,
+        longitude: lng,
+        serviceType: serviceTypeForOnDemandApi(rebookCandidate.service_type),
+        startDate: payload.startDate,
+        startTime: payload.startTime,
+        durationMinutes: durationMinutesFromHm(payload.startTime, payload.endTime),
+        providerId,
+      });
+
+      if (!availability.available) {
+        setSameProviderRebookError(
+          availability.message ||
+            'This provider is not available for your selected schedule. Try another time or choose a different provider.'
+        );
+        return;
+      }
+
+      if (
+        !openRebookCheckout(rebookCandidate, {
+          providerId,
+          providerDetails: buildRebookProviderDetails(rebookCandidate),
+        })
+      ) {
+        setSameProviderRebookError(
+          'This service type cannot be rebooked automatically. Please book from the home page.'
+        );
+        return;
+      }
+
+      setOnDemandRebookOpen(false);
+      setRebookCandidate(null);
+    } catch {
+      setSameProviderRebookError('Could not verify provider availability. Please try again.');
+    } finally {
+      setCheckingSameProviderRebook(false);
+    }
+  };
+
+  const handleCloseRebookCheckout = () => {
+    dispatch(closeBookingDialog());
+    const shouldNavigateToDetails =
+      rebookNavigateToDetailsRef.current && !rebookCheckoutSucceededRef.current;
+    rebookNavigateToDetailsRef.current = false;
+    rebookCheckoutSucceededRef.current = false;
+    setRebookCheckoutOpen(false);
+    setRebookCheckoutProvider(null);
+    setRebookCheckoutKind(null);
+    if (shouldNavigateToDetails && onNavigateToDetails) {
+      onNavigateToDetails();
+    }
+  };
+
+  const handleRebookCheckoutSuccess = () => {
+    rebookCheckoutSucceededRef.current = true;
+    handleCloseRebookCheckout();
+    performRefresh();
+  };
+
+  const renderPaymentTimeoutCancellationNotice = (booking: Booking) => {
+    if (!isPaymentTimeoutCancellation(booking)) return null;
+
     return (
-      <Animated.View style={[styles.refreshOverlay, { backgroundColor: colors.background + 'CC', opacity: fadeAnim }]}>
-        <View style={[styles.refreshAnimationContainer, { backgroundColor: colors.card }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.refreshAnimationText, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-            Refreshing Bookings...
+      <View
+        style={[
+          styles.paymentTimeoutNotice,
+          {
+            backgroundColor: '#fffbeb',
+            borderColor: '#fcd34d',
+          },
+        ]}
+      >
+        <View style={styles.paymentTimeoutIconWrap}>
+          <Icon name="alert-circle-outline" size={20} color="#b45309" />
+        </View>
+        <View style={styles.paymentTimeoutTextWrap}>
+          <Text style={styles.paymentTimeoutTitle}>Booking cancelled — payment not received</Text>
+          <Text style={styles.paymentTimeoutBody}>
+            {getPaymentTimeoutCancellationMessage(booking)}
           </Text>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
-  // Refresh Tooltip Component
-  const RefreshTooltip = () => {
-    if (!showRefreshTooltip) return null;
-    
+  const renderNoProviderAutoCancelNotice = (booking: Booking) => {
+    if (!isNoProviderAutoCancelCancellation(booking)) return null;
+
     return (
-      <Animated.View 
+      <View
         style={[
-          styles.tooltipContainer, 
-          { 
-            opacity: tooltipAnim,
-            transform: [{
-              translateY: tooltipAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-20, 0]
-              })
-            }]
+          styles.paymentTimeoutNotice,
+          {
+            backgroundColor: '#f0f9ff',
+            borderColor: '#7dd3fc',
+          },
+        ]}
+      >
+        <View style={[styles.paymentTimeoutIconWrap, { backgroundColor: '#e0f2fe' }]}>
+          <Icon name="information-outline" size={20} color="#0369a1" />
+        </View>
+        <View style={styles.paymentTimeoutTextWrap}>
+          <Text style={[styles.paymentTimeoutTitle, { color: '#0c4a6e' }]}>
+            No provider was available
+          </Text>
+          <Text style={[styles.paymentTimeoutBody, { color: '#0c4a6e' }]}>
+            {getNoProviderAutoCancelMessage(booking)}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderAutoCancellationNotices = (booking: Booking) => (
+    <>
+      {renderPaymentTimeoutCancellationNotice(booking)}
+      {renderNoProviderAutoCancelNotice(booking)}
+    </>
+  );
+
+  const handleSaveModifiedBooking = async () => {
+    setModifyDialogOpen(false);
+    await performRefresh();
+  };
+
+  const normalizeSearchQuery = (term: string) =>
+    term.trim().toLowerCase().replace(/^#/, '');
+
+  const bookingMatchesSearch = (booking: Booking, term: string): boolean => {
+    const q = normalizeSearchQuery(term);
+    if (!q) return true;
+    const idStr = String(booking.id ?? '');
+    if (idStr === q || idStr.includes(q)) return true;
+    return (
+      getServiceTitle(booking.service_type).toLowerCase().includes(q) ||
+      booking.serviceProviderName.toLowerCase().includes(q) ||
+      booking.address.toLowerCase().includes(q) ||
+      booking.bookingType.toLowerCase().includes(q)
+    );
+  };
+
+  const filterBookings = (bookings: Booking[], term: string) => {
+    if (!term.trim()) return bookings;
+    return bookings.filter((booking) => bookingMatchesSearch(booking, term));
+  };
+
+  const filteredTodaySchedule = (() => {
+    if (!searchTerm.trim()) return todaySchedule;
+    const term = searchTerm.toLowerCase();
+    return todaySchedule.filter((slot) => {
+      const providerName = [slot.provider_firstname, slot.provider_lastname]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return (
+        getServiceTitle(slot.service_type || '').toLowerCase().includes(term) ||
+        providerName.includes(term) ||
+        String(slot.engagement_id).includes(term) ||
+        (slot.address || '').toLowerCase().includes(term)
+      );
+    });
+  })();
+
+  const slotToTodayBooking = (slot: CustomerTodayBookingSlot): Booking => {
+    const existing = [...currentBookings, ...futureBookings].find(
+      (b) => b.id === slot.engagement_id
+    );
+    const providerName =
+      [slot.provider_firstname, slot.provider_lastname].filter(Boolean).join(' ').trim() ||
+      'Provider';
+    const todayYmd = dayjs().format('YYYY-MM-DD');
+    const taskStatus = mapTodaySlotTaskStatus(slot);
+    const todayService: TodayService | undefined = slot.today_service
+      ? {
+          service_day_id: String(slot.today_service.service_day_id),
+          status: slot.today_service.status,
+          can_start: false,
+          can_generate_otp: !!slot.today_service.can_generate_otp,
+          can_complete: false,
+          otp_active: !!slot.today_service.otp_active,
+        }
+      : slot.service_day_id
+        ? {
+            service_day_id: String(slot.service_day_id),
+            status: slot.service_day_status || 'SCHEDULED',
+            can_start: false,
+            can_generate_otp: false,
+            can_complete: false,
+            otp_active: false,
           }
+        : undefined;
+
+    if (existing) {
+      return {
+        ...existing,
+        date: todayYmd,
+        startDate: todayYmd,
+        start_time: slot.start_time_ist || existing.start_time,
+        end_time: slot.end_time_ist || existing.end_time,
+        taskStatus,
+        today_service: todayService ?? existing.today_service,
+        serviceProviderName: existing.serviceProviderName || providerName,
+        monthlyAmount:
+          slot.base_amount != null ? Number(slot.base_amount) : existing.monthlyAmount,
+        address: slot.address || existing.address,
+      };
+    }
+
+    const serviceType = (slot.service_type || 'other').toLowerCase();
+    return {
+      id: slot.engagement_id,
+      name: '',
+      serviceProviderId: 0,
+      timeSlot: slot.start_time_ist || '',
+      date: todayYmd,
+      startDate: todayYmd,
+      endDate: todayYmd,
+      start_time: slot.start_time_ist || '',
+      end_time: slot.end_time_ist || '',
+      bookingType: slot.booking_type || 'ON_DEMAND',
+      monthlyAmount: slot.base_amount != null ? Number(slot.base_amount) : 0,
+      paymentMode: '',
+      address: slot.address || '',
+      customerName: '',
+      serviceProviderName: providerName,
+      providerRating: 0,
+      taskStatus,
+      bookingDate: new Date().toISOString(),
+      engagements: '',
+      service_type: serviceType,
+      serviceType,
+      childAge: '',
+      experience: '',
+      noOfPersons: '',
+      mealType: '',
+      modifiedDate: new Date().toISOString(),
+      responsibilities: { tasks: [] },
+      assignmentStatus: 'ASSIGNED',
+      modifications: [],
+      today_service: todayService,
+    };
+  };
+
+  const todayBookings = filteredTodaySchedule.map(slotToTodayBooking);
+
+  const upcomingBookings = sortUpcomingByCreated(
+    [...currentBookings, ...futureBookings].filter(isUpcomingTabBooking),
+    upcomingSortOrder
+  );
+
+  // DEBUG: Check why booking 353 might not be in upcoming
+  React.useEffect(() => {
+    const booking353InCurrent = currentBookings.find(b => b.id === 353);
+    const booking353InFuture = futureBookings.find(b => b.id === 353);
+    
+    if (booking353InCurrent) {
+      const effectiveStatus = getEffectiveTaskStatus(booking353InCurrent);
+      const passesFilter = isUpcomingTabBooking(booking353InCurrent);
+      console.log('🔎 [DEBUG] Booking 353 in currentBookings:', {
+        id: booking353InCurrent.id,
+        taskStatus: booking353InCurrent.taskStatus,
+        today_service: booking353InCurrent.today_service,
+        effectiveStatus,
+        passesFilter,
+        shouldBeInUpcoming: passesFilter
+      });
+    }
+    
+    if (booking353InFuture) {
+      const effectiveStatus = getEffectiveTaskStatus(booking353InFuture);
+      const passesFilter = isUpcomingTabBooking(booking353InFuture);
+      console.log('🔎 [DEBUG] Booking 353 in futureBookings:', {
+        id: booking353InFuture.id,
+        taskStatus: booking353InFuture.taskStatus,
+        today_service: booking353InFuture.today_service,
+        effectiveStatus,
+        passesFilter,
+        shouldBeInUpcoming: passesFilter
+      });
+    }
+    
+    const booking353InUpcoming = upcomingBookings.find(b => b.id === 353);
+    if (booking353InUpcoming) {
+      console.log('✅ [DEBUG] Booking 353 IS in upcomingBookings after filter');
+    } else if (booking353InCurrent || booking353InFuture) {
+      console.log('❌ [DEBUG] Booking 353 was FILTERED OUT from upcomingBookings');
+    }
+  }, [currentBookings, futureBookings, upcomingBookings]);
+
+  const pendingPaymentBookings = sortUpcomingByCreated(
+    [...currentBookings, ...futureBookings, ...pastBookings].filter(isPaymentPendingBooking),
+    upcomingSortOrder
+  );
+
+  const sortedPastBookings = sortUpcomingByCreated(pastBookings, 'newest');
+  const sortedCancelledBookings = sortUpcomingByCreated(cancelledBookings, 'newest');
+
+  const countUpcomingWithFilters = (
+    source: Booking[],
+    overrides: Partial<{
+      serviceFilter: UpcomingServiceFilter;
+      durationFilter: UpcomingDurationFilter;
+      statusFilter: string;
+    }> = {}
+  ) =>
+    applyUpcomingTabFilters(
+      source,
+      overrides.serviceFilter ?? upcomingServiceFilter,
+      overrides.durationFilter ?? upcomingDurationFilter,
+      overrides.statusFilter ?? statusFilter
+    ).length;
+
+  const upcomingAfterTabFilters = applyUpcomingTabFilters(
+    upcomingBookings,
+    upcomingServiceFilter,
+    upcomingDurationFilter,
+    statusFilter
+  );
+  const filteredUpcomingBookings = filterBookings(upcomingAfterTabFilters, searchTerm);
+  const filteredPastBookings = filterBookings(sortedPastBookings, searchTerm);
+  const filteredCancelledBookings = filterBookings(sortedCancelledBookings, searchTerm);
+  const filteredPendingPaymentBookings = filterBookings(pendingPaymentBookings, searchTerm);
+  const filteredTodayBookings = filterBookings(todayBookings, searchTerm);
+
+  // DEBUG: Log booking 353 location
+  React.useEffect(() => {
+    const checkBooking353 = () => {
+      const allBookings = {
+        upcoming: upcomingBookings,
+        past: pastBookings,
+        current: currentBookings,
+        future: futureBookings,
+        cancelled: cancelledBookings,
+        pending: pendingPaymentBookings,
+        today: todayBookings
+      };
+
+      let found = false;
+      for (const [key, bookings] of Object.entries(allBookings)) {
+        const booking353 = bookings.find(b => b.id === 353);
+        if (booking353) {
+          console.log(`✅ [DEBUG] Booking 353 FOUND in ${key} list:`, {
+            id: booking353.id,
+            taskStatus: booking353.taskStatus,
+            service_type: booking353.service_type,
+            bookingType: booking353.bookingType,
+            startDate: booking353.startDate
+          });
+          found = true;
+        }
+      }
+
+      if (!found) {
+        console.log('❌ [DEBUG] Booking 353 NOT FOUND in any list');
+      }
+
+      // Check after filtering
+      const filtered = {
+        upcoming: filteredUpcomingBookings,
+        past: filteredPastBookings,
+        cancelled: filteredCancelledBookings,
+        pending: filteredPendingPaymentBookings,
+        today: filteredTodayBookings
+      };
+
+      let foundInFiltered = false;
+      for (const [key, bookings] of Object.entries(filtered)) {
+        const booking353 = bookings.find(b => b.id === 353);
+        if (booking353) {
+          console.log(`🔍 [DEBUG] Booking 353 visible in FILTERED ${key} list`);
+          foundInFiltered = true;
+        }
+      }
+
+      if (found && !foundInFiltered) {
+        console.log('⚠️ [DEBUG] Booking 353 was FILTERED OUT by search/filters:', {
+          searchTerm: searchTerm.trim(),
+          upcomingServiceFilter,
+          upcomingDurationFilter,
+          statusFilter
+        });
+      }
+
+      console.log('📊 [DEBUG] Booking counts:', {
+        upcoming: upcomingBookings.length,
+        past: pastBookings.length,
+        cancelled: cancelledBookings.length,
+        pending: pendingPaymentBookings.length,
+        filtered_upcoming: filteredUpcomingBookings.length,
+        filtered_past: filteredPastBookings.length,
+        currentTab: viewTab,
+        filters: {
+          search: searchTerm,
+          service: upcomingServiceFilter,
+          duration: upcomingDurationFilter,
+          status: statusFilter
+        }
+      });
+    };
+
+    checkBooking353();
+  }, [upcomingBookings, pastBookings, cancelledBookings, filteredUpcomingBookings, filteredPastBookings, viewTab, searchTerm, upcomingServiceFilter, upcomingDurationFilter, statusFilter]);
+
+  const hasActiveUpcomingFilters =
+    statusFilter !== 'ALL' ||
+    upcomingServiceFilter !== 'ALL' ||
+    upcomingDurationFilter !== 'ALL';
+
+  const clearUpcomingFilters = () => {
+    setStatusFilter('ALL');
+    setUpcomingServiceFilter('ALL');
+    setUpcomingDurationFilter('ALL');
+  };
+
+  // Filter sheet handlers
+  const handleFilterSheetApply = (filters: FilterOptions) => {
+    setUpcomingSortOrder(filters.sortOrder);
+    setUpcomingServiceFilter(filters.serviceFilter);
+    setUpcomingDurationFilter(filters.durationFilter);
+    setStatusFilter(filters.statusFilter);
+  };
+
+  const handleFilterSheetClear = () => {
+    clearUpcomingFilters();
+    setUpcomingSortOrder('newest');
+  };
+
+  const getActiveFilterCount = (): number => {
+    let count = 0;
+    if (upcomingSortOrder !== 'newest') count++;
+    if (upcomingServiceFilter !== 'ALL') count++;
+    if (upcomingDurationFilter !== 'ALL') count++;
+    if (statusFilter !== 'ALL') count++;
+    return count;
+  };
+
+  const upcomingStatusTabs = [
+    { value: 'ALL', label: 'All', icon: 'view-dashboard', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'ALL' }) },
+    {
+      value: 'NOT_STARTED',
+      label: 'Not started',
+      icon: 'clock-outline',
+      count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'NOT_STARTED' }),
+    },
+    {
+      value: 'IN_PROGRESS',
+      label: 'In progress',
+      icon: 'progress-clock',
+      count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'IN_PROGRESS' }),
+    },
+  ];
+
+  // Memoize filter options for the filter sheet
+  const filterSheetSortOptions = useMemo(() => {
+    return [
+      { value: 'newest', label: 'Newest first' },
+      { value: 'oldest', label: 'Oldest first' },
+    ];
+  }, []);
+  
+  const filterSheetServiceOptions = useMemo(
+    () => {
+      return [
+        { value: 'ALL', label: 'All services', icon: 'view-grid', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'ALL' }) },
+        { value: 'cook', label: 'Cook', icon: 'chef-hat', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'cook' }) },
+        { value: 'maid', label: 'Maid', icon: 'broom', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'maid' }) },
+        { value: 'nanny', label: 'Caregiver', icon: 'heart', count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: 'nanny' }) },
+      ];
+    },
+    [upcomingBookings, upcomingServiceFilter, upcomingDurationFilter, statusFilter]
+  );
+
+  const filterSheetDurationOptions = useMemo(
+    () => {
+      return [
+        { value: 'ALL', label: 'All types', icon: 'calendar', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'ALL' }) },
+        { value: 'MONTHLY', label: 'Monthly', icon: 'calendar-month', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'MONTHLY' }) },
+        { value: 'SHORT_TERM', label: 'Short term', icon: 'calendar-clock', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'SHORT_TERM' }) },
+        { value: 'ON_DEMAND', label: 'On demand', icon: 'flash', count: countUpcomingWithFilters(upcomingBookings, { durationFilter: 'ON_DEMAND' }) },
+      ];
+    },
+    [upcomingBookings, upcomingServiceFilter, upcomingDurationFilter, statusFilter]
+  );
+
+  const filterSheetStatusOptions = useMemo(
+    () => {
+      return [
+        { value: 'ALL', label: 'All', icon: 'view-dashboard', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'ALL' }) },
+        { value: 'NOT_STARTED', label: 'Not started', icon: 'clock-outline', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'NOT_STARTED' }) },
+        { value: 'IN_PROGRESS', label: 'In progress', icon: 'progress-clock', count: countUpcomingWithFilters(upcomingBookings, { statusFilter: 'IN_PROGRESS' }) },
+      ];
+    },
+    [upcomingBookings, upcomingServiceFilter, upcomingDurationFilter, statusFilter]
+  );
+
+  useEffect(() => {
+    if (viewTab !== 'upcoming' && statusFilter !== 'ALL') {
+      setStatusFilter('ALL');
+    }
+  }, [viewTab, statusFilter]);
+
+  const handleViewTabChange = (tab: BookingsViewTab) => {
+    setViewTab(tab);
+    setOpenFilterMenu(null);
+  };
+
+  const renderBookingsHeader = (skeleton?: boolean) => (
+    <View
+      style={[
+        styles.headerShell,
+        { paddingTop: Math.max(insets.top, 8) + 6 },
+      ]}
+    >
+      <LinearGradient
+        colors={[...HOME_HERO_GRADIENT]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      <View style={styles.headerInner}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={handleBackPress}
+            accessibilityLabel="Go back"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="arrow-left" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <Text
+            style={[
+              styles.headerTitle,
+              { fontSize: fontSizes.headerTitle + 2 },
+              Platform.OS === 'android' ? { includeFontPadding: false } : null,
+            ]}
+            numberOfLines={1}
+          >
+            My bookings
+          </Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => void handleOpenMyTickets()}
+              accessibilityLabel="My support tickets"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Icon name="file-document-outline" size={22} color="#ffffff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerIconBtn}
+              onPress={() => onOpenWallet?.()}
+              accessibilityLabel="Open wallet"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Icon name="wallet-outline" size={22} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.headerSearchWrap}>
+          {skeleton ? (
+            <SkeletonLoader width="100%" height={44} variant="rectangular" style={{ borderRadius: 22 }} />
+          ) : (
+            <View style={styles.headerSearchRow}>
+              <View style={styles.headerSearchPill}>
+                <Icon name="magnify" size={20} color="#94a3b8" />
+                <TextInput
+                  style={[styles.headerSearchInput, { fontSize: fontSizes.searchInput }]}
+                  placeholder="Search booking #, provider, service..."
+                  placeholderTextColor="#94a3b8"
+                  value={searchTerm}
+                  onChangeText={setSearchTerm}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+                {searchTerm.length > 0 ? (
+                  <TouchableOpacity
+                    onPress={() => setSearchTerm('')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Icon name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              
+              {/* Filter Button */}
+              {viewTab === 'upcoming' && (
+                <TouchableOpacity
+                  style={[
+                    styles.filterButton,
+                    { 
+                      backgroundColor: getActiveFilterCount() > 0 ? colors.primary : 'rgba(255, 255, 255, 0.95)',
+                      borderColor: getActiveFilterCount() > 0 ? colors.primary : 'rgba(226, 232, 240, 0.4)',
+                    }
+                  ]}
+                  onPress={() => setFilterSheetVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Open filters"
+                  accessibilityHint="Filter upcoming bookings"
+                >
+                  <Icon 
+                    name="filter-variant" 
+                    size={20} 
+                    color={getActiveFilterCount() > 0 ? '#fff' : '#64748b'} 
+                  />
+                  {getActiveFilterCount() > 0 && (
+                    <View style={[styles.filterBadge, { backgroundColor: '#fff' }]}>
+                      <Text style={[styles.filterBadgeText, { color: colors.primary, fontSize: 10 }]}>
+                        {getActiveFilterCount()}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderUpcomingFilterDropdown = <T extends string>({
+    menuKey,
+    label,
+    shortLabel,
+    icon,
+    value,
+    options,
+  }: {
+    menuKey: 'sort' | 'service' | 'duration' | 'status';
+    label: string;
+    shortLabel: string;
+    icon?: string;
+    value: T;
+    options: { value: T; label: string; count?: number }[];
+    onSelect: (next: T) => void;
+  }) => {
+    const selected = options.find((option) => option.value === value) ?? options[0];
+    const displayText =
+      selected?.count !== undefined
+        ? `${selected.label} (${selected.count})`
+        : selected?.label ?? '';
+    const isOpen = openFilterMenu === menuKey;
+
+    return (
+      <View style={[styles.filterDropdownItem, isOpen && styles.filterDropdownItemOpen]}>
+        <Text
+          style={[
+            styles.filterDropdownItemLabel,
+            { color: colors.textSecondary, fontSize: fontSizes.badgeText - 1 },
+          ]}
+          numberOfLines={1}
+        >
+          {shortLabel}
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.sortDropdownTrigger,
+            {
+              borderColor: isOpen ? colors.primary : colors.border + '80',
+              backgroundColor: isDarkMode ? colors.card : '#ffffff',
+            },
+          ]}
+          onPress={() => setOpenFilterMenu((current) => (current === menuKey ? null : menuKey))}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${displayText}`}
+          accessibilityState={{ expanded: isOpen }}
+        >
+          {icon ? <Icon name={icon} size={13} color={colors.textSecondary} /> : null}
+          <Text
+            style={[
+              styles.sortDropdownText,
+              { color: colors.text, fontSize: fontSizes.badgeText - 1 },
+            ]}
+            numberOfLines={1}
+          >
+            {displayText}
+          </Text>
+          <Icon
+            name={isOpen ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderUpcomingFilterPickerModal = () => {
+    if (!openFilterMenu) return null;
+
+    type FilterOption = { value: string; label: string; count?: number };
+    let title = '';
+    let options: FilterOption[] = [];
+    let currentValue = '';
+    let onSelect: (value: string) => void = () => {};
+
+    switch (openFilterMenu) {
+      case 'sort':
+        title = 'Sort by';
+        options = UPCOMING_SORT_OPTIONS.map((option) => ({ ...option }));
+        currentValue = upcomingSortOrder;
+        onSelect = (next) => setUpcomingSortOrder(next as UpcomingSortOrder);
+        break;
+      case 'service':
+        title = 'Service';
+        options = UPCOMING_SERVICE_FILTERS.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: tab.value }),
+        }));
+        currentValue = upcomingServiceFilter;
+        onSelect = (next) => setUpcomingServiceFilter(next as UpcomingServiceFilter);
+        break;
+      case 'duration':
+        title = 'Type';
+        options = UPCOMING_DURATION_FILTERS.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: countUpcomingWithFilters(upcomingBookings, { durationFilter: tab.value }),
+        }));
+        currentValue = upcomingDurationFilter;
+        onSelect = (next) => setUpcomingDurationFilter(next as UpcomingDurationFilter);
+        break;
+      case 'status':
+        title = 'Status';
+        options = upcomingStatusTabs.map((tab) => ({
+          value: tab.value,
+          label: tab.label,
+          count: tab.count,
+        }));
+        currentValue = statusFilter;
+        onSelect = (next) => setStatusFilter(next);
+        break;
+      default:
+        return null;
+    }
+
+    return (
+      <RNModal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenFilterMenu(null)}
+      >
+        <View style={styles.filterModalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setOpenFilterMenu(null)}
+          />
+          <View
+            style={[
+              styles.filterModalSheet,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border + '60',
+              },
+            ]}
+          >
+            <Text style={[styles.filterModalTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+              {title}
+            </Text>
+            <ScrollView style={styles.filterModalList} bounces={false}>
+              {options.map((option) => {
+                const isSelected = currentValue === option.value;
+                const optionLabel =
+                  option.count !== undefined
+                    ? `${option.label} (${option.count})`
+                    : option.label;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.sortDropdownOption,
+                      isSelected && { backgroundColor: colors.primary + '12' },
+                    ]}
+                    onPress={() => {
+                      onSelect(option.value);
+                      setOpenFilterMenu(null);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.sortDropdownOptionText,
+                        {
+                          color: isSelected ? colors.primary : colors.text,
+                          fontSize: fontSizes.infoText,
+                        },
+                      ]}
+                    >
+                      {optionLabel}
+                    </Text>
+                    {isSelected ? <Icon name="check" size={18} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.filterModalCancel, { borderTopColor: colors.border }]}
+              onPress={() => setOpenFilterMenu(null)}
+            >
+              <Text style={{ color: colors.textSecondary, fontWeight: '600', fontSize: fontSizes.buttonText }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </RNModal>
+    );
+  };
+
+  const renderUpcomingStatusFilter = () => (
+    <View style={styles.upcomingFiltersBlock}>
+      <View style={styles.upcomingFiltersGrid}>
+        <View style={styles.upcomingFiltersRow}>
+          {renderUpcomingFilterDropdown({
+            menuKey: 'sort',
+            label: 'Sort by',
+            shortLabel: 'Sort',
+            icon: 'sort',
+            value: upcomingSortOrder,
+            options: UPCOMING_SORT_OPTIONS,
+            onSelect: setUpcomingSortOrder,
+          })}
+          {renderUpcomingFilterDropdown({
+            menuKey: 'service',
+            label: 'Service type',
+            shortLabel: 'Service',
+            icon: 'briefcase-outline',
+            value: upcomingServiceFilter,
+            options: UPCOMING_SERVICE_FILTERS.map((tab) => ({
+              value: tab.value,
+              label: tab.label,
+              count: countUpcomingWithFilters(upcomingBookings, { serviceFilter: tab.value }),
+            })),
+            onSelect: setUpcomingServiceFilter,
+          })}
+        </View>
+        <View style={styles.upcomingFiltersRow}>
+          {renderUpcomingFilterDropdown({
+            menuKey: 'duration',
+            label: 'Booking type',
+            shortLabel: 'Type',
+            icon: 'calendar-range',
+            value: upcomingDurationFilter,
+            options: UPCOMING_DURATION_FILTERS.map((tab) => ({
+              value: tab.value,
+              label: tab.label,
+              count: countUpcomingWithFilters(upcomingBookings, { durationFilter: tab.value }),
+            })),
+            onSelect: setUpcomingDurationFilter,
+          })}
+          {renderUpcomingFilterDropdown({
+            menuKey: 'status',
+            label: 'Status',
+            shortLabel: 'Status',
+            icon: 'filter-variant',
+            value: statusFilter,
+            options: upcomingStatusTabs.map((tab) => ({
+              value: tab.value,
+              label: tab.label,
+              count: tab.count,
+            })),
+            onSelect: setStatusFilter,
+          })}
+        </View>
+      </View>
+
+      {hasActiveUpcomingFilters ? (
+        <TouchableOpacity
+          style={[styles.clearFiltersInlineBtn, { borderColor: colors.primary }]}
+          onPress={() => {
+            setOpenFilterMenu(null);
+            clearUpcomingFilters();
+          }}
+        >
+          <Icon name="filter-off-outline" size={14} color={colors.primary} />
+          <Text style={[styles.clearFiltersInlineText, { color: colors.primary, fontSize: fontSizes.badgeText - 1 }]}>
+            Clear filters
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {renderUpcomingFilterPickerModal()}
+    </View>
+  );
+
+  const renderTodayEmptyState = () => (
+    <View style={styles.emptyStateWrap}>
+      <View
+        style={[
+          styles.emptyStateCard,
+          {
+            backgroundColor: colors.surfaceElevated ?? colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.accentSoft }]}>
+          <Icon name="calendar-today" size={40} color={colors.primary} />
+        </View>
+        <Text style={[styles.emptyStateTitle, { color: colors.textPrimary, fontSize: fontSizes.emptyStateTitle }]}>
+          No service today
+        </Text>
+        <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+          You do not have any visits scheduled for today
+        </Text>
+      </View>
+      <EmptyStateBookButton
+        onPress={() => setServicesDialogOpen(true)}
+        labelFontSize={fontSizes.buttonText}
+      />
+    </View>
+  );
+
+  const renderUpcomingEmptyState = () => {
+    if (filterBookings(upcomingBookings, searchTerm).length === 0) {
+      return (
+        <View style={styles.emptyStateWrap}>
+          <View
+            style={[
+              styles.emptyStateCard,
+              {
+                backgroundColor: colors.surfaceElevated ?? colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.accentSoft }]}>
+              <Icon name="calendar-check" size={40} color={colors.primary} />
+            </View>
+            <Text style={[styles.emptyStateTitle, { color: colors.textPrimary, fontSize: fontSizes.emptyStateTitle }]}>
+              No Upcoming Bookings
+            </Text>
+            <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+              You do not have any upcoming service bookings
+            </Text>
+          </View>
+          <EmptyStateBookButton
+            onPress={() => setServicesDialogOpen(true)}
+            labelFontSize={fontSizes.buttonText}
+          />
+        </View>
+      );
+    }
+
+    const serviceLabel =
+      UPCOMING_SERVICE_FILTERS.find((t) => t.value === upcomingServiceFilter)?.label ?? 'selected service';
+    const durationLabel =
+      UPCOMING_DURATION_FILTERS.find((t) => t.value === upcomingDurationFilter)?.label ?? 'selected type';
+    const statusLabel =
+      upcomingStatusTabs.find((t) => t.value === statusFilter)?.label ?? 'selected status';
+
+    return (
+      <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+        <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
+          <Icon name="filter-off-outline" size={44} color={colors.primary} />
+        </View>
+        <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>
+          No matching bookings
+        </Text>
+        <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+          {hasActiveUpcomingFilters
+            ? `No upcoming bookings match your filters (${serviceLabel} · ${durationLabel} · ${statusLabel}). Try adjusting or clear all filters.`
+            : 'None of your upcoming bookings match this view. Try another filter or show all.'}
+        </Text>
+        {hasActiveUpcomingFilters ? (
+        <TouchableOpacity
+          style={[styles.clearFilterBtn, { borderColor: colors.primary }]}
+          onPress={clearUpcomingFilters}
+        >
+          <Text style={[styles.clearFilterBtnText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
+            Clear all filters
+          </Text>
+        </TouchableOpacity>
+        ) : (
+        <TouchableOpacity
+          style={[styles.clearFilterBtn, { borderColor: colors.primary }]}
+          onPress={() => setStatusFilter('ALL')}
+        >
+          <Text style={[styles.clearFilterBtnText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
+            Show all upcoming
+          </Text>
+        </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  const renderBookingsList = (bookings: Booking[], emptyNode: React.ReactNode) => {
+    if (bookings.length === 0) {
+      return emptyNode;
+    }
+    return (
+      <View style={styles.bookingsList}>
+        {bookings.map((item) => (
+          <View key={String(item.id)} style={styles.bookingListItem}>
+            {renderBookingItem({ item })}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderMainViewTabs = () => {
+    const tabs: {
+      key: BookingsViewTab;
+      label: string;
+      count?: number;
+      activeStyle: { backgroundColor: string; color: string };
+      badgeStyle?: { backgroundColor: string; color: string };
+    }[] = [
+      {
+        key: 'today',
+        label: 'Today',
+        count: todaySchedule.length,
+        activeStyle: {
+          backgroundColor: isDarkMode ? '#059669' : HOME_M3.secondary,
+          color: '#ffffff',
+        },
+        badgeStyle: { backgroundColor: 'rgba(255,255,255,0.24)', color: '#ffffff' },
+      },
+      {
+        key: 'upcoming',
+        label: 'Upcoming',
+        activeStyle: {
+          backgroundColor: isDarkMode ? colors.card : HOME_M3.secondary,
+          color: isDarkMode ? colors.text : '#ffffff',
+        },
+      },
+      {
+        key: 'past',
+        label: 'Past',
+        activeStyle: {
+          backgroundColor: isDarkMode ? colors.card : HOME_M3.primary,
+          color: isDarkMode ? colors.text : '#ffffff',
+        },
+      },
+      {
+        key: 'cancelled',
+        label: 'Cancel',
+        count: cancelledBookings.length,
+        activeStyle: { backgroundColor: '#e11d48', color: '#ffffff' },
+        badgeStyle: { backgroundColor: 'rgba(255,255,255,0.24)', color: '#ffffff' },
+      },
+      {
+        key: 'pending',
+        label: 'Pending',
+        count: pendingPaymentBookings.length,
+        activeStyle: { backgroundColor: '#dc2626', color: '#ffffff' },
+        badgeStyle: { backgroundColor: 'rgba(255,255,255,0.24)', color: '#ffffff' },
+      },
+    ];
+
+    return (
+      <View style={[styles.mainTabSection, { backgroundColor: bk.canvas }]}>
+        <View
+          style={[
+            styles.mainTabRail,
+            { backgroundColor: bk.rail },
+          ]}
+        >
+          {tabs.map((tab) => {
+            const active = viewTab === tab.key;
+            const showBadge = tab.count != null && tab.count > 0;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[
+                  styles.mainTab,
+                  {
+                    backgroundColor: active
+                      ? tab.activeStyle.backgroundColor
+                      : 'transparent',
+                    borderColor: active ? 'transparent' : bk.border,
+                  },
+                  active && styles.mainTabActive,
+                ]}
+                onPress={() => handleViewTabChange(tab.key)}
+                activeOpacity={0.85}
+                accessibilityLabel={
+                  tab.key === 'cancelled' ? 'Cancelled bookings' : tab.label
+                }
+              >
+                <View style={styles.mainTabInner}>
+                  <Text
+                    style={[
+                      styles.mainTabText,
+                      {
+                        color: active ? tab.activeStyle.color : colors.textSecondary,
+                        fontSize: fontSizes.buttonText - 1,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {tab.label}
+                  </Text>
+                  {showBadge ? (
+                    <View
+                      style={[
+                        styles.mainTabBadge,
+                        {
+                          backgroundColor: active
+                            ? tab.badgeStyle?.backgroundColor ?? colors.primary + '20'
+                            : tab.key === 'today'
+                              ? '#d1fae5'
+                              : tab.key === 'cancelled'
+                                ? '#ffe4e6'
+                                : '#fee2e2',
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.mainTabBadgeText,
+                          {
+                            color: active
+                              ? tab.badgeStyle?.color ?? colors.primary
+                              : tab.key === 'today'
+                                ? '#047857'
+                                : tab.key === 'cancelled'
+                                  ? '#be123c'
+                                  : '#b91c1c',
+                            fontSize: fontSizes.badgeText - 1,
+                          },
+                        ]}
+                      >
+                        {tab.count}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  const renderSectionHeader = (
+    title: string,
+    filteredCount: number,
+    suffix: string,
+    total: number,
+    accentColor: string
+  ) => (
+    <View style={styles.sectionHeaderRow}>
+      <View style={[styles.sectionAccent, { backgroundColor: accentColor }]} />
+      <View style={styles.sectionHeaderTextWrap}>
+        <Text style={[styles.sectionHeaderTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+          {title}
+        </Text>
+        <Text style={[styles.sectionHeaderMeta, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
+          {filteredCount} {suffix} · {total} total
+        </Text>
+      </View>
+    </View>
+  );
+
+  const refreshTooltipTranslateY = tooltipAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-20, 0],
+  });
+
+  const renderRefreshTooltip = () => {
+    if (!showRefreshTooltip) return null;
+
+    return (
+      <Animated.View
+        style={[
+          styles.tooltipContainer,
+          {
+            opacity: tooltipAnim,
+            transform: [{ translateY: refreshTooltipTranslateY }],
+          },
         ]}
       >
         <View style={[styles.tooltipContent, { backgroundColor: colors.primary + 'E6' }]}>
@@ -837,10 +2800,27 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     );
   };
 
-  // ---------- Enhanced Render Helpers ----------
+  const reportIssueButton = (booking: Booking) => {
+    console.log('🔴 Rendering reportIssueButton for booking:', booking.id, 'status:', booking.taskStatus);
+    return (
+      <TouchableOpacity
+        style={[styles.iconButton, { backgroundColor: colors.warning + '10' }]}
+        onPress={() => handleReportIssueClick(booking)}
+      >
+        <Icon name="alert-circle-outline" size={20} color={colors.warning} />
+        <Text style={[styles.iconButtonText, { color: colors.warning, fontSize: fontSizes.buttonText }]}>
+          Report Issue
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   const renderActionButtons = (booking: Booking) => {
+    console.log('🔵 Rendering action buttons for booking:', booking.id, 'status:', booking.taskStatus);
     const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
     const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
+    const modificationDisabled = isModificationDisabled(booking);
+    const hasExistingVacation = hasVacation(booking);
 
     if (canShowPaymentButton) {
       return (
@@ -870,27 +2850,69 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
 
     switch (booking.taskStatus) {
       case 'NOT_STARTED':
-        return null;
+        return (
+          <ActionRow>
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.primary + '10' }]} onPress={() => handleViewDetails(booking)}>
+              <Icon name="eye-outline" size={20} color={colors.primary} />
+              <Text style={[styles.iconButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>View Details</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.iconButton,
+                { backgroundColor: modificationDisabled ? colors.textSecondary + '10' : colors.warning + '10' },
+                modificationDisabled && styles.disabledButton
+              ]}
+              onPress={() => showConfirmation('modify', booking, 'Modify Booking', 'Do you want to modify this booking?', 'info')}
+              disabled={modificationDisabled}
+            >
+              <Icon name="square-edit-outline" size={20} color={modificationDisabled ? colors.textSecondary : colors.warning} />
+              <Text style={[styles.iconButtonText, { color: modificationDisabled ? colors.textSecondary : colors.warning, fontSize: fontSizes.buttonText }]}>
+                {modificationDisabled ? 'Modify Unavailable' : 'Modify Booking'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleVacationClick(booking)}>
+              <Icon name="palm-tree" size={20} color={colors.info} />
+              <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>
+                {hasExistingVacation ? 'Manage Vacation' : 'Add Vacation'}
+              </Text>
+            </TouchableOpacity>
+            {reportIssueButton(booking)}
+          </ActionRow>
+        );
       case 'IN_PROGRESS':
         return (
-          <View style={styles.actionButtonsRow}>
-            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.primary + '10' }]} onPress={() => Alert.alert('Call', `Call ${getServiceTitle(booking.service_type)}`)}>
-              <Icon name="phone" size={20} color={colors.primary} />
-              <Text style={[styles.iconButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Call</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.success + '10' }]} onPress={() => Alert.alert('Message', `Message ${getServiceTitle(booking.service_type)}`)}>
-              <Icon name="message-text" size={20} color={colors.success} />
-              <Text style={[styles.iconButtonText, { color: colors.success, fontSize: fontSizes.buttonText }]}>Message</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.error + '10' }]} onPress={() => handleCancelClick(booking)}>
-              <Icon name="close-circle" size={20} color={colors.error} />
-              <Text style={[styles.iconButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Cancel</Text>
-            </TouchableOpacity>
+          <View style={styles.actionButtonsContainer}>
+            <ActionRow>
+              <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.primary + '10' }]} onPress={() => Alert.alert('Call', `Call ${getServiceTitle(booking.service_type)}`)}>
+                <Icon name="phone" size={20} color={colors.primary} />
+                <Text style={[styles.iconButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.error + '10' }]} onPress={() => handleCancelClick(booking)}>
+                <Icon name="close-circle" size={20} color={colors.error} />
+                <Text style={[styles.iconButtonText, { color: colors.error, fontSize: fontSizes.buttonText }]}>Cancel</Text>
+              </TouchableOpacity>
+            </ActionRow>
+            <ActionRow style={{ marginTop: 10 }}>
+              <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.primary + '10' }]} onPress={() => handleViewDetails(booking)}>
+                <Icon name="eye-outline" size={20} color={colors.primary} />
+                <Text style={[styles.iconButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>View Details</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleVacationClick(booking)}>
+                <Icon name="palm-tree" size={20} color={colors.info} />
+                <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>
+                  {hasExistingVacation ? 'Manage Vacation' : 'Add Vacation'}
+                </Text>
+              </TouchableOpacity>
+              {reportIssueButton(booking)}
+            </ActionRow>
           </View>
         );
       case 'COMPLETED':
         return (
-          <View style={styles.actionButtonsRow}>
+          <ActionRow>
+            {reportIssueButton(booking)}
             {hasReview(booking) ? (
               <View style={[styles.reviewSubmittedBadge, { backgroundColor: colors.success + '10' }]}>
                 <Icon name="check-circle" size={18} color={colors.success} />
@@ -902,153 +2924,308 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
                 <Text style={[styles.iconButtonText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>Write Review</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => setServicesDialogOpen(true)}>
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleBookAgain(booking)}>
               <Icon name="calendar-plus" size={20} color={colors.info} />
               <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </TouchableOpacity>
-          </View>
+          </ActionRow>
         );
       case 'CANCELLED':
         return (
-          <View style={styles.actionButtonsRow}>
-            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => setServicesDialogOpen(true)}>
+          <ActionRow>
+            {reportIssueButton(booking)}
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleBookAgain(booking)}>
               <Icon name="calendar-plus" size={20} color={colors.info} />
               <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>Book Again</Text>
             </TouchableOpacity>
-          </View>
+          </ActionRow>
         );
-      default: return null;
+      default: 
+        // Always show Report Issue button for any status not specifically handled
+        return (
+          <ActionRow>
+            {reportIssueButton(booking)}
+            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.info + '10' }]} onPress={() => handleBookAgain(booking)}>
+              <Icon name="calendar-plus" size={20} color={colors.info} />
+              <Text style={[styles.iconButtonText, { color: colors.info, fontSize: fontSizes.buttonText }]}>Book Again</Text>
+            </TouchableOpacity>
+          </ActionRow>
+        );
     }
+  };
+
+  const renderTodayServicePanel = (item: Booking) => {
+    const ts = item.today_service;
+    if (!ts || viewTab !== 'today') return null;
+
+    const status = String(ts.status || '').toUpperCase();
+    const otp = generatedOTPs[item.id];
+
+    if (status === 'SCHEDULED') {
+      return (
+        <View style={[styles.todayPanel, { backgroundColor: colors.info + '12', borderColor: colors.info + '35' }]}>
+          <View style={styles.todayPanelRow}>
+            <Icon name="clock-check-outline" size={18} color={colors.info} />
+            <Text style={[styles.todayPanelText, styles.todayPanelTextInRow, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+              Scheduled for today — your provider will start at {formatTimeRange(item.start_time, item.end_time)}.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (status === 'IN_PROGRESS') {
+      const otpDisabled = otpLoading === item.id || !ts.can_generate_otp;
+      return (
+        <View style={[styles.todayPanel, { backgroundColor: colors.success + '12', borderColor: colors.success + '35' }]}>
+          <Text style={[styles.todayPanelTitle, { color: colors.text, fontSize: fontSizes.buttonText }]}>
+            Service in progress
+          </Text>
+          <Text style={[styles.todayPanelText, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+            Generate an OTP for your provider to complete the visit.
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[
+              styles.todayOtpButton,
+              { backgroundColor: colors.primary },
+              otpDisabled && styles.todayOtpButtonDisabled,
+            ]}
+            onPress={() => handleGenerateOTP(item)}
+            disabled={otpDisabled}
+          >
+            {otpLoading === item.id ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <View style={styles.todayOtpButtonContent}>
+                <Icon name="shield-key" size={18} color="#fff" />
+                <Text
+                  style={[styles.todayOtpButtonText, { fontSize: fontSizes.buttonText }]}
+                  includeFontPadding={false}
+                >
+                  Generate OTP
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {ts.otp_active && otp ? (
+            <View style={[styles.todayOtpDisplay, { backgroundColor: colors.card, borderColor: colors.border + '40' }]}>
+              <Text style={[styles.todayOtpLabel, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+                Share with provider:
+              </Text>
+              <Text style={[styles.todayOtpCode, { color: colors.text }]}>{otp}</Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    }
+
+    if (status === 'COMPLETED') {
+      return (
+        <View style={[styles.todayPanel, { backgroundColor: colors.success + '12', borderColor: colors.success + '35' }]}>
+          <View style={styles.todayPanelRow}>
+            <Icon name="check-circle" size={18} color={colors.success} />
+            <Text style={[styles.todayPanelText, styles.todayPanelTextInRow, { color: colors.textSecondary, fontSize: fontSizes.badgeText }]}>
+              Today&apos;s visit is complete.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   const renderBookingItem = ({ item }: { item: Booking }) => {
     const serviceType = item.serviceType || item.service_type;
-    const isPaymentPending = item.payment && item.payment.status === "PENDING";
-    
+    const isPaymentPending = isPaymentPendingBooking(item);
+    const displayTaskStatus = getEffectiveTaskStatus(item);
+    const amountValue =
+      Number(item.monthlyAmount || 0) > 0
+        ? Number(item.monthlyAmount)
+        : Number(item.payment?.total_amount || item.payment?.base_amount || 0);
+    const serviceDate = dayjs(item.startDate || item.date);
+    const serviceDateShort = serviceDate.isValid()
+      ? serviceDate.format('D MMM YYYY')
+      : dayjs(item.date).format('D MMM YYYY');
+
     return (
-      <TouchableOpacity activeOpacity={0.95} onPress={() => handleViewDetails(item)}>
-        <LinearGradient
-          colors={[colors.card, colors.card]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.bookingCard, { borderColor: colors.border + '20' }]}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => handleViewDetails(item)}
+        style={styles.compactCardTouch}
+      >
+        <View
+          style={[
+            styles.cleanCard,
+            {
+              borderColor: bk.border,
+              backgroundColor: bk.card,
+            },
+          ]}
         >
-          {/* Header Section */}
-          <View style={styles.cardHeader}>
-            <View style={styles.serviceInfoContainer}>
-              <LinearGradient
-                colors={[colors.primary + '20', colors.primary + '10']}
-                style={styles.serviceIconContainer}
-              >
-                <Icon name={getServiceIcon(serviceType)} size={24} color={colors.primary} />
-              </LinearGradient>
-              <View>
-                <Text style={[styles.serviceTitle, { color: colors.text, fontSize: fontSizes.serviceTitle }]}>
-                  {getServiceTitle(serviceType)}
-                </Text>
-                <View style={styles.providerInfo}>
-                  <Icon name="account" size={12} color={colors.textSecondary} />
-                  <Text style={[styles.providerName, { color: colors.textSecondary, fontSize: fontSizes.infoText - 2 }]}>
-                    {item.serviceProviderName}
+          {/* Left accent bar */}
+          <View style={[styles.cleanCardAccent, { backgroundColor: bk.accentBar }]} />
+          
+          {/* Main content area */}
+          <View style={styles.cleanCardContent}>
+            {/* Service info row */}
+            <View style={styles.cleanCardHeader}>
+              <View style={[styles.cleanCardIconBox, { backgroundColor: bk.iconBg }]}>
+                <Text style={styles.cleanCardEmoji}>{getServiceEmoji(serviceType)}</Text>
+              </View>
+              <View style={styles.cleanCardHeaderText}>
+                <View style={styles.cleanCardTitleRow}>
+                  <Text
+                    style={[styles.cleanCardTitle, { color: bk.text, fontSize: fontSizes.serviceTitle }]}
+                    numberOfLines={1}
+                  >
+                    {getServiceTitle(serviceType)}
                   </Text>
-                  {item.providerRating > 0 && (
-                    <View style={styles.ratingContainer}>
-                      <Icon name="star" size={12} color="#FBBF24" />
-                      <Text style={[styles.ratingText, { color: colors.textSecondary, fontSize: fontSizes.infoText - 2 }]}>
-                        {item.providerRating}
-                      </Text>
-                    </View>
-                  )}
+                  {!isPaymentPending && amountValue > 0 ? (
+                    <Text style={[styles.cleanCardPrice, { color: bk.text, fontSize: fontSizes.infoText }]}>
+                      ₹{amountValue.toFixed(2)}
+                    </Text>
+                  ) : null}
                 </View>
+                <Text style={[styles.cleanCardSubtitle, { color: bk.textMuted, fontSize: fontSizes.infoText - 2 }]}>
+                  Booking #{item.id}
+                </Text>
               </View>
             </View>
-            <Badge variant={item.bookingType === 'MONTHLY' ? 'info' : item.bookingType === 'ON_DEMAND' ? 'warning' : 'success'}>
-              <Icon name={getBookingTypeIcon(item.bookingType)} size={14} color={colors.primary} />
-              <Text style={[styles.badgeText, { color: colors.primary, fontSize: fontSizes.badgeText }]}>
-                {item.bookingType === 'ON_DEMAND' ? 'On Demand' : item.bookingType === 'MONTHLY' ? 'Monthly' : 'Short Term'}
+
+            {/* Provider name */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="account" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.text, fontSize: fontSizes.infoText - 1 }]} numberOfLines={1}>
+                {item.serviceProviderName || 'Awaiting assignment'}
               </Text>
-            </Badge>
-          </View>
-
-          {/* Status and Payment Info */}
-          <View style={styles.statusRow}>
-            <StatusChip status={item.taskStatus} />
-            {isPaymentPending && item.taskStatus !== 'CANCELLED' && (
-              <Badge variant="error">
-                <Icon name="alert-circle" size={14} color={colors.error} />
-                <Text style={[styles.badgeText, { color: colors.error, fontSize: fontSizes.badgeText }]}>Payment Pending</Text>
-              </Badge>
-            )}
-            {item.assignmentStatus === "UNASSIGNED" && !isPaymentPending && (
-              <Badge variant="warning">
-                <Icon name="clock" size={14} color={colors.warning} />
-                <Text style={[styles.badgeText, { color: colors.warning, fontSize: fontSizes.badgeText }]}>Awaiting Assignment</Text>
-              </Badge>
-            )}
-          </View>
-
-          {/* Date & Time Section */}
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailItem}>
-              <View style={[styles.detailIconBg, { backgroundColor: colors.primary + '10' }]}>
-                <Icon name="calendar" size={16} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.infoText - 2 }]}>Date</Text>
-                <Text style={[styles.detailValue, { color: colors.text, fontSize: fontSizes.infoText }]}>
-                  {dayjs(item.date).format('ddd, MMM D, YYYY')}
-                </Text>
-              </View>
             </View>
-            <View style={styles.detailItem}>
-              <View style={[styles.detailIconBg, { backgroundColor: colors.primary + '10' }]}>
-                <Icon name="clock-outline" size={16} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.infoText - 2 }]}>Time</Text>
-                <Text style={[styles.detailValue, { color: colors.text, fontSize: fontSizes.infoText }]}>
-                  {formatTimeRange(item.start_time, item.end_time)}
-                </Text>
-              </View>
+
+            {/* Show ETA badges for today's bookings when provider is assigned */}
+            {viewTab === 'today' && 
+             displayTaskStatus === 'IN_PROGRESS' && 
+             item.serviceProviderId && 
+             customerId && (
+              <CompactETADisplay 
+                engagementId={item.id} 
+                customerId={customerId}
+              />
+            )}
+
+            {/* Date & Time - compact format */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="calendar-clock" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.text, fontSize: fontSizes.infoText - 1 }]}>
+                {serviceDateShort} · {formatTimeRange(item.start_time, item.end_time)}
+              </Text>
             </View>
-            {item.monthlyAmount > 0 && (
-              <View style={styles.detailItem}>
-                <View style={[styles.detailIconBg, { backgroundColor: colors.primary + '10' }]}>
-                  <Icon name="currency-inr" size={16} color={colors.primary} />
-                </View>
-                <View>
-                  <Text style={[styles.detailLabel, { color: colors.textSecondary, fontSize: fontSizes.infoText - 2 }]}>Amount</Text>
-                  <Text style={[styles.detailValue, { color: colors.text, fontSize: fontSizes.infoText, fontWeight: '600' }]}>
-                    ₹{item.monthlyAmount.toLocaleString()}
+
+            {/* Address */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="map-marker-outline" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.text, fontSize: fontSizes.infoText - 1 }]} numberOfLines={2}>
+                {item.address || 'Address not available'}
+              </Text>
+            </View>
+
+            {/* Booking placed time */}
+            <View style={styles.cleanCardRow}>
+              <Icon name="clock-outline" size={16} color={bk.textMuted} />
+              <Text style={[styles.cleanCardText, { color: bk.textMuted, fontSize: fontSizes.infoText - 2 }]}>
+                Placed {formatPlacedAt(item)}
+              </Text>
+            </View>
+
+            {/* Badges row */}
+            <View style={styles.cleanCardBadges}>
+              <Badge variant={item.bookingType === 'MONTHLY' ? 'info' : item.bookingType === 'ON_DEMAND' ? 'warning' : 'success'}>
+                <Text style={[styles.badgeText, { color: colors.primary, fontSize: fontSizes.badgeText - 1 }]}>
+                  {item.bookingType === 'ON_DEMAND' ? 'On demand' : item.bookingType === 'MONTHLY' ? 'Monthly' : 'Short term'}
+                </Text>
+              </Badge>
+              <StatusChip status={displayTaskStatus} />
+              {isPaymentPending ? (
+                <Badge variant="warning">
+                  <Text style={[styles.badgeText, { color: colors.warning, fontSize: fontSizes.badgeText - 1 }]}>
+                    Payment pending
                   </Text>
-                </View>
+                </Badge>
+              ) : null}
+            </View>
+
+            {/* Payment pending banner */}
+            {isPaymentPending ? (
+              <View style={[styles.cleanPaymentBanner, { backgroundColor: colors.errorLight, borderColor: colors.error + '35' }]}>
+                <Text style={{ color: colors.error, fontSize: fontSizes.infoText - 2, flex: 1 }}>
+                  Payment required
+                </Text>
+                <TouchableOpacity
+                  style={[styles.cleanPayButton, { backgroundColor: colors.error }]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handlePaymentClick(item);
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: fontSizes.buttonText - 1 }}>Pay now</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* Auto-cancellation notices */}
+            {renderAutoCancellationNotices(item)}
+
+            {/* Today service panel */}
+            {renderTodayServicePanel(item)}
+            
+            {/* Track Provider Button - outside panel for SCHEDULED visits */}
+            {viewTab === 'today' && 
+             item.today_service && 
+             String(item.today_service.status || '').toUpperCase() === 'SCHEDULED' &&
+             item.serviceProviderId && 
+             customerId && (
+              <View style={{ marginTop: 12, paddingHorizontal: 4 }}>
+                <TrackProviderButton
+                  engagementId={item.id}
+                  customerId={customerId}
+                  onPress={() => {
+                    setTrackingEngagementId(item.id);
+                    setTrackingVisible(true);
+                  }}
+                  fullWidth={true}
+                  backgroundColor={colors.primary}
+                  fontSize={fontSizes.buttonText}
+                />
               </View>
             )}
           </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionButtonsContainer}>
-            {renderActionButtons(item)}
+          {/* Trailing arrow icon */}
+          <View style={styles.cleanCardArrow}>
+            <Icon name="chevron-right" size={24} color={bk.textMuted} />
           </View>
-
-          {/* View Details Indicator */}
-          <View style={styles.viewDetailsIndicator}>
-            <Text style={[styles.viewDetailsText, { color: colors.textSecondary + '80', fontSize: fontSizes.viewDetailsText }]}>
-              Tap to view full details
-            </Text>
-            <Icon name="chevron-right" size={16} color={colors.textSecondary + '80'} />
-          </View>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     );
   };
 
-  // [Keep existing back button handling]
   const handleBackPress = () => {
+    if (openFilterMenu) {
+      setOpenFilterMenu(null);
+      return true;
+    }
+    if (vacationManagementDialogOpen) {
+      setVacationManagementDialogOpen(false);
+      setSelectedBookingForVacationManagement(null);
+      return true;
+    }
     if (detailsDrawerOpen) { setDetailsDrawerOpen(false); return true; }
     if (modifyDialogOpen) { setModifyDialogOpen(false); return true; }
     if (reviewDialogVisible) { setReviewDialogVisible(false); return true; }
+    if (complaintDialogVisible) { setComplaintDialogVisible(false); return true; }
     if (servicesDialogOpen) { setServicesDialogOpen(false); return true; }
+    if (rebookCheckoutOpen) { handleCloseRebookCheckout(); return true; }
+    if (onDemandRebookOpen) { setOnDemandRebookOpen(false); setRebookCandidate(null); return true; }
     if (confirmationDialog.open) { setConfirmationDialog(prev => ({ ...prev, open: false })); return true; }
     if (onBackToHome) { onBackToHome(); return true; }
     return false;
@@ -1057,9 +3234,8 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
     return () => backHandler.remove();
-  }, [detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, servicesDialogOpen, confirmationDialog.open, onBackToHome]);
+  }, [openFilterMenu, vacationManagementDialogOpen, detailsDrawerOpen, modifyDialogOpen, reviewDialogVisible, complaintDialogVisible, servicesDialogOpen, rebookCheckoutOpen, onDemandRebookOpen, confirmationDialog.open, onBackToHome]);
 
-  // [Keep existing deep linking]
   useEffect(() => {
     const getInitialUrl = async () => {
       const initialUrl = await Linking.getInitialURL();
@@ -1073,39 +3249,29 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LinearGradient
-          colors={[colors.primary + '40', colors.primary + '20', colors.background]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.header}
-        >
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]} onPress={handleBackPress}>
-              <Icon name="arrow-left" size={24} color={colors.primary} />
-            </TouchableOpacity>
-            <View style={styles.headerContent}>
-              <Text style={[styles.headerTitle, { color: colors.primary, fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
-              <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: fontSizes.headerSubtitle }]}>Manage your service bookings</Text>
-            </View>
-          </View>
-        </LinearGradient>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.section}>
-            <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '15', borderLeftColor: colors.primary }]}>
-              <SkeletonLoader width={24} height={24} variant="circular" />
-              <View style={styles.sectionHeaderContent}>
-                <SkeletonLoader width={150} height={24} />
-                <SkeletonLoader width={100} height={16} style={{ marginTop: 4 }} />
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+        {renderBookingsHeader(true)}
+
+        <View style={[styles.mainTabSection, { backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.mainTabRail,
+              { backgroundColor: isDarkMode ? colors.surface : 'rgba(148, 163, 184, 0.14)' },
+            ]}
+          >
+            {[72, 92, 64, 88].map((width, index) => (
+              <View key={index} style={styles.mainTab}>
+                <SkeletonLoader width={width} height={14} variant="rectangular" style={{ borderRadius: 4 }} />
               </View>
-              <SkeletonLoader width={40} height={32} variant="rectangular" />
-            </View>
-            <View style={styles.statusFilterContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {[1, 2, 3, 4, 5].map((item) => (
-                  <SkeletonLoader key={item} width={80} height={36} variant="rectangular" style={{ marginRight: 10, borderRadius: 20 }} />
-                ))}
-              </ScrollView>
-            </View>
+            ))}
+          </View>
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: footerClearance }}
+        >
+          <View style={styles.section}>
             {[1, 2, 3].map((item) => (
               <BookingCardSkeleton key={item} colors={colors} fontSizes={fontSizes} />
             ))}
@@ -1115,196 +3281,253 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
     );
   }
 
-  // Main Render
+  // Main Render - REMOVED the outer ScrollView that was blocking the modal
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={[isDarkMode ? colors.primary + 'CC' : colors.primary + 'DD', isDarkMode ? colors.primary + '99' : colors.primary + 'AA', colors.background]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity style={[styles.backButton, { backgroundColor: 'rgba(255, 255, 255, 0.95)' }]} onPress={handleBackPress}>
-            <Icon name="arrow-left" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: '#fff', fontSize: fontSizes.headerTitle }]}>My Bookings</Text>
-            <Text style={[styles.headerSubtitle, { color: '#fff', fontSize: fontSizes.headerSubtitle, opacity: 0.9 }]}>
-              Manage your service bookings
-            </Text>
-          </View>
-          <View style={{ width: 40 }} />
-        </View>
-        
-        {/* Search Bar */}
-        <View style={styles.searchWrapper}>
-          <View style={[styles.searchContainer, { backgroundColor: '#fff', borderColor: '#fff' }]}>
-            <Icon name="magnify" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text, fontSize: fontSizes.searchInput, flex: 1 }]}
-              placeholder="Search bookings..."
-              placeholderTextColor={colors.textSecondary + '80'}
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-            />
-            {searchTerm && (
-              <TouchableOpacity onPress={() => setSearchTerm('')}>
-                <Icon name="close-circle" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </LinearGradient>
-
-      <RefreshTooltip />
+    <View style={[styles.container, { backgroundColor: bk.canvas }]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      {renderBookingsHeader()}
+      {renderMainViewTabs()}
+      {renderRefreshTooltip()}
 
       <ScrollView 
         style={styles.mainScrollView}
-        contentContainerStyle={styles.scrollContentContainer}
+        contentContainerStyle={[
+          styles.scrollContentContainer,
+          { paddingBottom: footerClearance },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.card}
+            tintColor={bk.primary}
+            colors={[bk.primary]}
+            progressBackgroundColor={bk.card}
           />
         }
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
+        nestedScrollEnabled={true}
       >
-        {/* Upcoming Bookings Section */}
-        <View style={styles.section}>
-          <View style={[styles.sectionHeader, { backgroundColor: colors.primary + '10', borderLeftColor: colors.primary }]}>
-            <View style={[styles.sectionIconContainer, { backgroundColor: colors.primary + '20' }]}>
-              <Icon name="calendar-clock" size={24} color={colors.primary} />
-            </View>
-            <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Upcoming Bookings</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredUpcomingBookings.length} {filteredUpcomingBookings.length === 1 ? 'upcoming booking' : 'upcoming bookings'}
-              </Text>
-            </View>
-            <View style={[styles.sectionBadge, { backgroundColor: colors.primary + '15' }]}>
-              <Text style={[styles.sectionBadgeText, { color: colors.primary, fontSize: fontSizes.badgeText, fontWeight: '700' }]}>
-                {upcomingBookings.length}
-              </Text>
-            </View>
+        {viewTab === 'today' && (
+          <View style={styles.section}>
+            {renderSectionHeader(
+              'Today',
+              filteredTodayBookings.length,
+              searchTerm.trim() ? 'match your search' : "on today's schedule",
+              todayBookings.length,
+              '#059669'
+            )}
+            {renderBookingsList(filteredTodayBookings, renderTodayEmptyState())}
           </View>
+        )}
 
-          {/* Status Filter Tabs */}
-          <View style={styles.statusFilterContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTabsContent}>
-              {statusTabs.map((tab) => (
-                <TouchableOpacity
-                  key={tab.value}
-                  style={[
-                    styles.statusTab,
-                    { backgroundColor: colors.surface },
-                    statusFilter === tab.value && { backgroundColor: colors.primary }
-                  ]}
-                  onPress={() => setStatusFilter(tab.value)}
-                >
-                  <Icon name={tab.icon} size={16} color={statusFilter === tab.value ? '#fff' : colors.textSecondary} />
-                  <Text style={[
-                    styles.statusTabText, 
-                    { color: statusFilter === tab.value ? '#fff' : colors.textSecondary, fontSize: fontSizes.badgeText }
-                  ]}>
-                    {tab.label}
-                  </Text>
-                  <View style={[
-                    styles.statusTabCount, 
-                    { backgroundColor: statusFilter === tab.value ? '#ffffff30' : colors.border }
-                  ]}>
-                    <Text style={[
-                      styles.statusTabCountText, 
-                      { color: statusFilter === tab.value ? '#fff' : colors.textSecondary, fontSize: fontSizes.badgeText - 2 }
-                    ]}>
-                      {tab.count}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+        {viewTab === 'upcoming' && (
+          <View style={styles.section}>
+            {renderSectionHeader(
+              'Upcoming',
+              filteredUpcomingBookings.length,
+              searchTerm.trim()
+                ? 'match your search'
+                : hasActiveUpcomingFilters
+                  ? 'match your filters'
+                  : 'on your calendar',
+              upcomingBookings.length,
+              '#0ea5e9'
+            )}
+            {renderBookingsList(filteredUpcomingBookings, renderUpcomingEmptyState())}
           </View>
+        )}
 
-          {/* Bookings List */}
-          {filteredUpcomingBookings.length > 0 ? (
-            <FlatList 
-              data={filteredUpcomingBookings} 
-              renderItem={renderBookingItem} 
-              keyExtractor={(item) => item.id.toString()} 
-              scrollEnabled={false}
-              style={styles.bookingsList}
-            />
-          ) : (
-            <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
-              <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.primary + '10' }]}>
-                <Icon name="calendar-check" size={48} color={colors.primary} />
+        {viewTab === 'past' && (
+          <View style={styles.section}>
+            {renderSectionHeader(
+              'Past',
+              filteredPastBookings.length,
+              searchTerm.trim() ? 'match your search' : '— completed or ended',
+              sortedPastBookings.length,
+              '#64748b'
+            )}
+            {renderBookingsList(
+              filteredPastBookings,
+              <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+                <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.textSecondary + '10' }]}>
+                  <Icon name="clock-time-four" size={48} color={colors.textSecondary} />
+                </View>
+                <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Past Bookings</Text>
+                <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+                  Your completed bookings will appear here
+                </Text>
               </View>
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Upcoming Bookings</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-                You don't have any upcoming service bookings
-              </Text>
-              <GradientButton 
-                style={styles.emptyStateButton} 
-                onPress={() => setServicesDialogOpen(true)}
-              >
-                <Icon name="plus" size={20} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: fontSizes.buttonText, fontWeight: '600' }}>Book a Service</Text>
-              </GradientButton>
-            </View>
-          )}
-        </View>
-
-        {/* Past Bookings Section */}
-        <View style={styles.section}>
-          <View style={[styles.sectionHeader, styles.pastSectionHeader, { backgroundColor: colors.textSecondary + '10', borderLeftColor: colors.textSecondary }]}>
-            <View style={[styles.sectionIconContainer, { backgroundColor: colors.textSecondary + '20' }]}>
-              <Icon name="history" size={24} color={colors.textSecondary} />
-            </View>
-            <View style={styles.sectionHeaderContent}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>Past Bookings</Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSizes.sectionSubtitle }]}>
-                {filteredPastBookings.length} {filteredPastBookings.length === 1 ? 'past booking' : 'past bookings'}
-              </Text>
-            </View>
-            <View style={[styles.sectionBadge, { backgroundColor: colors.textSecondary + '15' }]}>
-              <Text style={[styles.sectionBadgeText, { color: colors.textSecondary, fontSize: fontSizes.badgeText, fontWeight: '700' }]}>
-                {pastBookings.length}
-              </Text>
-            </View>
+            )}
           </View>
+        )}
 
-          {filteredPastBookings.length > 0 ? (
-            <FlatList 
-              data={filteredPastBookings} 
-              renderItem={renderBookingItem} 
-              keyExtractor={(item) => item.id.toString()} 
-              scrollEnabled={false}
-              style={styles.bookingsList}
-            />
-          ) : (
-            <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
-              <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.textSecondary + '10' }]}>
-                <Icon name="clock-time-four" size={48} color={colors.textSecondary} />
+        {viewTab === 'cancelled' && (
+          <View style={styles.section}>
+            {renderSectionHeader(
+              'Cancelled',
+              filteredCancelledBookings.length,
+              searchTerm.trim() ? 'match your search' : '— bookings you cancelled',
+              sortedCancelledBookings.length,
+              '#e11d48'
+            )}
+            {renderBookingsList(
+              filteredCancelledBookings,
+              <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+                <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.error + '10' }]}>
+                  <Icon name="close-circle-outline" size={48} color={colors.error} />
+                </View>
+                <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Cancelled Bookings</Text>
+                <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+                  When you cancel a booking, it will appear here
+                </Text>
               </View>
-              <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>No Past Bookings</Text>
-              <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
-                Your completed bookings will appear here
-              </Text>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        )}
+
+        {viewTab === 'pending' && (
+          <View style={styles.section}>
+            {renderSectionHeader(
+              'Pending payment',
+              filteredPendingPaymentBookings.length,
+              searchTerm.trim() ? 'match your search' : 'awaiting payment',
+              pendingPaymentBookings.length,
+              '#dc2626'
+            )}
+            {renderBookingsList(
+              filteredPendingPaymentBookings,
+              <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border + '20' }]}>
+                <View style={[styles.emptyStateIconContainer, { backgroundColor: colors.success + '10' }]}>
+                  <Icon name="check-circle-outline" size={48} color={colors.success} />
+                </View>
+                <Text style={[styles.emptyStateTitle, { color: colors.text, fontSize: fontSizes.emptyStateTitle }]}>All caught up</Text>
+                <Text style={[styles.emptyStateText, { color: colors.textSecondary, fontSize: fontSizes.emptyStateText }]}>
+                  No bookings are waiting for payment
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
-      <RefreshAnimationOverlay />
-
-      {/* Dialogs */}
+      {/* Dialogs - These are Modals and won't be affected by parent ScrollView */}
       <ModifyBookingDialog open={modifyDialogOpen} onClose={() => setModifyDialogOpen(false)} booking={convertBookingForChildComponents(selectedBooking)} timeSlots={timeSlots} onSave={handleSaveModifiedBooking} customerId={customerId} refreshBookings={refreshBookings} setOpenSnackbar={setOpenSnackbar} />
       <ConfirmationDialog open={confirmationDialog.open} onClose={() => setConfirmationDialog(prev => ({ ...prev, open: false }))} onConfirm={handleConfirmAction} title={confirmationDialog.title} message={confirmationDialog.message} confirmText={confirmationDialog.type === 'cancel' ? 'Confirm Cancellation' : 'Pay Now'} loading={actionLoading} severity={confirmationDialog.severity} />
       <AddReviewDialog visible={reviewDialogVisible} onClose={closeReviewDialog} booking={convertBookingForChildComponents(selectedReviewBooking)} onReviewSubmitted={handleReviewSubmitted} />
+      <RaiseComplaintDialog
+        visible={complaintDialogVisible}
+        onClose={() => {
+          setComplaintDialogVisible(false);
+          setSelectedComplaintBooking(null);
+        }}
+        booking={convertBookingForChildComponents(selectedComplaintBooking)}
+      />
+      
+      {/* Customer Tracking Modal */}
+      {trackingVisible && trackingEngagementId && (
+        <RNModal
+          visible={trackingVisible}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setTrackingVisible(false)}
+        >
+          <CustomerTrackingScreen
+            engagementId={trackingEngagementId}
+            customerLatitude={
+              currentBookings.find(b => b.id === trackingEngagementId)?.latitude ||
+              futureBookings.find(b => b.id === trackingEngagementId)?.latitude ||
+              undefined
+            }
+            customerLongitude={
+              currentBookings.find(b => b.id === trackingEngagementId)?.longitude ||
+              futureBookings.find(b => b.id === trackingEngagementId)?.longitude ||
+              undefined
+            }
+            onClose={() => setTrackingVisible(false)}
+          />
+        </RNModal>
+      )}
+      
       <ServicesDialog open={servicesDialogOpen} onClose={() => setServicesDialogOpen(false)} onServiceSelect={() => {}} />
+
+      {/* Filter Sheet */}
+      <BookingsFilterSheet
+        visible={filterSheetVisible}
+        onClose={() => setFilterSheetVisible(false)}
+        currentFilters={{
+          sortOrder: upcomingSortOrder,
+          serviceFilter: upcomingServiceFilter,
+          durationFilter: upcomingDurationFilter,
+          statusFilter: statusFilter,
+        }}
+        onApply={handleFilterSheetApply}
+        onClear={handleFilterSheetClear}
+        sortOptions={filterSheetSortOptions}
+        serviceOptions={filterSheetServiceOptions}
+        durationOptions={filterSheetDurationOptions}
+        statusOptions={filterSheetStatusOptions}
+      />
+
+      <OnDemandRebookDialog
+        open={onDemandRebookOpen}
+        onClose={() => {
+          setOnDemandRebookOpen(false);
+          setRebookCandidate(null);
+          setSameProviderRebookError(null);
+        }}
+        booking={
+          rebookCandidate
+            ? {
+                serviceProviderId: rebookCandidate.serviceProviderId,
+                serviceProviderName: rebookCandidate.serviceProviderName,
+              }
+            : null
+        }
+        canCheckSameProvider={
+          Boolean(rebookCandidate?.serviceProviderId) &&
+          Number.isFinite(Number(rebookCandidate?.latitude)) &&
+          Number.isFinite(Number(rebookCandidate?.longitude))
+        }
+        sameProviderDisabledReason={
+          rebookCandidate &&
+          (!rebookCandidate.serviceProviderId ||
+            !Number.isFinite(Number(rebookCandidate.latitude)) ||
+            !Number.isFinite(Number(rebookCandidate.longitude)))
+            ? 'Saved location is required to rebook with the same provider.'
+            : null
+        }
+        checkingSameProvider={checkingSameProviderRebook}
+        sameProviderError={sameProviderRebookError}
+        onBookSameProvider={() => void handleOnDemandRebookSameProvider()}
+        onChooseDifferentProvider={handleOnDemandRebookDifferentProvider}
+      />
+
+      {rebookCheckoutKind === 'maid' ? (
+        <MaidServiceDialog
+          open={rebookCheckoutOpen}
+          handleClose={handleCloseRebookCheckout}
+          providerDetails={rebookCheckoutProvider ?? undefined}
+          onBookingSuccess={handleRebookCheckoutSuccess}
+        />
+      ) : null}
+      {rebookCheckoutKind === 'cook' ? (
+        <CookServiceDialog
+          open={rebookCheckoutOpen}
+          handleClose={handleCloseRebookCheckout}
+          providerDetails={rebookCheckoutProvider ?? undefined}
+          onBookingSuccess={handleRebookCheckoutSuccess}
+        />
+      ) : null}
+      {rebookCheckoutKind === 'nanny' ? (
+        <NannyServicesDialog
+          open={rebookCheckoutOpen}
+          handleClose={handleCloseRebookCheckout}
+          providerDetails={rebookCheckoutProvider ?? undefined}
+          onBookingSuccess={handleRebookCheckoutSuccess}
+        />
+      ) : null}
+
+      {/* EngagementDetailsDrawer - This is a Modal, it will render on top independently */}
       <EngagementDetailsDrawer 
         isOpen={detailsDrawerOpen} 
         onClose={() => { 
@@ -1312,13 +3535,33 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
           setSelectedBooking(null); 
         }} 
         booking={selectedBooking} 
-        onPaymentComplete={refreshBookings}
-        refreshBookings={refreshBookings}
+        onPaymentComplete={afterPaymentSuccess}
+        refreshBookings={afterPaymentSuccess}
         customerId={customerId}
+        onBookAgain={(b) => {
+          setDetailsDrawerOpen(false);
+          handleBookAgain(b);
+        }}
+        onModify={(b) => {
+          setDetailsDrawerOpen(false);
+          setSelectedBooking(b);
+          setModifyDialogOpen(true);
+        }}
+      />
+
+      <VacationManagementDialog
+        open={vacationManagementDialogOpen}
+        onClose={() => {
+          setVacationManagementDialogOpen(false);
+          setSelectedBookingForVacationManagement(null);
+        }}
+        booking={convertBookingForChildComponents(selectedBookingForVacationManagement)}
+        customerId={customerId}
+        onSuccess={handleVacationSuccess}
       />
 
       {openSnackbar && (
-        <View style={[styles.snackbar, { backgroundColor: colors.success }]}>
+        <View style={[styles.snackbar, { backgroundColor: colors.success, bottom: insets.bottom + 88 }]}>
           <Icon name="check-circle" size={20} color="#fff" />
           <Text style={[styles.snackbarText, { color: '#fff', fontSize: fontSizes.infoText, flex: 1, marginLeft: 8 }]}>
             {snackbarMessage}
@@ -1332,140 +3575,802 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome }, ref) => 
   );
 });
 
-// ---------- Enhanced Styles ----------
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   container: { flex: 1 },
   
-  // Header Styles
-  header: { 
-    paddingHorizontal: 20, 
-    paddingTop: 50, 
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  headerShell: {
+    width: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: HOME_M3.primary,
+    paddingBottom: 14,
+    overflow: 'visible',
+    position: 'relative',
   },
-  headerTopRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    marginBottom: 20,
+  headerInner: {
+    width: '100%',
+    alignSelf: 'stretch',
   },
-  backButton: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    justifyContent: 'center', 
+  headerTopRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: '100%',
+    height: 44,
+    paddingHorizontal: 12,
   },
-  headerContent: { 
-    flex: 1, 
-    alignItems: 'center' 
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
-  headerTitle: { 
+  headerTitle: {
+    flex: 1,
+    color: '#ffffff',
     fontWeight: '700',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+    textAlign: 'left',
+    lineHeight: 24,
+    marginLeft: 2,
+    marginRight: 4,
   },
-  headerSubtitle: { 
-    marginTop: 4,
-    textAlign: 'center',
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
   },
-  
-  // Search Styles
-  searchWrapper: {
-    marginTop: 8,
+  headerSearchWrap: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  headerSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+  },
+  headerSearchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 22,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  headerSearchInput: {
+    flex: 1,
+    padding: 0,
+    margin: 0,
+    color: HOME_M3.onSurface,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
+  },
+
+  searchSection: {
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 12,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    borderWidth: 1,
   },
   searchInput: {
     padding: 0,
     margin: 0,
   },
-  
-  // Main Content
-  mainScrollView: { flex: 1 },
-  scrollContentContainer: { flexGrow: 1, paddingBottom: 20 },
-  section: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
-  
-  // Section Header
-  sectionHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 16, 
-    padding: 16, 
-    borderRadius: 16,
-    borderLeftWidth: 4,
+  mainTabSection: {
+    width: '100%',
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 10,
+    paddingBottom: 6,
+    alignItems: 'center',
   },
-  pastSectionHeader: { borderLeftColor: 'rgba(156, 163, 175, 0.4)' },
-  sectionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  mainTabRail: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: '100%',
+    padding: 4,
+    borderRadius: 14,
+  },
+  mainTab: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  mainTabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    maxWidth: '100%',
+  },
+  mainTabActive: {
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  mainTabText: {
+    fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  mainTabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  mainTabBadgeText: {
+    fontWeight: '700',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+    paddingHorizontal: 2,
+  },
+  sectionAccent: {
+    width: 4,
+    borderRadius: 999,
+    alignSelf: 'stretch',
+    minHeight: 42,
+  },
+  sectionHeaderTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  sectionHeaderTitle: {
+    fontWeight: '700',
+  },
+  sectionHeaderMeta: {
+    lineHeight: 18,
+  },
+  bookingTypeChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  bookingTypeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  
+  mainScrollView: { flex: 1 },
+  scrollContentContainer: { flexGrow: 1, paddingBottom: 16 },
+  
+  section: {
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingHorizontal: HORIZONTAL_GUTTER,
+    paddingTop: 12,
+    paddingBottom: 20,
+    alignItems: 'stretch',
+  },
+  
+  upcomingFiltersBlock: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  upcomingFiltersGrid: {
+    width: '100%',
+    gap: 10,
+  },
+  upcomingFiltersRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    width: '100%',
+  },
+  filterDropdownItem: {
+    flex: 1,
+    minWidth: 0,
+  },
+  filterDropdownItemOpen: {
+    opacity: 1,
+  },
+  filterDropdownItemLabel: {
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  sortDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    minHeight: 34,
+    width: '100%',
+  },
+  sortDropdownText: {
+    flex: 1,
+    fontWeight: '600',
+    minWidth: 0,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
-  sectionHeaderContent: { flex: 1, marginLeft: 16 },
-  sectionTitle: { fontWeight: '700', letterSpacing: -0.3 },
-  sectionSubtitle: { marginTop: 4, opacity: 0.7 },
-  sectionBadge: { 
-    paddingHorizontal: 12, 
-    paddingVertical: 8, 
-    borderRadius: 20,
-    minWidth: 48,
+  filterModalSheet: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    maxHeight: '70%',
+    zIndex: 2,
+  },
+  filterModalTitle: {
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  filterModalList: {
+    maxHeight: 320,
+  },
+  filterModalCancel: {
     alignItems: 'center',
+    paddingVertical: 14,
+    borderTopWidth: 1,
   },
-  sectionBadgeText: { fontWeight: '700' },
-  
-  // Status Tabs
-  statusFilterContainer: { marginBottom: 20 },
-  statusTabsContent: { paddingRight: 16, gap: 10 },
-  statusTab: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  sortDropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sortDropdownOptionText: {
+    fontWeight: '600',
+  },
+  filterGroupLabel: {
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  statusFilterWrap: {
+    width: '100%',
+    height: 40,
+    marginBottom: 12,
+    flexGrow: 0,
+  },
+  statusFilterScroll: {
+    height: 40,
+    flexGrow: 0,
+  },
+  statusFilterScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 16, 
-    paddingVertical: 10, 
-    borderRadius: 30,
-    marginRight: 10,
+    paddingRight: 8,
+    height: 40,
   },
-  statusTabText: { fontWeight: '600', marginRight: 4 },
-  statusTabCount: { 
-    borderRadius: 20, 
-    paddingHorizontal: 8, 
-    paddingVertical: 2, 
-    minWidth: 28, 
+  statusChip: {
+    flexDirection: 'row',
     alignItems: 'center',
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    borderWidth: 1,
+    gap: 5,
   },
-  statusTabCountText: { fontWeight: '600' },
-  
-  // Booking Card
-  bookingsList: { marginTop: 0 },
+  statusChipText: {
+    fontWeight: '600',
+  },
+  statusChipCount: {
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusChipCountText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+
+  bookingsList: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  bookingListItem: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   bookingCard: {
     marginBottom: 16,
-    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  compactCardTouch: {
+    width: '100%',
+    alignSelf: 'stretch',
+    marginBottom: 12,
+  },
+  // ========== Clean Card Styles (Simplified UI) ==========
+  cleanCard: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cleanCardAccent: {
+    width: 4,
+  },
+  cleanCardContent: {
+    flex: 1,
     padding: 16,
+    gap: 12,
+  },
+  cleanCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cleanCardIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cleanCardEmoji: {
+    fontSize: 24,
+  },
+  cleanCardHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cleanCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 2,
+  },
+  cleanCardTitle: {
+    fontWeight: '700',
+    flex: 1,
+  },
+  cleanCardSubtitle: {
+    lineHeight: 16,
+  },
+  cleanCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cleanCardText: {
+    flex: 1,
+    lineHeight: 20,
+  },
+  cleanCardBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  cleanCardPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
+  cleanCardPrice: {
+    fontWeight: '700',
+  },
+  cleanPaymentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  cleanPayButton: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cleanCardArrow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+  },
+  // ========== Old Web Card Styles (Legacy) ==========
+  webCard: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  webCardAccent: {
+    width: 4,
+  },
+  webCardBody: {
+    flex: 1,
+  },
+  webCardHeader: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  webCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  webCardIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webCardEmoji: {
+    fontSize: 20,
+  },
+  webCardHeaderContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  webCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  webCardTitle: {
+    fontWeight: '700',
+    flex: 1,
+  },
+  webCardAmount: {
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  webCardMeta: {
+    lineHeight: 18,
+  },
+  webCardBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  webCardContent: {
+    padding: 14,
+    gap: 10,
+  },
+  webScheduleBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  webScheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  webScheduleText: {
+    flex: 1,
+    lineHeight: 18,
+  },
+  webPaymentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  webPayButton: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  bookingCardCompact: {
+    width: '100%',
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 12,
+    shadowRadius: 10,
     elevation: 4,
+  },
+  bookingCardCompactWithPanel: {
+    paddingBottom: 16,
+  },
+  todayPanel: {
+    marginTop: 10,
+    marginBottom: 2,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  todayPanelRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  todayPanelTitle: {
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  todayPanelText: {
+    lineHeight: 18,
+  },
+  todayPanelTextInRow: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  todayOtpButton: {
+    marginTop: 10,
+    height: 48,
+    width: '100%',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  todayOtpButtonDisabled: {
+    opacity: 0.5,
+  },
+  todayOtpButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  todayOtpButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  todayOtpDisplay: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  todayOtpLabel: {
+    marginBottom: 4,
+  },
+  todayOtpCode: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 4,
+  },
+  paymentTimeoutNotice: {
+    marginTop: 10,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  paymentTimeoutIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#fef3c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentTimeoutTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  paymentTimeoutTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78350f',
+    marginBottom: 4,
+  },
+  paymentTimeoutBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#92400e',
+  },
+  compactHeaderBlock: {
+    width: '100%',
+    marginBottom: 10,
+  },
+  compactTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  compactAmountCol: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    maxWidth: '40%',
+    gap: 2,
+  },
+  compactTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  compactServiceInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    minWidth: 0,
+    gap: 10,
+  },
+  compactServiceIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactProviderText: {
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.82,
+    marginTop: 2,
+  },
+  compactAmountValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    textAlign: 'right',
+    maxWidth: '100%',
+  },
+  compactAmountLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    opacity: 0.75,
+    marginTop: 2,
+    textAlign: 'right',
+    maxWidth: '100%',
+  },
+  compactMetaList: {
+    gap: 6,
+    marginBottom: 10,
+  },
+  compactMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+  },
+  compactMetaIcon: {
+    width: 18,
+    paddingTop: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactMetaTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+  },
+  compactMetaText: {
+    fontSize: 13,
+    fontWeight: '500',
+    opacity: 0.9,
+    width: '100%',
+  },
+  compactFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 2,
+  },
+  compactBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  compactChevronBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1478,38 +4383,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  serviceIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
   serviceTitle: {
     fontWeight: '700',
     letterSpacing: -0.3,
   },
-  providerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  providerName: {
-    opacity: 0.7,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginLeft: 8,
-  },
-  ratingText: {
-    opacity: 0.7,
-  },
   
-  // Badge Styles
   badgeBase: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1522,56 +4400,17 @@ const styles = StyleSheet.create({
   badgeText: {
     fontWeight: '600',
   },
-  
-  // Status Row
-  statusRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  statusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  statusChipText: {
-    fontSize: 12,
-    fontWeight: '600',
+  badgeMultilineLabel: {
+    flexShrink: 1,
   },
   
-  // Details Grid
   detailsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 10,
     marginBottom: 16,
   },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minWidth: '45%',
-  },
-  detailIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    opacity: 0.6,
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontWeight: '500',
-  },
   
-  // Action Buttons
   actionButtonsContainer: {
     width: '100%',
     marginBottom: 12,
@@ -1579,46 +4418,66 @@ const styles = StyleSheet.create({
   actionButtonsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
   },
   gradientButton: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
+    alignSelf: 'stretch',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   gradientInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     gap: 8,
+    minHeight: 52,
+  },
+  gradientInnerFill: {
+    width: '100%',
   },
   iconButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    gap: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    gap: 6,
     flex: 1,
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   iconButtonText: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   outlineButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    gap: 8,
+    gap: 6,
     justifyContent: 'center',
     flex: 1,
   },
   outlineButtonText: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   paymentActionContainer: {
     flexDirection: 'row',
@@ -1630,52 +4489,75 @@ const styles = StyleSheet.create({
     flex: 2,
   },
   paymentButtonText: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   reviewSubmittedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 44,
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    gap: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    gap: 6,
     flex: 1,
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   reviewSubmittedText: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   
-  // View Details Indicator
-  viewDetailsIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-    gap: 4,
+  emptyStateWrap: {
+    width: '100%',
+    alignItems: 'stretch',
+    paddingBottom: 12,
   },
-  viewDetailsText: {
-    opacity: 0.6,
-  },
-  
-  // Empty State
   emptyStateCard: {
     alignItems: 'center',
-    padding: 48,
-    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 28,
+    borderRadius: 16,
     borderWidth: 1,
     marginTop: 8,
+    width: '100%',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  clearFilterBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  clearFilterBtnText: {
+    fontWeight: '700',
+  },
+  clearFiltersInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 1,
+  },
+  clearFiltersInlineText: {
+    fontWeight: '600',
   },
   emptyStateIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   emptyStateTitle: {
     fontWeight: '700',
@@ -1683,21 +4565,41 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: 0,
     opacity: 0.7,
   },
-  emptyStateButton: {
-    paddingHorizontal: 32,
+  emptyStateCta: {
+    width: '100%',
+    marginTop: 16,
+    alignSelf: 'stretch',
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: BRAND.accent,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  emptyStateCtaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyStateButtonText: {
+    fontWeight: '600',
+    lineHeight: 22,
+    textAlign: 'center',
+    includeFontPadding: false,
+    letterSpacing: 0.2,
   },
   
-  // Snackbar
   snackbar: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    left: HORIZONTAL_GUTTER,
+    right: HORIZONTAL_GUTTER,
     padding: 16,
     borderRadius: 16,
     flexDirection: 'row',
@@ -1713,33 +4615,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  // Refresh Overlay
-  refreshOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 9999,
-  },
-  refreshAnimationContainer: {
-    padding: 30,
-    borderRadius: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  refreshAnimationText: {
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  
-  // Tooltip
   tooltipContainer: {
     alignItems: 'center',
     marginTop: 8,
@@ -1768,12 +4643,8 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   
-  // Misc
-  separator: { height: 1, marginVertical: 12 },
   card: { borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, marginBottom: 16, padding: 16 },
-  button: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderWidth: 1, minHeight: 40 },
   disabledButton: { opacity: 0.6 },
-  separatorBase: { height: 1, marginVertical: 16 },
 });
 
 export default Booking;

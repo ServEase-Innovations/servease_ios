@@ -1,11 +1,10 @@
-// App.tsx - UPDATED with touch handler for closing dropdowns
-import React, { useState, useEffect, useRef, useCallback } from "react";
+// App.tsx - UPDATED with proper authentication handling for both email and mobile login
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   StatusBar,
-  Image,
   Animated,
   AppState,
   TouchableOpacity,
@@ -17,11 +16,16 @@ import {
   Dimensions,
   Linking,
   ActivityIndicator,
-  TouchableWithoutFeedback,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
+import { useAuth0PostLogin } from "./src/hooks/useAuth0PostLogin";
+import {
+  getAuth0WebAuthOptions,
+  logAuth0Error,
+  runAuth0Authorize,
+} from "./src/utils/auth0Config";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "./i18n";
 
@@ -40,51 +44,68 @@ declare global {
   var pendingDeepLinkAction: string | null;
 }
 
-import Head from "./src/Header/Header";
+import Head, { HEADER_BAR_HEIGHT } from "./src/Header/Header";
 import NavigationFooter from "./src/NavigationFooter/NavigationFooter";
+import {
+  getMobileTabBarHeight,
+} from "./src/Constants/mobileLayout";
 import HomePage from "./src/HomePage/HomePage";
 import DetailsView from "./src/DetailsView/DetailsView";
-import Footer from "./src/Footer/Footer";
 import Chatbot from "./src/Chatbot/Chatbot";
+import ChatbotButton from "./src/Chatbot/ChatbotButton";
 import Booking, { BookingRef } from "./src/UserProfile/Bookings";
 import Dashboard from "./src/ServiceProvider/Dashboard";
+import ProviderCalendarScreen from "./src/ServiceProvider/ProviderCalendarScreen";
+import ProviderEarningsScreen from "./src/ServiceProvider/ProviderEarningsScreen";
 import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard";
 import WalletPage from "./src/UserProfile/WalletDialog";
-import { BOOKINGS, DASHBOARD, PROFILE, HOME, AGENT_DASHBOARD, WALLET } from "./src/Constants/pagesConstants";
+import Settings from "./src/Settings/Settings";
+import { BOOKINGS, DASHBOARD, PROFILE, SETTINGS, HOME, AGENT_DASHBOARD, WALLET, DETAILS, SP_CALENDAR, SP_EARNINGS } from "./src/Constants/pagesConstants";
+import { resolveRoleHomeView } from "./src/utils/resolveRoleHomeView";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
 import BookingRequestToast from "./src/Notifications/BookingRequestToast";
-import io, { Socket } from "socket.io-client";
+import { BookingRequestPayload } from "./src/Notifications/inAppNotificationUtils";
+import {
+  acceptEngagement,
+  dismissProviderNewBookingNotifications,
+  isTerminalAcceptFailure,
+  parseAcceptEngagementError,
+  parseEngagementId,
+  resolveServiceProviderId,
+} from "./src/services/engagementService";
+import {
+  clearProviderBookingEngagement,
+  disconnectProviderBookingSocket,
+  useProviderBookingSocket,
+} from "./src/hooks/useProviderBookingSocket";
+import type { PushUserContext } from "./src/types/push";
+import {
+  setupPushNotifications,
+  unregisterPushNotifications,
+} from "./src/services/pushApi";
 import { AppUserProvider, useAppUser } from "./src/context/AppUserContext";
+import { useCustomerMobileCheck } from "./src/hooks/useCustomerMobileCheck";
+import {
+  clearCustomer,
+  fetchCustomerDetails,
+  setHasMobileNumber,
+} from "./src/features/customerSlice";
+import { clearMobileAuthStorage } from "./src/utils/signOutSession";
 import axios from "axios";
 import { useDispatch } from "react-redux";
 import { add } from "./src/features/pricingSlice";
-import { remove } from "./src/features/userSlice";
 import MobileNumberDialog from "./src/UserProfile/MobileNumberDialog";
-import axiosInstance from "./src/services/axiosInstance";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
-import { PaperProvider } from "react-native-paper";
+import { PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import SignupDrawer from "./src/SignupDrawer/SignupDrawer";
 import ServiceProviderRegistration from "./src/Registration/ServiceProviderRegistration";
+import { hasSpRegistrationInProgress } from "./src/Registration/spRegistrationDraft";
 import AgentRegistrationForm from "./src/Agent/AgentRegistrationForm";
-import ProfileMenuSheet from "./src/ProfileMenuSheet/ProfileMenuSheet";
 import Snackbar from "react-native-snackbar";
-import LinearGradient from "react-native-linear-gradient";
-
-interface Engagement {
-  engagement_id: number;
-  service_type: string;
-  booking_type: string;
-  start_date: string;
-  end_date: string;
-  start_time: string;
-  end_time: string;
-  base_amount: number;
-  customer_name?: string;
-  customer_email?: string;
-  status?: string;
-}
+import BrandLoadingScreen from "./src/common/BrandLoadingScreen";
+import { HOME_M3 } from "./src/theme/brandColors";
 
 interface DeepLinkData {
   openBookings: string;
@@ -96,31 +117,68 @@ interface DeepLinkData {
 // Main App component with theme
 const MainApp = () => {
   const { colors, isDarkMode, fontSize, compactMode } = useTheme();
-  
+  const insets = useSafeAreaInsets();
+  const safeBottom = Number.isFinite(insets.bottom) ? insets.bottom : 0;
+
+  const paperTheme = useMemo(
+    () =>
+      isDarkMode
+        ? {
+            ...MD3DarkTheme,
+            colors: {
+              ...MD3DarkTheme.colors,
+              primary: colors.primary,
+              secondary: colors.secondary,
+              background: colors.background,
+              surface: colors.surface,
+              error: colors.error,
+            },
+          }
+        : {
+            ...MD3LightTheme,
+            colors: {
+              ...MD3LightTheme.colors,
+              primary: colors.primary,
+              secondary: colors.secondary,
+              background: colors.background,
+              surface: colors.surface,
+              error: colors.error,
+            },
+          },
+    [isDarkMode, colors.primary, colors.secondary, colors.background, colors.surface, colors.error]
+  );
+
   const [chatbotOpen, setChatbotOpen] = useState(false);
-  const [currentView, setCurrentView] = useState(HOME);
+  const [currentView, setCurrentView] = useState<string>(HOME);
+  const [bookingInitialTab, setBookingInitialTab] = useState<'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' | undefined>(undefined);
+  const [previousView, setPreviousView] = useState<string>(HOME); // Track where user came from
+  const [settingsReturnView, setSettingsReturnView] = useState<string>(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
   const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
-  const [activeToast, setActiveToast] = useState<Engagement | null>(null);
+  const [activeToast, setActiveToast] = useState<BookingRequestPayload | null>(null);
+  const [acceptingEngagementId, setAcceptingEngagementId] = useState<number | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [showNotificationClient, setShowNotificationClient] = useState(false);
-  const [shouldShowMobileDialog, setShouldShowMobileDialog] = useState(false);
-  const [hasCheckedMobileNumber, setHasCheckedMobileNumber] = useState(false);
-  const [customerData, setCustomerData] = useState<any>(null);
+  const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const appState = useRef<AppStateStatus>(AppState.currentState);
-  const socketRef = useRef<Socket | null>(null);
-  const SOCKET_URL = "https://payments-j5id.onrender.com";
   const [showSignupDrawer, setShowSignupDrawer] = useState(false);
   const [showProviderRegistration, setShowProviderRegistration] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [appResetKey, setAppResetKey] = useState(Date.now());
   const [isResetting, setIsResetting] = useState(false);
-  
-  // NEW: State to trigger dropdown closing in Header and LocationSelector
+
+  /** Dark chrome header (home, dashboard, …) needs white status icons in light theme. */
+  const statusBarStyle = useMemo((): "light-content" | "dark-content" => {
+    if (isDarkMode) return "light-content";
+    const lightTopChrome = currentView === PROFILE;
+    return lightTopChrome ? "dark-content" : "light-content";
+  }, [currentView, isDarkMode]);
+
+  // State to trigger dropdown closing in Header and LocationSelector
   const [closeAllDropdowns, setCloseAllDropdowns] = useState(false);
   
   // Ref for Booking component to enable double-tap refresh
@@ -133,9 +191,22 @@ const MainApp = () => {
   const [showDeepLinkLoading, setShowDeepLinkLoading] = useState(false);
 
   const dispatch = useDispatch();
-  const { appUser, clearAppUser } = useAppUser();
+  const { appUser, setAppUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
+  const { showMobileDialog } = useCustomerMobileCheck();
+  const { authorize, getCredentials, clearSession, cancelWebAuth, user } = useAuth0();
 
-  const { authorize, getCredentials, clearSession, user } = useAuth0();
+  useAuth0PostLogin({
+    onNavigate: (view) => {
+      if (view) {
+        setCurrentView(view);
+      }
+    },
+  });
+
+  const navigateToRoleHome = useCallback(() => {
+    setCurrentView(resolveRoleHomeView(appUser?.role));
+    setShowProfileFromDashboard(false);
+  }, [appUser?.role]);
 
   // Get font size styles based on settings
   const getFontSizeStyles = () => {
@@ -150,11 +221,31 @@ const MainApp = () => {
   };
 
   const fontStyles = getFontSizeStyles();
+  const shouldRenderWithoutParentScroll =
+    currentView === HOME ||
+    currentView === DETAILS ||
+    currentView === BOOKINGS ||
+    currentView === WALLET ||
+    currentView === SETTINGS ||
+    currentView === DASHBOARD ||
+    currentView === SP_CALENDAR ||
+    currentView === SP_EARNINGS ||
+    currentView === AGENT_DASHBOARD ||
+    currentView === PROFILE;
 
-  // NEW: Function to handle outside touch and close dropdowns
+  /** Full-bleed hero under the status bar (dark bg + light status icons). */
+  const usesDarkHeroSafeArea =
+    currentView === HOME ||
+    currentView === DASHBOARD ||
+    currentView === SP_CALENDAR ||
+    currentView === SP_EARNINGS ||
+    currentView === BOOKINGS ||
+    currentView === WALLET ||
+    currentView === SETTINGS;
+
+  // Function to handle outside touch and close dropdowns
   const handleOutsideTouch = useCallback(() => {
     setCloseAllDropdowns(true);
-    // Reset after a short delay
     setTimeout(() => {
       setCloseAllDropdowns(false);
     }, 100);
@@ -203,47 +294,51 @@ const MainApp = () => {
     console.log('=== DEEP LINK CHECK ===');
     console.log('Current URL:', url);
     
-    const parsedUrl = new URL(url);
-    const params = parsedUrl.searchParams;
-    
-    const openBookings = params.get('openBookings');
-    const customerId = params.get('customerId');
-    const bookingId = params.get('bookingId');
-    const action = params.get('action');
-    
-    console.log('openBookings param:', openBookings);
-    console.log('customerId param:', customerId);
-    console.log('bookingId param:', bookingId);
-    console.log('action param:', action);
+    try {
+      const parsedUrl = new URL(url);
+      const params = parsedUrl.searchParams;
+      
+      const openBookings = params.get('openBookings');
+      const customerId = params.get('customerId');
+      const bookingId = params.get('bookingId');
+      const action = params.get('action');
+      
+      console.log('openBookings param:', openBookings);
+      console.log('customerId param:', customerId);
+      console.log('bookingId param:', bookingId);
+      console.log('action param:', action);
 
-    if (openBookings === 'true') {
-      if (appUser) {
-        console.log('✅ User authenticated, processing deep link now');
-        processDeepLink(openBookings, customerId, bookingId, action);
-      } else {
-        console.log('🔐 User not authenticated, storing deep link for after login');
-        
-        setPendingDeepLink({
-          openBookings,
-          customerId,
-          bookingId,
-          action
-        });
-        
-        if (customerId) {
-          global.pendingDeepLinkCustomerId = customerId;
+      if (openBookings === 'true') {
+        if (appUser) {
+          console.log('✅ User authenticated, processing deep link now');
+          processDeepLink(openBookings, customerId, bookingId, action);
+        } else {
+          console.log('🔐 User not authenticated, storing deep link for after login');
+          
+          setPendingDeepLink({
+            openBookings,
+            customerId,
+            bookingId,
+            action
+          });
+          
+          if (customerId) {
+            global.pendingDeepLinkCustomerId = customerId;
+          }
+          if (bookingId) {
+            global.pendingDeepLinkBookingId = bookingId;
+          }
+          global.pendingDeepLinkTimestamp = Date.now().toString();
+          
+          const actionToStore = action || 'drawer';
+          global.pendingDeepLinkAction = actionToStore;
+          console.log(`📦 Stored pending action: ${actionToStore}`);
+          
+          setShowSignupDrawer(true);
         }
-        if (bookingId) {
-          global.pendingDeepLinkBookingId = bookingId;
-        }
-        global.pendingDeepLinkTimestamp = Date.now().toString();
-        
-        const actionToStore = action || 'drawer';
-        global.pendingDeepLinkAction = actionToStore;
-        console.log(`📦 Stored pending action: ${actionToStore}`);
-        
-        setShowSignupDrawer(true);
       }
+    } catch (error) {
+      console.error('Error parsing deep link URL:', error);
     }
   };
 
@@ -313,21 +408,9 @@ const MainApp = () => {
     try {
       console.log("🔄 ===== STARTING COMPLETE APP RELAUNCH =====");
       
-      try {
-        await clearSession(
-          {
-            returnToUrl: "com.serveaso://logout",
-          },
-          {
-            customScheme: "com.serveaso",
-          }
-        );
-        console.log("✅ Auth0 session cleared");
-      } catch (authError) {
-        console.log("⚠️ Auth0 session clear may have already been called:", authError);
-      }
-      
-      dispatch(remove());
+      // Auth0 session and mobile storage are already cleared by the calling function
+      // (Header.tsx or NavigationFooter.tsx handleSignOut)
+      // No need to clear them again here to avoid double sign-out
       
       console.log("🔄 Resetting all app states...");
       setCurrentView(HOME);
@@ -335,14 +418,12 @@ const MainApp = () => {
       setSelectedBookingType("");
       setShowProfileFromDashboard(false);
       setShowNotificationClient(false);
-      setShouldShowMobileDialog(false);
-      setHasCheckedMobileNumber(false);
-      setCustomerData(null);
+      setMobileDialogOpen(false);
       setShowNotifications(false);
+      dispatch(clearCustomer());
       setShowSignupDrawer(false);
       setShowProviderRegistration(false);
       setShowAgentRegistration(false);
-      setShowProfileMenu(false);
       setActiveToast(null);
       
       setDeepLinkProcessed(false);
@@ -360,34 +441,21 @@ const MainApp = () => {
       global.pendingDeepLinkAction = null;
       
       if (clearAppUser) {
-        clearAppUser();
+        await clearAppUser();
         console.log("✅ AppUser context cleared");
       }
       
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-        console.log("✅ Socket disconnected");
-      }
+      disconnectProviderBookingSocket();
+      await unregisterPushNotifications();
+      console.log("✅ Provider booking socket disconnected");
       
       const newKey = Date.now();
       setAppResetKey(newKey);
       console.log(`✅ App reset key updated: ${newKey}`);
       
-      setShowSplash(true);
-      fadeAnim.setValue(1);
-      
-      setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }).start(() => {
-          setShowSplash(false);
-          setIsResetting(false);
-          console.log("✅ ===== APP RELAUNCH COMPLETED =====");
-        });
-      }, 1000);
+      // No splash screen after sign-out - just navigate to HOME
+      setIsResetting(false);
+      console.log("✅ ===== APP RELAUNCH COMPLETED - Navigating to HOME =====");
       
     } catch (error) {
       console.error("❌ Error during app relaunch:", error);
@@ -400,28 +468,12 @@ const MainApp = () => {
 
   const handleAuth0Login = async () => {
     try {
-      await authorize(
-        {
-          scope: "openid profile email",
-          redirectUrl:
-            "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
-        },
-        {
-          customScheme: "com.serveaso",
-        }
-      );
+      await runAuth0Authorize(authorize, cancelWebAuth);
 
       const credentials = await getCredentials();
       console.log("Login successful", credentials);
-      
-      Snackbar.show({
-        text: i18n.t('common.success'),
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: colors.success,
-        textColor: "#ffffff",
-      });
     } catch (e) {
-      console.log("Login error:", e);
+      logAuth0Error("login failed", e);
       Snackbar.show({
         text: i18n.t('common.error'),
         duration: Snackbar.LENGTH_LONG,
@@ -433,6 +485,9 @@ const MainApp = () => {
 
   const { height, width } = Dimensions.get('window');
   const isMobile = width < 768;
+  const mobileTabBarClearance = isMobile ? getMobileTabBarHeight(safeBottom) : 0;
+  const needsMobileTabBarScrollInset =
+    isMobile && currentView !== BOOKINGS && currentView !== WALLET && currentView !== SETTINGS;
 
   const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
     setShowSignupDrawer(false);
@@ -465,88 +520,87 @@ const MainApp = () => {
     });
   };
 
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        if (await hasSpRegistrationInProgress()) {
+          if (active) {
+            setShowProviderRegistration(true);
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to restore provider registration draft:", error);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleProviderBackToLogin = () => {
     setShowProviderRegistration(false);
   };
 
+  // Monitor appUser changes
   useEffect(() => {
-    console.log("🔄 AppUser changed:", appUser ? `Logged in as ${appUser.role}` : "Logged out");
+    console.log("🔄 AppUser changed in App.tsx:", appUser ? `Logged in as ${appUser.role} - ${appUser.name}` : "Logged out");
 
     if (!appUser) {
       console.log("👤 No user detected, resetting to HOME view");
+      dispatch(clearCustomer());
       setCurrentView(HOME);
       setShowProfileFromDashboard(false);
       setShowNotificationClient(false);
-      setShouldShowMobileDialog(false);
-      setHasCheckedMobileNumber(false);
-      setCustomerData(null);
       setShowNotifications(false);
+    } else {
+      console.log("✅ User is logged in, role:", appUser.role);
+      const roleHome = resolveRoleHomeView(appUser.role);
+      if (currentView === HOME && roleHome !== HOME) {
+        setCurrentView(roleHome);
+        setShowProfileFromDashboard(false);
+      }
     }
   }, [appUser]);
 
   useEffect(() => {
-    if (!appUser || appUser?.role?.toUpperCase() !== "CUSTOMER" || hasCheckedMobileNumber) {
-      return;
-    }
-
-    const fetchCustomerDetails = async () => {
-      try {
-        console.log("📱 Fetching customer details for ID:", appUser.customerid);
-        const response = await axiosInstance.get(`/api/customer/get-customer-by-id/${appUser.customerid}`);
-
-        const customer = response.data;
-        setCustomerData(customer);
-
-        if (!customer?.mobileNo) {
-          console.warn("⚠️ Customer mobile number is missing (null). Showing dialog...");
-          setShouldShowMobileDialog(true);
-        } else {
-          console.log("✅ Customer has mobile number:", customer.mobileNo);
-          setShouldShowMobileDialog(false);
+    if (isUserLoading) return;
+    const ctx: PushUserContext | null = appUser
+      ? {
+          email: appUser.email || user?.email,
+          role: appUser.role,
+          userId: appUser.id || appUser.userId,
+          serviceProviderId: appUser.serviceProviderId,
+          customerId: appUser.customerid || appUser.customerId,
         }
-
-        setHasCheckedMobileNumber(true);
-      } catch (error: any) {
-        console.error("❌ Error fetching customer details:", error);
-        if (error.response?.status === 404) {
-          setCustomerData(null);
-          setShouldShowMobileDialog(true);
-        } else {
-          setShouldShowMobileDialog(false);
-        }
-        setHasCheckedMobileNumber(true);
-      }
-    };
-
-    const timer = setTimeout(() => {
-      fetchCustomerDetails();
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [appUser, hasCheckedMobileNumber]);
-
-  const handleMobileDialogSuccess = () => {
-    console.log("✅ Mobile dialog completed successfully");
-    setShouldShowMobileDialog(false);
-    setHasCheckedMobileNumber(true);
-    if (appUser?.customerid) {
-      setTimeout(() => {
-        setHasCheckedMobileNumber(false);
-      }, 1000);
-    }
-  };
-
-  const handleMobileDialogClose = () => {
-    console.log("📱 Mobile dialog closed");
-    setShouldShowMobileDialog(false);
-    setHasCheckedMobileNumber(true);
-  };
+      : null;
+    void setupPushNotifications(ctx);
+  }, [
+    appUser?.id,
+    appUser?.userId,
+    appUser?.email,
+    appUser?.role,
+    appUser?.customerid,
+    appUser?.customerId,
+    appUser?.serviceProviderId,
+    isUserLoading,
+    user?.email,
+  ]);
 
   useEffect(() => {
-    setHasCheckedMobileNumber(false);
-    setShouldShowMobileDialog(false);
-    setCustomerData(null);
-  }, [appUser?.customerid]);
+    setMobileDialogOpen(showMobileDialog);
+  }, [showMobileDialog]);
+
+  const handleMobileDialogSuccess = () => {
+    const customerId = appUser?.customerid ?? appUser?.customerId;
+    if (customerId != null && customerId !== "") {
+      dispatch(fetchCustomerDetails(String(customerId)) as never);
+    }
+    dispatch(setHasMobileNumber(true));
+    setMobileDialogOpen(false);
+  };
 
   useEffect(() => {
     getPricingData();
@@ -608,92 +662,146 @@ const MainApp = () => {
   };
 
   useEffect(() => {
-    if (!appUser) {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      return;
-    }
+    if (isUserLoading || !appUser) return;
+    if (String(appUser.role || "").toUpperCase() !== "SERVICE_PROVIDER") return;
+    if (resolveServiceProviderId(appUser)) return;
 
-    if (appUser.role?.toUpperCase() !== "SERVICE_PROVIDER") return;
-    if (socketRef.current) return;
+    const email = appUser.email;
+    if (!email) return;
 
-    let mounted = true;
-
+    let cancelled = false;
     (async () => {
-      const token = appUser?.accessToken ?? null;
-
-      const socket = io(SOCKET_URL, {
-        transports: ["polling", "websocket"],
-        auth: token ? { token } : undefined,
-        timeout: 20000,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        withCredentials: true,
-      });
-
-      socketRef.current = socket;
-
-      socket.on("connect", () => {
-        console.log("[socket] connected", socket.id);
-        socket.emit("join", { providerId: appUser.serviceProviderId });
-      });
-
-      socket.on("new-engagement", (payload: any) => {
-        console.log("[socket] new-engagement", payload);
-        const engagement = payload?.engagement ?? payload;
-        Alert.alert(
-          i18n.t('common.notification'),
-          `${i18n.t('common.bookingRequest')} ${engagement?.service_type ?? i18n.t('common.service')}`
+      try {
+        const res = await axios.get(
+          `https://utils-ndt3.onrender.com/customer/check-email?email=${encodeURIComponent(email)}`
         );
-      });
-
-      socket.on("connect_error", (err) => {
-        console.error("[socket] connect_error", err);
-      });
-
-      socket.io.on("reconnect_attempt", (attempt) => {
-        console.log("[socket] reconnect attempt", attempt);
-      });
-
-      if (!mounted) {
-        socket.disconnect();
-        socketRef.current = null;
+        if (cancelled) return;
+        if (res.data?.user_role === "SERVICE_PROVIDER" && res.data?.id != null) {
+          setAppUser({
+            ...appUser,
+            role: "SERVICE_PROVIDER",
+            serviceProviderId: res.data.id,
+          });
+          console.log("[sp-socket] backfilled serviceProviderId:", res.data.id);
+        }
+      } catch (e) {
+        console.warn("[sp-socket] could not backfill serviceProviderId", e);
       }
-    })().catch((e) => console.warn("[socket] init failed", e));
+    })();
 
     return () => {
-      mounted = false;
-      const s = socketRef.current;
-      if (s) {
-        s.off("connect");
-        s.off("new-engagement");
-        s.off("connect_error");
-        s.disconnect();
-        socketRef.current = null;
-      }
+      cancelled = true;
     };
-  }, [appUser]);
+  }, [appUser, isUserLoading, setAppUser]);
 
-  const handleAccept = (id: number) => {
-    Alert.alert(i18n.t('common.success'), i18n.t('booking.accepted'));
-    setActiveToast(null);
+  const onProviderBookingRequest = useCallback((payload: BookingRequestPayload) => {
+    setAcceptError(null);
+    setActiveToast(payload);
+  }, []);
+
+  const onProviderBookingClosed = useCallback((engagementId: number) => {
+    setActiveToast((cur) => {
+      if (!cur) return null;
+      const curId = parseEngagementId(cur.engagement_id);
+      return curId === engagementId ? null : cur;
+    });
+  }, []);
+
+  const activeToastEngagementId = activeToast
+    ? parseEngagementId(activeToast.engagement_id)
+    : null;
+
+  useProviderBookingSocket({
+    appUser,
+    isUserLoading,
+    onBookingRequest: onProviderBookingRequest,
+    onBookingClosed: onProviderBookingClosed,
+    activeEngagementId: activeToastEngagementId,
+  });
+
+  useEffect(() => {
+    if (activeToast) {
+      setAcceptError(null);
+    }
+  }, [activeToast?.engagement_id]);
+
+  const handleAccept = async (engagementId: number) => {
+    const eid = parseEngagementId(engagementId);
+    if (eid == null) {
+      const msg = "Invalid booking id.";
+      setAcceptError(msg);
+      Snackbar.show({
+        text: msg,
+        duration: Snackbar.LENGTH_SHORT,
+        backgroundColor: "#f44336",
+      });
+      return;
+    }
+    setAcceptError(null);
+    setAcceptingEngagementId(eid);
+    const providerId = resolveServiceProviderId(appUser);
+    try {
+      const result = await acceptEngagement(eid, appUser);
+      if (providerId != null) {
+        await dismissProviderNewBookingNotifications(eid, providerId);
+      }
+      clearProviderBookingEngagement(eid);
+      setActiveToast(null);
+      setAcceptError(null);
+      Snackbar.show({
+        text: result.message,
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: "#4caf50",
+      });
+    } catch (err) {
+      const msg = parseAcceptEngagementError(err);
+      if (isTerminalAcceptFailure(msg)) {
+        if (providerId != null) {
+          await dismissProviderNewBookingNotifications(eid, providerId);
+        }
+        clearProviderBookingEngagement(eid);
+        setActiveToast(null);
+        setAcceptError(null);
+      } else {
+        setAcceptError(msg);
+      }
+      Snackbar.show({
+        text: msg,
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: "#f44336",
+      });
+      console.error("Failed to accept engagement", err);
+    } finally {
+      setAcceptingEngagementId(null);
+    }
   };
 
-  const handleReject = (id: number) => {
-    Alert.alert(i18n.t('common.rejected'), i18n.t('booking.rejected'));
+  const handleReject = async (engagementId: number) => {
+    const eid = parseEngagementId(engagementId);
+    const providerId = resolveServiceProviderId(appUser);
+    if (eid != null && providerId != null) {
+      await dismissProviderNewBookingNotifications(eid, providerId);
+      clearProviderBookingEngagement(eid);
+    }
     setActiveToast(null);
+    setAcceptError(null);
   };
 
-  const handleViewChange = (view: string) => {
+  const handleViewChange = (view: string, data?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => {
     if (view === "" || view === "FORCE_HOME") {
-      setCurrentView(HOME);
-      setShowProfileFromDashboard(false);
-    } else if (view === "sign_out") {
-      handleAppRelaunchAfterSignOut();
+      navigateToRoleHome();
     } else {
+      // If navigating to bookings with a specific tab, store it
+      if (view === BOOKINGS && data?.initialTab) {
+        console.log('📍 Setting booking initial tab to:', data.initialTab);
+        setBookingInitialTab(data.initialTab);
+      } else if (view !== BOOKINGS) {
+        // Reset when navigating away from bookings
+        setBookingInitialTab(undefined);
+      }
+      
+      // Track previous view before changing
+      setPreviousView(currentView);
       setCurrentView(view);
     }
   };
@@ -703,16 +811,12 @@ const MainApp = () => {
   const handleNotificationButtonPress = () => setShowNotificationClient(true);
 
   const handleHomeClick = () => {
-    setCurrentView(HOME);
-    setShowProfileFromDashboard(false);
+    navigateToRoleHome();
   };
 
   const handleServicesClick = (service: string) => {
-    console.log(`Service selected: ${service}`);
-    if (service === "Home Cook" || service === "Cleaning Help" || service === "Caregiver") {
-      setSelectedBookingType(service);
-      setCurrentView("DETAILS");
-    }
+    console.log(`Service selected from menu: ${service}`);
+    setCurrentView(HOME);
   };
 
   const handleBookingsClick = () => {
@@ -743,80 +847,118 @@ const MainApp = () => {
       case HOME:
         return (
           <View style={styles.homeContainer}>
-            <HomePage sendDataToParent={handleViewChange} bookingType={() => {}} />
+            <HomePage
+              sendDataToParent={handleViewChange}
+              bookingType={() => {}}
+              onContactClick={handleContactClick}
+              closeDropdowns={closeAllDropdowns}
+              onLogoClick={handleHomeClick}
+            />
           </View>
         );
         
       case BOOKINGS:
-        return <Booking ref={bookingsRef} onBackToHome={() => setCurrentView(HOME)} />;
-        
-      case WALLET:
-        return <WalletPage onBack={() => setCurrentView(HOME)} />;
-        
-      case DASHBOARD:
-        return showProfileFromDashboard ? (
-          <ProfileScreen/>
-        ) : (
-          <Dashboard 
-            onProfilePress={handleDashboardProfilePress} 
-            onBackToHome={() => setCurrentView(HOME)}
+        return (
+          <Booking
+            ref={bookingsRef}
+            onBackToHome={navigateToRoleHome}
+            onNavigateToDetails={() => setCurrentView(DETAILS)}
+            onOpenWallet={() => {
+              setPreviousView(BOOKINGS);
+              setCurrentView(WALLET);
+            }}
+            initialTab={bookingInitialTab}
           />
         );
+        
+      case WALLET:
+        return <WalletPage onBack={() => {
+          // Return to where user came from (e.g., BOOKINGS)
+          if (previousView === BOOKINGS || previousView === DASHBOARD || previousView === AGENT_DASHBOARD) {
+            setCurrentView(previousView);
+          } else {
+            navigateToRoleHome();
+          }
+        }} />;
+        
+      case DASHBOARD:
+        return (
+          <Dashboard 
+            onBackToHome={navigateToRoleHome}
+            onLogoPress={handleHomeClick}
+            closeDropdowns={closeAllDropdowns}
+          />
+        );
+
+      case SP_CALENDAR:
+        return <ProviderCalendarScreen />;
+
+      case SP_EARNINGS:
+        return <ProviderEarningsScreen />;
         
       case AGENT_DASHBOARD:
         return <AgentDashboard />;
         
       case PROFILE:
-        return <ProfileScreen/>;
+        return (
+          <ProfileScreen
+            onBack={navigateToRoleHome}
+            onNavigateToBookings={() => setCurrentView(BOOKINGS)}
+            onOpenSettings={() => {
+              setSettingsReturnView(PROFILE);
+              setCurrentView(SETTINGS);
+            }}
+            onContact={handleContactClick}
+            onSignOutComplete={handleAppRelaunchAfterSignOut}
+          />
+        );
+
+      case SETTINGS:
+        return <Settings onBack={() => setCurrentView(settingsReturnView)} />;
         
       default:
         return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
     }
   };
 
-  // Loading Screen
-  if (showSplash) {
+  // Loading Screen - Check for user loading state
+  if (isUserLoading || showSplash) {
     return (
       <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
-        <LinearGradient
-          colors={["#0a2a66ff", "#004aadff"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.gradientBackground}
-        >
-          <View style={styles.loadingContent}>
-            <Image
-              source={require("./assets/images/serveasologo.png")}
-              style={styles.splashImage}
-              resizeMode="contain"
-            />
-          </View>
-        </LinearGradient>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <BrandLoadingScreen />
       </Animated.View>
     );
   }
 
   return (
-    <PaperProvider>
-      <SafeAreaProvider>
-        <StatusBar 
-          translucent 
-          backgroundColor="transparent" 
-          barStyle={isDarkMode ? "light-content" : "dark-content"} 
+    <PaperProvider theme={paperTheme}>
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle={statusBarStyle}
         />
-        <SafeAreaView 
+        <SafeAreaView
           style={[
-            styles.safeArea, 
-            { 
-              backgroundColor: colors.headerBackground,
-            }
-          ]} 
-          edges={["top"]} 
+            styles.safeArea,
+            {
+              backgroundColor: usesDarkHeroSafeArea
+                ? HOME_M3.primary
+                : currentView === SP_EARNINGS
+                  ? HOME_M3.primary
+                  : currentView === BOOKINGS ||
+                    currentView === WALLET ||
+                    currentView === SETTINGS
+                  ? colors.background
+                  : currentView === PROFILE
+                  ? HOME_M3.primary
+                  : colors.chromeEnd,
+            },
+          ]}
+          edges={usesDarkHeroSafeArea || currentView === PROFILE || currentView === SP_EARNINGS ? [] : ["top"]}
           key={`app-${appResetKey}`}
         >
-          {/* Touchable Without Feedback wrapper to close dropdowns when tapping outside */}
-          <TouchableWithoutFeedback onPress={handleOutsideTouch}>
-            <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
               {/* Deep linking loading overlay */}
               {showDeepLinkLoading && (
                 <View style={[styles.deepLinkLoadingOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
@@ -829,44 +971,92 @@ const MainApp = () => {
                 </View>
               )}
 
-              {/* Fixed Header - Pass closeDropdowns prop */}
-              <View style={[styles.headerWrapper, { backgroundColor: colors.headerBackground }]}>
-                <Head 
-                  sendDataToParent={handleViewChange} 
-                  bookingType={selectedBookingType}
-                  onAboutClick={handleAboutClick}
-                  onContactClick={handleContactClick}
-                  onLogoClick={handleHomeClick}
-                  closeDropdowns={closeAllDropdowns}
-                />
-              </View>
+              {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
+              {currentView !== HOME &&
+                currentView !== BOOKINGS &&
+                currentView !== WALLET &&
+                currentView !== PROFILE &&
+                currentView !== SETTINGS &&
+                currentView !== DASHBOARD &&
+                currentView !== SP_CALENDAR &&
+                currentView !== SP_EARNINGS &&
+                currentView !== AGENT_DASHBOARD && (
+                <View style={[styles.headerWrapper, { backgroundColor: colors.chromeEnd }]}>
+                  <Head
+                    sendDataToParent={handleViewChange}
+                    bookingType={selectedBookingType}
+                    onAboutClick={handleAboutClick}
+                    onContactClick={handleContactClick}
+                    onLogoClick={handleHomeClick}
+                    closeDropdowns={closeAllDropdowns}
+                    onSignOutComplete={handleAppRelaunchAfterSignOut}
+                  />
+                </View>
+              )}
 
               {/* Scrollable Content Area */}
-              <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-                {currentView === PROFILE || (currentView === DASHBOARD && showProfileFromDashboard) || currentView === WALLET ? (
-                  <ScrollView style={styles.profileScrollView} contentContainerStyle={styles.profileScrollContent}>
+              <View
+                style={[
+                  styles.contentContainer,
+                  {
+                    backgroundColor:
+                      currentView === HOME ||
+                      currentView === DASHBOARD ||
+                      currentView === SP_CALENDAR ||
+                      currentView === SP_EARNINGS
+                        ? HOME_M3.surface
+                        : colors.background,
+                  },
+                  (currentView === HOME ||
+                    currentView === DASHBOARD ||
+                    currentView === SP_CALENDAR ||
+                    currentView === SP_EARNINGS ||
+                    currentView === BOOKINGS ||
+                    currentView === WALLET ||
+                    currentView === PROFILE ||
+                    currentView === SETTINGS) &&
+                    styles.contentContainerFullScreen,
+                ]}
+              >
+                {shouldRenderWithoutParentScroll ? (
+                  <View
+                    style={[
+                      styles.mainScrollView,
+                      needsMobileTabBarScrollInset && {
+                        paddingBottom: mobileTabBarClearance,
+                      },
+                    ]}
+                  >
                     {renderContent()}
-                  </ScrollView>
+                  </View>
                 ) : (
                   <ScrollView
                     style={styles.mainScrollView}
                     contentContainerStyle={[
                       styles.scrollContent,
-                      (currentView === BOOKINGS || currentView === DASHBOARD || currentView === AGENT_DASHBOARD) &&
+                      isMobile && styles.scrollContentMobile,
+                      needsMobileTabBarScrollInset && {
+                        paddingBottom: mobileTabBarClearance,
+                      },
+                      (currentView === BOOKINGS ||
+                        currentView === DASHBOARD ||
+                        currentView === SP_CALENDAR ||
+                        currentView === SP_EARNINGS ||
+                        currentView === AGENT_DASHBOARD) &&
                         styles.fullScreenScrollContent,
                     ]}
                     contentInsetAdjustmentBehavior="automatic"
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
                   >
                     {renderContent()}
-                    {currentView === HOME &&
-                      (!appUser || appUser?.role?.toUpperCase() === "CUSTOMER") && <Footer />}
                   </ScrollView>
                 )}
               </View>
 
               {/* Fixed Navigation Footer for Mobile */}
               {isMobile && (
-                <View style={[styles.navigationFooterContainer, { backgroundColor: colors.footerBackground }]}>
+                <View style={styles.navigationFooterContainer}>
                   <NavigationFooter
                     activePage={currentView}
                     onHomeClick={handleHomeClick}
@@ -878,7 +1068,6 @@ const MainApp = () => {
                     appUser={appUser}
                     bookingType={selectedBookingType}
                     onOpenSignup={() => setShowSignupDrawer(true)}
-                    onProfileClick={() => setShowProfileMenu(true)}
                     onNavigateToPage={(page: string) => {
                       if (page === PROFILE) {
                         setCurrentView(PROFILE);
@@ -888,63 +1077,48 @@ const MainApp = () => {
                       } else if (page === DASHBOARD) {
                         setCurrentView(DASHBOARD);
                         setShowProfileFromDashboard(false);
+                      } else if (page === SP_CALENDAR) {
+                        setCurrentView(SP_CALENDAR);
+                        setShowProfileFromDashboard(false);
+                      } else if (page === SP_EARNINGS) {
+                        setCurrentView(SP_EARNINGS);
+                        setShowProfileFromDashboard(false);
                       } else if (page === AGENT_DASHBOARD) {
                         setCurrentView(AGENT_DASHBOARD);
                         setShowProfileFromDashboard(false);
                       } else if (page === WALLET) {
+                        setPreviousView(currentView); // Track where we came from
                         setCurrentView(WALLET);
                         setShowProfileFromDashboard(false);
                       } else if (page === HOME) {
-                        setCurrentView(HOME);
+                        setCurrentView(resolveRoleHomeView(appUser?.role));
                         setShowProfileFromDashboard(false);
+                      } else if (page === SETTINGS) {
+                        setSettingsReturnView(currentView);
+                        setCurrentView(SETTINGS);
                       }
                     }}
                     onSignOutComplete={handleAppRelaunchAfterSignOut}
                     bookingsRef={bookingsRef}
                   />
 
-                  <ProfileMenuSheet
-                    visible={showProfileMenu}
-                    onClose={() => setShowProfileMenu(false)}
-                    onProfile={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(PROFILE);
-                    }}
-                    onBookings={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(BOOKINGS);
-                    }}
-                    onDashboard={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(DASHBOARD);
-                    }}
-                    onWallet={() => {
-                      setShowProfileMenu(false);
-                      setCurrentView(WALLET);
-                    }}
-                    onContact={handleContactClick}
-                  />
                 </View>
               )}
             </View>
-          </TouchableWithoutFeedback>
 
-          {/* Chat Button - Positioned above Navigation Footer */}
           {!chatbotOpen && isMobile && (
-            <TouchableOpacity 
-              style={[styles.chatButton, { backgroundColor: colors.secondary }]} 
+            <ChatbotButton
+              bottomInset={mobileTabBarClearance + 20}
               onPress={() => setChatbotOpen(true)}
-            >
-              <Icon name="chat" size={28} color="#fff" />
-            </TouchableOpacity>
+            />
           )}
 
           {/* Modals and Dialogs */}
-          {shouldShowMobileDialog && (
-            <MobileNumberDialog 
-              visible={shouldShowMobileDialog}
-              onClose={handleMobileDialogClose}
-              customerId={appUser?.customerid}
+          {mobileDialogOpen && (appUser?.customerid ?? appUser?.customerId) && (
+            <MobileNumberDialog
+              visible={mobileDialogOpen}
+              onClose={() => setMobileDialogOpen(false)}
+              customerId={appUser?.customerid ?? appUser?.customerId}
               onSuccess={handleMobileDialogSuccess}
             />
           )}
@@ -1011,18 +1185,31 @@ const MainApp = () => {
           {/* Chatbot */}
           <Chatbot open={chatbotOpen} onClose={() => setChatbotOpen(false)} />
 
-          {/* Booking Request Toast */}
+          {/* SP on-demand booking: Accept / Decline popup (not the header bell) */}
           {activeToast && (
             <BookingRequestToast
               engagement={activeToast}
               onAccept={handleAccept}
               onReject={handleReject}
-              onClose={() => setActiveToast(null)}
+              onClose={() => {
+                const eid = parseEngagementId(activeToast.engagement_id);
+                const providerId = resolveServiceProviderId(appUser);
+                if (eid != null && providerId != null) {
+                  void dismissProviderNewBookingNotifications(eid, providerId).finally(() => {
+                    clearProviderBookingEngagement(eid);
+                  });
+                }
+                setActiveToast(null);
+                setAcceptError(null);
+              }}
               visible={!!activeToast}
+              actionBusy={
+                parseEngagementId(activeToast.engagement_id) === acceptingEngagementId
+              }
+              acceptError={acceptError}
             />
           )}
         </SafeAreaView>
-      </SafeAreaProvider>
     </PaperProvider>
   );
 };
@@ -1042,29 +1229,21 @@ const App = () => {
 
   if (!i18nInitialized) {
     return (
-      <LinearGradient
-        colors={["#0a2a66ff", "#004aadff"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradientBackground}
-      >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Image
-            source={require("./assets/images/serveasologo.png")}
-            style={{ width: 200, height: 200 }}
-            resizeMode="contain"
-          />
-        </View>
-      </LinearGradient>
+      <View style={{ flex: 1 }}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <BrandLoadingScreen subtitle="Preparing language and app setup for you" />
+      </View>
     );
   }
 
   return (
-    <Auth0Provider domain={config.domain} clientId={config.clientId}>
+    <Auth0Provider domain={config.domain} clientId={config.clientId} useDPoP={false}>
       <AppUserProvider>
         <ThemeProvider>
           <I18nextProvider i18n={i18n}>
-            <MainApp />
+            <SafeAreaProvider>
+              <MainApp />
+            </SafeAreaProvider>
           </I18nextProvider>
         </ThemeProvider>
       </AppUserProvider>
@@ -1073,37 +1252,28 @@ const App = () => {
 };
 
 const styles = StyleSheet.create({
-  gradientBackground: {
-    flex: 1,
-  },
   splashContainer: {
     flex: 1,
-  },
-  loadingContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  splashImage: { 
-    width: "80%", 
-    height: "30%", 
-    marginBottom: 30,
   },
   safeArea: {
     flex: 1,
   },
   headerWrapper: {
     width: "100%",
+    height: HEADER_BAR_HEIGHT,
     zIndex: 50,
+    overflow: "visible",
   },
   homeContainer: { 
     flex: 1 
   },
-  contentContainer: { 
-    flex: 1, 
-    marginTop: 50,
-    paddingBottom: 50,
+  contentContainer: {
+    flex: 1,
+    marginTop: 0,
+  },
+  contentContainerFullScreen: {
+    marginTop: 0,
+    paddingBottom: 0,
   },
   mainScrollView: { 
     flex: 1 
@@ -1113,14 +1283,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", 
     minHeight: "100%",
   },
+  scrollContentMobile: {
+    flexGrow: 0,
+    justifyContent: "flex-start",
+    minHeight: undefined,
+  },
   fullScreenScrollContent: { 
     paddingBottom: 0 
-  },
-  profileScrollView: { 
-    flex: 1 
-  },
-  profileScrollContent: { 
-    flexGrow: 1 
   },
   modalContainer: { 
     flex: 1, 
@@ -1144,31 +1313,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    width: "100%",
     zIndex: 100,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-    minHeight: 60,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 10,
-  },
-  chatButton: {
-    position: "absolute",
-    bottom: 80,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 2000,
+    backgroundColor: "transparent",
   },
   deepLinkLoadingOverlay: {
     position: 'absolute',

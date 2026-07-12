@@ -1,40 +1,63 @@
 /* eslint-disable */
 import React from 'react';
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Dimensions,
   Alert,
   ActivityIndicator,
   Platform,
+  ScrollView,
+  Animated,
+  TouchableWithoutFeedback,
+  Modal,
+  Image,
+  StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import dayjs from 'dayjs';
 import LinearGradient from 'react-native-linear-gradient';
 import Snackbar from 'react-native-snackbar';
 import RazorpayCheckout from 'react-native-razorpay';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import your existing utilities and services
 import PaymentInstance from '../services/paymentInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
 import Invoice from '../Invoice/Invoice';
-import UserHoliday from './UserHoliday';
 import VacationManagementDialog from './VacationManagement';
+import RaiseComplaintDialog from './RaiseComplaintDialog';
+import { HOME_HERO_GRADIENT, HOME_M3 } from "../theme/brandColors";
+import { 
+  BookingTimeline, 
+  MonthlyBookingTimeline, 
+  DateWiseTimeline,
+  type TimelineData,
+  type MonthlyTimelineData 
+} from '../common/BookingTimeline';
 
-const { width } = Dimensions.get('window');
+const cookImage = require('../../assets/images/Cooknew.png');
+const maidImage = require('../../assets/images/Maidnew.png');
+const nannyImage = require('../../assets/images/Nannynew.png');
+import {
+  getPaymentTimeoutCancellationMessage,
+  isPaymentTimeoutCancellation,
+} from '../utils/bookingCancellation';
+
+const { width, height } = Dimensions.get('window');
 
 // ==================== Types ====================
 interface EngagementDetailsDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   booking: any;
-  onPaymentComplete?: () => void;
-  refreshBookings?: () => void;
+  onPaymentComplete?: () => void | Promise<void>;
+  refreshBookings?: () => void | Promise<void>;
   customerId?: number | null;
+  onBookAgain?: (booking: any) => void;
+  onModify?: (booking: any) => void;
 }
 
 // ==================== Helper Components ====================
@@ -79,20 +102,35 @@ const CancelDialog: React.FC<{
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <View style={cancelDialogStyles.overlay}>
         <View style={[cancelDialogStyles.dialogContainer, { backgroundColor: colors.card }]}>
-          <LinearGradient 
-            colors={["#0a2a66ff", "#004aadff"]} 
-            start={{ x: 0, y: 0 }} 
-            end={{ x: 1, y: 0 }} 
-            style={cancelDialogStyles.header}
-          >
+          <View style={cancelDialogStyles.headerShell}>
+            <LinearGradient
+              colors={[...HOME_HERO_GRADIENT]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={cancelDialogStyles.headerContent}>
-              <Icon name="alert-triangle" size={24} color="#FFFFFF" />
-              <Text style={[cancelDialogStyles.headerTitle, { fontSize: fontSizes.title }]}>Cancel Booking</Text>
+              <Icon name="alert-triangle" size={22} color="#FFFFFF" />
+              <Text
+                style={[
+                  cancelDialogStyles.headerTitle,
+                  { fontSize: fontSizes.title, lineHeight: fontSizes.title + 8 },
+                ]}
+              >
+                Cancel Booking
+              </Text>
             </View>
-          </LinearGradient>
+          </View>
           <View style={cancelDialogStyles.content}>
             <Text style={[cancelDialogStyles.message, { fontSize: fontSizes.message, color: colors.text }]}>
               Are you sure you want to cancel the {serviceName} service? This action cannot be undone.
@@ -146,12 +184,10 @@ const formatTimeToAMPM = (timeString: string): string => {
 
 const formatDate = (dateString: string) => dayjs(dateString).format('MMMM D, YYYY');
 
-// Helper function to check if booking has vacation
 const hasVacation = (booking: any): boolean => {
   return booking.hasVacation || (booking.vacationDetails && (booking.vacationDetails.total_days || 0) > 0) || false;
 };
 
-// Helper function to check modification time allowance
 const isModificationTimeAllowed = (startEpoch: any): boolean => {
   if (!startEpoch) return false;
   const now = dayjs().unix();
@@ -159,7 +195,6 @@ const isModificationTimeAllowed = (startEpoch: any): boolean => {
   return now < cutoff;
 };
 
-// Helper function to check if booking is already modified
 const isBookingAlreadyModified = (booking: any | null): boolean => {
   if (!booking) return false;
   return !!(booking.modifications?.some((mod: any) =>
@@ -170,13 +205,11 @@ const isBookingAlreadyModified = (booking: any | null): boolean => {
   ));
 };
 
-// Helper function to check if modification is disabled
 const isModificationDisabled = (booking: any | null): boolean => {
   if (!booking) return true;
   return !isModificationTimeAllowed(booking.start_epoch) || isBookingAlreadyModified(booking);
 };
 
-// Helper function to get service title
 const getServiceTitle = (type: string) => {
   const serviceType = type || 'other';
   switch (serviceType) {
@@ -188,100 +221,126 @@ const getServiceTitle = (type: string) => {
   }
 };
 
-// Helper function to get booking type badge
-const getBookingTypeBadge = (type: string) => {
-  const { colors } = useTheme();
+const getServiceImage = (type: string) => {
   switch (type) {
-    case 'ON_DEMAND':
-      return (
-        <Badge style={[styles.onDemandBadge, { backgroundColor: colors.info + '15', borderColor: colors.info + '30' }]}>
-          <Text style={[styles.onDemandBadgeText, { color: colors.info }]}>On Demand</Text>
-        </Badge>
-      );
-    case 'MONTHLY':
-      return (
-        <Badge style={[styles.monthlyBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-          <Text style={[styles.monthlyBadgeText, { color: colors.primary }]}>Monthly</Text>
-        </Badge>
-      );
-    case 'SHORT_TERM':
-      return (
-        <Badge style={[styles.shortTermBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-          <Text style={[styles.shortTermBadgeText, { color: colors.success }]}>Short Term</Text>
-        </Badge>
-      );
-    default:
-      return (
-        <Badge style={[styles.defaultBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-          <Text style={[styles.defaultBadgeText, { color: colors.textSecondary }]}>{type}</Text>
-        </Badge>
-      );
+    case 'cook': return cookImage;
+    case 'maid': return maidImage;
+    case 'nanny': return nannyImage;
+    default: return cookImage;
   }
 };
 
-// Helper function to get status badge
-const getStatusBadge = (status: string) => {
-  const { colors } = useTheme();
-  switch (status) {
-    case 'ACTIVE':
-      return (
-        <Badge style={[styles.activeBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-          <Icon name="alert-circle" size={14} color={colors.primary} />
-          <Text style={[styles.activeBadgeText, { color: colors.primary }]}>Active</Text>
-        </Badge>
-      );
-    case 'COMPLETED':
-      return (
-        <Badge style={[styles.completedBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-          <Icon name="check-circle" size={14} color={colors.success} />
-          <Text style={[styles.completedBadgeText, { color: colors.success }]}>Completed</Text>
-        </Badge>
-      );
-    case 'CANCELLED':
-      return (
-        <Badge style={[styles.cancelledBadge, { backgroundColor: colors.error + '15', borderColor: colors.error + '30' }]}>
-          <Icon name="close-circle" size={14} color={colors.error} />
-          <Text style={[styles.cancelledBadgeText, { color: colors.error }]}>Cancelled</Text>
-        </Badge>
-      );
-    case 'IN_PROGRESS':
-      return (
-        <Badge style={[styles.inProgressBadge, { backgroundColor: colors.warning + '15', borderColor: colors.warning + '30' }]}>
-          <Icon name="clock" size={14} color={colors.warning} />
-          <Text style={[styles.inProgressBadgeText, { color: colors.warning }]}>In Progress</Text>
-        </Badge>
-      );
-    case 'NOT_STARTED':
-      return (
-        <Badge style={[styles.notStartedBadge, { backgroundColor: colors.textSecondary + '15', borderColor: colors.textSecondary + '30' }]}>
-          <Icon name="clock" size={14} color={colors.textSecondary} />
-          <Text style={[styles.notStartedBadgeText, { color: colors.textSecondary }]}>Not Started</Text>
-        </Badge>
-      );
-    default: return null;
+const getProviderInitials = (name: string) => {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
   }
+  return String(name || 'SP').slice(0, 2).toUpperCase();
 };
 
-// ==================== Main Component ====================
+const formatPaymentMode = (mode?: string) => {
+  if (!mode) return '—';
+  return mode
+    .split(/[+,_]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' + ');
+};
+
+const getModificationBadgeStyle = (action: string) => {
+  const normalized = String(action || '').toLowerCase();
+  if (normalized.includes('vacation applied')) {
+    return { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' };
+  }
+  if (normalized.includes('vacation cancelled') || normalized.includes('vacation canceled')) {
+    return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
+  }
+  if (normalized.includes('reschedule') || normalized.includes('modified')) {
+    return { backgroundColor: '#dbeafe', color: '#1d4ed8', borderColor: '#93c5fd' };
+  }
+  return { backgroundColor: '#fff7ed', color: '#c2410c', borderColor: '#fdba74' };
+};
+
+// ==================== Main Component - Custom Dialog without Modal ====================
 const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({ 
   isOpen, 
   onClose, 
   booking, 
   onPaymentComplete,
   refreshBookings,
-  customerId
+  customerId,
+  onBookAgain,
+  onModify,
 }) => {
   const { colors, fontSize } = useTheme();
+  const insets = useSafeAreaInsets();
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [isCallLoading, setIsCallLoading] = React.useState(false);
   const [isCancelLoading, setIsCancelLoading] = React.useState(false);
   const [showCancelDialog, setShowCancelDialog] = React.useState(false);
-  const [showInvoiceModal, setShowInvoiceModal] = React.useState(false);
+  const [complaintDialogVisible, setComplaintDialogVisible] = React.useState(false);
+  
+  // Animation values
+  const slideAnim = React.useRef(new Animated.Value(height)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  
+  // Create a ref for the ScrollView
+  const scrollViewRef = React.useRef<ScrollView>(null);
   
   // Vacation states
-  const [holidayDialogOpen, setHolidayDialogOpen] = React.useState(false);
   const [vacationManagementDialogOpen, setVacationManagementDialogOpen] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Extension states
+  const [showExtendDialog, setShowExtendDialog] = React.useState(false);
+  const [extensionAvailability, setExtensionAvailability] = React.useState<any>(null);
+  const [loadingAvailability, setLoadingAvailability] = React.useState(false);
+  const [selectedExtension, setSelectedExtension] = React.useState<any>(null);
+  const [isExtending, setIsExtending] = React.useState(false);
+
+  // Reset drawer scroll position when opened or when a different booking is shown
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const frame = requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, booking?.id]);
+
+  // Handle animation when isOpen changes
+  React.useEffect(() => {
+    if (isOpen) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: height,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isOpen]);
 
   const getFontSizes = () => {
     switch (fontSize) {
@@ -308,84 +367,329 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   
   const fontSizes = getFontSizes();
 
-  if (!isOpen || !booking) return null;
+  if (!booking || !booking.id) return null;
+  
+  // Log booking data for debugging
+  console.log('=== Booking Object ===', JSON.stringify(booking, null, 2));
+  
+  // Ensure critical booking properties have safe defaults
+  const safeBooking = {
+    ...booking,
+    id: booking.id || 0,
+    service_type: booking.service_type || booking.serviceType || 'other',
+    bookingType: booking.bookingType || 'ON_DEMAND',
+    taskStatus: booking.taskStatus || 'NOT_STARTED',
+    serviceProviderName: booking.serviceProviderName || 'Not Assigned',
+    serviceProviderId: booking.serviceProviderId || booking.serviceproviderid || booking.service_provider_id || booking.providerId || null,
+    start_time: booking.start_time || '',
+    end_time: booking.end_time || '',
+    startDate: booking.startDate || booking.date || '',
+    providerRating: booking.providerRating || 0,
+  };
+  
+  console.log('=== safeBooking serviceProviderId ===', safeBooking.serviceProviderId);
 
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'SUCCESS': 
-        return { backgroundColor: colors.successLight, color: colors.success };
-      case 'PENDING': 
-        return { backgroundColor: colors.warningLight, color: colors.warning };
-      case 'FAILED': 
-        return { backgroundColor: colors.errorLight, color: colors.error };
-      default: 
-        return { backgroundColor: colors.surface, color: colors.textSecondary };
+  const getBookingTypeBadge = (type: string) => {
+    switch (type) {
+      case 'ON_DEMAND':
+        return (
+          <View style={[styles.pillBadge, styles.onDemandPill]}>
+            <Text style={[styles.pillBadgeText, styles.onDemandPillText]}>On Demand</Text>
+          </View>
+        );
+      case 'MONTHLY':
+        return (
+          <View style={[styles.pillBadge, styles.monthlyPill]}>
+            <Text style={[styles.pillBadgeText, styles.monthlyPillText]}>Monthly</Text>
+          </View>
+        );
+      case 'SHORT_TERM':
+        return (
+          <View style={[styles.pillBadge, styles.shortTermPill]}>
+            <Text style={[styles.pillBadgeText, styles.shortTermPillText]}>Short Term</Text>
+          </View>
+        );
+      default:
+        return (
+          <View style={[styles.pillBadge, styles.defaultPill]}>
+            <Text style={[styles.pillBadgeText, styles.defaultPillText]}>{type}</Text>
+          </View>
+        );
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const label =
+      status === 'NOT_STARTED'
+        ? 'Not Started'
+        : status === 'IN_PROGRESS'
+          ? 'In Progress'
+          : status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ');
+
+    let pillStyle = styles.notStartedPill;
+    let textStyle = styles.notStartedPillText;
+    let iconColor = '#64748b';
+
+    if (status === 'COMPLETED') {
+      pillStyle = styles.completedPill;
+      textStyle = styles.completedPillText;
+      iconColor = '#15803d';
+    } else if (status === 'CANCELLED') {
+      pillStyle = styles.cancelledPill;
+      textStyle = styles.cancelledPillText;
+      iconColor = '#dc2626';
+    } else if (status === 'IN_PROGRESS') {
+      pillStyle = styles.inProgressPill;
+      textStyle = styles.inProgressPillText;
+      iconColor = '#c2410c';
+    }
+
+    return (
+      <View style={[styles.pillBadge, pillStyle]}>
+        <Icon
+          name={
+            status === 'COMPLETED'
+              ? 'check-circle'
+              : status === 'CANCELLED'
+                ? 'x-circle'
+                : 'clock'
+          }
+          size={12}
+          color={iconColor}
+        />
+        <Text style={[styles.pillBadgeText, textStyle]}>{label}</Text>
+      </View>
+    );
+  };
+
+  // ==================== EXTENSION HANDLERS ====================
+  
+  const canShowExtendButton = () => {
+    console.log('=== canShowExtendButton Debug ===');
+    console.log('bookingType:', safeBooking.bookingType);
+    console.log('taskStatus:', safeBooking.taskStatus);
+    console.log('isProviderAssigned:', isProviderAssigned());
+    
+    const result = (
+      safeBooking.bookingType === 'ON_DEMAND' &&
+      ['NOT_STARTED', 'IN_PROGRESS'].includes(safeBooking.taskStatus) &&
+      isProviderAssigned()
+    );
+    
+    console.log('canShowExtendButton result:', result);
+    return result;
+  };
+
+  const handleExtendClick = async () => {
+    setShowExtendDialog(true);
+    await checkExtensionAvailability();
+  };
+
+  const checkExtensionAvailability = async () => {
+    try {
+      setLoadingAvailability(true);
+      const response = await PaymentInstance.get(
+        `/api/v2/engagements/${booking.id}/extension-availability`
+      );
+      setExtensionAvailability(response.data);
+      
+      if (!response.data.canExtend) {
+        Alert.alert(
+          'Cannot Extend',
+          response.data.reason || 'Booking cannot be extended at this time',
+          [{ text: 'OK', onPress: () => setShowExtendDialog(false) }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error checking availability:', error);
+      Alert.alert(
+        'Error',
+        'Unable to check extension availability. Please try again.',
+        [{ text: 'OK', onPress: () => setShowExtendDialog(false) }]
+      );
+    } finally {
+      setLoadingAvailability(false);
+    }
+  };
+
+  const handleExtendBooking = async () => {
+    if (!selectedExtension) {
+      Alert.alert('Error', 'Please select an extension option');
+      return;
+    }
+
+    try {
+      setIsExtending(true);
+      
+      // Step 1: Initiate extension and create Razorpay order
+      const response = await PaymentInstance.post(
+        `/api/v2/engagements/${booking.id}/extend`,
+        {
+          extensionHours: selectedExtension.hours,
+          newEndTime: selectedExtension.newEndTime,
+          additionalAmount: selectedExtension.additionalCost
+        }
+      );
+
+      const {
+        razorpay_order_id,
+        razorpay_key_id,
+        amount,
+        currency
+      } = response.data;
+
+      if (!razorpay_order_id) {
+        Alert.alert('Error', 'Payment order could not be created. Please try again.');
+        setIsExtending(false);
+        return;
+      }
+
+      // Step 2: Open Razorpay checkout
+      const options = {
+        key: razorpay_key_id || 'rzp_test_lTdgjtSRlEwreA',
+        amount: amount,
+        currency: currency || 'INR',
+        order_id: razorpay_order_id,
+        name: 'Serveaso',
+        description: `Extend booking by ${selectedExtension.hours} hour${selectedExtension.hours > 1 ? 's' : ''}`,
+        prefill: {
+          name: booking.customerName || '',
+          contact: '9999999999',
+          email: '',
+        },
+        theme: { color: colors.primary },
+      };
+
+      // Open Razorpay and handle payment flow
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          try {
+            // Step 3: Verify payment
+            await PaymentInstance.post(`/api/v2/engagements/${booking.id}/extend/verify`, {
+              razorpay_order_id: data.razorpay_order_id,
+              razorpay_payment_id: data.razorpay_payment_id,
+              razorpay_signature: data.razorpay_signature,
+            });
+
+            Snackbar.show({
+              text: 'Booking extended successfully!',
+              duration: Snackbar.LENGTH_LONG,
+              backgroundColor: colors.success,
+              textColor: '#FFFFFF',
+            });
+
+            setShowExtendDialog(false);
+            setSelectedExtension(null);
+            
+            if (refreshBookings) await refreshBookings();
+            setTimeout(() => onClose(), 500);
+          } catch (verifyError: any) {
+            console.error('Extension payment verification error:', verifyError);
+            const message = verifyError?.response?.data?.error || 'Payment verification failed';
+            Alert.alert('Error', message);
+          } finally {
+            setIsExtending(false);
+          }
+        })
+        .catch((error: any) => {
+          setIsExtending(false);
+          if (error.code !== 2) { // code 2 = user cancelled
+            Alert.alert('Error', 'Payment failed. Please try again.');
+          }
+        });
+    } catch (error: any) {
+      console.error('Extension initiation error:', error);
+      const message = error?.response?.data?.error || error?.message || 'Failed to initiate extension';
+      Alert.alert('Error', message);
+      setIsExtending(false);
     }
   };
 
   const isProviderAssigned = () => {
     const notAssignedString = 'Not Assigned';
     return !!(
-      booking.serviceProviderName &&
-      booking.serviceProviderName !== notAssignedString &&
-      booking.serviceProviderName.trim() !== '' &&
-      booking.serviceProviderName !== 'Not Assigned'
+      safeBooking.serviceProviderName &&
+      safeBooking.serviceProviderName !== notAssignedString &&
+      safeBooking.serviceProviderName.trim() !== '' &&
+      safeBooking.serviceProviderName !== 'Not Assigned'
     );
   };
 
-  const handleDownloadInvoice = () => {
-    setShowInvoiceModal(true);
-  };
-
   const handleCompletePayment = async () => {
-    if (!booking.payment?.engagement_id) {
+    const engagementId = booking.payment?.engagement_id ?? booking.id;
+    if (!engagementId) {
       Alert.alert('Error', 'Unable to resume payment');
       return;
     }
-    
+
     try {
       setIsProcessingPayment(true);
-      const resumeRes = await PaymentInstance.get(`/api/payments/${booking.payment.engagement_id}/resume`);
-      const { razorpay_order_id, amount, currency, engagement_id, customer } = resumeRes.data;
-      
-      const options = {
-        key: "rzp_test_lTdgjtSRlEwreA",
-        amount: amount * 100,
+      const resumeRes = await PaymentInstance.post(
+        '/api/v2/createEngagements/resume-payment',
+        { engagementId }
+      );
+      const {
+        razorpay_order_id,
+        razorpay_key_id,
+        amount,
+        amount_inr,
         currency,
+        engagementId: engagement_id,
+        engagement_id: engagement_id_snake,
+        customer,
+      } = resumeRes.data;
+      const resolvedEngagementId = engagement_id ?? engagement_id_snake ?? engagementId;
+      let amountPaise = Number(amount);
+      if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+        amountPaise = Math.round(Number(amount_inr) * 100);
+      }
+      if (!razorpay_order_id) {
+        Alert.alert('Error', 'Payment order could not be created. Please try again.');
+        return;
+      }
+
+      const options = {
+        key: razorpay_key_id || 'rzp_test_lTdgjtSRlEwreA',
+        amount: amountPaise,
+        currency: currency || 'INR',
         order_id: razorpay_order_id,
-        name: "Serveaso",
+        name: 'Serveaso',
         description: 'Complete your payment',
         prefill: {
           name: customer?.firstname || booking.customerName,
-          contact: customer?.contact || '9999999999',
+          contact: customer?.contact || customer?.mobile || '9999999999',
           email: customer?.email || '',
         },
         theme: { color: colors.primary },
       };
-      
+
       RazorpayCheckout.open(options)
         .then(async (data: any) => {
           try {
-            await PaymentInstance.post("/api/payments/verify", {
-              engagementId: engagement_id,
+            await PaymentInstance.post('/api/v2/createEngagements/verify', {
+              engagementId: resolvedEngagementId,
               razorpay_order_id: data.razorpay_order_id,
               razorpay_payment_id: data.razorpay_payment_id,
               razorpay_signature: data.razorpay_signature,
             });
-            if (onPaymentComplete) onPaymentComplete();
-            if (refreshBookings) refreshBookings();
-            Alert.alert('Success', 'Payment completed successfully');
+            if (onPaymentComplete) {
+              await onPaymentComplete();
+            } else if (refreshBookings) {
+              await refreshBookings();
+            }
+            onClose();
           } catch (verifyError) {
-            console.error("Payment verification error:", verifyError);
+            console.error('Payment verification error:', verifyError);
             Alert.alert('Error', 'Payment verification failed');
           }
         })
         .catch((error: any) => {
           if (error.code !== 2) Alert.alert('Error', 'Payment failed');
         });
-    } catch (err) {
-      console.error("Complete payment error:", err);
-      Alert.alert('Error', 'Unable to resume payment');
+    } catch (err: any) {
+      console.error('Complete payment error:', err);
+      const msg = err?.response?.data?.error || 'Unable to resume payment';
+      Alert.alert('Error', msg);
     } finally {
       setIsProcessingPayment(false);
     }
@@ -395,7 +699,7 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     setIsCallLoading(true);
     setTimeout(() => {
       setIsCallLoading(false);
-      Alert.alert('Call', `Calling ${booking.serviceProviderName || 'service provider'}...`);
+      Alert.alert('Call', `Calling ${safeBooking.serviceProviderName || 'service provider'}...`);
     }, 500);
   };
 
@@ -404,10 +708,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   const confirmCancelBooking = async () => {
     setIsCancelLoading(true);
     try {
-      await PaymentInstance.put(`/api/engagements/${booking.id}`, { task_status: "CANCELLED" });
+      await PaymentInstance.post(`/api/v2/engagements/${booking.id}/cancel`, {});
       setShowCancelDialog(false);
       Snackbar.show({
-        text: `${getServiceTitle(booking.service_type)} service cancelled successfully`,
+        text: `${getServiceTitle(safeBooking.service_type)} service cancelled successfully`,
         duration: Snackbar.LENGTH_SHORT,
         backgroundColor: colors.success,
         textColor: '#FFFFFF',
@@ -417,7 +721,10 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
       setTimeout(() => onClose(), 500);
     } catch (error: any) {
       Snackbar.show({
-        text: error?.response?.data?.message || 'Failed to cancel booking. Please try again.',
+        text:
+          error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          'Failed to cancel booking. Please try again.',
         duration: Snackbar.LENGTH_LONG,
         backgroundColor: colors.error,
         textColor: '#FFFFFF',
@@ -428,55 +735,21 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
   };
 
   // Vacation Handlers
-  const handleAddVacation = () => {
-    setHolidayDialogOpen(true);
-  };
-
-  const handleModifyVacation = () => {
+  const openVacationDialog = () => {
     setVacationManagementDialogOpen(true);
   };
 
-  const handleLeaveSubmit = async (startDate: string, endDate: string, service_type: string): Promise<void> => {
-    if (!customerId) {
-      Snackbar.show({
-        text: 'Customer ID not found. Please try again.',
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: colors.error,
-        textColor: '#FFFFFF',
-      });
-      throw new Error('Customer ID not found');
-    }
-    
-    try {
-      setIsRefreshing(true);
-      await PaymentInstance.post(`/api/v2/engagements/${booking.id}/vacation`, {
-        customerid: customerId,
-        vacation_start_date: startDate,
-        vacation_end_date: endDate,
-        leave_type: "VACATION",
-        modified_by_id: booking.id,
-        modified_by_role: "CUSTOMER",
-      });
-      
-      if (refreshBookings) await refreshBookings();
-      Snackbar.show({
-        text: 'Vacation applied successfully',
-        duration: Snackbar.LENGTH_SHORT,
-        backgroundColor: colors.success,
-        textColor: '#FFFFFF',
-      });
-      setHolidayDialogOpen(false);
-    } catch (error) {
-      console.error('Error applying leave:', error);
-      throw error;
-    } finally {
-      setIsRefreshing(false);
-    }
+  const handleAddVacation = () => {
+    openVacationDialog();
   };
 
-  const handleVacationSuccess = async () => {
+  const handleModifyVacation = () => {
+    openVacationDialog();
+  };
+
+  const handleVacationSuccess = async (message = 'Vacation updated successfully') => {
     Snackbar.show({
-      text: 'Vacation updated successfully',
+      text: message,
       duration: Snackbar.LENGTH_SHORT,
       backgroundColor: colors.success,
       textColor: '#FFFFFF',
@@ -485,742 +758,1713 @@ const EngagementDetailsDrawer: React.FC<EngagementDetailsDrawerProps> = ({
     setVacationManagementDialogOpen(false);
   };
 
+  // Report Issue Handler
+  const handleReportIssueClick = () => {
+    console.log('🟡 Report Issue clicked from EngagementDetailsDrawer for booking:', booking.id);
+    setComplaintDialogVisible(true);
+  };
+
   const handleModifyClick = () => {
-    // Close the drawer and let the parent component handle the modify dialog
-    onClose();
-    // You can emit an event or directly call a callback if needed
-    setTimeout(() => {
-      Alert.alert('Modify Booking', 'Please use the modify button from the main booking screen');
-    }, 500);
-  };
-
-  const getServiceIcon = (serviceType: string) => {
-    switch (serviceType) {
-      case 'maid': return '🧹';
-      case 'cook': return '👩‍🍳';
-      case 'nanny': return '❤️';
-      default: return '🧹';
+    if (onModify) {
+      onModify(booking);
+      return;
     }
+    // Fallback: close drawer and show message only if onModify is not provided
+    onClose();
+    setTimeout(() => {
+      Snackbar.show({
+        text: 'Modification is not available for this booking type',
+        duration: Snackbar.LENGTH_LONG,
+        backgroundColor: '#f59e0b',
+      });
+    }, 300);
   };
 
-  const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(booking.taskStatus);
+  const isEngagementCancelled = () => {
+    const life = String((safeBooking as any)?.engagement_status ?? '').toUpperCase();
+    return life === 'CANCELLED' || safeBooking.taskStatus === 'CANCELLED';
+  };
+
+  const isCancellable = () => !['COMPLETED', 'CANCELLED'].includes(safeBooking.taskStatus) && !isEngagementCancelled();
   const hasExistingVacation = hasVacation(booking);
   const modificationDisabled = isModificationDisabled(booking);
   const isPaymentPending = booking.payment && booking.payment.status === "PENDING";
-  const canShowPaymentButton = isPaymentPending && booking.taskStatus !== 'CANCELLED';
+  const canShowPaymentButton = isPaymentPending && safeBooking.taskStatus !== 'CANCELLED';
   
-  // Determine which action buttons to show based on booking status
-  const shouldShowModifyButton = booking.bookingType === "MONTHLY" && booking.taskStatus === 'NOT_STARTED';
-  const shouldShowVacationButton = booking.bookingType === "MONTHLY" && booking.taskStatus !== 'CANCELLED' && booking.taskStatus !== 'COMPLETED';
+  const shouldShowModifyButton = safeBooking.bookingType === "MONTHLY" && safeBooking.taskStatus === 'NOT_STARTED';
+  const shouldShowVacationButton = safeBooking.bookingType === "MONTHLY" && safeBooking.taskStatus !== 'CANCELLED' && safeBooking.taskStatus !== 'COMPLETED';
+  const canBookAgain =
+    Boolean(onBookAgain) &&
+    (safeBooking.taskStatus === 'COMPLETED' || safeBooking.taskStatus === 'CANCELLED');
+  const showPaymentTimeoutNotice = isPaymentTimeoutCancellation(booking);
 
-  // Convert booking for child components
-  const convertBookingForChildComponents = (bookingData: any): any => {
-    if (!bookingData) return null;
+  /**
+   * Build timeline data for BookingTimeline component (ON_DEMAND)
+   */
+  const buildTimelineData = (): TimelineData => {
     return {
-      ...bookingData,
-      serviceType: bookingData.serviceType || bookingData.service_type,
-      vacationDetails: bookingData.vacationDetails ? {
-        ...bookingData.vacationDetails,
-        leave_start_date: bookingData.vacationDetails.leave_start_date || bookingData.vacationDetails.start_date,
-        leave_end_date: bookingData.vacationDetails.leave_end_date || bookingData.vacationDetails.end_date,
-      } : null,
+      scheduled: {
+        start_time: safeBooking.start_time,
+        end_time: safeBooking.end_time,
+        start_epoch: safeBooking.start_epoch,
+        end_epoch: safeBooking.end_epoch,
+      },
+      actual: safeBooking.actual_start_epoch ? {
+        start_epoch: safeBooking.actual_start_epoch,
+        end_epoch: safeBooking.actual_end_epoch,
+      } : undefined,
+      duration_minutes: safeBooking.duration_minutes,
+      is_recalculated: safeBooking.is_timeline_recalculated,
+      early_start_minutes: safeBooking.early_start_minutes,
     };
   };
 
-  // ==================== Styles ====================
-  const dynamicStyles = StyleSheet.create({
-    modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
-    overlayTouchable: { flex: 1 },
-    drawerContainer: { 
-      backgroundColor: colors.card, 
-      borderTopLeftRadius: 20, 
-      borderTopRightRadius: 20, 
-      height: '90%', 
-      width: '100%' 
-    },
-    header: { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    headerContent: { 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'space-between', 
-      paddingHorizontal: 16, 
-      paddingVertical: 12, 
-      width: '100%' 
-    },
-    headerLeftPlaceholder: { width: 40 },
-    headerTitle: { 
-      fontSize: fontSizes.headerTitle, 
-      fontWeight: '600', 
-      color: '#FFFFFF', 
-      textAlign: 'center', 
-      flex: 1 
-    },
-    closeButton: { padding: 8, width: 40, alignItems: 'center', justifyContent: 'center' },
-    content: { flex: 1, padding: 20 },
-    bookingIdContainer: { 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      marginBottom: 20 
-    },
-    labelText: { fontSize: fontSizes.labelText, color: colors.textSecondary },
-    bookingIdText: { fontSize: fontSizes.bookingIdText, fontWeight: '500', color: colors.text },
-    statusContainer: { flexDirection: 'row', gap: 8 },
-    serviceTypeContainer: { 
-      backgroundColor: colors.primary + '15', 
-      padding: 16, 
-      borderRadius: 8, 
-      marginBottom: 20, 
-      flexDirection: 'row', 
-      alignItems: 'center' 
-    },
-    serviceIconContainer: { padding: 8, backgroundColor: colors.card, borderRadius: 8, marginRight: 12 },
-    serviceIcon: { fontSize: 24 },
-    serviceTextContainer: { flex: 1 },
-    serviceLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary },
-    serviceTitle: { fontSize: fontSizes.serviceTitle, fontWeight: '700', color: colors.text },
-    actionButtonsContainer: { 
-      flexDirection: 'row', 
-      flexWrap: 'wrap',
-      justifyContent: 'space-between', 
-      gap: 10, 
-      marginBottom: 20 
-    },
-    actionButton: { 
-      flex: 1, 
-      minWidth: '30%',
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      paddingVertical: 12, 
-      paddingHorizontal: 8, 
-      borderRadius: 8, 
-      gap: 6, 
-      minHeight: 44 
-    },
-    actionButtonText: { fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    callButton: { backgroundColor: colors.primary },
-    callButtonText: { color: '#FFFFFF' },
-    // Payment Button Outline Style
-    paymentButtonOutline: { 
-      backgroundColor: colors.card, 
-      borderWidth: 2, 
-      borderColor: colors.error,
-      flex: 1 
-    },
-    paymentButtonOutlineText: { 
-      color: colors.error, 
-      fontSize: fontSizes.actionButtonText, 
-      fontWeight: '600' 
-    },
-    // Cancel Button Outline Style
-    cancelButtonOutline: { 
-      backgroundColor: colors.card, 
-      borderWidth: 2, 
-      borderColor: colors.error,
-      flex: 1 
-    },
-    cancelButtonOutlineText: { 
-      color: colors.error, 
-      fontSize: fontSizes.actionButtonText, 
-      fontWeight: '600' 
-    },
-    modifyButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary },
-    modifyButtonText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    vacationButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary },
-    vacationButtonText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    vacationModifiedButton: { backgroundColor: colors.infoLight, borderColor: colors.info },
-    vacationModifiedText: { color: colors.primary, fontSize: fontSizes.actionButtonText, fontWeight: '600' },
-    disabledButton: { opacity: 0.6 },
-    section: { marginBottom: 24 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-    sectionTitle: { fontSize: fontSizes.sectionTitle, fontWeight: '500', color: colors.text },
-    scheduleGrid: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    scheduleItem: { flex: 1, backgroundColor: colors.surface, padding: 12, borderRadius: 8 },
-    scheduleLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 4 },
-    scheduleValue: { fontSize: fontSizes.scheduleValue, fontWeight: '500', color: colors.text },
-    timeSlotContainer: { backgroundColor: colors.surface, padding: 12, borderRadius: 8 },
-    timeSlotValueContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    providerContainer: { 
-      backgroundColor: colors.surface, 
-      padding: 16, 
-      borderRadius: 8, 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      alignItems: 'center' 
-    },
-    providerInfo: { flex: 1 },
-    providerName: { fontSize: fontSizes.providerName, fontWeight: '500', color: colors.text },
-    ratingBadge: { backgroundColor: colors.warningLight },
-    tasksContainer: { gap: 12 },
-    tasksSubLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 8 },
-    tasksList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    mainTaskBadge: { backgroundColor: colors.primary + '15' },
-    addonBadge: { backgroundColor: colors.successLight },
-    paymentContainer: { backgroundColor: colors.surface, padding: 16, borderRadius: 8 },
-    paymentRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    paymentLabel: { fontSize: fontSizes.scheduleValue, color: colors.textSecondary },
-    paymentValue: { fontSize: fontSizes.paymentValue, fontWeight: '500', color: colors.text },
-    separator: { height: 1, marginVertical: 8 },
-    paymentTotalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-    paymentTotalLabel: { fontSize: fontSizes.sectionTitle, fontWeight: '700', color: colors.text },
-    paymentTotalValue: { fontSize: fontSizes.paymentTotalValue, fontWeight: '700', color: colors.primary },
-    paymentStatusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    paymentStatusBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-    paymentModeValue: { fontSize: fontSizes.paymentValue, fontWeight: '500', color: colors.text, textTransform: 'capitalize' },
-    completePaymentContainer: { marginTop: 16 },
-    // Complete Payment Button Outline Style
-    completePaymentButtonOutline: { 
-      backgroundColor: colors.card, 
-      borderWidth: 2, 
-      borderColor: colors.error,
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      padding: 16, 
-      borderRadius: 8, 
-      gap: 8 
-    },
-    completePaymentButtonOutlineText: { 
-      color: colors.error, 
-      fontSize: fontSizes.sectionTitle, 
-      fontWeight: '600' 
-    },
-    completePaymentNote: { fontSize: fontSizes.labelText, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
-    invoiceButtonContainer: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
-    invoiceButton: { 
-      backgroundColor: 'transparent', 
-      borderWidth: 1, 
-      borderColor: colors.primary, 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      padding: 16, 
-      borderRadius: 8, 
-      gap: 8 
-    },
-    invoiceButtonText: { color: colors.primary, fontSize: fontSizes.sectionTitle, fontWeight: '600' },
-    invoiceNote: { fontSize: fontSizes.labelText, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
-    modificationsContainer: { gap: 8 },
-    modificationItem: { backgroundColor: colors.warningLight, padding: 12, borderRadius: 8 },
-    modificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
-    modificationBadge: { backgroundColor: colors.warning },
-    modificationDate: { fontSize: fontSizes.labelText, color: colors.textSecondary },
-    refundText: { fontSize: fontSizes.labelText, color: colors.success },
-    penaltyText: { fontSize: fontSizes.labelText, color: colors.error },
-    additionalInfoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    additionalInfoItem: { flex: 1, minWidth: '40%' },
-    additionalInfoLabel: { fontSize: fontSizes.labelText, color: colors.textSecondary, marginBottom: 2 },
-    additionalInfoValue: { fontSize: fontSizes.additionalInfoValue, fontWeight: '500', color: colors.text, textTransform: 'capitalize' },
-  });
+  /**
+   * Build timeline data for MonthlyBookingTimeline component (MONTHLY/SHORT_TERM)
+   */
+  const buildMonthlyTimelineData = (): MonthlyTimelineData => {
+    const todayService = booking.today_service;
+    
+    let earlyStartMinutes = 0;
+    if (todayService?.actual_start_epoch && safeBooking.start_epoch) {
+      earlyStartMinutes = Math.round((safeBooking.start_epoch - todayService.actual_start_epoch) / 60);
+    }
+    
+    return {
+      booking_period: {
+        start_date: safeBooking.startDate || '',
+        end_date: safeBooking.endDate || '',
+        total_days: safeBooking.leave_days || 0,
+      },
+      daily_schedule: {
+        scheduled_start_time: safeBooking.start_time || '',
+        scheduled_end_time: safeBooking.end_time || '',
+        duration_minutes: safeBooking.duration_minutes || 60,
+      },
+      current_service: todayService ? {
+        date: dayjs().format('YYYY-MM-DD'),
+        scheduled_start_time: safeBooking.start_time || '',
+        scheduled_end_time: safeBooking.end_time || '',
+        actual_start_time: todayService.actual_start_epoch 
+          ? dayjs.unix(todayService.actual_start_epoch).format('HH:mm')
+          : undefined,
+        actual_start_epoch: todayService.actual_start_epoch,
+        actual_end_time: todayService.actual_end_epoch 
+          ? dayjs.unix(todayService.actual_end_epoch).format('HH:mm')
+          : undefined,
+        actual_end_epoch: todayService.actual_end_epoch,
+        status: todayService.status || 'SCHEDULED',
+        early_start_minutes: earlyStartMinutes > 0 ? earlyStartMinutes : undefined,
+      } : undefined,
+    };
+  };
 
-  // ==================== Render ====================
+  const convertBookingForChildComponents = (bookingData: any): any => {
+    if (!bookingData) return null;
+    const vacationDetails = bookingData.vacationDetails
+      ? {
+          ...bookingData.vacationDetails,
+          leave_start_date:
+            bookingData.vacationDetails.leave_start_date ||
+            bookingData.vacationDetails.start_date,
+          leave_end_date:
+            bookingData.vacationDetails.leave_end_date ||
+            bookingData.vacationDetails.end_date,
+        }
+      : null;
+    const vacation =
+      bookingData.vacation?.start_date && bookingData.vacation?.end_date
+        ? bookingData.vacation
+        : vacationDetails
+          ? {
+              start_date: vacationDetails.start_date || vacationDetails.leave_start_date,
+              end_date: vacationDetails.end_date || vacationDetails.leave_end_date,
+              leave_days: vacationDetails.total_days ?? bookingData.leave_days,
+            }
+          : undefined;
+    return {
+      ...bookingData,
+      serviceType: bookingData.serviceType || bookingData.service_type,
+      vacation,
+      vacationDetails,
+    };
+  };
+
+  // Don't render if not open
+  if (!isOpen) return null;
+
+  // ==================== Render Custom Dialog ====================
   return (
     <>
-      <Modal visible={isOpen} animationType="slide" transparent onRequestClose={onClose}>
-        <View style={dynamicStyles.modalOverlay}>
-          <TouchableOpacity style={dynamicStyles.overlayTouchable} onPress={onClose} />
-          <View style={dynamicStyles.drawerContainer}>
-            <LinearGradient 
-              colors={["#0a2a66ff", "#004aadff"]} 
-              start={{ x: 0, y: 0 }} 
-              end={{ x: 1, y: 0 }} 
-              style={dynamicStyles.header}
+      {/* Overlay and Drawer */}
+      <Animated.View 
+        style={[
+          styles.overlay, 
+          { 
+            opacity: fadeAnim,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+          }
+        ]}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.overlayTouchable} />
+        </TouchableWithoutFeedback>
+      </Animated.View>
+      
+      <Animated.View 
+        style={[
+          styles.drawerContainer,
+          {
+            transform: [{ translateY: slideAnim }],
+            backgroundColor: HOME_M3.surface,
+          }
+        ]}
+      >
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+        <View
+          style={[
+            styles.headerShell,
+            {
+              height: Platform.OS === 'ios' ? 60 : Math.max(insets.top, 8) + 30,
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={[...HOME_HERO_GRADIENT]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={styles.headerToolbar}>
+            <TouchableOpacity onPress={onClose} style={styles.headerSideBtn} hitSlop={10}>
+              <Icon name="arrow-left" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text
+              style={[
+                styles.headerTitleCenter,
+                { fontSize: fontSizes.headerTitle - 1 },
+                Platform.OS === 'android' ? { includeFontPadding: false } : null,
+              ]}
+              numberOfLines={1}
             >
-              <View style={dynamicStyles.headerContent}>
-                <View style={dynamicStyles.headerLeftPlaceholder} />
-                <Text style={dynamicStyles.headerTitle}>Booking Details</Text>
-                <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
-                  <Icon name="x" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-            
-            <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
-              {/* Booking ID and Status */}
-              <View style={dynamicStyles.bookingIdContainer}>
-                <View>
-                  <Text style={dynamicStyles.labelText}>Booking ID</Text>
-                  <Text style={dynamicStyles.bookingIdText}>#{booking.id}</Text>
-                </View>
-                <View style={dynamicStyles.statusContainer}>
-                  {getBookingTypeBadge(booking.bookingType)}
-                  {getStatusBadge(booking.taskStatus)}
-                </View>
-              </View>
+              Booking Details
+            </Text>
+            <TouchableOpacity onPress={onClose} style={styles.headerSideBtn} hitSlop={10}>
+              <Icon name="x" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-              {/* Service Type */}
-              <View style={dynamicStyles.serviceTypeContainer}>
-                <View style={dynamicStyles.serviceIconContainer}>
-                  <Text style={dynamicStyles.serviceIcon}>{getServiceIcon(booking.service_type)}</Text>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={true}
+          bounces={true}
+          overScrollMode="always"
+          nestedScrollEnabled={true}
+        >
+          <View style={styles.heroSheet}>
+            <View style={styles.rowBetween}>
+              <View>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Booking ID</Text>
+                <Text style={[styles.bookingIdHero, { fontSize: fontSizes.bookingIdText + 6 }]}>#{safeBooking.id}</Text>
+              </View>
+              <View style={styles.statusStack}>
+                {getBookingTypeBadge(safeBooking.bookingType)}
+                {getStatusBadge(safeBooking.taskStatus)}
+              </View>
+            </View>
+
+            <View style={styles.serviceCard}>
+              <View style={styles.serviceImageWrap}>
+                <Image
+                  source={getServiceImage(safeBooking.service_type)}
+                  style={styles.serviceImage}
+                  resizeMode="cover"
+                />
+              </View>
+              <View style={styles.serviceTextCol}>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Service Type</Text>
+                <Text style={[styles.serviceTitle, { fontSize: fontSizes.serviceTitle }]}>
+                  {getServiceTitle(safeBooking.service_type)}
+                </Text>
+              </View>
+            </View>
+
+            {showPaymentTimeoutNotice ? (
+              <View style={styles.paymentTimeoutNotice}>
+                <View style={styles.paymentTimeoutIconWrap}>
+                  <Icon name="alert-circle" size={18} color="#b45309" />
                 </View>
-                <View style={dynamicStyles.serviceTextContainer}>
-                  <Text style={dynamicStyles.serviceLabel}>Service Type</Text>
-                  <Text style={dynamicStyles.serviceTitle}>{getServiceTitle(booking.service_type)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.paymentTimeoutTitle}>Booking cancelled — payment not received</Text>
+                  <Text style={styles.paymentTimeoutBody}>
+                    {getPaymentTimeoutCancellationMessage(booking)}
+                  </Text>
                 </View>
               </View>
+            ) : null}
 
-              {/* Action Buttons - Updated with red border style for payment and cancel */}
-              {!canShowPaymentButton ? (
-                <View style={dynamicStyles.actionButtonsContainer}>
-                  {/* Call Button */}
-                  <TouchableOpacity 
-                    style={[dynamicStyles.actionButton, dynamicStyles.callButton]} 
-                    onPress={handleCallProvider} 
+            {canBookAgain ? (
+              <TouchableOpacity
+                style={[styles.secondaryFullButton, { borderColor: colors.info, marginBottom: 12 }]}
+                onPress={() => onBookAgain?.(booking)}
+              >
+                <Icon name="calendar" size={18} color={colors.info} />
+                <Text style={[styles.secondaryFullButtonText, { color: colors.info, fontSize: fontSizes.actionButtonText }]}>
+                  Book Again
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {/* Extend Service Hour Button - Show for eligible bookings regardless of payment status */}
+            {canShowExtendButton() && (
+              <TouchableOpacity
+                style={[styles.secondaryFullButton, { borderColor: colors.accent, marginBottom: 12 }]}
+                onPress={handleExtendClick}
+              >
+                <Icon name="clock" size={18} color={colors.accent} />
+                <Text style={[styles.secondaryFullButtonText, { color: colors.accent, fontSize: fontSizes.actionButtonText }]}>
+                  Extend Service Hour
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {!canShowPaymentButton ? (
+              <>
+                <View style={styles.primaryActionRow}>
+                  <TouchableOpacity
+                    style={[styles.callButton, styles.primaryActionBtn]}
+                    onPress={handleCallProvider}
                     disabled={isCallLoading}
                   >
-                    {isCallLoading ? 
-                      <ActivityIndicator size="small" color="#FFFFFF" /> : 
-                      <Icon name="phone" size={18} color="#FFFFFF" />
-                    }
-                    <Text style={[dynamicStyles.actionButtonText, dynamicStyles.callButtonText]}>Call</Text>
-                  </TouchableOpacity>
-                  
-                  {/* Cancel Button (if cancellable) - Now with red border and red text */}
-                  {isCancellable() && (
-                    <TouchableOpacity 
-                      style={[dynamicStyles.actionButton, dynamicStyles.cancelButtonOutline]} 
-                      onPress={handleCancelBooking} 
-                      disabled={isCancelLoading}
-                    >
-                      {isCancelLoading ? 
-                        <ActivityIndicator size="small" color={colors.error} /> : 
-                        <Icon name="x-circle" size={18} color={colors.error} />
-                      }
-                      <Text style={dynamicStyles.cancelButtonOutlineText}>Cancel</Text>
-                    </TouchableOpacity>
-                  )}
-                  
-                  {/* Modify Button - Only for MONTHLY and NOT_STARTED */}
-                  {shouldShowModifyButton && (
-                    <TouchableOpacity 
-                      style={[dynamicStyles.actionButton, dynamicStyles.modifyButton, modificationDisabled && dynamicStyles.disabledButton]} 
-                      onPress={handleModifyClick}
-                      disabled={modificationDisabled}
-                    >
-                      <Icon name="edit-2" size={18} color={modificationDisabled ? colors.textSecondary : colors.primary} />
-                      <Text style={[dynamicStyles.modifyButtonText, modificationDisabled && { color: colors.textSecondary }]}>Modify</Text>
-                    </TouchableOpacity>
-                  )}
-                  
-                  {/* Vacation Button - For MONTHLY bookings that are not cancelled/completed */}
-                  {shouldShowVacationButton && (
-                    <>
-                      {hasExistingVacation ? (
-                        <TouchableOpacity 
-                          style={[dynamicStyles.actionButton, dynamicStyles.vacationModifiedButton]} 
-                          onPress={handleModifyVacation}
-                          disabled={isRefreshing}
-                        >
-                          <Icon name="edit-2" size={18} color={colors.primary} />
-                          <Text style={dynamicStyles.vacationModifiedText}>Modify Vacation</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity 
-                          style={[dynamicStyles.actionButton, dynamicStyles.vacationButton]} 
-                          onPress={handleAddVacation}
-                          disabled={isRefreshing}
-                        >
-                          <Icon name="calendar" size={18} color={colors.primary} />
-                          <Text style={dynamicStyles.vacationButtonText}>Add Vacation</Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
-                </View>
-              ) : (
-                /* Payment Button for pending payments - Now with red border and red text */
-                <View style={dynamicStyles.actionButtonsContainer}>
-                  <TouchableOpacity 
-                    style={[dynamicStyles.actionButton, dynamicStyles.paymentButtonOutline]} 
-                    onPress={handleCompletePayment} 
-                    disabled={isProcessingPayment}
-                  >
-                    {isProcessingPayment ? 
-                      <ActivityIndicator size="small" color={colors.error} /> : (
+                    {isCallLoading ? (
+                      <ActivityIndicator size="small" color={HOME_M3.secondary} />
+                    ) : (
                       <>
-                        <Icon name="credit-card" size={18} color={colors.error} />
-                        <Text style={dynamicStyles.paymentButtonOutlineText}>Complete Payment</Text>
+                        <Icon name="phone" size={16} color={HOME_M3.secondary} />
+                        <Text style={[styles.callButtonText, { fontSize: fontSizes.actionButtonText }]}>Call</Text>
                       </>
                     )}
                   </TouchableOpacity>
-                  
-                  {isCancellable() && (
-                    <TouchableOpacity 
-                      style={[dynamicStyles.actionButton, dynamicStyles.cancelButtonOutline]} 
-                      onPress={handleCancelBooking} 
+
+                  {isCancellable() ? (
+                    <TouchableOpacity
+                      style={[styles.outlineActionBtn, styles.cancelOutlineBtn]}
+                      onPress={handleCancelBooking}
                       disabled={isCancelLoading}
                     >
-                      {isCancelLoading ? 
-                        <ActivityIndicator size="small" color={colors.error} /> : 
-                        <Icon name="x-circle" size={18} color={colors.error} />
-                      }
-                      <Text style={dynamicStyles.cancelButtonOutlineText}>Cancel</Text>
+                      {isCancelLoading ? (
+                        <ActivityIndicator size="small" color="#dc2626" />
+                      ) : (
+                        <>
+                          <Icon name="x-circle" size={16} color="#dc2626" />
+                          <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
+                        </>
+                      )}
                     </TouchableOpacity>
-                  )}
-                </View>
-              )}
+                  ) : null}
 
-              {/* Schedule Information */}
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="calendar" size={20} color={colors.primary} />
-                  <Text style={dynamicStyles.sectionTitle}>Schedule</Text>
+                  {shouldShowModifyButton ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.outlineActionBtn,
+                        styles.modifyOutlineBtn,
+                        modificationDisabled && styles.disabledActionBtn,
+                      ]}
+                      onPress={handleModifyClick}
+                      disabled={modificationDisabled}
+                    >
+                      <Icon
+                        name="edit-2"
+                        size={16}
+                        color={modificationDisabled ? '#94a3b8' : HOME_M3.onSurface}
+                      />
+                      <Text
+                        style={[
+                          styles.modifyOutlineText,
+                          { fontSize: fontSizes.actionButtonText },
+                          modificationDisabled && styles.disabledActionText,
+                        ]}
+                      >
+                        Modify
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
-                <View style={dynamicStyles.scheduleGrid}>
-                  <View style={dynamicStyles.scheduleItem}>
-                    <Text style={dynamicStyles.scheduleLabel}>Start Date</Text>
-                    <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.startDate)}</Text>
-                  </View>
-                  <View style={dynamicStyles.scheduleItem}>
-                    <Text style={dynamicStyles.scheduleLabel}>End Date</Text>
-                    <Text style={dynamicStyles.scheduleValue}>{formatDate(booking.endDate)}</Text>
-                  </View>
-                </View>
-                <View style={dynamicStyles.timeSlotContainer}>
-                  <Text style={dynamicStyles.scheduleLabel}>Time Slot</Text>
-                  <View style={dynamicStyles.timeSlotValueContainer}>
-                    <Icon name="clock" size={16} color={colors.textSecondary} />
-                    <Text style={dynamicStyles.scheduleValue}>
-                      {formatTimeToAMPM(booking.start_time)} - {formatTimeToAMPM(booking.end_time)}
+
+                {shouldShowVacationButton ? (
+                  <TouchableOpacity
+                    style={styles.vacationButton}
+                    onPress={hasExistingVacation ? handleModifyVacation : handleAddVacation}
+                    disabled={isRefreshing}
+                  >
+                    <Icon name="calendar" size={16} color={HOME_M3.secondary} />
+                    <Text style={[styles.vacationButtonText, { fontSize: fontSizes.actionButtonText }]}>
+                      {hasExistingVacation ? 'Modify Vacation' : 'Add Vacation'}
                     </Text>
-                  </View>
-                </View>
-              </View>
+                  </TouchableOpacity>
+                ) : null}
 
-              {/* Provider Information */}
-              {isProviderAssigned() && (
-                <View style={dynamicStyles.section}>
-                  <View style={dynamicStyles.sectionHeader}>
-                    <Icon name="user" size={20} color={colors.success} />
-                    <Text style={dynamicStyles.sectionTitle}>Service Provider</Text>
-                  </View>
-                  <View style={dynamicStyles.providerContainer}>
-                    <View style={dynamicStyles.providerInfo}>
-                      <Text style={dynamicStyles.providerName}>{booking.serviceProviderName}</Text>
-                    </View>
-                    {booking.providerRating > 0 && (
-                      <Badge style={dynamicStyles.ratingBadge}>
-                        ⭐ {booking.providerRating.toFixed(1)}
-                      </Badge>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Tasks & Responsibilities */}
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="file-text" size={20} color={colors.info} />
-                  <Text style={dynamicStyles.sectionTitle}>Tasks & Responsibilities</Text>
-                </View>
-                <View style={dynamicStyles.tasksContainer}>
-                  {booking.responsibilities?.tasks?.length > 0 && (
-                    <View>
-                      <Text style={dynamicStyles.tasksSubLabel}>Main Tasks</Text>
-                      <View style={dynamicStyles.tasksList}>
-                        {booking.responsibilities.tasks.map((task: any, index: number) => {
-                          const taskDetails = Object.entries(task)
-                            .filter(([key]) => key !== 'taskType')
-                            .map(([key, value]) => `${value} ${key}`)
-                            .join(', ');
-                          return (
-                            <Badge key={index} variant="outline" style={dynamicStyles.mainTaskBadge}>
-                              {task.taskType} {taskDetails && `- ${taskDetails}`}
-                            </Badge>
-                          );
-                        })}
-                      </View>
-                    </View>
+                {/* Report Issue Button - Show for all bookings */}
+                <TouchableOpacity
+                  style={styles.reportIssueButton}
+                  onPress={handleReportIssueClick}
+                >
+                  <Icon name="alert-triangle" size={16} color="#dc2626" />
+                  <Text style={[styles.reportIssueButtonText, { fontSize: fontSizes.actionButtonText }]}>
+                    Report Issue
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.primaryActionRow}>
+                <TouchableOpacity
+                  style={[styles.outlineActionBtn, styles.cancelOutlineBtn, { flex: 1 }]}
+                  onPress={handleCompletePayment}
+                  disabled={isProcessingPayment}
+                >
+                  {isProcessingPayment ? (
+                    <ActivityIndicator size="small" color="#dc2626" />
+                  ) : (
+                    <>
+                      <Icon name="credit-card" size={16} color="#dc2626" />
+                      <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>
+                        Complete Payment
+                      </Text>
+                    </>
                   )}
-                  {booking.responsibilities?.add_ons?.length > 0 && (
-                    <View>
-                      <Text style={dynamicStyles.tasksSubLabel}>Add-ons</Text>
-                      <View style={dynamicStyles.tasksList}>
-                        {booking.responsibilities.add_ons.map((addon: any, index: number) => (
-                          <Badge key={index} variant="outline" style={dynamicStyles.addonBadge}>
-                            {addon.taskType}
-                          </Badge>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </View>
+                </TouchableOpacity>
+
+                {isCancellable() ? (
+                  <TouchableOpacity
+                    style={[styles.outlineActionBtn, styles.cancelOutlineBtn, { flex: 1 }]}
+                    onPress={handleCancelBooking}
+                    disabled={isCancelLoading}
+                  >
+                    {isCancelLoading ? (
+                      <ActivityIndicator size="small" color="#dc2626" />
+                    ) : (
+                      <>
+                        <Icon name="x-circle" size={16} color="#dc2626" />
+                        <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>Cancel</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
               </View>
-
-              {/* Payment Details */}
-              {booking.payment && (
-                <View style={dynamicStyles.section}>
-                  <View style={dynamicStyles.sectionHeader}>
-                    <Icon name="credit-card" size={20} color={colors.warning} />
-                    <Text style={dynamicStyles.sectionTitle}>Payment Details</Text>
-                  </View>
-                  <View style={dynamicStyles.paymentContainer}>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Base Amount</Text>
-                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.base_amount}</Text>
-                    </View>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Platform Fee</Text>
-                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.platform_fee}</Text>
-                    </View>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>GST</Text>
-                      <Text style={dynamicStyles.paymentValue}>₹{booking.payment.gst}</Text>
-                    </View>
-                    <Separator style={dynamicStyles.separator} />
-                    <View style={dynamicStyles.paymentTotalRow}>
-                      <Text style={dynamicStyles.paymentTotalLabel}>Total</Text>
-                      <Text style={dynamicStyles.paymentTotalValue}>₹{booking.payment.total_amount}</Text>
-                    </View>
-                    <View style={dynamicStyles.paymentStatusRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Payment Status</Text>
-                      <Badge style={[dynamicStyles.paymentStatusBadge, getPaymentStatusColor(booking.payment.status)]}>
-                        {booking.payment.status}
-                      </Badge>
-                    </View>
-                    <View style={dynamicStyles.paymentRow}>
-                      <Text style={dynamicStyles.paymentLabel}>Payment Mode</Text>
-                      <Text style={dynamicStyles.paymentModeValue}>{booking.payment.payment_mode}</Text>
-                    </View>
-                    {booking.payment.transaction_id && (
-                      <View style={dynamicStyles.paymentRow}>
-                        <Text style={dynamicStyles.paymentLabel}>Transaction ID</Text>
-                        <Text style={dynamicStyles.paymentValue}>{booking.payment.transaction_id}</Text>
-                      </View>
-                    )}
-                    
-                    {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' && (
-                      <View style={dynamicStyles.completePaymentContainer}>
-                        <TouchableOpacity 
-                          style={dynamicStyles.completePaymentButtonOutline} 
-                          onPress={handleCompletePayment} 
-                          disabled={isProcessingPayment}
-                        >
-                          {isProcessingPayment ? 
-                            <ActivityIndicator size="small" color={colors.error} /> : (
-                            <>
-                              <Icon name="credit-card" size={20} color={colors.error} />
-                              <Text style={dynamicStyles.completePaymentButtonOutlineText}>Complete Payment Now</Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
-                        <Text style={dynamicStyles.completePaymentNote}>Complete payment to confirm your booking</Text>
-                      </View>
-                    )}
-                    
-                    {booking.payment.status === 'SUCCESS' && (
-                      <View style={dynamicStyles.invoiceButtonContainer}>
-                        <TouchableOpacity 
-                          style={dynamicStyles.invoiceButton} 
-                          onPress={handleDownloadInvoice}
-                        >
-                          <Icon name="file-text" size={20} color={colors.primary} />
-                          <Text style={dynamicStyles.invoiceButtonText}>View & Download Invoice</Text>
-                        </TouchableOpacity>
-                        <Text style={dynamicStyles.invoiceNote}>Click to view full invoice and download PDF</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Modification History */}
-              {booking.modifications?.length > 0 && (
-                <View style={dynamicStyles.section}>
-                  <View style={dynamicStyles.sectionHeader}>
-                    <Icon name="alert-circle" size={20} color={colors.warning} />
-                    <Text style={dynamicStyles.sectionTitle}>Modification History</Text>
-                  </View>
-                  <View style={dynamicStyles.modificationsContainer}>
-                    {booking.modifications.map((mod: any, index: number) => (
-                      <View key={index} style={dynamicStyles.modificationItem}>
-                        <View style={dynamicStyles.modificationHeader}>
-                          <Badge style={dynamicStyles.modificationBadge}>{mod.action}</Badge>
-                          <Text style={dynamicStyles.modificationDate}>
-                            {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
-                          </Text>
-                        </View>
-                        {mod.refund && <Text style={dynamicStyles.refundText}>Refund: ₹{mod.refund}</Text>}
-                        {mod.penalty && <Text style={dynamicStyles.penaltyText}>Penalty: ₹{mod.penalty}</Text>}
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Additional Information */}
-              <View style={dynamicStyles.section}>
-                <View style={dynamicStyles.sectionHeader}>
-                  <Icon name="tag" size={20} color={colors.textSecondary} />
-                  <Text style={dynamicStyles.sectionTitle}>Additional Information</Text>
-                </View>
-                <View style={dynamicStyles.additionalInfoGrid}>
-                  <View style={dynamicStyles.additionalInfoItem}>
-                    <Text style={dynamicStyles.additionalInfoLabel}>Booking Date</Text>
-                    <Text style={dynamicStyles.additionalInfoValue}>
-                      {dayjs(booking.bookingDate).format('MMM D, YYYY')}
-                    </Text>
-                  </View>
-                  <View style={dynamicStyles.additionalInfoItem}>
-                    <Text style={dynamicStyles.additionalInfoLabel}>Assignment Status</Text>
-                    <Text style={dynamicStyles.additionalInfoValue}>{booking.assignmentStatus}</Text>
-                  </View>
-                  {booking.leave_days > 0 && (
-                    <View style={dynamicStyles.additionalInfoItem}>
-                      <Text style={dynamicStyles.additionalInfoLabel}>Leave Days</Text>
-                      <Text style={dynamicStyles.additionalInfoValue}>{booking.leave_days}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </ScrollView>
+            )}
           </View>
-        </View>
-      </Modal>
 
-      {/* Invoice Modal */}
-      <Modal
-        visible={showInvoiceModal}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowInvoiceModal(false)}
-      >
-        <Invoice booking={booking} onClose={() => setShowInvoiceModal(false)} />
-      </Modal>
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeader}>
+              <Icon name="calendar" size={18} color={HOME_M3.secondary} />
+              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Schedule</Text>
+            </View>
+            <View style={styles.sectionCard}>
+              <View style={styles.grid2}>
+                <View style={styles.infoCell}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Start Date</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue }]}>{formatDate(booking.startDate)}</Text>
+                </View>
+                <View style={styles.infoCell}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>End Date</Text>
+                  <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue }]}>{formatDate(booking.endDate)}</Text>
+                </View>
+              </View>
+              <View style={styles.timeSlotRow}>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Time Slot</Text>
+                <View style={styles.rowGap8}>
+                  <Icon name="clock" size={15} color={HOME_M3.onSurfaceVariant} />
+                  <Text style={[styles.valueText, { fontSize: fontSizes.scheduleValue }]}>
+                    {formatTimeToAMPM(booking.start_time)} – {formatTimeToAMPM(booking.end_time)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
-      {/* Vacation Dialogs */}
-      <UserHoliday 
-        open={holidayDialogOpen} 
-        onClose={() => setHolidayDialogOpen(false)} 
-        booking={convertBookingForChildComponents(booking)} 
-        onLeaveSubmit={handleLeaveSubmit} 
-      />
-      
-      <VacationManagementDialog 
-        open={vacationManagementDialogOpen} 
-        onClose={() => { 
-          setVacationManagementDialogOpen(false); 
-        }} 
-        booking={convertBookingForChildComponents(booking)} 
-        customerId={customerId ?? null}
-        onSuccess={handleVacationSuccess} 
+          {/* Service Timeline */}
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeader}>
+              <Icon name="clock" size={18} color={HOME_M3.secondary} />
+              <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Service Timeline</Text>
+            </View>
+            
+            {safeBooking.bookingType === 'ON_DEMAND' ? (
+              <BookingTimeline 
+                timeline={buildTimelineData()} 
+                status={safeBooking.taskStatus}
+                showEarlyStartBadge={true}
+              />
+            ) : (
+              <>
+                <MonthlyBookingTimeline
+                  timeline={buildMonthlyTimelineData()}
+                  bookingType={safeBooking.bookingType || 'MONTHLY'}
+                />
+                
+                <DateWiseTimeline
+                  engagementId={safeBooking.id}
+                  bookingType={safeBooking.bookingType || 'MONTHLY'}
+                />
+              </>
+            )}
+          </View>
+
+          {isProviderAssigned() ? (
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeader}>
+                <Icon name="user" size={18} color={HOME_M3.secondary} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Service Provider</Text>
+              </View>
+              <View style={[styles.sectionCard, styles.providerRow]}>
+                <View style={styles.providerAvatar}>
+                  <Text style={styles.providerAvatarText}>
+                    {getProviderInitials(safeBooking.serviceProviderName)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.providerName, { fontSize: fontSizes.providerName }]}>
+                    {safeBooking.serviceProviderName}
+                  </Text>
+                  {safeBooking.providerRating > 0 ? (
+                    <Text style={styles.providerRatingText}>⭐ {booking.providerRating.toFixed(1)}</Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          ) : null}
+
+          {booking.payment ? (
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeader}>
+                <Icon name="credit-card" size={18} color={HOME_M3.secondary} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Payment Details</Text>
+              </View>
+              <View style={styles.sectionCard}>
+                <View style={styles.paymentLine}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Base Amount</Text>
+                  <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>₹{booking.payment.base_amount}</Text>
+                </View>
+                <View style={styles.paymentLine}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Platform Fee</Text>
+                  <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>₹{booking.payment.platform_fee}</Text>
+                </View>
+                <View style={styles.paymentLine}>
+                  <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>GST</Text>
+                  <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>₹{booking.payment.gst}</Text>
+                </View>
+
+                <View style={styles.paymentTotalBar}>
+                  <Text style={[styles.paymentTotalLabel, { fontSize: fontSizes.sectionTitle }]}>Total</Text>
+                  <Text style={[styles.paymentTotalValue, { fontSize: fontSizes.paymentTotalValue + 2 }]}>
+                    ₹{booking.payment.total_amount}
+                  </Text>
+                </View>
+
+                <View style={styles.paymentMetaRow}>
+                  <Text style={[styles.paymentMetaText, { fontSize: fontSizes.labelText }]}>
+                    Status:{' '}
+                    <Text
+                      style={[
+                        styles.paymentMetaStrong,
+                        {
+                          color:
+                            booking.payment.status === 'SUCCESS'
+                              ? '#16a34a'
+                              : booking.payment.status === 'PENDING'
+                                ? '#d97706'
+                                : '#dc2626',
+                        },
+                      ]}
+                    >
+                      {booking.payment.status}
+                    </Text>
+                  </Text>
+                  <Text style={[styles.paymentMetaText, { fontSize: fontSizes.labelText }]}>
+                    Payment Mode:{' '}
+                    <Text style={styles.paymentMetaStrong}>
+                      {formatPaymentMode(booking.payment.payment_mode)}
+                    </Text>
+                  </Text>
+                </View>
+
+                {booking.payment.transaction_id ? (
+                  <View style={styles.paymentLine}>
+                    <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Transaction ID</Text>
+                    <Text style={[styles.paymentAmount, { fontSize: fontSizes.paymentValue }]}>
+                      {booking.payment.transaction_id}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {booking.payment.status === 'PENDING' && booking.taskStatus !== 'CANCELLED' ? (
+                  <TouchableOpacity
+                    style={[styles.secondaryFullButton, styles.cancelOutlineBtn, { marginTop: 12 }]}
+                    onPress={handleCompletePayment}
+                    disabled={isProcessingPayment}
+                  >
+                    {isProcessingPayment ? (
+                      <ActivityIndicator size="small" color="#dc2626" />
+                    ) : (
+                      <>
+                        <Icon name="credit-card" size={18} color="#dc2626" />
+                        <Text style={[styles.cancelOutlineText, { fontSize: fontSizes.actionButtonText }]}>
+                          Complete Payment Now
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+
+                {booking.payment.status === 'SUCCESS' ? (
+                  <View style={styles.invoiceWrap}>
+                    <Invoice booking={booking} variant="inline" />
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
+          {booking.modifications?.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeader}>
+                <Icon name="rotate-ccw" size={18} color={HOME_M3.secondary} />
+                <Text style={[styles.sectionTitle, { fontSize: fontSizes.sectionTitle }]}>Modification History</Text>
+              </View>
+              <View style={styles.modificationPanel}>
+                {booking.modifications.map((mod: any, index: number) => {
+                  const badgeStyle = getModificationBadgeStyle(mod.action);
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.modificationCard,
+                        index < booking.modifications.length - 1 && styles.modificationCardSpacing,
+                      ]}
+                    >
+                      <View style={styles.modificationTopRow}>
+                        <View style={[styles.modificationBadge, { backgroundColor: badgeStyle.backgroundColor, borderColor: badgeStyle.borderColor }]}>
+                          <Text style={[styles.modificationBadgeText, { color: badgeStyle.color }]}>{mod.action}</Text>
+                        </View>
+                        <Text style={[styles.modificationDate, { fontSize: fontSizes.labelText }]}>
+                          {dayjs(mod.date).format('MMM D, YYYY h:mm A')}
+                        </Text>
+                      </View>
+                      {mod.refund ? (
+                        <Text style={[styles.refundText, { fontSize: fontSizes.labelText }]}>Refund: ₹{mod.refund}</Text>
+                      ) : null}
+                      {mod.penalty ? (
+                        <Text style={[styles.penaltyText, { fontSize: fontSizes.labelText }]}>Penalty: ₹{mod.penalty}</Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.footerMeta}>
+            <View style={styles.footerMetaCol}>
+              <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Booking Date</Text>
+              <Text style={[styles.footerMetaValue, { fontSize: fontSizes.additionalInfoValue }]}>
+                {dayjs(booking.bookingDate).format('MMM D, YYYY')}
+              </Text>
+            </View>
+            <View style={styles.footerMetaCol}>
+              <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Assignment Status</Text>
+              <Text style={[styles.footerMetaValue, { fontSize: fontSizes.additionalInfoValue, textTransform: 'capitalize' }]}>
+                {booking.assignmentStatus || '—'}
+              </Text>
+            </View>
+            {booking.leave_days > 0 ? (
+              <View style={styles.footerMetaCol}>
+                <Text style={[styles.metaLabel, { fontSize: fontSizes.labelText }]}>Leave Days</Text>
+                <Text style={[styles.footerMetaValue, { fontSize: fontSizes.additionalInfoValue }]}>
+                  {booking.leave_days}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Animated.View>
+
+      {vacationManagementDialogOpen ? (
+        <VacationManagementDialog
+          open={vacationManagementDialogOpen}
+          onClose={() => setVacationManagementDialogOpen(false)}
+          booking={convertBookingForChildComponents(booking)}
+          customerId={customerId ?? null}
+          onSuccess={handleVacationSuccess}
+        />
+      ) : null}
+
+      {/* Report Issue Dialog */}
+      <RaiseComplaintDialog
+        visible={complaintDialogVisible}
+        onClose={() => setComplaintDialogVisible(false)}
+        booking={booking}
+        onSubmitted={() => {
+          setComplaintDialogVisible(false);
+          Snackbar.show({
+            text: 'Complaint submitted successfully',
+            duration: Snackbar.LENGTH_SHORT,
+            backgroundColor: colors.success,
+            textColor: '#FFFFFF',
+          });
+        }}
       />
 
       {/* Cancel Dialog */}
-      <CancelDialog
-        visible={showCancelDialog}
-        onClose={() => setShowCancelDialog(false)}
-        onConfirm={confirmCancelBooking}
-        serviceName={getServiceTitle(booking.service_type)}
-        isLoading={isCancelLoading}
-      />
+      {showCancelDialog && (
+        <CancelDialog
+          visible={showCancelDialog}
+          onClose={() => setShowCancelDialog(false)}
+          onConfirm={confirmCancelBooking}
+          serviceName={getServiceTitle(safeBooking.service_type)}
+          isLoading={isCancelLoading}
+        />
+      )}
+
+      {/* Extend Service Hour Dialog */}
+      <Modal
+        visible={showExtendDialog}
+        transparent
+        animationType="fade"
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => setShowExtendDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.extendDialogContainer, { backgroundColor: colors.card }]}>
+            <View style={styles.extendDialogHeader}>
+              <LinearGradient
+                colors={[...HOME_HERO_GRADIENT]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.extendHeaderContent}>
+                <Icon name="clock" size={22} color="#FFFFFF" />
+                <Text style={[styles.extendDialogTitle, { fontSize: fontSizes.serviceTitle }]}>
+                  Extend Service Hour
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.extendCloseButton}
+                onPress={() => setShowExtendDialog(false)}
+              >
+                <Icon name="x" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.extendDialogContent}>
+              {loadingAvailability ? (
+                <View style={styles.extendLoadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={[styles.extendLoadingText, { color: colors.text }]}>
+                    Checking provider availability...
+                  </Text>
+                </View>
+              ) : extensionAvailability && extensionAvailability.canExtend ? (
+                <>
+                  <View style={[styles.extendInfoBox, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.extendInfoLabel, { color: colors.textSecondary }]}>
+                      Current End Time
+                    </Text>
+                    <Text style={[styles.extendInfoValue, { color: colors.text }]}>
+                      {extensionAvailability.currentEndTimeFormatted}
+                    </Text>
+                    <Text style={[styles.extendInfoLabel, { color: colors.textSecondary, marginTop: 8 }]}>
+                      Hourly Rate
+                    </Text>
+                    <Text style={[styles.extendInfoValue, { color: colors.accent }]}>
+                      {`₹${extensionAvailability.hourlyRate}/hour`}
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.extendSectionTitle, { color: colors.text }]}>
+                    Select Extension Duration
+                  </Text>
+
+                  {extensionAvailability.availableSlots?.map((slot: any, index: number) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.extendOptionCard,
+                        { 
+                          backgroundColor: selectedExtension?.hours === slot.hours 
+                            ? colors.primary + '15' 
+                            : colors.surface,
+                          borderColor: selectedExtension?.hours === slot.hours 
+                            ? colors.primary 
+                            : colors.border,
+                        }
+                      ]}
+                      onPress={() => setSelectedExtension(slot)}
+                    >
+                      <View style={styles.extendOptionLeft}>
+                        <View style={[
+                          styles.extendRadio,
+                          { borderColor: selectedExtension?.hours === slot.hours ? colors.primary : colors.border }
+                        ]}>
+                          {selectedExtension?.hours === slot.hours && (
+                            <View style={[styles.extendRadioInner, { backgroundColor: colors.primary }]} />
+                          )}
+                        </View>
+                        <View>
+                          <Text style={[styles.extendOptionHours, { color: colors.text }]}>
+                            {`+${slot.hours} hour${slot.hours > 1 ? 's' : ''}`}
+                          </Text>
+                          <Text style={[styles.extendOptionTime, { color: colors.textSecondary }]}>
+                            {`Until ${slot.newEndTimeFormatted}`}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.extendOptionRight}>
+                        <Text style={[styles.extendOptionPrice, { color: colors.accent }]}>
+                          {`+₹${slot.additionalCost}`}
+                        </Text>
+                        <Text style={[styles.extendOptionTotal, { color: colors.textSecondary }]}>
+                          {`Total: ₹${slot.totalCost}`}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+
+                  {selectedExtension && (
+                    <View style={[styles.extendSummaryBox, { backgroundColor: colors.accent + '10', borderColor: colors.accent }]}>
+                      <Text style={[styles.extendSummaryTitle, { color: colors.text }]}>
+                        Price Breakup
+                      </Text>
+                      
+                      {/* Pricing Details */}
+                      {selectedExtension.pricing ? (
+                        <>
+                          <View style={styles.extendSummaryRow}>
+                            <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                              Base Amount:
+                            </Text>
+                            <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                              ₹{selectedExtension.pricing.baseNet.toFixed(2)}
+                            </Text>
+                          </View>
+                          
+                          {selectedExtension.discounts && selectedExtension.discounts.length > 0 && (
+                            <View style={styles.extendSummaryRow}>
+                              <Text style={[styles.extendSummaryLabel, { color: '#10b981' }]}>
+                                {selectedExtension.discounts[0].label}:
+                              </Text>
+                              <Text style={[styles.extendSummaryValue, { color: '#10b981' }]}>
+                                -₹{selectedExtension.discounts[0].amount.toFixed(2)}
+                              </Text>
+                            </View>
+                          )}
+                          
+                          <View style={styles.extendSummaryRow}>
+                            <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                              Platform Fee (6%):
+                            </Text>
+                            <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                              ₹{selectedExtension.pricing.platformFee.toFixed(2)}
+                            </Text>
+                          </View>
+                          
+                          <View style={styles.extendSummaryRow}>
+                            <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                              GST (18%):
+                            </Text>
+                            <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                              ₹{selectedExtension.pricing.gst.toFixed(2)}
+                            </Text>
+                          </View>
+                          
+                          <View style={[styles.extendSummaryDivider, { backgroundColor: colors.accent + '30' }]} />
+                        </>
+                      ) : null}
+                      
+                      {/* Duration and Time */}
+                      <View style={styles.extendSummaryRow}>
+                        <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                          Duration:
+                        </Text>
+                        <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                          {`+${selectedExtension.hours} hour${selectedExtension.hours > 1 ? 's' : ''}`}
+                        </Text>
+                      </View>
+                      <View style={styles.extendSummaryRow}>
+                        <Text style={[styles.extendSummaryLabel, { color: colors.textSecondary }]}>
+                          New End Time:
+                        </Text>
+                        <Text style={[styles.extendSummaryValue, { color: colors.text }]}>
+                          {selectedExtension.newEndTimeFormatted}
+                        </Text>
+                      </View>
+                      
+                      <View style={[styles.extendSummaryDivider, { backgroundColor: colors.accent + '30' }]} />
+                      
+                      <View style={[styles.extendSummaryRow, styles.extendSummaryTotal]}>
+                        <Text style={[styles.extendSummaryLabel, { color: colors.text, fontWeight: '700' }]}>
+                          Total Additional Cost:
+                        </Text>
+                        <Text style={[styles.extendSummaryValue, { color: colors.accent, fontWeight: '700', fontSize: 18 }]}>
+                          ₹{selectedExtension.additionalCost}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.extendEmptyContainer}>
+                  <Icon name="alert-circle" size={48} color={colors.error} />
+                  <Text style={[styles.extendEmptyTitle, { color: colors.text }]}>
+                    Cannot Extend
+                  </Text>
+                  <Text style={[styles.extendEmptyMessage, { color: colors.textSecondary }]}>
+                    {extensionAvailability?.reason || 'This booking cannot be extended at this time'}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={[styles.extendDialogFooter, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.extendCancelButton, { borderColor: colors.border }]}
+                onPress={() => setShowExtendDialog(false)}
+                disabled={isExtending}
+              >
+                <Text style={[styles.extendCancelButtonText, { color: colors.textSecondary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.extendConfirmButton,
+                  { backgroundColor: colors.accent },
+                  (!selectedExtension || isExtending) && { opacity: 0.5 }
+                ]}
+                onPress={handleExtendBooking}
+                disabled={!selectedExtension || isExtending}
+              >
+                {isExtending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Icon name="check" size={18} color="#FFFFFF" />
+                    <Text style={styles.extendConfirmButtonText}>
+                      Confirm Extension
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
 
-// ==================== Global Styles ====================
+// ==================== Styles ====================
 const styles = StyleSheet.create({
-  badge: { 
-    paddingHorizontal: 8, 
-    paddingVertical: 4, 
-    borderRadius: 4, 
-    alignSelf: 'flex-start' 
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
   },
-  badgeOutline: { 
-    backgroundColor: 'transparent', 
-    borderWidth: 1 
+  overlayTouchable: {
+    flex: 1,
   },
-  badgeText: { 
-    fontWeight: '500' 
+  drawerContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '92%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  badgeOutlineText: { 
-    fontWeight: '500' 
+  headerShell: {
+    position: 'relative',
+    backgroundColor: HOME_M3.primary,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  separator: { 
-    height: 1 
+  headerToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 30,
+    paddingHorizontal: 8,
   },
-  // Badge styles for booking type
-  onDemandBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  onDemandBadgeText: { fontWeight: '600' },
-  monthlyBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  monthlyBadgeText: { fontWeight: '600' },
-  shortTermBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  shortTermBadgeText: { fontWeight: '600' },
-  defaultBadge: { paddingHorizontal: 8, paddingVertical: 4 },
-  defaultBadgeText: { fontWeight: '600' },
-  // Badge styles for status
-  activeBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  activeBadgeText: { marginLeft: 4, fontWeight: '600' },
-  completedBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  completedBadgeText: { marginLeft: 4, fontWeight: '600' },
-  cancelledBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  cancelledBadgeText: { marginLeft: 4, fontWeight: '600' },
-  inProgressBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  inProgressBadgeText: { marginLeft: 4, fontWeight: '600' },
-  notStartedBadge: { paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center' },
-  notStartedBadgeText: { marginLeft: 4, fontWeight: '600' },
+  headerSideBtn: {
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  headerTitleCenter: {
+    flex: 1,
+    textAlign: 'center',
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+    lineHeight: 20,
+    paddingHorizontal: 4,
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: HOME_M3.surface,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  heroSheet: {
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+    marginBottom: 8,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  rowGap8: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  grid2: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sectionBlock: {
+    paddingHorizontal: 20,
+    marginTop: 18,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontWeight: '700',
+    color: HOME_M3.onSurface,
+  },
+  sectionCard: {
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    padding: 14,
+  },
+  statusStack: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  metaLabel: {
+    color: HOME_M3.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  bookingIdHero: {
+    color: HOME_M3.primary,
+    fontWeight: '800',
+    marginTop: 4,
+    letterSpacing: -0.5,
+  },
+  serviceCard: {
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    backgroundColor: HOME_M3.surfaceContainerLowest,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  serviceImageWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#fde8d8',
+  },
+  serviceImage: {
+    width: '100%',
+    height: '100%',
+  },
+  serviceTextCol: {
+    flex: 1,
+  },
+  serviceTitle: {
+    fontWeight: '700',
+    color: HOME_M3.onSurface,
+    marginTop: 2,
+  },
+  pillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  pillBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  monthlyPill: { backgroundColor: '#ede9fe', borderColor: '#c4b5fd' },
+  monthlyPillText: { color: '#5b21b6' },
+  onDemandPill: { backgroundColor: '#e0f2fe', borderColor: '#7dd3fc' },
+  onDemandPillText: { color: '#0369a1' },
+  shortTermPill: { backgroundColor: '#dcfce7', borderColor: '#86efac' },
+  shortTermPillText: { color: '#15803d' },
+  defaultPill: { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' },
+  defaultPillText: { color: '#475569' },
+  notStartedPill: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0' },
+  notStartedPillText: { color: '#64748b' },
+  inProgressPill: { backgroundColor: '#fff7ed', borderColor: '#fdba74' },
+  inProgressPillText: { color: '#c2410c' },
+  completedPill: { backgroundColor: '#ecfdf5', borderColor: '#86efac' },
+  completedPillText: { color: '#15803d' },
+  cancelledPill: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  cancelledPillText: { color: '#dc2626' },
+  primaryActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  primaryActionBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  callButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: HOME_M3.secondary,
+  },
+  callButtonText: {
+    color: HOME_M3.secondary,
+    fontWeight: '700',
+  },
+  vacationButton: {
+    marginTop: 10,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: HOME_M3.secondary,
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    alignSelf: 'stretch',
+  },
+  vacationButtonText: {
+    color: HOME_M3.secondary,
+    fontWeight: '700',
+  },
+  outlineActionBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    backgroundColor: '#ffffff',
+  },
+  cancelOutlineBtn: {
+    borderColor: '#fca5a5',
+  },
+  cancelOutlineText: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+  modifyOutlineBtn: {
+    borderColor: '#cbd5e1',
+  },
+  modifyOutlineText: {
+    color: HOME_M3.onSurface,
+    fontWeight: '700',
+  },
+  disabledActionBtn: {
+    opacity: 0.55,
+  },
+  disabledActionText: {
+    color: '#94a3b8',
+  },
+  secondaryFullButton: {
+    marginTop: 10,
+    minHeight: 46,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: HOME_M3.outlineVariant,
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+  secondaryFullButtonText: {
+    color: HOME_M3.secondary,
+    fontWeight: '700',
+  },
+  reportIssueButton: {
+    marginTop: 10,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#fca5a5',
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    alignSelf: 'stretch',
+  },
+  reportIssueButtonText: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+  paymentTimeoutNotice: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#fffbeb',
+  },
+  paymentTimeoutIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#fef3c7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentTimeoutTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#78350f',
+    marginBottom: 4,
+  },
+  paymentTimeoutBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#92400e',
+  },
+  infoCell: {
+    flex: 1,
+  },
+  timeSlotRow: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: HOME_M3.outlineVariant,
+  },
+  valueText: {
+    fontWeight: '600',
+    color: HOME_M3.onSurface,
+    marginTop: 4,
+  },
+  providerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  providerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: HOME_M3.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  providerAvatarText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  providerName: {
+    fontWeight: '700',
+    color: HOME_M3.onSurface,
+  },
+  providerRatingText: {
+    marginTop: 2,
+    color: HOME_M3.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  paymentLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  paymentAmount: {
+    fontWeight: '600',
+    color: HOME_M3.onSurface,
+  },
+  paymentTotalBar: {
+    marginTop: 4,
+    marginBottom: 12,
+    backgroundColor: HOME_M3.primary,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  paymentTotalLabel: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  paymentTotalValue: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  paymentMetaRow: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  paymentMetaText: {
+    color: HOME_M3.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  paymentMetaStrong: {
+    color: HOME_M3.onSurface,
+    fontWeight: '700',
+  },
+  invoiceWrap: {
+    marginTop: 12,
+  },
+  modificationPanel: {
+    backgroundColor: '#eef6ff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    padding: 12,
+  },
+  modificationCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    padding: 12,
+  },
+  modificationCardSpacing: {
+    marginBottom: 10,
+  },
+  modificationTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  modificationBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    flexShrink: 1,
+  },
+  modificationBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modificationDate: {
+    color: HOME_M3.onSurfaceVariant,
+    fontWeight: '500',
+    flexShrink: 0,
+  },
+  refundText: {
+    color: '#16a34a',
+    fontWeight: '700',
+  },
+  penaltyText: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+  footerMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    paddingHorizontal: 20,
+    marginTop: 22,
+    marginBottom: 8,
+  },
+  footerMetaCol: {
+    minWidth: '42%',
+    flex: 1,
+  },
+  footerMetaValue: {
+    color: HOME_M3.onSurface,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  badgeOutline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontWeight: '500',
+  },
+  badgeOutlineText: {
+    fontWeight: '500',
+  },
+  separator: {
+    height: 1,
+    marginVertical: 8,
+  },
+  // Extension Dialog Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  extendDialogContainer: {
+    width: '100%',
+    maxWidth: width - 40,
+    maxHeight: height * 0.85,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    overflow: 'hidden',
+  },
+  extendDialogHeader: {
+    minHeight: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  extendHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  extendDialogTitle: {
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
+  },
+  extendCloseButton: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendDialogContent: {
+    maxHeight: height * 0.65,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  extendLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  extendLoadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  extendInfoBox: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: HOME_M3.outline,
+  },
+  extendInfoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  extendInfoValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  extendSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  extendOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 12,
+  },
+  extendOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  extendRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendRadioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  extendOptionHours: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  extendOptionTime: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  extendOptionRight: {
+    alignItems: 'flex-end',
+  },
+  extendOptionPrice: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  extendOptionTotal: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  extendSummaryBox: {
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 2,
+  },
+  extendSummaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  extendSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  extendSummaryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  extendSummaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  extendSummaryDivider: {
+    height: 1,
+    marginVertical: 12,
+  },
+  extendSummaryTotal: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  extendEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  extendEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  extendEmptyMessage: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  extendDialogFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+  },
+  extendCancelButton: {
+    flex: 1,
+    minHeight: 48,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  extendConfirmButton: {
+    flex: 1,
+    minHeight: 48,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  extendConfirmButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
 
 const cancelDialogStyles = StyleSheet.create({
-  overlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
   },
-  dialogContainer: { 
-    width: width - 48, 
-    borderRadius: 12, 
-    overflow: 'hidden', 
-    elevation: 5, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.25, 
-    shadowRadius: 3.84 
+  dialogContainer: {
+    width: '100%',
+    maxWidth: width - 48,
+    borderRadius: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    overflow: 'hidden',
   },
-  header: { 
-    paddingVertical: 16, 
-    paddingHorizontal: 20 
+  headerShell: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+    minHeight: 56,
+    justifyContent: 'center',
   },
-  headerContent: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 12 
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 10,
   },
-  headerTitle: { 
-    fontWeight: '600', 
-    color: '#FFFFFF' 
+  headerTitle: {
+    fontWeight: '600',
+    color: '#FFFFFF',
+    flexShrink: 1,
+    textAlign: 'center',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
   },
-  content: { 
-    padding: 20 
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
-  message: { 
-    lineHeight: 20, 
-    marginBottom: 24, 
-    textAlign: 'center' 
+  message: {
+    lineHeight: 22,
+    marginBottom: 24,
+    textAlign: 'center',
   },
-  buttonContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    gap: 12 
+  buttonContainer: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 12,
   },
-  button: { 
-    flex: 1, 
-    paddingVertical: 12, 
-    borderRadius: 8, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  button: {
+    flex: 1,
+    minHeight: 48,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cancelButton: { 
-    borderWidth: 1, 
-    backgroundColor: 'transparent' 
+  cancelButton: {
+    borderWidth: 1,
+    backgroundColor: 'transparent',
   },
-  confirmButton: { 
-    backgroundColor: '#FF3B30' 
+  confirmButton: {
+    backgroundColor: '#FF3B30',
   },
-  buttonText: { 
-    fontWeight: '600' 
+  buttonText: {
+    fontWeight: '600',
   },
 });
 

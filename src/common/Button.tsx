@@ -1,15 +1,8 @@
-// src/components/ui/button.tsx
-import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  View,
-  StyleSheet,
-  TouchableOpacityProps,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
+import React from "react";
+import { View, Text, ViewStyle, TextStyle, TouchableOpacityProps, StyleSheet } from "react-native";
+import { BrandButton, BrandButtonVariant, BrandButtonSize } from "../design-system/BrandButton";
+import { BRAND } from "../theme/brandColors";
+import { useTheme } from "../Settings/ThemeContext";
 
 interface ButtonProps extends TouchableOpacityProps {
   className?: string;
@@ -18,139 +11,82 @@ interface ButtonProps extends TouchableOpacityProps {
   endIcon?: React.ReactNode;
   disabled?: boolean;
   loading?: boolean;
-  variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'small' | 'medium' | 'large';
+  variant?: "primary" | "secondary" | "outline";
+  size?: "small" | "medium" | "large";
 }
 
+function mapVariant(variant: ButtonProps["variant"]): BrandButtonVariant {
+  if (variant === "primary") return "primary";
+  if (variant === "outline") return "outline";
+  return "ghost";
+}
+
+function mapSize(size: ButtonProps["size"]): BrandButtonSize {
+  return size === "small" ? "small" : "medium";
+}
+
+/** Shared app button — uses web-aligned BrandButton styles */
 export function Button({
-  className,
   children,
-  startIcon,
-  endIcon,
   disabled = false,
   loading = false,
-  variant = 'outline',
-  size = 'medium',
+  variant = "outline",
+  size = "medium",
   style,
+  startIcon,
+  endIcon,
   ...props
 }: ButtonProps) {
-  const getVariantStyles = (): { container: ViewStyle; text: TextStyle } => {
-    switch (variant) {
-      case 'primary':
-        return {
-          container: {
-            backgroundColor: disabled ? '#e5e7eb' : '#1d4ed8',
-            borderColor: disabled ? '#d1d5db' : '#1d4ed8',
-          },
-          text: {
-            color: disabled ? '#6b7280' : '#ffffff',
-          },
-        };
-      case 'secondary':
-        return {
-          container: {
-            backgroundColor: disabled ? '#e5e7eb' : '#f3f4f6',
-            borderColor: disabled ? '#d1d5db' : '#f3f4f6',
-          },
-          text: {
-            color: disabled ? '#6b7280' : '#374151',
-          },
-        };
-      case 'outline':
-      default:
-        return {
-          container: {
-            backgroundColor: disabled ? '#e5e7eb' : 'transparent',
-            borderColor: disabled ? '#d1d5db' : '#1d4ed8',
-          },
-          text: {
-            color: disabled ? '#6b7280' : '#1d4ed8',
-          },
-        };
-    }
-  };
+  const { colors, isDarkMode } = useTheme();
+  const brandVariant = mapVariant(variant);
+  const brandSize = mapSize(size);
 
-  const getSizeStyles = () => {
-    switch (size) {
-      case 'small':
-        return { paddingHorizontal: 12, paddingVertical: 6, fontSize: 14 };
-      case 'large':
-        return { paddingHorizontal: 20, paddingVertical: 12, fontSize: 16 };
-      case 'medium':
-      default:
-        return { paddingHorizontal: 16, paddingVertical: 8, fontSize: 15 };
-    }
-  };
+  const labelTextStyle: TextStyle =
+    variant === "primary"
+      ? { color: "#fff", fontWeight: "700", fontSize: brandSize === "small" ? 14 : 15 }
+      : variant === "outline"
+        ? { color: BRAND.accent, fontWeight: "600", fontSize: brandSize === "small" ? 13 : 14 }
+        : { color: isDarkMode ? colors.text : BRAND.text, fontWeight: "600", fontSize: brandSize === "small" ? 13 : 14 };
 
-  const variantStyles = getVariantStyles();
-  const sizeStyles = getSizeStyles();
-
-  return (
-    <TouchableOpacity
-      disabled={disabled || loading}
-      style={[
-        styles.baseContainer,
-        variantStyles.container,
-        {
-          paddingHorizontal: sizeStyles.paddingHorizontal,
-          paddingVertical: sizeStyles.paddingVertical,
-          opacity: disabled ? 0.5 : 1,
-        },
-        style,
-      ]}
-      activeOpacity={0.7}
-      {...props}
-    >
-      {loading ? (
-        <ActivityIndicator
-          color={variantStyles.text.color}
-          size="small"
-          style={styles.loader}
-        />
-      ) : (
-        <View style={styles.content}>
-          {startIcon && <View style={styles.iconStart}>{startIcon}</View>}
-          <Text
-            style={[
-              styles.baseText,
-              variantStyles.text,
-              { fontSize: sizeStyles.fontSize },
-            ]}
-          >
+  const content =
+    startIcon || endIcon ? (
+      <View style={styles.iconRow}>
+        {startIcon}
+        {typeof children === "string" || typeof children === "number" ? (
+          <Text style={labelTextStyle} numberOfLines={1}>
             {children}
           </Text>
-          {endIcon && <View style={styles.iconEnd}>{endIcon}</View>}
-        </View>
-      )}
-    </TouchableOpacity>
+        ) : (
+          children
+        )}
+        {endIcon}
+      </View>
+    ) : (
+      children
+    );
+
+  return (
+    <BrandButton
+      variant={brandVariant}
+      size={brandSize}
+      disabled={disabled}
+      loading={loading}
+      onPress={props.onPress}
+      style={style as ViewStyle}
+      textStyle={undefined as TextStyle | undefined}
+      flex={variant === "primary" ? 1 : undefined}
+      accessibilityLabel={props.accessibilityLabel}
+    >
+      {content}
+    </BrandButton>
   );
 }
 
 const styles = StyleSheet.create({
-  baseContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    minHeight: 44,
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  baseText: {
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  iconStart: {
-    marginRight: 4,
-  },
-  iconEnd: {
-    marginLeft: 4,
-  },
-  loader: {
-    marginHorizontal: 8,
+  iconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
 });

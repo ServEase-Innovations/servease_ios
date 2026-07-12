@@ -463,6 +463,7 @@
   "locationSelector": {
     "detectLocation": "स्थान पता लगाएं",
     "addAddress": "पता जोड़ें",
+    "tapToChooseLocation": "स्थान चुनने के लिए टैप करें",
     "autoDetect": "स्वतः पता लगाएं",
     "searchManually": "मैन्युअल खोज करें",
     "useYourCurrentLocation": "अपने वर्तमान स्थान का उपयोग करें",

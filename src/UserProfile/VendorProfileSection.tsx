@@ -20,6 +20,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import LinearGradient from 'react-native-linear-gradient';
 import providerInstance from '../services/providerInstance';
 import { useTheme } from '../../src/Settings/ThemeContext';
+import { ProfileContentSkeleton } from '../common/ProfileContentSkeleton';
 
 const { width } = Dimensions.get('window');
 
@@ -137,29 +138,8 @@ const VendorProfileSection: React.FC<VendorProfileSectionProps> = ({
     Alert.alert(t('common.info'), t('profile.page.editProfileComingSoon'));
   };
 
-  // Loading skeleton
   if (isLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.mainContent}>
-            <View style={[styles.skeletonCard, { backgroundColor: colors.card }]}>
-              <View style={styles.skeletonHeader}>
-                <View style={[styles.skeletonTitle, { backgroundColor: colors.surface }]} />
-              </View>
-              <View style={styles.skeletonGrid}>
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <View key={i} style={styles.skeletonItem}>
-                    <View style={[styles.skeletonLabel, { backgroundColor: colors.surface }]} />
-                    <View style={[styles.skeletonValue, { backgroundColor: colors.surface }]} />
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    );
+    return <ProfileContentSkeleton />;
   }
 
   if (error || !vendorData) {

@@ -49,18 +49,14 @@ const CustomFileInput: React.FC<CustomFileInputProps> = ({
       // Use react-native-image-picker for both images and documents
       const { launchImageLibrary } = await import('react-native-image-picker');
       
+      // Android crashes with mediaType 'mixed'; images only via photo picker.
       const options: any = {
-        mediaType: 'mixed', // This allows both images and documents
+        mediaType: 'photo',
         includeBase64: false,
         maxHeight: 2000,
         maxWidth: 2000,
         quality: 0.8,
       };
-
-      // If specific file types are requested, adjust options
-      if (accept?.includes('image')) {
-        options.mediaType = 'photo';
-      }
       
       launchImageLibrary(options, (response) => {
         if (response.didCancel) {
