@@ -20,6 +20,7 @@ import { PROFILE, BOOKINGS, DASHBOARD, HOME, AGENT_DASHBOARD, WALLET } from "../
 import ProfileMenuSheet from "../ProfileMenuSheet/ProfileMenuSheet";
 import { useTranslation } from 'react-i18next';
 import Settings from "../Settings/Settings";
+import { useTheme } from "../Settings/ThemeContext";
 
 interface NavigationFooterProps {
   onHomeClick: () => void;
@@ -57,6 +58,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   onSignOutComplete,
   bookingsRef
 }) => {
+  const { colors } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
@@ -216,12 +218,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         textColor: "#ffffff",
       });
 
-      await clearSession({
-        returnToUrl: "com.serveaso://logout",
-      });
-
-      dispatch(remove());
-      
       if (onSignOutComplete) {
         await onSignOutComplete();
       }
@@ -382,7 +378,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     return (
       <>
         <LinearGradient
-          colors={['#0d1935', '#1c4485', '#255697']}
+          colors={[colors.chromeStart, colors.chromeMid, colors.chromeEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.mobileNavContainer}
@@ -405,7 +401,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
                 ]}
               >
                 {React.cloneElement(tab.icon as any, {
-                  color: isActive ? "#93c5fd" : isDisabled ? "#94a3b8" : "#fff",
+                  color: isActive ? "#ffffff" : isDisabled ? "#94a3b8" : "#fff",
                 })}
                 <Text
                   style={[
@@ -449,7 +445,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
   return (
     <>
       <LinearGradient
-        colors={['#0d1935', '#1c4485', '#255697']}
+        colors={[colors.chromeStart, colors.chromeMid, colors.chromeEnd]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.desktopNavContainer}
@@ -634,7 +630,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   activeTabText: {
-    color: "#93c5fd",
+    color: "#ffffff",
     fontWeight: "600",
   },
   activeIndicator: {
@@ -642,7 +638,7 @@ const styles = StyleSheet.create({
     bottom: -4,
     width: 30,
     height: 2,
-    backgroundColor: "#93c5fd",
+    backgroundColor: "#ffffff",
     borderRadius: 1,
   },
   mobileNavText: {

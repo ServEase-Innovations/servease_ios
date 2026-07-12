@@ -128,6 +128,17 @@ const howItWorksSlides = [
   },
 ];
 
+const hexToRgba = (hex: string, alpha: number): string => {
+  const normalized = hex.replace('#', '');
+  if (normalized.length !== 6) {
+    return `rgba(0,0,0,${alpha})`;
+  }
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const HomePage: React.FC<ChildComponentProps> = ({
   sendDataToParent,
   bookingType,
@@ -217,6 +228,16 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const fontStyles = getFontSizeStyles();
+  const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
+  const heroOverlayGradient = [
+    hexToRgba(colors.chromeStart, 0.72),
+    hexToRgba(colors.chromeMid, 0.62),
+    hexToRgba(colors.chromeEnd, 0.78),
+  ];
+  const serviceImageOverlayGradient = [
+    hexToRgba(colors.chromeStart, 0.75),
+    hexToRgba(colors.chromeMid, 0.55),
+  ];
 
   // Carousel images array
   const carouselImages = [heroImage1, heroImage2, heroImage3];
@@ -623,7 +644,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
           
           {/* Blue Gradient Overlay */}
           <LinearGradient
-            colors={["rgba(10, 42, 102, 0.7)", "rgba(0, 74, 173, 0.6)", "rgba(10, 42, 102, 0.8)"]}
+            colors={heroOverlayGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientOverlay}
@@ -643,7 +664,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
               activeOpacity={0.9}
             >
               <LinearGradient
-                colors={["#ffffff", "#e9f2ff"]}
+                colors={[colors.surface, colors.backgroundAlt]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.primaryCtaGradient}
@@ -706,7 +727,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 >
                   <Image source={cookImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
                   <LinearGradient
-                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    colors={serviceImageOverlayGradient}
                     style={styles.serviceOverlay}
                   >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.homeCook')}</Text>
@@ -731,7 +752,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 >
                   <Image source={maidImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
                   <LinearGradient
-                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    colors={serviceImageOverlayGradient}
                     style={styles.serviceOverlay}
                   >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.cleaningHelp')}</Text>
@@ -756,7 +777,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
                 >
                   <Image source={nannyImage} style={[styles.serviceImageRectangular, isServiceDisabled && styles.disabledService]} />
                   <LinearGradient
-                    colors={["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]}
+                    colors={serviceImageOverlayGradient}
                     style={styles.serviceOverlay}
                   >
                     <Text style={[styles.serviceLabelRectangular, { fontSize: fontStyles.smallText }]}>{t('home.services.caregiver')}</Text>
@@ -797,14 +818,14 @@ const HomePage: React.FC<ChildComponentProps> = ({
         
         {/* Popular Services Section */}
         <View
-          style={[styles.servicesSection, { backgroundColor: isDarkMode ? colors.surface : '#f8fafc', paddingHorizontal: getHorizontalPadding() }]}
+          style={[styles.servicesSection, { backgroundColor: colors.backgroundAlt, paddingHorizontal: getHorizontalPadding() }]}
           onLayout={(event) => {
             setServicesSectionY(event.nativeEvent.layout.y);
           }}
         >
           <View style={styles.sectionHeader}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={chromeGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.sectionTitleGradient}
@@ -904,7 +925,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
         <View style={[styles.howItWorksSection, { backgroundColor: isDarkMode ? colors.background : '#ffffff', paddingHorizontal: getHorizontalPadding() }]}>
           <View style={styles.sectionHeader}>
             <LinearGradient
-              colors={["#0a2a66ff", "#004aadff"]}
+              colors={chromeGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.sectionTitleGradient}

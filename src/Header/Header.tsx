@@ -73,6 +73,7 @@ const Head: React.FC<ChildComponentProps> = ({
   closeDropdowns = false // Receive the prop
 }) => {
   const { colors, fontSize, isDarkMode } = useTheme();
+  const chromeGradient = [colors.chromeStart, colors.chromeMid, colors.chromeEnd];
   const {
     authorize,
     clearSession,
@@ -387,14 +388,8 @@ const Head: React.FC<ChildComponentProps> = ({
       sendDataToParent(e);
     }
   };
-
   const handleSignOut = async () => {
     try {
-      await clearSession({
-        returnToUrl: "com.serveaso://logout",
-      });
-
-      dispatch(remove());
       setMenuVisible(false);
       setCurrentLocation(null);
       handleClick("sign_out");
@@ -408,11 +403,16 @@ const Head: React.FC<ChildComponentProps> = ({
   const handleLoginClick = async () => {
     setMenuVisible(false);
     try {
-      await authorize({
-        scope: "openid profile email",
-        redirectUrl:
-          "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
-      });
+      await authorize(
+        {
+          scope: "openid profile email",
+          redirectUrl:
+            "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
+        },
+        {
+          customScheme: "com.serveaso",
+        }
+      );
 
       const credentials = await getCredentials();
     } catch (e) {
@@ -506,7 +506,7 @@ const Head: React.FC<ChildComponentProps> = ({
   return (
     <View style={{ position: "relative" }}>
       <LinearGradient
-        colors={["#0d1935", "#1c4485", "#255697"]}
+        colors={chromeGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={dynamicStyles.headerContainer}
@@ -515,7 +515,7 @@ const Head: React.FC<ChildComponentProps> = ({
         <View style={styles.logoContainer}>
           <TouchableOpacity onPress={onLogoClick}>
             <Image
-              source={require("../../assets/images/serveasologo.png")}
+              source={require("../../assets/images/serveaso_text_logo.png")}
               style={styles.logo}
             />
           </TouchableOpacity>
@@ -562,7 +562,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0d1935", "#1c4485", "#255697"]}
+            colors={chromeGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}
@@ -584,7 +584,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0ea5e9", "#1e293b", "#0f172a"]}
+            colors={chromeGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}
@@ -609,7 +609,7 @@ const Head: React.FC<ChildComponentProps> = ({
       >
         <View style={dynamicStyles.modalContainer}>
           <LinearGradient
-            colors={["#0ea5e9", "#1e293b", "#0f172a"]}
+            colors={chromeGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={dynamicStyles.modalHeader}
@@ -631,11 +631,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "flex-start",
     justifyContent: "center",
-    paddingTop: 60,
+    paddingTop: 20,
+    paddingLeft: 10,
   },
   logo: {
-    height: 140,
-    width: 120,
+    height: 40,
+    width: 150,
     resizeMode: "contain",
   },
   locationContainer: {

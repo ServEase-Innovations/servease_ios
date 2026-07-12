@@ -60,6 +60,7 @@ import { AppUserProvider, useAppUser } from "./src/context/AppUserContext";
 import axios from "axios";
 import { useDispatch } from "react-redux";
 import { add } from "./src/features/pricingSlice";
+import { remove } from "./src/features/userSlice";
 import MobileNumberDialog from "./src/UserProfile/MobileNumberDialog";
 import axiosInstance from "./src/services/axiosInstance";
 import NotificationsDialog from "./src/Notifications/NotificationsPage";
@@ -313,13 +314,20 @@ const MainApp = () => {
       console.log("🔄 ===== STARTING COMPLETE APP RELAUNCH =====");
       
       try {
-        await clearSession({
-          returnToUrl: "com.serveaso://logout",
-        });
+        await clearSession(
+          {
+            returnToUrl: "com.serveaso://logout",
+          },
+          {
+            customScheme: "com.serveaso",
+          }
+        );
         console.log("✅ Auth0 session cleared");
       } catch (authError) {
         console.log("⚠️ Auth0 session clear may have already been called:", authError);
       }
+      
+      dispatch(remove());
       
       console.log("🔄 Resetting all app states...");
       setCurrentView(HOME);
@@ -392,11 +400,16 @@ const MainApp = () => {
 
   const handleAuth0Login = async () => {
     try {
-      await authorize({
-        scope: "openid profile email",
-        redirectUrl:
-          "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
-      });
+      await authorize(
+        {
+          scope: "openid profile email",
+          redirectUrl:
+            "com.serveaso://dev-plavkbiy7v55pbg4.us.auth0.com/android/com.serveaso/callback",
+        },
+        {
+          customScheme: "com.serveaso",
+        }
+      );
 
       const credentials = await getCredentials();
       console.log("Login successful", credentials);
@@ -678,6 +691,8 @@ const MainApp = () => {
     if (view === "" || view === "FORCE_HOME") {
       setCurrentView(HOME);
       setShowProfileFromDashboard(false);
+    } else if (view === "sign_out") {
+      handleAppRelaunchAfterSignOut();
     } else {
       setCurrentView(view);
     }

@@ -144,6 +144,10 @@ const lightColors = {
   chipText: '#475569',
   chipActive: '#0a2a66',
   chipActiveText: '#ffffff',
+  // Web-like chrome bar gradient (matches web header/footer language)
+  chromeStart: '#020617',
+  chromeMid: '#0b2a5c',
+  chromeEnd: '#082f49',
 };
 
 // Enhanced Dark theme colors - Deeper, richer, and more vibrant
@@ -246,6 +250,10 @@ const darkColors = {
   chipText: '#cbd5e1',
   chipActive: '#3b82f6',
   chipActiveText: '#ffffff',
+  // Keep same chrome gradient for consistent cross-platform brand surface
+  chromeStart: '#020617',
+  chromeMid: '#0b2a5c',
+  chromeEnd: '#082f49',
 };
 
 // Font size configurations
