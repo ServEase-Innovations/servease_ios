@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ServEaso</string>
+    <string name="google_maps_api_key" translatable="false">AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk</string>
 </resources>

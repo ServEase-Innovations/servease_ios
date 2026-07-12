@@ -9,7 +9,8 @@ import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import WebView from 'react-native-webview';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk';
+import { keys } from '../env';
+const GOOGLE_MAPS_API_KEY = keys.api_key;
 
 interface Coordinate {
   latitude: number;

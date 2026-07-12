@@ -53,12 +53,13 @@
         <activity
             android:name="com.razorpay.CheckoutActivity"
             android:exported="true"
+            android:permission="android.permission.INTERNET"
             tools:replace="android:exported" />
 
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk" />
+            android:value="@string/google_maps_api_key" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="serveaso_default"

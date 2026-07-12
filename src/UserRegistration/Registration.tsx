@@ -24,8 +24,10 @@ import Geocoder from 'react-native-geocoding';
 import { PERMISSIONS, request, RESULTS } from 'react-native-permissions';
 import { NativeModules } from 'react-native';
 
+import { keys } from '../env';
+
 // Initialize Geocoder with your API key
-Geocoder.init('AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk');
+Geocoder.init(keys.api_key);
 
 // Define the shape of formData using an interface
 interface FormData {

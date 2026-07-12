@@ -18,7 +18,9 @@ import MapView, { Marker } from 'react-native-maps';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { NativeModules } from 'react-native';
 
-Geocoder.init('AIzaSyBWoIIAX-gE7fvfAkiquz70WFgDaL7YXSk');
+import { keys } from '../env';
+
+Geocoder.init(keys.api_key);
 
 interface FetchLocationProps {
   visible: boolean;
