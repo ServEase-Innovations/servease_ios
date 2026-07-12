@@ -8,6 +8,7 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
+  Vibration,
 } from "react-native";
 import { useTranslation } from 'react-i18next';
 
@@ -32,6 +33,7 @@ export function OtpVerificationDialog({
 }: OtpVerificationDialogProps) {
   const { t } = useTranslation();
   const [otpValue, setOtpValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const verificationCompletedRef = useRef(false);
   const inputRef = useRef<TextInput>(null);
 
@@ -39,6 +41,7 @@ export function OtpVerificationDialog({
   useEffect(() => {
     if (open) {
       verificationCompletedRef.current = false;
+      setError(null);
       // Focus input when dialog opens
       setTimeout(() => {
         inputRef.current?.focus();
@@ -49,25 +52,44 @@ export function OtpVerificationDialog({
   // Handle successful verification completion
   useEffect(() => {
     // Only run when verifying changes from true to false AND we were previously verifying
-    if (!verifying && verificationCompletedRef.current) {
+    if (!verifying && verificationCompletedRef.current && !error) {
       const timer = setTimeout(() => {
         handleClose();
       }, 500);
       
       return () => clearTimeout(timer);
     }
-  }, [verifying]);
+  }, [verifying, error]);
 
   const handleVerify = async () => {
     if (!otpValue.trim()) return;
     
+    setError(null);
     // Mark that verification is starting
     verificationCompletedRef.current = true;
-    await onVerify(otpValue.trim());
+    try {
+      await onVerify(otpValue.trim());
+    } catch (err: any) {
+      verificationCompletedRef.current = false;
+      Vibration.vibrate();
+      
+      let errorMsg = "Invalid OTP. Please enter the correct OTP and try again.";
+      if (err?.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (typeof err === 'string') {
+        errorMsg = err;
+      } else if (err?.message && !err.isAxiosError) {
+        // Only use err.message if it's not a generic axios error to avoid "Request failed with status code 400"
+        errorMsg = err.message;
+      }
+      
+      setError(errorMsg);
+    }
   };
 
   const handleClose = () => {
     setOtpValue("");
+    setError(null);
     onOpenChange(false);
   };
 
@@ -75,6 +97,7 @@ export function OtpVerificationDialog({
     // Only allow numbers
     const numericText = text.replace(/[^0-9]/g, '');
     setOtpValue(numericText);
+    if (error) setError(null);
   };
 
   return (
@@ -129,15 +152,22 @@ export function OtpVerificationDialog({
                   onChangeText={handleOtpChange}
                   keyboardType="number-pad"
                   maxLength={6}
-                  style={styles.otpInput}
+                  style={[
+                    styles.otpInput,
+                    error ? styles.otpInputError : null
+                  ]}
                   editable={!verifying}
                   selectionColor="#3B82F6"
                 />
               </View>
-              
-              <Text style={styles.verificationNote}>
-                {t('otpVerification.verificationNote')}
-              </Text>
+
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : (
+                <Text style={styles.verificationNote}>
+                  {t('otpVerification.verificationNote')}
+                </Text>
+              )}
             </View>
             
             <View style={styles.actions}>
@@ -259,6 +289,17 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontWeight: "500",
     backgroundColor: "#FFFFFF",
+  },
+  otpInputError: {
+    borderColor: "#EF4444",
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 13,
+    color: "#EF4444",
+    lineHeight: 18,
+    marginTop: 4,
+    textAlign: "center",
   },
   verificationNote: {
     fontSize: 13,

@@ -922,12 +922,6 @@ export default function Dashboard({ onProfilePress, onBackToHome }: DashboardPro
       await fetchData();
       return Promise.resolve();
     } catch (err) {
-      let errorMessage = "Failed to complete service. Please try again.";
-      if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || err.message || errorMessage;
-      }
-      
-      Alert.alert("Error", errorMessage);
       verificationCompletedRef.current = false;
       return Promise.reject(err);
     } finally {

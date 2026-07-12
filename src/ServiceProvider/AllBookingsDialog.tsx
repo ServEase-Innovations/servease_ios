@@ -337,12 +337,6 @@ export function AllBookingsDialog({
       
       return Promise.resolve();
     } catch (err) {
-      let errorMessage = "Failed to complete service. Please try again.";
-      if (axios.isAxiosError(err)) {
-        errorMessage = err.response?.data?.message || err.message || errorMessage;
-      }
-      
-      Alert.alert("Error", errorMessage);
       return Promise.reject(err);
     } finally {
       setVerifyingOtp(false);
