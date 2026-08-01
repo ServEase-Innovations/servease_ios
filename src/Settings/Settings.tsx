@@ -17,13 +17,16 @@ import {
   StatusBar,
   InteractionManager,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from './ThemeContext';
+import { fontSizes, themeOptions, languages } from './settingsConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SecuritySettingsModal from './SecuritySettingsModal';
 import ContactUs from '../ContactUs/ContactUs';
 import AboutUs from '../AboutUs/AboutPage';
 import TnC from '../TermsAndConditions/TnC';
@@ -71,6 +74,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const footerClearance = getMobileTabBarHeight(insets.bottom) + 28;
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [showFontSizeModal, setShowFontSizeModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
@@ -147,72 +151,21 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
 
   const fontStyles = getFontSizeStyles();
 
-  const clearAllPreferences = async () => {
-    Alert.alert(
-      'Reset Settings',
-      'Are you sure you want to reset all settings to default?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.multiRemove([
-                'theme',
-                'fontSize',
-                'language',
-                'notifications',
-                'compactMode',
-              ]);
-              setTheme('light');
-              setFontSize('medium');
-              setLanguage('en');
-              await changeLanguage('en');
-              setNotifications(true);
-              setCompactMode(false);
-            } catch (error) {
-              console.error('Error resetting preferences:', error);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleLanguageChange = async (code: string) => {
     try {
-      // Set loading state
       setIsChangingLanguage(true);
-      
-      // Close the modal immediately to prevent UI blocking
       setShowLanguageModal(false);
       setSearchQuery('');
       
-      // Use InteractionManager to defer language change until after animations complete
       InteractionManager.runAfterInteractions(async () => {
         try {
-          console.log(`🌐 Starting language change to: ${code}`);
-          
-          // Update the language in context first
           setLanguage(code);
-          
-          // Change the language in i18n (this triggers re-renders)
           await changeLanguage(code);
-          
-          console.log(`✅ Language successfully changed to: ${code}`);
-          
-          // Reset loading state
           setIsChangingLanguage(false);
         } catch (error) {
           console.error('❌ Error changing language:', error);
           setIsChangingLanguage(false);
-          
-          Alert.alert(
-            'Language Change Failed',
-            'Failed to change language. Please try again.',
-            [{ text: 'OK' }]
-          );
+          Alert.alert('Language Change Failed', 'Failed to change language. Please try again.', [{ text: 'OK' }]);
         }
       });
     } catch (error) {
@@ -254,7 +207,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     }
   };
 
-  // Setting row
   const SettingItem = ({ icon, label, value, onPress, rightIcon = 'chevron-right', showSwitch = false, switchValue = false, onSwitchChange, isLast = false, iconBg, valueDanger = false }: any) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -328,35 +280,48 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
     </Text>
   );
 
-  // Modal Component
-  const CustomModal = ({ visible, onClose, title, children }: any) => (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+  const CustomModal = ({ visible, onClose, title, icon = "settings", children }: any) => (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
+        <View style={styles.bottomSheetOverlay}>
           <TouchableWithoutFeedback>
             <Animated.View 
               style={[
-                styles.modalContent, 
+                styles.bottomSheetContent, 
                 { 
                   backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                  transform: [{ scale: fadeAnim }],
+                  paddingBottom: insets.bottom + 20,
                 }
               ]}
             >
-              <LinearGradient
-                colors={[...BOOKING_HEADER_GRADIENT]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.modalHeader}
+              <View style={styles.bottomSheetHeader}>
+                <View style={styles.bottomSheetHandle} />
+                <View style={styles.bottomSheetTitleRow}>
+                  <LinearGradient
+                    colors={iconGradient}
+                    style={styles.bottomSheetIconBg}
+                  >
+                    <MaterialIcon name={icon} size={24} color="#ffffff" />
+                  </LinearGradient>
+                  <Text style={[styles.bottomSheetTitle, { color: isDarkMode ? '#f8fafc' : '#1e293b', fontSize: fontStyles.headingSize }]}>
+                    {title}
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={onClose} 
+                    style={styles.bottomSheetCloseBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <MaterialIcon name="close" size={24} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <ScrollView 
+                style={styles.bottomSheetScrollView}
+                showsVerticalScrollIndicator={false}
+                bounces={true}
               >
-                <Text style={[styles.modalTitle, { color: '#ffffff', fontSize: fontStyles.headingSize }]}>
-                  {title}
-                </Text>
-                <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-                  <MaterialIcon name="close" size={22} color="#ffffff" />
-                </TouchableOpacity>
-              </LinearGradient>
-              {children}
+                {children}
+              </ScrollView>
             </Animated.View>
           </TouchableWithoutFeedback>
         </View>
@@ -399,7 +364,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: footerClearance, paddingTop: 8 }}
       >
-        {/* APPEARANCE */}
         <View style={styles.section}>
           <SectionHeader title="Appearance" />
           <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
@@ -428,7 +392,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           </View>
         </View>
 
-        {/* PREFERENCES */}
         <View style={styles.section}>
           <SectionHeader title="Preferences" />
           <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
@@ -452,7 +415,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           </View>
         </View>
 
-        {/* PRIVACY & SECURITY */}
         <View style={styles.section}>
           <SectionHeader title="Privacy & Security" />
           <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
@@ -466,7 +428,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
               icon="security"
               label="Security"
               iconBg={isDarkMode ? '#3b2800' : '#fef3c7'}
-              onPress={() => Alert.alert('Security', 'Manage your security preferences.')}
+              onPress={() => setShowSecurityModal(true)}
             />
             <SettingItem
               icon="gpp-good"
@@ -480,7 +442,6 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
           </View>
         </View>
 
-        {/* ABOUT */}
         <View style={styles.section}>
           <SectionHeader title="About" />
           <View style={[styles.card, { backgroundColor: isDarkMode ? colors.card : '#ffffff' }]}>
@@ -503,8 +464,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         </View>
       </ScrollView>
 
-        {/* Theme Selection Modal */}
-        <CustomModal visible={showThemeModal} onClose={() => setShowThemeModal(false)} title="Select Theme">
+        <CustomModal visible={showThemeModal} onClose={() => setShowThemeModal(false)} title="Select Theme" icon="palette">
           {themeOptions.map((option, idx) => (
             <TouchableOpacity
               key={option.value}
@@ -539,7 +499,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
         </CustomModal>
 
         {/* Font Size Selection Modal */}
-        <CustomModal visible={showFontSizeModal} onClose={() => setShowFontSizeModal(false)} title="Font Size">
+        <CustomModal visible={showFontSizeModal} onClose={() => setShowFontSizeModal(false)} title="Font Size" icon="format-size">
           {fontSizes.map((option, idx) => (
             <TouchableOpacity
               key={option.value}
@@ -756,6 +716,12 @@ const Settings: React.FC<SettingsProps> = ({ onBack }) => {
             </View>
           </View>
         )}
+
+        {/* Security Settings Modal */}
+        <SecuritySettingsModal 
+          visible={showSecurityModal} 
+          onClose={() => setShowSecurityModal(false)} 
+        />
     </View>
   );
 };

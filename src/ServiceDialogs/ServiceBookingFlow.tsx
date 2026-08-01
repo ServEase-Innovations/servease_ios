@@ -492,32 +492,9 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
         ? Math.round(durationHours * 60)
         : 60;
 
-    let cancelled = false;
-    setOnDemandAvailability((prev) => ({ ...prev, loading: true }));
-    checkOnDemandProviderAvailability({
-      latitude: bookingCoords.lat,
-      longitude: bookingCoords.lng,
-      serviceType: cfg.serviceType,
-      startDate,
-      startTime,
-      durationMinutes,
-    })
-      .then((result) => {
-        if (cancelled) return;
-        setOnDemandAvailability({
-          loading: false,
-          available: result.available,
-          message: result.message,
-        });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setOnDemandAvailability({
-          loading: false,
-          available: false,
-          message: "Could not verify provider availability. Please try again.",
-        });
-      });
+    // Bypass provider availability check for On-Demand based on user request.
+    // They should just be able to book without this check.
+    setOnDemandAvailability({ loading: false, available: true });
 
     return () => {
       cancelled = true;

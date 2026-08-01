@@ -504,13 +504,6 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     }
 
     if (isAuthenticated && !isServiceProvider) {
-      tabs.push({
-        key: "ACCOUNT",
-        label: t("navigation.account"),
-        isAccount: true,
-        onPress: handleProfileButtonClick,
-      });
-
       if (isCustomer) {
         tabs.push({
           key: BOOKINGS,
@@ -518,13 +511,14 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           iconName: "event-note",
           onPress: handleDoubleTapRefresh,
         });
-        tabs.push({
-          key: WALLET,
-          label: t("navigation.wallet"),
-          iconName: "account-balance-wallet",
-          onPress: handleWalletClick,
-        });
       }
+
+      tabs.push({
+        key: "ACCOUNT",
+        label: "You",
+        isAccount: true,
+        onPress: handleProfileButtonClick,
+      });
 
       if (isVendor) {
         tabs.push({
@@ -535,21 +529,23 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
         });
       }
 
-      tabs.push({
-        key: SETTINGS,
-        label: t("navigation.settings") || "Settings",
-        iconName: "settings",
-        onPress: handleSettingsOpen,
-      });
+      if (!isCustomer) {
+        tabs.push({
+          key: SETTINGS,
+          label: t("navigation.settings") || "Settings",
+          iconName: "settings",
+          onPress: handleSettingsOpen,
+        });
 
-      tabs.push({
-        key: "SIGN_OUT",
-        label: t("navigation.signOut"),
-        iconName: "logout",
-        variant: "destructive",
-        disabled: isSigningOut,
-        onPress: handleSignOut,
-      });
+        tabs.push({
+          key: "SIGN_OUT",
+          label: t("navigation.signOut"),
+          iconName: "logout",
+          variant: "destructive",
+          disabled: isSigningOut,
+          onPress: handleSignOut,
+        });
+      }
     } else if (!isAuthenticated) {
       tabs.push({
         key: "ACCOUNT",
@@ -648,6 +644,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onWallet={handleWalletClick}
           onContact={onContactClick}
           onOpenSettings={handleSettingsOpen}
+          onLogout={handleSignOut}
           dockAboveTabBar
         />
         <LoginDrawer

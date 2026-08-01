@@ -67,6 +67,8 @@ const ProfileMenuSheet: React.FC<Props> = ({
   onDashboard,
   onContact,
   onOpenSettings,
+  onWallet,
+  onLogout,
   auth0User,
   dockAboveTabBar = false,
 }) => {
@@ -210,7 +212,7 @@ const ProfileMenuSheet: React.FC<Props> = ({
   }> = [
     {
       key: "profile",
-      label: "View profile",
+      label: "Account",
       subtitle: "Personal details & preferences",
       icon: "person-outline",
       onPress: () => {
@@ -219,6 +221,32 @@ const ProfileMenuSheet: React.FC<Props> = ({
       },
     },
   ];
+
+  if (onWallet) {
+    menuItems.push({
+      key: "wallet",
+      label: "Wallet",
+      subtitle: "Manage your funds & transactions",
+      icon: "account-balance-wallet",
+      onPress: () => {
+        dismissSheet();
+        onWallet();
+      },
+    });
+  }
+
+  if (onOpenSettings) {
+    menuItems.push({
+      key: "settings",
+      label: "Settings",
+      subtitle: "App preferences & configurations",
+      icon: "settings",
+      onPress: () => {
+        dismissSheet();
+        onOpenSettings();
+      },
+    });
+  }
 
   if (isAdmin) {
     menuItems.push({
@@ -239,9 +267,22 @@ const ProfileMenuSheet: React.FC<Props> = ({
       label: "Help & contact",
       subtitle: "Reach our support team",
       icon: "support-agent",
-      onPress: handleContactPress, // Updated to use the new handler
-    },
+      onPress: handleContactPress,
+    }
   );
+
+  if (onLogout) {
+    menuItems.push({
+      key: "logout",
+      label: "Sign out",
+      subtitle: "Log out of your account",
+      icon: "logout",
+      onPress: () => {
+        dismissSheet();
+        onLogout();
+      },
+    });
+  }
 
   if (!mounted) {
     return (
