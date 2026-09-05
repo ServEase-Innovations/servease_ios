@@ -70,18 +70,20 @@ npm run android --variant=release
 
 ## Available Endpoints
 
-| Service | Dev Default | Prod Default |
-|---------|-------------|--------------|
-| Payments | `localhost:4100` | `payments-vyqp.onrender.com` |
-| Providers | `localhost:4000` | `providers-*.onrender.com` |
-| Utils | `localhost:3030` | `utils-qhvi.onrender.com` |
-| Preferences | `localhost:3001` | `preferences-6leu.onrender.com` |
-| Reviews | `localhost:5005` | `reviews-4mls.onrender.com` |
-| Tickets | `localhost:5006` | `tickets-1cfe.onrender.com` |
-| Coupons | `localhost:3002` | `coupons-s9zq.onrender.com` |
-| Chat | `localhost:5001` | `chat-b3wl.onrender.com` |
-| Image Uploader | `localhost:5003` | `imageuploader-5njj.onrender.com` |
-| Tracking | `localhost:5007` | `tracking-api.onrender.com` |
+**Note:** Environment variable names match the web app for consistency (all use `REACT_APP_*` prefix).
+
+| Service | Environment Variable | Dev Default | Prod Default |
+|---------|---------------------|-------------|--------------|
+| Payments | `REACT_APP_PAYMENTS_URL` | `localhost:4100` | `payments-vyqp.onrender.com` |
+| Providers | `REACT_APP_PROVIDER_URL` | `localhost:4000` | `providers-*.onrender.com` |
+| Utils | `REACT_APP_UTILS_URL` | `localhost:3030` | `utils-qhvi.onrender.com` |
+| Preferences | `REACT_APP_PREFERENCES_URL` | `localhost:3001` | `preferences-6leu.onrender.com` |
+| Reviews | `REACT_APP_REVIEWS_URL` | `localhost:5005` | `reviews-4mls.onrender.com` |
+| Tickets | `REACT_APP_TICKETS_URL` | `localhost:5006` | `tickets-1cfe.onrender.com` |
+| Coupons | `REACT_APP_COUPONS_URL` | `localhost:3002` | `coupons-s9zq.onrender.com` |
+| Chat | `REACT_APP_CHAT_URL` | `localhost:5001` | `chat-b3wl.onrender.com` |
+| Image Uploader | `REACT_APP_IMAGE_UPLOADER_URL` | `localhost:5003` | `imageuploader-5njj.onrender.com` |
+| Tracking | `REACT_APP_TRACKING_API_URL` | `localhost:5007` | `tracking-api.onrender.com` |
 
 ## Updating Endpoints
 
@@ -101,7 +103,7 @@ const PRODUCTION_URLS = {
 Edit `.env.production`:
 
 ```bash
-PAYMENTS_API_URL=https://your-new-payments-url.com
+REACT_APP_PAYMENTS_URL=https://your-new-payments-url.com
 ```
 
 ## Testing Configuration
