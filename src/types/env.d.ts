@@ -1,0 +1,19 @@
+declare module '@env' {
+  export const REACT_APP_PAYMENTS_URL: string;
+  export const REACT_APP_PROVIDER_URL: string;
+  export const REACT_APP_UTILS_URL: string;
+  export const REACT_APP_PREFERENCES_URL: string;
+  export const REACT_APP_REVIEWS_URL: string;
+  export const REACT_APP_TICKETS_URL: string;
+  export const REACT_APP_COUPONS_URL: string;
+  export const REACT_APP_CHAT_URL: string;
+  export const REACT_APP_IMAGE_UPLOADER_URL: string;
+  export const REACT_APP_TRACKING_API_URL: string;
+  export const REACT_APP_TRACKING_WS_URL: string;
+  export const REACT_APP_GOOGLE_MAPS_API_KEY: string;
+  export const REACT_APP_RAZORPAY_KEY: string;
+  export const REACT_APP_ADMIN_PUSH_SECRET: string;
+  export const REACT_APP_ADMIN_TICKET_SECRET: string;
+  export const REACT_APP_ADMIN_EMAIL: string;
+  export const REACT_APP_CHAT_ADMIN_ID: string;
+}
