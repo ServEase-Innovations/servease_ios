@@ -50,8 +50,9 @@ export const useFieldValidation = () => {
 
       try {
         if (fieldType === "email") {
-          const { data } = await utilsInstance.get(
-            `/customer/check-email?email=${encodeURIComponent(trimmed.toLowerCase())}`
+          const { data } = await providerInstance.post(
+            "/api/service-providers/check-email",
+            { email: trimmed.toLowerCase() }
           );
           const taken = Boolean(data?.exists);
           setValidationResults((prev) => ({
