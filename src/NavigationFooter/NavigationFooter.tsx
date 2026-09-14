@@ -467,6 +467,12 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           onPress: () => onNavigateToPage(SP_EARNINGS),
         },
         {
+          key: WALLET,
+          label: t("navigation.wallet") || "Wallet",
+          iconName: "account-balance-wallet",
+          onPress: () => onNavigateToPage(WALLET),
+        },
+        {
           key: PROFILE,
           label: t("navigation.profile"),
           isAccount: true,
@@ -510,6 +516,13 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           label: t("navigation.bookings"),
           iconName: "event-note",
           onPress: handleDoubleTapRefresh,
+        });
+        
+        tabs.push({
+          key: WALLET,
+          label: t("navigation.wallet") || "Wallet",
+          iconName: "account-balance-wallet",
+          onPress: () => onNavigateToPage(WALLET),
         });
       }
 
