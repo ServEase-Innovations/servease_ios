@@ -155,15 +155,6 @@ const Footer = () => {
             <Text style={[styles.tncText, { color: accentColor }]}>Terms & Conditions</Text>
           </TouchableOpacity>
         </View>
-
-        <LinearGradient
-          colors={[...HOME_HERO_GRADIENT]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.brandStripe}
-        >
-          <Text style={styles.stripeText}>ServEaso — home help you can trust</Text>
-        </LinearGradient>
       </View>
 
       <Modal visible={showTnC} animationType="slide" onRequestClose={() => setShowTnC(false)}>
