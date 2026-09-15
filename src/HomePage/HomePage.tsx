@@ -591,30 +591,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </View>
           </View>
 
-          <View
-            style={[
-              styles.stepsCard,
-              {
-                backgroundColor: isDarkMode ? colors.card : HOME_M3.surfaceContainerLowest,
-                borderColor: isDarkMode ? colors.border : HOME_M3.outlineVariant,
-              },
-            ]}
-          >
-            <Text style={[styles.stepsTitle, { color: colors.text }]}>{t("home.howItWorks.title")}</Text>
-            <View style={styles.stepRow}>
-              <Text style={styles.stepDot}>1</Text>
-              <Text style={[styles.stepText, { color: colors.textSecondary }]}>Choose a service</Text>
-            </View>
-            <View style={styles.stepRow}>
-              <Text style={styles.stepDot}>2</Text>
-              <Text style={[styles.stepText, { color: colors.textSecondary }]}>Select date and time</Text>
-            </View>
-            <View style={styles.stepRow}>
-              <Text style={styles.stepDot}>3</Text>
-              <Text style={[styles.stepText, { color: colors.textSecondary }]}>Confirm and relax</Text>
-            </View>
-          </View>
-
           {!isServiceProvider && (
           <BookingDialog
             open={open}
