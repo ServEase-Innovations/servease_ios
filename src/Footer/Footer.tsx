@@ -105,7 +105,7 @@ const Footer = () => {
           <View style={styles.brandBlock}>
             <View style={[styles.logoRing, { backgroundColor: iconBg, borderColor: cardBorder }]}>
               <Image
-                source={require('../../assets/images/serveasonew.png')}
+                source={require('../../assets/images/new_app_icon_transparent.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -149,27 +149,6 @@ const Footer = () => {
                 </Text>
               </View>
             </TouchableOpacity>
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: cardBorder }]} />
-
-          <Text style={[styles.sectionLabel, { color: mutedColor }]}>Follow us</Text>
-          <View style={styles.socialRow}>
-            {FOOTER_SOCIAL_ORDER.map((key) => {
-              const href = footerSettings.social[key];
-              if (!href) return null;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  accessibilityLabel={SOCIAL_LABEL[key]}
-                  style={[styles.socialButton, { backgroundColor: iconBg, borderColor: cardBorder }]}
-                  onPress={() => openLink(href)}
-                  activeOpacity={0.88}
-                >
-                  {renderSocialIcon(key)}
-                </TouchableOpacity>
-              );
-            })}
           </View>
 
           <TouchableOpacity onPress={() => setShowTnC(true)} hitSlop={8} style={styles.tncBtn}>
