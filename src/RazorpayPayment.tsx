@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import RazorpayCheckout from 'react-native-razorpay';
 import axios from 'axios';
+import { REACT_APP_RAZORPAY_KEY } from '@env';
 
 const RazorpayPayment = () => {
   const [amount, setAmount] = useState<string>('');
@@ -37,7 +38,7 @@ const RazorpayPayment = () => {
         description: 'Test Transaction',
         image: 'https://your-company-logo-url.com/logo.png',
         currency: 'INR',
-        key: 'rzp_test_lTdgjtSRlEwreA', // Replace with your Razorpay key
+        key: REACT_APP_RAZORPAY_KEY, // From environment variable
         amount: numericAmount * 100,
         name: 'Serveaso',
         order_id: orderId,

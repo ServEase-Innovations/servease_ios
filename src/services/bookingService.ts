@@ -98,7 +98,7 @@ export const BookingService = {
         description,
         image: "https://your-logo-url.com/logo.png",
         currency,
-        key: razorpayKeyId || "rzp_test_lTdgjtSRlEwreA",
+        key: razorpayKeyId, // From server response - required
         amount: amountPaise,
         name: "Serveaso",
         order_id: orderId,

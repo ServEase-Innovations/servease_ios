@@ -1305,7 +1305,7 @@ const Booking = forwardRef<BookingRef, BookingProps>(({ onBackToHome, onNavigate
         return;
       }
       const options = {
-        key: razorpay_key_id || 'rzp_test_lTdgjtSRlEwreA',
+        key: razorpay_key_id, // From server response - required
         amount: amountPaise,
         currency: currency || 'INR',
         order_id: razorpay_order_id,
