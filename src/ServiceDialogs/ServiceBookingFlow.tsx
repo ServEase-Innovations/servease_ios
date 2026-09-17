@@ -233,6 +233,16 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
   const needsScheduleAvailabilityCheck = schedulePendingCommit || scheduleIncomplete;
 
   const serviceTotal = quotePreview.total || 0;
+  
+  // DEBUG: Log price and coupon flow
+  console.log('[ServiceBookingFlow] Price & Coupon State:', {
+    serviceTotal,
+    quotePreviewTotal: quotePreview.total,
+    quotePreviewLoading: quotePreview.loading,
+    appliedCouponCode,
+    availableCouponsCount: availableCoupons.length
+  });
+  
   const paymentTotals = useMemo(
     () => computePaymentTotals(serviceTotal),
     [serviceTotal]
@@ -558,6 +568,16 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
             quote: res.quote,
             breakdown: buildQuoteBreakdown(res.quote, total),
           });
+          
+          console.log('[ServiceBookingFlow] Quote loaded:', {
+            total,
+            quoteError: res.quoteError,
+            lineItemsCount: res.quote?.line_items?.length || 0,
+            discounts: res.quote?.discounts || [],
+            appliedCouponCode,
+            breakdown: buildQuoteBreakdown(res.quote, total)
+          });
+          
           if (appliedCouponCode && total > 0) {
             setCouponInfo(`Coupon ${appliedCouponCode} applied`);
           }
