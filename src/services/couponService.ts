@@ -58,24 +58,46 @@ export function couponMatchesServiceType(requestedServiceType: string, couponSer
 }
 
 export function displayCouponSavings(coupon: CustomerCoupon, orderTotal: number): number {
-  let discountAmount = 0;
+  console.log('[displayCouponSavings] Input:', { 
+    code: coupon.code, 
+    discountValue: coupon.discountValue,
+    minimumFinalAmount: coupon.minimumFinalAmount,
+    orderTotal 
+  });
   
-  if (orderTotal > 0) {
-    if (coupon.discountType === "PERCENTAGE") {
-      discountAmount = Math.min((orderTotal * coupon.discountValue) / 100, orderTotal);
-    } else {
-      discountAmount = Math.min(coupon.discountValue, orderTotal);
-    }
-  } else {
-    discountAmount = coupon.discountType === "PERCENTAGE" ? 0 : coupon.discountValue;
+  // If order total is 0 or negative, no discount can be applied
+  if (orderTotal <= 0) {
+    console.log('[displayCouponSavings] Order total is 0, returning 0 discount');
+    return 0;
   }
   
+  let discountAmount = 0;
+  
+  if (coupon.discountType === "PERCENTAGE") {
+    discountAmount = Math.min((orderTotal * coupon.discountValue) / 100, orderTotal);
+  } else {
+    discountAmount = Math.min(coupon.discountValue, orderTotal);
+  }
+  
+  console.log('[displayCouponSavings] Before minimum check:', { discountAmount });
+  
   // If coupon has minimum_final_amount set (e.g., ₹1), cap the discount
-  if (coupon.minimumFinalAmount && coupon.minimumFinalAmount > 0 && orderTotal > 0) {
+  if (coupon.minimumFinalAmount && coupon.minimumFinalAmount > 0) {
     const maxDiscount = orderTotal - coupon.minimumFinalAmount;
     if (maxDiscount > 0) {
       discountAmount = Math.min(discountAmount, maxDiscount);
+    } else {
+      // If order total is less than minimum final amount, no discount
+      discountAmount = 0;
     }
+    console.log('[displayCouponSavings] After minimum check:', { 
+      minimumFinalAmount: coupon.minimumFinalAmount,
+      maxDiscount,
+      discountAmount,
+      finalAmount: orderTotal - discountAmount
+    });
+  } else {
+    console.log('[displayCouponSavings] No minimum_final_amount set');
   }
   
   return discountAmount;
