@@ -8,6 +8,7 @@ export type CustomerCoupon = {
   discountType: "PERCENTAGE" | "FIXED_AMOUNT";
   discountValue: number;
   minimumOrderValue?: number | null;
+  minimumFinalAmount?: number | null;
   description?: string;
   city?: string | null;
 };
@@ -57,14 +58,27 @@ export function couponMatchesServiceType(requestedServiceType: string, couponSer
 }
 
 export function displayCouponSavings(coupon: CustomerCoupon, orderTotal: number): number {
+  let discountAmount = 0;
+  
   if (orderTotal > 0) {
     if (coupon.discountType === "PERCENTAGE") {
-      return Math.min((orderTotal * coupon.discountValue) / 100, orderTotal);
+      discountAmount = Math.min((orderTotal * coupon.discountValue) / 100, orderTotal);
+    } else {
+      discountAmount = Math.min(coupon.discountValue, orderTotal);
     }
-    return Math.min(coupon.discountValue, orderTotal);
+  } else {
+    discountAmount = coupon.discountType === "PERCENTAGE" ? 0 : coupon.discountValue;
   }
-  if (coupon.discountType === "PERCENTAGE") return 0;
-  return coupon.discountValue;
+  
+  // If coupon has minimum_final_amount set (e.g., ₹1), cap the discount
+  if (coupon.minimumFinalAmount && coupon.minimumFinalAmount > 0 && orderTotal > 0) {
+    const maxDiscount = orderTotal - coupon.minimumFinalAmount;
+    if (maxDiscount > 0) {
+      discountAmount = Math.min(discountAmount, maxDiscount);
+    }
+  }
+  
+  return discountAmount;
 }
 
 function unwrapCouponPayload(data: unknown): Record<string, unknown> {
@@ -91,6 +105,8 @@ export function mapCouponsFromApiPayload(data: unknown): CustomerCoupon[] {
         discountValue: Number.isFinite(discountValue) ? discountValue : 0,
         minimumOrderValue:
           c.minimum_order_value != null ? Number(c.minimum_order_value) : null,
+        minimumFinalAmount:
+          c.minimum_final_amount != null ? Number(c.minimum_final_amount) : null,
         description: c.description != null ? String(c.description) : undefined,
         city: c.city != null ? String(c.city) : null,
       };
