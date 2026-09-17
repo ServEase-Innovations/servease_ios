@@ -540,6 +540,13 @@ const ServiceBookingFlow: React.FC<ServiceBookingFlowProps> = ({
       String(effectiveBookingType?.timeRange ?? ""),
       String(effectiveBookingType?.timeSlot ?? "")
     );
+    
+    console.log('[ServiceBookingFlow] Requesting quote with coupon:', {
+      couponCode: appliedCouponCode,
+      customerId,
+      serviceTotal,
+      serviceType: cfg.serviceType
+    });
 
     setQuotePreview((p) => ({ ...p, loading: true, error: undefined, breakdown: [] }));
     let cancelled = false;
