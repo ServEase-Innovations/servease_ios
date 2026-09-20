@@ -43,10 +43,10 @@ export const BOOKING_HEADER_GRADIENT = [...GRADIENTS.bookingHeader];
 
 /** Material-style tokens for customer home (HTML mockup). */
 export const HOME_M3 = {
-  primary: "#001630",
-  primaryContainer: "#0d2b4d",
-  onPrimary: "#ffffff",
-  onPrimaryContainer: "#7993bb",
+  primary: "#00BFFF", // Updated to cyan from t-shirt
+  primaryContainer: "#1DB0E8", // Slightly darker cyan
+  onPrimary: "#ffffff", // White text on cyan
+  onPrimaryContainer: "#ffffff", // Changed from #7993bb for better contrast
   secondary: "#335baf",
   secondaryContainer: "#82a6ff",
   onSecondary: "#ffffff",
@@ -63,7 +63,8 @@ export const HOME_M3 = {
   error: "#ba1a1a",
 } as const;
 
-export const HOME_HERO_GRADIENT = [HOME_M3.primary, HOME_M3.primaryContainer] as const;
+// Updated to match JustLife cyan/turquoise t-shirt color
+export const HOME_HERO_GRADIENT = ["#00BFFF", "#1DB0E8"] as const;
 
 /** MaidBtnPrimary gradient (135deg) */
 export const PRIMARY_BUTTON_GRADIENT = [BRAND.accent, "#2563eb"] as const;
