@@ -327,26 +327,29 @@ const HomePage: React.FC<ChildComponentProps> = ({
       ? t("home.serviceProvider.service.inactiveAlert.accountInactive")
       : t("home.serviceProvider.service.notOffered");
 
-    // Get service-specific colors
+    // Get service-specific colors (unified professional teal/cyan palette)
     const getServiceColors = (serviceKey: ServiceType) => {
       switch (serviceKey) {
         case "COOK":
           return {
             card: HOME_M3.cookCardLight,
             icon: HOME_M3.cookCard,
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#FFF8EF",
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#E0F2FE",
+            borderColor: HOME_M3.cookCard,
           };
         case "MAID":
           return {
             card: HOME_M3.maidCardLight,
             icon: HOME_M3.maidCard,
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#E0F7F5",
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#CFFAFE",
+            borderColor: HOME_M3.maidCard,
           };
         case "NANNY":
           return {
             card: HOME_M3.nannyCardLight,
             icon: HOME_M3.nannyCard,
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#EDE9FE",
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#E0F2FE",
+            borderColor: HOME_M3.nannyCard,
           };
       }
     };
@@ -392,8 +395,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   : "#CBD5E1"
                 : isDarkMode
                   ? colors.border
-                  : serviceColors.icon,
-              borderWidth: isInactive ? 1 : 1.5,
+                  : serviceColors.borderColor,
+              borderWidth: 1,
             },
             isInactive && styles.gridCardInactive,
             showProviderStatus && !isInactive && !isDarkMode && styles.gridCardActive,

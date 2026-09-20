@@ -43,36 +43,36 @@ export const BOOKING_HEADER_GRADIENT = [...GRADIENTS.bookingHeader];
 
 /** Material-style tokens for customer home (HTML mockup). */
 export const HOME_M3 = {
-  primary: "#00BFFF", // Updated to cyan from t-shirt
-  primaryContainer: "#1DB0E8", // Slightly darker cyan
+  primary: "#0891B2", // Professional teal-cyan (less vibrant)
+  primaryContainer: "#06B6D4", // Medium cyan
   onPrimary: "#ffffff", // White text on cyan
-  onPrimaryContainer: "#ffffff", // Changed from #7993bb for better contrast
-  secondary: "#00A5E0", // Harmonious cyan-blue
-  secondaryContainer: "#5DD5F5", // Light cyan for containers
+  onPrimaryContainer: "#F0FDFF", // Very light cyan text
+  secondary: "#0E7490", // Deep professional teal
+  secondaryContainer: "#CFFAFE", // Very light cyan container
   onSecondary: "#ffffff",
-  onSecondaryContainer: "#004B6B", // Deep cyan for text
-  secondaryFixed: "#E0F7FF", // Very light cyan background
-  onSecondaryFixedVariant: "#007BA8", // Medium cyan
-  surface: "#F0FBFF", // Subtle cyan tint for background
-  surfaceContainerLowest: "#ffffff",
-  surfaceContainerLow: "#F5FCFF", // Very light cyan tint
-  onSurface: "#0A2F3D", // Dark cyan-gray for text
-  onSurfaceVariant: "#3D5A66", // Medium cyan-gray
-  outline: "#6B8894", // Muted cyan-gray for borders
-  outlineVariant: "#B8D4DD", // Light cyan-gray
-  error: "#ba1a1a",
+  onSecondaryContainer: "#164E63", // Dark teal text
+  secondaryFixed: "#ECFEFF", // Barely-there cyan tint
+  onSecondaryFixedVariant: "#155E75", // Medium-dark teal
+  surface: "#FAFBFC", // Subtle cool gray
+  surfaceContainerLowest: "#FFFFFF",
+  surfaceContainerLow: "#F8FAFC", // Very light cool gray
+  onSurface: "#1E293B", // Slate gray text
+  onSurfaceVariant: "#475569", // Medium slate
+  outline: "#94A3B8", // Muted slate for borders
+  outlineVariant: "#E2E8F0", // Very light slate
+  error: "#DC2626",
   
-  // Service card specific colors (complementary palette)
-  cookCard: "#FF9F43", // Warm orange for Cook
-  cookCardLight: "#FFF4E6",
-  maidCard: "#4ECDC4", // Teal for Maid/Cleaning
-  maidCardLight: "#E8F8F7",
-  nannyCard: "#A78BFA", // Purple for Nanny/Caregiver
-  nannyCardLight: "#F3F0FF",
+  // Unified professional service card colors (all using teal/cyan variations)
+  cookCard: "#0E7490", // Deep teal
+  cookCardLight: "#F0FDFF", // Very light cyan
+  maidCard: "#06B6D4", // Medium cyan
+  maidCardLight: "#ECFEFF", // Barely cyan
+  nannyCard: "#0891B2", // Standard teal-cyan
+  nannyCardLight: "#F0FDFF", // Very light cyan
 } as const;
 
-// Updated to match JustLife cyan/turquoise t-shirt color
-export const HOME_HERO_GRADIENT = ["#00BFFF", "#1DB0E8"] as const;
+// Professional teal-cyan gradient (inspired by t-shirt but more subdued)
+export const HOME_HERO_GRADIENT = ["#0E7490", "#06B6D4"] as const;
 
 /** MaidBtnPrimary gradient (135deg) */
 export const PRIMARY_BUTTON_GRADIENT = [BRAND.accent, "#2563eb"] as const;
