@@ -327,6 +327,32 @@ const HomePage: React.FC<ChildComponentProps> = ({
       ? t("home.serviceProvider.service.inactiveAlert.accountInactive")
       : t("home.serviceProvider.service.notOffered");
 
+    // Get service-specific colors
+    const getServiceColors = (serviceKey: ServiceType) => {
+      switch (serviceKey) {
+        case "COOK":
+          return {
+            card: HOME_M3.cookCardLight,
+            icon: HOME_M3.cookCard,
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#FFF8EF",
+          };
+        case "MAID":
+          return {
+            card: HOME_M3.maidCardLight,
+            icon: HOME_M3.maidCard,
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#E0F7F5",
+          };
+        case "NANNY":
+          return {
+            card: HOME_M3.nannyCardLight,
+            icon: HOME_M3.nannyCard,
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#EDE9FE",
+          };
+      }
+    };
+
+    const serviceColors = getServiceColors(service.key);
+
     useEffect(() => {
       Animated.timing(opacityAnim, {
         toValue: 1,
@@ -359,14 +385,15 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   : "#F8FAFC"
                 : isDarkMode
                   ? colors.card
-                  : HOME_M3.surfaceContainerLowest,
+                  : serviceColors.card,
               borderColor: isInactive
                 ? isDarkMode
                   ? "#475569"
                   : "#CBD5E1"
                 : isDarkMode
                   ? colors.border
-                  : HOME_M3.outlineVariant,
+                  : serviceColors.icon,
+              borderWidth: isInactive ? 1 : 1.5,
             },
             isInactive && styles.gridCardInactive,
             showProviderStatus && !isInactive && !isDarkMode && styles.gridCardActive,
@@ -377,20 +404,14 @@ const HomePage: React.FC<ChildComponentProps> = ({
               style={[
                 styles.gridIconBox,
                 {
-                  backgroundColor: isInactive
-                    ? isDarkMode
-                      ? "#334155"
-                      : "#E2E8F0"
-                    : isDarkMode
-                      ? colors.surface
-                      : HOME_M3.secondaryFixed,
+                  backgroundColor: serviceColors.iconBg,
                 },
               ]}
             >
               <Icon
                 name={isInactive ? "block" : SERVICE_ICONS[service.key]}
                 size={22}
-                color={isInactive ? "#94A3B8" : HOME_M3.onSecondaryFixedVariant}
+                color={isInactive ? "#94A3B8" : serviceColors.icon}
               />
             </View>
             {showProviderStatus ? (
@@ -440,7 +461,9 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </View>
           ) : !showProviderStatus ? (
             <View style={styles.gridBadgeRow}>
-              <Text style={styles.gridBadge}>⭐ Top Rated</Text>
+              <View style={[styles.gridBadge, { backgroundColor: serviceColors.iconBg }]}>
+                <Text style={[styles.gridBadgeText, { color: serviceColors.icon }]}>⭐ Top Rated</Text>
+              </View>
             </View>
           ) : null}
         </TouchableOpacity>
@@ -794,26 +817,35 @@ const styles = StyleSheet.create({
     color: "#B45309",
   },
   gridBadgeRow: { marginTop: 8 },
-  gridBadge: { fontSize: 11, fontWeight: "600", color: HOME_M3.secondary },
+  gridBadge: { 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 6, 
+    alignSelf: 'flex-start' 
+  },
+  gridBadgeText: { 
+    fontSize: 11, 
+    fontWeight: "600" 
+  },
   emptySearch: { textAlign: "center", marginVertical: 12, fontSize: 14 },
   helperText: { textAlign: "center", marginTop: 12, marginBottom: 8, fontSize: 12 },
   promoWrap: { marginVertical: 12 },
-  statsRow: { flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: HOME_M3.outlineVariant, paddingVertical: 24, marginVertical: 16 },
+  statsRow: { flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: HOME_M3.outlineVariant, paddingVertical: 24, marginVertical: 16, backgroundColor: HOME_M3.surfaceContainerLow },
   statCell: { flex: 1, alignItems: "center" },
   statDivider: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: HOME_M3.outlineVariant },
-  statValue: { fontSize: 18, fontWeight: "700", color: HOME_M3.secondary, marginBottom: 4 },
+  statValue: { fontSize: 18, fontWeight: "700", color: HOME_M3.primary, marginBottom: 4 },
   statLabel: { fontSize: 12, fontWeight: "500", textAlign: "center" },
   helpSection: { alignItems: "center", marginBottom: 20, paddingBottom: 8 },
-  helpTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
+  helpTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12, color: HOME_M3.onSurface },
   helpLinks: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", justifyContent: "center", gap: 8 },
   helpLink: { flexDirection: "row", alignItems: "center", gap: 6 },
-  helpLinkText: { color: HOME_M3.secondary, fontSize: 14, fontWeight: "600" },
+  helpLinkText: { color: HOME_M3.primary, fontSize: 14, fontWeight: "600" },
   helpDivider: { color: HOME_M3.outlineVariant, fontSize: 14 },
-  stepsCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
-  stepsTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
+  stepsCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16, borderColor: HOME_M3.outlineVariant, backgroundColor: HOME_M3.surfaceContainerLowest },
+  stepsTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12, color: HOME_M3.onSurface },
   stepRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  stepDot: { width: 22, height: 22, borderRadius: 11, textAlign: "center", lineHeight: 22, color: "#fff", backgroundColor: HOME_M3.secondary, fontSize: 12, fontWeight: "700" },
-  stepText: { fontSize: 14, fontWeight: "500", flex: 1 },
+  stepDot: { width: 22, height: 22, borderRadius: 11, textAlign: "center", lineHeight: 22, color: "#fff", backgroundColor: HOME_M3.primary, fontSize: 12, fontWeight: "700" },
+  stepText: { fontSize: 14, fontWeight: "500", flex: 1, color: HOME_M3.onSurface },
   dialogOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 1000 },
   dialogBox: { borderRadius: 12, padding: 20, shadowColor: "#0f172a", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
 });

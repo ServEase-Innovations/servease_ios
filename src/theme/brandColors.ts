@@ -47,20 +47,28 @@ export const HOME_M3 = {
   primaryContainer: "#1DB0E8", // Slightly darker cyan
   onPrimary: "#ffffff", // White text on cyan
   onPrimaryContainer: "#ffffff", // Changed from #7993bb for better contrast
-  secondary: "#335baf",
-  secondaryContainer: "#82a6ff",
+  secondary: "#00A5E0", // Harmonious cyan-blue
+  secondaryContainer: "#5DD5F5", // Light cyan for containers
   onSecondary: "#ffffff",
-  onSecondaryContainer: "#00388b",
-  secondaryFixed: "#dae2ff",
-  onSecondaryFixedVariant: "#124296",
-  surface: "#f7f9fb",
+  onSecondaryContainer: "#004B6B", // Deep cyan for text
+  secondaryFixed: "#E0F7FF", // Very light cyan background
+  onSecondaryFixedVariant: "#007BA8", // Medium cyan
+  surface: "#F0FBFF", // Subtle cyan tint for background
   surfaceContainerLowest: "#ffffff",
-  surfaceContainerLow: "#f2f4f6",
-  onSurface: "#191c1e",
-  onSurfaceVariant: "#43474e",
-  outline: "#74777f",
-  outlineVariant: "#c4c6cf",
+  surfaceContainerLow: "#F5FCFF", // Very light cyan tint
+  onSurface: "#0A2F3D", // Dark cyan-gray for text
+  onSurfaceVariant: "#3D5A66", // Medium cyan-gray
+  outline: "#6B8894", // Muted cyan-gray for borders
+  outlineVariant: "#B8D4DD", // Light cyan-gray
   error: "#ba1a1a",
+  
+  // Service card specific colors (complementary palette)
+  cookCard: "#FF9F43", // Warm orange for Cook
+  cookCardLight: "#FFF4E6",
+  maidCard: "#4ECDC4", // Teal for Maid/Cleaning
+  maidCardLight: "#E8F8F7",
+  nannyCard: "#A78BFA", // Purple for Nanny/Caregiver
+  nannyCardLight: "#F3F0FF",
 } as const;
 
 // Updated to match JustLife cyan/turquoise t-shirt color
