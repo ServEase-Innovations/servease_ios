@@ -43,16 +43,16 @@ export const BOOKING_HEADER_GRADIENT = [...GRADIENTS.bookingHeader];
 
 /** Material-style tokens for customer home (HTML mockup). */
 export const HOME_M3 = {
-  primary: "#00BFFF", // Vibrant bright cyan (brand color)
-  primaryContainer: "#1DB0E8", // Brand gradient end
+  primary: "#0099CC", // Deep vibrant cyan (brand color)
+  primaryContainer: "#0088BB", // Deeper cyan
   onPrimary: "#ffffff", // White text on cyan
   onPrimaryContainer: "#F0FDFF", // Very light cyan text
-  secondary: "#0099CC", // Slightly deeper cyan
-  secondaryContainer: "#E0F7FF", // Very light cyan container
+  secondary: "#0077AA", // Rich deep cyan
+  secondaryContainer: "#D5F2FF", // Very light cyan container
   onSecondary: "#ffffff",
-  onSecondaryContainer: "#006699", // Dark cyan text
-  secondaryFixed: "#F0FBFF", // Barely-there cyan tint
-  onSecondaryFixedVariant: "#0077AA", // Medium-dark cyan
+  onSecondaryContainer: "#005580", // Dark cyan text
+  secondaryFixed: "#EBF8FF", // Barely-there cyan tint
+  onSecondaryFixedVariant: "#006699", // Medium-dark cyan
   surface: "#FAFBFC", // Subtle cool gray
   surfaceContainerLowest: "#FFFFFF",
   surfaceContainerLow: "#F8FAFC", // Very light cool gray
@@ -62,17 +62,17 @@ export const HOME_M3 = {
   outlineVariant: "#E2E8F0", // Very light slate
   error: "#DC2626",
   
-  // Service card colors using cyan variations (vibrant yet professional)
-  cookCard: "#00BFFF", // Bright cyan (matches hero)
-  cookCardLight: "#E0F7FF", // Very light cyan
-  maidCard: "#1DB0E8", // Gradient end cyan
-  maidCardLight: "#EBF8FF", // Barely cyan
-  nannyCard: "#0099CC", // Medium cyan
-  nannyCardLight: "#E5F6FF", // Light cyan
+  // Service card colors using deeper cyan variations (vibrant yet professional)
+  cookCard: "#0099CC", // Deep cyan (matches hero)
+  cookCardLight: "#D5F2FF", // Very light cyan
+  maidCard: "#0088BB", // Rich deeper cyan
+  maidCardLight: "#E0F6FF", // Barely cyan
+  nannyCard: "#0077AA", // Medium-deep cyan
+  nannyCardLight: "#EBF8FF", // Light cyan
 } as const;
 
-// Brand cyan gradient from JustLife t-shirt
-export const HOME_HERO_GRADIENT = ["#00BFFF", "#1DB0E8"] as const;
+// Brand cyan gradient from JustLife t-shirt (deeper, more saturated)
+export const HOME_HERO_GRADIENT = ["#0099CC", "#0088BB"] as const;
 
 /** MaidBtnPrimary gradient (135deg) */
 export const PRIMARY_BUTTON_GRADIENT = [BRAND.accent, "#2563eb"] as const;
