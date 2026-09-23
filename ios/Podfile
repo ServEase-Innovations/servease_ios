@@ -23,6 +23,8 @@ else
   use_frameworks! :linkage => :static
 end
 
+use_modular_headers!
+
 target 'Serveaso' do
   config = use_native_modules!
 

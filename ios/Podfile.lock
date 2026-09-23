@@ -2238,6 +2238,30 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - RNSentry (8.27.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNShare (12.2.6):
     - DoubleConversion
     - glog
@@ -2439,6 +2463,7 @@ DEPENDENCIES:
   - RNLocalize (from `../node_modules/react-native-localize`)
   - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNPermissions (from `../node_modules/react-native-permissions`)
+  - "RNSentry (from `../node_modules/@sentry/react-native`)"
   - RNShare (from `../node_modules/react-native-share`)
   - RNSnackbar (from `../node_modules/react-native-snackbar`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -2656,6 +2681,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@notifee/react-native"
   RNPermissions:
     :path: "../node_modules/react-native-permissions"
+  RNSentry:
+    :path: "../node_modules/@sentry/react-native"
   RNShare:
     :path: "../node_modules/react-native-share"
   RNSnackbar:
@@ -2777,6 +2804,7 @@ SPEC CHECKSUMS:
   RNLocalize: bb5d6b59fc1fa71e1fd3594ab93d3bc5921673c6
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: 49a71ab8a1b9b8310c2244f22a08159638f56c24
+  RNSentry: 69ca040e9cae80c3476fe76cc967b0e38de93d38
   RNShare: 5a88df52d752fa0e80fa6de26ef2f6503ff7e2f2
   RNSnackbar: c1b235eb606b03938c693ce769ed3059c31dff9b
   RNSVG: 469b02f125c056241514c7b18444074a27396ae4
@@ -2785,6 +2813,6 @@ SPEC CHECKSUMS:
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 50518ade05048235d91a78b803336dbb5b159d5d
 
-PODFILE CHECKSUM: ef03d0127477ceaab2b764a2de5c44322caf0b8a
+PODFILE CHECKSUM: 0f99de930f81c987cc53a2f31523a6403997741a
 
 COCOAPODS: 1.16.2

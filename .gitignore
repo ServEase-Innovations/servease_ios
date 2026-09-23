@@ -285,6 +285,10 @@ Desktop.ini
 *.bak
 *.old
 
+# Sentry
+ios/sentry.properties
+android/sentry.properties
+
 # Env files (secrets)
 .env
 .env.*

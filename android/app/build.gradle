@@ -47,6 +47,7 @@ def appVersionName = {
     return versionProps.getProperty("VERSION_NAME", "1.0.${appVersionCode()}")
 }
 
+apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion

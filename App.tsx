@@ -1,6 +1,12 @@
 // App.tsx - UPDATED with proper authentication handling for both email and mobile login
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import * as Sentry from '@sentry/react-native';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
+import * as Sentry from "@sentry/react-native";
 import {
   View,
   StyleSheet,
@@ -18,7 +24,11 @@ import {
   Linking,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import config from "./auth0-configuration";
 import { useAuth0PostLogin } from "./src/hooks/useAuth0PostLogin";
@@ -27,7 +37,7 @@ import {
   logAuth0Error,
   runAuth0Authorize,
 } from "./src/utils/auth0Config";
-import { I18nextProvider } from 'react-i18next';
+import { I18nextProvider } from "react-i18next";
 import i18n, { initI18n } from "./i18n";
 
 // Import Theme Provider
@@ -47,9 +57,7 @@ declare global {
 
 import Head, { HEADER_BAR_HEIGHT } from "./src/Header/Header";
 import NavigationFooter from "./src/NavigationFooter/NavigationFooter";
-import {
-  getMobileTabBarHeight,
-} from "./src/Constants/mobileLayout";
+import { getMobileTabBarHeight } from "./src/Constants/mobileLayout";
 import HomePage from "./src/HomePage/HomePage";
 import DetailsView from "./src/DetailsView/DetailsView";
 import Chatbot from "./src/Chatbot/Chatbot";
@@ -62,7 +70,18 @@ import ProfileScreen from "./src/UserProfile/NewProfileScreen";
 import AgentDashboard from "./src/Agent/AgentDashboard";
 import WalletPage from "./src/UserProfile/WalletDialog";
 import Settings from "./src/Settings/Settings";
-import { BOOKINGS, DASHBOARD, PROFILE, SETTINGS, HOME, AGENT_DASHBOARD, WALLET, DETAILS, SP_CALENDAR, SP_EARNINGS } from "./src/Constants/pagesConstants";
+import {
+  BOOKINGS,
+  DASHBOARD,
+  PROFILE,
+  SETTINGS,
+  HOME,
+  AGENT_DASHBOARD,
+  WALLET,
+  DETAILS,
+  SP_CALENDAR,
+  SP_EARNINGS,
+} from "./src/Constants/pagesConstants";
 import { resolveRoleHomeView } from "./src/utils/resolveRoleHomeView";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import NotificationClient from "./src/NotificationClient/NotificationClient";
@@ -146,20 +165,34 @@ const MainApp = () => {
               error: colors.error,
             },
           },
-    [isDarkMode, colors.primary, colors.secondary, colors.background, colors.surface, colors.error]
+    [
+      isDarkMode,
+      colors.primary,
+      colors.secondary,
+      colors.background,
+      colors.surface,
+      colors.error,
+    ]
   );
 
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [currentView, setCurrentView] = useState<string>(HOME);
-  const [bookingInitialTab, setBookingInitialTab] = useState<'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' | undefined>(undefined);
+  const [bookingInitialTab, setBookingInitialTab] = useState<
+    "today" | "upcoming" | "past" | "cancelled" | "pending" | undefined
+  >(undefined);
   const [previousView, setPreviousView] = useState<string>(HOME); // Track where user came from
   const [settingsReturnView, setSettingsReturnView] = useState<string>(HOME);
   const [selectedBookingType, setSelectedBookingType] = useState("");
-  const [showProfileFromDashboard, setShowProfileFromDashboard] = useState(false);
+  const [showProfileFromDashboard, setShowProfileFromDashboard] =
+    useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [isFirstLaunch, setIsFirstLaunch] = useState(true);
-  const [activeToast, setActiveToast] = useState<BookingRequestPayload | null>(null);
-  const [acceptingEngagementId, setAcceptingEngagementId] = useState<number | null>(null);
+  const [activeToast, setActiveToast] = useState<BookingRequestPayload | null>(
+    null
+  );
+  const [acceptingEngagementId, setAcceptingEngagementId] = useState<
+    number | null
+  >(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [showNotificationClient, setShowNotificationClient] = useState(false);
   const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
@@ -167,7 +200,8 @@ const MainApp = () => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const [showSignupDrawer, setShowSignupDrawer] = useState(false);
-  const [showProviderRegistration, setShowProviderRegistration] = useState(false);
+  const [showProviderRegistration, setShowProviderRegistration] =
+    useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [appResetKey, setAppResetKey] = useState(Date.now());
   const [isResetting, setIsResetting] = useState(false);
@@ -181,20 +215,28 @@ const MainApp = () => {
 
   // State to trigger dropdown closing in Header and LocationSelector
   const [closeAllDropdowns, setCloseAllDropdowns] = useState(false);
-  
+
   // Ref for Booking component to enable double-tap refresh
   const bookingsRef = useRef<BookingRef>(null);
-  
+
   // ============= DEEP LINKING STATES =============
   const [deepLinkProcessed, setDeepLinkProcessed] = useState(false);
   const [processingDeepLink, setProcessingDeepLink] = useState(false);
-  const [pendingDeepLink, setPendingDeepLink] = useState<DeepLinkData | null>(null);
+  const [pendingDeepLink, setPendingDeepLink] = useState<DeepLinkData | null>(
+    null
+  );
   const [showDeepLinkLoading, setShowDeepLinkLoading] = useState(false);
 
   const dispatch = useDispatch();
-  const { appUser, setAppUser, clearAppUser, isLoading: isUserLoading } = useAppUser();
+  const {
+    appUser,
+    setAppUser,
+    clearAppUser,
+    isLoading: isUserLoading,
+  } = useAppUser();
   const { showMobileDialog } = useCustomerMobileCheck();
-  const { authorize, getCredentials, clearSession, cancelWebAuth, user } = useAuth0();
+  const { authorize, getCredentials, clearSession, cancelWebAuth, user } =
+    useAuth0();
 
   useAuth0PostLogin({
     onNavigate: (view) => {
@@ -212,9 +254,9 @@ const MainApp = () => {
   // Get font size styles based on settings
   const getFontSizeStyles = () => {
     switch (fontSize) {
-      case 'small':
+      case "small":
         return { textSize: 14, headingSize: 18, smallText: 12 };
-      case 'large':
+      case "large":
         return { textSize: 18, headingSize: 24, smallText: 16 };
       default:
         return { textSize: 16, headingSize: 20, smallText: 14 };
@@ -254,75 +296,86 @@ const MainApp = () => {
 
   // ============= DEEP LINKING IMPLEMENTATION =============
 
-  const processDeepLink = (openBookings: string, customerId: string | null, bookingId: string | null, action: string | null = 'open') => {
+  const processDeepLink = (
+    openBookings: string,
+    customerId: string | null,
+    bookingId: string | null,
+    action: string | null = "open"
+  ) => {
     setProcessingDeepLink(true);
     setShowDeepLinkLoading(true);
-    
+
     if (customerId) {
       global.deepLinkCustomerId = customerId;
       console.log(`📦 Will show ALL bookings for customer #${customerId}`);
     }
-    
+
     if (bookingId) {
       global.deepLinkBookingId = bookingId;
       console.log(`📦 Will open specific booking #${bookingId}`);
     }
-    
+
     global.deepLinkTimestamp = Date.now().toString();
-    global.deepLinkAction = 'drawer';
-    console.log(`📦 Default action set to 'drawer' for automatic drawer opening`);
-    
+    global.deepLinkAction = "drawer";
+    console.log(
+      `📦 Default action set to 'drawer' for automatic drawer opening`
+    );
+
     setCurrentView(BOOKINGS);
     setDeepLinkProcessed(true);
     setPendingDeepLink(null);
     setProcessingDeepLink(false);
-    
+
     setTimeout(() => {
       setShowDeepLinkLoading(false);
     }, 1000);
-    
+
     global.pendingDeepLinkCustomerId = null;
     global.pendingDeepLinkBookingId = null;
     global.pendingDeepLinkTimestamp = null;
     global.pendingDeepLinkAction = null;
-    
-    console.log('✅ Deep link processed successfully with automatic drawer opening');
+
+    console.log(
+      "✅ Deep link processed successfully with automatic drawer opening"
+    );
   };
 
   const checkDeepLink = async (url: string | null) => {
     if (!url || deepLinkProcessed) return;
 
-    console.log('=== DEEP LINK CHECK ===');
-    console.log('Current URL:', url);
-    
+    console.log("=== DEEP LINK CHECK ===");
+    console.log("Current URL:", url);
+
     try {
       const parsedUrl = new URL(url);
       const params = parsedUrl.searchParams;
-      
-      const openBookings = params.get('openBookings');
-      const customerId = params.get('customerId');
-      const bookingId = params.get('bookingId');
-      const action = params.get('action');
-      
-      console.log('openBookings param:', openBookings);
-      console.log('customerId param:', customerId);
-      console.log('bookingId param:', bookingId);
-      console.log('action param:', action);
 
-      if (openBookings === 'true') {
+      const openBookings = params.get("openBookings");
+      const customerId = params.get("customerId");
+      const bookingId = params.get("bookingId");
+      const action = params.get("action");
+
+      console.log("openBookings param:", openBookings);
+      console.log("customerId param:", customerId);
+      console.log("bookingId param:", bookingId);
+      console.log("action param:", action);
+
+      if (openBookings === "true") {
         if (appUser) {
-          console.log('✅ User authenticated, processing deep link now');
+          console.log("✅ User authenticated, processing deep link now");
           processDeepLink(openBookings, customerId, bookingId, action);
         } else {
-          console.log('🔐 User not authenticated, storing deep link for after login');
-          
+          console.log(
+            "🔐 User not authenticated, storing deep link for after login"
+          );
+
           setPendingDeepLink({
             openBookings,
             customerId,
             bookingId,
-            action
+            action,
           });
-          
+
           if (customerId) {
             global.pendingDeepLinkCustomerId = customerId;
           }
@@ -330,16 +383,16 @@ const MainApp = () => {
             global.pendingDeepLinkBookingId = bookingId;
           }
           global.pendingDeepLinkTimestamp = Date.now().toString();
-          
-          const actionToStore = action || 'drawer';
+
+          const actionToStore = action || "drawer";
           global.pendingDeepLinkAction = actionToStore;
           console.log(`📦 Stored pending action: ${actionToStore}`);
-          
+
           setShowSignupDrawer(true);
         }
       }
     } catch (error) {
-      console.error('Error parsing deep link URL:', error);
+      console.error("Error parsing deep link URL:", error);
     }
   };
 
@@ -353,7 +406,7 @@ const MainApp = () => {
 
     getInitialURL();
 
-    const subscription = Linking.addEventListener('url', ({ url }) => {
+    const subscription = Linking.addEventListener("url", ({ url }) => {
       checkDeepLink(url);
     });
 
@@ -365,11 +418,13 @@ const MainApp = () => {
   useEffect(() => {
     if (appUser && !deepLinkProcessed) {
       if (pendingDeepLink) {
-        console.log('🔄 User just logged in, processing pending deep link from state');
+        console.log(
+          "🔄 User just logged in, processing pending deep link from state"
+        );
         processDeepLink(
-          pendingDeepLink.openBookings, 
-          pendingDeepLink.customerId, 
-          pendingDeepLink.bookingId, 
+          pendingDeepLink.openBookings,
+          pendingDeepLink.customerId,
+          pendingDeepLink.bookingId,
           pendingDeepLink.action
         );
       } else {
@@ -377,15 +432,22 @@ const MainApp = () => {
         const pendingBookingId = global.pendingDeepLinkBookingId;
         const pendingTimestamp = global.pendingDeepLinkTimestamp;
         const pendingAction = global.pendingDeepLinkAction;
-        
+
         if ((pendingCustomerId || pendingBookingId) && pendingTimestamp) {
           const now = Date.now();
           const linkTime = parseInt(pendingTimestamp);
           const tenMinutes = 10 * 60 * 1000;
-          
+
           if (now - linkTime < tenMinutes) {
-            console.log('🔄 Found pending deep link in global storage, processing...');
-            processDeepLink('true', pendingCustomerId, pendingBookingId, pendingAction);
+            console.log(
+              "🔄 Found pending deep link in global storage, processing..."
+            );
+            processDeepLink(
+              "true",
+              pendingCustomerId,
+              pendingBookingId,
+              pendingAction
+            );
           } else {
             global.pendingDeepLinkCustomerId = null;
             global.pendingDeepLinkBookingId = null;
@@ -405,14 +467,14 @@ const MainApp = () => {
     }
 
     setIsResetting(true);
-    
+
     try {
       console.log("🔄 ===== STARTING COMPLETE APP RELAUNCH =====");
-      
+
       // Auth0 session and mobile storage are already cleared by the calling function
       // (Header.tsx or NavigationFooter.tsx handleSignOut)
       // No need to clear them again here to avoid double sign-out
-      
+
       console.log("🔄 Resetting all app states...");
       setCurrentView(HOME);
       setChatbotOpen(false);
@@ -426,12 +488,12 @@ const MainApp = () => {
       setShowProviderRegistration(false);
       setShowAgentRegistration(false);
       setActiveToast(null);
-      
+
       setDeepLinkProcessed(false);
       setProcessingDeepLink(false);
       setPendingDeepLink(null);
       setShowDeepLinkLoading(false);
-      
+
       global.deepLinkCustomerId = null;
       global.deepLinkBookingId = null;
       global.deepLinkTimestamp = null;
@@ -440,24 +502,23 @@ const MainApp = () => {
       global.pendingDeepLinkBookingId = null;
       global.pendingDeepLinkTimestamp = null;
       global.pendingDeepLinkAction = null;
-      
+
       if (clearAppUser) {
         await clearAppUser();
         console.log("✅ AppUser context cleared");
       }
-      
+
       disconnectProviderBookingSocket();
       await unregisterPushNotifications();
       console.log("✅ Provider booking socket disconnected");
-      
+
       const newKey = Date.now();
       setAppResetKey(newKey);
       console.log(`✅ App reset key updated: ${newKey}`);
-      
+
       // No splash screen after sign-out - just navigate to HOME
       setIsResetting(false);
       console.log("✅ ===== APP RELAUNCH COMPLETED - Navigating to HOME =====");
-      
     } catch (error) {
       console.error("❌ Error during app relaunch:", error);
       setAppResetKey(Date.now());
@@ -476,7 +537,7 @@ const MainApp = () => {
     } catch (e) {
       logAuth0Error("login failed", e);
       Snackbar.show({
-        text: i18n.t('common.error'),
+        text: i18n.t("common.error"),
         duration: Snackbar.LENGTH_LONG,
         backgroundColor: colors.error,
         textColor: "#ffffff",
@@ -484,18 +545,23 @@ const MainApp = () => {
     }
   };
 
-  const { height, width } = Dimensions.get('window');
+  const { height, width } = Dimensions.get("window");
   const isMobile = width < 768;
-  const mobileTabBarClearance = isMobile ? getMobileTabBarHeight(safeBottom) : 0;
+  const mobileTabBarClearance = isMobile
+    ? getMobileTabBarHeight(safeBottom)
+    : 0;
   const needsMobileTabBarScrollInset =
-    isMobile && currentView !== BOOKINGS && currentView !== WALLET && currentView !== SETTINGS;
+    isMobile &&
+    currentView !== BOOKINGS &&
+    currentView !== WALLET &&
+    currentView !== SETTINGS;
 
   const handleRegisterAs = (type: "USER" | "PROVIDER" | "AGENT") => {
     setShowSignupDrawer(false);
 
     switch (type) {
       case "USER":
-        handleAuth0Login();   
+        handleAuth0Login();
         setCurrentView(HOME);
         break;
 
@@ -512,9 +578,9 @@ const MainApp = () => {
   const handleProviderRegistrationSuccess = () => {
     console.log("✅ Provider registration successful");
     setShowProviderRegistration(false);
-    
+
     Snackbar.show({
-      text: i18n.t('common.success'),
+      text: i18n.t("common.success"),
       duration: Snackbar.LENGTH_LONG,
       backgroundColor: colors.success,
       textColor: "#ffffff",
@@ -547,7 +613,10 @@ const MainApp = () => {
 
   // Monitor appUser changes
   useEffect(() => {
-    console.log("🔄 AppUser changed in App.tsx:", appUser ? `Logged in as ${appUser.role} - ${appUser.name}` : "Logged out");
+    console.log(
+      "🔄 AppUser changed in App.tsx:",
+      appUser ? `Logged in as ${appUser.role} - ${appUser.name}` : "Logged out"
+    );
 
     if (!appUser) {
       console.log("👤 No user detected, resetting to HOME view");
@@ -654,7 +723,9 @@ const MainApp = () => {
 
   const getPricingData = async () => {
     try {
-      const response = await axios.get(`https://utils-ndt3.onrender.com/records`);
+      const response = await axios.get(
+        `https://utils-ndt3.onrender.com/records`
+      );
       dispatch(add(response.data));
       console.log("Pricing Data:", response.data);
     } catch (error) {
@@ -674,10 +745,15 @@ const MainApp = () => {
     (async () => {
       try {
         const res = await axios.get(
-          `https://utils-ndt3.onrender.com/customer/check-email?email=${encodeURIComponent(email)}`
+          `https://utils-ndt3.onrender.com/customer/check-email?email=${encodeURIComponent(
+            email
+          )}`
         );
         if (cancelled) return;
-        if (res.data?.user_role === "SERVICE_PROVIDER" && res.data?.id != null) {
+        if (
+          res.data?.user_role === "SERVICE_PROVIDER" &&
+          res.data?.id != null
+        ) {
           setAppUser({
             ...appUser,
             role: "SERVICE_PROVIDER",
@@ -695,10 +771,13 @@ const MainApp = () => {
     };
   }, [appUser, isUserLoading, setAppUser]);
 
-  const onProviderBookingRequest = useCallback((payload: BookingRequestPayload) => {
-    setAcceptError(null);
-    setActiveToast(payload);
-  }, []);
+  const onProviderBookingRequest = useCallback(
+    (payload: BookingRequestPayload) => {
+      setAcceptError(null);
+      setActiveToast(payload);
+    },
+    []
+  );
 
   const onProviderBookingClosed = useCallback((engagementId: number) => {
     setActiveToast((cur) => {
@@ -788,19 +867,25 @@ const MainApp = () => {
     setAcceptError(null);
   };
 
-  const handleViewChange = (view: string, data?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => {
+  const handleViewChange = (
+    view: string,
+    data?: {
+      bookingDate?: string;
+      initialTab?: "today" | "upcoming" | "past" | "cancelled" | "pending";
+    }
+  ) => {
     if (view === "" || view === "FORCE_HOME") {
       navigateToRoleHome();
     } else {
       // If navigating to bookings with a specific tab, store it
       if (view === BOOKINGS && data?.initialTab) {
-        console.log('📍 Setting booking initial tab to:', data.initialTab);
+        console.log("📍 Setting booking initial tab to:", data.initialTab);
         setBookingInitialTab(data.initialTab);
       } else if (view !== BOOKINGS) {
         // Reset when navigating away from bookings
         setBookingInitialTab(undefined);
       }
-      
+
       // Track previous view before changing
       setPreviousView(currentView);
       setCurrentView(view);
@@ -835,11 +920,11 @@ const MainApp = () => {
   };
 
   const handleAboutClick = () => {
-    Alert.alert(i18n.t('about.title'), i18n.t('about.description'));
+    Alert.alert(i18n.t("about.title"), i18n.t("about.description"));
   };
 
   const handleContactClick = () => {
-    Alert.alert(i18n.t('contact.title'), i18n.t('contact.description'));
+    Alert.alert(i18n.t("contact.title"), i18n.t("contact.description"));
   };
 
   // renderContent function with ref forwarding for Booking
@@ -857,7 +942,7 @@ const MainApp = () => {
             />
           </View>
         );
-        
+
       case BOOKINGS:
         return (
           <Booking
@@ -871,20 +956,28 @@ const MainApp = () => {
             initialTab={bookingInitialTab}
           />
         );
-        
+
       case WALLET:
-        return <WalletPage onBack={() => {
-          // Return to where user came from (e.g., BOOKINGS)
-          if (previousView === BOOKINGS || previousView === DASHBOARD || previousView === AGENT_DASHBOARD) {
-            setCurrentView(previousView);
-          } else {
-            navigateToRoleHome();
-          }
-        }} />;
-        
+        return (
+          <WalletPage
+            onBack={() => {
+              // Return to where user came from (e.g., BOOKINGS)
+              if (
+                previousView === BOOKINGS ||
+                previousView === DASHBOARD ||
+                previousView === AGENT_DASHBOARD
+              ) {
+                setCurrentView(previousView);
+              } else {
+                navigateToRoleHome();
+              }
+            }}
+          />
+        );
+
       case DASHBOARD:
         return (
-          <Dashboard 
+          <Dashboard
             onBackToHome={navigateToRoleHome}
             onLogoPress={handleHomeClick}
             closeDropdowns={closeAllDropdowns}
@@ -896,10 +989,10 @@ const MainApp = () => {
 
       case SP_EARNINGS:
         return <ProviderEarningsScreen />;
-        
+
       case AGENT_DASHBOARD:
         return <AgentDashboard />;
-        
+
       case PROFILE:
         return (
           <ProfileScreen
@@ -916,17 +1009,29 @@ const MainApp = () => {
 
       case SETTINGS:
         return <Settings onBack={() => setCurrentView(settingsReturnView)} />;
-        
+
       default:
-        return <DetailsView sendDataToParent={handleViewChange} selected={selectedBookingType} />;
+        return (
+          <DetailsView
+            sendDataToParent={handleViewChange}
+            selected={selectedBookingType}
+          />
+        );
     }
   };
 
   // Loading Screen - Check for user loading state
   if (isUserLoading || showSplash) {
     return (
-      <Animated.View key={`splash-${appResetKey}`} style={[styles.splashContainer, { opacity: fadeAnim }]}>
-        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <Animated.View
+        key={`splash-${appResetKey}`}
+        style={[styles.splashContainer, { opacity: fadeAnim }]}
+      >
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle="light-content"
+        />
         <BrandLoadingScreen />
       </Animated.View>
     );
@@ -934,283 +1039,336 @@ const MainApp = () => {
 
   return (
     <PaperProvider theme={paperTheme}>
-        <StatusBar
-          translucent
-          backgroundColor="transparent"
-          barStyle={statusBarStyle}
-        />
-        <SafeAreaView
-          style={[
-            styles.safeArea,
-            {
-              backgroundColor: usesDarkHeroSafeArea
-                ? HOME_M3.primary
-                : currentView === SP_EARNINGS
-                  ? HOME_M3.primary
-                  : currentView === BOOKINGS ||
-                    currentView === WALLET ||
-                    currentView === SETTINGS
-                  ? colors.background
-                  : currentView === PROFILE
-                  ? HOME_M3.primary
-                  : colors.chromeEnd,
-            },
-          ]}
-          edges={usesDarkHeroSafeArea || currentView === PROFILE || currentView === SP_EARNINGS ? [] : ["top"]}
-          key={`app-${appResetKey}`}
-        >
-          <View style={{ flex: 1 }}>
-              {/* Deep linking loading overlay */}
-              {showDeepLinkLoading && (
-                <View style={[styles.deepLinkLoadingOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-                  <View style={[styles.deepLinkLoadingContainer, { backgroundColor: colors.surface }]}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={[styles.deepLinkLoadingText, { color: colors.text, fontSize: fontStyles.textSize }]}>
-                      {i18n.t('common.openingBooking')}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
-              {currentView !== HOME &&
-                currentView !== BOOKINGS &&
-                currentView !== WALLET &&
-                currentView !== PROFILE &&
-                currentView !== SETTINGS &&
-                currentView !== DASHBOARD &&
-                currentView !== SP_CALENDAR &&
-                currentView !== SP_EARNINGS &&
-                currentView !== AGENT_DASHBOARD && (
-                <View style={[styles.headerWrapper, { backgroundColor: colors.chromeEnd }]}>
-                  <Head
-                    sendDataToParent={handleViewChange}
-                    bookingType={selectedBookingType}
-                    onAboutClick={handleAboutClick}
-                    onContactClick={handleContactClick}
-                    onLogoClick={handleHomeClick}
-                    closeDropdowns={closeAllDropdowns}
-                    onSignOutComplete={handleAppRelaunchAfterSignOut}
-                  />
-                </View>
-              )}
-
-              {/* Scrollable Content Area */}
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={statusBarStyle}
+      />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: usesDarkHeroSafeArea
+              ? HOME_M3.primary
+              : currentView === SP_EARNINGS
+              ? HOME_M3.primary
+              : currentView === BOOKINGS ||
+                currentView === WALLET ||
+                currentView === SETTINGS
+              ? colors.background
+              : currentView === PROFILE
+              ? HOME_M3.primary
+              : colors.chromeEnd,
+          },
+        ]}
+        edges={
+          usesDarkHeroSafeArea ||
+          currentView === PROFILE ||
+          currentView === SP_EARNINGS
+            ? []
+            : ["top"]
+        }
+        key={`app-${appResetKey}`}
+      >
+        <View style={{ flex: 1 }}>
+          {/* Deep linking loading overlay */}
+          {showDeepLinkLoading && (
+            <View
+              style={[
+                styles.deepLinkLoadingOverlay,
+                { backgroundColor: "rgba(0,0,0,0.5)" },
+              ]}
+            >
               <View
                 style={[
-                  styles.contentContainer,
-                  {
-                    backgroundColor:
-                      currentView === HOME ||
-                      currentView === DASHBOARD ||
-                      currentView === SP_CALENDAR ||
-                      currentView === SP_EARNINGS
-                        ? HOME_M3.surface
-                        : colors.background,
+                  styles.deepLinkLoadingContainer,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text
+                  style={[
+                    styles.deepLinkLoadingText,
+                    { color: colors.text, fontSize: fontStyles.textSize },
+                  ]}
+                >
+                  {i18n.t("common.openingBooking")}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Bookings uses its own in-screen header — avoid double header / layout shift */}
+          {currentView !== HOME &&
+            currentView !== BOOKINGS &&
+            currentView !== WALLET &&
+            currentView !== PROFILE &&
+            currentView !== SETTINGS &&
+            currentView !== DASHBOARD &&
+            currentView !== SP_CALENDAR &&
+            currentView !== SP_EARNINGS &&
+            currentView !== AGENT_DASHBOARD && (
+              <View
+                style={[
+                  styles.headerWrapper,
+                  { backgroundColor: colors.chromeEnd },
+                ]}
+              >
+                <Head
+                  sendDataToParent={handleViewChange}
+                  bookingType={selectedBookingType}
+                  onAboutClick={handleAboutClick}
+                  onContactClick={handleContactClick}
+                  onLogoClick={handleHomeClick}
+                  closeDropdowns={closeAllDropdowns}
+                  onSignOutComplete={handleAppRelaunchAfterSignOut}
+                />
+              </View>
+            )}
+
+          {/* Scrollable Content Area */}
+          <View
+            style={[
+              styles.contentContainer,
+              {
+                backgroundColor:
+                  currentView === HOME ||
+                  currentView === DASHBOARD ||
+                  currentView === SP_CALENDAR ||
+                  currentView === SP_EARNINGS
+                    ? HOME_M3.surface
+                    : colors.background,
+              },
+              (currentView === HOME ||
+                currentView === DASHBOARD ||
+                currentView === SP_CALENDAR ||
+                currentView === SP_EARNINGS ||
+                currentView === BOOKINGS ||
+                currentView === WALLET ||
+                currentView === PROFILE ||
+                currentView === SETTINGS) &&
+                styles.contentContainerFullScreen,
+            ]}
+          >
+            {shouldRenderWithoutParentScroll ? (
+              <View
+                style={[
+                  styles.mainScrollView,
+                  needsMobileTabBarScrollInset && {
+                    paddingBottom: mobileTabBarClearance,
                   },
-                  (currentView === HOME ||
+                ]}
+              >
+                {renderContent()}
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.mainScrollView}
+                contentContainerStyle={[
+                  styles.scrollContent,
+                  isMobile && styles.scrollContentMobile,
+                  needsMobileTabBarScrollInset && {
+                    paddingBottom: mobileTabBarClearance,
+                  },
+                  (currentView === BOOKINGS ||
                     currentView === DASHBOARD ||
                     currentView === SP_CALENDAR ||
                     currentView === SP_EARNINGS ||
-                    currentView === BOOKINGS ||
-                    currentView === WALLET ||
-                    currentView === PROFILE ||
-                    currentView === SETTINGS) &&
-                    styles.contentContainerFullScreen,
+                    currentView === AGENT_DASHBOARD) &&
+                    styles.fullScreenScrollContent,
+                ]}
+                contentInsetAdjustmentBehavior="automatic"
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
+                {renderContent()}
+              </ScrollView>
+            )}
+          </View>
+
+          {/* Fixed Navigation Footer for Mobile */}
+          {isMobile && (
+            <View style={styles.navigationFooterContainer}>
+              <NavigationFooter
+                activePage={currentView}
+                onHomeClick={handleHomeClick}
+                onBookingsClick={handleBookingsClick}
+                onDashboardClick={handleDashboardClick}
+                onAboutClick={handleAboutClick}
+                onContactClick={handleContactClick}
+                auth0User={user}
+                appUser={appUser}
+                bookingType={selectedBookingType}
+                onOpenSignup={() => setShowSignupDrawer(true)}
+                onNavigateToPage={(page: string) => {
+                  if (page === PROFILE) {
+                    setCurrentView(PROFILE);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === BOOKINGS) {
+                    setCurrentView(BOOKINGS);
+                  } else if (page === DASHBOARD) {
+                    setCurrentView(DASHBOARD);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === SP_CALENDAR) {
+                    setCurrentView(SP_CALENDAR);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === SP_EARNINGS) {
+                    setCurrentView(SP_EARNINGS);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === AGENT_DASHBOARD) {
+                    setCurrentView(AGENT_DASHBOARD);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === WALLET) {
+                    setPreviousView(currentView); // Track where we came from
+                    setCurrentView(WALLET);
+                    setShowProfileFromDashboard(false);
+                  } else if (page === HOME) {
+                    setCurrentView(resolveRoleHomeView(appUser?.role));
+                    setShowProfileFromDashboard(false);
+                  } else if (page === SETTINGS) {
+                    setSettingsReturnView(currentView);
+                    setCurrentView(SETTINGS);
+                  }
+                }}
+                onSignOutComplete={handleAppRelaunchAfterSignOut}
+                bookingsRef={bookingsRef}
+              />
+            </View>
+          )}
+        </View>
+
+        {!chatbotOpen && isMobile && (
+          <ChatbotButton
+            bottomInset={mobileTabBarClearance + 20}
+            onPress={() => setChatbotOpen(true)}
+          />
+        )}
+
+        {/* Modals and Dialogs */}
+        {mobileDialogOpen && (appUser?.customerid ?? appUser?.customerId) && (
+          <MobileNumberDialog
+            visible={mobileDialogOpen}
+            onClose={() => setMobileDialogOpen(false)}
+            customerId={appUser?.customerid ?? appUser?.customerId}
+            onSuccess={handleMobileDialogSuccess}
+          />
+        )}
+
+        {/* Signup Drawer */}
+        <SignupDrawer
+          visible={showSignupDrawer}
+          onClose={() => setShowSignupDrawer(false)}
+          onUser={() => {
+            setShowSignupDrawer(false);
+            handleRegisterAs("USER");
+          }}
+          onProvider={() => {
+            setShowSignupDrawer(false);
+            handleRegisterAs("PROVIDER");
+          }}
+          onAgent={() => {
+            setShowSignupDrawer(false);
+            handleRegisterAs("AGENT");
+          }}
+        />
+
+        {/* Provider Registration - Direct component rendering */}
+        {showProviderRegistration && (
+          <ServiceProviderRegistration
+            onBackToLogin={handleProviderBackToLogin}
+            onRegistrationSuccess={handleProviderRegistrationSuccess}
+          />
+        )}
+
+        {/* Agent Registration - Direct rendering, no extra Modal */}
+        {showAgentRegistration && (
+          <AgentRegistrationForm
+            onBackToLogin={() => setShowAgentRegistration(false)}
+            onClose={() => setShowAgentRegistration(false)}
+          />
+        )}
+
+        {/* Notification Client Modal */}
+        <Modal
+          visible={showNotificationClient}
+          animationType="slide"
+          onRequestClose={() => setShowNotificationClient(false)}
+        >
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View
+              style={[
+                styles.modalHeader,
+                {
+                  backgroundColor: colors.headerBackground,
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowNotificationClient(false)}
+              >
+                <Icon name="close" size={24} color={colors.headerText} />
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {
+                    color: colors.headerText,
+                    fontSize: fontStyles.headingSize,
+                  },
                 ]}
               >
-                {shouldRenderWithoutParentScroll ? (
-                  <View
-                    style={[
-                      styles.mainScrollView,
-                      needsMobileTabBarScrollInset && {
-                        paddingBottom: mobileTabBarClearance,
-                      },
-                    ]}
-                  >
-                    {renderContent()}
-                  </View>
-                ) : (
-                  <ScrollView
-                    style={styles.mainScrollView}
-                    contentContainerStyle={[
-                      styles.scrollContent,
-                      isMobile && styles.scrollContentMobile,
-                      needsMobileTabBarScrollInset && {
-                        paddingBottom: mobileTabBarClearance,
-                      },
-                      (currentView === BOOKINGS ||
-                        currentView === DASHBOARD ||
-                        currentView === SP_CALENDAR ||
-                        currentView === SP_EARNINGS ||
-                        currentView === AGENT_DASHBOARD) &&
-                        styles.fullScreenScrollContent,
-                    ]}
-                    contentInsetAdjustmentBehavior="automatic"
-                    keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled
-                  >
-                    {renderContent()}
-                  </ScrollView>
-                )}
-              </View>
-
-              {/* Fixed Navigation Footer for Mobile */}
-              {isMobile && (
-                <View style={styles.navigationFooterContainer}>
-                  <NavigationFooter
-                    activePage={currentView}
-                    onHomeClick={handleHomeClick}
-                    onBookingsClick={handleBookingsClick}
-                    onDashboardClick={handleDashboardClick}
-                    onAboutClick={handleAboutClick}
-                    onContactClick={handleContactClick}
-                    auth0User={user}
-                    appUser={appUser}
-                    bookingType={selectedBookingType}
-                    onOpenSignup={() => setShowSignupDrawer(true)}
-                    onNavigateToPage={(page: string) => {
-                      if (page === PROFILE) {
-                        setCurrentView(PROFILE);
-                        setShowProfileFromDashboard(false);
-                      } else if (page === BOOKINGS) {
-                        setCurrentView(BOOKINGS);
-                      } else if (page === DASHBOARD) {
-                        setCurrentView(DASHBOARD);
-                        setShowProfileFromDashboard(false);
-                      } else if (page === SP_CALENDAR) {
-                        setCurrentView(SP_CALENDAR);
-                        setShowProfileFromDashboard(false);
-                      } else if (page === SP_EARNINGS) {
-                        setCurrentView(SP_EARNINGS);
-                        setShowProfileFromDashboard(false);
-                      } else if (page === AGENT_DASHBOARD) {
-                        setCurrentView(AGENT_DASHBOARD);
-                        setShowProfileFromDashboard(false);
-                      } else if (page === WALLET) {
-                        setPreviousView(currentView); // Track where we came from
-                        setCurrentView(WALLET);
-                        setShowProfileFromDashboard(false);
-                      } else if (page === HOME) {
-                        setCurrentView(resolveRoleHomeView(appUser?.role));
-                        setShowProfileFromDashboard(false);
-                      } else if (page === SETTINGS) {
-                        setSettingsReturnView(currentView);
-                        setCurrentView(SETTINGS);
-                      }
-                    }}
-                    onSignOutComplete={handleAppRelaunchAfterSignOut}
-                    bookingsRef={bookingsRef}
-                  />
-
-                </View>
-              )}
+                {i18n.t("common.notifications")}
+              </Text>
             </View>
+            <NotificationClient />
+          </View>
+        </Modal>
 
-          {!chatbotOpen && isMobile && (
-            <ChatbotButton
-              bottomInset={mobileTabBarClearance + 20}
-              onPress={() => setChatbotOpen(true)}
-            />
-          )}
+        {/* Notifications Dialog */}
+        <NotificationsDialog
+          visible={showNotifications}
+          onClose={() => setShowNotifications(false)}
+        />
 
-          {/* Modals and Dialogs */}
-          {mobileDialogOpen && (appUser?.customerid ?? appUser?.customerId) && (
-            <MobileNumberDialog
-              visible={mobileDialogOpen}
-              onClose={() => setMobileDialogOpen(false)}
-              customerId={appUser?.customerid ?? appUser?.customerId}
-              onSuccess={handleMobileDialogSuccess}
-            />
-          )}
+        {/* Chatbot */}
+        <Chatbot open={chatbotOpen} onClose={() => setChatbotOpen(false)} />
 
-          {/* Signup Drawer */}
-          <SignupDrawer
-            visible={showSignupDrawer}
-            onClose={() => setShowSignupDrawer(false)}
-            onUser={() => {
-              setShowSignupDrawer(false);
-              handleRegisterAs("USER");
-            }}
-            onProvider={() => {
-              setShowSignupDrawer(false);
-              handleRegisterAs("PROVIDER");
-            }}
-            onAgent={() => {
-              setShowSignupDrawer(false);
-              handleRegisterAs("AGENT");
-            }}
-          />
-
-          {/* Provider Registration - Direct component rendering */}
-          {showProviderRegistration && (
-            <ServiceProviderRegistration
-              onBackToLogin={handleProviderBackToLogin}
-              onRegistrationSuccess={handleProviderRegistrationSuccess}
-            />
-          )}
-
-          {/* Agent Registration - Direct rendering, no extra Modal */}
-          {showAgentRegistration && (
-            <AgentRegistrationForm
-              onBackToLogin={() => setShowAgentRegistration(false)}
-              onClose={() => setShowAgentRegistration(false)}
-            />
-          )}
-
-          {/* Notification Client Modal */}
-          <Modal
-            visible={showNotificationClient}
-            animationType="slide"
-            onRequestClose={() => setShowNotificationClient(false)}
-          >
-            <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-              <View style={[styles.modalHeader, { backgroundColor: colors.headerBackground, borderBottomColor: colors.border }]}>
-                <TouchableOpacity style={styles.closeButton} onPress={() => setShowNotificationClient(false)}>
-                  <Icon name="close" size={24} color={colors.headerText} />
-                </TouchableOpacity>
-                <Text style={[styles.modalTitle, { color: colors.headerText, fontSize: fontStyles.headingSize }]}>
-                  {i18n.t('common.notifications')}
-                </Text>
-              </View>
-              <NotificationClient />
-            </View>
-          </Modal>
-
-          {/* Notifications Dialog */}
-          <NotificationsDialog 
-            visible={showNotifications} 
-            onClose={() => setShowNotifications(false)} 
-          />
-
-          {/* Chatbot */}
-          <Chatbot open={chatbotOpen} onClose={() => setChatbotOpen(false)} />
-
-          {/* SP on-demand booking: Accept / Decline popup (not the header bell) */}
-          {activeToast && (
-            <BookingRequestToast
-              engagement={activeToast}
-              onAccept={handleAccept}
-              onReject={handleReject}
-              onClose={() => {
-                const eid = parseEngagementId(activeToast.engagement_id);
-                const providerId = resolveServiceProviderId(appUser);
-                if (eid != null && providerId != null) {
-                  void dismissProviderNewBookingNotifications(eid, providerId).finally(() => {
-                    clearProviderBookingEngagement(eid);
-                  });
-                }
-                setActiveToast(null);
-                setAcceptError(null);
-              }}
-              visible={!!activeToast}
-              actionBusy={
-                parseEngagementId(activeToast.engagement_id) === acceptingEngagementId
+        {/* SP on-demand booking: Accept / Decline popup (not the header bell) */}
+        {activeToast && (
+          <BookingRequestToast
+            engagement={activeToast}
+            onAccept={handleAccept}
+            onReject={handleReject}
+            onClose={() => {
+              const eid = parseEngagementId(activeToast.engagement_id);
+              const providerId = resolveServiceProviderId(appUser);
+              if (eid != null && providerId != null) {
+                void dismissProviderNewBookingNotifications(
+                  eid,
+                  providerId
+                ).finally(() => {
+                  clearProviderBookingEngagement(eid);
+                });
               }
-              acceptError={acceptError}
-            />
-          )}
-        </SafeAreaView>
+              setActiveToast(null);
+              setAcceptError(null);
+            }}
+            visible={!!activeToast}
+            actionBusy={
+              parseEngagementId(activeToast.engagement_id) ===
+              acceptingEngagementId
+            }
+            acceptError={acceptError}
+          />
+        )}
+      </SafeAreaView>
     </PaperProvider>
   );
 };
@@ -1220,25 +1378,35 @@ const App = () => {
   const [i18nInitialized, setI18nInitialized] = useState(false);
 
   useEffect(() => {
-    initI18n().then(() => {
-      setI18nInitialized(true);
-    }).catch((error) => {
-      console.error('Failed to initialize i18n:', error);
-      setI18nInitialized(true);
-    });
+    initI18n()
+      .then(() => {
+        setI18nInitialized(true);
+      })
+      .catch((error) => {
+        console.error("Failed to initialize i18n:", error);
+        setI18nInitialized(true);
+      });
   }, []);
 
   if (!i18nInitialized) {
     return (
       <View style={{ flex: 1 }}>
-        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle="light-content"
+        />
         <BrandLoadingScreen subtitle="Preparing language and app setup for you" />
       </View>
     );
   }
 
   return (
-    <Auth0Provider domain={config.domain} clientId={config.clientId} useDPoP={false}>
+    <Auth0Provider
+      domain={config.domain}
+      clientId={config.clientId}
+      useDPoP={false}
+    >
       <AppUserProvider>
         <ThemeProvider>
           <I18nextProvider i18n={i18n}>
@@ -1265,8 +1433,8 @@ const styles = StyleSheet.create({
     zIndex: 50,
     overflow: "visible",
   },
-  homeContainer: { 
-    flex: 1 
+  homeContainer: {
+    flex: 1,
   },
   contentContainer: {
     flex: 1,
@@ -1276,12 +1444,12 @@ const styles = StyleSheet.create({
     marginTop: 0,
     paddingBottom: 0,
   },
-  mainScrollView: { 
-    flex: 1 
+  mainScrollView: {
+    flex: 1,
   },
-  scrollContent: { 
-    flexGrow: 1, 
-    justifyContent: "space-between", 
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "space-between",
     minHeight: "100%",
   },
   scrollContentMobile: {
@@ -1289,25 +1457,25 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     minHeight: undefined,
   },
-  fullScreenScrollContent: { 
-    paddingBottom: 0 
+  fullScreenScrollContent: {
+    paddingBottom: 0,
   },
-  modalContainer: { 
-    flex: 1, 
+  modalContainer: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    paddingTop: Platform.OS === 'ios' ? 50 : 16,
+    paddingTop: Platform.OS === "ios" ? 50 : 16,
   },
-  closeButton: { 
-    padding: 4 
+  closeButton: {
+    padding: 4,
   },
-  modalTitle: { 
-    fontWeight: "bold", 
-    marginLeft: 16, 
+  modalTitle: {
+    fontWeight: "bold",
+    marginLeft: 16,
   },
   navigationFooterContainer: {
     position: "absolute",
@@ -1319,20 +1487,20 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   deepLinkLoadingOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 9999,
   },
   deepLinkLoadingContainer: {
     padding: 30,
     borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -1340,8 +1508,8 @@ const styles = StyleSheet.create({
   },
   deepLinkLoadingText: {
     marginTop: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
 
-export default App;
+export default Sentry.wrap(App);
