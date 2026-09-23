@@ -186,14 +186,9 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
 const styles = StyleSheet.create({
   headerContainer: {
-    backgroundColor: '#FFFFFF', // Clean white background
+    backgroundColor: '#00BFFF', // Cyan header background
     paddingBottom: 16,
     borderBottomWidth: 0,
-    shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
     overflow: 'visible', // Allow dropdown to extend beyond header
   },
   topRow: {
@@ -208,13 +203,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   wordmark: {
-    color: "#00BFFF", // Cyan brand color
+    color: "#FFFFFF", // White text on cyan background
     fontSize: 32,
     fontWeight: "900",
     letterSpacing: -0.8,
-    textShadowColor: 'rgba(0, 191, 255, 0.15)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
   wordmarkCompact: {
     fontSize: 24,
@@ -234,7 +226,7 @@ const styles = StyleSheet.create({
     position: "relative",
     flexShrink: 0,
     borderRadius: 22,
-    backgroundColor: '#F0F9FF', // Soft cyan background
+    backgroundColor: 'rgba(255, 255, 255, 0.2)', // Semi-transparent white on cyan
   },
   unreadBadge: {
     position: "absolute",

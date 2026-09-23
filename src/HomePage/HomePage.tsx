@@ -10,7 +10,6 @@ import {
   useWindowDimensions,
   Animated,
   TextInput,
-  Platform,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
@@ -45,11 +44,10 @@ const nannyImage = require("../../assets/images/Nannynew.png");
 
 type ServiceType = "COOK" | "MAID" | "NANNY";
 
-// Softer, more professional feature chips
 const HERO_FEATURE_CHIPS = [
-  { key: "trusted", icon: "verified", label: "Verified Pros" },
-  { key: "booking", icon: "bolt", label: "Instant Booking" },
-  { key: "slots", icon: "schedule", label: "24/7 Available" },
+  { key: "trusted", icon: "check-circle-outline", label: "Trusted Pros" },
+  { key: "booking", icon: "auto-awesome", label: "Easy Booking" },
+  { key: "slots", icon: "event", label: "Flexible Slots" },
 ] as const;
 
 const SERVICE_ICONS: Record<ServiceType, string> = {
@@ -714,240 +712,156 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 0 },
   siteFooterWrap: { width: '100%', alignSelf: 'stretch', marginTop: 8 },
   
-  // Softer Cyan Header with Gradient Effect
+  // Header Section with Cyan
   headerSection: {
-    background Color: '#FFFFFF',
-    overflow: 'visible',
-    zIndex: 1000,
+    backgroundColor: '#00BFFF', // Cyan
+    overflow: 'visible', // Allow location dropdown to extend beyond
+    zIndex: 1000, // Keep header above other content
   },
   
-  // Smooth White Content Section with Subtle Shadow
+  // White Content Section
   whiteContentSection: {
-    backgroundColor: '#F8FAFC', // Slightly off-white for softer look
+    backgroundColor: '#FFFFFF',
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 32,
+    paddingTop: 24,
   },
   
-  // Hero Text with Better Typography
+  // Hero Text Container
   heroTextContainer: {
-    marginBottom: 28,
+    marginBottom: 24,
   },
   
+  // Hero Title on White
   heroTitleWhite: {
-    color: '#0F172A',
+    color: '#0F172A', // Black
     fontWeight: "800",
     lineHeight: 36,
-    marginBottom: 10,
-    letterSpacing: -0.5, // Tighter letter spacing for modern look
+    marginBottom: 8,
   },
   
+  // Hero Subtitle on White
   heroSubtitleWhite: {
-    color: '#64748B',
-    lineHeight: 22,
-    marginBottom: 20,
+    color: '#64748B', // Gray
+    lineHeight: 20,
+    marginBottom: 16,
     maxWidth: "95%",
-    letterSpacing: 0.2,
   },
-  
-  // Modern Search Bar
   searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    height: 56,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    flexDirection: "row", alignItems: "center", backgroundColor: '#F1F5F9',
+    borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 4,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4,
   },
-  searchIcon: { marginRight: 10 },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#0F172A',
-    paddingVertical: 0,
-    fontWeight: '500',
-  },
-  
-  // Elegant Feature Chips
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 16, color: '#0F172A', paddingVertical: 0 },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    columnGap: 12,
-    rowGap: 12,
-    marginBottom: 24,
-    paddingHorizontal: 2,
+    columnGap: 18,
+    rowGap: 10,
+    marginBottom: 14,
   },
   heroChipWhite: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E0F2FE',
-    shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: 6,
+    backgroundColor: '#E0F2FE', // Light blue background
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   heroChipTextWhite: {
-    color: '#00BFFF',
-    fontSize: 13,
+    color: '#00BFFF', // Cyan text
+    fontSize: 12,
     fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  
-  // Section Headers
-  mainCanvas: {
-    marginTop: -20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 32,
-    backgroundColor: '#F8FAFC',
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginBottom: 20,
-  },
-  sectionHeaderText: { flex: 1 },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    lineHeight: 30,
-    color: '#0F172A',
-    letterSpacing: -0.3,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    marginTop: 6,
-    lineHeight: 20,
-    color: '#64748B',
     letterSpacing: 0.1,
   },
-  
-  providerBanner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    backgroundColor: "#FFFBEB",
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: "#FDE68A",
-    padding: 14,
-    marginBottom: 20,
-    shadowColor: "#F59E0B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  mainCanvas: {
+    marginTop: -18,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 20,
+    paddingTop: 28,
   },
-  providerBannerText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-    color: "#92400E",
-    fontWeight: "500",
-  },
+  sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16 },
+  sectionHeaderText: { flex: 1 },
+  sectionTitle: { fontSize: 22, fontWeight: "700", lineHeight: 28 },
+  sectionSubtitle: { fontSize: 14, marginTop: 4, lineHeight: 20 },
+  providerBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#FFFBEB", borderRadius: 12, borderWidth: 1, borderColor: "#FDE68A", padding: 12, marginBottom: 14 },
+  providerBannerText: { flex: 1, fontSize: 13, lineHeight: 18, color: "#92400E", fontWeight: "500" },
   
-  // Modern Icon Grid with Better Spacing
+  // Icon Grid Styles
   iconGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-around",
     alignItems: "flex-start",
-    marginBottom: 28,
-    gap: 14,
-    paddingHorizontal: 4,
+    marginBottom: 20,
+    gap: 16,
   },
-  
-  // Elevated Service Cards with Glassmorphism
   iconCard: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
     alignItems: "center",
     justifyContent: "center",
-    gap: 14,
-    shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 4,
+    gap: 12,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
     position: 'relative',
-    backgroundColor: '#FFFFFF',
   },
-  
-  // Icon Container with Gradient Effect
   iconCardIconBox: {
-    width: 68,
-    height: 68,
-    borderRadius: 18,
+    width: 64,
+    height: 64,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  
-  // Service Title with Better Typography
   iconCardTitle: {
     fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
-    lineHeight: 19,
-    letterSpacing: 0.1,
-    marginTop: 2,
+    lineHeight: 18,
   },
-  
   selectedIndicator: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 8,
+    right: 8,
   },
   
-  // Service Detail Card with Smooth Shadows
+  // Service Detail Card
   serviceDetailCard: {
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 24,
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 6 },
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 5,
+    shadowRadius: 12,
+    elevation: 4,
   },
   serviceDetailHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   serviceDetailTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
     flex: 1,
-    letterSpacing: -0.3,
   },
   serviceDetailSubtitle: {
     fontSize: 15,
