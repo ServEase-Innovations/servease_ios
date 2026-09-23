@@ -1,5 +1,6 @@
 // App.tsx - UPDATED with proper authentication handling for both email and mobile login
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import * as Sentry from '@sentry/react-native';
 import {
   View,
   StyleSheet,

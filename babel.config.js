@@ -6,7 +6,8 @@ module.exports = {
       {
         envName: 'APP_ENV',
         moduleName: '@env',
-        path: '.env.development', // Load .env.development by default
+        // Use .env.production for production builds, .env.development otherwise
+        path: process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development',
         safe: false,
         allowUndefined: true,
         verbose: false,

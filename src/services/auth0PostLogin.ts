@@ -82,16 +82,33 @@ export async function completeAuth0PostLogin(
     await AsyncStorage.setItem("token", accessToken);
   }
 
+  console.log("[auth0PostLogin] Checking email with utils API:", UTILS_BASE_URL);
+  console.log("[auth0PostLogin] Email:", email);
+
   let response;
   try {
     response = await utilsInstance.get(
       `/customer/check-email?email=${encodeURIComponent(email)}`
     );
+    console.log("[auth0PostLogin] utils API response received:", response.status);
   } catch (error) {
-    if (axios.isAxiosError(error) && !error.response) {
-      throw new Error(
-        `Cannot reach utils API at ${UTILS_BASE_URL}. Check your network or set DEV_LAN_HOST in devApi.local.ts for local testing.`
-      );
+    console.error("[auth0PostLogin] utils API error:", error);
+    
+    if (axios.isAxiosError(error)) {
+      if (!error.response) {
+        // Network error - no response received
+        throw new Error(
+          `Cannot reach utils API at ${UTILS_BASE_URL}. ` +
+          `Check your network connection or verify the API is running. ` +
+          `Error: ${error.message}`
+        );
+      } else {
+        // Server responded with error
+        throw new Error(
+          `utils API error (${error.response.status}): ${error.response.statusText}. ` +
+          `Endpoint: ${UTILS_BASE_URL}/customer/check-email`
+        );
+      }
     }
     throw error;
   }

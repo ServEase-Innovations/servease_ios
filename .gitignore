@@ -288,6 +288,9 @@ Desktop.ini
 # Env files (secrets)
 .env
 .env.*
+!.env.development
+!.env.production
+!.env.example
 
 # Binary build outputs you should not commit
 *.apk
@@ -307,6 +310,8 @@ pnpm-debug.log*
 .DS_Store
 .env
 .env.*
+!.env.development
+!.env.production
 !.env.example
 
 # =====================
