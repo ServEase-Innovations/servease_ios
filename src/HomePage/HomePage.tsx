@@ -102,6 +102,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [showServiceSelection, setShowServiceSelection] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<ServiceType | null>(null);
 
   // Animation values for each service card
   const scaleAnimations = useRef({
@@ -318,164 +319,108 @@ const HomePage: React.FC<ChildComponentProps> = ({
     setServiceDetailsOpen(true);
   };
 
-  const ServiceCard = ({ service, index }: { service: typeof services[0]; index: number }) => {
-    const opacityAnim = useRef(new Animated.Value(0)).current;
+  const IconServiceCard = ({ service }: { service: typeof services[0] }) => {
     const isInactive = showProviderInactiveVisual(service.key);
     const isInteractionDisabled = isServiceInactiveForProvider(service.key);
-    const showProviderStatus = isServiceProvider && !loadingProviderProfile;
-    const inactiveMessage = !isAccountActive
-      ? t("home.serviceProvider.service.inactiveAlert.accountInactive")
-      : t("home.serviceProvider.service.notOffered");
+    const isSelected = selectedServiceForDetails === service.key;
 
-    // Get service-specific colors (unified professional teal/cyan palette)
+    // Get service-specific colors (unified cyan palette)
     const getServiceColors = (serviceKey: ServiceType) => {
       switch (serviceKey) {
         case "COOK":
           return {
-            card: HOME_M3.cookCardLight,
-            icon: HOME_M3.cookCard,
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#E0F2FE",
-            borderColor: HOME_M3.cookCard,
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.cookCardLight,
+            icon: isInactive ? "#94A3B8" : HOME_M3.cookCard,
           };
         case "MAID":
           return {
-            card: HOME_M3.maidCardLight,
-            icon: HOME_M3.maidCard,
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#CFFAFE",
-            borderColor: HOME_M3.maidCard,
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.maidCardLight,
+            icon: isInactive ? "#94A3B8" : HOME_M3.maidCard,
           };
         case "NANNY":
           return {
-            card: HOME_M3.nannyCardLight,
-            icon: HOME_M3.nannyCard,
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : "#E0F2FE",
-            borderColor: HOME_M3.nannyCard,
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.nannyCardLight,
+            icon: isInactive ? "#94A3B8" : HOME_M3.nannyCard,
           };
       }
     };
 
     const serviceColors = getServiceColors(service.key);
 
-    useEffect(() => {
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 350,
-        delay: index * 80,
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
     return (
-      <Animated.View style={[styles.gridCardWrap, { opacity: opacityAnim }]}>
-        <TouchableOpacity
-          onPress={() => handleClick(service.key)}
-          onLongPress={() => handleLearnMore(service.key)}
-          onPressIn={() => handlePressIn(service.key)}
-          onPressOut={() => handlePressOut(service.key)}
-          activeOpacity={isInteractionDisabled ? 1 : 0.88}
-          accessibilityState={{ disabled: isInteractionDisabled }}
-          accessibilityLabel={
-            isInactive
-              ? `${service.title}. ${inactiveMessage}`
-              : service.title
-          }
-          style={[
-            styles.gridCard,
-            {
-              backgroundColor: isInactive
-                ? isDarkMode
-                  ? "#1e293b"
-                  : "#F8FAFC"
+      <TouchableOpacity
+        onPress={() => handleServiceTap(service.key)}
+        onLongPress={() => handleLearnMore(service.key)}
+        activeOpacity={isInteractionDisabled ? 1 : 0.7}
+        accessibilityState={{ disabled: isInteractionDisabled }}
+        accessibilityLabel={service.title}
+        style={[
+          styles.iconCard,
+          {
+            backgroundColor: isInactive
+              ? isDarkMode
+                ? "#1e293b"
+                : "#F8FAFC"
+              : isSelected
+                ? '#E0F2FE'
                 : isDarkMode
                   ? colors.card
-                  : serviceColors.card,
-              borderColor: isInactive
-                ? isDarkMode
-                  ? "#475569"
-                  : "#CBD5E1"
-                : isDarkMode
-                  ? colors.border
-                  : serviceColors.borderColor,
-              borderWidth: 1,
+                  : HOME_M3.surfaceContainerLowest,
+            borderColor: isSelected ? '#00BFFF' : isInactive
+              ? isDarkMode
+                ? "#475569"
+                : "#CBD5E1"
+              : isDarkMode
+                ? colors.border
+                : HOME_M3.outlineVariant,
+            borderWidth: isSelected ? 2 : 1,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.iconCardIconBox,
+            {
+              backgroundColor: serviceColors.iconBg,
             },
-            isInactive && styles.gridCardInactive,
-            showProviderStatus && !isInactive && !isDarkMode && styles.gridCardActive,
           ]}
         >
-          <View style={styles.gridCardTopRow}>
-            <View
-              style={[
-                styles.gridIconBox,
-                {
-                  backgroundColor: serviceColors.iconBg,
-                },
-              ]}
-            >
-              <Icon
-                name={isInactive ? "block" : SERVICE_ICONS[service.key]}
-                size={22}
-                color={isInactive ? "#94A3B8" : serviceColors.icon}
-              />
-            </View>
-            {showProviderStatus ? (
-              <View
-                style={[
-                  styles.statusPill,
-                  isInactive ? styles.statusPillInactive : styles.statusPillActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusPillText,
-                    isInactive ? styles.statusPillTextInactive : styles.statusPillTextActive,
-                  ]}
-                >
-                  {isInactive
-                    ? t("home.serviceProvider.service.inactive")
-                    : t("home.serviceProvider.service.active")}
-                </Text>
-              </View>
-            ) : null}
+          <Icon
+            name={isInactive ? "block" : SERVICE_ICONS[service.key]}
+            size={32}
+            color={isSelected ? '#00BFFF' : serviceColors.icon}
+          />
+        </View>
+        <Text
+          style={[
+            styles.iconCardTitle,
+            { color: isInactive ? "#64748B" : isSelected ? '#00BFFF' : colors.text },
+          ]}
+          numberOfLines={2}
+        >
+          {service.title}
+        </Text>
+        {isSelected && (
+          <View style={styles.selectedIndicator}>
+            <Icon name="check-circle" size={16} color="#00BFFF" />
           </View>
-
-          <Text
-            style={[
-              styles.gridTitle,
-              { color: isInactive ? "#64748B" : colors.text },
-            ]}
-            numberOfLines={1}
-          >
-            {service.title}
-          </Text>
-          <Text
-            style={[
-              styles.gridSubtitle,
-              { color: isInactive ? "#94A3B8" : colors.textSecondary },
-            ]}
-            numberOfLines={3}
-          >
-            {isInactive ? inactiveMessage : service.subtitle}
-          </Text>
-
-          {isInactive ? (
-            <View style={styles.inactiveHintRow}>
-              <Icon name="info-outline" size={14} color="#B45309" />
-              <Text style={styles.inactiveHintText}>Tap for details</Text>
-            </View>
-          ) : !showProviderStatus ? (
-            <View style={styles.gridBadgeRow}>
-              <View style={[styles.gridBadge, { backgroundColor: serviceColors.iconBg }]}>
-                <Text style={[styles.gridBadgeText, { color: serviceColors.icon }]}>⭐ Top Rated</Text>
-              </View>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </Animated.View>
+        )}
+      </TouchableOpacity>
     );
   };
 
   const scrollToHowItWorks = () => {
     scrollRef.current?.scrollToEnd({ animated: true });
+  };
+
+  const handleServiceTap = (serviceKey: ServiceType) => {
+    if (selectedServiceForDetails === serviceKey) {
+      // If already selected, proceed to booking
+      handleClick(serviceKey);
+    } else {
+      // Show details
+      setSelectedServiceForDetails(serviceKey);
+    }
   };
 
   return (
@@ -486,27 +431,32 @@ const HomePage: React.FC<ChildComponentProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={[...HOME_HERO_GRADIENT]} style={styles.heroGradient}>
+        {/* Header with Light Blue Background */}
+        <View style={styles.headerSection}>
           <HomeHeroChrome closeDropdowns={closeDropdowns} onLogoPress={onLogoClick} />
+        </View>
 
-          <View style={styles.heroBody}>
+        {/* White Content Section */}
+        <View style={styles.whiteContentSection}>
+          {/* Hero Title and Subtitle */}
+          <View style={styles.heroTextContainer}>
             <Text
               style={[
-                styles.heroTitle,
+                styles.heroTitleWhite,
                 { fontSize: fontSize === "large" ? heroTitleSize + 4 : heroTitleSize + 2 },
               ]}
             >
               {t("home.hero.title")}
             </Text>
-            <Text style={[styles.heroSubtitle, { fontSize: heroSubtitleSize + 1 }]}>
+            <Text style={[styles.heroSubtitleWhite, { fontSize: heroSubtitleSize + 1 }]}>
               {t("home.hero.subtitle")}
             </Text>
 
             <View style={styles.chipsRow}>
               {HERO_FEATURE_CHIPS.map((chip) => (
-                <View key={chip.key} style={styles.heroChip}>
-                  <Icon name={chip.icon} size={17} color={HOME_M3.onPrimaryContainer} />
-                  <Text style={styles.heroChipText}>{chip.label}</Text>
+                <View key={chip.key} style={styles.heroChipWhite}>
+                  <Icon name={chip.icon} size={17} color="#00BFFF" />
+                  <Text style={styles.heroChipTextWhite}>{chip.label}</Text>
                 </View>
               ))}
             </View>
@@ -530,14 +480,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
               )}
             </View>
           </View>
-        </LinearGradient>
 
-        <View
-          style={[
-            styles.mainCanvas,
-            { backgroundColor: isDarkMode ? colors.background : HOME_M3.surface },
-          ]}
-        >
+          {/* What Service Section */}
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeaderText}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -565,11 +509,74 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </View>
           ) : null}
 
-          <View style={styles.serviceGrid}>
-            {filteredServices.map((service, index) => (
-              <ServiceCard key={service.key} service={service} index={index} />
+          {/* Icon Grid */}
+          <View style={styles.iconGrid}>
+            {filteredServices.map((service) => (
+              <IconServiceCard key={service.key} service={service} />
             ))}
           </View>
+
+          {/* Selected Service Details */}
+          {selectedServiceForDetails && (
+            <View style={[styles.serviceDetailCard, { backgroundColor: colors.surface }]}>
+              <View style={styles.serviceDetailHeader}>
+                <Text style={[styles.serviceDetailTitle, { color: colors.text }]}>
+                  {services.find(s => s.key === selectedServiceForDetails)?.title}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedServiceForDetails(null)}>
+                  <Icon name="close" size={24} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={[styles.serviceDetailSubtitle, { color: colors.textSecondary }]}>
+                {services.find(s => s.key === selectedServiceForDetails)?.subtitle}
+              </Text>
+
+              <View style={styles.serviceDetailBadges}>
+                <View style={styles.detailBadge}>
+                  <Icon name="star" size={16} color="#FF9500" />
+                  <Text style={styles.detailBadgeText}>4.8 Rating</Text>
+                </View>
+                <View style={styles.detailBadge}>
+                  <Icon name="verified" size={16} color="#00BFFF" />
+                  <Text style={styles.detailBadgeText}>Verified Pros</Text>
+                </View>
+                <View style={styles.detailBadge}>
+                  <Icon name="schedule" size={16} color="#10B981" />
+                  <Text style={styles.detailBadgeText}>Flexible Hours</Text>
+                </View>
+              </View>
+
+              <View style={styles.serviceDetailFeatures}>
+                <View style={styles.featureItem}>
+                  <Icon name="check-circle" size={20} color="#00BFFF" />
+                  <Text style={[styles.featureText, { color: colors.text }]}>
+                    Background verified professionals
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Icon name="check-circle" size={20} color="#00BFFF" />
+                  <Text style={[styles.featureText, { color: colors.text }]}>
+                    Same-day availability
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Icon name="check-circle" size={20} color="#00BFFF" />
+                  <Text style={[styles.featureText, { color: colors.text }]}>
+                    Money-back guarantee
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.serviceDetailBookButton}
+                onPress={() => handleClick(selectedServiceForDetails)}
+              >
+                <Text style={styles.serviceDetailBookButtonText}>Book Now</Text>
+                <Icon name="arrow-forward" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {filteredServices.length === 0 ? (
             <Text style={[styles.emptySearch, { color: colors.textSecondary }]}>
@@ -577,9 +584,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </Text>
           ) : null}
 
-          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-            Long press a card to view details
-          </Text>
+          <View style={styles.helperTextContainer}>
+            <Icon name="touch-app" size={16} color={colors.textSecondary} />
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Tap any service to see details • Long press for more info
+            </Text>
+          </View>
 
           {!isServiceProvider && !checkingOffer && showOffer ? (
             <View style={styles.promoWrap}>
@@ -701,17 +711,47 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingBottom: 0 },
   siteFooterWrap: { width: '100%', alignSelf: 'stretch', marginTop: 8 },
-  heroGradient: { paddingBottom: 44, overflow: "visible" },
-  heroBody: { paddingHorizontal: 20 },
-  heroTitle: { color: HOME_M3.onPrimary, fontWeight: "800", lineHeight: 36, marginBottom: 8 },
-  heroSubtitle: { color: HOME_M3.onPrimaryContainer, lineHeight: 20, marginBottom: 16, maxWidth: "95%" },
+  
+  // Header Section with Cyan
+  headerSection: {
+    backgroundColor: '#00BFFF', // Cyan
+  },
+  
+  // White Content Section
+  whiteContentSection: {
+    backgroundColor: '#FFFFFF',
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  
+  // Hero Text Container
+  heroTextContainer: {
+    marginBottom: 24,
+  },
+  
+  // Hero Title on White
+  heroTitleWhite: {
+    color: '#0F172A', // Black
+    fontWeight: "800",
+    lineHeight: 36,
+    marginBottom: 8,
+  },
+  
+  // Hero Subtitle on White
+  heroSubtitleWhite: {
+    color: '#64748B', // Gray
+    lineHeight: 20,
+    marginBottom: 16,
+    maxWidth: "95%",
+  },
   searchWrap: {
-    flexDirection: "row", alignItems: "center", backgroundColor: HOME_M3.surfaceContainerLowest,
+    flexDirection: "row", alignItems: "center", backgroundColor: '#F1F5F9',
     borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 4,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 6,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4,
   },
   searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 16, color: HOME_M3.onSurface, paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: 16, color: '#0F172A', paddingVertical: 0 },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -720,15 +760,19 @@ const styles = StyleSheet.create({
     rowGap: 10,
     marginBottom: 14,
   },
-  heroChip: {
+  heroChipWhite: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    backgroundColor: '#E0F2FE', // Light blue background
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  heroChipText: {
-    color: HOME_M3.onPrimaryContainer,
+  heroChipTextWhite: {
+    color: '#00BFFF', // Cyan text
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "600",
     letterSpacing: 0.1,
   },
   mainCanvas: {
@@ -744,18 +788,306 @@ const styles = StyleSheet.create({
   sectionSubtitle: { fontSize: 14, marginTop: 4, lineHeight: 20 },
   providerBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#FFFBEB", borderRadius: 12, borderWidth: 1, borderColor: "#FDE68A", padding: 12, marginBottom: 14 },
   providerBannerText: { flex: 1, fontSize: 13, lineHeight: 18, color: "#92400E", fontWeight: "500" },
-  serviceGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 12 },
-  gridCardWrap: { width: "48%" },
-  gridCard: {
-    borderRadius: 12,
+  
+  // Icon Grid Styles
+  iconGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "flex-start",
+    marginBottom: 20,
+    gap: 16,
+  },
+  iconCard: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    minHeight: 156,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
     shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
+    position: 'relative',
+  },
+  iconCardIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  iconCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  
+  // Service Detail Card
+  serviceDetailCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HOME_M3.outlineVariant,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  serviceDetailHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  serviceDetailTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    flex: 1,
+  },
+  serviceDetailSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 16,
+  },
+  serviceDetailBadges: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+  },
+  detailBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  detailBadgeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  serviceDetailFeatures: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  featureText: {
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
+  serviceDetailBookButton: {
+    backgroundColor: "#00BFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  serviceDetailBookButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  
+  // Keep old carousel styles for backward compatibility (can remove later)
+  // Carousel Styles
+  carousel: {
+    marginHorizontal: 0,
+    marginBottom: 0,
+  },
+  carouselContainer: {
+    // Gap removed - using marginRight on cards instead
+  },
+  carouselCardWrap: {
+    // Width is set dynamically via inline style (75% of screen)
+    paddingHorizontal: 0,
+    marginRight: 12, // Gap between cards
+  },
+  carouselCard: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    padding: 0,
+    minHeight: 180,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 5,
+    overflow: 'hidden',
+  },
+  carouselCardInactive: {
+    borderStyle: "dashed",
+    opacity: 0.92,
+  },
+  carouselCardActive: {
+    borderColor: "#86EFAC",
+    backgroundColor: "#F0FDF4",
+  },
+  carouselCardContent: {
+    flexDirection: "row",
+    padding: 20,
+    gap: 16,
+    alignItems: 'flex-start',
+  },
+  carouselCardLeft: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  carouselIconBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  carouselCardRight: {
+    flex: 1,
+    justifyContent: 'space-between',
+    minHeight: 140,
+  },
+  carouselCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    gap: 8,
+  },
+  carouselTitle: { 
+    fontSize: 20, 
+    fontWeight: "800", 
+    letterSpacing: -0.3,
+    flex: 1,
+  },
+  carouselSubtitle: { 
+    fontSize: 14, 
+    lineHeight: 20, 
+    opacity: 0.75,
+    marginBottom: 12,
+  },
+  statusPillCarousel: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  carouselBadgeRow: { 
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  carouselBadge: { 
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  carouselBadgeText: {
+    fontSize: 12, 
+    fontWeight: "600", 
+    color: '#475569',
+  },
+  carouselBookButton: {
+    backgroundColor: '#00BFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  carouselBookButtonInactive: {
+    backgroundColor: '#E2E8F0',
+    shadowOpacity: 0,
+  },
+  carouselBookButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  carouselBookButtonTextInactive: {
+    color: '#94A3B8',
+  },
+  
+  // Dot Indicators
+  dotIndicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#CBD5E1',
+    transition: 'all 0.3s ease',
+  },
+  dotActive: {
+    width: 24,
+    backgroundColor: '#00BFFF',
+  },
+  
+  // Keep old grid styles for backward compatibility (can be removed later)
+  serviceGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 14 },
+  gridCardWrap: { width: "48%" },
+  gridCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    minHeight: 140,
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   gridCardInactive: {
     borderStyle: "dashed",
@@ -769,20 +1101,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 12,
     gap: 8,
   },
   gridIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statusPill: {
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     maxWidth: "52%",
   },
   statusPillInactive: {
@@ -799,6 +1136,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     textAlign: "center",
+    letterSpacing: 0.2,
   },
   statusPillTextInactive: {
     color: "#B91C1C",
@@ -806,8 +1144,8 @@ const styles = StyleSheet.create({
   statusPillTextActive: {
     color: "#166534",
   },
-  gridTitle: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
-  gridSubtitle: { fontSize: 12, lineHeight: 17 },
+  gridTitle: { fontSize: 17, fontWeight: "700", marginBottom: 5, letterSpacing: -0.2 },
+  gridSubtitle: { fontSize: 13, lineHeight: 18, opacity: 0.8 },
   inactiveHintRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -820,35 +1158,37 @@ const styles = StyleSheet.create({
     color: "#B45309",
   },
   gridBadgeRow: { marginTop: 8 },
-  gridBadge: { 
-    paddingHorizontal: 8, 
-    paddingVertical: 4, 
-    borderRadius: 6, 
-    alignSelf: 'flex-start' 
-  },
-  gridBadgeText: { 
-    fontSize: 11, 
-    fontWeight: "600" 
-  },
+  gridBadge: { fontSize: 11, fontWeight: "600", color: HOME_M3.secondary },
   emptySearch: { textAlign: "center", marginVertical: 12, fontSize: 14 },
-  helperText: { textAlign: "center", marginTop: 12, marginBottom: 8, fontSize: 12 },
+  helperTextContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12, 
+    marginBottom: 8,
+  },
+  helperText: { 
+    textAlign: "center", 
+    fontSize: 12,
+  },
   promoWrap: { marginVertical: 12 },
-  statsRow: { flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: HOME_M3.outlineVariant, paddingVertical: 24, marginVertical: 16, backgroundColor: HOME_M3.surfaceContainerLow },
+  statsRow: { flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: HOME_M3.outlineVariant, paddingVertical: 24, marginVertical: 16 },
   statCell: { flex: 1, alignItems: "center" },
   statDivider: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: HOME_M3.outlineVariant },
-  statValue: { fontSize: 18, fontWeight: "700", color: HOME_M3.primary, marginBottom: 4 },
+  statValue: { fontSize: 18, fontWeight: "700", color: HOME_M3.secondary, marginBottom: 4 },
   statLabel: { fontSize: 12, fontWeight: "500", textAlign: "center" },
   helpSection: { alignItems: "center", marginBottom: 20, paddingBottom: 8 },
-  helpTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12, color: HOME_M3.onSurface },
+  helpTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
   helpLinks: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", justifyContent: "center", gap: 8 },
   helpLink: { flexDirection: "row", alignItems: "center", gap: 6 },
-  helpLinkText: { color: HOME_M3.primary, fontSize: 14, fontWeight: "600" },
+  helpLinkText: { color: HOME_M3.secondary, fontSize: 14, fontWeight: "600" },
   helpDivider: { color: HOME_M3.outlineVariant, fontSize: 14 },
-  stepsCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16, borderColor: HOME_M3.outlineVariant, backgroundColor: HOME_M3.surfaceContainerLowest },
-  stepsTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12, color: HOME_M3.onSurface },
+  stepsCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
+  stepsTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
   stepRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
-  stepDot: { width: 22, height: 22, borderRadius: 11, textAlign: "center", lineHeight: 22, color: "#fff", backgroundColor: HOME_M3.primary, fontSize: 12, fontWeight: "700" },
-  stepText: { fontSize: 14, fontWeight: "500", flex: 1, color: HOME_M3.onSurface },
+  stepDot: { width: 22, height: 22, borderRadius: 11, textAlign: "center", lineHeight: 22, color: "#fff", backgroundColor: HOME_M3.secondary, fontSize: 12, fontWeight: "700" },
+  stepText: { fontSize: 14, fontWeight: "500", flex: 1 },
   dialogOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 1000 },
   dialogBox: { borderRadius: 12, padding: 20, shadowColor: "#0f172a", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 12 },
 });
