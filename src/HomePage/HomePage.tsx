@@ -387,7 +387,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
         >
           <Icon
             name={isInactive ? "block" : SERVICE_ICONS[service.key]}
-            size={32}
+            size={28}
             color={isSelected ? '#00BFFF' : serviceColors.icon}
           />
         </View>
@@ -784,30 +784,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 28,
   },
-  sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16 },
+  sectionHeaderRow: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "flex-end", 
+    marginBottom: 20,
+    paddingBottom: 4,
+  },
   sectionHeaderText: { flex: 1 },
-  sectionTitle: { fontSize: 22, fontWeight: "700", lineHeight: 28 },
-  sectionSubtitle: { fontSize: 14, marginTop: 4, lineHeight: 20 },
+  sectionTitle: { 
+    fontSize: 24, 
+    fontWeight: "800", 
+    lineHeight: 30,
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  sectionSubtitle: { 
+    fontSize: 14, 
+    marginTop: 6, 
+    lineHeight: 20,
+    color: '#64748B',
+  },
   providerBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#FFFBEB", borderRadius: 12, borderWidth: 1, borderColor: "#FDE68A", padding: 12, marginBottom: 14 },
   providerBannerText: { flex: 1, fontSize: 13, lineHeight: 18, color: "#92400E", fontWeight: "500" },
   
   // Icon Grid Styles
   iconGrid: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "flex-start",
-    marginBottom: 20,
-    gap: 16,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "stretch",
+    marginBottom: 24,
+    rowGap: 12,
   },
   iconCard: {
-    flex: 1,
-    aspectRatio: 1,
+    width: '31%',
+    aspectRatio: 0.95,
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
+    padding: 12,
     alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
+    justifyContent: "space-evenly",
     shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -816,9 +833,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconCardIconBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#00BFFF",
@@ -828,10 +845,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   iconCardTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 16,
+    marginTop: 8,
   },
   selectedIndicator: {
     position: 'absolute',
