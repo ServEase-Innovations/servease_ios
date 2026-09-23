@@ -186,74 +186,80 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
 const styles = StyleSheet.create({
   headerContainer: {
-    backgroundColor: 'rgba(0, 191, 255, 0.85)', // Semi-transparent cyan
-    paddingBottom: 12,
-    backdropFilter: 'blur(10px)', // Glass blur effect
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)', // Subtle border
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: '#FFFFFF', // Clean white background
+    paddingBottom: 16,
+    borderBottomWidth: 0,
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
     overflow: 'visible', // Allow dropdown to extend beyond header
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingHorizontal: 18,
+    paddingBottom: 14,
     zIndex: 10,
   },
   topRowCompact: {
-    paddingBottom: 4,
+    paddingBottom: 8,
   },
   wordmark: {
-    color: "#FFFFFF", // White text
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height 1 },
-    textShadowRadius: 3,
+    color: "#00BFFF", // Cyan brand color
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+    textShadowColor: 'rgba(0, 191, 255, 0.15)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   wordmarkCompact: {
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 24,
+    lineHeight: 28,
   },
   locationRow: {
-    paddingHorizontal: 16,
-    paddingBottom: 0,
+    paddingHorizontal: 18,
+    paddingBottom: 4,
     zIndex: 10000, // Higher z-index for dropdown
     overflow: 'visible', // Allow dropdown to overflow
   },
   notifBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
     flexShrink: 0,
+    borderRadius: 22,
+    backgroundColor: '#F0F9FF', // Soft cyan background
   },
   unreadBadge: {
     position: "absolute",
-    top: 2,
-    right: 0,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#ef4444",
+    top: 4,
+    right: 2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#EF4444",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: "#00BFFF", // Match cyan header background
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
   unreadBadgeText: {
-    color: "#fff",
-    fontSize: 10,
+    color: "#FFFFFF",
+    fontSize: 11,
     fontWeight: "800",
+    letterSpacing: -0.3,
   },
 });
 
