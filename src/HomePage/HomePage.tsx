@@ -324,6 +324,29 @@ const HomePage: React.FC<ChildComponentProps> = ({
     const isInteractionDisabled = isServiceInactiveForProvider(service.key);
     const isSelected = selectedServiceForDetails === service.key;
 
+    // Get service-specific colors (unified cyan palette)
+    const getServiceColors = (serviceKey: ServiceType) => {
+      switch (serviceKey) {
+        case "COOK":
+          return {
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.cookCardLight,
+            icon: isInactive ? "#94A3B8" : HOME_M3.cookCard,
+          };
+        case "MAID":
+          return {
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.maidCardLight,
+            icon: isInactive ? "#94A3B8" : HOME_M3.maidCard,
+          };
+        case "NANNY":
+          return {
+            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.nannyCardLight,
+            icon: isInactive ? "#94A3B8" : HOME_M3.nannyCard,
+          };
+      }
+    };
+
+    const serviceColors = getServiceColors(service.key);
+
     return (
       <TouchableOpacity
         onPress={() => handleServiceTap(service.key)}
@@ -358,18 +381,14 @@ const HomePage: React.FC<ChildComponentProps> = ({
           style={[
             styles.iconCardIconBox,
             {
-              backgroundColor: isInactive
-                ? isDarkMode
-                  ? "#334155"
-                  : "#E2E8F0"
-                : '#E0F2FE',
+              backgroundColor: serviceColors.iconBg,
             },
           ]}
         >
           <Icon
             name={isInactive ? "block" : SERVICE_ICONS[service.key]}
             size={32}
-            color={isInactive ? "#94A3B8" : '#00BFFF'}
+            color={isSelected ? '#00BFFF' : serviceColors.icon}
           />
         </View>
         <Text

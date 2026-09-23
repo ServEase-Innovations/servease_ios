@@ -43,7 +43,7 @@ export const BOOKING_HEADER_GRADIENT = [...GRADIENTS.bookingHeader];
 
 /** Material-style tokens for customer home (HTML mockup). */
 export const HOME_M3 = {
-  primary: "#00BFFF", // Cyan primary
+  primary: "#00BFFF", // Cyan primary (bright cyan)
   primaryContainer: "#0891B2", // Dark cyan
   onPrimary: "#ffffff",
   onPrimaryContainer: "#E0F2FE", // Light cyan
@@ -61,6 +61,14 @@ export const HOME_M3 = {
   outline: "#74777f",
   outlineVariant: "#c4c6cf",
   error: "#ba1a1a",
+  
+  // Service card colors using cyan variations
+  cookCard: "#00BFFF", // Bright cyan (matches hero)
+  cookCardLight: "#E0F2FE", // Light cyan
+  maidCard: "#06B6D4", // Medium cyan
+  maidCardLight: "#E0F6FF", // Very light cyan
+  nannyCard: "#0891B2", // Dark cyan
+  nannyCardLight: "#EBF8FF", // Light cyan
 } as const;
 
 export const HOME_HERO_GRADIENT = ["#00BFFF", "#0891B2"] as const; // Cyan gradient
