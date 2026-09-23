@@ -340,7 +340,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
 
   const renderMobileTabIcon = (tab: MobileTab, isActive: boolean) => {
     const iconMuted = "rgba(255,255,255,0.7)";
-    const iconActiveColor = HOME_M3.primary;
+    const iconActiveColor = "#00BFFF"; // Cyan for active icon
 
     if (tab.hideIcon) {
       return <View style={styles.navIconSlot} />;
@@ -583,7 +583,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
     const navSurface = isDarkMode ? colors.card : "#ffffff";
     const navBorder = isDarkMode ? colors.border : "#e2e8f0";
     const textMuted = "rgba(255,255,255,0.7)";
-    const textActiveColor = HOME_M3.primary;
+    const textActiveColor = "#00BFFF"; // Cyan for active text
     const bottomPad = getMobileTabBarBottomPad(safeBottom);
 
     return (
@@ -592,7 +592,7 @@ const NavigationFooter: React.FC<NavigationFooterProps> = ({
           style={[
             styles.mobileNavShell,
             {
-              backgroundColor: HOME_M3.primary,
+              backgroundColor: '#00BFFF', // Cyan background
               borderTopColor: navBorder,
               paddingTop: MOBILE_TAB_BAR_TOP_PAD,
               paddingBottom: bottomPad,

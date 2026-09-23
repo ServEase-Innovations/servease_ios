@@ -1558,7 +1558,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
 
   const isChromeVariant = variant === "chrome";
   const isHeroVariant = variant === "hero";
-  const isLightOnDark = isHeroVariant || isChromeVariant;
+  const isLightOnDark = isHeroVariant || isChromeVariant; // Hero and chrome variants have light text on dark
 
   const dynamicStyles = StyleSheet.create({
     locationContainer: isChromeVariant
@@ -1595,15 +1595,22 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     chromeLocationLabel: {
       fontSize: 11,
       fontWeight: "600",
-      color: BRAND.headerTint,
+      color: "#FFFFFF", // White for label
       letterSpacing: 0.2,
       marginBottom: 1,
+      opacity: 0.95,
+      textShadowColor: 'rgba(0, 0, 0, 0.25)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 2,
     },
     chromeAddressText: {
       fontSize: fontSizes.locationText,
       fontWeight: "700",
-      color: "#ffffff",
+      color: "#FFFFFF", // White for address
       letterSpacing: -0.2,
+      textShadowColor: 'rgba(0, 0, 0, 0.3)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
     },
     locationText: {
       fontSize: fontSizes.locationText - 1,

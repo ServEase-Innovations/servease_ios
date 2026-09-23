@@ -124,51 +124,53 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
   return (
     <>
-      <View
-        style={[
-          styles.topRow,
-          compact && styles.topRowCompact,
-          { paddingTop: Math.max(insets.top, compact ? 4 : 8) },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={onLogoPress}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="ServEaso home"
+      <View style={styles.headerContainer}>
+        <View
+          style={[
+            styles.topRow,
+            compact && styles.topRowCompact,
+            { paddingTop: Math.max(insets.top, compact ? 4 : 8) },
+          ]}
         >
-          <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>ServEaso</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowNotifications(true)}
-          style={styles.notifBtn}
-          accessibilityLabel="Notifications"
-        >
-          <MaterialIcon name="notifications-none" size={26} color="#ffffff" />
-          {inAppUnread > 0 ? (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>
-                {inAppUnread > 99 ? "99+" : inAppUnread}
-              </Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </View>
-
-      {!compact ? (
-        <View style={styles.locationRow}>
-          <LocationSelector
-            key={String(resolveCustomerId(appUser) ?? "guest")}
-            userPreference={userPreference}
-            setUserPreference={setUserPreference}
-            onLocationChange={handleLocationChange}
-            closeDropdown={closeDropdowns}
-            locationPreferencesReady={locationPreferencesReady}
-            isUserLoading={isUserLoading}
-            variant="chrome"
-          />
+          <TouchableOpacity
+            onPress={onLogoPress}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="ServEaso home"
+          >
+            <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>ServEaso</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowNotifications(true)}
+            style={styles.notifBtn}
+            accessibilityLabel="Notifications"
+          >
+            <MaterialIcon name="notifications-none" size={26} color="#FFFFFF" />
+            {inAppUnread > 0 ? (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {inAppUnread > 99 ? "99+" : inAppUnread}
+                </Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
         </View>
-      ) : null}
+
+        {!compact ? (
+          <View style={styles.locationRow}>
+            <LocationSelector
+              key={String(resolveCustomerId(appUser) ?? "guest")}
+              userPreference={userPreference}
+              setUserPreference={setUserPreference}
+              onLocationChange={handleLocationChange}
+              closeDropdown={closeDropdowns}
+              locationPreferencesReady={locationPreferencesReady}
+              isUserLoading={isUserLoading}
+              variant="chrome"
+            />
+          </View>
+        ) : null}
+      </View>
 
       <NotificationsDialog
         visible={showNotifications}
@@ -183,6 +185,18 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 };
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    backgroundColor: 'rgba(0, 191, 255, 0.85)', // Semi-transparent cyan
+    paddingBottom: 12,
+    backdropFilter: 'blur(10px)', // Glass blur effect
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)', // Subtle border
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -195,10 +209,13 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   wordmark: {
-    color: "#ffffff",
+    color: "#FFFFFF", // White text
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   wordmarkCompact: {
     fontSize: 22,
@@ -206,7 +223,7 @@ const styles = StyleSheet.create({
   },
   locationRow: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 0,
     zIndex: 20,
   },
   notifBtn: {
@@ -229,7 +246,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: "#fff",
+    borderColor: "#00BFFF", // Match cyan header background
   },
   unreadBadgeText: {
     color: "#fff",
