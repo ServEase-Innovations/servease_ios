@@ -715,6 +715,8 @@ const styles = StyleSheet.create({
   // Header Section with Cyan
   headerSection: {
     backgroundColor: '#00BFFF', // Cyan
+    overflow: 'visible', // Allow location dropdown to extend beyond
+    zIndex: 1000, // Keep header above other content
   },
   
   // White Content Section

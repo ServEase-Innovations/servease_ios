@@ -196,6 +196,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    overflow: 'visible', // Allow dropdown to extend beyond header
   },
   topRow: {
     flexDirection: "row",
@@ -203,7 +204,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingBottom: 10,
-    zIndex: 20,
+    zIndex: 10,
   },
   topRowCompact: {
     paddingBottom: 4,
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.5,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
+    textShadowOffset: { width: 0, height 1 },
     textShadowRadius: 3,
   },
   wordmarkCompact: {
@@ -224,7 +225,8 @@ const styles = StyleSheet.create({
   locationRow: {
     paddingHorizontal: 16,
     paddingBottom: 0,
-    zIndex: 20,
+    zIndex: 10000, // Higher z-index for dropdown
+    overflow: 'visible', // Allow dropdown to overflow
   },
   notifBtn: {
     width: 40,
