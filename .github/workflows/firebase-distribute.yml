@@ -31,6 +31,9 @@ jobs:
     if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      SENTRY_ALLOW_FAILURE: "true"
 
     steps:
       - name: Checkout code
@@ -113,6 +116,9 @@ jobs:
     if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both'
     runs-on: macos-26
     timeout-minutes: 120
+    env:
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      SENTRY_ALLOW_FAILURE: "true"
 
     steps:
       - name: Checkout code
