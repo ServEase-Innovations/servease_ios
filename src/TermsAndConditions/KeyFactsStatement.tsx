@@ -17,7 +17,12 @@ const KeyFactsStatement = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={{ flexGrow: 1, padding: 16 }}
+      nestedScrollEnabled={true}
+      showsVerticalScrollIndicator={true}
+    >
       <View style={styles.paper}>
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Key Facts Statement</Text>

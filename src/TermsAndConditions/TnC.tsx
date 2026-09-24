@@ -16,7 +16,12 @@ const TnC = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      nestedScrollEnabled={true}
+      showsVerticalScrollIndicator={true}
+    >
       <View style={styles.paper}>
         <Text style={styles.title}>Terms and Conditions</Text>
         
@@ -159,8 +164,11 @@ const TnC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#f5f5f5',
+  },
+  contentContainer: {
+    padding: 16,
+    flexGrow: 1,
   },
   paper: {
     backgroundColor: 'white',

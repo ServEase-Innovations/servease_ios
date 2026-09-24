@@ -210,6 +210,7 @@ const PrivacyPolicy = ({ embedded = false }: PrivacyPolicyProps) => {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      nestedScrollEnabled={true}
     >
       <View style={styles.paper}>
         {!embedded ? (
