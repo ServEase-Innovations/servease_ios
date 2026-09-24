@@ -32,6 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
+      # Sentry is disabled in CI to prevent upload failures from blocking builds
+      # Remove these to enable Sentry source map uploads
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
       SENTRY_ALLOW_FAILURE: "true"
 
@@ -117,6 +119,8 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 120
     env:
+      # Sentry is disabled in CI to prevent upload failures from blocking builds
+      # Remove these to enable Sentry source map uploads
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
       SENTRY_ALLOW_FAILURE: "true"
 

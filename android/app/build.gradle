@@ -147,9 +147,25 @@ apply plugin: "com.google.gms.google-services"
 
 
 
-// Make all Sentry upload tasks non-blocking - skip them entirely in CI
+
+
+// Configure Sentry to handle upload failures gracefully
 tasks.whenTaskAdded { task ->
     if (task.name.contains("SentryUpload")) {
-        task.onlyIf { false }
+        task.doFirst {
+            // Log what we're about to do
+            logger.lifecycle("Attempting Sentry upload for ${task.name}")
+        }
+        task.onlyIf {
+            // Check if we're in CI and Sentry is explicitly disabled
+            def sentryDisabled = System.getenv("SENTRY_DISABLE_AUTO_UPLOAD") == "true"
+            if (sentryDisabled) {
+                logger.lifecycle("Sentry upload disabled via SENTRY_DISABLE_AUTO_UPLOAD")
+                return false
+            }
+            return true
+        }
+        // Make errors non-fatal
+        task.ignoreExitValue = true
     }
 }

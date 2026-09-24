@@ -1,262 +1,165 @@
-# Sentry React Native Setup - ServEase iOS
+# Sentry Configuration Guide
 
-## ✅ Setup Complete
+## Current Status
 
-Sentry has been successfully integrated into the ServEase iOS React Native app.
+Sentry is **currently DISABLED in CI/CD** to prevent source map upload failures from blocking builds. However, it is **configured and ready to use** for local development.
 
-## Configuration
+## Configuration Files
 
-**Organization:** servease-innovation  
-**Project:** react-native  
-**DSN:** `https://d75adcf8ccdbbd12e1b8c933df1677ae@o4509086584274944.ingest.us.sentry.io/4509086589681664`
+### 1. Android Configuration
+- **File**: `android/sentry.properties`
+- **Org**: servease-innovation
+- **Project**: react-native
+- **Auth Token**: Configured (sntrys_...)
 
-## Features Enabled
+### 2. iOS Configuration  
+- **File**: `ios/sentry.properties`
+- **Org**: servease-innovation
+- **Project**: react-native
+- **Auth Token**: Configured (sntrys_...)
 
-### 1. **Error Monitoring**
-- Automatic capture of JavaScript errors
-- Native crash reporting (iOS/Android)
-- Unhandled promise rejection tracking
-- React error boundary integration
+## How Sentry Works
 
-### 2. **Performance Monitoring**
-- Automatic performance tracing (20% sample rate in production)
-- 100% tracing in development mode
-- App start tracking
-- Screen load tracking
+### Local Development
+✅ **Sentry is ENABLED** for local builds
+- Source maps are uploaded automatically
+- Crash reports include full stack traces
+- Helps with debugging production issues
 
-### 3. **Session Tracking**
-- Automatic session tracking enabled
-- 30-minute session timeout
-- Session health monitoring
+### CI/CD (GitHub Actions)
+❌ **Sentry is DISABLED** via environment variables
+- Prevents build failures from Sentry upload issues
+- Builds complete successfully even if Sentry is unavailable
+- Can be re-enabled when Sentry is stable
 
-### 4. **Breadcrumbs**
-- Automatic breadcrumb capture for:
-  - Navigation events
-  - Network requests
-  - Console logs
-  - User interactions
-  - Touch events
+## Re-enabling Sentry in CI/CD
 
-## Implementation Details
+### Step 1: Test Sentry Configuration
 
-### index.js
-Sentry is initialized **as early as possible** in `index.js` before any other imports:
-- Configured with DSN
-- Environment detection (dev/production)
-- Error filtering for development
-- App wrapped with `Sentry.wrap()` for error boundaries
+First, verify that Sentry uploads work from your local machine:
 
-### App.tsx
-- Imported Sentry for manual error tracking
-- Ready for custom error boundaries and manual captures
+```bash
+# Build a release APK locally
+cd android
+./gradlew assembleRelease
 
-## Development vs Production
-
-### Development Mode
-- Debug logging enabled
-- 100% transaction sampling
-- Events logged to console but **NOT sent to Sentry** (to avoid noise)
-- To enable sending in dev, set `SENTRY_ENABLED_IN_DEV` environment variable
-
-### Production Mode
-- Debug logging disabled
-- 20% transaction sampling (configurable)
-- All errors and crashes sent to Sentry
-- Performance monitoring active
-
-## Testing Sentry
-
-### Test Error Capture
-Add this to any component to test error tracking:
-
-```typescript
-import * as Sentry from '@sentry/react-native';
-
-// Test JavaScript error
-const testError = () => {
-  try {
-    throw new Error('Test Sentry Error!');
-  } catch (e) {
-    Sentry.captureException(e);
-  }
-};
-
-// Test unhandled error (will be caught by error boundary)
-const testUnhandled = () => {
-  throw new Error('Unhandled Test Error');
-};
+# Check if Sentry upload succeeded
+# Look for "Sentry upload" in the build logs
 ```
 
-### Test Performance Tracking
-```typescript
-import * as Sentry from '@sentry/react-native';
+### Step 2: Update GitHub Actions Workflow
 
-// Track custom operation
-const transaction = Sentry.startTransaction({
-  name: 'Load Dashboard',
-  op: 'navigation',
-});
+Edit `.github/workflows/firebase-distribute.yml` and remove these lines:
 
-// ... do work ...
-
-transaction.finish();
+```yaml
+# Remove or comment out these lines:
+env:
+  SENTRY_DISABLE_AUTO_UPLOAD: "true"
+  SENTRY_ALLOW_FAILURE: "true"
 ```
 
-### Test Breadcrumbs
-```typescript
-Sentry.addBreadcrumb({
-  category: 'user-action',
-  message: 'User clicked service card',
-  level: 'info',
-  data: {
-    serviceType: 'maid',
-  },
-});
-```
+From both the `android` and `ios-testflight` jobs.
 
-## Manual Error Tracking
+### Step 3: Update Android Build Configuration
 
-### Capture Exceptions
-```typescript
-try {
-  // risky operation
-} catch (error) {
-  Sentry.captureException(error, {
-    tags: {
-      section: 'booking',
-    },
-    extra: {
-      bookingId: booking.id,
-    },
-  });
+Edit `android/app/build.gradle` and remove the task configuration:
+
+```gradle
+// Remove this entire block:
+tasks.whenTaskAdded { task ->
+    if (task.name.contains("SentryUpload")) {
+        // ... configuration ...
+    }
 }
 ```
 
-### Capture Messages
-```typescript
-Sentry.captureMessage('Payment successful', 'info');
-```
+### Step 4: Verify CI/CD Build
 
-### Set User Context
-```typescript
-Sentry.setUser({
-  id: user.id,
-  email: user.email,
-  role: user.role,
-});
-```
-
-### Clear User on Logout
-```typescript
-Sentry.setUser(null);
-```
-
-## Ignored Errors
-
-The following errors are automatically filtered:
-- `Non-Error promise rejection captured`
-- `Network request failed`
-
-Add more patterns in `index.js` under `ignoreErrors` array.
-
-## Configuration Options
-
-Located in `index.js`:
-
-```javascript
-Sentry.init({
-  dsn: 'YOUR_DSN',
-  environment: __DEV__ ? 'development' : 'production',
-  debug: __DEV__,
-  tracesSampleRate: __DEV__ ? 1.0 : 0.2,
-  enableAutoSessionTracking: true,
-  sessionTrackingIntervalMillis: 1800000, // 30 minutes
-  attachStacktrace: true,
-  enableNative: true,
-  enableAutoPerformanceTracing: true,
-  // ... more options
-});
-```
-
-## Build Configuration
-
-### iOS
-The Sentry wizard should have configured:
-- `ios/Serveaso/AppDelegate.mm` - Native initialization
-- `ios/Podfile` - Sentry pod dependency
-- Build phases for debug symbol upload
-
-Run `cd ios && pod install` if needed.
-
-### Android
-The wizard should have configured:
-- `android/app/build.gradle` - Sentry plugin
-- `android/settings.gradle` - Sentry repository
-- ProGuard rules for release builds
-
-## Viewing Events in Sentry
-
-1. Go to https://servease-innovation.sentry.io/
-2. Navigate to the `react-native` project
-3. View:
-   - **Issues** - Errors and crashes
-   - **Performance** - Transaction traces and metrics
-   - **Releases** - Track deployments
-   - **Session Replay** - (if enabled) User session recordings
-
-## Release Tracking
-
-To associate errors with releases, add version info to `Sentry.init()`:
-
-```javascript
-Sentry.init({
-  // ... other options
-  release: 'serveaso-ios@1.0.0',
-  dist: '1',
-});
-```
-
-Or use automatic detection from `package.json`.
-
-## Source Maps (for better stack traces)
-
-The Sentry wizard has configured automatic upload of source maps during build.
-
-For manual upload:
-```bash
-npx @sentry/cli sourcemaps upload --org servease-innovation --project react-native ./build
-```
+Trigger a GitHub Actions workflow and verify:
+- ✅ Build completes successfully
+- ✅ Sentry source maps are uploaded
+- ✅ No error logs about Sentry
 
 ## Troubleshooting
 
-### Events not appearing in Sentry?
-- Check you're in production mode (dev events are filtered)
-- Or set `SENTRY_ENABLED_IN_DEV` to test in development
-- Verify DSN is correct in `index.js`
-- Check network connectivity
+### Issue: Sentry Upload Fails in CI
 
-### Native crashes not captured?
-- Run `cd ios && pod install`
-- Rebuild the app completely
-- Check iOS/Android native configuration
+**Symptom**: Build fails with "Process 'command sentry-cli' finished with non-zero exit value 1"
 
-### Source maps missing?
-- Ensure build is generating source maps
-- Check Sentry CLI is configured with auth token
-- Verify upload step in build process
+**Solutions**:
+1. **Check Auth Token**: Verify the token in `sentry.properties` is still valid
+2. **Check Network**: Sentry servers might be down or blocked
+3. **Update Sentry CLI**: Upgrade `@sentry/react-native` package
+4. **Re-disable in CI**: Add back the environment variables temporarily
 
-## Next Steps
+### Issue: Missing Source Maps in Sentry
 
-1. ✅ Sentry is configured and ready
-2. ✅ Test error capture in development
-3. 🔜 Deploy to production
-4. 🔜 Monitor errors in Sentry dashboard
-5. 🔜 Set up alerts for critical errors
-6. 🔜 Configure release tracking
+**Symptom**: Stack traces in Sentry show minified code
 
-## Resources
+**Check**:
+1. Source maps are generated: Look in `android/app/build/generated/sourcemaps/`
+2. Upload succeeded: Check build logs for "Sentry upload successful"
+3. Correct release version: Release name must match between app and Sentry
 
-- [Sentry React Native Docs](https://docs.sentry.io/platforms/react-native/)
-- [Sentry Dashboard](https://servease-innovation.sentry.io/)
-- [Performance Monitoring](https://docs.sentry.io/platforms/react-native/performance/)
-- [Source Maps Guide](https://docs.sentry.io/platforms/react-native/sourcemaps/)
+### Issue: Local Build is Slow
+
+**Symptom**: Local builds take longer due to Sentry upload
+
+**Solution**: Disable Sentry for debug builds:
+```bash
+export SENTRY_DISABLE_AUTO_UPLOAD=true
+npm run android  # or npm run ios
+```
+
+## Current Protective Measures
+
+Even with Sentry disabled in CI, we have multiple layers of protection:
+
+1. **Environment Variables**: `SENTRY_DISABLE_AUTO_UPLOAD=true` in CI
+2. **Gradle Configuration**: Task checking in `build.gradle`
+3. **Error Handling**: `ignoreExitValue = true` for Sentry tasks
+4. **Fallback**: `SENTRY_ALLOW_FAILURE=true`
+
+These ensure builds never fail due to Sentry issues.
+
+## Sentry Best Practices
+
+### Release Identification
+- Android: Uses `versionName` (e.g., "1.0.280")
+- iOS: Uses `CFBundleShortVersionString` + `CFBundleVersion`
+- CI: Automatically set via `VERSION_CODE` and `VERSION_NAME`
+
+### Source Map Management
+- Generated automatically during release builds
+- Uploaded with release name and dist (build number)
+- Retained for 90 days in Sentry (default)
+
+### Error Tracking
+```typescript
+import * as Sentry from '@sentry/react-native';
+
+// Initialize Sentry (already in App.tsx)
+Sentry.init({
+  dsn: 'your-dsn',
+  environment: __DEV__ ? 'development' : 'production',
+});
+
+// Manual error capture
+try {
+  // risky code
+} catch (error) {
+  Sentry.captureException(error);
+}
+```
+
+## Contact
+
+For Sentry account access or configuration issues:
+- **Sentry Org**: servease-innovation
+- **Project**: react-native
+- **URL**: https://sentry.io/organizations/servease-innovation/
+
+---
+
+**Last Updated**: Auto-generated during Sentry configuration
+**Status**: Disabled in CI/CD, Ready for Local Development
