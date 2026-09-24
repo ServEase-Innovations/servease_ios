@@ -145,3 +145,11 @@ tasks.register("bumpAndroidVersion") {
 
 apply plugin: "com.google.gms.google-services"
 
+
+
+// Make all Sentry upload tasks non-blocking - skip them entirely in CI
+tasks.whenTaskAdded { task ->
+    if (task.name.contains("SentryUpload")) {
+        task.onlyIf { false }
+    }
+}
