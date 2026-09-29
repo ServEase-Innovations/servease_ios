@@ -10,6 +10,7 @@ import {
   Dimensions,
   Platform,
   Pressable,
+  SafeAreaView,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
@@ -542,13 +543,13 @@ const Head: React.FC<ChildComponentProps> = ({
         animationType="slide"
         onRequestClose={() => setShowTnC(false)}
       >
-        <View style={dynamicStyles.modalContainer}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
           <HomeHeroPageHeader
             title="Terms & Conditions"
             onBack={() => setShowTnC(false)}
           />
           <TnC />
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* About Page */}

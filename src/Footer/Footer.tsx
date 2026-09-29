@@ -325,6 +325,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     textAlign: 'center',
   },
+  termsModalRoot: {
+    flex: 1,
+  },
   modalContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',

@@ -1858,9 +1858,8 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
         }
       }
 
-      showSnackbar("Registration successful!", "success");
-      await clearSpRegistrationDraft();
-
+      // Create Auth0 user BEFORE showing success message
+      let auth0Created = false;
       if (registrationEmail && formData.password) {
         const authPayload = {
           email: registrationEmail,
@@ -1868,22 +1867,51 @@ const ServiceProviderRegistrationContent: React.FC<RegistrationContentProps> = (
           name: `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || "Service Provider",
         };
 
-        axios.post(`${API_URLS.utils}/authO/create-autho-user`, authPayload)
-          .then((authResponse) => {
-            console.log("AuthO user created successfully:", authResponse.data);
-          }).catch((authError) => {
-            console.error("Error creating AuthO user:", authError);
-          });
+        try {
+          console.log("Creating Auth0 user for:", registrationEmail);
+          const authResponse = await axios.post(`${API_URLS.utils}/authO/create-autho-user`, authPayload);
+          console.log("✅ Auth0 user created successfully:", authResponse.data);
+          auth0Created = true;
+        } catch (authError) {
+          console.error("❌ Error creating Auth0 user:", authError);
+          if (axios.isAxiosError(authError)) {
+            console.error("Auth0 error details:", {
+              status: authError.response?.status,
+              data: authError.response?.data,
+              message: authError.message,
+            });
+          }
+          
+          // Show warning but don't fail registration
+          showSnackbar(
+            "Account created but login setup failed. Please contact support to activate your account.",
+            "warning"
+          );
+          
+          setIsSubmitting(false);
+          return; // Don't proceed to success flow
+        }
+      } else {
+        console.warn("⚠️ Missing email or password for Auth0 creation:", {
+          hasEmail: !!registrationEmail,
+          hasPassword: !!formData.password,
+        });
       }
 
-      setTimeout(() => {
-        setIsSubmitting(false);
-        if (onRegistrationSuccess) {
-          onRegistrationSuccess();
-        } else {
-          onBackToLogin(true);
-        }
-      }, 3000);
+      // Only show success if Auth0 creation succeeded or wasn't attempted
+      if (auth0Created || (!registrationEmail || !formData.password)) {
+        showSnackbar("Registration successful!", "success");
+        await clearSpRegistrationDraft();
+
+        setTimeout(() => {
+          setIsSubmitting(false);
+          if (onRegistrationSuccess) {
+            onRegistrationSuccess();
+          } else {
+            onBackToLogin(true);
+          }
+        }, 2000);
+      }
     } catch (error) {
       setIsSubmitting(false);
       
