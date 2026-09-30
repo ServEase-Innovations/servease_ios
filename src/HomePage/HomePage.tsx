@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   Animated,
   TextInput,
+  Linking,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
@@ -651,7 +652,15 @@ const HomePage: React.FC<ChildComponentProps> = ({
           <View style={styles.helpSection}>
             <Text style={[styles.helpTitle, { color: colors.textSecondary }]}>Need help choosing?</Text>
             <View style={styles.helpLinks}>
-              <TouchableOpacity style={styles.helpLink} onPress={() => onContactClick?.()}>
+              <TouchableOpacity 
+                style={styles.helpLink} 
+                onPress={() => {
+                  Linking.openURL('tel:+918792827744').catch((err) => {
+                    console.error("Couldn't make phone call", err);
+                    Alert.alert('Error', 'Unable to make the call. Please try again.');
+                  });
+                }}
+              >
                 <Icon name="support-agent" size={18} color={HOME_M3.secondary} />
                 <Text style={styles.helpLinkText}>Talk to Support</Text>
               </TouchableOpacity>
