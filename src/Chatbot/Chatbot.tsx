@@ -26,7 +26,7 @@ import { useAppUser } from '../context/AppUserContext';
 import { HOME_HERO_GRADIENT, HOME_M3 } from '../theme/brandColors';
 import { fetchMyTickets } from '../services/ticketsService';
 
-const ENDPOINT = 'https://chat-b3wl.onrender.com';
+const ENDPOINT = 'https://chat-gzsg.onrender.com';
 const ADMIN_ID = '698ace8b8ea84c91bdc93678';
 
 const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');

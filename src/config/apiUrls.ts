@@ -51,7 +51,7 @@ const PRODUCTION_URLS = {
   reviews: REACT_APP_REVIEWS_URL || 'https://reviews-4mls.onrender.com',
   tickets: REACT_APP_TICKETS_URL || 'https://tickets-1cfe.onrender.com',
   coupons: REACT_APP_COUPONS_URL || 'https://coupons-s9zq.onrender.com',
-  chat: REACT_APP_CHAT_URL || 'https://chat-b3wl.onrender.com',
+  chat: REACT_APP_CHAT_URL || 'https://chat-gzsg.onrender.com',
   imageUploader: REACT_APP_IMAGE_UPLOADER_URL || 'https://imageuploader-5njj.onrender.com',
   tracking: REACT_APP_TRACKING_API_URL || 'https://tracking-api.onrender.com',
 } as const;
