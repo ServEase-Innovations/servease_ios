@@ -43,7 +43,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
   
   const serviceData: Record<"cook" | "maid" | "babycare", ServiceDetails> = {
     maid: {
-      title: t('serviceDetails.maid.title'),
+      title: "Cleaning help",
       description: t('serviceDetails.maid.description'),
       icon: "🧹",
       features: [
@@ -86,7 +86,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
       ],
     },
     cook: {
-      title: t('serviceDetails.cook.title'),
+      title: "Cook",
       description: t('serviceDetails.cook.description'),
       icon: "👩‍🍳",
       features: [
@@ -164,7 +164,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
       ],
     },
     babycare: {
-      title: t('serviceDetails.babycare.title'),
+      title: "Caregiver",
       description: t('serviceDetails.babycare.description'),
       icon: "👶",
       features: [
@@ -279,7 +279,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
   const dynamicStyles = StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.6)",
+      backgroundColor: "rgba(0,0,0,0.45)",
       justifyContent: "flex-end",
     },
     backdropTouchable: {
@@ -291,33 +291,36 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
     },
     dialog: {
       backgroundColor: colors.card,
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
+      borderTopLeftRadius: 36,
+      borderTopRightRadius: 36,
       width: "100%",
-      maxHeight: "93%",
+      maxHeight: "92%",
       overflow: "hidden",
       elevation: 24,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: -8 },
-      shadowOpacity: 0.25,
-      shadowRadius: 20,
+      shadowOpacity: 0.15,
+      shadowRadius: 24,
     },
     handleBarContainer: {
-      paddingTop: 12,
-      paddingBottom: 8,
+      paddingTop: 16,
+      paddingBottom: 16,
       alignItems: "center",
+      backgroundColor: colors.card,
+      borderTopLeftRadius: 36,
+      borderTopRightRadius: 36,
+      zIndex: 10,
     },
     handleBar: {
-      width: 48,
-      height: 5,
-      backgroundColor: isDarkMode ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.15)",
-      borderRadius: 3,
+      width: 50,
+      height: 6,
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)",
+      borderRadius: 4,
     },
     header: {
-      paddingTop: 20,
-      paddingBottom: 24,
-      paddingHorizontal: 24,
-      minHeight: 120,
+      paddingTop: 10,
+      paddingBottom: 30,
+      paddingHorizontal: 28,
     },
     headerContent: {
       flexDirection: "row",
@@ -329,131 +332,142 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
       marginRight: 16,
     },
     iconContainer: {
-      width: 64,
-      height: 64,
-      borderRadius: 20,
-      backgroundColor: "rgba(255,255,255,0.25)",
+      width: 72,
+      height: 72,
+      borderRadius: 24,
+      backgroundColor: "rgba(255,255,255,0.3)",
       justifyContent: "center",
       alignItems: "center",
-      marginBottom: 16,
+      marginBottom: 20,
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.4)",
     },
     icon: {
-      fontSize: 36,
+      fontSize: 40,
     },
     headerTextContainer: {
-      flex: 1,
+      marginTop: 4,
     },
     headerText: {
       color: "#fff",
       fontWeight: "800",
-      fontSize: fontSizes.header + 6,
-      lineHeight: fontSizes.header + 12,
+      fontSize: fontSizes.header + 8,
+      lineHeight: fontSizes.header + 14,
       letterSpacing: 0.5,
     },
     headerSubtext: {
-      color: "rgba(255,255,255,0.9)",
+      color: "rgba(255,255,255,0.85)",
       fontSize: fontSizes.description,
-      marginTop: 4,
-      fontWeight: "500",
+      marginTop: 6,
+      fontWeight: "600",
+      letterSpacing: 0.5,
+      textTransform: "uppercase",
     },
     closeButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: "rgba(255,255,255,0.25)",
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(255,255,255,0.2)",
       justifyContent: "center",
       alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
-      shadowRadius: 4,
     },
     content: {
       paddingHorizontal: 24,
-      paddingTop: 8,
-      paddingBottom: 40,
+      paddingTop: 24,
+      paddingBottom: 50,
     },
     descriptionCard: {
-      backgroundColor: isDarkMode ? "rgba(79, 143, 247, 0.08)" : "rgba(11, 91, 211, 0.06)",
-      borderRadius: 16,
-      padding: 20,
-      marginBottom: 28,
+      backgroundColor: isDarkMode ? "rgba(79, 143, 247, 0.1)" : "#f0f5ff",
+      borderRadius: 20,
+      padding: 24,
+      marginBottom: 32,
       borderWidth: 1,
-      borderColor: isDarkMode ? "rgba(79, 143, 247, 0.15)" : "rgba(11, 91, 211, 0.1)",
+      borderColor: isDarkMode ? "rgba(79, 143, 247, 0.2)" : "#d6e4ff",
     },
     description: {
       fontSize: fontSizes.description + 1,
-      color: colors.text,
-      lineHeight: (fontSizes.description + 1) * 1.65,
+      color: isDarkMode ? "#e6f0ff" : "#1a365d",
+      lineHeight: (fontSizes.description + 1) * 1.6,
       fontWeight: "500",
     },
+    sectionTitleContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 20,
+    },
     sectionTitle: {
-      fontSize: fontSizes.featureTitle + 2,
-      fontWeight: "700",
+      fontSize: fontSizes.featureTitle + 4,
+      fontWeight: "800",
       color: colors.text,
-      marginBottom: 16,
       letterSpacing: 0.5,
+      marginLeft: 8,
     },
     featureBlock: {
-      marginBottom: 20,
-      backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "#f7f9fc",
-      borderRadius: 16,
-      padding: 18,
+      marginBottom: 24,
+      backgroundColor: isDarkMode ? "#1e1e1e" : "#ffffff",
+      borderRadius: 20,
+      padding: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 3,
       borderWidth: 1,
-      borderColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+      borderColor: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)",
     },
     featureTitleRow: {
       flexDirection: "row",
       alignItems: "center",
       marginBottom: 16,
-      paddingBottom: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
     },
     featureTitleIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 10,
-      backgroundColor: colors.primary + "20",
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: colors.primary + "15",
       justifyContent: "center",
       alignItems: "center",
       marginRight: 12,
     },
     featureTitle: {
       fontWeight: "700",
-      color: colors.primary,
-      fontSize: fontSizes.featureTitle + 1,
+      color: colors.text,
+      fontSize: fontSizes.featureTitle + 2,
       letterSpacing: 0.3,
       flex: 1,
     },
     listItem: {
       flexDirection: "row",
       alignItems: "flex-start",
-      marginBottom: 14,
-      paddingLeft: 2,
+      marginBottom: 16,
+      paddingRight: 10,
     },
     checkIconContainer: {
       width: 24,
       height: 24,
       borderRadius: 12,
-      backgroundColor: colors.primary + "18",
+      backgroundColor: colors.primary + "15",
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 14,
-      marginTop: 1,
+      marginRight: 12,
+      marginTop: 2,
     },
     listText: {
       fontSize: fontSizes.listText + 1,
-      color: colors.text,
+      color: isDarkMode ? "#cccccc" : "#4a5568",
       flexShrink: 1,
-      lineHeight: (fontSizes.listText + 1) * 1.75,
-      paddingRight: 4,
-      fontWeight: "400",
+      lineHeight: (fontSizes.listText + 1) * 1.6,
+      fontWeight: "500",
     },
+    gradientHeader: {
+      borderTopLeftRadius: 36,
+      borderTopRightRadius: 36,
+      overflow: "hidden",
+    }
   });
 
   return (
@@ -461,36 +475,37 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
       <Pressable style={dynamicStyles.backdropTouchable} onPress={onClose} />
       <View style={dynamicStyles.overlay}>
         <View style={dynamicStyles.dialog}>
-          {/* Handle Bar for drag-down gesture indication */}
-          <View style={dynamicStyles.handleBarContainer}>
-            <View style={dynamicStyles.handleBar} />
-          </View>
-
-          {/* Header with Linear Gradient - Full Width & Professional */}
           <LinearGradient
-            colors={["#0b5bd3", "#2e7de6", "#4f8ff7"]}
+            colors={isDarkMode ? ["#1a365d", "#0b5bd3", "#2e7de6"] : ["#0b5bd3", "#2e7de6", "#4f8ff7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={dynamicStyles.header}
+            style={dynamicStyles.gradientHeader}
           >
-            <View style={dynamicStyles.headerContent}>
-              <View style={dynamicStyles.headerLeft}>
-                <View style={dynamicStyles.iconContainer}>
-                  <Text style={dynamicStyles.icon}>{icon}</Text>
+            {/* Handle Bar inside gradient for cohesive look */}
+            <View style={[dynamicStyles.handleBarContainer, { backgroundColor: 'transparent' }]}>
+              <View style={dynamicStyles.handleBar} />
+            </View>
+
+            <View style={dynamicStyles.header}>
+              <View style={dynamicStyles.headerContent}>
+                <View style={dynamicStyles.headerLeft}>
+                  <View style={dynamicStyles.iconContainer}>
+                    <Text style={dynamicStyles.icon}>{icon}</Text>
+                  </View>
+                  <View style={dynamicStyles.headerTextContainer}>
+                    <Text style={dynamicStyles.headerText}>{title}</Text>
+                    <Text style={dynamicStyles.headerSubtext}>Professional Standard</Text>
+                  </View>
                 </View>
-                <View style={dynamicStyles.headerTextContainer}>
-                  <Text style={dynamicStyles.headerText}>{title}</Text>
-                  <Text style={dynamicStyles.headerSubtext}>Professional Service Standards</Text>
-                </View>
+                <TouchableOpacity 
+                  onPress={onClose} 
+                  style={dynamicStyles.closeButton} 
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                >
+                  <Icon name="x" size={22} color="#fff" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity 
-                onPress={onClose} 
-                style={dynamicStyles.closeButton} 
-                activeOpacity={0.8}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="x" size={24} color="#fff" />
-              </TouchableOpacity>
             </View>
           </LinearGradient>
 
@@ -506,14 +521,17 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
             </View>
 
             {/* Features Title */}
-            <Text style={dynamicStyles.sectionTitle}>What We Offer</Text>
+            <View style={dynamicStyles.sectionTitleContainer}>
+              <Icon name="award" size={22} color={colors.primary} />
+              <Text style={dynamicStyles.sectionTitle}>What We Offer</Text>
+            </View>
 
             {features.map((feature, index) => (
               <View key={index} style={dynamicStyles.featureBlock}>
                 {feature.title && (
                   <View style={dynamicStyles.featureTitleRow}>
                     <View style={dynamicStyles.featureTitleIcon}>
-                      <MaterialIcon name="star" size={16} color={colors.primary} />
+                      <Icon name="check-circle" size={18} color={colors.primary} />
                     </View>
                     <Text style={dynamicStyles.featureTitle}>{feature.title}</Text>
                   </View>
@@ -528,6 +546,9 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
                 ))}
               </View>
             ))}
+            
+            {/* Bottom padding for scroll */}
+            <View style={{ height: 20 }} />
           </ScrollView>
         </View>
       </View>

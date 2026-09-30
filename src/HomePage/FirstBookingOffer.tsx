@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -30,13 +30,33 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
 }) => {
   const { colors, isDarkMode } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.02,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          })
+        ])
+      ).start();
+    }
+  }, [visible, pulseAnim]);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.98,
+      toValue: 0.95,
       useNativeDriver: true,
-      tension: 200,
-      friction: 8,
+      tension: 300,
+      friction: 12,
     }).start();
   };
 
@@ -44,15 +64,14 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      tension: 200,
-      friction: 8,
+      tension: 300,
+      friction: 12,
     }).start();
   };
 
   if (!visible) return null;
 
   const surfaceBg = isDarkMode ? colors.surface : "#FFFFFF";
-  const titleColor = isDarkMode ? colors.textPrimary : "#1E293B";
   const mutedColor = isDarkMode ? colors.textSecondary : "#64748B";
   const dividerColor = isDarkMode ? colors.border : "#E2E8F0";
 
@@ -66,13 +85,13 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
       accessibilityLabel={`First booking offer, 99 rupees with codes ${FIRST_BOOKING_COUPON_CODES.MAID} and ${FIRST_BOOKING_COUPON_CODES.COOK}`}
       style={styles.container}
     >
-      <Animated.View style={[styles.cardOuter, { transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View style={[styles.cardOuter, { transform: [{ scale: scaleAnim }, { scale: pulseAnim }] }]}>
         <View
           style={[
             styles.card,
             {
               backgroundColor: surfaceBg,
-              borderColor: isDarkMode ? colors.border : "#FDE68A",
+              borderColor: isDarkMode ? "rgba(253, 230, 138, 0.2)" : "rgba(253, 230, 138, 0.6)",
             },
           ]}
         >
@@ -110,7 +129,7 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
                   </Text>
                 </View>
                 <View style={styles.chevronBtn}>
-                  <Icon name="arrow-forward" size={18} color="#EA580C" />
+                  <Icon name="arrow-forward" size={20} color="#EA580C" />
                 </View>
               </View>
             </View>
@@ -130,61 +149,62 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    paddingVertical: 8,
   },
   cardOuter: {
     width: "100%",
-    borderRadius: 14,
+    borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: "#0f172a",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowColor: "#F59E0B",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
       },
-      android: { elevation: 4 },
+      android: { elevation: 8, shadowColor: "#F59E0B" },
     }),
   },
   card: {
     flexDirection: "row",
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: 1.5,
     overflow: "hidden",
   },
   accentBar: {
-    width: 4,
+    width: 6,
   },
   cardBody: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   hotDealPill: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: ACCENT.red,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     gap: 4,
   },
   hotDealIcon: {
-    fontSize: 10,
+    fontSize: 12,
   },
   hotDealLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
   tapHint: {
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "600",
   },
   mainRow: {
     flexDirection: "row",
@@ -197,25 +217,25 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   eyebrow: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     textTransform: "capitalize",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   priceRow: {
     flexDirection: "row",
     alignItems: "flex-end",
   },
   priceValue: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: "800",
     color: ACCENT.red,
-    lineHeight: 32,
-    letterSpacing: -0.5,
+    lineHeight: 38,
+    letterSpacing: -1,
   },
   priceSuffix: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     marginLeft: 6,
     marginBottom: 4,
   },
@@ -226,45 +246,46 @@ const styles = StyleSheet.create({
   },
   couponChip: {
     backgroundColor: ACCENT.goldLight,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     alignItems: "center",
-    minWidth: 72,
+    minWidth: 76,
   },
   couponLabel: {
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
     marginBottom: 2,
   },
   couponCode: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
     color: "#92400E",
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
   couponCodeSecondary: {
-    marginTop: 1,
+    marginTop: 2,
   },
   chevronBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#FFEDD5",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 10,
+    marginLeft: 12,
   },
   termsRow: {
-    marginTop: 10,
-    paddingTop: 8,
+    marginTop: 14,
+    paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   termsText: {
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: "left",
+    fontWeight: "500",
   },
 });
 

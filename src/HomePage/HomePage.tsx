@@ -37,6 +37,7 @@ import NannyServicesDialog from "../ServiceDialogs/NannyServiceDialog";
 import ServiceProviderRegistration from "../Registration/ServiceProviderRegistration";
 import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 import Footer from "../Footer/Footer";
+import HowItWorksDialog from "./HowItWorksDialog";
 
 const cookImage = require("../../assets/images/Cooknew.png");
 const maidImage = require("../../assets/images/Maidnew.png");
@@ -100,6 +101,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const [showCookDialog, setShowCookDialog] = useState(false);
   const [showAgentRegistration, setShowAgentRegistration] = useState(false);
   const [showServiceSelection, setShowServiceSelection] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const scrollRef = useRef<ScrollView>(null);
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<ServiceType | null>(null);
@@ -432,7 +434,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const scrollToHowItWorks = () => {
-    scrollRef.current?.scrollToEnd({ animated: true });
+    setShowHowItWorks(true);
   };
 
   const handleServiceTap = (serviceKey: ServiceType) => {
@@ -731,6 +733,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
 
       <ServiceDetailsDialog open={serviceDetailsOpen} onClose={() => setServiceDetailsOpen(false)} serviceType={selectedServiceType} />
 
+      <HowItWorksDialog visible={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
+
       {showAgentRegistration && (
         <AgentRegistrationForm onBackToLogin={() => setShowAgentRegistration(false)} />
       )}
@@ -774,8 +778,8 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: "row", alignItems: "center", 
     // backgroundColor will be dynamic
-    borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 4,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4,
+    borderRadius: 16, height: 60, paddingHorizontal: 16, marginBottom: 8,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 6,
   },
   searchIcon: { marginRight: 8 },
   searchInput: { 
@@ -797,9 +801,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     backgroundColor: '#E0F2FE', // Light blue background
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 24,
   },
   heroChipTextWhite: {
     color: '#00BFFF', // Cyan text
