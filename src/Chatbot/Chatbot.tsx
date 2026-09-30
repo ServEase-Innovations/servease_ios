@@ -229,11 +229,19 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
     }
     if (startingChat) return;
     setStartingChat(true);
+    
     try {
-      const { data: userData } = await axios.post(`${ENDPOINT}/api/user/find-or-create`, {
-        name: appUser.name,
-        email: appUser.email,
-      });
+      // First attempt - this may fail with 503 if service is waking up
+      const { data: userData } = await axios.post(
+        `${ENDPOINT}/api/user/find-or-create`,
+        {
+          name: appUser.name,
+          email: appUser.email,
+        },
+        {
+          timeout: 60000, // 60 second timeout for slow wake-up
+        }
+      );
       setMongoUser(userData);
 
       const { data: chatData } = await axios.post(`${ENDPOINT}/api/chat`, {
@@ -254,9 +262,29 @@ const Chatbot: React.FC<ChatbotProps> = ({ open, onClose }) => {
       setChatOpen(true);
       setShowAccordion(false);
       setExpandedFaq(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      Alert.alert('Error', 'Failed to start live chat. Please try again.');
+      
+      // Check if it's a 503 Service Unavailable error
+      if (err.response?.status === 503 || err.code === 'ECONNABORTED') {
+        Alert.alert(
+          'Service Starting',
+          'Our chat service is waking up (this takes about 50 seconds on first use). Please try again in a moment.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Retry',
+              onPress: () => {
+                setStartingChat(false);
+                // Retry after a short delay
+                setTimeout(() => startLiveChat(), 2000);
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to start live chat. Please try again later.');
+      }
     } finally {
       setStartingChat(false);
     }
