@@ -21,6 +21,7 @@ import {
   FULL_DAY_TIMESLOT,
   generateTimeOptions,
   isDuplicateSlot,
+  isOverlappingSlot,
   parseTimeslotString,
   slotsToTimeslotString,
 } from "./availabilityUtils";
@@ -51,6 +52,7 @@ const AvailabilityPicker: React.FC<AvailabilityPickerProps> = ({ value, onChange
   const [slots, setSlots] = useState<AvailabilitySlot[]>(initialState.slots);
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [showOverlapWarning, setShowOverlapWarning] = useState(false);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -68,6 +70,7 @@ const AvailabilityPicker: React.FC<AvailabilityPickerProps> = ({ value, onChange
   const switchMode = (nextMode: AvailabilityMode) => {
     setMode(nextMode);
     setShowDuplicateWarning(false);
+    setShowOverlapWarning(false);
     if (nextMode === "custom" && slots.length === 0) {
       setSlots([{ id: createSlotId(), ...DEFAULT_CUSTOM_SLOT }]);
     }
@@ -80,6 +83,7 @@ const AvailabilityPicker: React.FC<AvailabilityPickerProps> = ({ value, onChange
   const removeSlot = (slotId: string) => {
     setSlots((prev) => prev.filter((slot) => slot.id !== slotId));
     setShowDuplicateWarning(false);
+    setShowOverlapWarning(false);
   };
 
   const applyPreset = (startMinutes: number, endMinutes: number) => {
@@ -89,11 +93,20 @@ const AvailabilityPicker: React.FC<AvailabilityPickerProps> = ({ value, onChange
       endMinutes,
     };
     setSlots((prev) => {
+      // Check for exact duplicate
       if (isDuplicateSlot(prev, candidate)) {
         setShowDuplicateWarning(true);
+        setShowOverlapWarning(false);
+        return prev;
+      }
+      // Check for overlapping slots
+      if (isOverlappingSlot(prev, candidate)) {
+        setShowOverlapWarning(true);
+        setShowDuplicateWarning(false);
         return prev;
       }
       setShowDuplicateWarning(false);
+      setShowOverlapWarning(false);
       return [...prev, candidate];
     });
     setMode("custom");
@@ -114,6 +127,7 @@ const AvailabilityPicker: React.FC<AvailabilityPickerProps> = ({ value, onChange
       })
     );
     setShowDuplicateWarning(false);
+    setShowOverlapWarning(false);
   };
 
   const openPicker = (slotId: string, field: "start" | "end") => {
@@ -213,6 +227,12 @@ const AvailabilityPicker: React.FC<AvailabilityPickerProps> = ({ value, onChange
           {showDuplicateWarning ? (
             <Text style={[styles.errorText, { color: colors.error || "#f44336", fontSize: fontSizes.small }]}>
               This time slot is already added
+            </Text>
+          ) : null}
+
+          {showOverlapWarning ? (
+            <Text style={[styles.errorText, { color: colors.error || "#f44336", fontSize: fontSizes.small }]}>
+              This time slot overlaps with an existing slot
             </Text>
           ) : null}
 

@@ -93,6 +93,19 @@ export function isDuplicateSlot(
   );
 }
 
+export function isOverlappingSlot(
+  slots: AvailabilitySlot[],
+  candidate: AvailabilitySlot
+): boolean {
+  return slots.some(
+    (slot) =>
+      slot.id !== candidate.id &&
+      ((candidate.startMinutes >= slot.startMinutes && candidate.startMinutes < slot.endMinutes) ||
+       (candidate.endMinutes > slot.startMinutes && candidate.endMinutes <= slot.endMinutes) ||
+       (candidate.startMinutes <= slot.startMinutes && candidate.endMinutes >= slot.endMinutes))
+  );
+}
+
 export function parseTimeslotString(value?: string): {
   mode: "full" | "custom";
   slots: AvailabilitySlot[];
