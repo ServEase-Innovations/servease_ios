@@ -374,6 +374,11 @@ export const Login: React.FC<ChildComponentProps> = ({
           customerIdRaw != null && customerIdRaw !== "" ? Number(customerIdRaw) : null;
         const customerData = payload.customer;
         const loginMobile = mobile.replace(/\D/g, "");
+        
+        // Get the mobile number from customer data or use the login mobile
+        const customerMobile = customerData?.mobileNo ?? customerData?.mobileno ?? customerData?.mobile_no;
+        const finalMobileNo = customerMobile || loginMobile;
+        
         userData = {
           ...userData,
           customerid: customerId,
@@ -386,9 +391,25 @@ export const Login: React.FC<ChildComponentProps> = ({
           email: customerData?.emailId ?? customerData?.emailid ?? null,
           firstName: customerData?.firstName ?? customerData?.firstname,
           lastName: customerData?.lastName ?? customerData?.lastname,
-          mobileNo: loginMobile || null,
-          mobile: loginMobile || null,
+          mobileNo: finalMobileNo || null,
+          mobile: finalMobileNo || null,
+          loginMobile: loginMobile, // Store the mobile used for login
         };
+        
+        // If customer logged in with mobile but database doesn't have mobile number, update it
+        if (loginMobile && !customerMobile && customerId) {
+          console.log("📱 Updating customer mobile number in database after OTP login");
+          try {
+            await providerInstance.put(`/api/customer/${customerId}`, {
+              customerid: customerId,
+              mobileno: loginMobile,
+            });
+            console.log("✅ Customer mobile number updated successfully");
+          } catch (updateError) {
+            console.error("⚠️ Failed to update customer mobile number:", updateError);
+            // Don't block login if update fails, just log the error
+          }
+        }
       }
       else {
         userData = {

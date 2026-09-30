@@ -130,12 +130,32 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
 
   useEffect(() => {
     if (visible && appUser) {
-      setContactNumber(appUser.mobileNo || "");
-      setAltContactNumber(appUser.alternateNo || "");
+      // Use the mobile number from login if available, otherwise use existing mobile
+      const initialMobile = appUser.loginMobile || appUser.mobileNo || appUser.mobile || "";
+      const initialAlt = appUser.alternateNo || "";
       
-      setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
+      setContactNumber(initialMobile);
+      setAltContactNumber(initialAlt);
+      
+      // If we have a loginMobile, mark it as valid and available immediately
+      // since it was just used for successful OTP login
+      if (appUser.loginMobile && appUser.loginMobile.length === 10) {
+        setContactValidation({ 
+          loading: false, 
+          error: '', 
+          isAvailable: true, // User's own login number is always available for them
+          formatError: false 
+        });
+        setValidatedFields(new Set(['contactNumber']));
+      } else {
+        setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
+      }
+      
       setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
-      setValidatedFields(new Set());
+      
+      if (!appUser.loginMobile) {
+        setValidatedFields(new Set());
+      }
     }
   }, [visible, appUser]);
 
@@ -164,6 +184,26 @@ const MobileNumberDialog: React.FC<MobileNumberDialogProps> = ({
 
     const setValidation = isAlternate ? setAltContactValidation : setContactValidation;
     const fieldName = isAlternate ? 'altContactNumber' : 'contactNumber';
+    
+    // If this is the user's login mobile (the number they just used for OTP), 
+    // automatically mark it as available without checking the API
+    if (!isAlternate && appUser?.loginMobile && number === appUser.loginMobile) {
+      console.log("📱 Using login mobile number - automatically marking as available");
+      setValidation({
+        loading: false,
+        error: '',
+        isAvailable: true,
+        formatError: false
+      });
+      
+      setValidatedFields(prev => {
+        const newSet = new Set(prev);
+        newSet.add(fieldName);
+        return newSet;
+      });
+      
+      return true;
+    }
     
     setValidation({
       loading: true,

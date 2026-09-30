@@ -47,9 +47,18 @@ export const useCustomerMobileCheck = () => {
     });
   }, [hasMobileNumber, mobileNo, alternateNo, setAppUser]);
 
+  // Don't show mobile dialog if:
+  // 1. Still loading customer details
+  // 2. User already has a mobile number in DB
+  // 3. User has a loginMobile (just logged in with OTP) or mobileNo in appUser context
+  const userHasMobile = hasMobileNumber === true || 
+                        !!appUser?.mobileNo || 
+                        !!appUser?.loginMobile ||
+                        !!appUser?.mobile;
+
   return {
-    hasMobileNumber,
+    hasMobileNumber: userHasMobile,
     loading,
-    showMobileDialog: !loading && hasMobileNumber === false,
+    showMobileDialog: !loading && !userHasMobile,
   };
 };

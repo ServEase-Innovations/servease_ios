@@ -153,6 +153,28 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const { housekeepingRoles, isAccountActive, loading: loadingProviderProfile } =
     useServiceProviderProfile(serviceProviderId, isServiceProvider);
 
+  // Create dynamic styles that respect theme
+  const dynamicStyles = useMemo(() => {
+    return {
+      mainContainer: { flex: 1, backgroundColor: colors.background },
+      container: { flex: 1, backgroundColor: colors.background },
+      whiteContentSection: {
+        backgroundColor: colors.surface, // White in light mode, dark in dark mode
+        flex: 1,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+      },
+      mainCanvas: {
+        marginTop: -18,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingHorizontal: 20,
+        paddingTop: 28,
+        backgroundColor: colors.background, // Theme-aware background
+      },
+    };
+  }, [colors]);
+
   const getServiceTitle = (serviceKey: ServiceType) => {
     if (serviceKey === "COOK") return t("home.services.homeCook");
     if (serviceKey === "MAID") return t("home.services.cleaningHelp");
@@ -424,10 +446,10 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   return (
-    <View style={styles.mainContainer}>
+    <View style={dynamicStyles.mainContainer}>
       <ScrollView
         ref={scrollRef}
-        style={[styles.container, { backgroundColor: HOME_M3.surface }]}
+        style={[dynamicStyles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -437,18 +459,27 @@ const HomePage: React.FC<ChildComponentProps> = ({
         </View>
 
         {/* White Content Section */}
-        <View style={styles.whiteContentSection}>
+        <View style={dynamicStyles.whiteContentSection}>
           {/* Hero Title and Subtitle */}
           <View style={styles.heroTextContainer}>
             <Text
               style={[
                 styles.heroTitleWhite,
-                { fontSize: fontSize === "large" ? heroTitleSize + 4 : heroTitleSize + 2 },
+                { 
+                  fontSize: fontSize === "large" ? heroTitleSize + 4 : heroTitleSize + 2,
+                  color: colors.text
+                },
               ]}
             >
               {t("home.hero.title")}
             </Text>
-            <Text style={[styles.heroSubtitleWhite, { fontSize: heroSubtitleSize + 1 }]}>
+            <Text style={[
+              styles.heroSubtitleWhite, 
+              { 
+                fontSize: heroSubtitleSize + 1,
+                color: colors.textSecondary 
+              }
+            ]}>
               {t("home.hero.subtitle")}
             </Text>
 
@@ -461,10 +492,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
               ))}
             </View>
 
-            <View style={styles.searchWrap}>
+            <View style={[
+              styles.searchWrap,
+              { backgroundColor: isDarkMode ? colors.surface2 : '#F1F5F9' }
+            ]}>
               <Icon name="search" size={20} color={HOME_M3.outline} style={styles.searchIcon} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: colors.text }]}
                 placeholder="Find a cook, maid, or cleaner..."
                 placeholderTextColor={HOME_M3.outline}
                 value={searchQuery}
@@ -707,8 +741,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
 };
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1 },
-  container: { flex: 1 },
   scrollContent: { paddingBottom: 0 },
   siteFooterWrap: { width: '100%', alignSelf: 'stretch', marginTop: 8 },
   
@@ -719,14 +751,6 @@ const styles = StyleSheet.create({
     zIndex: 1000, // Keep header above other content
   },
   
-  // White Content Section
-  whiteContentSection: {
-    backgroundColor: '#FFFFFF',
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-  },
-  
   // Hero Text Container
   heroTextContainer: {
     marginBottom: 24,
@@ -734,7 +758,7 @@ const styles = StyleSheet.create({
   
   // Hero Title on White
   heroTitleWhite: {
-    color: '#0F172A', // Black
+    // Color will be dynamic
     fontWeight: "800",
     lineHeight: 36,
     marginBottom: 8,
@@ -742,18 +766,24 @@ const styles = StyleSheet.create({
   
   // Hero Subtitle on White
   heroSubtitleWhite: {
-    color: '#64748B', // Gray
+    // Color will be dynamic
     lineHeight: 20,
     marginBottom: 16,
     maxWidth: "95%",
   },
   searchWrap: {
-    flexDirection: "row", alignItems: "center", backgroundColor: '#F1F5F9',
+    flexDirection: "row", alignItems: "center", 
+    // backgroundColor will be dynamic
     borderRadius: 12, height: 56, paddingHorizontal: 14, marginBottom: 4,
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4,
   },
   searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 16, color: '#0F172A', paddingVertical: 0 },
+  searchInput: { 
+    flex: 1, 
+    fontSize: 16, 
+    // color will be dynamic
+    paddingVertical: 0 
+  },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -783,6 +813,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     paddingHorizontal: 20,
     paddingTop: 28,
+    // backgroundColor will be dynamic from dynamicStyles
   },
   sectionHeaderRow: { 
     flexDirection: "row", 
@@ -796,14 +827,14 @@ const styles = StyleSheet.create({
     fontSize: 24, 
     fontWeight: "800", 
     lineHeight: 30,
-    color: '#0F172A',
+    // color will be dynamic
     letterSpacing: -0.5,
   },
   sectionSubtitle: { 
     fontSize: 14, 
     marginTop: 6, 
     lineHeight: 20,
-    color: '#64748B',
+    // color will be dynamic
   },
   providerBanner: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: "#FFFBEB", borderRadius: 12, borderWidth: 1, borderColor: "#FDE68A", padding: 12, marginBottom: 14 },
   providerBannerText: { flex: 1, fontSize: 13, lineHeight: 18, color: "#92400E", fontWeight: "500" },
