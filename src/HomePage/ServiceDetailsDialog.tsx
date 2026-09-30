@@ -280,9 +280,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
     overlay: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.6)",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 20,
+      justifyContent: "flex-end",
     },
     backdropTouchable: {
       position: "absolute",
@@ -293,96 +291,137 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
     },
     dialog: {
       backgroundColor: colors.card,
-      borderRadius: 20,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
       width: "100%",
-      maxWidth: 420,
-      maxHeight: "90%",
+      maxHeight: "93%",
       overflow: "hidden",
-      elevation: 16,
+      elevation: 24,
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.3,
-      shadowRadius: 16,
+      shadowOffset: { width: 0, height: -8 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+    },
+    handleBarContainer: {
+      paddingTop: 12,
+      paddingBottom: 8,
+      alignItems: "center",
+    },
+    handleBar: {
+      width: 48,
+      height: 5,
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.15)",
+      borderRadius: 3,
     },
     header: {
-      flexDirection: "column",
-      paddingTop: 28,
-      paddingBottom: 28,
+      paddingTop: 20,
+      paddingBottom: 24,
       paddingHorizontal: 24,
-      minHeight: 100,
+      minHeight: 120,
     },
-    headerTop: {
+    headerContent: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       justifyContent: "space-between",
-      marginBottom: 4,
     },
     headerLeft: {
-      flexDirection: "row",
-      alignItems: "center",
       flex: 1,
-      marginRight: 12,
-    },
-    iconContainer: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: "rgba(255,255,255,0.2)",
-      justifyContent: "center",
-      alignItems: "center",
       marginRight: 16,
     },
+    iconContainer: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: "rgba(255,255,255,0.25)",
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
     icon: {
-      fontSize: 32,
+      fontSize: 36,
     },
     headerTextContainer: {
       flex: 1,
     },
     headerText: {
       color: "#fff",
-      fontWeight: "700",
-      fontSize: fontSizes.header + 4,
-      lineHeight: fontSizes.header + 10,
-      flexShrink: 1,
+      fontWeight: "800",
+      fontSize: fontSizes.header + 6,
+      lineHeight: fontSizes.header + 12,
+      letterSpacing: 0.5,
+    },
+    headerSubtext: {
+      color: "rgba(255,255,255,0.9)",
+      fontSize: fontSizes.description,
+      marginTop: 4,
+      fontWeight: "500",
+    },
+    closeButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(255,255,255,0.25)",
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
     },
     content: {
       paddingHorizontal: 24,
-      paddingTop: 24,
-      paddingBottom: 32,
+      paddingTop: 8,
+      paddingBottom: 40,
     },
     descriptionCard: {
-      backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(11, 91, 211, 0.05)",
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 24,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.primary,
+      backgroundColor: isDarkMode ? "rgba(79, 143, 247, 0.08)" : "rgba(11, 91, 211, 0.06)",
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 28,
+      borderWidth: 1,
+      borderColor: isDarkMode ? "rgba(79, 143, 247, 0.15)" : "rgba(11, 91, 211, 0.1)",
     },
     description: {
       fontSize: fontSizes.description + 1,
       color: colors.text,
-      lineHeight: (fontSizes.description + 1) * 1.6,
+      lineHeight: (fontSizes.description + 1) * 1.65,
       fontWeight: "500",
     },
+    sectionTitle: {
+      fontSize: fontSizes.featureTitle + 2,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 16,
+      letterSpacing: 0.5,
+    },
     featureBlock: {
-      marginBottom: 24,
-      backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : "#f8f9fa",
-      borderRadius: 12,
-      padding: 16,
+      marginBottom: 20,
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "#f7f9fc",
+      borderRadius: 16,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
     },
     featureTitleRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 14,
+      marginBottom: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: isDarkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
     },
     featureTitleIcon: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: 32,
+      height: 32,
+      borderRadius: 10,
       backgroundColor: colors.primary + "20",
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 10,
+      marginRight: 12,
     },
     featureTitle: {
       fontWeight: "700",
@@ -394,69 +433,80 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
     listItem: {
       flexDirection: "row",
       alignItems: "flex-start",
-      marginBottom: 12,
-      paddingLeft: 6,
+      marginBottom: 14,
+      paddingLeft: 2,
     },
     checkIconContainer: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: colors.primary + "15",
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.primary + "18",
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
-      marginTop: 2,
+      marginRight: 14,
+      marginTop: 1,
     },
     listText: {
       fontSize: fontSizes.listText + 1,
       color: colors.text,
       flexShrink: 1,
-      lineHeight: (fontSizes.listText + 1) * 1.7,
+      lineHeight: (fontSizes.listText + 1) * 1.75,
       paddingRight: 4,
       fontWeight: "400",
-    },
-    closeButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: "rgba(255,255,255,0.25)",
-      justifyContent: "center",
-      alignItems: "center",
     },
   });
 
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={dynamicStyles.backdropTouchable} onPress={onClose} />
       <View style={dynamicStyles.overlay}>
         <View style={dynamicStyles.dialog}>
-          {/* Header with Linear Gradient - Full Width & Taller */}
+          {/* Handle Bar for drag-down gesture indication */}
+          <View style={dynamicStyles.handleBarContainer}>
+            <View style={dynamicStyles.handleBar} />
+          </View>
+
+          {/* Header with Linear Gradient - Full Width & Professional */}
           <LinearGradient
-            colors={["#0b5bd3", "#4f8ff7"]}
+            colors={["#0b5bd3", "#2e7de6", "#4f8ff7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={dynamicStyles.header}
           >
-            <View style={dynamicStyles.headerTop}>
+            <View style={dynamicStyles.headerContent}>
               <View style={dynamicStyles.headerLeft}>
                 <View style={dynamicStyles.iconContainer}>
                   <Text style={dynamicStyles.icon}>{icon}</Text>
                 </View>
                 <View style={dynamicStyles.headerTextContainer}>
                   <Text style={dynamicStyles.headerText}>{title}</Text>
+                  <Text style={dynamicStyles.headerSubtext}>Professional Service Standards</Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton} activeOpacity={0.7}>
-                <Icon name="x" size={26} color="#fff" />
+              <TouchableOpacity 
+                onPress={onClose} 
+                style={dynamicStyles.closeButton} 
+                activeOpacity={0.8}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="x" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
           </LinearGradient>
 
           {/* Content */}
-          <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={dynamicStyles.content} 
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+          >
+            {/* Description Card */}
             <View style={dynamicStyles.descriptionCard}>
               <Text style={dynamicStyles.description}>{description}</Text>
             </View>
+
+            {/* Features Title */}
+            <Text style={dynamicStyles.sectionTitle}>What We Offer</Text>
 
             {features.map((feature, index) => (
               <View key={index} style={dynamicStyles.featureBlock}>
