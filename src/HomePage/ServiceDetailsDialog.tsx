@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
 } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
@@ -278,130 +279,203 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
   const dynamicStyles = StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.4)",
+      backgroundColor: "rgba(0,0,0,0.6)",
       justifyContent: "center",
       alignItems: "center",
-      paddingVertical: 40,
+      padding: 20,
+    },
+    backdropTouchable: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
     },
     dialog: {
       backgroundColor: colors.card,
-      borderRadius: 12,
-      width: 340,
-      maxHeight: "85%",
+      borderRadius: 20,
+      width: "100%",
+      maxWidth: 420,
+      maxHeight: "90%",
       overflow: "hidden",
-      elevation: 10,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      marginHorizontal: 20,
+      elevation: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
     },
     header: {
+      flexDirection: "column",
+      paddingTop: 28,
+      paddingBottom: 28,
+      paddingHorizontal: 24,
+      minHeight: 100,
+    },
+    headerTop: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingVertical: 16,
-      paddingHorizontal: 16,
-      minHeight: 56,
+      marginBottom: 4,
     },
     headerLeft: {
       flexDirection: "row",
       alignItems: "center",
       flex: 1,
-      marginRight: 8,
+      marginRight: 12,
+    },
+    iconContainer: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: "rgba(255,255,255,0.2)",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 16,
     },
     icon: {
-      fontSize: 24,
-      marginRight: 8,
+      fontSize: 32,
+    },
+    headerTextContainer: {
+      flex: 1,
     },
     headerText: {
       color: "#fff",
       fontWeight: "700",
-      fontSize: fontSizes.header,
+      fontSize: fontSizes.header + 4,
+      lineHeight: fontSizes.header + 10,
       flexShrink: 1,
     },
     content: {
+      paddingHorizontal: 24,
+      paddingTop: 24,
+      paddingBottom: 32,
+    },
+    descriptionCard: {
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(11, 91, 211, 0.05)",
+      borderRadius: 12,
       padding: 16,
-      paddingTop: 20,
+      marginBottom: 24,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
     },
     description: {
-      fontSize: fontSizes.description,
-      color: colors.textSecondary,
-      marginBottom: 16,
+      fontSize: fontSizes.description + 1,
+      color: colors.text,
+      lineHeight: (fontSizes.description + 1) * 1.6,
+      fontWeight: "500",
     },
     featureBlock: {
-      marginBottom: 20,
+      marginBottom: 24,
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : "#f8f9fa",
+      borderRadius: 12,
+      padding: 16,
+    },
+    featureTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 14,
+    },
+    featureTitleIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.primary + "20",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 10,
     },
     featureTitle: {
-      fontWeight: "bold",
+      fontWeight: "700",
       color: colors.primary,
-      marginBottom: 8,
-      fontSize: fontSizes.featureTitle,
+      fontSize: fontSizes.featureTitle + 1,
+      letterSpacing: 0.3,
+      flex: 1,
     },
     listItem: {
       flexDirection: "row",
       alignItems: "flex-start",
-      marginBottom: 6,
+      marginBottom: 12,
+      paddingLeft: 6,
+    },
+    checkIconContainer: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: colors.primary + "15",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+      marginTop: 2,
     },
     listText: {
-      fontSize: fontSizes.listText,
+      fontSize: fontSizes.listText + 1,
       color: colors.text,
       flexShrink: 1,
-    },
-    divider: {
-      height: 1,
-      backgroundColor: colors.borderLight,
-      marginTop: 10,
+      lineHeight: (fontSizes.listText + 1) * 1.7,
+      paddingRight: 4,
+      fontWeight: "400",
     },
     closeButton: {
-      padding: 4,
-      borderRadius: 12,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(255,255,255,0.25)",
+      justifyContent: "center",
+      alignItems: "center",
     },
   });
 
   return (
-    <Modal visible={open} transparent animationType="fade">
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={dynamicStyles.backdropTouchable} onPress={onClose} />
       <View style={dynamicStyles.overlay}>
         <View style={dynamicStyles.dialog}>
-          {/* Header with Linear Gradient */}
+          {/* Header with Linear Gradient - Full Width & Taller */}
           <LinearGradient
             colors={["#0b5bd3", "#4f8ff7"]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={dynamicStyles.header}
           >
-            <View style={dynamicStyles.headerLeft}>
-              <Text style={dynamicStyles.icon}>{icon}</Text>
-              <Text style={dynamicStyles.headerText}>{title}</Text>
+            <View style={dynamicStyles.headerTop}>
+              <View style={dynamicStyles.headerLeft}>
+                <View style={dynamicStyles.iconContainer}>
+                  <Text style={dynamicStyles.icon}>{icon}</Text>
+                </View>
+                <View style={dynamicStyles.headerTextContainer}>
+                  <Text style={dynamicStyles.headerText}>{title}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton} activeOpacity={0.7}>
+                <Icon name="x" size={26} color="#fff" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
-              <Icon name="x" size={24} color="#fff" />
-            </TouchableOpacity>
           </LinearGradient>
 
           {/* Content */}
-          <ScrollView style={dynamicStyles.content}>
-            <Text style={dynamicStyles.description}>{description}</Text>
+          <ScrollView style={dynamicStyles.content} showsVerticalScrollIndicator={false}>
+            <View style={dynamicStyles.descriptionCard}>
+              <Text style={dynamicStyles.description}>{description}</Text>
+            </View>
 
             {features.map((feature, index) => (
               <View key={index} style={dynamicStyles.featureBlock}>
                 {feature.title && (
-                  <Text style={dynamicStyles.featureTitle}>{feature.title}</Text>
+                  <View style={dynamicStyles.featureTitleRow}>
+                    <View style={dynamicStyles.featureTitleIcon}>
+                      <MaterialIcon name="star" size={16} color={colors.primary} />
+                    </View>
+                    <Text style={dynamicStyles.featureTitle}>{feature.title}</Text>
+                  </View>
                 )}
                 {feature.items.map((item, i) => (
                   <View key={i} style={dynamicStyles.listItem}>
-                    <MaterialIcon
-                      name="check"
-                      size={16}
-                      color={colors.primary}
-                      style={{ marginRight: 8 }}
-                    />
+                    <View style={dynamicStyles.checkIconContainer}>
+                      <MaterialIcon name="check" size={14} color={colors.primary} />
+                    </View>
                     <Text style={dynamicStyles.listText}>{item}</Text>
                   </View>
                 ))}
-                {index < features.length - 1 && (
-                  <View style={dynamicStyles.divider} />
-                )}
               </View>
             ))}
           </ScrollView>
