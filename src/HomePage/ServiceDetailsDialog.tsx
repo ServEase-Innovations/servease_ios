@@ -281,41 +281,48 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
       backgroundColor: "rgba(0,0,0,0.4)",
       justifyContent: "center",
       alignItems: "center",
+      paddingVertical: 40,
     },
     dialog: {
       backgroundColor: colors.card,
       borderRadius: 12,
       width: 340,
-      maxHeight: "80%",
+      maxHeight: "85%",
       overflow: "hidden",
       elevation: 10,
       shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 4,
+      marginHorizontal: 20,
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingVertical: 12,
+      paddingVertical: 16,
       paddingHorizontal: 16,
+      minHeight: 56,
     },
     headerLeft: {
       flexDirection: "row",
       alignItems: "center",
+      flex: 1,
+      marginRight: 8,
     },
     icon: {
-      fontSize: 20,
+      fontSize: 24,
       marginRight: 8,
     },
     headerText: {
       color: "#fff",
       fontWeight: "700",
       fontSize: fontSizes.header,
+      flexShrink: 1,
     },
     content: {
       padding: 16,
+      paddingTop: 20,
     },
     description: {
       fontSize: fontSizes.description,
@@ -346,6 +353,10 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
       backgroundColor: colors.borderLight,
       marginTop: 10,
     },
+    closeButton: {
+      padding: 4,
+      borderRadius: 12,
+    },
   });
 
   return (
@@ -363,7 +374,7 @@ const ServiceDetailsDialog: React.FC<ServiceDetailsDialogProps> = ({
               <Text style={dynamicStyles.icon}>{icon}</Text>
               <Text style={dynamicStyles.headerText}>{title}</Text>
             </View>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={onClose} style={dynamicStyles.closeButton}>
               <Icon name="x" size={24} color="#fff" />
             </TouchableOpacity>
           </LinearGradient>
