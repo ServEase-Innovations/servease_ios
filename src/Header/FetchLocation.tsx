@@ -243,13 +243,13 @@ export const FetchLocation: React.FC<FetchLocationProps> = ({
                 showsUserLocation={true}
                 showsMyLocationButton={true}
                 region={{
-                  latitude: latitude || 0,
-                  longitude: longitude || 0,
+                  latitude: Number(latitude) || 0,
+                  longitude: Number(longitude) || 0,
                   latitudeDelta: 0.01,
                   longitudeDelta: 0.01,
                 }}>
                 <Marker
-                  coordinate={{ latitude: latitude || 0, longitude: longitude || 0 }}
+                  coordinate={{ latitude: Number(latitude) || 0, longitude: Number(longitude) || 0 }}
                   title="You are here"
                 />
               </MapView>

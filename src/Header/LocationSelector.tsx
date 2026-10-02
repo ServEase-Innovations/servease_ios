@@ -1239,8 +1239,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           showsUserLocation={true}
           showsMyLocationButton={true}
           region={{
-            latitude: lat,
-            longitude: lng,
+            latitude: Number(lat),
+            longitude: Number(lng),
             latitudeDelta: 0.008,
             longitudeDelta: 0.008,
           }}

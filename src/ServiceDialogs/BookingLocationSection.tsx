@@ -198,8 +198,8 @@ const BookingLocationSection: React.FC<BookingLocationSectionProps> = ({
   const labelForSaved = (name: string) => formatSavedLocationLabel(name, t);
 
   const mapRegion = {
-    latitude: pinCoords?.latitude ?? existingCoords?.lat ?? 12.9716,
-    longitude: pinCoords?.longitude ?? existingCoords?.lng ?? 77.5946,
+    latitude: Number(pinCoords?.latitude ?? existingCoords?.lat ?? 12.9716),
+    longitude: Number(pinCoords?.longitude ?? existingCoords?.lng ?? 77.5946),
     latitudeDelta: 0.02,
     longitudeDelta: 0.02,
   };
@@ -299,7 +299,7 @@ const BookingLocationSection: React.FC<BookingLocationSectionProps> = ({
                   onPress={() => {
                     setPinCoords(
                       existingCoords
-                        ? { latitude: existingCoords.lat, longitude: existingCoords.lng }
+                        ? { latitude: Number(existingCoords.lat), longitude: Number(existingCoords.lng) }
                         : null
                     );
                     setPinAddress(serviceAddress);
