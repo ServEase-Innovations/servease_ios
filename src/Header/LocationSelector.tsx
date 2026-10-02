@@ -26,7 +26,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5";
 import Geocoder from "react-native-geocoding";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { NativeModules } from "react-native";
 import Geolocation from "@react-native-community/geolocation";
 import { useDispatch, useSelector } from "react-redux";
@@ -1236,6 +1236,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <View style={styles.autoMapContainer}>
         <MapView
           style={styles.map}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           showsUserLocation={true}
           showsMyLocationButton={true}
           region={{

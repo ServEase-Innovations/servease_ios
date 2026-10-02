@@ -14,7 +14,7 @@ import {
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Geolocation from '@react-native-community/geolocation';
 import Geocoder from 'react-native-geocoding';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { NativeModules } from 'react-native';
 
@@ -240,6 +240,7 @@ export const FetchLocation: React.FC<FetchLocationProps> = ({
             <>
               <MapView
                 style={styles.map}
+                provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
                 showsUserLocation={true}
                 showsMyLocationButton={true}
                 region={{

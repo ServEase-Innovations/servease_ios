@@ -17,7 +17,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import Geolocation from "@react-native-community/geolocation";
 import Geocoder from "react-native-geocoding";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useTranslation } from "react-i18next";
 import { keys } from "../env";
 import { useAppUser } from "../context/AppUserContext";
@@ -390,6 +390,7 @@ const BookingLocationSection: React.FC<BookingLocationSectionProps> = ({
           </View>
           <MapView
             style={styles.map}
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
             showsUserLocation={true}
             showsMyLocationButton={true}
             region={mapRegion}
