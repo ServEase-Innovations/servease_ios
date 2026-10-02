@@ -439,6 +439,13 @@ const HomePage: React.FC<ChildComponentProps> = ({
   };
 
   const handleServiceTap = (serviceKey: ServiceType) => {
+    // For COOK service, directly open booking dialog
+    if (serviceKey === 'COOK') {
+      handleClick(serviceKey);
+      return;
+    }
+    
+    // For other services, show details first
     if (selectedServiceForDetails === serviceKey) {
       // If already selected, proceed to booking
       handleClick(serviceKey);
