@@ -752,9 +752,9 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 0 },
   siteFooterWrap: { width: '100%', alignSelf: 'stretch', marginTop: 8 },
   
-  // Header Section with Cyan
+  // Header Section
   headerSection: {
-    backgroundColor: '#00BFFF', // Cyan
+    backgroundColor: 'transparent',
     overflow: 'visible', // Allow location dropdown to extend beyond
     zIndex: 1000, // Keep header above other content
   },

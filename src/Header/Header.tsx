@@ -543,13 +543,13 @@ const Head: React.FC<ChildComponentProps> = ({
         animationType="slide"
         onRequestClose={() => setShowTnC(false)}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
           <HomeHeroPageHeader
             title="Terms & Conditions"
             onBack={() => setShowTnC(false)}
           />
           <TnC />
-        </SafeAreaView>
+        </View>
       </Modal>
 
       {/* About Page */}

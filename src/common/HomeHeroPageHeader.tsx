@@ -33,11 +33,9 @@ export function HomeHeroPageHeader({
   subtitleFontSize = 13,
 }: HomeHeroPageHeaderProps) {
   const insets = useSafeAreaInsets();
-  // Guard against insets.top being 0 inside Modal contexts on some devices
-  const safeTop = Math.max(
-    insets.top,
-    Platform.OS === 'ios' ? 44 : (StatusBar.currentHeight ?? 24)
-  );
+  // On Android, if insets.top is 0 (e.g. inside a Modal), it means we are below the status bar and don't need padding.
+  // On iOS, fallback to 20 if insets.top is 0 (e.g. older iPhones or specific Modal presentations).
+  const safeTop = Platform.OS === 'ios' ? Math.max(insets.top, 20) : insets.top;
   const bodyHeight = TOOLBAR_HEIGHT + (subtitle ? SUBTITLE_BLOCK_HEIGHT : 0);
 
   return (

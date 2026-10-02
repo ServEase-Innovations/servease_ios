@@ -143,12 +143,13 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
   return (
     <>
-      <LinearGradient 
-        colors={["#00BFFF", "#0b5bd3"]} 
-        start={{ x: 0, y: 0 }} 
-        end={{ x: 1, y: 1 }} 
-        style={styles.headerContainer}
-      >
+      <View style={styles.headerContainer}>
+        <LinearGradient 
+          colors={["#00BFFF", "#0b5bd3"]} 
+          start={{ x: 0, y: 0 }} 
+          end={{ x: 1, y: 1 }} 
+          style={[StyleSheet.absoluteFillObject, styles.gradientBackground]}
+        />
         <View
           style={[
             styles.topRow,
@@ -204,7 +205,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
             />
           </View>
         ) : null}
-      </LinearGradient>
+      </View>
 
       <NotificationsDialog
         visible={showNotifications}
@@ -221,15 +222,20 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 const styles = StyleSheet.create({
   headerContainer: {
     paddingBottom: 20,
-    borderBottomWidth: 0,
-    overflow: 'visible', // Allow dropdown to extend beyond header
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: "#00bfff",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    zIndex: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#00bfff",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+      },
+    }),
+  },
+  gradientBackground: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: 'hidden',
   },
   topRow: {
     flexDirection: "row",
