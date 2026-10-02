@@ -1,5 +1,5 @@
 // CustomerProfileSection.tsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -14,24 +14,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-} from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../store/userStore';
-import { setHasMobileNumber } from '../features/customerSlice';
-import { useAuth0 } from 'react-native-auth0';
-import { useAppUser } from '../context/AppUserContext';
-import Icon from 'react-native-vector-icons/Feather';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import LinearGradient from 'react-native-linear-gradient';
-import { Picker } from '@react-native-picker/picker';
-import axiosInstance from '../services/axiosInstance';
-import providerInstance from '../services/providerInstance';
-import preferenceInstance from '../services/preferenceInstance'; // Changed from utilsInstance to preferenceInstance
-import { useTheme } from '../../src/Settings/ThemeContext';
-import { ProfileContentSkeleton } from '../common/ProfileContentSkeleton';
-import { parseAlternateContact, parsePrimaryContact } from '../utils/profileContact';
+} from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../store/userStore";
+import { setHasMobileNumber } from "../features/customerSlice";
+import { useAuth0 } from "react-native-auth0";
+import { useAppUser } from "../context/AppUserContext";
+import Icon from "react-native-vector-icons/Feather";
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import LinearGradient from "react-native-linear-gradient";
+import { Picker } from "@react-native-picker/picker";
+import axiosInstance from "../services/axiosInstance";
+import providerInstance from "../services/providerInstance";
+import preferenceInstance from "../services/preferenceInstance"; // Changed from utilsInstance to preferenceInstance
+import { useTheme } from "../../src/Settings/ThemeContext";
+import { ProfileContentSkeleton } from "../common/ProfileContentSkeleton";
+import {
+  parseAlternateContact,
+  parsePrimaryContact,
+} from "../utils/profileContact";
+import Geocoder from "react-native-geocoding";
+import { keys } from "../env";
 
-const { width } = Dimensions.get('window');
+Geocoder.init(keys.api_key);
+
+const { width } = Dimensions.get("window");
 
 interface Address {
   id: string;
@@ -94,7 +101,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   const { user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
   const { colors, fontSize, isDarkMode } = useTheme();
-  
+
   // Add refs for scroll handling
   const scrollViewRef = useRef<ScrollView>(null);
   const addressesSectionY = useRef(0);
@@ -113,46 +120,55 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<UserData>({
-    firstName: '',
-    lastName: '',
-    contactNumber: '',
-    altContactNumber: '',
+    firstName: "",
+    lastName: "",
+    contactNumber: "",
+    altContactNumber: "",
   });
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [originalData, setOriginalData] = useState<OriginalData>({
-    userData: { firstName: '', lastName: '', contactNumber: '', altContactNumber: '' },
+    userData: {
+      firstName: "",
+      lastName: "",
+      contactNumber: "",
+      altContactNumber: "",
+    },
     addresses: [],
   });
   const [expandedAddressIds, setExpandedAddressIds] = useState<string[]>([]);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({
-    type: 'Home',
-    customType: '',
-    street: '',
-    city: '',
-    country: '',
-    postalCode: '',
+    type: "Home",
+    customType: "",
+    street: "",
+    city: "",
+    country: "",
+    postalCode: "",
   });
-  const [countryCode, setCountryCode] = useState('+91');
-  const [altCountryCode, setAltCountryCode] = useState('+91');
+  const [countryCode, setCountryCode] = useState("+91");
+  const [altCountryCode, setAltCountryCode] = useState("+91");
   const [showCountryCodePicker, setShowCountryCodePicker] = useState(false);
-  const [showAltCountryCodePicker, setShowAltCountryCodePicker] = useState(false);
+  const [showAltCountryCodePicker, setShowAltCountryCodePicker] =
+    useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   // Validation states
   const [contactValidation, setContactValidation] = useState<ValidationState>({
     loading: false,
-    error: '',
+    error: "",
     isAvailable: null,
     formatError: false,
   });
-  const [altContactValidation, setAltContactValidation] = useState<ValidationState>({
-    loading: false,
-    error: '',
-    isAvailable: null,
-    formatError: false,
-  });
-  const [validatedFields, setValidatedFields] = useState<Set<string>>(new Set());
+  const [altContactValidation, setAltContactValidation] =
+    useState<ValidationState>({
+      loading: false,
+      error: "",
+      isAvailable: null,
+      formatError: false,
+    });
+  const [validatedFields, setValidatedFields] = useState<Set<string>>(
+    new Set()
+  );
 
   // Get user ID from props or context
   const userId = propUserId || appUser?.customerid || customerId;
@@ -164,14 +180,14 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   // Keyboard listeners — avoid invalid LayoutAnimation configs on Android (can crash).
   useEffect(() => {
     const keyboardWillShow = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
       () => {
         setKeyboardVisible(true);
       }
     );
 
     const keyboardWillHide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
       () => {
         setKeyboardVisible(false);
       }
@@ -200,7 +216,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   // Get font sizes based on theme
   const getFontSizes = () => {
     switch (fontSize) {
-      case 'small':
+      case "small":
         return {
           greeting: 20,
           roleText: 13,
@@ -214,7 +230,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
           footerText: 11,
           validationText: 11,
         };
-      case 'large':
+      case "large":
         return {
           greeting: 26,
           roleText: 16,
@@ -257,19 +273,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       const data = response.data?.data;
 
       const userDataFromApi = {
-        firstName: data?.firstName || data?.firstname || '',
-        lastName: data?.lastName || data?.lastname || '',
+        firstName: data?.firstName || data?.firstname || "",
+        lastName: data?.lastName || data?.lastname || "",
         contactNumber: parsePrimaryContact(data),
         altContactNumber: parseAlternateContact(data),
       };
 
       setUserData(userDataFromApi);
-      setOriginalData(prev => ({
+      setOriginalData((prev) => ({
         ...prev,
         userData: userDataFromApi,
       }));
     } catch (err) {
-      console.error('Failed to fetch customer details:', err);
+      console.error("Failed to fetch customer details:", err);
     } finally {
       setIsLoading(false);
     }
@@ -278,11 +294,15 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   // Fetch customer addresses - Updated to use preferenceInstance
   const fetchCustomerAddresses = async (customerId: number) => {
     try {
-      const response = await preferenceInstance.get(`/api/user-settings/${customerId}`);
+      const response = await preferenceInstance.get(
+        `/api/user-settings/${customerId}`
+      );
       const data = response.data;
 
       if (Array.isArray(data) && data.length > 0) {
-        const allSavedLocations = data.flatMap((doc: any) => doc.savedLocations || []);
+        const allSavedLocations = data.flatMap(
+          (doc: any) => doc.savedLocations || []
+        );
         const uniqueAddresses = new Map();
 
         allSavedLocations
@@ -292,8 +312,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             const addressComponents = primaryAddress.address_components || [];
 
             const getComponent = (type: string) => {
-              const component = addressComponents.find((c: any) => c.types.includes(type));
-              return component?.long_name || '';
+              const component = addressComponents.find((c: any) =>
+                c.types.includes(type)
+              );
+              return component?.long_name || "";
             };
 
             const locationKey =
@@ -304,11 +326,11 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             if (!uniqueAddresses.has(locationKey)) {
               uniqueAddresses.set(locationKey, {
                 id: loc._id || `addr_${idx}`,
-                type: loc.name || 'Other',
+                type: loc.name || "Other",
                 street: primaryAddress.formatted_address,
-                city: getComponent('locality') || '',
-                country: getComponent('country') || '',
-                postalCode: getComponent('postal_code') || '',
+                city: getComponent("locality") || "",
+                country: getComponent("country") || "",
+                postalCode: getComponent("postal_code") || "",
                 rawData: {
                   formattedAddress: primaryAddress.formatted_address,
                   latitude: loc.location.lat,
@@ -321,13 +343,13 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
         const mappedAddresses = Array.from(uniqueAddresses.values());
         setAddresses(mappedAddresses);
-        setOriginalData(prev => ({
+        setOriginalData((prev) => ({
           ...prev,
           addresses: mappedAddresses,
         }));
       }
     } catch (err) {
-      console.error('Failed to fetch customer addresses:', err);
+      console.error("Failed to fetch customer addresses:", err);
     }
   };
 
@@ -337,20 +359,23 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       if (userId) {
         if (initialData) {
           const userDataFromProps = {
-            firstName: initialData.firstName || initialData.firstname || '',
-            lastName: initialData.lastName || initialData.lastname || '',
+            firstName: initialData.firstName || initialData.firstname || "",
+            lastName: initialData.lastName || initialData.lastname || "",
             contactNumber: parsePrimaryContact(initialData),
             altContactNumber: parseAlternateContact(initialData),
           };
           setUserData(userDataFromProps);
-          setOriginalData(prev => ({
+          setOriginalData((prev) => ({
             ...prev,
             userData: userDataFromProps,
           }));
           setIsLoading(false);
           await fetchCustomerAddresses(userId);
         } else {
-          await Promise.all([fetchCustomerDetails(), fetchCustomerAddresses(userId)]);
+          await Promise.all([
+            fetchCustomerDetails(),
+            fetchCustomerAddresses(userId),
+          ]);
         }
       }
     };
@@ -359,7 +384,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   }, [userId, initialData]);
 
   useEffect(() => {
-    if (!initialOpenAddAddress || isLoading || !isEditing || didOpenAddAddressRef.current) {
+    if (
+      !initialOpenAddAddress ||
+      isLoading ||
+      !isEditing ||
+      didOpenAddAddressRef.current
+    ) {
       return;
     }
     didOpenAddAddressRef.current = true;
@@ -382,26 +412,36 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   ): Promise<boolean> => {
     if (!number || !validateMobileFormat(number)) return false;
 
-    const setValidation = isAlternate ? setAltContactValidation : setContactValidation;
-    const fieldName = isAlternate ? 'altContactNumber' : 'contactNumber';
+    const setValidation = isAlternate
+      ? setAltContactValidation
+      : setContactValidation;
+    const fieldName = isAlternate ? "altContactNumber" : "contactNumber";
 
-    setValidation({ loading: true, error: '', isAvailable: null, formatError: false });
+    setValidation({
+      loading: true,
+      error: "",
+      isAvailable: null,
+      formatError: false,
+    });
 
     try {
-      const response = await providerInstance.post('/api/service-providers/check-mobile', {
-        mobile: number,
-      });
+      const response = await providerInstance.post(
+        "/api/service-providers/check-mobile",
+        {
+          mobile: number,
+        }
+      );
 
       let isAvailable = true;
-      let errorMessage = '';
+      let errorMessage = "";
 
       if (response.data.exists !== undefined) {
         isAvailable = !response.data.exists;
         errorMessage = response.data.exists
           ? isAlternate
-            ? 'Alternate number is already registered'
-            : 'Contact number is already registered'
-          : '';
+            ? "Alternate number is already registered"
+            : "Contact number is already registered"
+          : "";
       }
 
       setValidation({
@@ -412,14 +452,14 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       });
 
       if (isAvailable) {
-        setValidatedFields(prev => new Set(prev).add(fieldName));
+        setValidatedFields((prev) => new Set(prev).add(fieldName));
       }
 
       return isAvailable;
     } catch (error) {
       setValidation({
         loading: false,
-        error: 'Something went wrong. Please try again.',
+        error: "Something went wrong. Please try again.",
         isAvailable: false,
         formatError: false,
       });
@@ -435,7 +475,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     };
 
     return (number: string, isAlternate: boolean = false) => {
-      const timeoutKey = isAlternate ? 'alternate' : 'contact';
+      const timeoutKey = isAlternate ? "alternate" : "contact";
 
       if (timeouts[timeoutKey]) {
         clearTimeout(timeouts[timeoutKey]!);
@@ -454,7 +494,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     const field = fieldRef.current;
     if (!scrollView || !field) return;
 
-    const delay = Platform.OS === 'android' ? 250 : 100;
+    const delay = Platform.OS === "android" ? 250 : 100;
     setTimeout(() => {
       try {
         field.measureLayout(
@@ -474,12 +514,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   };
 
   const handleContactNumberChange = (value: string) => {
-    const cleanedValue = value.replace(/\D/g, '').slice(0, 10);
-    setUserData(prev => ({ ...prev, contactNumber: cleanedValue }));
+    const cleanedValue = value.replace(/\D/g, "").slice(0, 10);
+    setUserData((prev) => ({ ...prev, contactNumber: cleanedValue }));
 
     setContactValidation({
       loading: false,
-      error: '',
+      error: "",
       isAvailable: null,
       formatError: false,
     });
@@ -489,7 +529,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     } else if (cleanedValue) {
       setContactValidation({
         loading: false,
-        error: 'Please enter exactly 10 digits',
+        error: "Please enter exactly 10 digits",
         isAvailable: null,
         formatError: true,
       });
@@ -497,12 +537,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   };
 
   const handleAltContactNumberChange = (value: string) => {
-    const cleanedValue = value.replace(/\D/g, '').slice(0, 10);
-    setUserData(prev => ({ ...prev, altContactNumber: cleanedValue }));
+    const cleanedValue = value.replace(/\D/g, "").slice(0, 10);
+    setUserData((prev) => ({ ...prev, altContactNumber: cleanedValue }));
 
     setAltContactValidation({
       loading: false,
-      error: '',
+      error: "",
       isAvailable: null,
       formatError: false,
     });
@@ -511,7 +551,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       if (cleanedValue === userData.contactNumber) {
         setAltContactValidation({
           loading: false,
-          error: 'Contact numbers must be different',
+          error: "Contact numbers must be different",
           isAvailable: false,
           formatError: false,
         });
@@ -521,7 +561,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     } else if (cleanedValue) {
       setAltContactValidation({
         loading: false,
-        error: 'Please enter exactly 10 digits',
+        error: "Please enter exactly 10 digits",
         isAvailable: null,
         formatError: true,
       });
@@ -533,7 +573,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     if (!userId) return;
 
     try {
-      const response = await preferenceInstance.get(`/api/user-settings/${userId}`);
+      const response = await preferenceInstance.get(
+        `/api/user-settings/${userId}`
+      );
       const currentSettings = response.data;
 
       let existingLocations = [];
@@ -543,7 +585,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       }
 
       const addressType =
-        addressData.type === 'Other' && addressData.customType
+        addressData.type === "Other" && addressData.customType
           ? addressData.customType
           : addressData.type;
 
@@ -554,9 +596,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
             {
               formatted_address: addressData.street,
               address_components: [
-                { long_name: addressData.city, types: ['locality'] },
-                { long_name: addressData.country, types: ['country'] },
-                { long_name: addressData.postalCode, types: ['postal_code'] },
+                { long_name: addressData.city, types: ["locality"] },
+                { long_name: addressData.country, types: ["country"] },
+                { long_name: addressData.postalCode, types: ["postal_code"] },
               ],
               geometry: {
                 location: {
@@ -580,7 +622,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
       return true;
     } catch (error) {
-      console.error('Failed to save address:', error);
+      console.error("Failed to save address:", error);
       throw error;
     }
   };
@@ -589,16 +631,16 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     if (!userId) return;
 
     try {
-      const savedLocations = updatedAddresses.map(addr => ({
+      const savedLocations = updatedAddresses.map((addr) => ({
         name: addr.type,
         location: {
           address: [
             {
               formatted_address: addr.street,
               address_components: [
-                { long_name: addr.city, types: ['locality'] },
-                { long_name: addr.country, types: ['country'] },
-                { long_name: addr.postalCode, types: ['postal_code'] },
+                { long_name: addr.city, types: ["locality"] },
+                { long_name: addr.country, types: ["country"] },
+                { long_name: addr.postalCode, types: ["postal_code"] },
               ],
               geometry: {
                 location: {
@@ -619,21 +661,41 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         savedLocations: savedLocations,
       });
     } catch (error) {
-      console.error('Failed to update addresses:', error);
+      console.error("Failed to update addresses:", error);
       throw error;
     }
   };
 
   const handleAddAddress = async () => {
-    if (!newAddress.street || !newAddress.city || !newAddress.country || !newAddress.postalCode) {
-      Alert.alert('Error', 'Please fill in all address fields');
+    if (
+      !newAddress.street ||
+      !newAddress.city ||
+      !newAddress.country ||
+      !newAddress.postalCode
+    ) {
+      Alert.alert("Error", "Please fill in all address fields");
       return;
     }
 
     const addressType =
-      newAddress.type === 'Other' && newAddress.customType
+      newAddress.type === "Other" && newAddress.customType
         ? newAddress.customType
         : newAddress.type;
+
+    let lat = 0;
+    let lng = 0;
+    const fullAddress = `${newAddress.street}, ${newAddress.city}, ${newAddress.country} ${newAddress.postalCode}`;
+
+    try {
+      const res = await Geocoder.from(fullAddress);
+      const location = res.results?.[0]?.geometry?.location;
+      if (location) {
+        lat = location.lat;
+        lng = location.lng;
+      }
+    } catch (e) {
+      console.warn("Geocoding failed for manual address", e);
+    }
 
     const addressToAdd: Address = {
       type: addressType,
@@ -644,8 +706,8 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       id: `addr_${Date.now()}`,
       rawData: {
         formattedAddress: newAddress.street,
-        latitude: 0,
-        longitude: 0,
+        latitude: lat,
+        longitude: lng,
         placeId: `manual_${Date.now()}`,
       },
     };
@@ -659,16 +721,16 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         await fetchCustomerAddresses(userId);
         setShowAddAddress(false);
         setNewAddress({
-          type: 'Home',
-          customType: '',
-          street: '',
-          city: '',
-          country: '',
-          postalCode: '',
+          type: "Home",
+          customType: "",
+          street: "",
+          city: "",
+          country: "",
+          postalCode: "",
         });
       } catch (err) {
-        console.error('Failed to save new address:', err);
-        Alert.alert('Error', 'Could not save address');
+        console.error("Failed to save new address:", err);
+        Alert.alert("Error", "Could not save address");
         setAddresses(addresses);
       }
     }
@@ -677,16 +739,16 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   const removeAddress = async (id: string) => {
     if (addresses.length <= 1) return;
 
-    const updatedAddresses = addresses.filter(addr => addr.id !== id);
+    const updatedAddresses = addresses.filter((addr) => addr.id !== id);
     setAddresses(updatedAddresses);
 
     if (userId) {
       try {
         await updateAddressesInUserSettings(updatedAddresses);
       } catch (error) {
-        console.error('Failed to remove address:', error);
+        console.error("Failed to remove address:", error);
         setAddresses(addresses);
-        Alert.alert('Error', 'Could not remove address');
+        Alert.alert("Error", "Could not remove address");
       }
     }
   };
@@ -694,19 +756,28 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   // Save handler
   const handleSave = async () => {
     // Validate
-    if (userData.contactNumber && !validateMobileFormat(userData.contactNumber)) {
-      Alert.alert('Error', 'Please enter a valid contact number');
+    if (
+      userData.contactNumber &&
+      !validateMobileFormat(userData.contactNumber)
+    ) {
+      Alert.alert("Error", "Please enter a valid contact number");
       return;
     }
 
-    if (userData.altContactNumber && !validateMobileFormat(userData.altContactNumber)) {
-      Alert.alert('Error', 'Please enter a valid alternate number');
+    if (
+      userData.altContactNumber &&
+      !validateMobileFormat(userData.altContactNumber)
+    ) {
+      Alert.alert("Error", "Please enter a valid alternate number");
       return;
     }
 
-    if (userData.contactNumber && userData.altContactNumber && 
-        userData.contactNumber === userData.altContactNumber) {
-      Alert.alert('Error', 'Contact numbers must be different');
+    if (
+      userData.contactNumber &&
+      userData.altContactNumber &&
+      userData.contactNumber === userData.altContactNumber
+    ) {
+      Alert.alert("Error", "Contact numbers must be different");
       return;
     }
 
@@ -723,12 +794,18 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         payload.lastname = userData.lastName;
       }
 
-      if (userData.contactNumber !== originalData.userData.contactNumber && userData.contactNumber) {
-        payload.mobileno = userData.contactNumber.replace('+', '');
+      if (
+        userData.contactNumber !== originalData.userData.contactNumber &&
+        userData.contactNumber
+      ) {
+        payload.mobileno = userData.contactNumber.replace("+", "");
       }
 
-      if (userData.altContactNumber !== originalData.userData.altContactNumber) {
-        payload.alternateno = userData.altContactNumber?.replace('+', '') || null;
+      if (
+        userData.altContactNumber !== originalData.userData.altContactNumber
+      ) {
+        payload.alternateno =
+          userData.altContactNumber?.replace("+", "") || null;
       }
 
       // Only make API call if there are changes
@@ -741,7 +818,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         dispatch(setHasMobileNumber(true));
       }
 
-      if (JSON.stringify(addresses) !== JSON.stringify(originalData.addresses)) {
+      if (
+        JSON.stringify(addresses) !== JSON.stringify(originalData.addresses)
+      ) {
         await updateAddressesInUserSettings(addresses);
       }
 
@@ -749,10 +828,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
       setIsEditing(false);
       if (setExternalEdit) setExternalEdit(false);
 
-      Alert.alert('Success', 'Profile updated successfully');
+      Alert.alert("Success", "Profile updated successfully");
     } catch (error) {
-      console.error('Failed to save data:', error);
-      Alert.alert('Error', 'Failed to update profile');
+      console.error("Failed to save data:", error);
+      Alert.alert("Error", "Failed to update profile");
     } finally {
       setIsSaving(false);
     }
@@ -763,15 +842,25 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
     if (setExternalEdit) setExternalEdit(false);
     setUserData(originalData.userData);
     setAddresses([...originalData.addresses]);
-    setContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
-    setAltContactValidation({ loading: false, error: '', isAvailable: null, formatError: false });
+    setContactValidation({
+      loading: false,
+      error: "",
+      isAvailable: null,
+      formatError: false,
+    });
+    setAltContactValidation({
+      loading: false,
+      error: "",
+      isAvailable: null,
+      formatError: false,
+    });
     // Dismiss keyboard when canceling
     Keyboard.dismiss();
   };
 
   const toggleAddress = (id: string) => {
-    setExpandedAddressIds(prev =>
-      prev.includes(id) ? prev.filter(addrId => addrId !== id) : [...prev, id]
+    setExpandedAddressIds((prev) =>
+      prev.includes(id) ? prev.filter((addrId) => addrId !== id) : [...prev, id]
     );
   };
 
@@ -786,21 +875,30 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   };
 
   const isFormValid = (): boolean => {
-    if (userData.contactNumber && !validateMobileFormat(userData.contactNumber)) return false;
-    if (userData.altContactNumber && !validateMobileFormat(userData.altContactNumber)) return false;
-    if (userData.contactNumber && userData.altContactNumber && 
-        userData.contactNumber === userData.altContactNumber) return false;
+    if (userData.contactNumber && !validateMobileFormat(userData.contactNumber))
+      return false;
+    if (
+      userData.altContactNumber &&
+      !validateMobileFormat(userData.altContactNumber)
+    )
+      return false;
+    if (
+      userData.contactNumber &&
+      userData.altContactNumber &&
+      userData.contactNumber === userData.altContactNumber
+    )
+      return false;
     return true;
   };
 
   // Country code options
   const countryCodes = [
-    { label: '+91 (IN)', value: '+91' },
-    { label: '+1 (US)', value: '+1' },
-    { label: '+44 (UK)', value: '+44' },
-    { label: '+61 (AU)', value: '+61' },
-    { label: '+65 (SG)', value: '+65' },
-    { label: '+971 (UAE)', value: '+971' },
+    { label: "+91 (IN)", value: "+91" },
+    { label: "+1 (US)", value: "+1" },
+    { label: "+44 (UK)", value: "+44" },
+    { label: "+61 (AU)", value: "+61" },
+    { label: "+65 (SG)", value: "+65" },
+    { label: "+971 (UAE)", value: "+971" },
   ];
 
   if (isLoading) {
@@ -810,8 +908,8 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
     >
       <ScrollView
         ref={scrollViewRef}
@@ -821,22 +919,45 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.mainContent}>
-          <View style={[styles.formContainer, { backgroundColor: colors.card }]}>
+          <View
+            style={[styles.formContainer, { backgroundColor: colors.card }]}
+          >
             {!embedMode && (
-              <View style={[styles.formHeader, { borderBottomColor: colors.border }]}>
-                <Text style={[styles.formTitle, { color: colors.text, fontSize: fontSizes.formTitle }]}>
+              <View
+                style={[
+                  styles.formHeader,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.formTitle,
+                    { color: colors.text, fontSize: fontSizes.formTitle },
+                  ]}
+                >
                   My Account
                 </Text>
                 {!isEditing && (
                   <TouchableOpacity
-                    style={[styles.editButtonTop, { backgroundColor: colors.primary }]}
+                    style={[
+                      styles.editButtonTop,
+                      { backgroundColor: colors.primary },
+                    ]}
                     onPress={() => {
-                      setOriginalData({ userData: { ...userData }, addresses: [...addresses] });
+                      setOriginalData({
+                        userData: { ...userData },
+                        addresses: [...addresses],
+                      });
                       setIsEditing(true);
                     }}
                   >
                     <Icon name="edit-3" size={16} color="#fff" />
-                    <Text style={[styles.editButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                    <Text
+                      style={[
+                        styles.editButtonText,
+                        { color: "#fff", fontSize: fontSizes.buttonText },
+                      ]}
+                    >
                       Edit
                     </Text>
                   </TouchableOpacity>
@@ -846,13 +967,26 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
             {/* User Information */}
             <View>
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary, fontSize: fontSizes.sectionTitle }]}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  {
+                    color: colors.textSecondary,
+                    fontSize: fontSizes.sectionTitle,
+                  },
+                ]}
+              >
                 USER INFORMATION
               </Text>
 
               <View style={styles.inputRow}>
                 <View style={styles.inputContainer}>
-                  <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
                     Email Address
                   </Text>
                   <TextInput
@@ -866,12 +1000,17 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         fontSize: fontSizes.input,
                       },
                     ]}
-                    value={userEmail || 'No email'}
+                    value={userEmail || "No email"}
                     editable={false}
                   />
                 </View>
                 <View style={styles.inputContainer}>
-                  <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
                     User ID
                   </Text>
                   <TextInput
@@ -885,15 +1024,26 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         fontSize: fontSizes.input,
                       },
                     ]}
-                    value={customerId?.toString() || userId?.toString() || 'N/A'}
+                    value={
+                      customerId?.toString() || userId?.toString() || "N/A"
+                    }
                     editable={false}
                   />
                 </View>
               </View>
 
               <View style={styles.nameRow}>
-                <View style={styles.nameInput} ref={firstNameFieldRef} collapsable={false}>
-                  <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                <View
+                  style={styles.nameInput}
+                  ref={firstNameFieldRef}
+                  collapsable={false}
+                >
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
                     First Name
                   </Text>
                   <TextInput
@@ -901,22 +1051,35 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       styles.input,
                       {
                         borderColor: colors.border,
-                        backgroundColor: isEditing ? colors.card : colors.surface,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
                         color: colors.text,
                         fontSize: fontSizes.input,
                       },
                       !isEditing && styles.readOnlyInput,
                     ]}
                     value={userData.firstName}
-                    onChangeText={value => setUserData(prev => ({ ...prev, firstName: value }))}
+                    onChangeText={(value) =>
+                      setUserData((prev) => ({ ...prev, firstName: value }))
+                    }
                     editable={isEditing}
                     placeholder="Enter first name"
                     placeholderTextColor={colors.placeholder}
                     onFocus={() => scrollFieldIntoView(firstNameFieldRef)}
                   />
                 </View>
-                <View style={styles.nameInput} ref={lastNameFieldRef} collapsable={false}>
-                  <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                <View
+                  style={styles.nameInput}
+                  ref={lastNameFieldRef}
+                  collapsable={false}
+                >
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
                     Last Name
                   </Text>
                   <TextInput
@@ -924,14 +1087,18 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       styles.input,
                       {
                         borderColor: colors.border,
-                        backgroundColor: isEditing ? colors.card : colors.surface,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
                         color: colors.text,
                         fontSize: fontSizes.input,
                       },
                       !isEditing && styles.readOnlyInput,
                     ]}
                     value={userData.lastName}
-                    onChangeText={value => setUserData(prev => ({ ...prev, lastName: value }))}
+                    onChangeText={(value) =>
+                      setUserData((prev) => ({ ...prev, lastName: value }))
+                    }
                     editable={isEditing}
                     placeholder="Enter last name"
                     placeholderTextColor={colors.placeholder}
@@ -941,10 +1108,20 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               </View>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
 
             {/* Contact Information */}
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary, fontSize: fontSizes.sectionTitle }]}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: colors.textSecondary,
+                  fontSize: fontSizes.sectionTitle,
+                },
+              ]}
+            >
               CONTACT INFORMATION
             </Text>
 
@@ -952,20 +1129,41 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               {/* Contact Number */}
               <View style={styles.inputContainer}>
                 <View style={styles.labelContainer}>
-                  <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
                     Contact Number
                   </Text>
                   <Text
                     style={
                       hasMobileNumber
-                        ? [styles.mobileSuccess, { color: colors.success, fontSize: fontSizes.validationText }]
-                        : [styles.mobileWarningSmall, { color: colors.error, fontSize: fontSizes.validationText }]
+                        ? [
+                            styles.mobileSuccess,
+                            {
+                              color: colors.success,
+                              fontSize: fontSizes.validationText,
+                            },
+                          ]
+                        : [
+                            styles.mobileWarningSmall,
+                            {
+                              color: colors.error,
+                              fontSize: fontSizes.validationText,
+                            },
+                          ]
                     }
                   >
                     {hasMobileNumber ? ` ✓ Verified` : ` ⚠ Required`}
                   </Text>
                 </View>
-                <View style={styles.phoneInputContainer} ref={contactFieldRef} collapsable={false}>
+                <View
+                  style={styles.phoneInputContainer}
+                  ref={contactFieldRef}
+                  collapsable={false}
+                >
                   {isEditing ? (
                     <TouchableOpacity
                       style={[
@@ -977,10 +1175,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       ]}
                       onPress={() => setShowCountryCodePicker(true)}
                     >
-                      <Text style={[styles.countryCodeText, { color: colors.text, fontSize: fontSizes.input }]}>
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
                         {countryCode}
                       </Text>
-                      <Icon name="chevron-down" size={16} color={colors.textSecondary} />
+                      <Icon
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   ) : (
                     <View
@@ -993,7 +1200,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         },
                       ]}
                     >
-                      <Text style={[styles.countryCodeText, { color: colors.text, fontSize: fontSizes.input }]}>
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
                         {countryCode}
                       </Text>
                     </View>
@@ -1002,8 +1214,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     style={[
                       styles.phoneInput,
                       {
-                        borderColor: contactValidation.error ? colors.error : colors.border,
-                        backgroundColor: isEditing ? colors.card : colors.surface,
+                        borderColor: contactValidation.error
+                          ? colors.error
+                          : colors.border,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
                         color: colors.text,
                         fontSize: fontSizes.input,
                       },
@@ -1021,24 +1237,49 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   {isEditing && (
                     <View style={styles.validationIcon}>
                       {contactValidation.loading && (
-                        <ActivityIndicator size="small" color={colors.primary} />
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
                       )}
-                      {contactValidation.isAvailable && !contactValidation.loading && (
-                        <Icon name="check" size={16} color={colors.success} />
-                      )}
-                      {contactValidation.isAvailable === false && !contactValidation.loading && (
-                        <Icon name="alert-circle" size={16} color={colors.error} />
-                      )}
+                      {contactValidation.isAvailable &&
+                        !contactValidation.loading && (
+                          <Icon name="check" size={16} color={colors.success} />
+                        )}
+                      {contactValidation.isAvailable === false &&
+                        !contactValidation.loading && (
+                          <Icon
+                            name="alert-circle"
+                            size={16}
+                            color={colors.error}
+                          />
+                        )}
                     </View>
                   )}
                 </View>
                 {contactValidation.error && (
-                  <Text style={[styles.validationError, { color: colors.error, fontSize: fontSizes.validationText }]}>
+                  <Text
+                    style={[
+                      styles.validationError,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
                     {contactValidation.error}
                   </Text>
                 )}
                 {!hasMobileNumber && !isEditing && (
-                  <Text style={[styles.mobileRequiredText, { color: colors.error, fontSize: fontSizes.validationText }]}>
+                  <Text
+                    style={[
+                      styles.mobileRequiredText,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
                     Please add your mobile number
                   </Text>
                 )}
@@ -1046,10 +1287,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
               {/* Alternative Contact Number */}
               <View style={styles.inputContainer}>
-                <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { color: colors.text, fontSize: fontSizes.inputLabel },
+                  ]}
+                >
                   Alternative Contact
                 </Text>
-                <View style={styles.phoneInputContainer} ref={altContactFieldRef} collapsable={false}>
+                <View
+                  style={styles.phoneInputContainer}
+                  ref={altContactFieldRef}
+                  collapsable={false}
+                >
                   {isEditing ? (
                     <TouchableOpacity
                       style={[
@@ -1061,10 +1311,19 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       ]}
                       onPress={() => setShowAltCountryCodePicker(true)}
                     >
-                      <Text style={[styles.countryCodeText, { color: colors.text, fontSize: fontSizes.input }]}>
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
                         {altCountryCode}
                       </Text>
-                      <Icon name="chevron-down" size={16} color={colors.textSecondary} />
+                      <Icon
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   ) : (
                     <View
@@ -1077,7 +1336,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         },
                       ]}
                     >
-                      <Text style={[styles.countryCodeText, { color: colors.text, fontSize: fontSizes.input }]}>
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
                         {altCountryCode}
                       </Text>
                     </View>
@@ -1086,8 +1350,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     style={[
                       styles.phoneInput,
                       {
-                        borderColor: altContactValidation.error ? colors.error : colors.border,
-                        backgroundColor: isEditing ? colors.card : colors.surface,
+                        borderColor: altContactValidation.error
+                          ? colors.error
+                          : colors.border,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
                         color: colors.text,
                         fontSize: fontSizes.input,
                       },
@@ -1105,19 +1373,36 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   {isEditing && (
                     <View style={styles.validationIcon}>
                       {altContactValidation.loading && (
-                        <ActivityIndicator size="small" color={colors.primary} />
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
                       )}
-                      {altContactValidation.isAvailable && !altContactValidation.loading && (
-                        <Icon name="check" size={16} color={colors.success} />
-                      )}
-                      {altContactValidation.isAvailable === false && !altContactValidation.loading && (
-                        <Icon name="alert-circle" size={16} color={colors.error} />
-                      )}
+                      {altContactValidation.isAvailable &&
+                        !altContactValidation.loading && (
+                          <Icon name="check" size={16} color={colors.success} />
+                        )}
+                      {altContactValidation.isAvailable === false &&
+                        !altContactValidation.loading && (
+                          <Icon
+                            name="alert-circle"
+                            size={16}
+                            color={colors.error}
+                          />
+                        )}
                     </View>
                   )}
                 </View>
                 {altContactValidation.error && (
-                  <Text style={[styles.validationError, { color: colors.error, fontSize: fontSizes.validationText }]}>
+                  <Text
+                    style={[
+                      styles.validationError,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
                     {altContactValidation.error}
                   </Text>
                 )}
@@ -1132,7 +1417,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               }}
             >
               <View style={styles.addressesHeader}>
-                <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { color: colors.text, fontSize: fontSizes.inputLabel },
+                  ]}
+                >
                   Addresses
                 </Text>
                 {isEditing && (
@@ -1141,7 +1431,15 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     style={styles.addAddressButton}
                   >
                     <Icon name="plus" size={16} color={colors.primary} />
-                    <Text style={[styles.addAddressText, { color: colors.primary, fontSize: fontSizes.buttonText }]}>
+                    <Text
+                      style={[
+                        styles.addAddressText,
+                        {
+                          color: colors.primary,
+                          fontSize: fontSizes.buttonText,
+                        },
+                      ]}
+                    >
                       Add New Address
                     </Text>
                   </TouchableOpacity>
@@ -1159,7 +1457,15 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   ]}
                 >
                   <View style={styles.addAddressFormHeader}>
-                    <Text style={[styles.addAddressFormTitle, { color: colors.primary, fontSize: fontSizes.formTitle }]}>
+                    <Text
+                      style={[
+                        styles.addAddressFormTitle,
+                        {
+                          color: colors.primary,
+                          fontSize: fontSizes.formTitle,
+                        },
+                      ]}
+                    >
                       Add New Address
                     </Text>
                     <TouchableOpacity onPress={() => setShowAddAddress(false)}>
@@ -1168,18 +1474,24 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   </View>
 
                   <View style={styles.addressTypeContainer}>
-                    <Text style={[styles.formLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                    <Text
+                      style={[
+                        styles.formLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
                       Save as
                     </Text>
                     <View style={styles.addressTypeButtons}>
-                      {['Home', 'Work', 'Other'].map(type => (
+                      {["Home", "Work", "Other"].map((type) => (
                         <TouchableOpacity
                           key={type}
                           onPress={() => {
-                            setNewAddress(prev => ({
+                            setNewAddress((prev) => ({
                               ...prev,
                               type,
-                              customType: type === 'Other' ? prev.customType : '',
+                              customType:
+                                type === "Other" ? prev.customType : "",
                             }));
                           }}
                           style={[
@@ -1191,15 +1503,45 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                             newAddress.type === type && [
                               styles.addressTypeButtonActive,
                               {
-                                backgroundColor: colors.primary + '20',
+                                backgroundColor: colors.primary + "20",
                                 borderColor: colors.primary,
                               },
                             ],
                           ]}
                         >
-                          {type === 'Home' && <Icon name="home" size={14} color={newAddress.type === type ? colors.primary : colors.textSecondary} />}
-                          {type === 'Work' && <MaterialCommunityIcons name="office-building" size={14} color={newAddress.type === type ? colors.primary : colors.textSecondary} />}
-                          {type === 'Other' && <Icon name="map-pin" size={14} color={newAddress.type === type ? colors.primary : colors.textSecondary} />}
+                          {type === "Home" && (
+                            <Icon
+                              name="home"
+                              size={14}
+                              color={
+                                newAddress.type === type
+                                  ? colors.primary
+                                  : colors.textSecondary
+                              }
+                            />
+                          )}
+                          {type === "Work" && (
+                            <MaterialCommunityIcons
+                              name="office-building"
+                              size={14}
+                              color={
+                                newAddress.type === type
+                                  ? colors.primary
+                                  : colors.textSecondary
+                              }
+                            />
+                          )}
+                          {type === "Other" && (
+                            <Icon
+                              name="map-pin"
+                              size={14}
+                              color={
+                                newAddress.type === type
+                                  ? colors.primary
+                                  : colors.textSecondary
+                              }
+                            />
+                          )}
                           <Text
                             style={[
                               styles.addressTypeText,
@@ -1207,7 +1549,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                                 color: colors.textSecondary,
                                 fontSize: fontSizes.inputLabel,
                               },
-                              newAddress.type === type && [styles.addressTypeTextActive, { color: colors.primary }],
+                              newAddress.type === type && [
+                                styles.addressTypeTextActive,
+                                { color: colors.primary },
+                              ],
                             ]}
                           >
                             {type}
@@ -1217,9 +1562,17 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     </View>
                   </View>
 
-                  {newAddress.type === 'Other' && (
+                  {newAddress.type === "Other" && (
                     <View style={styles.formField}>
-                      <Text style={[styles.formLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                      <Text
+                        style={[
+                          styles.formLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
                         Location Name
                       </Text>
                       <TextInput
@@ -1235,13 +1588,23 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         placeholder="Enter location name"
                         placeholderTextColor={colors.placeholder}
                         value={newAddress.customType}
-                        onChangeText={value => setNewAddress(prev => ({ ...prev, customType: value }))}
+                        onChangeText={(value) =>
+                          setNewAddress((prev) => ({
+                            ...prev,
+                            customType: value,
+                          }))
+                        }
                       />
                     </View>
                   )}
 
                   <View style={styles.addressFormInput}>
-                    <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
                       Street Address
                     </Text>
                     <TextInput
@@ -1255,7 +1618,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         },
                       ]}
                       value={newAddress.street}
-                      onChangeText={value => setNewAddress(prev => ({ ...prev, street: value }))}
+                      onChangeText={(value) =>
+                        setNewAddress((prev) => ({ ...prev, street: value }))
+                      }
                       placeholder="Enter street address"
                       placeholderTextColor={colors.placeholder}
                     />
@@ -1263,7 +1628,15 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
                   <View style={styles.addressFormRow}>
                     <View style={[styles.addressFormInput, { flex: 1 }]}>
-                      <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                      <Text
+                        style={[
+                          styles.inputLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
                         City
                       </Text>
                       <TextInput
@@ -1277,14 +1650,24 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                           },
                         ]}
                         value={newAddress.city}
-                        onChangeText={value => setNewAddress(prev => ({ ...prev, city: value }))}
+                        onChangeText={(value) =>
+                          setNewAddress((prev) => ({ ...prev, city: value }))
+                        }
                         placeholder="Enter city"
                         placeholderTextColor={colors.placeholder}
                       />
                     </View>
 
                     <View style={[styles.addressFormInput, { flex: 1 }]}>
-                      <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                      <Text
+                        style={[
+                          styles.inputLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
                         Country
                       </Text>
                       <TextInput
@@ -1298,14 +1681,24 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                           },
                         ]}
                         value={newAddress.country}
-                        onChangeText={value => setNewAddress(prev => ({ ...prev, country: value }))}
+                        onChangeText={(value) =>
+                          setNewAddress((prev) => ({ ...prev, country: value }))
+                        }
                         placeholder="Enter country"
                         placeholderTextColor={colors.placeholder}
                       />
                     </View>
 
                     <View style={[styles.addressFormInput, { flex: 1 }]}>
-                      <Text style={[styles.inputLabel, { color: colors.text, fontSize: fontSizes.inputLabel }]}>
+                      <Text
+                        style={[
+                          styles.inputLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
                         Postal Code
                       </Text>
                       <TextInput
@@ -1319,7 +1712,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                           },
                         ]}
                         value={newAddress.postalCode}
-                        onChangeText={value => setNewAddress(prev => ({ ...prev, postalCode: value }))}
+                        onChangeText={(value) =>
+                          setNewAddress((prev) => ({
+                            ...prev,
+                            postalCode: value,
+                          }))
+                        }
                         placeholder="Enter postal code"
                         placeholderTextColor={colors.placeholder}
                       />
@@ -1328,9 +1726,17 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
                   <TouchableOpacity
                     onPress={handleAddAddress}
-                    style={[styles.addAddressSubmitButton, { backgroundColor: colors.primary }]}
+                    style={[
+                      styles.addAddressSubmitButton,
+                      { backgroundColor: colors.primary },
+                    ]}
                   >
-                    <Text style={[styles.addAddressSubmitText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                    <Text
+                      style={[
+                        styles.addAddressSubmitText,
+                        { color: "#fff", fontSize: fontSizes.buttonText },
+                      ]}
+                    >
                       Save Address
                     </Text>
                   </TouchableOpacity>
@@ -1338,12 +1744,20 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               )}
 
               {addresses.length === 0 ? (
-                <Text style={[styles.noAddressText, { color: colors.textSecondary, fontSize: fontSizes.roleText }]}>
+                <Text
+                  style={[
+                    styles.noAddressText,
+                    {
+                      color: colors.textSecondary,
+                      fontSize: fontSizes.roleText,
+                    },
+                  ]}
+                >
                   No addresses added yet
                 </Text>
               ) : (
                 <View style={styles.addressesList}>
-                  {addresses.map(address => (
+                  {addresses.map((address) => (
                     <View
                       key={address.id}
                       style={[
@@ -1355,7 +1769,15 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       ]}
                     >
                       <View style={styles.addressHeader}>
-                        <Text style={[styles.addressType, { color: colors.text, fontSize: fontSizes.addressType }]}>
+                        <Text
+                          style={[
+                            styles.addressType,
+                            {
+                              color: colors.text,
+                              fontSize: fontSizes.addressType,
+                            },
+                          ]}
+                        >
                           {address.type}
                         </Text>
                         <View style={styles.addressActions}>
@@ -1364,7 +1786,11 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                             style={styles.addressActionButton}
                           >
                             <Icon
-                              name={expandedAddressIds.includes(address.id) ? 'chevron-up' : 'chevron-down'}
+                              name={
+                                expandedAddressIds.includes(address.id)
+                                  ? "chevron-up"
+                                  : "chevron-down"
+                              }
                               size={20}
                               color={colors.textSecondary}
                             />
@@ -1382,16 +1808,39 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
 
                       {expandedAddressIds.includes(address.id) ? (
                         <View style={styles.addressDetails}>
-                          <Text style={[styles.addressText, { color: colors.textSecondary, fontSize: fontSizes.addressText }]}>
+                          <Text
+                            style={[
+                              styles.addressText,
+                              {
+                                color: colors.textSecondary,
+                                fontSize: fontSizes.addressText,
+                              },
+                            ]}
+                          >
                             {address.street}
                           </Text>
-                          <Text style={[styles.addressText, { color: colors.textSecondary, fontSize: fontSizes.addressText }]}>
-                            {address.city}, {address.country} {address.postalCode}
+                          <Text
+                            style={[
+                              styles.addressText,
+                              {
+                                color: colors.textSecondary,
+                                fontSize: fontSizes.addressText,
+                              },
+                            ]}
+                          >
+                            {address.city}, {address.country}{" "}
+                            {address.postalCode}
                           </Text>
                         </View>
                       ) : (
                         <Text
-                          style={[styles.addressPreview, { color: colors.textSecondary, fontSize: fontSizes.addressText }]}
+                          style={[
+                            styles.addressPreview,
+                            {
+                              color: colors.textSecondary,
+                              fontSize: fontSizes.addressText,
+                            },
+                          ]}
                           numberOfLines={1}
                         >
                           {address.street}
@@ -1408,11 +1857,20 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
               <View style={styles.actionButtonsContainer}>
                 <View style={styles.actionButtons}>
                   <TouchableOpacity
-                    style={[styles.button, styles.cancelButton, { backgroundColor: colors.textSecondary }]}
+                    style={[
+                      styles.button,
+                      styles.cancelButton,
+                      { backgroundColor: colors.textSecondary },
+                    ]}
                     onPress={handleCancel}
                     disabled={isSaving}
                   >
-                    <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        { color: "#fff", fontSize: fontSizes.buttonText },
+                      ]}
+                    >
                       Cancel
                     </Text>
                   </TouchableOpacity>
@@ -1421,7 +1879,10 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       styles.button,
                       styles.saveButton,
                       { backgroundColor: colors.primary },
-                      (!isFormValid() || !hasChanges()) && [styles.disabledButton, { backgroundColor: colors.disabled }],
+                      (!isFormValid() || !hasChanges()) && [
+                        styles.disabledButton,
+                        { backgroundColor: colors.disabled },
+                      ],
                     ]}
                     onPress={handleSave}
                     disabled={isSaving || !isFormValid() || !hasChanges()}
@@ -1429,7 +1890,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     {isSaving ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={[styles.buttonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                      <Text
+                        style={[
+                          styles.buttonText,
+                          { color: "#fff", fontSize: fontSizes.buttonText },
+                        ]}
+                      >
                         Save Changes
                       </Text>
                     )}
@@ -1447,20 +1913,29 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
           animationType="slide"
           onRequestClose={() => setShowCountryCodePicker(false)}
         >
-          <View style={[styles.modalContainer, { backgroundColor: colors.overlay }]}>
-            <View style={[styles.pickerModal, { backgroundColor: colors.card }]}>
-              <Text style={[styles.pickerTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.overlay }]}
+          >
+            <View
+              style={[styles.pickerModal, { backgroundColor: colors.card }]}
+            >
+              <Text
+                style={[
+                  styles.pickerTitle,
+                  { color: colors.text, fontSize: fontSizes.sectionTitle },
+                ]}
+              >
                 Select Country Code
               </Text>
               <Picker
                 selectedValue={countryCode}
-                onValueChange={itemValue => {
+                onValueChange={(itemValue) => {
                   setCountryCode(itemValue);
                   setShowCountryCodePicker(false);
                 }}
                 style={{ color: colors.text }}
               >
-                {countryCodes.map(code => (
+                {countryCodes.map((code) => (
                   <Picker.Item
                     key={code.value}
                     label={code.label}
@@ -1470,10 +1945,18 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 ))}
               </Picker>
               <TouchableOpacity
-                style={[styles.pickerButton, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.pickerButton,
+                  { backgroundColor: colors.primary },
+                ]}
                 onPress={() => setShowCountryCodePicker(false)}
               >
-                <Text style={[styles.pickerButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                <Text
+                  style={[
+                    styles.pickerButtonText,
+                    { color: "#fff", fontSize: fontSizes.buttonText },
+                  ]}
+                >
                   Done
                 </Text>
               </TouchableOpacity>
@@ -1487,20 +1970,29 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
           animationType="slide"
           onRequestClose={() => setShowAltCountryCodePicker(false)}
         >
-          <View style={[styles.modalContainer, { backgroundColor: colors.overlay }]}>
-            <View style={[styles.pickerModal, { backgroundColor: colors.card }]}>
-              <Text style={[styles.pickerTitle, { color: colors.text, fontSize: fontSizes.sectionTitle }]}>
+          <View
+            style={[styles.modalContainer, { backgroundColor: colors.overlay }]}
+          >
+            <View
+              style={[styles.pickerModal, { backgroundColor: colors.card }]}
+            >
+              <Text
+                style={[
+                  styles.pickerTitle,
+                  { color: colors.text, fontSize: fontSizes.sectionTitle },
+                ]}
+              >
                 Select Country Code
               </Text>
               <Picker
                 selectedValue={altCountryCode}
-                onValueChange={itemValue => {
+                onValueChange={(itemValue) => {
                   setAltCountryCode(itemValue);
                   setShowAltCountryCodePicker(false);
                 }}
                 style={{ color: colors.text }}
               >
-                {countryCodes.map(code => (
+                {countryCodes.map((code) => (
                   <Picker.Item
                     key={code.value}
                     label={code.label}
@@ -1510,10 +2002,18 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                 ))}
               </Picker>
               <TouchableOpacity
-                style={[styles.pickerButton, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.pickerButton,
+                  { backgroundColor: colors.primary },
+                ]}
                 onPress={() => setShowAltCountryCodePicker(false)}
               >
-                <Text style={[styles.pickerButtonText, { color: '#fff', fontSize: fontSizes.buttonText }]}>
+                <Text
+                  style={[
+                    styles.pickerButtonText,
+                    { color: "#fff", fontSize: fontSizes.buttonText },
+                  ]}
+                >
                   Done
                 </Text>
               </TouchableOpacity>
@@ -1533,14 +2033,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   mainContent: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: 16,
   },
   formContainer: {
     width: width - 32,
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1550,69 +2050,69 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   formHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     borderBottomWidth: 1,
     paddingBottom: 12,
     marginBottom: 16,
   },
   formTitle: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   editButtonTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   editButtonText: {
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 6,
   },
   sectionTitle: {
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 16,
   },
   inputRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   inputContainer: {
-    width: width > 500 ? '48%' : '100%',
+    width: width > 500 ? "48%" : "100%",
     marginBottom: 16,
   },
   inputLabel: {
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   labelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   input: {
-    width: '100%',
+    width: "100%",
     padding: 12,
     borderWidth: 1,
     borderRadius: 8,
   },
   readOnlyInput: {
-    backgroundColor: '#f7fafc',
+    backgroundColor: "#f7fafc",
   },
   nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 16,
     gap: 12,
   },
@@ -1624,9 +2124,9 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   phoneInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    position: 'relative',
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
   },
   countryCodeContainer: {
     padding: 12,
@@ -1634,9 +2134,9 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     minWidth: 80,
   },
   countryCodeText: {
@@ -1650,9 +2150,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
   validationIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 12,
-    top: '50%',
+    top: "50%",
     transform: [{ translateY: -8 }],
   },
   validationError: {
@@ -1671,17 +2171,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   addressesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   addAddressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   addAddressText: {
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 4,
   },
   addAddressForm: {
@@ -1691,28 +2191,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   addAddressFormHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   addAddressFormTitle: {
-    fontWeight: '500',
+    fontWeight: "500",
   },
   addressTypeContainer: {
     marginBottom: 12,
   },
   formLabel: {
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 8,
   },
   addressTypeButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   addressTypeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1720,14 +2220,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   addressTypeButtonActive: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#93c5fd',
+    backgroundColor: "#dbeafe",
+    borderColor: "#93c5fd",
   },
   addressTypeText: {
     fontSize: 14,
   },
   addressTypeTextActive: {
-    color: '#2563eb',
+    color: "#2563eb",
   },
   formField: {
     marginBottom: 12,
@@ -1740,8 +2240,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   addressFormRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
     gap: 12,
   },
@@ -1751,14 +2251,14 @@ const styles = StyleSheet.create({
   addAddressSubmitButton: {
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   addAddressSubmitText: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   noAddressText: {
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   addressesList: {
     gap: 12,
@@ -1769,16 +2269,16 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   addressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   addressType: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   addressActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   addressActionButton: {
     padding: 4,
@@ -1798,41 +2298,41 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    alignItems: 'center',
+    borderTopColor: "#e2e8f0",
+    alignItems: "center",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   button: {
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 6,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
     minWidth: 120,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: "#6c757d",
   },
   saveButton: {
-    backgroundColor: '#0b5bd3',
+    backgroundColor: "#0b5bd3",
   },
   disabledButton: {
     opacity: 0.6,
   },
   buttonText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   pickerModal: {
     borderTopLeftRadius: 16,
@@ -1840,18 +2340,18 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   pickerTitle: {
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   pickerButton: {
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
   },
   pickerButtonText: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   // Skeleton styles
   skeletonCard: {
@@ -1859,16 +2359,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     margin: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   skeletonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingBottom: 12,
     marginBottom: 16,
   },
@@ -1892,13 +2392,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   skeletonRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   skeletonInputGroup: {
-    width: width > 500 ? '48%' : '100%',
+    width: width > 500 ? "48%" : "100%",
     marginBottom: 16,
   },
   skeletonLabel: {
@@ -1908,7 +2408,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   skeletonInput: {
-    width: '100%',
+    width: "100%",
     height: 40,
     borderRadius: 8,
   },
@@ -1918,7 +2418,7 @@ const styles = StyleSheet.create({
   },
   skeletonAddressCard: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: "#e2e8f0",
     borderRadius: 8,
     padding: 16,
     marginBottom: 12,
@@ -1930,13 +2430,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   skeletonAddressLine: {
-    width: '100%',
+    width: "100%",
     height: 16,
     borderRadius: 4,
     marginBottom: 8,
   },
   skeletonAddressLineShort: {
-    width: '75%',
+    width: "75%",
     height: 16,
     borderRadius: 4,
   },

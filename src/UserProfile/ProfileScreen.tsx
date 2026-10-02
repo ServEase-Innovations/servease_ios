@@ -29,7 +29,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/userStore";
 import { setHasMobileNumber } from "../features/customerSlice";
 import { useTheme } from "../../src/Settings/ThemeContext";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
+import Geocoder from "react-native-geocoding";
+import { keys } from "../env";
+
+Geocoder.init(keys.api_key);
 
 const { width } = Dimensions.get("window");
 
@@ -204,7 +208,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
   // Track which fields have been validated
   const [validatedFields, setValidatedFields] = useState<Set<string>>(
-    new Set(),
+    new Set()
   );
 
   // Get font sizes based on theme
@@ -279,7 +283,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
   // Function to get user's first letter for profile picture
   const getUserInitial = () => {
-    const name = userName || appUser?.nickname || t('profile.page.user');
+    const name = userName || appUser?.nickname || t("profile.page.user");
     return name.charAt(0).toUpperCase();
   };
 
@@ -332,7 +336,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         appUser?.serviceProviderId?.toString() ||
         userId?.toString() ||
         serviceProviderData?.serviceproviderId?.toString() ||
-        t('common.na')
+        t("common.na")
       );
     } else {
       return (
@@ -340,14 +344,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         userId?.toString() ||
         customerId?.toString() ||
         customerData?.customerid?.toString() ||
-        t('common.na')
+        t("common.na")
       );
     }
   };
 
   // Function to get display name for greeting
   const getDisplayName = () => {
-    return userName || appUser?.nickname || t('profile.page.user');
+    return userName || appUser?.nickname || t("profile.page.user");
   };
 
   // Format mobile number for display
@@ -364,7 +368,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
   const checkMobileAvailability = async (
     number: string,
-    isAlternate: boolean = false,
+    isAlternate: boolean = false
   ): Promise<boolean> => {
     if (!number || !validateMobileFormat(number)) {
       return false;
@@ -384,9 +388,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
     try {
       // Using providerInstance for mobile check as per React version
-      const endpoint = '/api/service-providers/check-mobile';
+      const endpoint = "/api/service-providers/check-mobile";
       const payload = { mobile: number };
-      
+
       const response = await providerInstance.post(endpoint, payload);
 
       let isAvailable = true;
@@ -395,23 +399,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       if (response.data.exists !== undefined) {
         isAvailable = !response.data.exists;
         errorMessage = response.data.exists
-          ? isAlternate 
-            ? t('errors.alternateNumberUnavailable')
-            : t('errors.contactNumberUnavailable')
+          ? isAlternate
+            ? t("errors.alternateNumberUnavailable")
+            : t("errors.contactNumberUnavailable")
           : "";
       } else if (response.data.available !== undefined) {
         isAvailable = response.data.available;
         errorMessage = !response.data.available
-          ? isAlternate 
-            ? t('errors.alternateNumberUnavailable')
-            : t('errors.contactNumberUnavailable')
+          ? isAlternate
+            ? t("errors.alternateNumberUnavailable")
+            : t("errors.contactNumberUnavailable")
           : "";
       } else if (response.data.isAvailable !== undefined) {
         isAvailable = response.data.isAvailable;
         errorMessage = !response.data.isAvailable
-          ? isAlternate 
-            ? t('errors.alternateNumberUnavailable')
-            : t('errors.contactNumberUnavailable')
+          ? isAlternate
+            ? t("errors.alternateNumberUnavailable")
+            : t("errors.contactNumberUnavailable")
           : "";
       } else {
         isAvailable = true;
@@ -436,7 +440,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     } catch (error: any) {
       console.error("Error validating mobile number:", error);
 
-      let errorMessage = t('errors.generic');
+      let errorMessage = t("errors.generic");
 
       if (error.response?.data) {
         const apiError = error.response.data;
@@ -448,13 +452,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           errorMessage = apiError.error;
         }
       } else if (error.response?.status === 400) {
-        errorMessage = t('validation.phone');
+        errorMessage = t("validation.phone");
       } else if (error.response?.status === 409) {
-        errorMessage = isAlternate 
-          ? t('errors.alternateNumberUnavailable')
-          : t('errors.contactNumberUnavailable');
+        errorMessage = isAlternate
+          ? t("errors.alternateNumberUnavailable")
+          : t("errors.contactNumberUnavailable");
       } else if (error.response?.status === 500) {
-        errorMessage = t('errors.server');
+        errorMessage = t("errors.server");
       }
 
       setValidation({
@@ -507,9 +511,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         ...prev,
         formatError: false,
         error:
-          prev.error === t('profile.page.exactly10Digits')
-            ? ""
-            : prev.error,
+          prev.error === t("profile.page.exactly10Digits") ? "" : prev.error,
       }));
 
       debouncedValidation(cleanedValue, false);
@@ -517,7 +519,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       if (userData.altContactNumber === cleanedValue) {
         setAltContactValidation((prev) => ({
           ...prev,
-          error: t('profile.page.numbersMustBeDifferent'),
+          error: t("profile.page.numbersMustBeDifferent"),
           isAvailable: false,
           formatError: false,
         }));
@@ -526,7 +528,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         userData.altContactNumber.length === 10
       ) {
         if (
-          altContactValidation.error === t('profile.page.numbersMustBeDifferent')
+          altContactValidation.error ===
+          t("profile.page.numbersMustBeDifferent")
         ) {
           setAltContactValidation((prev) => ({
             ...prev,
@@ -540,7 +543,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     } else if (cleanedValue) {
       setContactValidation({
         loading: false,
-        error: t('profile.page.exactly10Digits'),
+        error: t("profile.page.exactly10Digits"),
         isAvailable: null,
         formatError: true,
       });
@@ -572,15 +575,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           ...prev,
           formatError: false,
           error:
-            prev.error === t('profile.page.exactly10Digits')
-              ? ""
-              : prev.error,
+            prev.error === t("profile.page.exactly10Digits") ? "" : prev.error,
         }));
 
         if (cleanedValue === userData.contactNumber) {
           setAltContactValidation({
             loading: false,
-            error: t('profile.page.numbersMustBeDifferent'),
+            error: t("profile.page.numbersMustBeDifferent"),
             isAvailable: false,
             formatError: false,
           });
@@ -590,7 +591,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       } else {
         setAltContactValidation({
           loading: false,
-          error: t('profile.page.exactly10Digits'),
+          error: t("profile.page.exactly10Digits"),
           isAvailable: null,
           formatError: true,
         });
@@ -647,8 +648,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     if (contactNumberChanged) {
       if (!validateMobileFormat(userData.contactNumber)) {
         Alert.alert(
-          t('profile.page.validationError'),
-          t('profile.page.enterValidContact'),
+          t("profile.page.validationError"),
+          t("profile.page.enterValidContact")
         );
         return false;
       }
@@ -658,7 +659,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         contactValidation.isAvailable === null
       ) {
         validationPromises.push(
-          checkMobileAvailability(userData.contactNumber, false),
+          checkMobileAvailability(userData.contactNumber, false)
         );
       }
     }
@@ -666,16 +667,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     if (altContactNumberChanged && userData.altContactNumber) {
       if (!validateMobileFormat(userData.altContactNumber)) {
         Alert.alert(
-          t('profile.page.validationError'),
-          t('profile.page.enterValidAlternate'),
+          t("profile.page.validationError"),
+          t("profile.page.enterValidAlternate")
         );
         return false;
       }
 
       if (!areNumbersUnique()) {
         Alert.alert(
-          t('profile.page.validationError'),
-          t('profile.page.numbersMustBeDifferent'),
+          t("profile.page.validationError"),
+          t("profile.page.numbersMustBeDifferent")
         );
         return false;
       }
@@ -685,7 +686,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         altContactValidation.isAvailable === null
       ) {
         validationPromises.push(
-          checkMobileAvailability(userData.altContactNumber, true),
+          checkMobileAvailability(userData.altContactNumber, true)
         );
       }
     }
@@ -696,7 +697,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     }
 
     if (contactNumberChanged && contactValidation.isAvailable === false) {
-      Alert.alert(t('profile.page.validationError'), t('errors.contactNumberUnavailable'));
+      Alert.alert(
+        t("profile.page.validationError"),
+        t("errors.contactNumberUnavailable")
+      );
       allValid = false;
     }
 
@@ -705,7 +709,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       userData.altContactNumber &&
       altContactValidation.isAvailable === false
     ) {
-      Alert.alert(t('profile.page.validationError'), t('errors.alternateNumberUnavailable'));
+      Alert.alert(
+        t("profile.page.validationError"),
+        t("errors.alternateNumberUnavailable")
+      );
       allValid = false;
     }
 
@@ -850,13 +857,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         customer?.alternateContactNumber ??
         "";
 
-      console.log("Mapped mobile numbers:", { mobileNo: mobileNoFromApi, altMobileNo: altMobileNoFromApi });
+      console.log("Mapped mobile numbers:", {
+        mobileNo: mobileNoFromApi,
+        altMobileNo: altMobileNoFromApi,
+      });
 
       const updatedUserData = {
         firstName: customer.firstName || "",
         lastName: customer.lastName || "",
         contactNumber: mobileNoFromApi ? mobileNoFromApi.toString() : "",
-        altContactNumber: altMobileNoFromApi ? altMobileNoFromApi.toString() : "",
+        altContactNumber: altMobileNoFromApi
+          ? altMobileNoFromApi.toString()
+          : "",
       };
 
       setUserData(updatedUserData);
@@ -880,7 +892,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
       if (Array.isArray(data) && data.length > 0) {
         const allSavedLocations = data.flatMap(
-          (doc) => doc.savedLocations || [],
+          (doc) => doc.savedLocations || []
         );
 
         const uniqueAddresses = new Map();
@@ -893,7 +905,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
             const getComponent = (type: string) => {
               const component = addressComponents.find((c: any) =>
-                c.types.includes(type),
+                c.types.includes(type)
               );
               return component?.long_name || "";
             };
@@ -906,7 +918,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             if (!uniqueAddresses.has(locationKey)) {
               uniqueAddresses.set(locationKey, {
                 id: loc._id || `addr_${idx}`,
-                type: loc.name || t('profile.page.other'),
+                type: loc.name || t("profile.page.other"),
                 street: primaryAddress.formatted_address,
                 city:
                   getComponent("locality") ||
@@ -955,7 +967,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   const fetchServiceProviderData = async (serviceProviderId: number) => {
     try {
       const response = await axiosInstance.get(
-        `/api/serviceproviders/get/serviceprovider/${serviceProviderId}`,
+        `/api/serviceproviders/get/serviceprovider/${serviceProviderId}`
       );
 
       const data = response.data;
@@ -987,9 +999,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         addresses.push({
           id: "permanent",
           type: "Permanent",
-          street: streetAddress || t('profile.page.addressNotSpecified') || "",
+          street: streetAddress || t("profile.page.addressNotSpecified") || "",
           city: permAddr.ctArea || data.locality || data.currentLocation || "",
-          country: permAddr.country || t('country.india'),
+          country: permAddr.country || t("country.india"),
           postalCode:
             permAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
         });
@@ -1006,9 +1018,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         addresses.push({
           id: "correspondence",
           type: "Correspondence",
-          street: streetAddress || t('profile.page.addressNotSpecified') || "",
+          street: streetAddress || t("profile.page.addressNotSpecified") || "",
           city: corrAddr.ctArea || data.locality || data.currentLocation || "",
-          country: corrAddr.country || t('country.india'),
+          country: corrAddr.country || t("country.india"),
           postalCode:
             corrAddr.pinNo || (data.pincode ? data.pincode.toString() : ""),
         });
@@ -1017,12 +1029,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       if (addresses.length === 0) {
         const serviceProviderAddress: Address = {
           id: "1",
-          type: t('profile.page.home'),
+          type: t("profile.page.home"),
           street: `${data.buildingName || ""} ${data.street || ""} ${
             data.locality || ""
           }`.trim(),
           city: data.nearbyLocation || data.currentLocation || "",
-          country: t('country.india'),
+          country: t("country.india"),
           postalCode: data.pincode ? data.pincode.toString() : "",
         };
         addresses.push(serviceProviderAddress);
@@ -1059,6 +1071,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           ? newAddress.customType
           : newAddress.type;
 
+      let lat = 0;
+      let lng = 0;
+      const fullAddress = `${newAddress.street}, ${newAddress.city}, ${newAddress.country} ${newAddress.postalCode}`;
+
+      try {
+        const res = await Geocoder.from(fullAddress);
+        const location = res.results?.[0]?.geometry?.location;
+        if (location) {
+          lat = location.lat;
+          lng = location.lng;
+        }
+      } catch (e) {
+        console.warn("Geocoding failed for manual address", e);
+      }
+
       const addressToAdd: Address = {
         type: addressType,
         street: newAddress.street,
@@ -1068,8 +1095,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         id: `addr_${Date.now()}`,
         rawData: {
           formattedAddress: newAddress.street,
-          latitude: 0,
-          longitude: 0,
+          latitude: lat,
+          longitude: lng,
           placeId: `manual_${Date.now()}`,
         },
       };
@@ -1084,14 +1111,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           console.log("✅ Address saved successfully");
         } catch (err) {
           console.error("❌ Failed to save new address:", err);
-          Alert.alert(t('common.error'), t('profile.page.couldNotSaveAddress'));
+          Alert.alert(t("common.error"), t("profile.page.couldNotSaveAddress"));
           setAddresses(addresses);
           return;
         }
       }
 
       setNewAddress({
-        type: t('profile.page.home'),
+        type: t("profile.page.home"),
         customType: "",
         street: "",
         city: "",
@@ -1100,7 +1127,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       });
       setShowAddAddress(false);
     } else {
-      Alert.alert(t('profile.page.validationError'), t('profile.page.fillAllAddressFields'));
+      Alert.alert(
+        t("profile.page.validationError"),
+        t("profile.page.fillAllAddressFields")
+      );
     }
   };
 
@@ -1119,7 +1149,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       } catch (error) {
         console.error("❌ Failed to remove address from user settings:", error);
         setAddresses(addresses);
-        Alert.alert(t('common.error'), t('profile.page.couldNotRemoveAddress'));
+        Alert.alert(t("common.error"), t("profile.page.couldNotRemoveAddress"));
       }
     }
   };
@@ -1195,7 +1225,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
     };
 
     initializeProfile();
-  }, [auth0User, appUser, dialogShownInSession, dispatch, customerLoading, firstName, lastName, mobileNo, alternateNo, hasMobileNumber]);
+  }, [
+    auth0User,
+    appUser,
+    dialogShownInSession,
+    dispatch,
+    customerLoading,
+    firstName,
+    lastName,
+    mobileNo,
+    alternateNo,
+    hasMobileNumber,
+  ]);
 
   // Update userData when Redux state changes - MATCHING REACT VERSION
   useEffect(() => {
@@ -1259,10 +1300,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         }
 
         const permanentAddress = addresses.find(
-          (addr) => addr.type === "Permanent",
+          (addr) => addr.type === "Permanent"
         );
         const correspondenceAddress = addresses.find(
-          (addr) => addr.type === "Correspondence",
+          (addr) => addr.type === "Correspondence"
         );
 
         if (permanentAddress) {
@@ -1272,7 +1313,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             ctArea: permanentAddress.city || "",
             pinNo: permanentAddress.postalCode || "",
             state: "West Bengal",
-            country: permanentAddress.country || t('country.india'),
+            country: permanentAddress.country || t("country.india"),
           };
         }
 
@@ -1283,17 +1324,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             ctArea: correspondenceAddress.city || "",
             pinNo: correspondenceAddress.postalCode || "",
             state: "West Bengal",
-            country: correspondenceAddress.country || t('country.india'),
+            country: correspondenceAddress.country || t("country.india"),
           };
         }
 
         // Using axiosInstance for service provider update
         await axiosInstance.put(
           `/api/serviceproviders/update/serviceprovider/${userId}`,
-          payload,
+          payload
         );
         await fetchServiceProviderData(userId);
-        Alert.alert(t('common.success'), t('profile.page.updateSuccess'));
+        Alert.alert(t("common.success"), t("profile.page.updateSuccess"));
       } else if (userRole === "CUSTOMER" && userId) {
         // Only include changed fields in the payload - USE LOWERCASE FIELD NAMES - MATCHING REACT VERSION
         const payload: any = {
@@ -1301,26 +1342,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         };
 
         if (userData.firstName !== originalData.userData.firstName) {
-          payload.firstname = userData.firstName;  // lowercase
+          payload.firstname = userData.firstName; // lowercase
         }
         if (userData.lastName !== originalData.userData.lastName) {
-          payload.lastname = userData.lastName;    // lowercase
+          payload.lastname = userData.lastName; // lowercase
         }
         if (userData.contactNumber !== originalData.userData.contactNumber) {
-          payload.mobileno = userData.contactNumber?.replace("+", "") || null;  // lowercase
+          payload.mobileno = userData.contactNumber?.replace("+", "") || null; // lowercase
         }
         if (
           userData.altContactNumber !== originalData.userData.altContactNumber
         ) {
           payload.alternateno =
-            userData.altContactNumber?.replace("+", "") || null;  // lowercase
+            userData.altContactNumber?.replace("+", "") || null; // lowercase
         }
 
         // Using providerInstance for customer update - MATCHING REACT VERSION
-        await providerInstance.put(
-          `/api/customer/${userId}`,
-          payload,
-        );
+        await providerInstance.put(`/api/customer/${userId}`, payload);
 
         if (userData.contactNumber) {
           dispatch(setHasMobileNumber(true));
@@ -1332,7 +1370,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
           await updateAddressesInUserSettings(addresses);
         }
 
-        Alert.alert(t('common.success'), t('profile.page.updateSuccess'));
+        Alert.alert(t("common.success"), t("profile.page.updateSuccess"));
       }
 
       setValidatedFields(new Set());
@@ -1352,7 +1390,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to save data:", error);
-      Alert.alert(t('common.error'), t('profile.page.updateFailed'));
+      Alert.alert(t("common.error"), t("profile.page.updateFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -1390,15 +1428,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
   const toggleAddress = (id: string) => {
     setExpandedAddressIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((addrId) => addrId !== id)
-        : [...prev, id],
+      prev.includes(id) ? prev.filter((addrId) => addrId !== id) : [...prev, id]
     );
   };
 
   const handleAddressInputChange = (
     name: keyof typeof newAddress,
-    value: string,
+    value: string
   ) => {
     setNewAddress((prev) => ({
       ...prev,
@@ -1496,7 +1532,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
 
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
-      handleBackPress,
+      handleBackPress
     );
 
     return () => {
@@ -1523,7 +1559,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             { color: colors.text, fontSize: fontSizes.formTitle },
           ]}
         >
-          {t('profile.page.loadingProfile')}
+          {t("profile.page.loadingProfile")}
         </Text>
         <Text
           style={[
@@ -1531,7 +1567,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
             { color: colors.textSecondary, fontSize: fontSizes.roleText },
           ]}
         >
-          {t('profile.page.pleaseWait')}
+          {t("profile.page.pleaseWait")}
         </Text>
       </View>
     </View>
@@ -1762,8 +1798,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? "#0e305c" : "#1e3a5f" }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? "#0e305c" : "#1e3a5f" },
+      ]}
+    >
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ backgroundColor: colors.background }}
@@ -1777,1223 +1822,135 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
         />
 
         {/* Header with Linear Gradient and Back Button */}
-<LinearGradient
-  colors={[
-    isDarkMode ? "#0e305c" : "#1e3a5f",
-    isDarkMode ? "#0e305c" : "#1e3a5f",
-  ]}
-  start={{ x: 0, y: 0 }}
-  end={{ x: 0, y: 1 }}
-  style={[styles.header, { paddingTop: Math.max(insets.top, 8) + 6 }]}
->
-  {/* Header Bar with Back Button and Title */}
-  <View style={styles.headerBar}>
-    <TouchableOpacity
-      style={styles.backButtonHeader}
-      onPress={handleBackPress}
-    >
-      <Icon name="arrow-left" size={24} color="#ffffff" />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>Profile</Text>
-  </View>
-
-  {/* Profile Section - Centered */}
-  <View style={styles.profileSectionCentered}>
-    {renderProfilePicture()}
-    
-    <View style={styles.profileInfo}>
-      <Text style={styles.profileName}>
-        {auth0User?.email || appUser?.email || emailId || t('profile.page.user')} {getDisplayName()}
-      </Text>
-      <Text style={styles.profileUsername}>
-        @{(getDisplayName() || '').toLowerCase().replace(/\s+/g, '')}
-      </Text>
-    </View>
-
-    {/* Stats Section */}
-    <View style={styles.statsContainer}>
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>{customerData?.totalBookings || serviceProviderData?.totalBookings || '—'}</Text>
-        <Text style={styles.statLabel}>Orders</Text>
-      </View>
-      <View style={styles.statDivider} />
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>—</Text>
-        <Text style={styles.statLabel}>Reviews</Text>
-      </View>
-      <View style={styles.statDivider} />
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>
-          {customerData?.createdAt || serviceProviderData?.createdAt 
-            ? new Date(customerData?.createdAt || serviceProviderData?.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-            : '—'}
-        </Text>
-        <Text style={styles.statLabel}>Joined</Text>
-      </View>
-    </View>
-
-    {/* Edit Profile Button */}
-    {!isEditing && (
-      <TouchableOpacity
-        style={styles.editProfileButton}
-        onPress={handleEditStart}
-      >
-        <Text style={styles.editProfileText}>Edit Profile</Text>
-        <Icon name="edit-3" size={16} color="#1e3a5f" />
-      </TouchableOpacity>
-    )}
-
-    {userRole === "CUSTOMER" && !hasMobileNumber && (
-      <View style={styles.mobileWarningContainer}>
-        <Text style={[styles.mobileWarningSmall, { color: '#ef4444' }]}>
-          ⚠️ Mobile number required
-        </Text>
-      </View>
-    )}
-  </View>
-</LinearGradient>
-
-      {/* Main Content */}
-      <View style={styles.mainContent}>
-        <View style={[styles.formContainer, { backgroundColor: colors.card }]}>
-          {/* Form Header */}
-          <View
-            style={[styles.formHeader, { borderBottomColor: colors.border }]}
-          >
-            <Text
-              style={[
-                styles.formTitle,
-                { color: colors.text, fontSize: fontSizes.formTitle },
-              ]}
+        <LinearGradient
+          colors={[
+            isDarkMode ? "#0e305c" : "#1e3a5f",
+            isDarkMode ? "#0e305c" : "#1e3a5f",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={[styles.header, { paddingTop: Math.max(insets.top, 8) + 6 }]}
+        >
+          {/* Header Bar with Back Button and Title */}
+          <View style={styles.headerBar}>
+            <TouchableOpacity
+              style={styles.backButtonHeader}
+              onPress={handleBackPress}
             >
-              {t('profile.page.myAccount')}
-            </Text>
-            {userRole === "CUSTOMER" && !hasMobileNumber && (
-              <TouchableOpacity
-                onPress={() => setShowMobileDialog(true)}
-                style={[
-                  styles.addMobileButton,
-                  { backgroundColor: colors.errorLight },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.addMobileButtonText,
-                    { color: colors.error, fontSize: fontSizes.buttonText },
-                  ]}
-                >
-                  {t('profile.page.addMobileNumber')}
+              <Icon name="arrow-left" size={24} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Profile</Text>
+          </View>
+
+          {/* Profile Section - Centered */}
+          <View style={styles.profileSectionCentered}>
+            {renderProfilePicture()}
+
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>
+                {auth0User?.email ||
+                  appUser?.email ||
+                  emailId ||
+                  t("profile.page.user")}{" "}
+                {getDisplayName()}
+              </Text>
+              <Text style={styles.profileUsername}>
+                @{(getDisplayName() || "").toLowerCase().replace(/\s+/g, "")}
+              </Text>
+            </View>
+
+            {/* Stats Section */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {customerData?.totalBookings ||
+                    serviceProviderData?.totalBookings ||
+                    "—"}
                 </Text>
+                <Text style={styles.statLabel}>Orders</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>—</Text>
+                <Text style={styles.statLabel}>Reviews</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {customerData?.createdAt || serviceProviderData?.createdAt
+                    ? new Date(
+                        customerData?.createdAt ||
+                          serviceProviderData?.createdAt
+                      ).toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "—"}
+                </Text>
+                <Text style={styles.statLabel}>Joined</Text>
+              </View>
+            </View>
+
+            {/* Edit Profile Button */}
+            {!isEditing && (
+              <TouchableOpacity
+                style={styles.editProfileButton}
+                onPress={handleEditStart}
+              >
+                <Text style={styles.editProfileText}>Edit Profile</Text>
+                <Icon name="edit-3" size={16} color="#1e3a5f" />
               </TouchableOpacity>
             )}
-          </View>
 
-          {/* User Info Section */}
-          <View>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color: colors.textSecondary,
-                  fontSize: fontSizes.sectionTitle,
-                },
-              ]}
-            >
-              {t('profile.page.userInformation')}
-            </Text>
-
-            <View style={styles.inputRow}>
-              <View style={styles.inputContainer}>
-                <Text
-                  style={[
-                    styles.inputLabel,
-                    { color: colors.text, fontSize: fontSizes.inputLabel },
-                  ]}
-                >
-                  {t('profile.page.username')}
+            {userRole === "CUSTOMER" && !hasMobileNumber && (
+              <View style={styles.mobileWarningContainer}>
+                <Text style={[styles.mobileWarningSmall, { color: "#ef4444" }]}>
+                  ⚠️ Mobile number required
                 </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.readOnlyInput,
-                    {
-                      borderColor: colors.border,
-                      backgroundColor: colors.surface,
-                      color: colors.text,
-                      fontSize: fontSizes.input,
-                    },
-                  ]}
-                  value={appUser?.nickname || userName || t('profile.page.user')}
-                  editable={false}
-                />
-              </View>
-              <View style={styles.inputContainer}>
-                <Text
-                  style={[
-                    styles.inputLabel,
-                    { color: colors.text, fontSize: fontSizes.inputLabel },
-                  ]}
-                >
-                  {t('profile.page.emailAddress')}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.readOnlyInput,
-                    {
-                      borderColor: colors.border,
-                      backgroundColor: colors.surface,
-                      color: colors.text,
-                      fontSize: fontSizes.input,
-                    },
-                  ]}
-                  value={
-                    appUser?.email ||
-                    auth0User?.email ||
-                    emailId ||
-                    t('profile.page.noEmail')
-                  }
-                  editable={false}
-                />
-              </View>
-            </View>
-
-            <View style={styles.ultraCompactNameRow}>
-              <View style={styles.ultraCompactNameInput}>
-                <Text
-                  style={[
-                    styles.compactLabel,
-                    { color: colors.text, fontSize: fontSizes.compactLabel },
-                  ]}
-                >
-                  {t('profile.page.firstName')}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.ultraCompactInput,
-                    {
-                      borderColor: colors.border,
-                      backgroundColor: isEditing ? colors.card : colors.surface,
-                      color: colors.text,
-                      fontSize: fontSizes.input,
-                    },
-                    !isEditing && styles.readOnlyInput,
-                  ]}
-                  value={userData.firstName}
-                  onChangeText={(value) =>
-                    handleInputChange("firstName", value)
-                  }
-                  editable={isEditing}
-                  placeholder={t('profile.page.firstNamePlaceholder')}
-                  placeholderTextColor={colors.placeholder}
-                />
-              </View>
-              <View style={styles.ultraCompactNameInput}>
-                <Text
-                  style={[
-                    styles.compactLabel,
-                    { color: colors.text, fontSize: fontSizes.compactLabel },
-                  ]}
-                >
-                  {t('profile.page.lastName')}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.ultraCompactInput,
-                    {
-                      borderColor: colors.border,
-                      backgroundColor: isEditing ? colors.card : colors.surface,
-                      color: colors.text,
-                      fontSize: fontSizes.input,
-                    },
-                    !isEditing && styles.readOnlyInput,
-                  ]}
-                  value={userData.lastName}
-                  onChangeText={(value) => handleInputChange("lastName", value)}
-                  editable={isEditing}
-                  placeholder={t('profile.page.lastNamePlaceholder')}
-                  placeholderTextColor={colors.placeholder}
-                />
-              </View>
-              <View style={styles.ultraCompactNameInput}>
-                <Text
-                  style={[
-                    styles.compactLabel,
-                    { color: colors.text, fontSize: fontSizes.compactLabel },
-                  ]}
-                >
-                  {userRole === "SERVICE_PROVIDER"
-                    ? t('profile.page.providerId')
-                    : t('profile.page.userId')}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.ultraCompactInput,
-                    styles.readOnlyInput,
-                    {
-                      borderColor: colors.border,
-                      backgroundColor: colors.surface,
-                      color: colors.text,
-                      fontSize: fontSizes.input,
-                    },
-                  ]}
-                  value={getUserIdDisplay()}
-                  editable={false}
-                />
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          {/* Contact Info Section */}
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: colors.textSecondary, fontSize: fontSizes.sectionTitle },
-            ]}
-          >
-            {t('profile.page.contactInformation')}
-          </Text>
-
-          <View style={styles.inputRow}>
-            {/* Contact Number */}
-            <View style={styles.inputContainer}>
-              <View style={styles.labelContainer}>
-                <Text
-                  style={[
-                    styles.inputLabel,
-                    { color: colors.text, fontSize: fontSizes.inputLabel },
-                  ]}
-                >
-                  {t('profile.page.contactNumber')}
-                </Text>
-                {userRole === "CUSTOMER" && (
-                  <Text
-                    style={
-                      !hasMobileNumber
-                        ? [styles.mobileWarningSmall, { color: colors.error }]
-                        : [styles.mobileSuccess, { color: colors.success }]
-                    }
-                  >
-                    {!hasMobileNumber ? " ⚠️" : " ✓"}
-                  </Text>
-                )}
-              </View>
-              <View style={styles.phoneInputContainer}>
-                {isEditing ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.countryCodeContainer,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                      },
-                    ]}
-                    onPress={() => setShowCountryCodePicker(true)}
-                  >
-                    <Text
-                      style={[
-                        styles.countryCodeText,
-                        { color: colors.text, fontSize: fontSizes.input },
-                      ]}
-                    >
-                      {countryCode}
-                    </Text>
-                    <Icon
-                      name="chevron-down"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                ) : (
-                  <View
-                    style={[
-                      styles.countryCodeContainer,
-                      styles.readOnlyInput,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.countryCodeText,
-                        { color: colors.text, fontSize: fontSizes.input },
-                      ]}
-                    >
-                      {countryCode}
-                    </Text>
-                  </View>
-                )}
-                <TextInput
-                  style={[
-                    styles.phoneInput,
-                    {
-                      borderColor:
-                        contactValidation.error ||
-                        (!hasMobileNumber && userRole === "CUSTOMER")
-                          ? colors.error
-                          : colors.border,
-                      backgroundColor: isEditing ? colors.card : colors.surface,
-                      color: colors.text,
-                      fontSize: fontSizes.input,
-                    },
-                    !isEditing && styles.readOnlyInput,
-                  ]}
-                  value={formatMobileNumber(userData.contactNumber)}
-                  onChangeText={handleContactNumberChange}
-                  placeholder={t('profile.page.enter10Digit')}
-                  placeholderTextColor={colors.placeholder}
-                  editable={isEditing}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                />
-                {isEditing && (
-                  <View style={styles.validationIcon}>
-                    {contactValidation.loading && (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    )}
-                    {contactValidation.isAvailable &&
-                      !contactValidation.loading && (
-                        <Icon name="check" size={16} color={colors.success} />
-                      )}
-                    {contactValidation.isAvailable === false &&
-                      !contactValidation.loading && (
-                        <Icon
-                          name="alert-circle"
-                          size={16}
-                          color={colors.error}
-                        />
-                      )}
-                  </View>
-                )}
-              </View>
-
-              {/* Validation Messages */}
-              {contactValidation.error && (
-                <Text
-                  style={[
-                    styles.validationError,
-                    { color: colors.error, fontSize: fontSizes.validationText },
-                  ]}
-                >
-                  {contactValidation.error}
-                </Text>
-              )}
-              {contactValidation.formatError && isEditing && (
-                <Text
-                  style={[
-                    styles.validationError,
-                    { color: colors.error, fontSize: fontSizes.validationText },
-                  ]}
-                >
-                  {t('profile.page.exactly10Digits')}
-                </Text>
-              )}
-              {contactValidation.isAvailable && (
-                <Text
-                  style={[
-                    styles.validationSuccess,
-                    {
-                      color: colors.success,
-                      fontSize: fontSizes.validationText,
-                    },
-                  ]}
-                >
-                  {t('profile.page.contactNumberAvailable')}
-                </Text>
-              )}
-              {userRole === "CUSTOMER" && !hasMobileNumber && !isEditing && (
-                <View style={styles.mobileWarningContainer}>
-                  <Text
-                    style={[
-                      styles.mobileRequiredText,
-                      {
-                        color: colors.error,
-                        fontSize: fontSizes.validationText,
-                      },
-                    ]}
-                  >
-                    {t('profile.page.mobileRequiredDesc')}
-                  </Text>
-                  <TouchableOpacity onPress={() => setShowMobileDialog(true)}>
-                    <Text
-                      style={[
-                        styles.addLink,
-                        {
-                          color: colors.primary,
-                          fontSize: fontSizes.validationText,
-                        },
-                      ]}
-                    >
-                      {t('profile.page.clickToAddMobile')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            {/* Alternative Contact Number */}
-            <View style={styles.inputContainer}>
-              <Text
-                style={[
-                  styles.inputLabel,
-                  { color: colors.text, fontSize: fontSizes.inputLabel },
-                ]}
-              >
-                {t('profile.page.alternativeContact')}
-              </Text>
-              <View style={styles.phoneInputContainer}>
-                {isEditing ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.countryCodeContainer,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                      },
-                    ]}
-                    onPress={() => setShowAltCountryCodePicker(true)}
-                  >
-                    <Text
-                      style={[
-                        styles.countryCodeText,
-                        { color: colors.text, fontSize: fontSizes.input },
-                      ]}
-                    >
-                      {altCountryCode}
-                    </Text>
-                    <Icon
-                      name="chevron-down"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                ) : (
-                  <View
-                    style={[
-                      styles.countryCodeContainer,
-                      styles.readOnlyInput,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.surface,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.countryCodeText,
-                        { color: colors.text, fontSize: fontSizes.input },
-                      ]}
-                    >
-                      {altCountryCode}
-                    </Text>
-                  </View>
-                )}
-                <TextInput
-                  style={[
-                    styles.phoneInput,
-                    {
-                      borderColor: altContactValidation.error
-                        ? colors.error
-                        : colors.border,
-                      backgroundColor: isEditing ? colors.card : colors.surface,
-                      color: colors.text,
-                      fontSize: fontSizes.input,
-                    },
-                    !isEditing && styles.readOnlyInput,
-                  ]}
-                  value={formatMobileNumber(userData.altContactNumber)}
-                  onChangeText={handleAltContactNumberChange}
-                  placeholder={t('profile.page.enter10Digit')}
-                  placeholderTextColor={colors.placeholder}
-                  editable={isEditing}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                />
-                {isEditing && (
-                  <View style={styles.validationIcon}>
-                    {altContactValidation.loading && (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    )}
-                    {altContactValidation.isAvailable &&
-                      !altContactValidation.loading && (
-                        <Icon name="check" size={16} color={colors.success} />
-                      )}
-                    {altContactValidation.isAvailable === false &&
-                      !altContactValidation.loading && (
-                        <Icon
-                          name="alert-circle"
-                          size={16}
-                          color={colors.error}
-                        />
-                      )}
-                  </View>
-                )}
-              </View>
-
-              {/* Validation Messages */}
-              {altContactValidation.error && (
-                <Text
-                  style={[
-                    styles.validationError,
-                    { color: colors.error, fontSize: fontSizes.validationText },
-                  ]}
-                >
-                  {altContactValidation.error}
-                </Text>
-              )}
-              {altContactValidation.formatError && isEditing && (
-                <Text
-                  style={[
-                    styles.validationError,
-                    { color: colors.error, fontSize: fontSizes.validationText },
-                  ]}
-                >
-                  {t('profile.page.exactly10Digits')}
-                </Text>
-              )}
-              {altContactValidation.isAvailable && (
-                <Text
-                  style={[
-                    styles.validationSuccess,
-                    {
-                      color: colors.success,
-                      fontSize: fontSizes.validationText,
-                    },
-                  ]}
-                >
-                  {t('profile.page.alternateNumberAvailable')}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {/* Country Code Pickers */}
-          <Modal
-            visible={showCountryCodePicker}
-            transparent={true}
-            animationType="slide"
-          >
-            <View
-              style={[
-                styles.modalContainer,
-                { backgroundColor: colors.overlay },
-              ]}
-            >
-              <View
-                style={[styles.pickerModal, { backgroundColor: colors.card }]}
-              >
-                <Text
-                  style={[
-                    styles.pickerTitle,
-                    { color: colors.text, fontSize: fontSizes.sectionTitle },
-                  ]}
-                >
-                  {t('profile.page.selectCountryCode')}
-                </Text>
-                <Picker
-                  selectedValue={countryCode}
-                  onValueChange={(itemValue) => {
-                    setCountryCode(itemValue);
-                    setShowCountryCodePicker(false);
-                  }}
-                  style={{ color: colors.text }}
-                >
-                  {countryCodes.map((code) => (
-                    <Picker.Item
-                      key={code.value}
-                      label={code.label}
-                      value={code.value}
-                      color={colors.text}
-                    />
-                  ))}
-                </Picker>
-                <TouchableOpacity
-                  style={[
-                    styles.pickerButton,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setShowCountryCodePicker(false)}
-                >
-                  <Text
-                    style={[
-                      styles.pickerButtonText,
-                      { color: "#fff", fontSize: fontSizes.buttonText },
-                    ]}
-                  >
-                    {t('profile.page.done')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
-
-          <Modal
-            visible={showAltCountryCodePicker}
-            transparent={true}
-            animationType="slide"
-          >
-            <View
-              style={[
-                styles.modalContainer,
-                { backgroundColor: colors.overlay },
-              ]}
-            >
-              <View
-                style={[styles.pickerModal, { backgroundColor: colors.card }]}
-              >
-                <Text
-                  style={[
-                    styles.pickerTitle,
-                    { color: colors.text, fontSize: fontSizes.sectionTitle },
-                  ]}
-                >
-                  {t('profile.page.selectCountryCode')}
-                </Text>
-                <Picker
-                  selectedValue={altCountryCode}
-                  onValueChange={(itemValue) => {
-                    setAltCountryCode(itemValue);
-                    setShowAltCountryCodePicker(false);
-                  }}
-                  style={{ color: colors.text }}
-                >
-                  {countryCodes.map((code) => (
-                    <Picker.Item
-                      key={code.value}
-                      label={code.label}
-                      value={code.value}
-                      color={colors.text}
-                    />
-                  ))}
-                </Picker>
-                <TouchableOpacity
-                  style={[
-                    styles.pickerButton,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setShowAltCountryCodePicker(false)}
-                >
-                  <Text
-                    style={[
-                      styles.pickerButtonText,
-                      { color: "#fff", fontSize: fontSizes.buttonText },
-                    ]}
-                  >
-                    {t('profile.page.done')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
-
-          {/* Address Section */}
-          <View style={styles.addressesSection}>
-            <View style={styles.addressesHeader}>
-              <Text
-                style={[
-                  styles.inputLabel,
-                  { color: colors.text, fontSize: fontSizes.inputLabel },
-                ]}
-              >
-                {t('profile.page.addresses')}
-              </Text>
-              {isEditing && userRole === "CUSTOMER" && (
-                <TouchableOpacity
-                  onPress={() => setShowAddAddress(!showAddAddress)}
-                  style={styles.addAddressButton}
-                >
-                  <Icon name="plus" size={16} color={colors.primary} />
-                  <Text
-                    style={[
-                      styles.addAddressText,
-                      { color: colors.primary, fontSize: fontSizes.buttonText },
-                    ]}
-                  >
-                    {t('profile.page.addNewAddress')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {showAddAddress && isEditing && (
-              <View
-                style={[
-                  styles.addAddressForm,
-                  {
-                    backgroundColor: colors.infoLight,
-                    borderColor: colors.info,
-                  },
-                ]}
-              >
-                <View style={styles.addAddressFormHeader}>
-                  <Text
-                    style={[
-                      styles.addAddressFormTitle,
-                      { color: colors.primary, fontSize: fontSizes.formTitle },
-                    ]}
-                  >
-                    {t('profile.page.addNewAddress')}
-                  </Text>
-                  <TouchableOpacity onPress={() => setShowAddAddress(false)}>
-                    <Icon name="x" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.addressTypeContainer}>
-                  <Text
-                    style={[
-                      styles.formLabel,
-                      { color: colors.text, fontSize: fontSizes.inputLabel },
-                    ]}
-                  >
-                    {t('profile.page.saveAs')}
-                  </Text>
-                  <View style={styles.addressTypeButtons}>
-                    <TouchableOpacity
-                      onPress={() => handleUserPreference("Home")}
-                      style={[
-                        styles.addressTypeButton,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                        },
-                        newAddress.type === "Home" && [
-                          styles.addressTypeButtonActive,
-                          {
-                            backgroundColor: colors.primary + "20",
-                            borderColor: colors.primary,
-                          },
-                        ],
-                      ]}
-                    >
-                      <Icon
-                        name="home"
-                        size={14}
-                        color={
-                          newAddress.type === "Home"
-                            ? colors.primary
-                            : colors.textSecondary
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.addressTypeText,
-                          {
-                            color: colors.textSecondary,
-                            fontSize: fontSizes.inputLabel,
-                          },
-                          newAddress.type === "Home" && [
-                            styles.addressTypeTextActive,
-                            { color: colors.primary },
-                          ],
-                        ]}
-                      >
-                        {t('profile.page.home')}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleUserPreference("Work")}
-                      style={[
-                        styles.addressTypeButton,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                        },
-                        newAddress.type === "Work" && [
-                          styles.addressTypeButtonActive,
-                          {
-                            backgroundColor: colors.primary + "20",
-                            borderColor: colors.primary,
-                          },
-                        ],
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name="office-building"
-                        size={14}
-                        color={
-                          newAddress.type === "Work"
-                            ? colors.primary
-                            : colors.textSecondary
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.addressTypeText,
-                          {
-                            color: colors.textSecondary,
-                            fontSize: fontSizes.inputLabel,
-                          },
-                          newAddress.type === "Work" && [
-                            styles.addressTypeTextActive,
-                            { color: colors.primary },
-                          ],
-                        ]}
-                      >
-                        {t('profile.page.work')}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleUserPreference()}
-                      style={[
-                        styles.addressTypeButton,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                        },
-                        newAddress.type === "Other" && [
-                          styles.addressTypeButtonActive,
-                          {
-                            backgroundColor: colors.primary + "20",
-                            borderColor: colors.primary,
-                          },
-                        ],
-                      ]}
-                    >
-                      <Icon
-                        name="map-pin"
-                        size={14}
-                        color={
-                          newAddress.type === "Other"
-                            ? colors.primary
-                            : colors.textSecondary
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.addressTypeText,
-                          {
-                            color: colors.textSecondary,
-                            fontSize: fontSizes.inputLabel,
-                          },
-                          newAddress.type === "Other" && [
-                            styles.addressTypeTextActive,
-                            { color: colors.primary },
-                          ],
-                        ]}
-                      >
-                        {t('profile.page.other')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {newAddress.type === "Other" && (
-                  <View style={styles.formField}>
-                    <Text
-                      style={[
-                        styles.formLabel,
-                        { color: colors.text, fontSize: fontSizes.inputLabel },
-                      ]}
-                    >
-                      {t('profile.page.locationName')}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.formInput,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                          color: colors.text,
-                          fontSize: fontSizes.input,
-                        },
-                      ]}
-                      placeholder={t('profile.page.enterLocationName')}
-                      placeholderTextColor={colors.placeholder}
-                      value={newAddress.customType}
-                      onChangeText={(value) =>
-                        handleAddressInputChange("customType", value)
-                      }
-                    />
-                  </View>
-                )}
-
-                <View style={styles.addressFormInput}>
-                  <Text
-                    style={[
-                      styles.inputLabel,
-                      { color: colors.text, fontSize: fontSizes.inputLabel },
-                    ]}
-                  >
-                    {t('profile.page.streetAddress')}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: colors.card,
-                        color: colors.text,
-                        fontSize: fontSizes.input,
-                      },
-                    ]}
-                    value={newAddress.street}
-                    onChangeText={(value) =>
-                      handleAddressInputChange("street", value)
-                    }
-                    placeholder={t('profile.page.enterStreetAddress')}
-                    placeholderTextColor={colors.placeholder}
-                  />
-                </View>
-
-                <View style={styles.addressFormRow}>
-                  <View style={[styles.addressFormInput, { flex: 1 }]}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.text, fontSize: fontSizes.inputLabel },
-                      ]}
-                    >
-                      {t('profile.page.city')}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                          color: colors.text,
-                          fontSize: fontSizes.input,
-                        },
-                      ]}
-                      value={newAddress.city}
-                      onChangeText={(value) =>
-                        handleAddressInputChange("city", value)
-                      }
-                      placeholder={t('profile.page.enterCity')}
-                      placeholderTextColor={colors.placeholder}
-                    />
-                  </View>
-
-                  <View style={[styles.addressFormInput, { flex: 1 }]}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.text, fontSize: fontSizes.inputLabel },
-                      ]}
-                    >
-                      {t('profile.page.country')}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                          color: colors.text,
-                          fontSize: fontSizes.input,
-                        },
-                      ]}
-                      value={newAddress.country}
-                      onChangeText={(value) =>
-                        handleAddressInputChange("country", value)
-                      }
-                      placeholder={t('profile.page.enterCountry')}
-                      placeholderTextColor={colors.placeholder}
-                    />
-                  </View>
-
-                  <View style={[styles.addressFormInput, { flex: 1 }]}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.text, fontSize: fontSizes.inputLabel },
-                      ]}
-                    >
-                      {t('profile.page.postalCode')}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
-                          color: colors.text,
-                          fontSize: fontSizes.input,
-                        },
-                      ]}
-                      value={newAddress.postalCode}
-                      onChangeText={(value) =>
-                        handleAddressInputChange("postalCode", value)
-                      }
-                      placeholder={t('profile.page.enterPostalCode')}
-                      placeholderTextColor={colors.placeholder}
-                    />
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleAddAddress}
-                  style={[
-                    styles.addAddressSubmitButton,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  disabled={
-                    !newAddress.street ||
-                    !newAddress.city ||
-                    !newAddress.country ||
-                    !newAddress.postalCode
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.addAddressSubmitText,
-                      { color: "#fff", fontSize: fontSizes.buttonText },
-                    ]}
-                  >
-                    {t('profile.page.addAddress')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {addresses.length === 0 ? (
-              <Text
-                style={[
-                  styles.noAddressText,
-                  { color: colors.textSecondary, fontSize: fontSizes.roleText },
-                ]}
-              >
-                {t('profile.page.noAddresses')}
-              </Text>
-            ) : (
-              <View style={styles.addressesList}>
-                {addresses.map((address) => {
-                  const isExpanded =
-                    userRole === "SERVICE_PROVIDER" ||
-                    expandedAddressIds.includes(address.id);
-
-                  return (
-                    <View
-                      key={address.id}
-                      style={[
-                        styles.addressCard,
-                        {
-                          borderColor: colors.border,
-                          backgroundColor: colors.surface,
-                        },
-                        isExpanded && styles.expandedAddressCard,
-                      ]}
-                    >
-                      {/* Header */}
-                      <View style={styles.addressHeader}>
-                        <View style={styles.addressTitleContainer}>
-                          <Text
-                            style={[
-                              styles.addressType,
-                              {
-                                color: colors.text,
-                                fontSize: fontSizes.addressType,
-                              },
-                            ]}
-                          >
-                            {address.type}
-                          </Text>
-                        </View>
-
-                        <View style={styles.addressActions}>
-                          {userRole === "CUSTOMER" && (
-                            <TouchableOpacity
-                              onPress={() => toggleAddress(address.id)}
-                              style={styles.addressActionButton}
-                            >
-                              <Icon
-                                name={
-                                  isExpanded ? "chevron-up" : "chevron-down"
-                                }
-                                size={20}
-                                color={colors.textSecondary}
-                              />
-                            </TouchableOpacity>
-                          )}
-                          {isEditing &&
-                            userRole === "CUSTOMER" &&
-                            addresses.length > 1 && (
-                              <TouchableOpacity
-                                onPress={() => removeAddress(address.id)}
-                                style={styles.addressActionButton}
-                              >
-                                <Icon name="x" size={20} color={colors.error} />
-                              </TouchableOpacity>
-                            )}
-                        </View>
-                      </View>
-
-                      {/* Body (only show when expanded) */}
-                      {isExpanded && (
-                        <View style={styles.addressDetails}>
-                          <Text
-                            style={[
-                              styles.addressText,
-                              {
-                                color: colors.textSecondary,
-                                fontSize: fontSizes.addressText,
-                              },
-                            ]}
-                          >
-                            {address.street}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.addressText,
-                              {
-                                color: colors.textSecondary,
-                                fontSize: fontSizes.addressText,
-                              },
-                            ]}
-                          >
-                            {address.city || t('profile.page.noCity')},{" "}
-                            {address.country || t('profile.page.noCountry')}{" "}
-                            {address.postalCode || ""}
-                          </Text>
-                          {userRole === "SERVICE_PROVIDER" && (
-                            <Text
-                              style={[
-                                styles.addressNote,
-                                {
-                                  color: colors.textTertiary,
-                                  fontSize: fontSizes.roleText,
-                                },
-                              ]}
-                            >
-                              {t('profile.page.providerAddressNote')}
-                            </Text>
-                          )}
-                        </View>
-                      )}
-
-                      {userRole === "CUSTOMER" && !isExpanded && (
-                        <Text
-                          style={[
-                            styles.addressPreview,
-                            {
-                              color: colors.textSecondary,
-                              fontSize: fontSizes.addressText,
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {address.street}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
               </View>
             )}
           </View>
+        </LinearGradient>
 
-          {/* Service Provider Status Section */}
-          {userRole === "SERVICE_PROVIDER" && (
-            <View style={styles.serviceStatusSection}>
-              <View
-                style={[styles.divider, { backgroundColor: colors.border }]}
-              />
+        {/* Main Content */}
+        <View style={styles.mainContent}>
+          <View
+            style={[styles.formContainer, { backgroundColor: colors.card }]}
+          >
+            {/* Form Header */}
+            <View
+              style={[styles.formHeader, { borderBottomColor: colors.border }]}
+            >
+              <Text
+                style={[
+                  styles.formTitle,
+                  { color: colors.text, fontSize: fontSizes.formTitle },
+                ]}
+              >
+                {t("profile.page.myAccount")}
+              </Text>
+              {userRole === "CUSTOMER" && !hasMobileNumber && (
+                <TouchableOpacity
+                  onPress={() => setShowMobileDialog(true)}
+                  style={[
+                    styles.addMobileButton,
+                    { backgroundColor: colors.errorLight },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.addMobileButtonText,
+                      { color: colors.error, fontSize: fontSizes.buttonText },
+                    ]}
+                  >
+                    {t("profile.page.addMobileNumber")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
+            {/* User Info Section */}
+            <View>
               <Text
                 style={[
                   styles.sectionTitle,
@@ -3003,139 +1960,1306 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBackToHome }) => {
                   },
                 ]}
               >
-                {t('profile.page.serviceStatus')}
+                {t("profile.page.userInformation")}
               </Text>
 
-              <View
-                style={[
-                  styles.statusCard,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <View style={styles.statusGrid}>
-                  <View style={styles.statusItem}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputContainer}>
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
+                    {t("profile.page.username")}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.readOnlyInput,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                    ]}
+                    value={
+                      appUser?.nickname || userName || t("profile.page.user")
+                    }
+                    editable={false}
+                  />
+                </View>
+                <View style={styles.inputContainer}>
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
+                    {t("profile.page.emailAddress")}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.readOnlyInput,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                    ]}
+                    value={
+                      appUser?.email ||
+                      auth0User?.email ||
+                      emailId ||
+                      t("profile.page.noEmail")
+                    }
+                    editable={false}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.ultraCompactNameRow}>
+                <View style={styles.ultraCompactNameInput}>
+                  <Text
+                    style={[
+                      styles.compactLabel,
+                      { color: colors.text, fontSize: fontSizes.compactLabel },
+                    ]}
+                  >
+                    {t("profile.page.firstName")}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.ultraCompactInput,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                      !isEditing && styles.readOnlyInput,
+                    ]}
+                    value={userData.firstName}
+                    onChangeText={(value) =>
+                      handleInputChange("firstName", value)
+                    }
+                    editable={isEditing}
+                    placeholder={t("profile.page.firstNamePlaceholder")}
+                    placeholderTextColor={colors.placeholder}
+                  />
+                </View>
+                <View style={styles.ultraCompactNameInput}>
+                  <Text
+                    style={[
+                      styles.compactLabel,
+                      { color: colors.text, fontSize: fontSizes.compactLabel },
+                    ]}
+                  >
+                    {t("profile.page.lastName")}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.ultraCompactInput,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                      !isEditing && styles.readOnlyInput,
+                    ]}
+                    value={userData.lastName}
+                    onChangeText={(value) =>
+                      handleInputChange("lastName", value)
+                    }
+                    editable={isEditing}
+                    placeholder={t("profile.page.lastNamePlaceholder")}
+                    placeholderTextColor={colors.placeholder}
+                  />
+                </View>
+                <View style={styles.ultraCompactNameInput}>
+                  <Text
+                    style={[
+                      styles.compactLabel,
+                      { color: colors.text, fontSize: fontSizes.compactLabel },
+                    ]}
+                  >
+                    {userRole === "SERVICE_PROVIDER"
+                      ? t("profile.page.providerId")
+                      : t("profile.page.userId")}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.ultraCompactInput,
+                      styles.readOnlyInput,
+                      {
+                        borderColor: colors.border,
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                    ]}
+                    value={getUserIdDisplay()}
+                    editable={false}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
+
+            {/* Contact Info Section */}
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: colors.textSecondary,
+                  fontSize: fontSizes.sectionTitle,
+                },
+              ]}
+            >
+              {t("profile.page.contactInformation")}
+            </Text>
+
+            <View style={styles.inputRow}>
+              {/* Contact Number */}
+              <View style={styles.inputContainer}>
+                <View style={styles.labelContainer}>
+                  <Text
+                    style={[
+                      styles.inputLabel,
+                      { color: colors.text, fontSize: fontSizes.inputLabel },
+                    ]}
+                  >
+                    {t("profile.page.contactNumber")}
+                  </Text>
+                  {userRole === "CUSTOMER" && (
+                    <Text
+                      style={
+                        !hasMobileNumber
+                          ? [styles.mobileWarningSmall, { color: colors.error }]
+                          : [styles.mobileSuccess, { color: colors.success }]
+                      }
+                    >
+                      {!hasMobileNumber ? " ⚠️" : " ✓"}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.phoneInputContainer}>
+                  {isEditing ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.countryCodeContainer,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                        },
+                      ]}
+                      onPress={() => setShowCountryCodePicker(true)}
+                    >
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
+                        {countryCode}
+                      </Text>
+                      <Icon
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={[
+                        styles.countryCodeContainer,
+                        styles.readOnlyInput,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
+                        {countryCode}
+                      </Text>
+                    </View>
+                  )}
+                  <TextInput
+                    style={[
+                      styles.phoneInput,
+                      {
+                        borderColor:
+                          contactValidation.error ||
+                          (!hasMobileNumber && userRole === "CUSTOMER")
+                            ? colors.error
+                            : colors.border,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                      !isEditing && styles.readOnlyInput,
+                    ]}
+                    value={formatMobileNumber(userData.contactNumber)}
+                    onChangeText={handleContactNumberChange}
+                    placeholder={t("profile.page.enter10Digit")}
+                    placeholderTextColor={colors.placeholder}
+                    editable={isEditing}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
+                  {isEditing && (
+                    <View style={styles.validationIcon}>
+                      {contactValidation.loading && (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
+                      )}
+                      {contactValidation.isAvailable &&
+                        !contactValidation.loading && (
+                          <Icon name="check" size={16} color={colors.success} />
+                        )}
+                      {contactValidation.isAvailable === false &&
+                        !contactValidation.loading && (
+                          <Icon
+                            name="alert-circle"
+                            size={16}
+                            color={colors.error}
+                          />
+                        )}
+                    </View>
+                  )}
+                </View>
+
+                {/* Validation Messages */}
+                {contactValidation.error && (
+                  <Text
+                    style={[
+                      styles.validationError,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
+                    {contactValidation.error}
+                  </Text>
+                )}
+                {contactValidation.formatError && isEditing && (
+                  <Text
+                    style={[
+                      styles.validationError,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
+                    {t("profile.page.exactly10Digits")}
+                  </Text>
+                )}
+                {contactValidation.isAvailable && (
+                  <Text
+                    style={[
+                      styles.validationSuccess,
+                      {
+                        color: colors.success,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
+                    {t("profile.page.contactNumberAvailable")}
+                  </Text>
+                )}
+                {userRole === "CUSTOMER" && !hasMobileNumber && !isEditing && (
+                  <View style={styles.mobileWarningContainer}>
                     <Text
                       style={[
-                        styles.statusLabel,
+                        styles.mobileRequiredText,
                         {
-                          color: colors.textSecondary,
+                          color: colors.error,
+                          fontSize: fontSizes.validationText,
+                        },
+                      ]}
+                    >
+                      {t("profile.page.mobileRequiredDesc")}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowMobileDialog(true)}>
+                      <Text
+                        style={[
+                          styles.addLink,
+                          {
+                            color: colors.primary,
+                            fontSize: fontSizes.validationText,
+                          },
+                        ]}
+                      >
+                        {t("profile.page.clickToAddMobile")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* Alternative Contact Number */}
+              <View style={styles.inputContainer}>
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { color: colors.text, fontSize: fontSizes.inputLabel },
+                  ]}
+                >
+                  {t("profile.page.alternativeContact")}
+                </Text>
+                <View style={styles.phoneInputContainer}>
+                  {isEditing ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.countryCodeContainer,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                        },
+                      ]}
+                      onPress={() => setShowAltCountryCodePicker(true)}
+                    >
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
+                        {altCountryCode}
+                      </Text>
+                      <Icon
+                        name="chevron-down"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View
+                      style={[
+                        styles.countryCodeContainer,
+                        styles.readOnlyInput,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.countryCodeText,
+                          { color: colors.text, fontSize: fontSizes.input },
+                        ]}
+                      >
+                        {altCountryCode}
+                      </Text>
+                    </View>
+                  )}
+                  <TextInput
+                    style={[
+                      styles.phoneInput,
+                      {
+                        borderColor: altContactValidation.error
+                          ? colors.error
+                          : colors.border,
+                        backgroundColor: isEditing
+                          ? colors.card
+                          : colors.surface,
+                        color: colors.text,
+                        fontSize: fontSizes.input,
+                      },
+                      !isEditing && styles.readOnlyInput,
+                    ]}
+                    value={formatMobileNumber(userData.altContactNumber)}
+                    onChangeText={handleAltContactNumberChange}
+                    placeholder={t("profile.page.enter10Digit")}
+                    placeholderTextColor={colors.placeholder}
+                    editable={isEditing}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
+                  {isEditing && (
+                    <View style={styles.validationIcon}>
+                      {altContactValidation.loading && (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
+                      )}
+                      {altContactValidation.isAvailable &&
+                        !altContactValidation.loading && (
+                          <Icon name="check" size={16} color={colors.success} />
+                        )}
+                      {altContactValidation.isAvailable === false &&
+                        !altContactValidation.loading && (
+                          <Icon
+                            name="alert-circle"
+                            size={16}
+                            color={colors.error}
+                          />
+                        )}
+                    </View>
+                  )}
+                </View>
+
+                {/* Validation Messages */}
+                {altContactValidation.error && (
+                  <Text
+                    style={[
+                      styles.validationError,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
+                    {altContactValidation.error}
+                  </Text>
+                )}
+                {altContactValidation.formatError && isEditing && (
+                  <Text
+                    style={[
+                      styles.validationError,
+                      {
+                        color: colors.error,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
+                    {t("profile.page.exactly10Digits")}
+                  </Text>
+                )}
+                {altContactValidation.isAvailable && (
+                  <Text
+                    style={[
+                      styles.validationSuccess,
+                      {
+                        color: colors.success,
+                        fontSize: fontSizes.validationText,
+                      },
+                    ]}
+                  >
+                    {t("profile.page.alternateNumberAvailable")}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Country Code Pickers */}
+            <Modal
+              visible={showCountryCodePicker}
+              transparent={true}
+              animationType="slide"
+            >
+              <View
+                style={[
+                  styles.modalContainer,
+                  { backgroundColor: colors.overlay },
+                ]}
+              >
+                <View
+                  style={[styles.pickerModal, { backgroundColor: colors.card }]}
+                >
+                  <Text
+                    style={[
+                      styles.pickerTitle,
+                      { color: colors.text, fontSize: fontSizes.sectionTitle },
+                    ]}
+                  >
+                    {t("profile.page.selectCountryCode")}
+                  </Text>
+                  <Picker
+                    selectedValue={countryCode}
+                    onValueChange={(itemValue) => {
+                      setCountryCode(itemValue);
+                      setShowCountryCodePicker(false);
+                    }}
+                    style={{ color: colors.text }}
+                  >
+                    {countryCodes.map((code) => (
+                      <Picker.Item
+                        key={code.value}
+                        label={code.label}
+                        value={code.value}
+                        color={colors.text}
+                      />
+                    ))}
+                  </Picker>
+                  <TouchableOpacity
+                    style={[
+                      styles.pickerButton,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={() => setShowCountryCodePicker(false)}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerButtonText,
+                        { color: "#fff", fontSize: fontSizes.buttonText },
+                      ]}
+                    >
+                      {t("profile.page.done")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+
+            <Modal
+              visible={showAltCountryCodePicker}
+              transparent={true}
+              animationType="slide"
+            >
+              <View
+                style={[
+                  styles.modalContainer,
+                  { backgroundColor: colors.overlay },
+                ]}
+              >
+                <View
+                  style={[styles.pickerModal, { backgroundColor: colors.card }]}
+                >
+                  <Text
+                    style={[
+                      styles.pickerTitle,
+                      { color: colors.text, fontSize: fontSizes.sectionTitle },
+                    ]}
+                  >
+                    {t("profile.page.selectCountryCode")}
+                  </Text>
+                  <Picker
+                    selectedValue={altCountryCode}
+                    onValueChange={(itemValue) => {
+                      setAltCountryCode(itemValue);
+                      setShowAltCountryCodePicker(false);
+                    }}
+                    style={{ color: colors.text }}
+                  >
+                    {countryCodes.map((code) => (
+                      <Picker.Item
+                        key={code.value}
+                        label={code.label}
+                        value={code.value}
+                        color={colors.text}
+                      />
+                    ))}
+                  </Picker>
+                  <TouchableOpacity
+                    style={[
+                      styles.pickerButton,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    onPress={() => setShowAltCountryCodePicker(false)}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerButtonText,
+                        { color: "#fff", fontSize: fontSizes.buttonText },
+                      ]}
+                    >
+                      {t("profile.page.done")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+
+            {/* Address Section */}
+            <View style={styles.addressesSection}>
+              <View style={styles.addressesHeader}>
+                <Text
+                  style={[
+                    styles.inputLabel,
+                    { color: colors.text, fontSize: fontSizes.inputLabel },
+                  ]}
+                >
+                  {t("profile.page.addresses")}
+                </Text>
+                {isEditing && userRole === "CUSTOMER" && (
+                  <TouchableOpacity
+                    onPress={() => setShowAddAddress(!showAddAddress)}
+                    style={styles.addAddressButton}
+                  >
+                    <Icon name="plus" size={16} color={colors.primary} />
+                    <Text
+                      style={[
+                        styles.addAddressText,
+                        {
+                          color: colors.primary,
+                          fontSize: fontSizes.buttonText,
+                        },
+                      ]}
+                    >
+                      {t("profile.page.addNewAddress")}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {showAddAddress && isEditing && (
+                <View
+                  style={[
+                    styles.addAddressForm,
+                    {
+                      backgroundColor: colors.infoLight,
+                      borderColor: colors.info,
+                    },
+                  ]}
+                >
+                  <View style={styles.addAddressFormHeader}>
+                    <Text
+                      style={[
+                        styles.addAddressFormTitle,
+                        {
+                          color: colors.primary,
+                          fontSize: fontSizes.formTitle,
+                        },
+                      ]}
+                    >
+                      {t("profile.page.addNewAddress")}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowAddAddress(false)}>
+                      <Icon name="x" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.addressTypeContainer}>
+                    <Text
+                      style={[
+                        styles.formLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
+                      {t("profile.page.saveAs")}
+                    </Text>
+                    <View style={styles.addressTypeButtons}>
+                      <TouchableOpacity
+                        onPress={() => handleUserPreference("Home")}
+                        style={[
+                          styles.addressTypeButton,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                          },
+                          newAddress.type === "Home" && [
+                            styles.addressTypeButtonActive,
+                            {
+                              backgroundColor: colors.primary + "20",
+                              borderColor: colors.primary,
+                            },
+                          ],
+                        ]}
+                      >
+                        <Icon
+                          name="home"
+                          size={14}
+                          color={
+                            newAddress.type === "Home"
+                              ? colors.primary
+                              : colors.textSecondary
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.addressTypeText,
+                            {
+                              color: colors.textSecondary,
+                              fontSize: fontSizes.inputLabel,
+                            },
+                            newAddress.type === "Home" && [
+                              styles.addressTypeTextActive,
+                              { color: colors.primary },
+                            ],
+                          ]}
+                        >
+                          {t("profile.page.home")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleUserPreference("Work")}
+                        style={[
+                          styles.addressTypeButton,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                          },
+                          newAddress.type === "Work" && [
+                            styles.addressTypeButtonActive,
+                            {
+                              backgroundColor: colors.primary + "20",
+                              borderColor: colors.primary,
+                            },
+                          ],
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="office-building"
+                          size={14}
+                          color={
+                            newAddress.type === "Work"
+                              ? colors.primary
+                              : colors.textSecondary
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.addressTypeText,
+                            {
+                              color: colors.textSecondary,
+                              fontSize: fontSizes.inputLabel,
+                            },
+                            newAddress.type === "Work" && [
+                              styles.addressTypeTextActive,
+                              { color: colors.primary },
+                            ],
+                          ]}
+                        >
+                          {t("profile.page.work")}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleUserPreference()}
+                        style={[
+                          styles.addressTypeButton,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                          },
+                          newAddress.type === "Other" && [
+                            styles.addressTypeButtonActive,
+                            {
+                              backgroundColor: colors.primary + "20",
+                              borderColor: colors.primary,
+                            },
+                          ],
+                        ]}
+                      >
+                        <Icon
+                          name="map-pin"
+                          size={14}
+                          color={
+                            newAddress.type === "Other"
+                              ? colors.primary
+                              : colors.textSecondary
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.addressTypeText,
+                            {
+                              color: colors.textSecondary,
+                              fontSize: fontSizes.inputLabel,
+                            },
+                            newAddress.type === "Other" && [
+                              styles.addressTypeTextActive,
+                              { color: colors.primary },
+                            ],
+                          ]}
+                        >
+                          {t("profile.page.other")}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {newAddress.type === "Other" && (
+                    <View style={styles.formField}>
+                      <Text
+                        style={[
+                          styles.formLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
+                        {t("profile.page.locationName")}
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.formInput,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                            color: colors.text,
+                            fontSize: fontSizes.input,
+                          },
+                        ]}
+                        placeholder={t("profile.page.enterLocationName")}
+                        placeholderTextColor={colors.placeholder}
+                        value={newAddress.customType}
+                        onChangeText={(value) =>
+                          handleAddressInputChange("customType", value)
+                        }
+                      />
+                    </View>
+                  )}
+
+                  <View style={styles.addressFormInput}>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
+                      ]}
+                    >
+                      {t("profile.page.streetAddress")}
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.card,
+                          color: colors.text,
+                          fontSize: fontSizes.input,
+                        },
+                      ]}
+                      value={newAddress.street}
+                      onChangeText={(value) =>
+                        handleAddressInputChange("street", value)
+                      }
+                      placeholder={t("profile.page.enterStreetAddress")}
+                      placeholderTextColor={colors.placeholder}
+                    />
+                  </View>
+
+                  <View style={styles.addressFormRow}>
+                    <View style={[styles.addressFormInput, { flex: 1 }]}>
+                      <Text
+                        style={[
+                          styles.inputLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
+                        {t("profile.page.city")}
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                            color: colors.text,
+                            fontSize: fontSizes.input,
+                          },
+                        ]}
+                        value={newAddress.city}
+                        onChangeText={(value) =>
+                          handleAddressInputChange("city", value)
+                        }
+                        placeholder={t("profile.page.enterCity")}
+                        placeholderTextColor={colors.placeholder}
+                      />
+                    </View>
+
+                    <View style={[styles.addressFormInput, { flex: 1 }]}>
+                      <Text
+                        style={[
+                          styles.inputLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
+                        {t("profile.page.country")}
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                            color: colors.text,
+                            fontSize: fontSizes.input,
+                          },
+                        ]}
+                        value={newAddress.country}
+                        onChangeText={(value) =>
+                          handleAddressInputChange("country", value)
+                        }
+                        placeholder={t("profile.page.enterCountry")}
+                        placeholderTextColor={colors.placeholder}
+                      />
+                    </View>
+
+                    <View style={[styles.addressFormInput, { flex: 1 }]}>
+                      <Text
+                        style={[
+                          styles.inputLabel,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.inputLabel,
+                          },
+                        ]}
+                      >
+                        {t("profile.page.postalCode")}
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                            color: colors.text,
+                            fontSize: fontSizes.input,
+                          },
+                        ]}
+                        value={newAddress.postalCode}
+                        onChangeText={(value) =>
+                          handleAddressInputChange("postalCode", value)
+                        }
+                        placeholder={t("profile.page.enterPostalCode")}
+                        placeholderTextColor={colors.placeholder}
+                      />
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={handleAddAddress}
+                    style={[
+                      styles.addAddressSubmitButton,
+                      { backgroundColor: colors.primary },
+                    ]}
+                    disabled={
+                      !newAddress.street ||
+                      !newAddress.city ||
+                      !newAddress.country ||
+                      !newAddress.postalCode
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.addAddressSubmitText,
+                        { color: "#fff", fontSize: fontSizes.buttonText },
+                      ]}
+                    >
+                      {t("profile.page.addAddress")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {addresses.length === 0 ? (
+                <Text
+                  style={[
+                    styles.noAddressText,
+                    {
+                      color: colors.textSecondary,
+                      fontSize: fontSizes.roleText,
+                    },
+                  ]}
+                >
+                  {t("profile.page.noAddresses")}
+                </Text>
+              ) : (
+                <View style={styles.addressesList}>
+                  {addresses.map((address) => {
+                    const isExpanded =
+                      userRole === "SERVICE_PROVIDER" ||
+                      expandedAddressIds.includes(address.id);
+
+                    return (
+                      <View
+                        key={address.id}
+                        style={[
+                          styles.addressCard,
+                          {
+                            borderColor: colors.border,
+                            backgroundColor: colors.surface,
+                          },
+                          isExpanded && styles.expandedAddressCard,
+                        ]}
+                      >
+                        {/* Header */}
+                        <View style={styles.addressHeader}>
+                          <View style={styles.addressTitleContainer}>
+                            <Text
+                              style={[
+                                styles.addressType,
+                                {
+                                  color: colors.text,
+                                  fontSize: fontSizes.addressType,
+                                },
+                              ]}
+                            >
+                              {address.type}
+                            </Text>
+                          </View>
+
+                          <View style={styles.addressActions}>
+                            {userRole === "CUSTOMER" && (
+                              <TouchableOpacity
+                                onPress={() => toggleAddress(address.id)}
+                                style={styles.addressActionButton}
+                              >
+                                <Icon
+                                  name={
+                                    isExpanded ? "chevron-up" : "chevron-down"
+                                  }
+                                  size={20}
+                                  color={colors.textSecondary}
+                                />
+                              </TouchableOpacity>
+                            )}
+                            {isEditing &&
+                              userRole === "CUSTOMER" &&
+                              addresses.length > 1 && (
+                                <TouchableOpacity
+                                  onPress={() => removeAddress(address.id)}
+                                  style={styles.addressActionButton}
+                                >
+                                  <Icon
+                                    name="x"
+                                    size={20}
+                                    color={colors.error}
+                                  />
+                                </TouchableOpacity>
+                              )}
+                          </View>
+                        </View>
+
+                        {/* Body (only show when expanded) */}
+                        {isExpanded && (
+                          <View style={styles.addressDetails}>
+                            <Text
+                              style={[
+                                styles.addressText,
+                                {
+                                  color: colors.textSecondary,
+                                  fontSize: fontSizes.addressText,
+                                },
+                              ]}
+                            >
+                              {address.street}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.addressText,
+                                {
+                                  color: colors.textSecondary,
+                                  fontSize: fontSizes.addressText,
+                                },
+                              ]}
+                            >
+                              {address.city || t("profile.page.noCity")},{" "}
+                              {address.country || t("profile.page.noCountry")}{" "}
+                              {address.postalCode || ""}
+                            </Text>
+                            {userRole === "SERVICE_PROVIDER" && (
+                              <Text
+                                style={[
+                                  styles.addressNote,
+                                  {
+                                    color: colors.textTertiary,
+                                    fontSize: fontSizes.roleText,
+                                  },
+                                ]}
+                              >
+                                {t("profile.page.providerAddressNote")}
+                              </Text>
+                            )}
+                          </View>
+                        )}
+
+                        {userRole === "CUSTOMER" && !isExpanded && (
+                          <Text
+                            style={[
+                              styles.addressPreview,
+                              {
+                                color: colors.textSecondary,
+                                fontSize: fontSizes.addressText,
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {address.street}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            {/* Service Provider Status Section */}
+            {userRole === "SERVICE_PROVIDER" && (
+              <View style={styles.serviceStatusSection}>
+                <View
+                  style={[styles.divider, { backgroundColor: colors.border }]}
+                />
+
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: colors.textSecondary,
+                      fontSize: fontSizes.sectionTitle,
+                    },
+                  ]}
+                >
+                  {t("profile.page.serviceStatus")}
+                </Text>
+
+                <View
+                  style={[
+                    styles.statusCard,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                    },
+                  ]}
+                >
+                  <View style={styles.statusGrid}>
+                    <View style={styles.statusItem}>
+                      <Text
+                        style={[
+                          styles.statusLabel,
+                          {
+                            color: colors.textSecondary,
+                            fontSize: fontSizes.statusLabel,
+                          },
+                        ]}
+                      >
+                        {t("profile.page.accountStatus")}
+                      </Text>
+                      <View style={styles.statusValue}>
+                        <View
+                          style={[
+                            styles.statusIndicator,
+                            styles.statusActive,
+                            { backgroundColor: colors.success },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.statusText,
+                            {
+                              color: colors.text,
+                              fontSize: fontSizes.statusText,
+                            },
+                          ]}
+                        >
+                          {t("profile.page.verified")}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.statusFooter,
+                      { borderTopColor: colors.border },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusUpdateText,
+                        {
+                          color: colors.textTertiary,
                           fontSize: fontSizes.statusLabel,
                         },
                       ]}
                     >
-                      {t('profile.page.accountStatus')}
+                      {t("profile.page.activeServiceProvider")}
                     </Text>
-                    <View style={styles.statusValue}>
-                      <View
-                        style={[
-                          styles.statusIndicator,
-                          styles.statusActive,
-                          { backgroundColor: colors.success },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.statusText,
-                          {
-                            color: colors.text,
-                            fontSize: fontSizes.statusText,
-                          },
-                        ]}
-                      >
-                        {t('profile.page.verified')}
-                      </Text>
-                    </View>
                   </View>
                 </View>
-
-                <View
-                  style={[
-                    styles.statusFooter,
-                    { borderTopColor: colors.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusUpdateText,
-                      {
-                        color: colors.textTertiary,
-                        fontSize: fontSizes.statusLabel,
-                      },
-                    ]}
-                  >
-                    {t('profile.page.activeServiceProvider')}
-                  </Text>
-                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* Action Buttons - Now only at the bottom like web version */}
-          {isEditing && (
-            <View style={styles.actionButtonsContainer}>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.cancelButton,
-                    { backgroundColor: colors.textSecondary },
-                  ]}
-                  onPress={handleCancel}
-                  disabled={isSaving}
-                >
-                  <Text
+            {/* Action Buttons - Now only at the bottom like web version */}
+            {isEditing && (
+              <View style={styles.actionButtonsContainer}>
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
                     style={[
-                      styles.buttonText,
-                      { color: "#fff", fontSize: fontSizes.buttonText },
+                      styles.button,
+                      styles.cancelButton,
+                      { backgroundColor: colors.textSecondary },
                     ]}
+                    onPress={handleCancel}
+                    disabled={isSaving}
                   >
-                    {t('common.cancel')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.saveButton,
-                    { backgroundColor: colors.primary },
-                    (!isFormValid() || !hasChanges()) && [
-                      styles.disabledButton,
-                      { backgroundColor: colors.disabled },
-                    ],
-                  ]}
-                  onPress={handleSave}
-                  disabled={isSaving || !isFormValid() || !hasChanges()}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
                     <Text
                       style={[
                         styles.buttonText,
                         { color: "#fff", fontSize: fontSizes.buttonText },
                       ]}
                     >
-                      {t('profile.page.saveChanges')}
+                      {t("common.cancel")}
                     </Text>
-                  )}
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.saveButton,
+                      { backgroundColor: colors.primary },
+                      (!isFormValid() || !hasChanges()) && [
+                        styles.disabledButton,
+                        { backgroundColor: colors.disabled },
+                      ],
+                    ]}
+                    onPress={handleSave}
+                    disabled={isSaving || !isFormValid() || !hasChanges()}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.buttonText,
+                          { color: "#fff", fontSize: fontSizes.buttonText },
+                        ]}
+                      >
+                        {t("profile.page.saveChanges")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          )}
+            )}
+          </View>
         </View>
-      </View>
 
-      {/* Footer */}
-      <View style={[styles.footer, { backgroundColor: colors.surface }]}>
-        <Text
-          style={[
-            styles.footerText,
-            { color: colors.textTertiary, fontSize: fontSizes.footerText },
-          ]}
-        >
-          {t('profile.page.footer')}
-        </Text>
-      </View>
-    </ScrollView>
+        {/* Footer */}
+        <View style={[styles.footer, { backgroundColor: colors.surface }]}>
+          <Text
+            style={[
+              styles.footerText,
+              { color: colors.textTertiary, fontSize: fontSizes.footerText },
+            ]}
+          >
+            {t("profile.page.footer")}
+          </Text>
+        </View>
+      </ScrollView>
     </View>
   );
 };
