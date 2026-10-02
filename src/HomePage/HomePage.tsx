@@ -484,7 +484,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
             <View style={styles.chipsRow}>
               {HERO_FEATURE_CHIPS.map((chip) => (
                 <View key={chip.key} style={styles.heroChipWhite}>
-                  <Icon name={chip.icon} size={17} color="#00BFFF" />
+                  <Icon name={chip.icon} size={18} color="#0891B2" />
                   <Text style={styles.heroChipTextWhite}>{chip.label}</Text>
                 </View>
               ))}
@@ -794,26 +794,33 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    justifyContent: "center",
     alignItems: "center",
-    columnGap: 18,
-    rowGap: 10,
-    marginBottom: 14,
+    gap: 12,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   heroChipWhite: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: '#E0F2FE', // Light blue background
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 24,
+    gap: 7,
+    backgroundColor: '#E0F7FF', // Lighter, softer blue
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 28,
+    shadowColor: '#00BFFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 191, 255, 0.15)',
   },
   heroChipTextWhite: {
-    color: '#00BFFF', // Cyan text
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.1,
+    color: '#0891B2', // Slightly darker cyan for better readability
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   mainCanvas: {
     marginTop: -18,
