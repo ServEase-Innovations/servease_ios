@@ -1451,25 +1451,40 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                   style={[
                     styles.addAddressForm,
                     {
-                      backgroundColor: colors.infoLight,
-                      borderColor: colors.info,
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      shadowColor: isDarkMode ? "#000" : colors.primary,
                     },
                   ]}
                 >
                   <View style={styles.addAddressFormHeader}>
-                    <Text
+                    <View style={styles.addAddressTitleRow}>
+                      <Icon
+                        name="map-pin"
+                        size={18}
+                        color={colors.primary}
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text
+                        style={[
+                          styles.addAddressFormTitle,
+                          {
+                            color: colors.text,
+                            fontSize: fontSizes.formTitle,
+                          },
+                        ]}
+                      >
+                        Add New Address
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowAddAddress(false)}
                       style={[
-                        styles.addAddressFormTitle,
-                        {
-                          color: colors.primary,
-                          fontSize: fontSizes.formTitle,
-                        },
+                        styles.closeAddressButton,
+                        { backgroundColor: colors.surface },
                       ]}
                     >
-                      Add New Address
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowAddAddress(false)}>
-                      <Icon name="x" size={20} color={colors.textSecondary} />
+                      <Icon name="x" size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
 
@@ -1497,14 +1512,14 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                           style={[
                             styles.addressTypeButton,
                             {
-                              borderColor: colors.border,
-                              backgroundColor: colors.card,
+                              backgroundColor: colors.surface,
+                              borderColor: "transparent",
                             },
                             newAddress.type === type && [
                               styles.addressTypeButtonActive,
                               {
-                                backgroundColor: colors.primary + "20",
-                                borderColor: colors.primary,
+                                backgroundColor: colors.primary + "15",
+                                borderColor: colors.primary + "50",
                               },
                             ],
                           ]}
@@ -1579,13 +1594,12 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         style={[
                           styles.formInput,
                           {
-                            borderColor: colors.border,
-                            backgroundColor: colors.card,
+                            backgroundColor: colors.surface,
                             color: colors.text,
                             fontSize: fontSizes.input,
                           },
                         ]}
-                        placeholder="Enter location name"
+                        placeholder="e.g. Gym, Parents' House"
                         placeholderTextColor={colors.placeholder}
                         value={newAddress.customType}
                         onChangeText={(value) =>
@@ -1609,10 +1623,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                     </Text>
                     <TextInput
                       style={[
-                        styles.input,
+                        styles.formInput,
                         {
-                          borderColor: colors.border,
-                          backgroundColor: colors.card,
+                          backgroundColor: colors.surface,
                           color: colors.text,
                           fontSize: fontSizes.input,
                         },
@@ -1621,7 +1634,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       onChangeText={(value) =>
                         setNewAddress((prev) => ({ ...prev, street: value }))
                       }
-                      placeholder="Enter street address"
+                      placeholder="House No, Building, Street Area"
                       placeholderTextColor={colors.placeholder}
                     />
                   </View>
@@ -1641,10 +1654,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       </Text>
                       <TextInput
                         style={[
-                          styles.input,
+                          styles.formInput,
                           {
-                            borderColor: colors.border,
-                            backgroundColor: colors.card,
+                            backgroundColor: colors.surface,
                             color: colors.text,
                             fontSize: fontSizes.input,
                           },
@@ -1653,7 +1665,7 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         onChangeText={(value) =>
                           setNewAddress((prev) => ({ ...prev, city: value }))
                         }
-                        placeholder="Enter city"
+                        placeholder="City"
                         placeholderTextColor={colors.placeholder}
                       />
                     </View>
@@ -1672,10 +1684,9 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                       </Text>
                       <TextInput
                         style={[
-                          styles.input,
+                          styles.formInput,
                           {
-                            borderColor: colors.border,
-                            backgroundColor: colors.card,
+                            backgroundColor: colors.surface,
                             color: colors.text,
                             fontSize: fontSizes.input,
                           },
@@ -1684,61 +1695,62 @@ const CustomerProfileSection: React.FC<CustomerProfileSectionProps> = ({
                         onChangeText={(value) =>
                           setNewAddress((prev) => ({ ...prev, country: value }))
                         }
-                        placeholder="Enter country"
-                        placeholderTextColor={colors.placeholder}
-                      />
-                    </View>
-
-                    <View style={[styles.addressFormInput, { flex: 1 }]}>
-                      <Text
-                        style={[
-                          styles.inputLabel,
-                          {
-                            color: colors.text,
-                            fontSize: fontSizes.inputLabel,
-                          },
-                        ]}
-                      >
-                        Postal Code
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.input,
-                          {
-                            borderColor: colors.border,
-                            backgroundColor: colors.card,
-                            color: colors.text,
-                            fontSize: fontSizes.input,
-                          },
-                        ]}
-                        value={newAddress.postalCode}
-                        onChangeText={(value) =>
-                          setNewAddress((prev) => ({
-                            ...prev,
-                            postalCode: value,
-                          }))
-                        }
-                        placeholder="Enter postal code"
+                        placeholder="Country"
                         placeholderTextColor={colors.placeholder}
                       />
                     </View>
                   </View>
 
-                  <TouchableOpacity
-                    onPress={handleAddAddress}
-                    style={[
-                      styles.addAddressSubmitButton,
-                      { backgroundColor: colors.primary },
-                    ]}
-                  >
+                  <View style={styles.addressFormInput}>
                     <Text
                       style={[
-                        styles.addAddressSubmitText,
-                        { color: "#fff", fontSize: fontSizes.buttonText },
+                        styles.inputLabel,
+                        { color: colors.text, fontSize: fontSizes.inputLabel },
                       ]}
                     >
-                      Save Address
+                      Postal Code
                     </Text>
+                    <TextInput
+                      style={[
+                        styles.formInput,
+                        {
+                          backgroundColor: colors.surface,
+                          color: colors.text,
+                          fontSize: fontSizes.input,
+                        },
+                      ]}
+                      value={newAddress.postalCode}
+                      onChangeText={(value) =>
+                        setNewAddress((prev) => ({
+                          ...prev,
+                          postalCode: value,
+                        }))
+                      }
+                      placeholder="ZIP or Postal Code"
+                      placeholderTextColor={colors.placeholder}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={handleAddAddress}
+                    activeOpacity={0.8}
+                    style={{ marginTop: 8 }}
+                  >
+                    <LinearGradient
+                      colors={["#3b82f6", "#2563eb"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.addAddressSubmitButton}
+                    >
+                      <Text
+                        style={[
+                          styles.addAddressSubmitText,
+                          { color: "#ffffff", fontSize: fontSizes.buttonText },
+                        ]}
+                      >
+                        Save Address
+                      </Text>
+                    </LinearGradient>
                   </TouchableOpacity>
                 </View>
               )}
@@ -2185,77 +2197,94 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   addAddressForm: {
+    padding: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
     marginBottom: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   addAddressFormHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(150, 150, 150, 0.1)",
+    paddingBottom: 12,
+  },
+  addAddressTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   addAddressFormTitle: {
-    fontWeight: "500",
+    fontWeight: "700",
+  },
+  closeAddressButton: {
+    padding: 6,
+    borderRadius: 20,
   },
   addressTypeContainer: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   formLabel: {
-    fontWeight: "500",
+    fontWeight: "600",
     marginBottom: 8,
   },
   addressTypeButtons: {
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
   },
   addressTypeButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     borderWidth: 1,
   },
-  addressTypeButtonActive: {
-    backgroundColor: "#dbeafe",
-    borderColor: "#93c5fd",
-  },
+  addressTypeButtonActive: {},
   addressTypeText: {
-    fontSize: 14,
+    fontWeight: "500",
   },
   addressTypeTextActive: {
     color: "#2563eb",
+    fontWeight: "600",
   },
   formField: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   formInput: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderRadius: 6,
-    fontSize: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
   },
   addressFormRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 16,
     gap: 12,
   },
   addressFormInput: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   addAddressSubmitButton: {
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 10,
     alignItems: "center",
-    marginTop: 8,
+    justifyContent: "center",
+    shadowColor: "#2563eb",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addAddressSubmitText: {
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   noAddressText: {
     fontStyle: "italic",
