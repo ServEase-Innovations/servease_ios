@@ -484,8 +484,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
             <View style={styles.chipsRow}>
               {HERO_FEATURE_CHIPS.map((chip) => (
                 <View key={chip.key} style={styles.heroChipWhite}>
-                  <Icon name={chip.icon} size={15} color="#0891B2" />
-                  <Text style={styles.heroChipTextWhite} numberOfLines={1}>{chip.label}</Text>
+                  <Icon name={chip.icon} size={14} color="#0891B2" />
+                  <Text style={styles.heroChipTextWhite}>{chip.label}</Text>
                 </View>
               ))}
             </View>
@@ -794,10 +794,11 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexDirection: "row",
-    justifyContent: "space-evenly",
+    justifyContent: "center",
     alignItems: "center",
+    gap: 8,
     marginBottom: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   heroChipWhite: {
     flexDirection: "row",
@@ -814,15 +815,12 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(0, 191, 255, 0.15)',
-    flex: 1,
-    maxWidth: '31%',
   },
   heroChipTextWhite: {
     color: '#0891B2',
     fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0.1,
-    flexShrink: 1,
+    letterSpacing: 0,
   },
   mainCanvas: {
     marginTop: -18,
