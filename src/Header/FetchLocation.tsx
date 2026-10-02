@@ -240,6 +240,8 @@ export const FetchLocation: React.FC<FetchLocationProps> = ({
             <>
               <MapView
                 style={styles.map}
+                showsUserLocation={true}
+                showsMyLocationButton={true}
                 region={{
                   latitude: latitude || 0,
                   longitude: longitude || 0,

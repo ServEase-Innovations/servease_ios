@@ -1236,6 +1236,8 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       <View style={styles.autoMapContainer}>
         <MapView
           style={styles.map}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
           region={{
             latitude: lat,
             longitude: lng,

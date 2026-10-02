@@ -390,6 +390,8 @@ const BookingLocationSection: React.FC<BookingLocationSectionProps> = ({
           </View>
           <MapView
             style={styles.map}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
             region={mapRegion}
             onPress={handleMapPress}
           >
