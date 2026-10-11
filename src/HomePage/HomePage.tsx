@@ -11,6 +11,7 @@ import {
   Animated,
   TextInput,
   Linking,
+  Image,
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { add } from "../features/bookingTypeSlice";
@@ -40,9 +41,10 @@ import AgentRegistrationForm from "../Agent/AgentRegistrationForm";
 import Footer from "../Footer/Footer";
 import HowItWorksDialog from "./HowItWorksDialog";
 
-const cookImage = require("../../assets/images/Cooknew.png");
-const maidImage = require("../../assets/images/Maidnew.png");
-const nannyImage = require("../../assets/images/Nannynew.png");
+const cookImage = require("../../assets/images/iconcook.png");
+const maidImage = require("../../assets/images/iconmaid.png");
+const nannyImage = require("../../assets/images/iconnanny.png");
+const heroImage = require("../../assets/images/iconhome.png");
 
 type ServiceType = "COOK" | "MAID" | "NANNY";
 
@@ -57,6 +59,30 @@ const SERVICE_ICONS: Record<ServiceType, string> = {
   MAID: "cleaning-services",
   NANNY: "volunteer-activism",
 };
+
+// Gradient backgrounds for the service cards (active / provider-inactive)
+const SERVICE_GRADIENTS: Record<ServiceType, string[]> = {
+  COOK: ["#2F96EE", "#6CC1FA"],
+  MAID: ["#2F96EE", "#6CC1FA"],
+  NANNY: ["#2F96EE", "#6CC1FA"],
+};
+const SERVICE_GRADIENT_INACTIVE = ["#CBD5E1", "#94A3B8"];
+
+// Trending & Popular quick-book shortcuts
+const TRENDING_PROS: {
+  key: string;
+  name: string;
+  role: string;
+  service: ServiceType;
+  rating: string;
+  avatarBg: string;
+}[] = [
+  { key: "rita", name: "Rita M.", role: "Cook", service: "COOK", rating: "4.9", avatarBg: "#FDE2C4" },
+  { key: "john", name: "John D.", role: "Cleaner", service: "MAID", rating: "4.8", avatarBg: "#BFE3FB" },
+  { key: "anita", name: "Anita P.", role: "Nanny", service: "NANNY", rating: "4.7", avatarBg: "#E3D4F7" },
+];
+
+const HAPPY_HOME_AVATARS = ["#BFE3FB", "#E3D4F7", "#FDE2C4"];
 
 interface ChildComponentProps {
   sendDataToParent: (data: string, options?: { bookingDate?: string; initialTab?: 'today' | 'upcoming' | 'past' | 'cancelled' | 'pending' }) => void;
@@ -75,6 +101,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
   const { colors, isDarkMode, fontSize } = useTheme();
   const { t } = useTranslation();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const contentPadding = screenWidth >= 900 ? (screenWidth - 840) / 2 : screenWidth < 360 ? 16 : 20;
+  const isNarrowLayout = screenWidth < 400;
   const { user: auth0User } = useAuth0();
   const { appUser } = useAppUser();
   const { showOffer, checking: checkingOffer } = useFirstBookingOfferVisible();
@@ -164,7 +192,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
       whiteContentSection: {
         backgroundColor: colors.surface, // White in light mode, dark in dark mode
         flex: 1,
-        paddingHorizontal: 20,
+        paddingHorizontal: contentPadding,
         paddingTop: 24,
       },
       mainCanvas: {
@@ -176,7 +204,7 @@ const HomePage: React.FC<ChildComponentProps> = ({
         backgroundColor: colors.background, // Theme-aware background
       },
     };
-  }, [colors]);
+  }, [colors, contentPadding]);
 
   const getServiceTitle = (serviceKey: ServiceType) => {
     if (serviceKey === "COOK") return t("home.services.homeCook");
@@ -349,85 +377,41 @@ const HomePage: React.FC<ChildComponentProps> = ({
     const isInteractionDisabled = isServiceInactiveForProvider(service.key);
     const isSelected = selectedServiceForDetails === service.key;
 
-    // Get service-specific colors (unified cyan palette)
-    const getServiceColors = (serviceKey: ServiceType) => {
-      switch (serviceKey) {
-        case "COOK":
-          return {
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.cookCardLight,
-            icon: isInactive ? "#94A3B8" : HOME_M3.cookCard,
-          };
-        case "MAID":
-          return {
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.maidCardLight,
-            icon: isInactive ? "#94A3B8" : HOME_M3.maidCard,
-          };
-        case "NANNY":
-          return {
-            iconBg: isInactive ? (isDarkMode ? "#334155" : "#E2E8F0") : HOME_M3.nannyCardLight,
-            icon: isInactive ? "#94A3B8" : HOME_M3.nannyCard,
-          };
-      }
-    };
-
-    const serviceColors = getServiceColors(service.key);
-
     return (
       <TouchableOpacity
         onPress={() => handleServiceTap(service.key)}
         onLongPress={() => handleLearnMore(service.key)}
-        activeOpacity={isInteractionDisabled ? 1 : 0.7}
+        activeOpacity={isInteractionDisabled ? 1 : 0.8}
         accessibilityState={{ disabled: isInteractionDisabled }}
         accessibilityLabel={service.title}
         style={[
           styles.iconCard,
+          { width: Math.min(180, (screenWidth - contentPadding * 2) * 0.31) },
           {
-            backgroundColor: isInactive
-              ? isDarkMode
-                ? "#1e293b"
-                : "#F8FAFC"
-              : isSelected
-                ? '#E0F2FE'
-                : isDarkMode
-                  ? colors.card
-                  : HOME_M3.surfaceContainerLowest,
-            borderColor: isSelected ? '#00BFFF' : isInactive
-              ? isDarkMode
-                ? "#475569"
-                : "#CBD5E1"
-              : isDarkMode
-                ? colors.border
-                : HOME_M3.outlineVariant,
-            borderWidth: isSelected ? 2 : 1,
+            borderColor: isSelected ? "#FFFFFF" : "transparent",
+            borderWidth: isSelected ? 2 : 0,
           },
         ]}
       >
-        <View
-          style={[
-            styles.iconCardIconBox,
-            {
-              backgroundColor: serviceColors.iconBg,
-            },
-          ]}
-        >
-          <Icon
-            name={isInactive ? "block" : SERVICE_ICONS[service.key]}
-            size={28}
-            color={isSelected ? '#00BFFF' : serviceColors.icon}
-          />
+        <LinearGradient
+          colors={isInactive ? SERVICE_GRADIENT_INACTIVE : SERVICE_GRADIENTS[service.key]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View style={styles.iconCardImageBox}>
+          {isInactive ? (
+            <Icon name="block" size={36} color="rgba(255,255,255,0.85)" />
+          ) : (
+            <Image source={service.image} style={styles.iconCardImage} resizeMode="contain" />
+          )}
         </View>
-        <Text
-          style={[
-            styles.iconCardTitle,
-            { color: isInactive ? "#64748B" : isSelected ? '#00BFFF' : colors.text },
-          ]}
-          numberOfLines={2}
-        >
+        <Text style={styles.iconCardTitle} numberOfLines={2}>
           {service.title}
         </Text>
         {isSelected && (
           <View style={styles.selectedIndicator}>
-            <Icon name="check-circle" size={16} color="#00BFFF" />
+            <Icon name="check-circle" size={16} color="#FFFFFF" />
           </View>
         )}
       </TouchableOpacity>
@@ -453,48 +437,42 @@ const HomePage: React.FC<ChildComponentProps> = ({
       >
         {/* Header with Light Blue Background */}
         <View style={styles.headerSection}>
-          <HomeHeroChrome closeDropdowns={closeDropdowns} onLogoPress={onLogoClick} />
-        </View>
-
-        {/* White Content Section */}
-        <View style={dynamicStyles.whiteContentSection}>
-          {/* Hero Title and Subtitle */}
-          <View style={styles.heroTextContainer}>
-            <Text
-              style={[
-                styles.heroTitleWhite,
-                { 
-                  fontSize: fontSize === "large" ? heroTitleSize + 4 : heroTitleSize + 2,
-                  color: colors.text
-                },
-              ]}
-            >
-              {t("home.hero.title")}
-            </Text>
-            <Text style={[
-              styles.heroSubtitleWhite, 
-              { 
-                fontSize: heroSubtitleSize + 1,
-                color: colors.textSecondary 
-              }
-            ]}>
-              {t("home.hero.subtitle")}
-            </Text>
+          <HomeHeroChrome closeDropdowns={closeDropdowns} onLogoPress={onLogoClick}>
+            {/* Hero Title + Illustration */}
+            <View style={styles.heroRow}>
+              <Text
+                style={[
+                  styles.heroTitleWhite,
+                  { fontSize: fontSize === "large" ? heroTitleSize + 6 : heroTitleSize + 4 },
+                ]}
+              >
+                {t("home.hero.title")}
+              </Text>
+              <View style={styles.heroIllustration} pointerEvents="none">
+                <Image source={heroImage} style={styles.heroImg} resizeMode="contain" />
+              </View>
+            </View>
 
             <View style={styles.chipsRow}>
               {HERO_FEATURE_CHIPS.map((chip) => (
                 <View key={chip.key} style={styles.heroChipWhite}>
-                  <Icon name={chip.icon} size={12} color="#0891B2" />
+                  <Icon name={chip.icon} size={16} color="#1D6FD8" />
                   <Text style={styles.heroChipTextWhite}>{chip.label}</Text>
                 </View>
               ))}
             </View>
+          </HomeHeroChrome>
+        </View>
 
+        {/* White Content Section */}
+        <View style={[dynamicStyles.whiteContentSection, styles.contentSheet, !isDarkMode && styles.contentSheetLight]}>
+          {/* Search */}
+          <View style={styles.heroTextContainer}>
             <View style={[
               styles.searchWrap,
-              { backgroundColor: isDarkMode ? colors.surface2 : '#F1F5F9' }
+              { backgroundColor: isDarkMode ? colors.surface2 : '#FFFFFF' }
             ]}>
-              <Icon name="search" size={20} color={HOME_M3.outline} style={styles.searchIcon} />
+              <Icon name="search" size={24} color={HOME_M3.outline} style={styles.searchIcon} />
               <TextInput
                 style={[styles.searchInput, { color: colors.text }]}
                 placeholder="Find a cook, maid, or cleaner..."
@@ -505,10 +483,12 @@ const HomePage: React.FC<ChildComponentProps> = ({
               />
               {searchQuery.length > 0 ? (
                 <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
-                  <Icon name="close" size={18} color={HOME_M3.outline} />
+                  <Icon name="close" size={20} color={HOME_M3.outline} />
                 </TouchableOpacity>
               ) : (
-                <Icon name="tune" size={20} color={HOME_M3.outline} />
+                <View style={styles.searchTuneWrap}>
+                  <Icon name="tune" size={24} color={HOME_M3.outline} />
+                </View>
               )}
             </View>
           </View>
@@ -519,10 +499,24 @@ const HomePage: React.FC<ChildComponentProps> = ({
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 {isServiceProvider ? t("home.hero.exploreServices") : t("home.hero.whatService")}
               </Text>
-              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                {isServiceProvider ? t("home.hero.learnAboutServices") : "Choose a professional for your home"}
-              </Text>
+              {isServiceProvider ? (
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+                  {t("home.hero.learnAboutServices")}
+                </Text>
+              ) : null}
             </View>
+            <TouchableOpacity
+              style={styles.seeAllBtn}
+              onPress={() => {
+                setSearchQuery("");
+                setSelectedServiceForDetails(null);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="See all services"
+            >
+              <Text style={styles.seeAllText}>See All</Text>
+              <Icon name="arrow-forward" size={18} color="#1D8CF0" />
+            </TouchableOpacity>
           </View>
 
           {isServiceProvider && !loadingProviderProfile ? (
@@ -617,9 +611,8 @@ const HomePage: React.FC<ChildComponentProps> = ({
           ) : null}
 
           <View style={styles.helperTextContainer}>
-            <Icon name="touch-app" size={16} color={colors.textSecondary} />
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              Tap any service to see details • Long press for more info
+              Tap to see details • Long press for info
             </Text>
           </View>
 
@@ -629,24 +622,95 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </View>
           ) : null}
 
-          <View style={styles.statsRow}>
-            <View style={styles.statCell}>
-              <Text style={styles.statValue}>50k+</Text>
+          {!isServiceProvider ? (
+            <>
+              <View style={styles.trendingHeaderRow}>
+                <Text style={[styles.trendingTitle, { color: colors.text }]}>Trending & Popular</Text>
+                <View style={styles.availableRow}>
+                  <View style={styles.availableDot} />
+                  <Text style={[styles.availableText, { color: colors.textSecondary }]}>Available Today</Text>
+                </View>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.trendingScroll}
+                contentContainerStyle={styles.trendingContent}
+              >
+                {TRENDING_PROS.map((pro) => (
+                  <TouchableOpacity
+                    key={pro.key}
+                    activeOpacity={0.8}
+                    onPress={() => handleClick(pro.service)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quick-book ${pro.name} ${pro.role}`}
+                    style={[
+                      styles.trendingCard,
+                      {
+                        width: Math.min(300, Math.max(220, Math.round(screenWidth * 0.37))),
+                        backgroundColor: isDarkMode ? colors.card : "#FFFFFF",
+                      },
+                    ]}
+                  >
+                    <View style={styles.trendingTopRow}>
+                      <View style={[styles.trendingAvatar, { backgroundColor: pro.avatarBg }]}>
+                        <Icon name="person" size={26} color="#64748B" />
+                      </View>
+                      <View style={styles.trendingNameWrap}>
+                        <Text style={[styles.trendingName, { color: colors.text }]} numberOfLines={1}>
+                          {pro.name}
+                        </Text>
+                        <Text style={[styles.trendingRole, { color: colors.textSecondary }]} numberOfLines={1}>
+                          ({pro.role})
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.trendingBottomRow}>
+                      <Text style={styles.quickBookText}>Quick-book</Text>
+                      <View style={styles.ratingRow}>
+                        <Icon name="star" size={16} color="#F5A623" />
+                        <Text style={[styles.ratingText, { color: colors.text }]}>{pro.rating}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
+
+          <View style={[styles.statsRow, isNarrowLayout && styles.statsRowNarrow]}>
+            <View style={[styles.statCell, styles.statCellStart, isNarrowLayout && styles.statCellNarrow]}>
+              <View style={styles.statValueRow}>
+                <Text style={[styles.statValue, { color: colors.text }]}>50k+</Text>
+                <View style={styles.avatarStack}>
+                  {HAPPY_HOME_AVATARS.map((bg, i) => (
+                    <View key={bg} style={[styles.stackAvatar, { backgroundColor: bg, marginLeft: i === 0 ? 0 : -8 }]}>
+                      <Icon name="person" size={14} color="#64748B" />
+                    </View>
+                  ))}
+                </View>
+              </View>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Happy Homes</Text>
             </View>
-            <View style={[styles.statCell, styles.statDivider]}>
-              <Text style={styles.statValue}>2000+</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Verified Pros</Text>
+            <View style={[styles.statCell, styles.statDivider, isNarrowLayout && styles.statCellNarrow]}>
+              <Icon name="verified" size={34} color="#1D8CF0" style={styles.statIcon} />
+              <View>
+                <Text style={[styles.statValue, { color: colors.text }]}>2000+</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Verified Pros</Text>
+              </View>
             </View>
-            <View style={styles.statCell}>
-              <Text style={styles.statValue}>4.8/5</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avg Rating</Text>
+            <View style={[styles.statCell, isNarrowLayout && styles.statCellNarrow]}>
+              <Icon name="star" size={34} color="#F5A623" style={styles.statIcon} />
+              <View>
+                <Text style={[styles.statValue, { color: colors.text }]}>4.8/5</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avg Rating</Text>
+              </View>
             </View>
           </View>
 
           <View style={styles.helpSection}>
-            <Text style={[styles.helpTitle, { color: colors.textSecondary }]}>Need help choosing?</Text>
             <View style={styles.helpLinks}>
+              <Text style={[styles.helpTitle, { color: colors.text }]}>Need help choosing?</Text>
               <TouchableOpacity 
                 style={styles.helpLink} 
                 onPress={() => {
@@ -656,12 +720,11 @@ const HomePage: React.FC<ChildComponentProps> = ({
                   });
                 }}
               >
-                <Icon name="support-agent" size={18} color={HOME_M3.secondary} />
+                <Icon name="chat-bubble" size={18} color="#1D8CF0" />
                 <Text style={styles.helpLinkText}>Talk to Support</Text>
               </TouchableOpacity>
-              <Text style={styles.helpDivider}>|</Text>
               <TouchableOpacity style={styles.helpLink} onPress={scrollToHowItWorks}>
-                <Icon name="help-outline" size={18} color={HOME_M3.secondary} />
+                <Icon name="help" size={18} color="#1D8CF0" />
                 <Text style={styles.helpLinkText}>How it works</Text>
               </TouchableOpacity>
             </View>
@@ -761,15 +824,38 @@ const styles = StyleSheet.create({
   
   // Hero Text Container
   heroTextContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
+  contentSheet: {
+    marginTop: -24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 20,
+    zIndex: 1,
+  },
+  contentSheetLight: { backgroundColor: "#EAF4FE" },
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    marginTop: 12,
+    minHeight: 150,
+  },
+  heroIllustration: {
+    width: "46%",
+    height: 160,
+    position: "relative",
+  },
+  heroImg: { position: "absolute", bottom: -14, right: -8, width: "112%", height: "100%" },
   
   // Hero Title on White
   heroTitleWhite: {
     // Color will be dynamic
+    color: "#FFFFFF",
     fontWeight: "800",
-    lineHeight: 36,
-    marginBottom: 8,
+    lineHeight: 34,
+    maxWidth: "54%",
   },
   
   // Hero Subtitle on White
@@ -782,10 +868,11 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: "row", alignItems: "center", 
     // backgroundColor will be dynamic
-    borderRadius: 16, height: 60, paddingHorizontal: 16, marginBottom: 8,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 6,
+    borderRadius: 30, height: 58, paddingHorizontal: 18, marginBottom: 8,
+    shadowColor: "#1D6FD8", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 5,
   },
-  searchIcon: { marginRight: 8 },
+  searchIcon: { marginRight: 10 },
+  searchTuneWrap: { borderLeftWidth: 1, borderLeftColor: "#E2E8F0", paddingLeft: 14, marginLeft: 8 },
   searchInput: { 
     flex: 1, 
     fontSize: 16, 
@@ -794,19 +881,20 @@ const styles = StyleSheet.create({
   },
   chipsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    marginTop: 14,
+    paddingHorizontal: 20,
   },
   heroChipWhite: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: '#E0F7FF',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(224, 240, 255, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
     borderRadius: 20,
     shadowColor: '#00BFFF',
     shadowOffset: { width: 0, height: 2 },
@@ -817,9 +905,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 191, 255, 0.15)',
   },
   heroChipTextWhite: {
-    color: '#0891B2',
-    fontSize: 10,
-    fontWeight: "700",
+    color: '#0F2A4A',
+    fontSize: 12,
+    fontWeight: "600",
     letterSpacing: 0,
   },
   mainCanvas: {
@@ -834,12 +922,14 @@ const styles = StyleSheet.create({
     flexDirection: "row", 
     justifyContent: "space-between", 
     alignItems: "flex-end", 
-    marginBottom: 20,
+    marginBottom: 14,
     paddingBottom: 4,
   },
   sectionHeaderText: { flex: 1 },
+  seeAllBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingBottom: 2 },
+  seeAllText: { color: "#1D8CF0", fontSize: 16, fontWeight: "600" },
   sectionTitle: { 
-    fontSize: 24, 
+    fontSize: 22, 
     fontWeight: "800", 
     lineHeight: 30,
     // color will be dynamic
@@ -865,42 +955,41 @@ const styles = StyleSheet.create({
   },
   iconCard: {
     width: '31%',
-    aspectRatio: 0.95,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
+    aspectRatio: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     alignItems: "center",
-    justifyContent: "space-evenly",
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    justifyContent: "space-between",
+    shadowColor: "#6D5BF0",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
     position: 'relative',
   },
-  iconCardIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
+  iconCardImageBox: {
+    flex: 1,
+    width: '100%',
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
   },
+  iconCardImage: { width: '100%', height: '100%' },
   iconCardTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
-    lineHeight: 16,
-    marginTop: 8,
+    lineHeight: 18,
+    color: "#FFFFFF",
+    textShadowColor: "rgba(0,0,0,0.15)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   selectedIndicator: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 6,
   },
   
   // Service Detail Card
@@ -1231,25 +1320,57 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     justifyContent: 'center',
     gap: 6,
-    marginTop: 12, 
-    marginBottom: 8,
+    marginTop: -8, 
+    marginBottom: 20,
   },
   helperText: { 
     textAlign: "center", 
     fontSize: 12,
   },
   promoWrap: { marginVertical: 12 },
-  statsRow: { flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: HOME_M3.outlineVariant, paddingVertical: 24, marginVertical: 16 },
-  statCell: { flex: 1, alignItems: "center" },
+  trendingHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  trendingTitle: { fontSize: 22, fontWeight: "800", letterSpacing: -0.4 },
+  availableRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  availableDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#34A853" },
+  availableText: { fontSize: 15, fontWeight: "500" },
+  trendingScroll: { marginHorizontal: -20, marginBottom: 16, overflow: "visible" },
+  trendingContent: { paddingHorizontal: 20, paddingVertical: 4, gap: 10 },
+  trendingCard: {
+    borderRadius: 16,
+    padding: 10,
+    shadowColor: "#1D6FD8",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  trendingTopRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  trendingAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  trendingNameWrap: { flex: 1, minWidth: 0 },
+  trendingName: { fontSize: 15, fontWeight: "700" },
+  trendingRole: { fontSize: 14, fontWeight: "500" },
+  trendingBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
+  quickBookText: { color: "#1D6FD8", fontSize: 14, fontWeight: "500" },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  ratingText: { fontSize: 15, fontWeight: "700" },
+  statsRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, marginVertical: 8 },
+  statsRowNarrow: { flexDirection: "column", alignItems: "stretch" },
+  statCell: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  statCellNarrow: { flex: 0, justifyContent: "flex-start", paddingVertical: 10, borderTopWidth: 1, borderColor: HOME_M3.outlineVariant },
+  statCellStart: { flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: 0 },
+  statValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  avatarStack: { flexDirection: "row", alignItems: "center" },
+  stackAvatar: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  statIcon: { marginRight: 2 },
   statDivider: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: HOME_M3.outlineVariant },
-  statValue: { fontSize: 18, fontWeight: "700", color: HOME_M3.secondary, marginBottom: 4 },
-  statLabel: { fontSize: 12, fontWeight: "500", textAlign: "center" },
-  helpSection: { alignItems: "center", marginBottom: 20, paddingBottom: 8 },
-  helpTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
-  helpLinks: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", justifyContent: "center", gap: 8 },
-  helpLink: { flexDirection: "row", alignItems: "center", gap: 6 },
-  helpLinkText: { color: HOME_M3.secondary, fontSize: 14, fontWeight: "600" },
-  helpDivider: { color: HOME_M3.outlineVariant, fontSize: 14 },
+  statValue: { fontSize: 22, fontWeight: "800" },
+  statLabel: { fontSize: 14, fontWeight: "500" },
+  helpSection: { alignItems: "center", marginBottom: 12, paddingBottom: 8 },
+  helpTitle: { fontSize: 15, fontWeight: "700" },
+  helpLinks: { flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 },
+  helpLink: { flexDirection: "row", alignItems: "center", gap: 4 },
+  helpLinkText: { color: "#1D8CF0", fontSize: 15, fontWeight: "500" },
+  helpDivider: { color: HOME_M3.outlineVariant, fontSize: 18 },
   stepsCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
   stepsTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
   stepRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },

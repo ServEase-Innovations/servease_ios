@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "react-native-vector-icons/MaterialIcons";
 import LinearGradient from "react-native-linear-gradient";
@@ -29,12 +29,15 @@ type HomeHeroChromeProps = {
   onLogoPress?: () => void;
   /** Tighter header for SP tab screens (hides location row). */
   compact?: boolean;
+  /** Extra content rendered inside the gradient header, below the location row. */
+  children?: React.ReactNode;
 };
 
 const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   closeDropdowns = false,
   onLogoPress,
   compact = false,
+  children,
 }) => {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
@@ -143,9 +146,9 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
 
   return (
     <>
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, children ? styles.headerContainerWithContent : null]}>
         <LinearGradient 
-          colors={["#00BFFF", "#0b5bd3"]} 
+          colors={["#2F96EE", "#6CC1FA"]} 
           start={{ x: 0, y: 0 }} 
           end={{ x: 1, y: 1 }} 
           style={[StyleSheet.absoluteFillObject, styles.gradientBackground]}
@@ -171,6 +174,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
               </Text>
             </Animated.View>
           </TouchableOpacity>
+          <View style={styles.rightCluster}>
           <TouchableOpacity
             onPress={() => setShowNotifications(true)}
             onPressIn={handleNotifPressIn}
@@ -189,6 +193,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
               ) : null}
             </Animated.View>
           </TouchableOpacity>
+          </View>
         </View>
 
         {!compact ? (
@@ -205,6 +210,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
             />
           </View>
         ) : null}
+        {children}
       </View>
 
       <NotificationsDialog
@@ -232,6 +238,8 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  headerContainerWithContent: { paddingBottom: 44 },
+  rightCluster: { flexDirection: "row", alignItems: "center", gap: 10 },
   gradientBackground: {
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -272,9 +280,6 @@ const styles = StyleSheet.create({
     position: "relative",
     flexShrink: 0,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   unreadBadge: {
     position: "absolute",
@@ -288,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 5,
     borderWidth: 2,
-    borderColor: "#0b5bd3",
+    borderColor: "#2F96EE",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,

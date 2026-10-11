@@ -28,7 +28,7 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
   onPress,
   visible = true,
 }) => {
-  const { colors, isDarkMode } = useTheme();
+  const { isDarkMode } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -71,9 +71,7 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
 
   if (!visible) return null;
 
-  const surfaceBg = isDarkMode ? colors.surface : "#FFFFFF";
-  const mutedColor = isDarkMode ? colors.textSecondary : "#64748B";
-  const dividerColor = isDarkMode ? colors.border : "#E2E8F0";
+  const mutedColor = isDarkMode ? "#E5D3A8" : "#5B4A2A";
 
   return (
     <TouchableOpacity
@@ -86,61 +84,43 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
       style={styles.container}
     >
       <Animated.View style={[styles.cardOuter, { transform: [{ scale: scaleAnim }, { scale: pulseAnim }] }]}>
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: surfaceBg,
-              borderColor: isDarkMode ? "rgba(253, 230, 138, 0.2)" : "rgba(253, 230, 138, 0.6)",
-            },
-          ]}
+        <LinearGradient
+          colors={["#FBE7B8", "#F3CF86"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.card}
         >
-          <LinearGradient
-            colors={["#F59E0B", "#EA580C"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.accentBar}
-          />
-
-          <View style={styles.cardBody}>
-            <View style={styles.topRow}>
-              <View style={styles.hotDealPill}>
-                <Text style={styles.hotDealIcon}>🔥</Text>
-                <Text style={styles.hotDealLabel}>HOT DEAL</Text>
-              </View>
-              <Text style={[styles.tapHint, { color: mutedColor }]}>Tap to book</Text>
-            </View>
-
-            <View style={styles.mainRow}>
-              <View style={styles.offerBlock}>
-                <Text style={[styles.eyebrow, { color: mutedColor }]}>First booking</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceValue}>₹99</Text>
-                  <Text style={[styles.priceSuffix, { color: mutedColor }]}>flat</Text>
-                </View>
-              </View>
-
-              <View style={styles.actionBlock}>
-                <View style={styles.couponChip}>
-                  <Text style={[styles.couponLabel, { color: mutedColor }]}>CODES</Text>
-                  <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODES.MAID}</Text>
-                  <Text style={[styles.couponCode, styles.couponCodeSecondary]}>
-                    {FIRST_BOOKING_COUPON_CODES.COOK}
-                  </Text>
-                </View>
-                <View style={styles.chevronBtn}>
-                  <Icon name="arrow-forward" size={20} color="#EA580C" />
-                </View>
-              </View>
-            </View>
-
-            <View style={[styles.termsRow, { borderTopColor: dividerColor }]}>
-              <Text style={[styles.termsText, { color: mutedColor }]}>
-                T&C apply · Valid on first booking only
-              </Text>
-            </View>
+          <View style={styles.topRow}>
+            <Text style={styles.hotDealLabel}>EXCLUSIVE HOT DEAL</Text>
+            <Text style={styles.hotDealIcon}>🔥</Text>
           </View>
-        </View>
+
+          <View style={styles.mainRow}>
+            <View style={styles.offerBlock}>
+              <Text style={styles.eyebrow}>First Booking</Text>
+              <Text style={styles.priceValue}>₹99 flat</Text>
+            </View>
+
+            <View style={styles.couponChip}>
+              <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODES.MAID}</Text>
+              <Text style={styles.couponCode}>&amp; {FIRST_BOOKING_COUPON_CODES.COOK}</Text>
+            </View>
+
+            <LinearGradient
+              colors={["#FB923C", "#F97316"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.tapBtn}
+            >
+              <Text style={styles.tapBtnText}>Tap to Book</Text>
+              <Icon name="arrow-forward" size={16} color="#FFFFFF" />
+            </LinearGradient>
+          </View>
+
+          <Text style={[styles.termsText, { color: mutedColor }]}>
+            T&C apply • Valid on first booking only
+          </Text>
+        </LinearGradient>
       </Animated.View>
     </TouchableOpacity>
   );
@@ -153,138 +133,94 @@ const styles = StyleSheet.create({
   },
   cardOuter: {
     width: "100%",
-    borderRadius: 20,
+    borderRadius: 18,
     ...Platform.select({
       ios: {
         shadowColor: "#F59E0B",
-        shadowOffset: { width: 0, height: 8 },
+        shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.2,
-        shadowRadius: 16,
+        shadowRadius: 12,
       },
-      android: { elevation: 8, shadowColor: "#F59E0B" },
+      android: { elevation: 6, shadowColor: "#F59E0B" },
     }),
   },
   card: {
-    flexDirection: "row",
-    borderRadius: 20,
-    borderWidth: 1.5,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(217, 160, 60, 0.55)",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     overflow: "hidden",
-  },
-  accentBar: {
-    width: 6,
-  },
-  cardBody: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    gap: 6,
+    marginBottom: 6,
   },
-  hotDealPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: ACCENT.red,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  hotDealIcon: {
-    fontSize: 12,
-  },
+  hotDealIcon: { fontSize: 16 },
   hotDealLabel: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.8,
-  },
-  tapHint: {
-    fontSize: 12,
-    fontWeight: "600",
+    color: "#1F1A10",
+    letterSpacing: 0.2,
   },
   mainRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
   },
-  offerBlock: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: 12,
-  },
+  offerBlock: { flexShrink: 0 },
   eyebrow: {
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "capitalize",
-    marginBottom: 4,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#1F1A10",
   },
   priceValue: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: "800",
-    color: ACCENT.red,
-    lineHeight: 38,
-    letterSpacing: -1,
-  },
-  priceSuffix: {
-    fontSize: 15,
-    fontWeight: "700",
-    marginLeft: 6,
-    marginBottom: 4,
-  },
-  actionBlock: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexShrink: 0,
+    color: "#1F1A10",
+    lineHeight: 36,
+    letterSpacing: -0.5,
   },
   couponChip: {
-    backgroundColor: ACCENT.goldLight,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: "rgba(255, 244, 214, 0.7)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#C9A24E",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     alignItems: "center",
-    minWidth: 76,
-  },
-  couponLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
-    marginBottom: 2,
+    flexShrink: 1,
   },
   couponCode: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#92400E",
-    letterSpacing: 0.8,
+    color: "#1F1A10",
+    letterSpacing: 0.2,
   },
-  couponCodeSecondary: {
-    marginTop: 2,
-  },
-  chevronBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFEDD5",
-    justifyContent: "center",
+  tapBtn: {
+    flexDirection: "row",
     alignItems: "center",
-    marginLeft: 12,
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 24,
+    flexShrink: 0,
+    shadowColor: "#F97316",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  termsRow: {
-    marginTop: 14,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  tapBtnText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
   termsText: {
-    fontSize: 11,
+    marginTop: 6,
+    fontSize: 12,
     lineHeight: 16,
-    textAlign: "left",
+    textAlign: "center",
     fontWeight: "500",
   },
 });

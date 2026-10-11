@@ -41,6 +41,8 @@ const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
   facebook: 'Facebook',
 };
 
+const FOOTER_GRADIENT = ["#2F96EE", "#6CC1FA"];
+
 const Footer = () => {
   const { width: screenWidth } = useWindowDimensions();
   const { colors, isDarkMode, fontSize } = useTheme();
@@ -78,6 +80,7 @@ const Footer = () => {
 
   const helplineLabel = formatPhoneDisplay(footerSettings.helplinePhone);
   const joinUsLabel = formatPhoneDisplay(footerSettings.joinUsPhone);
+  const isWideFooter = screenWidth >= 600;
   const iconSize = screenWidth < 360 ? 16 : 18;
   const termsTitleSize = fontSize === 'large' ? 24 : fontSize === 'small' ? 18 : 20;
 
@@ -102,24 +105,31 @@ const Footer = () => {
             },
           ]}
         >
-          <View style={styles.brandBlock}>
-            <View style={[styles.logoRing, { backgroundColor: iconBg, borderColor: cardBorder }]}>
+          <LinearGradient
+            colors={FOOTER_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.brandGradient}
+          >
+            <View style={[styles.logoRing, styles.logoRingOnGradient]}>
               <Image
                 source={require('../../assets/images/new_app_icon_transparent.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
             </View>
-            <Text style={[styles.brandName, { color: titleColor }]}>ServEaso</Text>
-            <Text style={[styles.tagline, { color: mutedColor }]}>Trusted home services</Text>
-          </View>
+            <View style={styles.brandCopy}>
+              <Text style={[styles.brandName, styles.brandTextOnGradient]}>ServEaso</Text>
+              <Text style={[styles.tagline, styles.brandTextOnGradient]}>Trusted home services</Text>
+            </View>
+          </LinearGradient>
 
           <View style={[styles.divider, { backgroundColor: cardBorder }]} />
 
           <Text style={[styles.sectionLabel, { color: mutedColor }]}>Contact us</Text>
-          <View style={styles.contactRow}>
+          <View style={[styles.contactRow, isWideFooter && styles.contactRowWide]}>
             <TouchableOpacity
-              style={[styles.contactPill, { backgroundColor: iconBg, borderColor: cardBorder }]}
+              style={[styles.contactPill, isWideFooter && styles.contactPillWide, { backgroundColor: iconBg, borderColor: cardBorder }]}
               onPress={() => makePhoneCall(footerSettings.helplinePhone)}
               activeOpacity={0.88}
             >
@@ -135,7 +145,7 @@ const Footer = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.contactPill, { backgroundColor: iconBg, borderColor: cardBorder }]}
+              style={[styles.contactPill, isWideFooter && styles.contactPillWide, { backgroundColor: iconBg, borderColor: cardBorder }]}
               onPress={() => makePhoneCall(footerSettings.joinUsPhone)}
               activeOpacity={0.88}
             >
@@ -151,8 +161,15 @@ const Footer = () => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity onPress={() => setShowTnC(true)} hitSlop={8} style={styles.tncBtn}>
+          <TouchableOpacity
+            onPress={() => setShowTnC(true)}
+            style={[styles.tncBtn, { backgroundColor: iconBg, borderColor: cardBorder }]}
+            accessibilityRole="button"
+            accessibilityLabel="Terms and Conditions"
+          >
+            <MaterialIcon name="description" size={18} color={accentColor} />
             <Text style={[styles.tncText, { color: accentColor }]}>Terms & Conditions</Text>
+            <MaterialIcon name="arrow-forward" size={18} color={accentColor} />
           </TouchableOpacity>
         </View>
       </View>
@@ -194,9 +211,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  brandBlock: {
+  brandGradient: {
     width: '100%',
+    minHeight: 88,
+    flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 2,
+    overflow: 'hidden',
   },
   logoRing: {
     width: 56,
@@ -205,7 +228,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginRight: 14,
+  },
+  logoRingOnGradient: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  brandCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  brandTextOnGradient: {
+    color: '#FFFFFF',
+    textAlign: 'left',
   },
   logo: {
     width: 40,
@@ -241,6 +276,10 @@ const styles = StyleSheet.create({
   contactRow: {
     width: '100%',
   },
+  contactRowWide: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   contactPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -250,6 +289,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     marginBottom: 10,
+  },
+  contactPillWide: {
+    flex: 1,
+    minWidth: 0,
+    marginBottom: 0,
   },
   contactIconWrap: {
     width: 36,
@@ -297,14 +341,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tncBtn: {
-    alignSelf: 'center',
+    width: '100%',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     marginTop: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   tncText: {
     fontSize: 13,
     fontWeight: '600',
-    textDecorationLine: 'underline',
     textAlign: 'center',
   },
   brandStripe: {
