@@ -29,6 +29,12 @@ type HomeHeroChromeProps = {
   onLogoPress?: () => void;
   /** Tighter header for SP tab screens (hides location row). */
   compact?: boolean;
+  /**
+   * When set, the blue gradient stops this many px above the bottom of the
+   * header container (straight edge, no curve). Children placed at the end of
+   * the container (e.g. a search bar) then straddle the gradient's bottom edge.
+   */
+  gradientBottomInset?: number;
   /** Extra content rendered inside the gradient header, below the location row. */
   children?: React.ReactNode;
 };
@@ -37,6 +43,7 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
   closeDropdowns = false,
   onLogoPress,
   compact = false,
+  gradientBottomInset,
   children,
 }) => {
   const insets = useSafeAreaInsets();
@@ -144,14 +151,26 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
     })();
   }, [appUser]);
 
+  const hasInset = typeof gradientBottomInset === "number";
+
   return (
     <>
-      <View style={[styles.headerContainer, children ? styles.headerContainerWithContent : null]}>
-        <LinearGradient 
-          colors={["#2F96EE", "#6CC1FA"]} 
-          start={{ x: 0, y: 0 }} 
-          end={{ x: 1, y: 1 }} 
-          style={[StyleSheet.absoluteFillObject, styles.gradientBackground]}
+      <View
+        style={[
+          styles.headerContainer,
+          children ? (hasInset ? styles.headerContainerOverlap : styles.headerContainerWithContent) : null,
+        ]}
+      >
+        {/* Straight-edged gradient. With gradientBottomInset it ends above the
+            container bottom so the search bar can straddle the edge. */}
+        <LinearGradient
+          colors={["#2F96EE", "#6CC1FA"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            StyleSheet.absoluteFillObject,
+            hasInset ? { bottom: gradientBottomInset } : null,
+          ]}
         />
         <View
           style={[
@@ -175,24 +194,24 @@ const HomeHeroChrome: React.FC<HomeHeroChromeProps> = ({
             </Animated.View>
           </TouchableOpacity>
           <View style={styles.rightCluster}>
-          <TouchableOpacity
-            onPress={() => setShowNotifications(true)}
-            onPressIn={handleNotifPressIn}
-            onPressOut={handleNotifPressOut}
-            activeOpacity={1}
-            accessibilityLabel="Notifications"
-          >
-            <Animated.View style={[styles.notifBtn, { transform: [{ scale: notifScale }] }]}>
-              <MaterialIcon name="notifications-none" size={26} color="#FFFFFF" />
-              {inAppUnread > 0 ? (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>
-                    {inAppUnread > 99 ? "99+" : inAppUnread}
-                  </Text>
-                </View>
-              ) : null}
-            </Animated.View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowNotifications(true)}
+              onPressIn={handleNotifPressIn}
+              onPressOut={handleNotifPressOut}
+              activeOpacity={1}
+              accessibilityLabel="Notifications"
+            >
+              <Animated.View style={[styles.notifBtn, { transform: [{ scale: notifScale }] }]}>
+                <MaterialIcon name="notifications-none" size={26} color="#FFFFFF" />
+                {inAppUnread > 0 ? (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadBadgeText}>
+                      {inAppUnread > 99 ? "99+" : inAppUnread}
+                    </Text>
+                  </View>
+                ) : null}
+              </Animated.View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -239,12 +258,9 @@ const styles = StyleSheet.create({
     }),
   },
   headerContainerWithContent: { paddingBottom: 44 },
+  // Used with gradientBottomInset: the overlapping child supplies its own bottom spacing.
+  headerContainerOverlap: { paddingBottom: 0 },
   rightCluster: { flexDirection: "row", alignItems: "center", gap: 10 },
-  gradientBackground: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    overflow: 'hidden',
-  },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -270,7 +286,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 6,
     zIndex: 10000,
-    overflow: 'visible',
+    overflow: "visible",
   },
   notifBtn: {
     width: 48,
