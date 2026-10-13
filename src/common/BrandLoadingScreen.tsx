@@ -184,7 +184,7 @@ const BrandLoadingScreen: React.FC<BrandLoadingScreenProps> = ({
         ]}
       >
         <Animated.Image
-          source={require("../../assets/images/serveasologo.png")}
+          source={require("../../assets/images/fulllogo.png")}
           style={[styles.logo, { transform: [{ scale: logoScale }] }]}
           resizeMode="contain"
         />

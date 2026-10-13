@@ -70,20 +70,6 @@ const SERVICE_GRADIENTS: Record<ServiceType, string[]> = {
 };
 const SERVICE_GRADIENT_INACTIVE = ["#CBD5E1", "#94A3B8"];
 
-// Trending & Popular quick-book shortcuts
-const TRENDING_PROS: {
-  key: string;
-  name: string;
-  role: string;
-  service: ServiceType;
-  rating: string;
-  avatarBg: string;
-}[] = [
-  { key: "rita", name: "Rita M.", role: "Cook", service: "COOK", rating: "4.9", avatarBg: "#FDE2C4" },
-  { key: "john", name: "John D.", role: "Cleaner", service: "MAID", rating: "4.8", avatarBg: "#BFE3FB" },
-  { key: "anita", name: "Anita P.", role: "Nanny", service: "NANNY", rating: "4.7", avatarBg: "#E3D4F7" },
-];
-
 const HAPPY_HOME_AVATARS = ["#BFE3FB", "#E3D4F7", "#FDE2C4"];
 
 interface ChildComponentProps {
@@ -605,62 +591,6 @@ const HomePage: React.FC<ChildComponentProps> = ({
             </View>
           ) : null}
 
-          {!isServiceProvider ? (
-            <>
-              <View style={styles.trendingHeaderRow}>
-                <Text style={[styles.trendingTitle, { color: colors.text }]}>Trending & Popular</Text>
-                <View style={styles.availableRow}>
-                  <View style={styles.availableDot} />
-                  <Text style={[styles.availableText, { color: colors.textSecondary }]}>Available Today</Text>
-                </View>
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={[styles.trendingScroll, { marginHorizontal: -contentPadding }]}
-                contentContainerStyle={[styles.trendingContent, { paddingHorizontal: contentPadding }]}
-              >
-                {TRENDING_PROS.map((pro) => (
-                  <TouchableOpacity
-                    key={pro.key}
-                    activeOpacity={0.8}
-                    onPress={() => handleClick(pro.service)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Quick-book ${pro.name} ${pro.role}`}
-                    style={[
-                      styles.trendingCard,
-                      {
-                        width: Math.min(300, Math.max(150, Math.round(screenWidth * 0.4))),
-                        backgroundColor: isDarkMode ? colors.card : "#FFFFFF",
-                      },
-                    ]}
-                  >
-                    <View style={styles.trendingTopRow}>
-                      <View style={[styles.trendingAvatar, { backgroundColor: pro.avatarBg }]}>
-                        <Icon name="person" size={26} color="#64748B" />
-                      </View>
-                      <View style={styles.trendingNameWrap}>
-                        <Text style={[styles.trendingName, { color: colors.text }]} numberOfLines={1}>
-                          {pro.name}
-                        </Text>
-                        <Text style={[styles.trendingRole, { color: colors.textSecondary }]} numberOfLines={1}>
-                          ({pro.role})
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.trendingBottomRow}>
-                      <Text style={styles.quickBookText}>Quick-book</Text>
-                      <View style={styles.ratingRow}>
-                        <Icon name="star" size={16} color="#F5A623" />
-                        <Text style={[styles.ratingText, { color: colors.text }]}>{pro.rating}</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>
-          ) : null}
-
           {/* Stats: single row on iOS and Android (stacked only on very small screens) */}
           <View style={[styles.statsRow, isNarrowLayout && styles.statsRowNarrow]}>
             <View style={[styles.statCell, styles.statCellStart, isNarrowLayout && styles.statCellNarrow]}>
@@ -1088,32 +1018,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   promoWrap: { marginVertical: 12 },
-  trendingHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  trendingTitle: { fontSize: 22, fontWeight: "800", letterSpacing: -0.4 },
-  availableRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  availableDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#34A853" },
-  availableText: { fontSize: 15, fontWeight: "500" },
-  trendingScroll: { marginBottom: 16, overflow: "visible" },
-  trendingContent: { paddingVertical: 4, gap: 10 },
-  trendingCard: {
-    borderRadius: 16,
-    padding: 10,
-    shadowColor: "#1D6FD8",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  trendingTopRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  trendingAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  trendingNameWrap: { flex: 1, minWidth: 0 },
-  trendingName: { fontSize: 15, fontWeight: "700" },
-  trendingRole: { fontSize: 14, fontWeight: "500" },
-  trendingBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
-  quickBookText: { color: "#1D6FD8", fontSize: 14, fontWeight: "500" },
-  ratingRow: { flexDirection: "row", alignItems: "center", gap: 2 },
-  ratingText: { fontSize: 15, fontWeight: "700" },
-
   // Stats
   statsRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, marginVertical: 8 },
   statsRowNarrow: { flexDirection: "column", alignItems: "stretch" },

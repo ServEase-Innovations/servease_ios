@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Animated,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -29,6 +30,8 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
   visible = true,
 }) => {
   const { isDarkMode } = useTheme();
+  const { width } = useWindowDimensions();
+  const isCompactLayout = width < 480;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -45,7 +48,7 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
             toValue: 1,
             duration: 1500,
             useNativeDriver: true,
-          })
+          }),
         ])
       ).start();
     }
@@ -83,7 +86,12 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
       accessibilityLabel={`First booking offer, 99 rupees with codes ${FIRST_BOOKING_COUPON_CODES.MAID} and ${FIRST_BOOKING_COUPON_CODES.COOK}`}
       style={styles.container}
     >
-      <Animated.View style={[styles.cardOuter, { transform: [{ scale: scaleAnim }, { scale: pulseAnim }] }]}>
+      <Animated.View
+        style={[
+          styles.cardOuter,
+          { transform: [{ scale: scaleAnim }, { scale: pulseAnim }] },
+        ]}
+      >
         <LinearGradient
           colors={["#FBE7B8", "#F3CF86"]}
           start={{ x: 0, y: 0 }}
@@ -95,16 +103,38 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
             <Text style={styles.hotDealIcon}>🔥</Text>
           </View>
 
-          <View style={styles.mainRow}>
+          <View
+            style={[styles.mainRow, isCompactLayout && styles.mainRowCompact]}
+          >
             <View style={styles.offerBlock}>
-              <Text style={styles.eyebrow}>First Booking</Text>
-              <Text style={styles.priceValue}>₹99 flat</Text>
+              <Text
+                style={[
+                  styles.eyebrow,
+                  isCompactLayout && styles.eyebrowCompact,
+                ]}
+              >
+                First Booking
+              </Text>
+              <Text
+                style={[
+                  styles.priceValue,
+                  isCompactLayout && styles.priceValueCompact,
+                ]}
+              >
+                ₹99 flat
+              </Text>
             </View>
 
-            <View style={styles.couponChip}>
-              <Text style={styles.couponCode}>{FIRST_BOOKING_COUPON_CODES.MAID}</Text>
-              <Text style={styles.couponCode}>&amp; {FIRST_BOOKING_COUPON_CODES.COOK}</Text>
-            </View>
+            {!isCompactLayout ? (
+              <View style={styles.couponChip}>
+                <Text style={styles.couponCode}>
+                  {FIRST_BOOKING_COUPON_CODES.MAID}
+                </Text>
+                <Text style={styles.couponCode}>
+                  &amp; {FIRST_BOOKING_COUPON_CODES.COOK}
+                </Text>
+              </View>
+            ) : null}
 
             <LinearGradient
               colors={["#FB923C", "#F97316"]}
@@ -116,6 +146,17 @@ const FirstBookingOffer: React.FC<FirstBookingOfferProps> = ({
               <Icon name="arrow-forward" size={16} color="#FFFFFF" />
             </LinearGradient>
           </View>
+
+          {isCompactLayout ? (
+            <View style={[styles.couponChip, styles.couponChipCompact]}>
+              <Text style={styles.couponCode}>
+                {FIRST_BOOKING_COUPON_CODES.MAID}
+              </Text>
+              <Text style={styles.couponCode}>
+                &amp; {FIRST_BOOKING_COUPON_CODES.COOK}
+              </Text>
+            </View>
+          ) : null}
 
           <Text style={[styles.termsText, { color: mutedColor }]}>
             T&C apply • Valid on first booking only
@@ -171,11 +212,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  offerBlock: { flexShrink: 0 },
+  mainRowCompact: {
+    justifyContent: "space-between",
+  },
+  offerBlock: { flexShrink: 1 },
   eyebrow: {
     fontSize: 18,
     fontWeight: "800",
     color: "#1F1A10",
+  },
+  eyebrowCompact: {
+    fontSize: 16,
   },
   priceValue: {
     fontSize: 30,
@@ -183,6 +230,10 @@ const styles = StyleSheet.create({
     color: "#1F1A10",
     lineHeight: 36,
     letterSpacing: -0.5,
+  },
+  priceValueCompact: {
+    fontSize: 26,
+    lineHeight: 32,
   },
   couponChip: {
     backgroundColor: "rgba(255, 244, 214, 0.7)",
@@ -194,6 +245,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: "center",
     flexShrink: 1,
+  },
+  couponChipCompact: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 10,
+    alignSelf: "stretch",
   },
   couponCode: {
     fontSize: 12,

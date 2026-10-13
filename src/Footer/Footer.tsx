@@ -1,5 +1,5 @@
-// Footer.tsx — light surface footer aligned with customer home (HOME_M3)
-import React, { useEffect, useState } from 'react';
+// Footer.tsx — premium gradient footer aligned with customer home (HOME_M3)
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,13 @@ import {
   StyleSheet,
   Image,
   Modal,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
-import { HOME_M3, HOME_HERO_GRADIENT } from '../theme/brandColors';
+import { HOME_M3 } from '../theme/brandColors';
 import { useTheme } from '../Settings/ThemeContext';
 import TnC from '../TermsAndConditions/TnC';
 import { HomeHeroPageHeader } from '../common/HomeHeroPageHeader';
@@ -26,11 +27,24 @@ import {
   formatPhoneDisplay,
 } from '../services/footerSettings';
 
-const SOCIAL_ICON: Record<Exclude<FooterSocialKey, 'x'>, { name: string }> = {
-  instagram: { name: 'instagram' },
-  youtube: { name: 'youtube' },
-  linkedin: { name: 'linkedin' },
-  facebook: { name: 'facebook' },
+// Safe-area bottom inset (iPhone home indicator / Android gesture bar).
+// Uses react-native-safe-area-context when installed, otherwise a sensible fallback.
+let useBottomInset: () => number = () => (Platform.OS === 'ios' ? 20 : 0);
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const safeArea = require('react-native-safe-area-context');
+  if (safeArea?.useSafeAreaInsets) {
+    useBottomInset = () => safeArea.useSafeAreaInsets().bottom;
+  }
+} catch {
+  /* fallback already set */
+}
+
+const SOCIAL_ICON: Record<Exclude<FooterSocialKey, 'x'>, string> = {
+  instagram: 'instagram',
+  youtube: 'youtube',
+  linkedin: 'linkedin',
+  facebook: 'facebook',
 };
 
 const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
@@ -41,10 +55,29 @@ const SOCIAL_LABEL: Record<FooterSocialKey, string> = {
   facebook: 'Facebook',
 };
 
-const FOOTER_GRADIENT = ["#2F96EE", "#6CC1FA"];
+const GRADIENT_LIGHT = ['#1E6FD9', '#2F96EE', '#6CC1FA'];
+const GRADIENT_DARK = ['#0B3A7A', '#145AA8', '#2F96EE'];
+const STRIPE_LIGHT = ['#6CC1FA', '#2F96EE', '#1E6FD9'];
+const STRIPE_DARK = ['#2F96EE', '#145AA8', '#0B3A7A'];
+
+const COMPANY_NAME = 'ServEase Innovation and Technology Private Limited';
+const ESTD_YEAR = 2024;
+
+// Defensive lookup: supports `socialLinks`, `social`, or flat keys on the settings object.
+const getSocialUrl = (settings: FooterSettings, key: FooterSocialKey): string => {
+  const s = settings as any;
+  return (
+    s?.socialLinks?.[key] ??
+    s?.social?.[key] ??
+    s?.[`${key}Url`] ??
+    s?.[key] ??
+    ''
+  );
+};
 
 const Footer = () => {
   const { width: screenWidth } = useWindowDimensions();
+  const bottomInset = useBottomInset();
   const { colors, isDarkMode, fontSize } = useTheme();
   const [showTnC, setShowTnC] = useState(false);
   const [footerSettings, setFooterSettings] = useState<FooterSettings>(DEFAULT_FOOTER_SETTINGS);
@@ -59,6 +92,17 @@ const Footer = () => {
     };
   }, []);
 
+  // ---- Responsive scale -------------------------------------------------
+  const isCompact = screenWidth < 360; // small Androids, iPhone SE / mini
+  const isWide = screenWidth >= 600; // large phones landscape, tablets, iPad
+  const isXWide = screenWidth >= 900;
+  const maxContentWidth = 960;
+  const hPad = isCompact ? 12 : isWide ? 24 : 16;
+  const iconSize = isCompact ? 16 : 18;
+  const brandSize = isCompact ? 20 : isWide ? 28 : 24;
+  const termsTitleSize = fontSize === 'large' ? 24 : fontSize === 'small' ? 18 : 20;
+
+  // ---- Theme tokens -----------------------------------------------------
   const cardBg = isDarkMode ? colors.card : HOME_M3.surfaceContainerLowest;
   const cardBorder = isDarkMode ? colors.border : HOME_M3.outlineVariant;
   const titleColor = isDarkMode ? colors.text : HOME_M3.onSurface;
@@ -67,6 +111,21 @@ const Footer = () => {
   const iconBg = isDarkMode ? colors.surface : HOME_M3.secondaryFixed;
   const iconColor = isDarkMode ? colors.primary : HOME_M3.onSecondaryFixedVariant;
   const bandBg = isDarkMode ? colors.background : HOME_M3.surfaceContainerLow;
+  const gradient = isDarkMode ? GRADIENT_DARK : GRADIENT_LIGHT;
+  const stripe = isDarkMode ? STRIPE_DARK : STRIPE_LIGHT;
+
+  const helplineLabel = formatPhoneDisplay(footerSettings.helplinePhone);
+  const joinUsLabel = formatPhoneDisplay(footerSettings.joinUsPhone);
+  const year = new Date().getFullYear();
+  const yearsActive = Math.max(year - ESTD_YEAR, 0);
+
+  const socials = useMemo(
+    () =>
+      FOOTER_SOCIAL_ORDER.map((key) => ({ key, url: getSocialUrl(footerSettings, key) })).filter(
+        (s) => !!s.url,
+      ),
+    [footerSettings],
+  );
 
   const openLink = (url: string) => {
     if (!url) return;
@@ -75,107 +134,241 @@ const Footer = () => {
 
   const makePhoneCall = (phoneNumber: string) => {
     if (!phoneNumber) return;
-    Linking.openURL(`tel:${phoneNumber}`).catch((err) => console.error("Couldn't make phone call", err));
+    Linking.openURL(`tel:${phoneNumber}`).catch((err) =>
+      console.error("Couldn't make phone call", err),
+    );
   };
-
-  const helplineLabel = formatPhoneDisplay(footerSettings.helplinePhone);
-  const joinUsLabel = formatPhoneDisplay(footerSettings.joinUsPhone);
-  const isWideFooter = screenWidth >= 600;
-  const iconSize = screenWidth < 360 ? 16 : 18;
-  const termsTitleSize = fontSize === 'large' ? 24 : fontSize === 'small' ? 18 : 20;
 
   const renderSocialIcon = (key: FooterSocialKey) => {
     if (key === 'x') {
       return <Text style={[styles.xIcon, { color: iconColor }]}>X</Text>;
     }
-    const meta = SOCIAL_ICON[key as Exclude<FooterSocialKey, 'x'>];
-    return <MaterialCommunityIcon name={meta.name} size={iconSize} color={iconColor} />;
+    return (
+      <MaterialCommunityIcon
+        name={SOCIAL_ICON[key as Exclude<FooterSocialKey, 'x'>]}
+        size={iconSize + 2}
+        color={iconColor}
+      />
+    );
   };
+
+  const highlights = [
+    { icon: 'verified-user', label: 'Verified pros' },
+    { icon: 'bolt', label: 'Quick booking' },
+    { icon: 'support-agent', label: 'Always here to help' },
+  ];
 
   return (
     <>
-      <View style={[styles.wrap, { backgroundColor: bandBg }]}>
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: cardBg,
-              borderColor: cardBorder,
-              shadowColor: isDarkMode ? '#000' : '#0f172a',
-            },
-          ]}
-        >
-          <LinearGradient
-            colors={FOOTER_GRADIENT}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.brandGradient}
+      <View
+        style={[
+          styles.wrap,
+          { backgroundColor: bandBg, paddingHorizontal: hPad, paddingBottom: Math.max(bottomInset, 12) },
+        ]}
+      >
+        <View style={[styles.inner, { maxWidth: maxContentWidth }]}>
+          {/* ===== Card ===== */}
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: cardBg,
+                borderColor: cardBorder,
+                shadowColor: isDarkMode ? '#000' : '#0f172a',
+              },
+            ]}
           >
-            <View style={[styles.logoRing, styles.logoRingOnGradient]}>
-              <Image
-                source={require('../../assets/images/new_app_icon_transparent.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            </View>
-            <View style={styles.brandCopy}>
-              <Text style={[styles.brandName, styles.brandTextOnGradient]}>ServEaso</Text>
-              <Text style={[styles.tagline, styles.brandTextOnGradient]}>Trusted home services</Text>
-            </View>
-          </LinearGradient>
-
-          <View style={[styles.divider, { backgroundColor: cardBorder }]} />
-
-          <Text style={[styles.sectionLabel, { color: mutedColor }]}>Contact us</Text>
-          <View style={[styles.contactRow, isWideFooter && styles.contactRowWide]}>
-            <TouchableOpacity
-              style={[styles.contactPill, isWideFooter && styles.contactPillWide, { backgroundColor: iconBg, borderColor: cardBorder }]}
-              onPress={() => makePhoneCall(footerSettings.helplinePhone)}
-              activeOpacity={0.88}
+            {/* ----- Brand hero ----- */}
+            <LinearGradient
+              colors={gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.brandGradient, isWide && styles.brandGradientWide]}
             >
-              <View style={[styles.contactIconWrap, { backgroundColor: cardBg }]}>
-                <MaterialIcon name="phone-in-talk" size={16} color={accentColor} />
-              </View>
-              <View style={styles.contactCopy}>
-                <Text style={[styles.contactLabel, { color: mutedColor }]}>Helpline</Text>
-                <Text style={[styles.contactValue, { color: titleColor }]} numberOfLines={1}>
-                  {helplineLabel}
-                </Text>
-              </View>
-            </TouchableOpacity>
+              {/* decorative orbs */}
+              <View pointerEvents="none" style={[styles.orb, styles.orbOne]} />
+              <View pointerEvents="none" style={[styles.orb, styles.orbTwo]} />
 
-            <TouchableOpacity
-              style={[styles.contactPill, isWideFooter && styles.contactPillWide, { backgroundColor: iconBg, borderColor: cardBorder }]}
-              onPress={() => makePhoneCall(footerSettings.joinUsPhone)}
-              activeOpacity={0.88}
-            >
-              <View style={[styles.contactIconWrap, { backgroundColor: cardBg }]}>
-                <MaterialIcon name="support-agent" size={16} color={accentColor} />
+              <View style={styles.logoRing}>
+                <Image
+                  source={require('../../assets/images/iconlogo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
               </View>
-              <View style={styles.contactCopy}>
-                <Text style={[styles.contactLabel, { color: mutedColor }]}>Join us</Text>
-                <Text style={[styles.contactValue, { color: titleColor }]} numberOfLines={1}>
-                  {joinUsLabel}
+
+              <View style={styles.brandCopy}>
+                <Text style={[styles.brandName, { fontSize: brandSize }]} numberOfLines={1}>
+                  ServEaso
                 </Text>
+                <Text style={styles.tagline}>Trusted home services, made easy</Text>
+                <View style={styles.estdBadge}>
+                  <MaterialIcon name="workspace-premium" size={12} color="#FFFFFF" />
+                  <Text style={styles.estdText}>Est. {ESTD_YEAR}</Text>
+                </View>
               </View>
+            </LinearGradient>
+
+            {/* ----- Highlight chips ----- */}
+            <View style={styles.chipRow}>
+              {highlights.map((h) => (
+                <View
+                  key={h.label}
+                  style={[styles.chip, { backgroundColor: iconBg, borderColor: cardBorder }]}
+                >
+                  <MaterialIcon name={h.icon} size={14} color={accentColor} />
+                  <Text style={[styles.chipText, { color: titleColor }]} numberOfLines={1}>
+                    {h.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: cardBorder }]} />
+
+            {/* ----- Body: About + Contact (two columns on wide screens) ----- */}
+            <View style={[styles.bodyRow, isXWide && styles.bodyRowWide]}>
+              {/* About */}
+              <View style={[styles.bodyCol, isXWide && styles.bodyColWide]}>
+                <Text style={[styles.sectionLabel, { color: mutedColor }]}>About</Text>
+                <Text style={[styles.aboutText, { color: titleColor }]}>
+                  ServEaso is a product of{' '}
+                  <Text style={[styles.aboutStrong, { color: accentColor }]}>{COMPANY_NAME}</Text>,
+                  founded in {ESTD_YEAR}. We connect families with reliable, skilled professionals so
+                  everyday home care feels effortless.
+                </Text>
+                <View style={styles.metaRow}>
+                  <MaterialIcon name="business" size={14} color={mutedColor} />
+                  <Text style={[styles.metaText, { color: mutedColor }]}>
+                    {yearsActive > 0 ? `${yearsActive}+ year${yearsActive > 1 ? 's' : ''} of service` : 'Newly launched'} · Since {ESTD_YEAR}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Contact */}
+              <View style={[styles.bodyCol, isXWide && styles.bodyColWide]}>
+                <Text style={[styles.sectionLabel, { color: mutedColor }]}>Contact us</Text>
+                <View style={[styles.contactRow, isWide && !isXWide && styles.contactRowWide]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.contactPill,
+                      isWide && !isXWide && styles.contactPillWide,
+                      { backgroundColor: iconBg, borderColor: cardBorder },
+                    ]}
+                    onPress={() => makePhoneCall(footerSettings.helplinePhone)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Call helpline ${helplineLabel}`}
+                  >
+                    <View style={[styles.contactIconWrap, { backgroundColor: cardBg }]}>
+                      <MaterialIcon name="phone-in-talk" size={16} color={accentColor} />
+                    </View>
+                    <View style={styles.contactCopy}>
+                      <Text style={[styles.contactLabel, { color: mutedColor }]}>Helpline</Text>
+                      <Text style={[styles.contactValue, { color: titleColor }]} numberOfLines={1}>
+                        {helplineLabel}
+                      </Text>
+                    </View>
+                    <MaterialIcon name="call" size={16} color={accentColor} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.contactPill,
+                      isWide && !isXWide && styles.contactPillWide,
+                      { backgroundColor: iconBg, borderColor: cardBorder },
+                    ]}
+                    onPress={() => makePhoneCall(footerSettings.joinUsPhone)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Call join us ${joinUsLabel}`}
+                  >
+                    <View style={[styles.contactIconWrap, { backgroundColor: cardBg }]}>
+                      <MaterialIcon name="handshake" size={16} color={accentColor} />
+                    </View>
+                    <View style={styles.contactCopy}>
+                      <Text style={[styles.contactLabel, { color: mutedColor }]}>Join us</Text>
+                      <Text style={[styles.contactValue, { color: titleColor }]} numberOfLines={1}>
+                        {joinUsLabel}
+                      </Text>
+                    </View>
+                    <MaterialIcon name="call" size={16} color={accentColor} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* ----- Social ----- */}
+            {socials.length > 0 && (
+              <>
+                <View style={[styles.divider, { backgroundColor: cardBorder }]} />
+                <Text style={[styles.sectionLabel, styles.centerLabel, { color: mutedColor }]}>
+                  Follow us
+                </Text>
+                <View style={styles.socialRow}>
+                  {socials.map(({ key, url }) => (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => openLink(url)}
+                      activeOpacity={0.8}
+                      style={[styles.socialButton, { backgroundColor: iconBg, borderColor: cardBorder }]}
+                      accessibilityRole="link"
+                      accessibilityLabel={SOCIAL_LABEL[key]}
+                    >
+                      {renderSocialIcon(key)}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* ----- Terms ----- */}
+            <TouchableOpacity
+              onPress={() => setShowTnC(true)}
+              style={[styles.tncBtn, { backgroundColor: iconBg, borderColor: cardBorder }]}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Terms and Conditions"
+            >
+              <MaterialIcon name="description" size={18} color={accentColor} />
+              <Text style={[styles.tncText, { color: accentColor }]}>Terms & Conditions</Text>
+              <MaterialIcon name="arrow-forward" size={18} color={accentColor} />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            onPress={() => setShowTnC(true)}
-            style={[styles.tncBtn, { backgroundColor: iconBg, borderColor: cardBorder }]}
-            accessibilityRole="button"
-            accessibilityLabel="Terms and Conditions"
+          {/* ===== Bottom gradient stripe ===== */}
+          <LinearGradient
+            colors={stripe}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.brandStripe}
           >
-            <MaterialIcon name="description" size={18} color={accentColor} />
-            <Text style={[styles.tncText, { color: accentColor }]}>Terms & Conditions</Text>
-            <MaterialIcon name="arrow-forward" size={18} color={accentColor} />
-          </TouchableOpacity>
+            <Text style={styles.stripeText}>
+              © {ESTD_YEAR}
+              {year > ESTD_YEAR ? `–${year}` : ''} {COMPANY_NAME}
+            </Text>
+            <View style={styles.stripeMetaRow}>
+              <Text style={styles.stripeSub}>All rights reserved</Text>
+              <View style={styles.stripeDot} />
+              <MaterialIcon name="favorite" size={11} color="#FFFFFF" />
+              <Text style={styles.stripeSub}>Made in India</Text>
+            </View>
+          </LinearGradient>
         </View>
       </View>
 
-      <Modal visible={showTnC} animationType="slide" onRequestClose={() => setShowTnC(false)}>
-        <View style={[styles.termsModalRoot, { backgroundColor: isDarkMode ? colors.background : HOME_M3.surface }]}>
+      <Modal
+        visible={showTnC}
+        animationType="slide"
+        onRequestClose={() => setShowTnC(false)}
+        presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
+      >
+        <View
+          style={[
+            styles.termsModalRoot,
+            { backgroundColor: isDarkMode ? colors.background : HOME_M3.surface },
+          ]}
+        >
           <HomeHeroPageHeader
             title="Terms & Conditions"
             onBack={() => setShowTnC(false)}
@@ -192,87 +385,179 @@ const styles = StyleSheet.create({
   wrap: {
     width: '100%',
     alignSelf: 'stretch',
+    alignItems: 'center',
     marginTop: 12,
     paddingTop: 16,
-    paddingBottom: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  inner: {
+    width: '100%',
   },
   card: {
     width: '100%',
-    alignSelf: 'stretch',
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    padding: 14,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
+
+  // Brand hero
   brandGradient: {
     width: '100%',
-    minHeight: 88,
+    minHeight: 104,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 2,
+    borderRadius: 16,
+    padding: 16,
     overflow: 'hidden',
   },
+  brandGradientWide: {
+    minHeight: 120,
+    paddingHorizontal: 24,
+  },
+  orb: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  orbOne: { width: 140, height: 140, top: -50, right: -30 },
+  orbTwo: { width: 90, height: 90, bottom: -40, left: '38%' },
   logoRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderColor: 'rgba(255,255,255,0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
   },
-  logoRingOnGradient: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderColor: 'rgba(255,255,255,0.6)',
+  logo: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   brandCopy: {
     flex: 1,
     minWidth: 0,
   },
-  brandTextOnGradient: {
-    color: '#FFFFFF',
-    textAlign: 'left',
-  },
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
   brandName: {
-    fontSize: 20,
+    color: '#FFFFFF',
     fontWeight: '800',
-    letterSpacing: -0.3,
-    marginBottom: 4,
-    textAlign: 'center',
+    letterSpacing: -0.4,
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   tagline: {
+    color: 'rgba(255,255,255,0.92)',
     fontSize: 13,
     fontWeight: '500',
-    textAlign: 'center',
+    marginTop: 2,
   },
+  estdBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  estdText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+
+  // Chips
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+
   divider: {
     height: 1,
     width: '100%',
-    marginVertical: 16,
+    marginVertical: 14,
     opacity: 0.85,
   },
+
+  // Body layout
+  bodyRow: {
+    width: '100%',
+  },
+  bodyRowWide: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  bodyCol: {
+    width: '100%',
+    marginBottom: 4,
+  },
+  bodyColWide: {
+    flex: 1,
+    width: undefined,
+  },
+
   sectionLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.6,
+    fontWeight: '700',
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
     marginBottom: 10,
     width: '100%',
   },
+  centerLabel: {
+    textAlign: 'center',
+  },
+  aboutText: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    fontWeight: '400',
+  },
+  aboutStrong: {
+    fontWeight: '700',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  // Contact
   contactRow: {
     width: '100%',
   },
@@ -284,7 +569,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 12,
@@ -293,6 +578,7 @@ const styles = StyleSheet.create({
   contactPillWide: {
     flex: 1,
     minWidth: 0,
+    width: undefined,
     marginBottom: 0,
   },
   contactIconWrap: {
@@ -316,33 +602,37 @@ const styles = StyleSheet.create({
   },
   contactValue: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
+
+  // Social
   socialRow: {
     width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   socialButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 5,
     marginVertical: 4,
   },
   xIcon: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
   },
+
+  // T&C
   tncBtn: {
     width: '100%',
-    minHeight: 44,
+    minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -350,52 +640,52 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
   },
   tncText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
+
+  // Bottom stripe
   brandStripe: {
     width: '100%',
-    alignSelf: 'stretch',
-    marginTop: 10,
-    marginBottom: 0,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    marginTop: 12,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stripeText: {
-    color: HOME_M3.onPrimaryContainer,
+    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.2,
     textAlign: 'center',
   },
+  stripeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  stripeSub: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  stripeDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+
   termsModalRoot: {
     flex: 1,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalTitle: {
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    fontSize: 18,
-  },
-  closeButton: {
-    padding: 4,
   },
 });
 
